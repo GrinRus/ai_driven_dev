@@ -1,30 +1,17 @@
 #!/usr/bin/env bash
-#
-# init-claude-workflow.sh
-# One-shot initializer for Claude Code Java/Kotlin workflow (monorepo-friendly).
-# Installs .claude commands/agents/hooks, commit/branch conventions,
-# and Gradle selective-tests support.
+# init-claude-workflow.sh (minimal)
+# Initializes Claude Code workflow for Java/Kotlin monorepos.
+# Creates .claude commands/agents/hooks, commit/branch conventions,
+# Gradle selective-tests logic, and basic docs (PRD/ADR templates).
 #
 # Usage:
 #   bash init-claude-workflow.sh [--commit-mode MODE] [--enable-ci] [--force]
-#
 #     --commit-mode   ticket-prefix | conventional | mixed   (default: ticket-prefix)
-#     --enable-ci     add a GitHub Actions workflow template (manual trigger by default)
+#     --enable-ci     add a minimal GitHub Actions workflow (manual trigger)
 #     --force         overwrite existing files
-#
-# After running:
-#   - Open the repo in Claude Code and try:
-#       /branch-new feature STORE-123
-#       /feature-new checkout-discounts STORE-123
-#       /feature-adr checkout-discounts
-#       /feature-tasks checkout-discounts
-#       /commit "UC1: implement rule engine"
-#       /test-changed
-#
-
 set -euo pipefail
 
-COMMIT_MODE="ticket-prefix"   # ticket-prefix | conventional | mixed
+COMMIT_MODE="ticket-prefix"
 ENABLE_CI=0
 FORCE=0
 
@@ -34,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     --enable-ci)   ENABLE_CI=1; shift;;
     --force)       FORCE=1; shift;;
     -h|--help)
-      sed -n '1,40p' "$0"; exit 0;;
+      grep -m1 -n '^# Usage:' "$0"; sed -n '1,40p' "$0"; exit 0;;
     *) echo "Unknown arg: $1"; exit 2;;
   esac
 done
@@ -44,142 +31,18 @@ write() {
   local path="$1"
   shift || true
   if [[ -e "$path" && "$FORCE" -ne 1 ]]; then
-    echo "⚠️  Skip (exists): $path  — use --force to overwrite"
-    # shellcheck disable=SC2002
-    cat >/dev/null  # drain heredoc that follows
+    echo "skip: $path (exists; use --force to overwrite)"
+    cat >/dev/null  # drain heredoc
     return 0
   fi
   mkdir -p "$(dirname "$path")"
   cat > "$path"
-  echo "✅ Wrote: $path"
+  echo "wrote: $path"
 }
 
-say() { printf "\n\033[1m%s\033[0m\n" "$*"; }
+mkdir -p .claude/{commands,agents,hooks,gradle,cache} config scripts docs/{prd,adr}
 
-say "→ Initializing Claude Code workflow (commit-mode=$COMMIT_MODE, ci=$ENABLE_CI, force=$FORCE)"
-
-mkdir -p .claude/{commands,agents,hooks,gradle,cache} config scripts .github/ISSUE_TEMPLATE docs/{prd,adr}
-
-# ---------------- .gitignore ----------------
-write ".gitignore" <<'TXT'
-# build
-.gradle/
-build/
-out/
-**/build/
-# IDE
-.idea/
-.vscode/
-# OS
-.DS_Store
-# Claude Code cache
-.claude/cache/
-TXT
-
-# ---------------- LICENSE ----------------
-write "LICENSE" <<'TXT'
-MIT License
-Copyright (c) 2025
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-TXT
-
-# ---------------- README ----------------
-write "README.md" <<'MD'
-# Claude Code Workflow — Java/Kotlin Monorepo
-
-Готовый каркас для Claude Code:
-- Слэш‑команды по воркфлоу (PRD → ADR → Tasks → Docs)
-- Монорепо Gradle: выборочные тесты по изменённым модулям
-- Настраиваемые ветки/коммиты (ticket-prefix | conventional | mixed)
-- Хуки безопасности и автоформатирование
-
-## Установка
-Сохраните `init-claude-workflow.sh` в корне и выполните:
-```bash
-bash init-claude-workflow.sh --commit-mode ticket-prefix --enable-ci
-```
-
-## Быстрый старт
-Откройте репозиторий в Claude Code и используйте команды:
-```
-/branch-new feature STORE-123
-/feature-new checkout-discounts STORE-123
-/feature-adr checkout-discounts
-/feature-tasks checkout-discounts
-/commit "implement rule engine"
-/test-changed
-```
-
-## Монорепо Gradle — выборочные тесты
-Хук определяет изменённые модули по `git diff` и запускает `:mod:clean :mod:test` (fallback `:jvmTest`/Android).
-
-## Безопасность
-PreToolUse‑хук блокирует правки в `infra/prod/**`, prod‑конфиги и секреты. PostToolUse форматирует и запускает выборочные тесты.
-MD
-
-# ---------------- CONTRIBUTING / CODE_OF_CONDUCT ----------------
-write "CONTRIBUTING.md" <<'MD'
-# Contributing
-- Ветки: `feature/<TICKET>` или `<type>/<scope>` (feat, fix, chore, docs...).
-- Коммиты через `/commit` (режимы см. config/conventions.json).
-- Юнит‑тесты обязательны. Запускайте `/test-changed`.
-MD
-
-write "CODE_OF_CONDUCT.md" <<'MD'
-# Code of Conduct
-Будьте уважительны к коллегам и сообществу.
-MD
-
-# ---------------- Issue/PR templates ----------------
-write ".github/PULL_REQUEST_TEMPLATE.md" <<'MD'
-## Что сделано
--
-
-## Как проверить
--
-
-## Ссылки
-- PRD/ADR/Tasks: (ссылки)
-- Тикеты: (например STORE-123)
-MD
-
-write ".github/ISSUE_TEMPLATE/bug_report.md" <<'MD'
----
-name: Bug report
-about: Сообщить об ошибке
----
-**Что произошло**
-**Шаги для воспроизведения**
-**Ожидаемое поведение**
-**Логи/скриншоты**
-MD
-
-write ".github/ISSUE_TEMPLATE/feature_request.md" <<'MD'
----
-name: Feature request
-about: Запрос новой фичи
----
-**Проблема/возможность**
-**Предлагаемое решение**
-**Альтернативы**
-**Контекст**
-MD
-
-# ---------------- Project memory & workflow ----------------
+# ---------------- Core docs (minimal, used by commands) ----------------
 write "CLAUDE.md" <<'MD'
 # CLAUDE.md
 Стек: Java/Kotlin (Gradle монорепо).
@@ -201,7 +64,7 @@ write "workflow.md" <<'MD'
 1) PRD → `/feature-new <short> [TICKET]`
 2) ADR → `/feature-adr <short>`
 3) Tasks → `/feature-tasks <short>`
-4) Реализация (агентные правки → хуки: форматирование + выборочные тесты)
+4) Реализация (правки → хуки: форматирование + выборочные тесты)
 5) Документация → `/docs-generate`
 6) Коммиты → `/commit "msg"`; ветки → `/branch-new ...`
 MD
@@ -234,7 +97,7 @@ write "docs/adr.template.md" <<'MD'
 ## Последствия (+/−, миграции)
 MD
 
-# ---------------- Claude settings/hooks/agents ----------------
+# ---------------- Claude settings & hooks ----------------
 write ".claude/settings.json" <<'JSON'
 {
   "model": "sonnet",
@@ -309,7 +172,7 @@ have(){ command -v "$1" >/dev/null 2>&1; }
 gq(){ if [[ -x ./gradlew ]]; then ./gradlew -q "$@" || return $?; elif have gradle; then gradle -q "$@" || return $?; else return 127; fi }
 gr(){ if [[ -x ./gradlew ]]; then ./gradlew "$@" || return $?; elif have gradle; then gradle "$@" || return $?; else return 127; fi }
 
-# форматирование (best-effort)
+# best-effort format
 gq spotlessApply || true
 if have ktlint; then ktlint -F '**/*.kt' || true; fi
 
@@ -333,7 +196,7 @@ while IFS='=' read -r p abs; do
   P2D["$p"]="$rel"; D2P["$rel"]="$p"
 done < "$MAP"
 
-# изменённые файлы
+# changed files
 CHANGED=()
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
   while IFS= read -r f; do [[ -n "$f" ]] && CHANGED+=("$f"); done < <(git diff --name-only HEAD)
@@ -386,7 +249,7 @@ fi
 BASH
 chmod +x .claude/hooks/format-and-test.sh
 
-# agents
+# ---------------- Agents ----------------
 write ".claude/agents/feature-architect.md" <<'MD'
 ---
 name: feature-architect
@@ -497,7 +360,7 @@ allowed-tools: Bash(python3 scripts/conventions_set.py:*),Read,Edit,Write
 !`python3 scripts/conventions_set.py --commit-mode "$ARGUMENTS" && echo "commit.mode set to $ARGUMENTS"`
 MD
 
-# ---------------- Conventions JSON + scripts ----------------
+# ---------------- Conventions JSON + helper scripts ----------------
 write "config/conventions.json" <<'JSON'
 {
   "commit": {
@@ -532,7 +395,6 @@ JSON
 if command -v sed >/dev/null 2>&1; then
   sed -i.bak "s/__COMMIT_MODE__/${COMMIT_MODE}/g" "config/conventions.json" && rm -f "config/conventions.json.bak"
 else
-  # minimal fallback
   python3 - <<PY || true
 import json
 p='config/conventions.json'
@@ -553,7 +415,7 @@ def git_branch():
   except: return ""
 def validate_msg(mode,msg):
   pats={
-    "ticket-prefix": r"^[A-Z]+-\d+: .+",
+    "ticket-prefix": r"^[A-Z]+-\\d+: .+",
     "conventional":  r"^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\\([\\w\\-\\*]+\\))?: .+",
     "mixed":         r"^[A-Z]+-\\d+ (feat|fix|chore|docs|refactor|perf)(\\([\\w\\-\\*]+\\))?: .+"
   }
@@ -627,12 +489,12 @@ print(a.commit_mode)
 PY
 chmod +x scripts/conventions_set.py
 
-# ---------------- CI (optional) ----------------
+# ---------------- Minimal CI (optional) ----------------
 if [[ "$ENABLE_CI" -eq 1 ]]; then
   mkdir -p .github/workflows
   write ".github/workflows/gradle.yml" <<'YML'
 name: Gradle (selective modules)
-on: { workflow_dispatch: {} }  # включите pull_request позже
+on: { workflow_dispatch: {} }  # enable pull_request later if needed
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -654,7 +516,4 @@ jobs:
 YML
 fi
 
-say "✔ All files emitted."
-echo "Next:"
-echo "  1) git add -A && git commit -m \"chore: bootstrap Claude Code workflow\""
-echo "  2) Open in Claude Code and run: /branch-new feature STORE-123 → /feature-new → /feature-adr → /feature-tasks → /commit → /test-changed"
+echo "Done. Open in Claude Code and try: /branch-new feature STORE-123 → /feature-new → /feature-adr → /feature-tasks → /commit → /test-changed"
