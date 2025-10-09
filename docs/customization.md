@@ -15,18 +15,15 @@
 
 ```json
 {
-  "tools": {
-    "git": "ask",
-    "shell": "allow",
-    "network": "deny"
-  },
-  "limits": {
-    "max_tokens": 6000,
-    "timeout_seconds": 120
+  "model": "sonnet",
+  "permissions": {
+    "allow": ["Read", "Write", "Edit", "Grep", "Glob", "Bash(git status:*)", "..."],
+    "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
+    "deny": ["Bash(curl:*)", "Read(./secrets/**)", "Write(./infra/prod/**)"]
   },
   "hooks": {
-    "preToolUse": ".claude/hooks/protect-prod.sh",
-    "postToolUse": null
+    "PreToolUse": [{ "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh" }] }],
+    "PostToolUse": [{ "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh" }] }]
   }
 }
 ```
@@ -35,6 +32,7 @@
 - `allow` оставляйте только для безопасных операций (например, чтение файлов). Для действий с побочными эффектами (`git commit`, `rm`) используйте `ask`.
 - Для временного расширения прав создайте отдельный пресет и подключите его через `/docs-generate` или прямое редактирование файла.
 - Если нужна строгая политика для production, добавьте список каталогов в `.claude/hooks/protect-prod.sh`.
+- Автопроверка (`tests/test_settings_policy.py`) гарантирует, что критические команды находятся в `ask/deny`. Запускается через `scripts/ci-lint.sh`.
 
 Проверить корректность настроек поможет `/docs-generate` — команда отобразит предупреждения, если права нарушают внутренние правила.
 
