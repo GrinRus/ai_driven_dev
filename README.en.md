@@ -135,6 +135,7 @@ Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `do
 - Configuration deep dive: `docs/customization.md`.
 - Original Russian README: `README.md`.
 - Sample Gradle monorepo & helper script: `examples/gradle-demo/`, `examples/apply-demo.sh`.
+- Quick reference for slash commands: `.claude/commands/`.
 
 ## Contribution & license
 - Follow `CONTRIBUTING.md` before opening PRs or issues.

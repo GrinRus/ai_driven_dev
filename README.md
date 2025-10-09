@@ -139,6 +139,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 - Руководство по настройке `.claude/settings.json`, `config/conventions.json`, хуков и CLI: `docs/customization.md`.
 - Англоязычная версия README с правилами синхронизации: `README.en.md`.
 - Демо-монорепо и скрипт применения: `examples/gradle-demo/`, `examples/apply-demo.sh`.
+- Быстрая справка по слэш-командам: `.claude/commands/`.
 
 ## Вклад и лицензия
 - Перед отправкой изменений ознакомьтесь с `CONTRIBUTING.md`.
