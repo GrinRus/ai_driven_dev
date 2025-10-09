@@ -1,6 +1,96 @@
 {
   "model": "sonnet",
   "outputStyle": "Explanatory",
+  "presets": {
+    "active": "strict",
+    "instructions": "Измените это поле и скопируйте permissions/hooks из presets.list.<name> на верхний уровень, чтобы переключаться между пресетами.",
+    "list": {
+      "start": {
+        "description": "Базовый режим: минимальные права и отсутствие автоматических хуков.",
+        "permissions": {
+          "allow": [
+            "Read",
+            "Write",
+            "Edit",
+            "Grep",
+            "Glob"
+          ],
+          "ask": [
+            "Bash(git add:*)",
+            "Bash(git commit:*)"
+          ],
+          "deny": [
+            "Bash(curl:*)",
+            "Read(./.env)",
+            "Read(./.env.*)",
+            "Read(./secrets/**)"
+          ]
+        },
+        "hooks": {
+          "PreToolUse": [],
+          "PostToolUse": []
+        }
+      },
+      "strict": {
+        "description": "Строгий режим: включены проверки защищённых путей и автозапуск форматирования/тестов.",
+        "permissions": {
+          "allow": [
+            "Read",
+            "Write",
+            "Edit",
+            "Grep",
+            "Glob",
+            "Bash(git status:*)",
+            "Bash(git diff:*)",
+            "Bash(git rev-parse:*)",
+            "Bash(git checkout:*)",
+            "Bash(./gradlew:*)",
+            "Bash(gradle:*)",
+            "Bash(.claude/hooks/*:*)",
+            "Bash(python3 scripts/*:*)"
+          ],
+          "ask": [
+            "Bash(git add:*)",
+            "Bash(git commit:*)",
+            "Bash(git push:*)"
+          ],
+          "deny": [
+            "Bash(curl:*)",
+            "Read(./.env)",
+            "Read(./.env.*)",
+            "Read(./secrets/**)",
+            "Write(./infra/prod/**)"
+          ]
+        },
+        "hooks": {
+          "PreToolUse": [
+            {
+              "matcher": "Write|Edit",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh",
+                  "timeout": 5
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "Write|Edit",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh",
+                  "timeout": 900
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
   "permissions": {
     "allow": [
       "Read",
@@ -55,5 +145,45 @@
         ]
       }
     ]
+  },
+  "automation": {
+    "format": {
+      "commands": [],
+      "notes": "Добавьте сюда массив команд (например, [ [\"./gradlew\", \"spotlessApply\"] ]) или укажите SKIP_FORMAT=1.",
+      "env": {
+        "SKIP_FORMAT": "1 — пропустить форматирование;",
+        "FORMAT_ONLY": "1 — выполнить только форматирование без тестов."
+      }
+    },
+    "tests": {
+      "runner": "bash",
+      "defaultTasks": [
+        "scripts/ci-lint.sh"
+      ],
+      "fallbackTasks": [
+        "scripts/ci-lint.sh"
+      ],
+      "changedOnly": true,
+      "strictDefault": 1,
+      "moduleMatrix": [],
+      "env": {
+        "TEST_SCOPE": "Список задач через запятую (например, :app:test,:lib:test).",
+        "TEST_CHANGED_ONLY": "0 — запускать полный набор задач независимо от diff.",
+        "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать."
+      }
+    }
+  },
+  "protection": {
+    "protectedGlobs": [
+      "infra/prod/*",
+      "deploy/prod/*"
+    ],
+    "allowlist": [
+      "infra/prod/README.md"
+    ],
+    "bypassEnv": "PROTECT_PROD_BYPASS",
+    "logOnlyEnv": "PROTECT_LOG_ONLY",
+    "docs": "docs/customization.md#prod-protection",
+    "notes": "Добавьте новые паттерны или перенесите объекты в allowlist, если они безопасны."
   }
 }
