@@ -1,49 +1,168 @@
 #!/usr/bin/env bash
-# init-claude-workflow.sh (minimal)
-# Initializes Claude Code workflow for Java/Kotlin monorepos.
+# init-claude-workflow.sh
+# Bootstraps Claude Code workflow for Java/Kotlin monorepos.
 # Creates .claude commands/agents/hooks, commit/branch conventions,
 # Gradle selective-tests logic, and basic docs (PRD/ADR templates).
 #
 # Usage:
-#   bash init-claude-workflow.sh [--commit-mode MODE] [--enable-ci] [--force]
+#   bash init-claude-workflow.sh [--commit-mode MODE] [--enable-ci] [--force] [--dry-run]
 #     --commit-mode   ticket-prefix | conventional | mixed   (default: ticket-prefix)
 #     --enable-ci     add a minimal GitHub Actions workflow (manual trigger)
 #     --force         overwrite existing files
+#     --dry-run       log planned actions without touching the filesystem
 set -euo pipefail
+
+SCRIPT_NAME="$(basename "$0")"
+ROOT_DIR="$(pwd)"
 
 COMMIT_MODE="ticket-prefix"
 ENABLE_CI=0
 FORCE=0
+DRY_RUN=0
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --commit-mode) COMMIT_MODE="${2:-ticket-prefix}"; shift 2;;
-    --enable-ci)   ENABLE_CI=1; shift;;
-    --force)       FORCE=1; shift;;
-    -h|--help)
-      grep -m1 -n '^# Usage:' "$0"; sed -n '1,40p' "$0"; exit 0;;
-    *) echo "Unknown arg: $1"; exit 2;;
-  esac
-done
+log_info()   { printf '[INFO] %s\n' "$*"; }
+log_warn()   { printf '[WARN] %s\n' "$*" >&2; }
+log_error()  { printf '[ERROR] %s\n' "$*" >&2; }
+die()        { log_error "$*"; exit 1; }
 
-write() {
-  # write <path> <<'EOF' ... EOF
-  local path="$1"
-  shift || true
-  if [[ -e "$path" && "$FORCE" -ne 1 ]]; then
-    echo "skip: $path (exists; use --force to overwrite)"
-    cat >/dev/null  # drain heredoc
-    return 0
-  fi
-  mkdir -p "$(dirname "$path")"
-  cat > "$path"
-  echo "wrote: $path"
+usage() {
+  cat <<'EOF'
+Usage: bash init-claude-workflow.sh [options]
+  --commit-mode MODE   ticket-prefix | conventional | mixed   (default: ticket-prefix)
+  --enable-ci          add GitHub Actions workflow (manual trigger)
+  --force              overwrite existing files
+  --dry-run            show planned actions without writing files
+  -h, --help           print this help
+EOF
 }
 
-mkdir -p .claude/{commands,agents,hooks,gradle,cache} config scripts docs/{prd,adr}
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --commit-mode)
+        [[ $# -ge 2 ]] || die "--commit-mode requires a value"
+        COMMIT_MODE="$2"; shift 2;;
+      --enable-ci) ENABLE_CI=1; shift;;
+      --force)     FORCE=1; shift;;
+      --dry-run)   DRY_RUN=1; shift;;
+      -h|--help)   usage; exit 0;;
+      *)           die "Unknown argument: $1";;
+    esac
+  done
 
-# ---------------- Core docs (minimal, used by commands) ----------------
-write "CLAUDE.md" <<'MD'
+  case "$COMMIT_MODE" in
+    ticket-prefix|conventional|mixed) ;;
+    *) die "Unsupported --commit-mode: $COMMIT_MODE";;
+  esac
+}
+
+require_command() {
+  local cmd="$1"
+  command -v "$cmd" >/dev/null 2>&1 || die "Missing dependency: $cmd"
+}
+
+check_dependencies() {
+  log_info "Checking prerequisites"
+  require_command bash
+  require_command git
+  require_command python3
+
+  local has_gradle=0
+  if [[ -x "$ROOT_DIR/gradlew" ]]; then
+    has_gradle=1
+  elif command -v gradle >/dev/null 2>&1; then
+    has_gradle=1
+  fi
+
+  if [[ "$has_gradle" -eq 1 ]]; then
+    log_info "Gradle detected"
+  else
+    log_warn "Gradle not found (expect ./gradlew or gradle). Selective tests will be unavailable until installed."
+  fi
+
+  if command -v ktlint >/dev/null 2>&1; then
+    log_info "ktlint detected"
+  else
+    log_warn "ktlint not found. Formatting step will be skipped if Spotless is absent."
+  fi
+}
+
+ensure_directory() {
+  local dir="$1"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] ensure directory $dir/"
+  else
+    mkdir -p "$dir"
+  fi
+}
+
+write_template() {
+  local path="$1"
+  if [[ -e "$path" && "$FORCE" -ne 1 ]]; then
+    log_warn "skip: $path (exists, use --force to overwrite)"
+    cat >/dev/null
+    return
+  fi
+
+  local dir
+  dir="$(dirname "$path")"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] write $path"
+    cat >/dev/null
+  else
+    mkdir -p "$dir"
+    cat >"$path"
+    log_info "wrote: $path"
+  fi
+}
+
+set_executable() {
+  local path="$1"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] chmod +x $path"
+  else
+    chmod +x "$path"
+  fi
+}
+
+replace_commit_mode() {
+  local path="config/conventions.json"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] set commit mode to $COMMIT_MODE in $path"
+    return
+  fi
+  python3 - <<PY
+import json, pathlib
+path = pathlib.Path("$path")
+data = json.loads(path.read_text(encoding="utf-8"))
+data.setdefault("commit", {})["mode"] = "$COMMIT_MODE"
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+  log_info "commit mode set to $COMMIT_MODE"
+}
+
+generate_directories() {
+  log_info "Ensuring directory structure"
+  local dirs=(
+    ".claude"
+    ".claude/commands"
+    ".claude/agents"
+    ".claude/hooks"
+    ".claude/gradle"
+    ".claude/cache"
+    "config"
+    "scripts"
+    "docs"
+    "docs/prd"
+    "docs/adr"
+  )
+  for dir in "${dirs[@]}"; do
+    ensure_directory "$dir"
+  done
+}
+
+generate_core_docs() {
+  write_template "CLAUDE.md" <<'MD'
 # CLAUDE.md
 Стек: Java/Kotlin (Gradle монорепо).
 Ветки: feature/<TICKET> | feat/<scope> | mixed (см. config/conventions.json).
@@ -51,7 +170,7 @@ write "CLAUDE.md" <<'MD'
 Не трогать без подтверждения: infra/prod/**, секреты и prod‑конфиги.
 MD
 
-write "conventions.md" <<'MD'
+  write_template "conventions.md" <<'MD'
 # conventions.md
 - Kotlin/Java стиль: JetBrains/Google; KISS/YAGNI/MVP.
 - Форматирование: Spotless/ktlint (если подключены).
@@ -59,7 +178,7 @@ write "conventions.md" <<'MD'
 - Юнит‑тесты обязательны; PR не должен ломать build.
 MD
 
-write "workflow.md" <<'MD'
+  write_template "workflow.md" <<'MD'
 # workflow.md
 1) PRD → `/feature-new <short> [TICKET]`
 2) ADR → `/feature-adr <short>`
@@ -69,15 +188,17 @@ write "workflow.md" <<'MD'
 6) Коммиты → `/commit "msg"`; ветки → `/branch-new ...`
 MD
 
-write "tasklist.md" <<'MD'
+  write_template "tasklist.md" <<'MD'
 # tasklist.md
 - [ ] PRD
 - [ ] ADR
 - [ ] UC1 + unit
 - [ ] Документация
 MD
+}
 
-write "docs/prd.template.md" <<'MD'
+generate_templates() {
+  write_template "docs/prd.template.md" <<'MD'
 # PRD — $SHORT
 ## Why/Idea
 ## Audience
@@ -88,7 +209,7 @@ write "docs/prd.template.md" <<'MD'
 ## Tracking: <TICKET>
 MD
 
-write "docs/adr.template.md" <<'MD'
+  write_template "docs/adr.template.md" <<'MD'
 # ADR: $TITLE
 Дата: $TODAY
 ## Контекст
@@ -96,9 +217,10 @@ write "docs/adr.template.md" <<'MD'
 ## Решение
 ## Последствия (+/−, миграции)
 MD
+}
 
-# ---------------- Claude settings & hooks ----------------
-write ".claude/settings.json" <<'JSON'
+generate_claude_settings() {
+  write_template ".claude/settings.json" <<'JSON'
 {
   "model": "sonnet",
   "outputStyle": "Explanatory",
@@ -133,7 +255,7 @@ write ".claude/settings.json" <<'JSON'
 }
 JSON
 
-write ".claude/hooks/protect-prod.sh" <<'BASH'
+  write_template ".claude/hooks/protect-prod.sh" <<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail
 payload="$(cat)"
@@ -151,9 +273,9 @@ if [[ -n "$file_path" && "$file_path" =~ $deny_re ]]; then
 fi
 exit 0
 BASH
-chmod +x .claude/hooks/protect-prod.sh
+  set_executable ".claude/hooks/protect-prod.sh"
 
-write ".claude/gradle/init-print-projects.gradle" <<'GRADLE'
+  write_template ".claude/gradle/init-print-projects.gradle" <<'GRADLE'
 gradle.settingsEvaluated {
   gradle.rootProject {
     tasks.register("ccPrintProjectDirs") {
@@ -162,8 +284,10 @@ gradle.settingsEvaluated {
   }
 }
 GRADLE
+}
 
-write ".claude/hooks/format-and-test.sh" <<'BASH'
+generate_hook_format_test() {
+  write_template ".claude/hooks/format-and-test.sh" <<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail
 cd "${CLAUDE_PROJECT_DIR:-.}"
@@ -247,10 +371,11 @@ if ! gr --continue "${TASKS[@]}"; then
   done
 fi
 BASH
-chmod +x .claude/hooks/format-and-test.sh
+  set_executable ".claude/hooks/format-and-test.sh"
+}
 
-# ---------------- Agents ----------------
-write ".claude/agents/feature-architect.md" <<'MD'
+generate_agents() {
+  write_template ".claude/agents/feature-architect.md" <<'MD'
 ---
 name: feature-architect
 description: "Архитектор фич: ADR по PRD (KISS/YAGNI/MVP, trade-off)."
@@ -260,7 +385,7 @@ model: sonnet
 Сгенерируй ADR на основе PRD: контекст, альтернативы, решение, последствия.
 MD
 
-write ".claude/agents/test-runner.md" <<'MD'
+  write_template ".claude/agents/test-runner.md" <<'MD'
 ---
 name: test-runner
 description: "Запускает тесты по затронутым модулям, предлагает фиксы."
@@ -269,9 +394,10 @@ model: sonnet
 ---
 После правок вызывай .claude/hooks/format-and-test.sh; при падениях — дай краткий отчёт и предложи исправления.
 MD
+}
 
-# ---------------- Slash commands ----------------
-write ".claude/commands/feature-new.md" <<'MD'
+generate_commands() {
+  write_template ".claude/commands/feature-new.md" <<'MD'
 ---
 description: "Создать PRD и стартовые артефакты"
 argument-hint: "<short> [TICKET]"
@@ -282,7 +408,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 Если передан TICKET ($2) — добавь в Tracking.
 MD
 
-write ".claude/commands/feature-adr.md" <<'MD'
+  write_template ".claude/commands/feature-adr.md" <<'MD'
 ---
 description: "Сформировать ADR из PRD"
 argument-hint: "<short>"
@@ -291,7 +417,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 Вызови саб-агента **feature-architect** и создай `docs/adr/$1.md` на основе @docs/prd/$1.prd.md.
 MD
 
-write ".claude/commands/feature-tasks.md" <<'MD'
+  write_template ".claude/commands/feature-tasks.md" <<'MD'
 ---
 description: "Обновить tasklist.md под фичу"
 argument-hint: "<short>"
@@ -300,7 +426,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 Проанализируй @docs/prd/$1.prd.md и @docs/adr/$1.md. Обнови @tasklist.md (чекбоксы, статусы, метрики).
 MD
 
-write ".claude/commands/docs-generate.md" <<'MD'
+  write_template ".claude/commands/docs-generate.md" <<'MD'
 ---
 description: "Сгенерировать docs/intro.md и обновить README"
 allowed-tools: Read,Edit,Write,Grep,Glob
@@ -308,7 +434,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 Создай/обнови `docs/intro.md` (mermaid-диаграммы, сценарии), проставь ссылки на PRD/ADR/tasklist в README.
 MD
 
-write ".claude/commands/test-changed.md" <<'MD'
+  write_template ".claude/commands/test-changed.md" <<'MD'
 ---
 description: "Прогнать тесты по затронутым Gradle-модулям"
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Read
@@ -316,7 +442,7 @@ allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Re
 !`"$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh"`
 MD
 
-write ".claude/commands/conventions-sync.md" <<'MD'
+  write_template ".claude/commands/conventions-sync.md" <<'MD'
 ---
 description: "Синхронизировать conventions.md с Gradle конфигами"
 allowed-tools: Read,Edit,Write,Grep,Glob
@@ -324,7 +450,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 Просмотри build.gradle*, settings.gradle*, gradle/libs.versions.toml; обнови @conventions.md разделы стиль/линт/тесты.
 MD
 
-write ".claude/commands/branch-new.md" <<'MD'
+  write_template ".claude/commands/branch-new.md" <<'MD'
 ---
 description: "Создать ветку по пресету (feature/..., feat/..., mixed)"
 argument-hint: "<type> <args>"
@@ -333,7 +459,7 @@ allowed-tools: Bash(git checkout:*),Bash(python3 scripts/branch_new.py:*),Read
 !`python3 scripts/branch_new.py $ARGUMENTS | { read n; git checkout -b "$n" || git checkout "$n"; echo "branch: $n"; }`
 MD
 
-write ".claude/commands/commit.md" <<'MD'
+  write_template ".claude/commands/commit.md" <<'MD'
 ---
 description: "Собрать коммит согласно config/conventions.json"
 argument-hint: "<summary>"
@@ -342,7 +468,7 @@ allowed-tools: Bash(git add:*),Bash(git commit:*),Bash(python3 scripts/commit_ms
 !`msg="$(python3 scripts/commit_msg.py --summary "$ARGUMENTS")"; git add -A && git commit -m "$msg" && echo "$msg"`
 MD
 
-write ".claude/commands/commit-validate.md" <<'MD'
+  write_template ".claude/commands/commit-validate.md" <<'MD'
 ---
 description: "Проверить сообщение коммита по текущему пресету"
 argument-hint: "<message>"
@@ -351,7 +477,7 @@ allowed-tools: Bash(python3 scripts/commit_msg.py:*),Read
 !`python3 scripts/commit_msg.py --validate "$ARGUMENTS" && echo "OK"`
 MD
 
-write ".claude/commands/conventions-set.md" <<'MD'
+  write_template ".claude/commands/conventions-set.md" <<'MD'
 ---
 description: "Переключить режим: ticket-prefix | conventional | mixed"
 argument-hint: "<commit-mode>"
@@ -359,9 +485,10 @@ allowed-tools: Bash(python3 scripts/conventions_set.py:*),Read,Edit,Write
 ---
 !`python3 scripts/conventions_set.py --commit-mode "$ARGUMENTS" && echo "commit.mode set to $ARGUMENTS"`
 MD
+}
 
-# ---------------- Conventions JSON + helper scripts ----------------
-write "config/conventions.json" <<'JSON'
+generate_config_and_scripts() {
+  write_template "config/conventions.json" <<'JSON'
 {
   "commit": {
     "mode": "__COMMIT_MODE__",
@@ -391,20 +518,7 @@ write "config/conventions.json" <<'JSON'
 }
 JSON
 
-# replace placeholder with selected mode
-if command -v sed >/dev/null 2>&1; then
-  sed -i.bak "s/__COMMIT_MODE__/${COMMIT_MODE}/g" "config/conventions.json" && rm -f "config/conventions.json.bak"
-else
-  python3 - <<PY || true
-import json
-p='config/conventions.json'
-cfg=json.load(open(p,'r',encoding='utf-8'))
-cfg['commit']['mode']="${COMMIT_MODE}"
-json.dump(cfg,open(p,'w',encoding='utf-8'),indent=2,ensure_ascii=False)
-PY
-fi
-
-write "scripts/commit_msg.py" <<'PY'
+  write_template "scripts/commit_msg.py" <<'PY'
 #!/usr/bin/env python3
 import json,re,subprocess,sys,argparse
 CFG='config/conventions.json'
@@ -448,9 +562,9 @@ def main():
   print(build(cfg,mode,branch,a.summary.strip(),a.type))
 if __name__=="__main__": main()
 PY
-chmod +x scripts/commit_msg.py
+  set_executable "scripts/commit_msg.py"
 
-write "scripts/branch_new.py" <<'PY'
+  write_template "scripts/branch_new.py" <<'PY'
 #!/usr/bin/env python3
 import re,sys,argparse
 ap=argparse.ArgumentParser()
@@ -474,9 +588,9 @@ elif t=="mixed":
 else: sys.exit("Unknown branch type")
 print(name)
 PY
-chmod +x scripts/branch_new.py
+  set_executable "scripts/branch_new.py"
 
-write "scripts/conventions_set.py" <<'PY'
+  write_template "scripts/conventions_set.py" <<'PY'
 #!/usr/bin/env python3
 import json,sys,argparse
 CFG='config/conventions.json'
@@ -487,12 +601,12 @@ with open(CFG,'r+',encoding='utf-8') as f:
   f.seek(0); json.dump(cfg,f,indent=2,ensure_ascii=False); f.truncate()
 print(a.commit_mode)
 PY
-chmod +x scripts/conventions_set.py
+  set_executable "scripts/conventions_set.py"
+}
 
-# ---------------- Minimal CI (optional) ----------------
-if [[ "$ENABLE_CI" -eq 1 ]]; then
-  mkdir -p .github/workflows
-  write ".github/workflows/gradle.yml" <<'YML'
+generate_ci_workflow() {
+  if [[ "$ENABLE_CI" -eq 1 ]]; then
+    write_template ".github/workflows/gradle.yml" <<'YML'
 name: Gradle (selective modules)
 on: { workflow_dispatch: {} }  # enable pull_request later if needed
 jobs:
@@ -514,6 +628,39 @@ jobs:
       - name: Run selective tests
         run: bash .claude/hooks/format-and-test.sh
 YML
-fi
+  fi
+}
 
-echo "Done. Open in Claude Code and try: /branch-new feature STORE-123 → /feature-new → /feature-adr → /feature-tasks → /commit → /test-changed"
+final_message() {
+  log_info "Claude Code workflow is ready."
+  cat <<'EOF'
+Open the project in Claude Code and try:
+  /branch-new feature STORE-123
+  /feature-new checkout-discounts STORE-123
+  /feature-adr checkout-discounts
+  /feature-tasks checkout-discounts
+  /commit "UC1: implement rule engine"
+  /test-changed
+EOF
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "Dry run completed. No files were written."
+  fi
+}
+
+main() {
+  parse_args "$@"
+  check_dependencies
+  generate_directories
+  generate_core_docs
+  generate_templates
+  generate_claude_settings
+  generate_hook_format_test
+  generate_agents
+  generate_commands
+  generate_config_and_scripts
+  replace_commit_mode
+  generate_ci_workflow
+  final_message
+}
+
+main "$@"
