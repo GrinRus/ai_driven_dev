@@ -11,6 +11,9 @@
 ## Оглавление
 - [Что входит в шаблон](#что-входит-в-шаблон)
 - [Архитектура workflow](#архитектура-workflow)
+- [Структура репозитория](#структура-репозитория)
+- [Ключевые скрипты и хуки](#ключевые-скрипты-и-хуки)
+- [Тестовый контур](#тестовый-контур)
 - [Установка](#установка)
   - [Вариант A — curl](#вариант-a--curl)
   - [Вариант B — локально](#вариант-b--локально)
@@ -39,6 +42,30 @@
 5. Политики доступа и режимы веток/коммитов управляются через `.claude/settings.json` и `config/conventions.json`.
 
 Детали настройки и расширения описаны в `workflow.md` и `docs/customization.md`.
+
+## Структура репозитория
+- `.claude/` — инструкции для агентов, слэш-команд и защитных хуков, а также глобальные настройки доступа (`settings.json`).
+- `config/` — политики командной работы: режимы веток/коммитов (`conventions.json`), параметры гейтов (`gates.json`), allowlist зависимостей (`allowed-deps.txt`).
+- `docs/` — все пользовательские материалы и шаблоны: walkthrough (`usage-demo.md`), playbook агентов, ADR/PRD/план, релиз-ноты, а также рабочие артефакты конкретных фич.
+- `scripts/` — CLI-утилиты (`ci-lint.sh`, `smoke-workflow.sh`) для линтинга, тестов и смоук-проверок.
+- `examples/` — минимальные демо-проекты и сценарий применения (`apply-demo.sh`, `gradle-demo/`).
+- `templates/` — tasklist и git-hook шаблоны, которые копируются в рабочее окружение.
+- `tests/` — python-юнит-тесты, покрывающие init-скрипт, хуки и настройки безопасности.
+- `.github/workflows/ci.yml` — GitHub Actions pipeline, который использует `scripts/ci-lint.sh`.
+- Корневые файлы (`init-claude-workflow.sh`, `workflow.md`, `CONTRIBUTING.md`, `LICENSE`) формируют основу установки и процесса.
+
+## Ключевые скрипты и хуки
+- `init-claude-workflow.sh` — проверяет окружение, разворачивает `.claude/`, настраивает commit-mode и по флагу `--enable-ci` добавляет CI.
+- `.claude/hooks/format-and-test.sh` — Python-хук, который анализирует diff, вызывает форматирование и запускает выбранные Gradle-задачи с учётом переменных `SKIP_FORMAT`, `FORMAT_ONLY`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`.
+- `.claude/hooks/gate-*.sh` — набор барьеров: `gate-workflow` требует PRD/план/tasklist, `gate-api-contract` проверяет наличие `docs/api/<slug>.yaml`, `gate-db-migration` ищет миграции, `gate-tests` контролирует наличие тестов, `protect-prod` защищает prod-пути, `lint-deps` следит за allowlist зависимостей.
+- `scripts/ci-lint.sh` — единая точка входа для shellcheck/markdownlint/yamllint и Python-тестов, используется локально и в CI.
+- `scripts/smoke-workflow.sh` — end-to-end смоук: создаёт временной проект, прогоняет init-скрипт и проверяет, что `gate-workflow` корректно блокирует изменения.
+- `examples/apply-demo.sh` — демонстрационный сценарий применения шаблона к Gradle-монорепо.
+
+## Тестовый контур
+- Каталог `tests/` содержит юнит-тесты: `test_init_claude_workflow.py`, `test_format_and_test.py`, `test_gate_*.py`, `test_settings_policy.py`, которые гарантируют корректность установки и гейтов.
+- `scripts/ci-lint.sh` запускает линтеры и тесты, а `.github/workflows/ci.yml` подключает этот скрипт в GitHub Actions.
+- `scripts/smoke-workflow.sh` обеспечивает быструю регрессию процесса, имитируя цикл идея→план→таски и проверяя блокировки.
 
 ## Установка
 
