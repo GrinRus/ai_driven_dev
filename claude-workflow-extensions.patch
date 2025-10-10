@@ -1,0 +1,396 @@
+diff --git a/.claude/agents/api-designer.md b/.claude/agents/api-designer.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/agents/api-designer.md
+@@ -0,0 +1,26 @@
++---
++name: api-designer
++description: Проектирует контракт API (OpenAPI) по PRD. Обновляет docs/api/$SLUG.yaml.
++tools: Read, Write, Grep, Glob
++model: inherit
++---
++Задача: на основе `docs/prd/$SLUG.prd.md` спроектируй HTTP API в формате OpenAPI 3.0+.
++Требования:
++- CRUD-ручки и нестандартные операции должны иметь чёткие схемы запросов/ответов.
++- Статусы ошибок и коды описать (error schema).
++- Версионирование и фич‑флаг для новой ручки (если применимо).
++- Укажи пример payload и пограничные случаи (empty, large, invalid).
++
++Запиши контракт в `docs/api/$SLUG.yaml` (или дополни существующий), сохраняя валидный YAML.
++В конце кратко перечисли неясности (если есть) — статус READY|BLOCKED.
+diff --git a/.claude/agents/contract-checker.md b/.claude/agents/contract-checker.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/agents/contract-checker.md
+@@ -0,0 +1,24 @@
++---
++name: contract-checker
++description: Сверяет контроллеры/эндпоинты с OpenAPI контрактом. Выявляет расхождения.
++tools: Read, Grep, Glob
++model: inherit
++---
++Проверь соответствие кода и контракта:
++- Найди контроллеры/роуты (Spring/Ktor) по `$MODULE/src/main/**/(controller|web|rest)/**`.
++- Сверь пути/методы/коды ответа/модели с `docs/api/$SLUG.yaml`.
++- Выяви несовпадающие элементы (лишние/отсутствующие эндпоинты, статусы, поля).
++
++Сформируй отчёт с actionable‑исправлениями (куда и что добавить/поправить).
++Если критично — статус BLOCKED; иначе SUGGESTIONS.
+diff --git a/.claude/agents/db-migrator.md b/.claude/agents/db-migrator.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/agents/db-migrator.md
+@@ -0,0 +1,22 @@
++---
++name: db-migrator
++description: Готовит миграции БД (Flyway/Liquibase) по изменениям в модели/схеме.
++tools: Read, Write, Grep, Glob
++model: inherit
++---
++Найди изменения в доменной модели/схеме (entity/*, schema.sql).
++Сгенерируй миграцию (по принятому инструменту) в `src/main/resources/db/migration/` с именованием:
++- Flyway: `V<timestamp>__<slug>_<short>.sql`
++- Liquibase: файл `changelog-<timestamp>-<slug>.xml` и include в master.
++
++Убедись, что миграция идемпотентна (IF NOT EXISTS / CREATE OR REPLACE …) и обратима (если политика требует).
++Добавь заметку в план/задачи, если есть ручные шаги.
+diff --git a/.claude/agents/qa-author.md b/.claude/agents/qa-author.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/agents/qa-author.md
+@@ -0,0 +1,24 @@
++---
++name: qa-author
++description: Создаёт юнит/интеграционные тесты и сценарии ручной проверки.
++tools: Read, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*)
++model: inherit
++---
++Список задач:
++1) На основе `docs/plan/$SLUG.md` и изменённого кода — допиши/создай юнит‑тесты (`src/test/**`) для критичной логики.
++2) При необходимости добавь фэйковые адаптеры/фабрики данных.
++3) Сформируй `docs/test/$SLUG-manual.md` со сценариями ручной проверки (positive/negative/boundary).
++4) Запусти `/test-changed` и приложи краткий отчёт, что покрыто тестами.
+diff --git a/.claude/commands/api-spec-new.md b/.claude/commands/api-spec-new.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/commands/api-spec-new.md
+@@ -0,0 +1,19 @@
++---
++description: "Создать/обновить OpenAPI контракт для фичи"
++argument-hint: "<slug>"
++allowed-tools: Read,Edit,Write,Grep,Glob
++---
++Создай каталог `docs/api/` (если нет). Вызови саб‑агента **api-designer** для формирования/обновления `docs/api/$1.yaml` на основе `docs/prd/$1.prd.md`.
++Если контракт уже существует — корректно смержи изменения.
+diff --git a/.claude/commands/tests-generate.md b/.claude/commands/tests-generate.md
+new file mode 100644
+--- /dev/null
++++ b/.claude/commands/tests-generate.md
+@@ -0,0 +1,17 @@
++---
++description: "Сгенерировать тесты к изменённому коду"
++argument-hint: "<slug>"
++allowed-tools: Read,Edit,Write,Grep,Glob,Bash(./gradlew:*),Bash(gradle:*)
++---
++Вызови саб‑агента **qa-author**. Цели:
++1) Создать/обновить юнит‑тесты для изменённого кода (по `git diff`).
++2) При необходимости — добавить интеграционные тесты (mock/stub) для внешних взаимодействий.
++3) Сохранить короткие сценарии ручной проверки в `docs/test/$1-manual.md`.
++4) Запустить `/test-changed`.
+diff --git a/.claude/hooks/gate-api-contract.sh b/.claude/hooks/gate-api-contract.sh
+new file mode 100755
+--- /dev/null
++++ b/.claude/hooks/gate-api-contract.sh
+@@ -0,0 +1,72 @@
++#!/usr/bin/env bash
++# Блокирует правки контроллеров/роутов, если нет OpenAPI контракта для активной фичи
++set -euo pipefail
++payload="$(cat)"
++
++json_get_bool() {
++  python3 - <<'PY' "$1" "$2"
++import json,sys,os
++path=sys.argv[1]; key=sys.argv[2]
++try:
++  cfg=json.load(open(path,'r',encoding='utf-8'))
++  v=cfg.get(key, False)
++  print("1" if v else "0")
++except Exception:
++  print("0")
++PY
++}
++
++file_path="$(printf '%s' "$payload" | python3 - <<'PY'
++import json,sys; 
++d=json.load(sys.stdin)
++print(d.get("tool_input",{}).get("file_path",""))
++PY
++)"
++
++[[ -f config/gates.json ]] || exit 0
++[[ "$(json_get_bool config/gates.json api_contract)" == "1" ]] || exit 0
++
++slug_file="$(python3 - <<'PY'
++import json,sys,os
++cfg='config/gates.json'
++try:
++  import json
++  g=json.load(open(cfg,'r',encoding='utf-8'))
++  print(g.get('feature_slug_source','docs/.active_feature'))
++except Exception:
++  print('docs/.active_feature')
++PY
++)"
++
++[[ -f "$slug_file" ]] || exit 0
++slug="$(cat "$slug_file" 2>/dev/null || true)"
++[[ -n "$slug" ]] || exit 0
++
++# если правится не контроллер/роут — пропустим
++if [[ ! "$file_path" =~ (^|/)src/main/.*/(controller|rest|web|routes?)/.*\.(kt|java)$ ]] && \
++   [[ ! "$file_path" =~ (Controller|Resource)\.(kt|java)$ ]]; then
++  exit 0
++fi
++
++# проверим наличие контракта
++has_spec=0
++for p in "docs/api/$slug.yaml" "docs/api/$slug.yml" "docs/api/$slug.json" "src/main/resources/openapi.yaml" "openapi.yaml"; do
++  [[ -f "$p" ]] && has_spec=1 && break
++done
++
++if [[ $has_spec -eq 0 ]]; then
++  echo "BLOCK: нет API контракта для '$slug'. Создайте его командой: /api-spec-new $slug" 1>&2
++  exit 2
++fi
++exit 0
+diff --git a/.claude/hooks/gate-db-migration.sh b/.claude/hooks/gate-db-migration.sh
+new file mode 100755
+--- /dev/null
++++ b/.claude/hooks/gate-db-migration.sh
+@@ -0,0 +1,77 @@
++#!/usr/bin/env bash
++# Требует наличие новой миграции Flyway/Liquibase при изменении сущностей/схемы
++set -euo pipefail
++payload="$(cat)"
++
++json_get_bool() {
++  python3 - <<'PY' "$1" "$2"
++import json,sys
++cfg=sys.argv[1]; key=sys.argv[2]
++try:
++  d=json.load(open(cfg,'r',encoding='utf-8'))
++  print("1" if d.get(key, False) else "0")
++except Exception:
++  print("0")
++PY
++}
++
++file_path="$(printf '%s' "$payload" | python3 - <<'PY'
++import json,sys; 
++d=json.load(sys.stdin)
++print(d.get("tool_input",{}).get("file_path",""))
++PY
++)"
++
++[[ -f config/gates.json ]] || exit 0
++[[ "$(json_get_bool config/gates.json db_migration)" == "1" ]] || exit 0
++
++# триггеры: сущности/репозитории/схема
++if [[ ! "$file_path" =~ (^|/)src/main/.*(entity|model|repository)/.*\.(kt|java)$ ]] && \
++   [[ ! "$file_path" =~ (^|/)src/main/resources/.*/db/(schema|tables)\.(sql|ddl)$ ]]; then
++  exit 0
++fi
++
++# ищем новую миграцию среди изменённых/неотслеживаемых файлов
++has_migration=0
++if git rev-parse --verify HEAD >/dev/null 2>&1; then
++  if git diff --name-only HEAD | grep -E '(^|/)src/main/resources/.*/db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
++    has_migration=1
++  fi
++fi
++if [[ $has_migration -eq 0 ]]; then
++  if git ls-files --others --exclude-standard | grep -E '(^|/)src/main/resources/.*/db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
++    has_migration=1
++  fi
++fi
++
++if [[ $has_migration -eq 0 ]]; then
++  echo "BLOCK: изменения модели/схемы требуют миграции в src/main/resources/**/db/migration/" 1>&2
++  echo "Подсказка: вызовите саб‑агента db-migrator или создайте файл V<timestamp>__<slug>.sql вручную." 1>&2
++  exit 2
++fi
++exit 0
+diff --git a/.claude/hooks/gate-tests.sh b/.claude/hooks/gate-tests.sh
+new file mode 100755
+--- /dev/null
++++ b/.claude/hooks/gate-tests.sh
+@@ -0,0 +1,95 @@
++#!/usr/bin/env bash
++# Требует наличие теста для редактируемого исходника (soft/hard режим)
++set -euo pipefail
++payload="$(cat)"
++
++json_get_str() {
++  python3 - <<'PY' "$1" "$2" "$3"
++import json,sys
++cfg, key, dv = sys.argv[1], sys.argv[2], sys.argv[3]
++try:
++  d=json.load(open(cfg,'r',encoding='utf-8'))
++  print(str(d.get(key, dv)))
++except Exception:
++  print(dv)
++PY
++}
++
++file_path="$(printf '%s' "$payload" | python3 - <<'PY'
++import json,sys; 
++d=json.load(sys.stdin)
++print(d.get("tool_input",{}).get("file_path",""))
++PY
++)"
++
++mode="$(json_get_str config/gates.json tests_required disabled)"
++[[ "$mode" == "disabled" ]] && exit 0
++
++# интересует только src/main и *.kt|*.java
++if [[ ! "$file_path" =~ (^|/)src/main/ ]] || [[ ! "$file_path" =~ \.(kt|java)$ ]]; then
++  exit 0
++fi
++
++# выведем ожидаемые имена тестов (Kotlin/Java)
++rel="${file_path#*/src/main/}"
++test1="src/test/${rel%.*}Test.${file_path##*.}"
++test2="src/test/${rel%.*}Tests.${file_path##*.}"
++
++if [[ -f "$test1" || -f "$test2" ]]; then
++  exit 0
++fi
++
++if [[ "$mode" == "soft" ]]; then
++  echo "WARN: отсутствует тест для ${file_path}. Рекомендуется создать ${test1}." 1>&2
++  exit 0
++fi
++
++echo "BLOCK: нет теста для ${file_path}. Создайте ${test1} (или ${test2}) или выполните /tests-generate <slug>." 1>&2
++exit 2
+diff --git a/.claude/hooks/lint-deps.sh b/.claude/hooks/lint-deps.sh
+new file mode 100755
+--- /dev/null
++++ b/.claude/hooks/lint-deps.sh
+@@ -0,0 +1,78 @@
++#!/usr/bin/env bash
++# Предупреждает о зависимостях вне allowlist при изменении Gradle файлов (не блокирует)
++set -euo pipefail
++[[ -f config/gates.json ]] || exit 0
++allow_deps="$(python3 - <<'PY'
++import json,sys
++try:
++  d=json.load(open('config/gates.json','r',encoding='utf-8'))
++  print('1' if d.get('deps_allowlist', False) else '0')
++except Exception:
++  print('0')
++PY
++)"
++[[ "$allow_deps" == "1" ]] || exit 0
++[[ -f config/allowed-deps.txt ]] || exit 0
++
++mapfile -t allowed < <(grep -Ev '^\s*(#|$)' config/allowed-deps.txt | sed 's/[[:space:]]//g')
++is_allowed() { local ga="$1"; for a in "${allowed[@]}"; do [[ "$ga" == "$a" ]] && return 0; done; return 1; }
++
++# Смотрим добавленные строки в Gradle файлах
++if git rev-parse --verify HEAD >/dev/null 2>&1; then
++  mapfile -t added < <(git diff --unified=0 --no-color HEAD -- '**/build.gradle*' 'gradle/libs.versions.toml' | grep '^\+' || true)
++else
++  added=()
++fi
++
++warned=0
++for line in "${added[@]}"; do
++  ga="$(printf '%s\n' "$line" | sed -nE 's@.*(implementation|api|compileOnly|runtimeOnly)\([\"\x27]([^:]+:[^:]+).*@\2@p')"
++  [[ -z "$ga" ]] && continue
++  if ! is_allowed "$ga"; then
++    echo "WARN: dependency '$ga' не в allowlist (config/allowed-deps.txt)" 1>&2
++    warned=1
++  fi
++done
++
++exit 0
+diff --git a/.claude/settings.json b/.claude/settings.json
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -1,6 +1,6 @@
+ {
+   "model": "sonnet",
+-  "outputStyle": "Explanatory",
++  "outputStyle": "Explanatory",
+   "permissions": {
+     "allow": [
+       "Read","Write","Edit","Grep","Glob",
+@@ -10,6 +10,8 @@
+       "Bash(./gradlew:*)","Bash(gradle:*)",
+       "Bash(.claude/hooks/*:*)",
+       "Bash(python3 scripts/*:*)",
++      "SlashCommand:/test-changed:*",
++      "SlashCommand:/commit:*",
+       "SlashCommand:/tests-generate:*",
+       "SlashCommand:/api-spec-new:*"
+     ],
+@@ -25,10 +27,16 @@
+   },
+   "hooks": {
+     "PreToolUse": [
+       { "matcher": "Write|Edit",
+         "hooks": [
+           { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh", "timeout": 5 },
+-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", "timeout": 5 }
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", "timeout": 5 },
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-api-contract.sh", "timeout": 5 },
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-db-migration.sh", "timeout": 5 },
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-tests.sh", "timeout": 5 }
+         ] }
+     ],
+     "PostToolUse": [
+       { "matcher": "Write|Edit",
+-        "hooks": [ { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh", "timeout": 900 } ] }
++        "hooks": [
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh", "timeout": 900 },
++          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-deps.sh", "timeout": 10 }
++        ] }
+     ]
+   }
+ }
+diff --git a/config/allowed-deps.txt b/config/allowed-deps.txt
+new file mode 100644
+--- /dev/null
++++ b/config/allowed-deps.txt
+@@ -0,0 +1,12 @@
++# Разрешённые зависимости в формате group:artifact (без версии)
++org.jetbrains.kotlin:kotlin-stdlib
++org.jetbrains.kotlin:kotlin-reflect
++org.jetbrains.kotlinx:kotlinx-coroutines-core
++com.fasterxml.jackson.core:jackson-databind
++com.fasterxml.jackson.module:jackson-module-kotlin
++org.springframework.boot:spring-boot-starter-web
++org.springframework.boot:spring-boot-starter-test
++io.ktor:ktor-server-core
++io.ktor:ktor-server-netty
++org.junit.jupiter:junit-jupiter
++org.assertj:assertj-core
+diff --git a/config/gates.json b/config/gates.json
+new file mode 100644
+--- /dev/null
++++ b/config/gates.json
+@@ -0,0 +1,11 @@
++{
++  "feature_slug_source": "docs/.active_feature",
++  "api_contract": true,
++  "db_migration": true,
++  "tests_required": "soft",  // soft | hard | disabled
++  "deps_allowlist": false
++}
+diff --git a/docs/api/.gitkeep b/docs/api/.gitkeep
+new file mode 100644
+--- /dev/null
++++ b/docs/api/.gitkeep
+@@ -0,0 +1 @@
++
