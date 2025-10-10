@@ -1,6 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 from .helpers import git_init
 
@@ -32,7 +33,9 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
     return settings_path
 
 
-def run_hook(tmp_path: Path, settings_path: Path, env: dict | None = None) -> subprocess.CompletedProcess[str]:
+def run_hook(
+    tmp_path: Path, settings_path: Path, env: Optional[dict] = None
+) -> subprocess.CompletedProcess[str]:
     effective_env = {
         "CLAUDE_SETTINGS_PATH": str(settings_path),
         "SKIP_FORMAT": "1",

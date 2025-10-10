@@ -73,7 +73,7 @@ run_python_tests() {
     return
   fi
   log "running python unittest suite"
-  if ! python3 -m unittest discover -s tests; then
+  if ! python3 -m unittest; then
     err "python tests failed"
     STATUS=1
   fi

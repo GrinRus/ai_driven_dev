@@ -1,7 +1,7 @@
 import json
 import pathlib
 import subprocess
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -46,7 +46,9 @@ def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathl
     return target
 
 
-def ensure_gates_config(root: pathlib.Path, overrides: Dict[str, Any] | None = None) -> pathlib.Path:
+def ensure_gates_config(
+    root: pathlib.Path, overrides: Optional[Dict[str, Any]] = None
+) -> pathlib.Path:
     config = DEFAULT_GATES_CONFIG.copy()
     if overrides:
         config.update(overrides)

@@ -26,7 +26,7 @@ message_file = Path(sys.argv[2])
 
 data = json.loads(config_path.read_text(encoding="utf-8"))
 commit_cfg = data.get("commit", {})
-mode = commit_cfg.get("activeMode", "ticket-prefix")
+mode = commit_cfg.get("mode") or commit_cfg.get("activeMode", "ticket-prefix")
 modes = commit_cfg.get("modes", {})
 mode_cfg = modes.get(mode, {})
 

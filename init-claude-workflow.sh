@@ -1175,7 +1175,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 LOG_PREFIX = "[format-and-test]"
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -1202,7 +1202,7 @@ def fail(message: str, code: int = 1) -> int:
     return code
 
 
-def load_config() -> dict | None:
+def load_config() -> Optional[dict]:
     if not SETTINGS_PATH.exists():
         log(f"Конфигурация {SETTINGS_PATH} не найдена — шаги пропущены.")
         return None
@@ -1222,7 +1222,7 @@ def run_subprocess(cmd: List[str], strict: bool = True) -> bool:
     return False
 
 
-def env_flag(name: str) -> bool | None:
+def env_flag(name: str) -> Optional[bool]:
     value = os.environ.get(name)
     if value is None or value == "":
         return None

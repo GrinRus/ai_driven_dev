@@ -2,10 +2,10 @@
   "metadata": {
     "lastUpdated": "2024-05-14",
     "maintainer": "workflow-team",
-    "notes": "Измените activeMode и соответствующие шаблоны, если нужно расширить список режимов."
+    "notes": "Измените mode и соответствующие шаблоны, если нужно расширить список режимов."
   },
   "commit": {
-    "activeMode": "ticket-prefix",
+    "mode": "ticket-prefix",
     "fields": {
       "ticket": "Обязательный идентификатор задачи (например, ABC-123). Используется в ticket-prefix и mixed режимах.",
       "type": "Базовый тип изменения (feat, fix, chore, docs, test, refactor, perf, build, ci, revert).",
