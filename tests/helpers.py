@@ -55,3 +55,19 @@ def ensure_gates_config(root: pathlib.Path, overrides: Dict[str, Any] | None = N
 
 def git_init(path: pathlib.Path) -> None:
     subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+
+
+def git_config_user(path: pathlib.Path) -> None:
+    """Configure default git user for commits inside tests."""
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )

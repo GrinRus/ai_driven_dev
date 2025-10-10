@@ -7,11 +7,11 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-02-XX (set the exact date when you edit)._
+_Last sync with `README.md`: 2025-10-10._
 
 ## TL;DR
-- `init-claude-workflow.sh` installs Claude Code slash commands (PRD → ADR → Tasks → Docs) and git hooks in one go.
-- Selective Gradle test runs and optional formatters (Spotless/ktlint) keep feedback loops fast.
+- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /tasks-new → /implement → /review` together with API/DB/test gates.
+- Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 
@@ -31,6 +31,7 @@ _Last sync with `README.md`: 2025-02-XX (set the exact date when you edit)._
 
 ## What you get
 - Claude Code slash commands and sub-agents to bootstrap PRD/ADR/Tasklist docs, generate updates, and validate commits.
+- A multi-stage workflow (idea → plan → validation → tasks → implementation → review) powered by `analyst/planner/validator/implementer/reviewer` sub-agents plus `/api-spec-new` and `/tests-generate`.
 - Git hooks for auto-formatting, selective Gradle runs, and protection of production artifacts.
 - Commit convention presets (`ticket-prefix`, `conventional`, `mixed`) with CLI helpers.
 - Documentation pack, issue/PR templates, and optional CI workflow.
@@ -38,11 +39,12 @@ _Last sync with `README.md`: 2025-02-XX (set the exact date when you edit)._
 
 ## Workflow architecture
 1. `init-claude-workflow.sh` scaffolds `.claude/`, configs, and templates.
-2. Claude Code executes slash commands that call Python/Shell helpers in `scripts/` and `templates/`.
-3. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs using a cached project map.
-4. Policies and presets live in `.claude/settings.json` and `config/conventions.json`.
+2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, validation, tasklist, implementation, and review with dedicated sub-agents.
+3. The `strict` preset in `.claude/settings.json` enables `gate-workflow`, `gate-api-contract`, `gate-db-migration`, `gate-tests`, and auto-runs `/test-changed` after each write.
+4. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
+5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
-Advanced customization tips are covered in `docs/customization.md`.
+Advanced customization tips are covered in `workflow.md` and `docs/customization.md`.
 
 ## Installation
 
@@ -87,12 +89,15 @@ Supports macOS/Linux. Use WSL or Git Bash on Windows.
 /branch-new feature STORE-123
 /feature-new checkout-discounts STORE-123
 /feature-adr checkout-discounts
-/feature-tasks checkout-discounts
-/commit "UC1: implement rule engine"
-/test-changed
+/plan-new checkout-discounts
+/tasks-new checkout-discounts
+/api-spec-new checkout-discounts
+/tests-generate checkout-discounts
+/implement checkout-discounts
+/review checkout-discounts
 ```
 
-This creates PRD/ADR/Tasklist docs, formats code, runs selective tests, and crafts a commit message that follows the active convention.
+You’ll get the full artifact chain (PRD, plan, tasklist, OpenAPI, tests), automatic `/test-changed` runs guarded by gates, and `/commit` + `/review` workflows aligned with the active convention.
 
 ## Slash commands
 
@@ -101,7 +106,12 @@ This creates PRD/ADR/Tasklist docs, formats code, runs selective tests, and craf
 | `/branch-new` | Create/switch branch preset | `feature STORE-123` / `feat orders` / `mixed STORE-123 feat pricing` |
 | `/feature-new` | Bootstrap PRD & starter assets | `checkout-discounts STORE-123` |
 | `/feature-adr` | Generate ADR from PRD | `checkout-discounts` |
-| `/feature-tasks` | Refresh `tasklist.md` | `checkout-discounts` |
+| `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
+| `/tasks-new` | Refresh `tasklist.md` from the plan | `checkout-discounts` |
+| `/implement` | Execute the plan with auto tests | `checkout-discounts` |
+| `/review` | Final code review and status sync | `checkout-discounts` |
+| `/api-spec-new` | Generate/update OpenAPI spec | `checkout-discounts` |
+| `/tests-generate` | Produce unit/integration tests | `checkout-discounts` |
 | `/docs-generate` | Generate/refresh docs | — |
 | `/test-changed` | Run selective Gradle tests | — |
 | `/conventions-set` | Switch commit mode | `conventional` / `ticket-prefix` / `mixed` |
@@ -127,11 +137,13 @@ Switch via `/conventions-set conventional` or the CLI helper. Add a commit-msg h
 3. Maps them to Gradle modules, spawning tasks (`:module:clean :module:test`).
 4. Falls back to `:jvmTest` / `:testDebugUnitTest` or repository-wide `gradle test`.
 5. Runs in soft mode — export `STRICT_TESTS=1` to make failures blocking.
+6. Auto-runs after writes (`/implement`, manual edits); export `SKIP_AUTO_TESTS=1` to pause automatic `/test-changed` executions.
 
 Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `docs/customization.md`.
 
 ## Additional resources
 - Step-by-step walkthrough with before/after structure: `docs/usage-demo.md`.
+- Workflow and gate overview: `workflow.md`.
 - Configuration deep dive: `docs/customization.md`.
 - Original Russian README: `README.md`.
 - Sample Gradle monorepo & helper script: `examples/gradle-demo/`, `examples/apply-demo.sh`.

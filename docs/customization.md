@@ -121,6 +121,26 @@ chmod +x .git/hooks/commit-msg
 
 Hook проверит сообщение коммита на соответствие активной конвенции. Добавьте аналогичные обёртки для `pre-commit` или `pre-push`, если нужно.
 
+## Гейты и автотесты
+
+### `config/gates.json`
+- `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
+- `api_contract` / `db_migration` — включают или отключают соответствующие гейты. При `false` скрипты `gate-api-contract.sh` и `gate-db-migration.sh` завершаются сразу.
+- `tests_required` — режим проверки тестов: `disabled`, `soft` (только предупреждение), `hard` (блокирующая ошибка).
+- `deps_allowlist` — включает предупреждения `lint-deps.sh` о зависимостях, отсутствующих в `config/allowed-deps.txt`.
+
+Комбинируйте настройки: например, для прототипов отключите `api_contract` и `db_migration`, оставив `tests_required="soft"`.
+
+### Allowlist зависимостей
+- Список хранится в `config/allowed-deps.txt`. Формат: один `group:artifact` на строку, поддерживаются комментарии (`#`).
+- При `deps_allowlist=true` хук `lint-deps.sh` выводит `WARN`, если новая зависимость не в списке.
+- Для монорепо можно хранить несколько списков и переключать их копированием (`cp config/allowed-deps.mobile.txt config/allowed-deps.txt`).
+
+### Автотесты и альтернативные раннеры
+- Автоматический запуск `/test-changed` можно временно отключить через `SKIP_AUTO_TESTS=1` (например, для длительных миграций).
+- Для проектов без Gradle измените `automation.tests.runner` в `.claude/settings.json` (например, на `["npm", "test"]` или `["pytest"]`) и обновите `defaultTasks`.
+- Если в монорепо разные стекы, заполните `moduleMatrix` (см. пример в `settings.json`), чтобы сопоставлять пути и команды тестов.
+
 ## Переопределение слэш-команд и шаблонов
 
 - Файлы команд находятся в `.claude/commands/*.md`. Добавьте блоки `## Примеры` и `## Типичные ошибки`, чтобы ускорить onboarding команды.

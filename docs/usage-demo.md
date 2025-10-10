@@ -5,7 +5,8 @@
 ## Цель сценария
 - развернуть шаблон всего за один запуск скрипта;
 - понять, какие файлы и настройки добавляются;
-- проверить, что выборочные тесты и хуки работают сразу после установки.
+- проверить, что выборочные тесты и хуки работают сразу после установки;
+- пройти многошаговый цикл `/feature-new → /plan-new → /tasks-new → /api-spec-new → /tests-generate → /implement` и увидеть работу гейтов (API контракт, миграции, тесты).
 
 ## Требования
 - установленный `bash`, `git`, `python3`;
@@ -119,11 +120,21 @@ demo-monorepo/
 
 > Снимок «после» удобно зафиксировать командой `tree -L 2` или встроенным предпросмотром IDE. Для презентаций добавьте изображения каталога до/после в `docs/images/`.
 
+### 5. Запустите многошаговый процесс
+
+1. В Claude Code активируйте фичу: `/feature-new demo-checkout DEMO-1` и `/feature-adr demo-checkout`.
+2. Постройте план и чеклисты: `/plan-new demo-checkout` → `/tasks-new demo-checkout`.
+3. Попробуйте отредактировать условный контроллер (`src/main/kotlin/.../CheckoutController.kt`) без контракта — `gate-api-contract.sh` вернёт блокировку.
+4. Создайте контракт: `/api-spec-new demo-checkout` заполнит `docs/api/demo-checkout.yaml`, после чего правки контроллера проходят.
+5. Измените сущность `src/main/kotlin/.../Checkout.kt` — без миграции `gate-db-migration.sh` напомнит добавить `src/main/resources/db/migration/V<timestamp>__demo-checkout.sql`.
+6. Дозакажите тесты: `/tests-generate demo-checkout` создаст юнит-тесты и `docs/test/demo-checkout-manual.md`. При следующих правках `/implement demo-checkout` автоматически запускает `/test-changed`; отключить автозапуск можно через `SKIP_AUTO_TESTS=1`.
+
 ## Проверка результата в Claude Code
-1. Откройте проект и выполните `/test-changed` — убедитесь, что скрипт проходит без ошибок.
-2. Создайте ветку через `/branch-new feature DEMO-1` и убедитесь, что формат ветки корректный.
-3. Запустите `/feature-new checkout-discounts DEMO-1` и проверьте, что шаблоны PRD/ADR/Tasklist добавлены.
-4. Для проверки политик сделайте тестовый коммит `/commit "DEMO-1: spike"` — сообщение должно соответствовать режиму из `config/conventions.json`.
+1. Выполните `/branch-new feature DEMO-1` — шаблон создаст ветку в активном формате.
+2. Запустите `/feature-new`, `/plan-new`, `/tasks-new` и убедитесь, что `docs/`/`tasklist.md` обновились.
+3. Проверьте гейты: без `docs/api/<slug>.yaml` изменение контроллера блокируется (`gate-api-contract`), без миграции появится предупреждение `gate-db-migration`, без тестов — напоминание `gate-tests`.
+4. После правок убедитесь, что `/test-changed` запускается автоматически; при необходимости поставьте `SKIP_AUTO_TESTS=1` перед длительными сессиями.
+5. Выполните `/commit "DEMO-1: implement rule engine"` и `/review demo-checkout`, чтобы закрыть чеклист и убедиться, что пресеты коммитов работают.
 
 ## Частые вопросы
 - **Запуск скрипта терпит неудачу:** проверьте вывод проверки зависимостей и убедитесь, что Gradle доступен в PATH.

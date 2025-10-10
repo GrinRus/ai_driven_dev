@@ -47,3 +47,12 @@ def test_non_controller_edits_pass(tmp_path):
 
     result = run_hook(tmp_path, "gate-api-contract.sh", PAYLOAD_DOC)
     assert result.returncode == 0, result.stderr
+
+
+def test_allows_when_slug_file_missing(tmp_path):
+    ensure_gates_config(tmp_path, {})
+    write_file(tmp_path, "src/main/kotlin/web/OrderController.kt", "class OrderController")
+    # slug file intentionally not created
+
+    result = run_hook(tmp_path, "gate-api-contract.sh", PAYLOAD_CONTROLLER)
+    assert result.returncode == 0, result.stderr

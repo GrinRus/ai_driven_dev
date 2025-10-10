@@ -73,3 +73,13 @@ def test_common_change_forces_full_suite(tmp_path):
     assert "полный прогон тестов" in result.stderr
     assert "Выбранные задачи тестов: default_task" in result.stderr
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
+
+
+def test_skip_auto_tests_env(tmp_path):
+    git_init(tmp_path)
+    settings = write_settings(tmp_path, {})
+
+    result = run_hook(tmp_path, settings, env={"SKIP_AUTO_TESTS": "1"})
+
+    assert "SKIP_AUTO_TESTS=1" in result.stderr
+    assert "Запуск тестов" not in result.stderr

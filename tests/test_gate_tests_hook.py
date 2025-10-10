@@ -39,6 +39,15 @@ def test_allows_in_hard_mode_with_matching_test(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_allows_with_plural_suffix(tmp_path):
+    ensure_gates_config(tmp_path, {"tests_required": "hard"})
+    write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+    write_file(tmp_path, "src/test/kotlin/service/RuleEngineTests.kt", "class RuleEngineTests")
+
+    result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
 def test_non_source_paths_not_checked(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
     write_file(tmp_path, "docs/readme.md", "docs")
