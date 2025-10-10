@@ -1,0 +1,75 @@
+import json
+import subprocess
+from pathlib import Path
+
+from .helpers import git_init
+
+HOOK = Path(__file__).resolve().parents[1] / ".claude/hooks/format-and-test.sh"
+
+
+def write_settings(tmp_path: Path, overrides: dict) -> Path:
+    base = {
+        "automation": {
+            "format": {"commands": []},
+            "tests": {
+                "runner": "/bin/echo",
+                "defaultTasks": ["default_task"],
+                "fallbackTasks": [],
+                "changedOnly": True,
+                "strictDefault": 1,
+                "moduleMatrix": [],
+            },
+        },
+    }
+    # shallow merge for tests
+    for key, value in overrides.items():
+        if isinstance(value, dict) and key in base:
+            base[key].update(value)
+        else:
+            base[key] = value
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
+    return settings_path
+
+
+def run_hook(tmp_path: Path, settings_path: Path, env: dict | None = None) -> subprocess.CompletedProcess[str]:
+    effective_env = {
+        "CLAUDE_SETTINGS_PATH": str(settings_path),
+        "SKIP_FORMAT": "1",
+        **({} if env is None else env),
+    }
+    return subprocess.run(
+        [str(HOOK)],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        env=effective_env,
+        check=True,
+    )
+
+
+def test_module_matrix_tasks_logged(tmp_path):
+    git_init(tmp_path)
+    settings = write_settings(tmp_path, {})
+    (tmp_path / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
+
+    result = run_hook(tmp_path, settings, env={"TEST_SCOPE": "module-task"})
+
+    assert "Выбранные задачи тестов: module-task" in result.stderr
+    assert "Запуск тестов: /bin/echo module-task" in result.stderr
+
+
+def test_common_change_forces_full_suite(tmp_path):
+    git_init(tmp_path)
+    settings = write_settings(tmp_path, {})
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs/.active_feature").write_text("demo", encoding="utf-8")
+
+    result = run_hook(tmp_path, settings)
+
+    assert "полный прогон тестов" in result.stderr
+    assert "Выбранные задачи тестов: default_task" in result.stderr
+    assert "Запуск тестов: /bin/echo default_task" in result.stderr

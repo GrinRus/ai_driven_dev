@@ -70,7 +70,10 @@ class InitClaudeWorkflowTests(unittest.TestCase):
         # run with force: file should be reset to template contents
         self.run_script(workdir, "--force")
         content = target.read_text(encoding="utf-8")
-        self.assertTrue(content.startswith("# CLAUDE.md"), "force flag must overwrite existing files")
+        self.assertTrue(
+            content.startswith("# Claude Code Workflow"),
+            "force flag must overwrite existing files",
+        )
 
 
 if __name__ == "__main__":

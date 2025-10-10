@@ -15,10 +15,16 @@ except Exception:
 PY
 }
 
-file_path="$(printf '%s' "$payload" | python3 - <<'PY'
-import json,sys
-d=json.load(sys.stdin)
-print(d.get("tool_input",{}).get("file_path",""))
+file_path="$(
+  PAYLOAD="$payload" python3 - <<'PY'
+import json, os
+payload = os.environ.get("PAYLOAD") or ""
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    print("")
+else:
+    print(data.get("tool_input", {}).get("file_path", ""))
 PY
 )"
 
@@ -31,7 +37,7 @@ if [[ ! "$file_path" =~ (^|/)src/main/ ]] || [[ ! "$file_path" =~ \.(kt|java)$ ]
 fi
 
 # выведем ожидаемые имена тестов (Kotlin/Java)
-rel="${file_path#*/src/main/}"
+rel="${file_path#*src/main/}"
 test1="src/test/${rel%.*}Test.${file_path##*.}"
 test2="src/test/${rel%.*}Tests.${file_path##*.}"
 

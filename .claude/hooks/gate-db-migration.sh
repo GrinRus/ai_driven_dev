@@ -15,10 +15,16 @@ except Exception:
 PY
 }
 
-file_path="$(printf '%s' "$payload" | python3 - <<'PY'
-import json,sys
-d=json.load(sys.stdin)
-print(d.get("tool_input",{}).get("file_path",""))
+file_path="$(
+  PAYLOAD="$payload" python3 - <<'PY'
+import json, os
+payload = os.environ.get("PAYLOAD") or ""
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    print("")
+else:
+    print(data.get("tool_input", {}).get("file_path", ""))
 PY
 )"
 
@@ -34,12 +40,12 @@ fi
 # ищем новую миграцию среди изменённых/неотслеживаемых файлов
 has_migration=0
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
-  if git diff --name-only HEAD | grep -E '(^|/)src/main/resources/.*/db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
+  if git diff --name-only HEAD | grep -E '(^|/)src/main/resources/(.*/)?db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
     has_migration=1
   fi
 fi
 if [[ $has_migration -eq 0 ]]; then
-  if git ls-files --others --exclude-standard | grep -E '(^|/)src/main/resources/.*/db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
+  if git ls-files --others --exclude-standard | grep -E '(^|/)src/main/resources/(.*/)?db/migration/.*\.(sql|xml|yaml)$' >/dev/null 2>&1; then
     has_migration=1
   fi
 fi
