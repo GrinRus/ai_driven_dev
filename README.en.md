@@ -23,6 +23,7 @@ _Last sync with `README.md`: 2025-10-10._
   - [Option B — local file](#option-b--local-file)
 - [Prerequisites](#prerequisites)
 - [Quick start in Claude Code](#quick-start-in-claude-code)
+- [Feature kickoff checklist](#feature-kickoff-checklist)
 - [Slash commands](#slash-commands)
 - [Branch & commit modes](#branch--commit-modes)
 - [Selective Gradle tests](#selective-gradle-tests)
@@ -99,6 +100,17 @@ Supports macOS/Linux. Use WSL or Git Bash on Windows.
 
 You’ll get the full artifact chain (PRD, plan, tasklist, OpenAPI, tests), automatic `/test-changed` runs guarded by gates, and `/commit` + `/review` workflows aligned with the active convention.
 
+## Feature kickoff checklist
+
+1. Create/switch a branch via `/branch-new` (or manually) and activate the slug with `/feature-activate <slug>`.
+2. Generate discovery artifacts: `/idea-new`, `/plan-new`, `/tasks-new` until the status becomes READY/PASS.
+3. Prepare integrations and data: `/api-spec-new`, run `contract-checker`, and call `db-migrator` when the domain model changes.
+4. Close the testing loop: `/tests-generate`, make sure `gate-tests` no longer warns or blocks edits.
+5. Implement in small increments via `/implement`, watching messages from `gate-workflow`, `gate-api-contract`, and `gate-db-migration`.
+6. Request `/review` once `tasklist.md` checkboxes are complete, tests are green, and artifacts stay in sync.
+
+A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
+
 ## Slash commands
 
 | Command | Purpose | Example |
@@ -144,6 +156,7 @@ Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `do
 ## Additional resources
 - Step-by-step walkthrough with before/after structure: `docs/usage-demo.md`.
 - Workflow and gate overview: `workflow.md`.
+- Agent & gate playbook: `docs/agents-playbook.md`.
 - Configuration deep dive: `docs/customization.md`.
 - Original Russian README: `README.md`.
 - Sample Gradle monorepo & helper script: `examples/gradle-demo/`, `examples/apply-demo.sh`.
