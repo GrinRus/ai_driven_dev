@@ -67,3 +67,20 @@
 - [x] `docs/agents-playbook.md`: описать последовательность работы всех агентов (analyst → planner → validator → implementer → reviewer → api-designer → contract-checker → db-migrator → qa-author), список их команд и ожидаемые входы/выходы.
 - [x] `docs/agents-playbook.md`: документировать взаимодействие с барьерами (`gate-workflow`, `gate-api-contract`, `gate-db-migration`, `gate-tests`, `lint-deps`), условия срабатывания, способы обхода и troubleshooting.
 - [x] README / onboarding: добавить ссылку на playbook и краткий чеклист запуска фичи, чтобы новая команда понимала полный цикл действий и проверки.
+
+## Wave 5
+
+### Расширяемость автоматизации и стеков
+- [ ] `.claude/hooks/format-and-test.sh`: реализовать декларативный список раннеров (Gradle/NPM/Pytest) с автоподбором по `moduleMatrix`; обновить пример конфигурации в `.claude/settings.json` и добавить fallback для смешанных проектов.
+- [ ] `init-claude-workflow.sh`: генерировать пресет `polyglot`, который разворачивает заготовки для Gradle, Node и Python модулей (настройка `automation.format/tests`, примеры `moduleMatrix`, инструкции по зависимостям).
+- [ ] `tests/test_format_and_test.py`: дополнить кейсами, проверяющими переключение раннеров, `TEST_SCOPE` и `STRICT_TESTS` в мульти-стековых проектах; создать заглушки npm/pytest внутри временного каталога.
+
+### Наблюдаемость и аналитика
+- [ ] `scripts/ci-lint.sh`: добавить флаг `--json-report`, выводящий длительность и статус каждого шага в `ci-report.json`; сохранять файл как артефакт GitHub Actions.
+- [ ] `.claude/hooks/format-and-test.sh`: писать события запусков в `.claude/cache/test-runs.json` (timestamp, runner, задачи, exit-code) и чистить логи старше N дней; описать формат в `docs/customization.md`.
+- [ ] `docs/usage-demo.md`: расширить раздел troubleshooting инструкцией по анализу новых отчётов (`ci-report.json`, `test-runs.json`) и чеклистом «что делать, если тесты не стартуют».
+
+### Enterprise-безопасность и процессы
+- [ ] `.claude/hooks/protect-prod.sh`: поддержать профили (`protection.profiles[]`) с разными наборами protected/allowlist и режимом `log-only`; добавить CLI-переключатель `scripts/protection_profile.py`.
+- [ ] `docs/security-hardening.md`: подготовить гайд по настройке профилей защиты, secret-scanning и интеграции с GitHub Advanced Security; сослаться на него из `README.md` и `README.en.md`.
+- [ ] `.github/workflows/ci.yml`: ввести матрицу ОС (ubuntu, macos), шаг `secret-detection` (gitleaks/gh secret scan) и описание кастомизации в `docs/customization.md`.
