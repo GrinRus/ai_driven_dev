@@ -105,7 +105,9 @@
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/*:*)",
-      "Bash(python3 scripts/*:*)"
+      "Bash(python3 scripts/*:*)",
+      "SlashCommand:/test-changed:*",
+      "SlashCommand:/commit:*"
     ],
     "ask": [
       "Bash(git add:*)",
@@ -128,6 +130,11 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
             "timeout": 5
           }
         ]
