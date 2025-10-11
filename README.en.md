@@ -7,7 +7,7 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-10-12._
+_Last sync with `README.md`: 2025-10-11._
 
 ## TL;DR
 - `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /tasks-new → /implement → /review` together with API/DB/test gates.
@@ -19,6 +19,7 @@ _Last sync with `README.md`: 2025-10-12._
 - [What you get](#what-you-get)
 - [Workflow architecture](#workflow-architecture)
 - [Repository structure](#repository-structure)
+- [Deep dive into components](#deep-dive-into-components)
 - [Key scripts and hooks](#key-scripts-and-hooks)
 - [Test toolkit](#test-toolkit)
 - [Access policies & gates](#access-policies--gates)
@@ -72,6 +73,42 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | `.github/workflows/ci.yml` | CI pipeline | Installs linters and runs `scripts/ci-lint.sh` |
 | `init-claude-workflow.sh` | Bootstrap script | Flags `--commit-mode`, `--enable-ci`, `--force`, `--dry-run`; dependency detection |
 | `workflow.md` | Process playbook | Explains the idea → plan → tasks → implement → review loop |
+
+## Deep dive into components
+
+### Bootstrap & utilities
+- `init-claude-workflow.sh` — modular bootstrap with dependency checks, `--commit-mode/--enable-ci/--force/--dry-run`, and generation of `.claude/`, `config/`, `docs/`, `templates/` plus commit-mode updates.
+- `scripts/ci-lint.sh` — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, reused both locally and in CI.
+- `scripts/smoke-workflow.sh` — integration smoke scenario for `gate-workflow.sh`, simulating slug → PRD → plan → tasklist.
+- `examples/apply-demo.sh` — copies the Gradle monorepo from `examples/gradle-demo/`, runs the bootstrap, and showcases selective Gradle tasks.
+
+### Hooks & automation
+- `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, inspecting `git diff`, and deciding whether to run selective or full suites.
+- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, plan, and tasklist entries.
+- `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — gates driven by `config/gates.json`, ensuring OpenAPI specs, database migrations, and tests with `soft/hard/disabled` modes.
+- `.claude/hooks/protect-prod.sh` and `lint-deps.sh` — guard production paths and flag dependencies outside the allowlist, respecting environment overrides.
+
+### Configuration & policy
+- `.claude/settings.json` — two presets (`start`, `strict`), allow/ask/deny lists, pre/post hooks, and automation knobs (`automation.format/tests`, `protection`).
+- `config/conventions.json` — branch/commit modes (`ticket-prefix`, `conventional`, `mixed`), auxiliary fields, and review reminders.
+- `config/gates.json` — toggles for `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, plus the slug source (`feature_slug_source`).
+- `config/allowed-deps.txt` — flat `group:artifact` allowlist consumed by `lint-deps.sh`.
+
+### Docs & templates
+- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — core guides covering the workflow, customization, demo walkthrough, and sub-agent responsibilities.
+- `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — enriched artefact templates with hints and review checklists.
+- `templates/git-hooks/*.sample` and `templates/git-hooks/README.md` — ready-to-copy `commit-msg`, `prepare-commit-msg`, `pre-push` hooks with setup instructions.
+- `doc/backlog.md` and `docs/release-notes.md` — wave backlog and release governance to plan future iterations.
+
+### Tests & quality
+- `tests/test_init_claude_workflow.py` — covers bootstrap execution together with `--dry-run` and `--force`.
+- `tests/test_gate_*.py` — scenarios for workflow, API, DB migration, and mandatory-test gates.
+- `tests/test_format_and_test.py` — selective runner coverage with module matrices and environment flags.
+- `tests/test_settings_policy.py` — enforces `permissions`/`hooks` constraints in `.claude/settings.json`.
+
+### Demos & extensions
+- `examples/gradle-demo/` — two-service Gradle monorepo used to validate selective testing.
+- `claude-workflow-extensions.patch` — patch file bundling agent, command, and gate extensions ready to apply to blank repositories.
 
 ## Key scripts and hooks
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.

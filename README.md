@@ -12,6 +12,7 @@
 - [Что входит в шаблон](#что-входит-в-шаблон)
 - [Архитектура workflow](#архитектура-workflow)
 - [Структура репозитория](#структура-репозитория)
+- [Детальный анализ компонентов](#детальный-анализ-компонентов)
 - [Ключевые скрипты и хуки](#ключевые-скрипты-и-хуки)
 - [Тестовый контур](#тестовый-контур)
 - [Политики доступа и гейты](#политики-доступа-и-гейты)
@@ -65,6 +66,42 @@
 | `.github/workflows/ci.yml` | CI pipeline | Запускает `scripts/ci-lint.sh`, ставит `shellcheck`, `markdownlint`, `yamllint` |
 | `init-claude-workflow.sh` | Bootstrap-скрипт | Флаги `--commit-mode`, `--enable-ci`, `--force`, `--dry-run`, проверка зависимостей и генерация структуры |
 | `workflow.md` | Процессная документация | Детальный сценарий idea → plan → tasks → implement → review |
+
+## Детальный анализ компонентов
+
+### Скрипты установки и утилиты
+- `init-claude-workflow.sh` — модульный bootstrap с проверкой зависимостей, режимами `--commit-mode/--enable-ci/--force/--dry-run`, созданием `.claude/`, `config/`, `docs/`, `templates/` и обновлением `config/conventions.json`.
+- `scripts/ci-lint.sh` — единый запуск `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, который используется локально и в CI.
+- `scripts/smoke-workflow.sh` — интеграционный smoke-тест `gate-workflow.sh`, эмулирует последовательность slug → PRD → план → tasklist.
+- `examples/apply-demo.sh` — копирует Gradle-монорепо из `examples/gradle-demo/`, запускает bootstrap и демонстрирует selective Gradle-тесты.
+
+### Git-хуки и автоматизация
+- `.claude/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, поддерживает флаги `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, анализирует `git diff` и решает, запускать выборочные или полные задачи.
+- `.claude/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного slug нет PRD, плана или записей в `tasklist.md`.
+- `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — гейты, завязанные на `config/gates.json`: проверяют наличие OpenAPI, миграций и тестов с учётом режимов `soft/hard/disabled`.
+- `.claude/hooks/protect-prod.sh` и `lint-deps.sh` — защищают продакшн-пути и подсвечивают зависимости вне allowlist, учитывая переменные окружения и кастомные исключения.
+
+### Конфигурация и политики
+- `.claude/settings.json` — два пресета (`start`, `strict`), список разрешённых/запрашиваемых команд, pre/post-хуки и параметры автоматизации (`automation.format/tests`, `protection`).
+- `config/conventions.json` — описание commit/branch режимов (`ticket-prefix`, `conventional`, `mixed`), вспомогательных полей и рекомендаций для ревью.
+- `config/gates.json` — флаги `api_contract`, `db_migration`, `tests_required`, `deps_allowlist` и путь к активной фиче (`feature_slug_source`).
+- `config/allowed-deps.txt` — плоский allowlist `group:artifact`, который использует `lint-deps.sh`.
+
+### Документация и шаблоны
+- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — руководства по процессу, настройке, демонстрациям и ролям саб-агентов.
+- `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — расширенные шаблоны артефактов с подсказками и чеклистами.
+- `templates/git-hooks/*.sample` и `templates/git-hooks/README.md` — готовые `commit-msg`, `prepare-commit-msg`, `pre-push` с инструкциями по установке.
+- `doc/backlog.md` и `docs/release-notes.md` — wave-бэклог и регламент релизов для планирования дальнейших итераций.
+
+### Тесты и контроль качества
+- `tests/test_init_claude_workflow.py` — проверка bootstrap-скрипта, флагов `--dry-run` и `--force`.
+- `tests/test_gate_*.py` — сценарии для гейтов workflow, API, миграций БД и обязательных тестов.
+- `tests/test_format_and_test.py` — тесты selective runner с матрицей модулей и переменными окружения.
+- `tests/test_settings_policy.py` — защита `permissions`/`hooks` в `.claude/settings.json`.
+
+### Демо и расширения
+- `examples/gradle-demo/` — двухсервисный Gradle-монорепо для проверки selective тестов и интеграции.
+- `claude-workflow-extensions.patch` — patch-файл с расширениями агентов, команд и гейтов, пригодный для применения к чистому репозиторию.
 
 ## Ключевые скрипты и хуки
 - **`init-claude-workflow.sh`** — валидирует `bash/git/python3`, ищет Gradle/kotlin-линтеры, генерирует каталоги `.claude/ config/ docs/ templates/`, перезаписывает артефакты по `--force`, выводит dry-run и настраивает режим коммитов.
