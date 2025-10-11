@@ -88,6 +88,29 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — gates driven by `config/gates.json`, ensuring OpenAPI specs, database migrations, and tests with `soft/hard/disabled` modes.
 - `.claude/hooks/protect-prod.sh` and `lint-deps.sh` — guard production paths and flag dependencies outside the allowlist, respecting environment overrides.
 
+### Claude Code sub-agents
+- `.claude/agents/analyst.md` — turns raw ideas into PRDs, asking clarifying questions and labelling READY/BLOCKED status with risks.
+- `.claude/agents/planner.md` — produces `docs/plan/<slug>.md` with DoD, iterations, and impacted modules based on the PRD.
+- `.claude/agents/validator.md` — audits PRD/plan completeness, returning PASS/FAIL plus concrete follow-up questions.
+- `.claude/agents/implementer.md` — drives iterative delivery, enforces `/test-changed`, and sticks to the implementation plan.
+- `.claude/agents/reviewer.md` — summarizes review findings, aligns with checklists, and tracks readiness.
+- `.claude/agents/api-designer.md` — prepares `docs/api/<slug>.yaml`, capturing outstanding contract uncertainties.
+- `.claude/agents/qa-author.md` — generates unit/integration tests and `docs/test/<slug>-manual.md`.
+- `.claude/agents/db-migrator.md` — drafts Flyway/Liquibase migrations (`db/migration/V<timestamp>__<slug>.sql`) and manual steps.
+- `.claude/agents/contract-checker.md` — compares controllers against OpenAPI specs and highlights mismatches.
+
+### Slash-command definitions
+- `.claude/commands/feature-activate.md` — locks the active slug in `docs/.active_feature`, enabling feature-specific gates.
+- `.claude/commands/idea-new.md` — invokes `analyst` to assemble the PRD and outstanding questions.
+- `.claude/commands/plan-new.md` — chains `planner` and `validator`, updating the plan and validation report.
+- `.claude/commands/tasks-new.md` — syncs `tasklist.md` checklists with the latest plan content.
+- `.claude/commands/api-spec-new.md` — delegates OpenAPI authoring to `api-designer`, flagging missing endpoints.
+- `.claude/commands/tests-generate.md` — calls `qa-author` for automated tests and manual scenarios.
+- `.claude/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
+- `.claude/commands/review.md` — compiles review feedback, statuses, and checklist completion.
+- `.claude/commands/commit.md` & `commit-validate.md` — assemble/validate commit messages per `config/conventions.json`.
+- `.claude/commands/test-changed.md` — wraps `format-and-test.sh` for selective Gradle execution.
+
 ### Configuration & policy
 - `.claude/settings.json` — two presets (`start`, `strict`), allow/ask/deny lists, pre/post hooks, and automation knobs (`automation.format/tests`, `protection`).
 - `config/conventions.json` — branch/commit modes (`ticket-prefix`, `conventional`, `mixed`), auxiliary fields, and review reminders.

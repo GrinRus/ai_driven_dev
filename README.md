@@ -81,6 +81,29 @@
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — гейты, завязанные на `config/gates.json`: проверяют наличие OpenAPI, миграций и тестов с учётом режимов `soft/hard/disabled`.
 - `.claude/hooks/protect-prod.sh` и `lint-deps.sh` — защищают продакшн-пути и подсвечивают зависимости вне allowlist, учитывая переменные окружения и кастомные исключения.
 
+### Саб-агенты Claude Code
+- `.claude/agents/analyst.md` — формализует идею в PRD со статусом READY/BLOCKED, задаёт уточняющие вопросы и фиксирует риски.
+- `.claude/agents/planner.md` — строит по PRD пошаговый план (`docs/plan/<slug>.md`) с DoD и ссылками на модули.
+- `.claude/agents/validator.md` — сверяет PRD/план по списку критериев и возвращает PASS/FAIL с конкретными вопросами.
+- `.claude/agents/implementer.md` — ведёт реализацию малыми итерациями, требует запуск `/test-changed` и опирается на план.
+- `.claude/agents/reviewer.md` — оформляет ревью: проверяет код против чеклистов, фиксирует замечания и статус готовности.
+- `.claude/agents/api-designer.md` — готовит/обновляет `docs/api/<slug>.yaml`, перечисляет неясные контракты и примеры.
+- `.claude/agents/qa-author.md` — генерирует юнит/интеграционные тесты и `docs/test/<slug>-manual.md`.
+- `.claude/agents/db-migrator.md` — описывает миграции, создаёт заготовки `db/migration/V<timestamp>__<slug>.sql` и ручные шаги.
+- `.claude/agents/contract-checker.md` — сравнивает контроллеры с OpenAPI, возвращает дифф и подсказки по синхронизации.
+
+### Слэш-команды и пайплайн
+- `.claude/commands/feature-activate.md` — выставляет slug в `docs/.active_feature`, запускает гейты для конкретной фичи.
+- `.claude/commands/idea-new.md` — вызывает `analyst`, создаёт PRD и список открытых вопросов.
+- `.claude/commands/plan-new.md` — связывает `planner` и `validator`, обновляет план и протокол проверки.
+- `.claude/commands/tasks-new.md` — обновляет `tasklist.md` и чеклисты, синхронизируя их со свежим планом.
+- `.claude/commands/api-spec-new.md` — поручает `api-designer` собрать OpenAPI и подсветить непокрытые эндпоинты.
+- `.claude/commands/tests-generate.md` — активирует `qa-author` для автогенерации тестов и ручных сценариев.
+- `.claude/commands/implement.md` — упрощает цикл реализации: фиксирует шаги, напоминает про автотесты и гейты.
+- `.claude/commands/review.md` — оформляет ревью и статусы READY/BLOCKED, проверяет чеклисты.
+- `.claude/commands/commit.md` и `commit-validate.md` — помогают собрать сообщение коммита в активном режиме `config/conventions.json`.
+- `.claude/commands/test-changed.md` — тонкая настройка `format-and-test.sh`, запускает selective Gradle задачи.
+
 ### Конфигурация и политики
 - `.claude/settings.json` — два пресета (`start`, `strict`), список разрешённых/запрашиваемых команд, pre/post-хуки и параметры автоматизации (`automation.format/tests`, `protection`).
 - `config/conventions.json` — описание commit/branch режимов (`ticket-prefix`, `conventional`, `mixed`), вспомогательных полей и рекомендаций для ревью.
