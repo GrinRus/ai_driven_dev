@@ -16,9 +16,11 @@
 - [Архитектура и взаимосвязи](#архитектура-и-взаимосвязи)
 - [Ключевые скрипты и хуки](#ключевые-скрипты-и-хуки)
 - [Тестовый контур](#тестовый-контур)
+- [Диагностика и отладка](#диагностика-и-отладка)
 - [Политики доступа и гейты](#политики-доступа-и-гейты)
 - [Документация и шаблоны](#документация-и-шаблоны)
 - [Примеры и демо](#примеры-и-демо)
+- [Незакрытые задачи и наблюдения](#незакрытые-задачи-и-наблюдения)
 - [Установка](#установка)
   - [Вариант A — curl](#вариант-a--curl)
   - [Вариант B — локально](#вариант-b--локально)
@@ -55,6 +57,7 @@
 | `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
 | `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `validator`, `implementer`, `reviewer`, `api-designer`, `qa-author`, `db-migrator`, `contract-checker` |
 | `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
+| `.claude/gradle/` *(создаётся при установке)* | Gradle-хелперы | `init-print-projects.gradle` объявляет задачу `ccPrintProjectDirs` для selective runner |
 | `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, `feature_slug_source` |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
 | `config/allowed-deps.txt` | Allowlist зависимостей | Формат `group:artifact`; предупреждения выводит `lint-deps.sh` |
@@ -67,6 +70,12 @@
 | `.github/workflows/ci.yml` | CI pipeline | Запускает `scripts/ci-lint.sh`, ставит `shellcheck`, `markdownlint`, `yamllint` |
 | `init-claude-workflow.sh` | Bootstrap-скрипт | Флаги `--commit-mode`, `--enable-ci`, `--force`, `--dry-run`, проверка зависимостей и генерация структуры |
 | `workflow.md` | Процессная документация | Детальный сценарий idea → plan → tasks → implement → review |
+| `claude-workflow-extensions.patch` | Пакет расширений | Diff с дополнительными агентами, гейтами и командами для продвинутых установок |
+| `README.en.md` | Англоязычный README | Синхронизируется с этой версией, содержит пометку _Last sync_ |
+| `CONTRIBUTING.md` | Правила вкладов | Описывает процесс PR/issue, требования к коммитам и линтингу |
+| `LICENSE` | Лицензия | MIT с ограничениями ответственности |
+
+> `init-claude-workflow.sh` генерирует CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и `.claude/gradle/init-print-projects.gradle`. После установки скопируйте их в репозиторий монорепо, чтобы smoke/CI сценарии и команды `/commit`/`/branch-new` работали стабильно.
 
 ## Детальный анализ компонентов
 
@@ -156,6 +165,14 @@
 - `scripts/ci-lint.sh` и `.github/workflows/ci.yml` — единый entrypoint линтеров/тестов для локального запуска и GitHub Actions.
 - `scripts/smoke-workflow.sh` — E2E smoke, подтверждает, что `gate-workflow` блокирует исходники до появления PRD/плана/tasklist.
 
+## Диагностика и отладка
+- **Линтеры и тесты:** запускайте `scripts/ci-lint.sh` для полного набора (`shellcheck`, `markdownlint`, `yamllint`, `python -m unittest`) или адресно `python3 -m unittest tests/test_gate_workflow.py`.
+- **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `.claude/hooks/format-and-test.sh`; `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY` ослабляют `protect-prod.sh`.
+- **Диагностика гейтов:** передайте payload через stdin: `echo '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}' | CLAUDE_PROJECT_DIR=$PWD .claude/hooks/gate-workflow.sh`.
+- **Selective runner:** пересоздайте карту модулей `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs`, проверьте `.claude/cache/project-dirs.txt`.
+- **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /tasks-new`.
+- **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
+
 ## Политики доступа и гейты
 - `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй включает pre- и post-хуки (`protect-prod`, `gate-*`, `format-and-test`, `lint-deps`) и требует явного подтверждения `git add/commit/push`.
 - Раздел `automation` управляет форматированием и тестами, а `protection` задаёт сохранность продовых артефактов с поддержкой `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY`.
@@ -173,6 +190,12 @@
 - `examples/gradle-demo/` — двухсервисный Gradle-монорепо (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5), демонстрирующий структуру модулей и пригодный для selective тестов.
 - `examples/apply-demo.sh` — пошаговый сценарий применения bootstrap к демо-проекту, полезен для воркшопов и презентаций.
 - `scripts/smoke-workflow.sh` + `docs/usage-demo.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
+
+## Незакрытые задачи и наблюдения
+- `doc/backlog.md` хранит Wave 2 пункты, среди которых возврат CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и Gradle-хелпера в репозиторий после генерации.
+- `claude-workflow-extensions.patch` расширяет агентов/команды; применяйте его вручную и фиксируйте конфликты, если используете дополнительные гейты.
+- Собирая новый монорепо, переносите сгенерированные CLI и `.claude/gradle/init-print-projects.gradle` под контроль версий — smoke/CI тесты ожидают их наличия.
+- Следите за синхронизацией `README.en.md` (метка _Last sync_) после обновлений документации.
 
 ## Установка
 
