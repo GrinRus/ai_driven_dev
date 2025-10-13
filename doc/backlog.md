@@ -109,3 +109,13 @@
 - [x] `.claude/commands/`: расширить описание `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review` инструкциями по запуску соответствующих пресетов и обновить quick-reference таблицу.
 - [x] `scripts/smoke-workflow.sh`: включить сценарий end-to-end, который прогоняет пресеты по демо-фиче и проверяет генерацию PRD/ADR/tasklist.
 - [x] `docs/usage-demo.md`: обновить walkthrough с разделом «Работа с пресетами» и чеклистом интеграции для новых команд.
+
+## Wave 8
+
+### Чистка устаревших команд и документации
+- [ ] `.claude/commands/{feature-new.md,feature-adr.md,feature-tasks.md,docs-generate.md}`: решить — удалить или переписать под актуальный флоу `/idea-new → /plan-new → /tasks-new → /implement → /review`; обновить quick-reference, чтобы не ссылаться на несуществующие агенты/скрипты.
+- [ ] `README.md` / `README.en.md`: выровнять чеклисты и примеры запуска фичи так, чтобы все ссылки шли через `/feature-activate`, `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`; убрать инструкции по `/feature-new`, `/feature-adr`, `/feature-tasks`, `/docs-generate`.
+- [ ] `docs/usage-demo.md`: переписать walkthrough без `/feature-new` и Python CLI, добавить шаги для `/feature-activate` и актуальных гейтов (workflow/API/DB/tests).
+
+### Контроль использования CLI-утилит
+- [ ] `doc/backlog.md` / `tests/`: принять решение по Python-утилитам (`scripts/branch_new.py`, `scripts/commit_msg.py`, `scripts/conventions_set.py`) — либо вернуть их в репозиторий с тестами, либо переписать слэш-команды на чистый shell; зафиксировать итог в документации и в hooked командах `/branch-new`, `/commit*`, `/conventions-*`.
