@@ -69,7 +69,7 @@ new file mode 100644
 +1) На основе `docs/plan/$SLUG.md` и изменённого кода — допиши/создай юнит‑тесты (`src/test/**`) для критичной логики.
 +2) При необходимости добавь фэйковые адаптеры/фабрики данных.
 +3) Сформируй `docs/test/$SLUG-manual.md` со сценариями ручной проверки (positive/negative/boundary).
-+4) Запусти `/test-changed` и приложи краткий отчёт, что покрыто тестами.
++4) Выполни `$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh` (можно указать `TEST_SCOPE`) и кратко опиши, какие сценарии покрыты.
 diff --git a/.claude/commands/api-spec-new.md b/.claude/commands/api-spec-new.md
 new file mode 100644
 --- /dev/null
@@ -96,7 +96,7 @@ new file mode 100644
 +1) Создать/обновить юнит‑тесты для изменённого кода (по `git diff`).
 +2) При необходимости — добавить интеграционные тесты (mock/stub) для внешних взаимодействий.
 +3) Сохранить короткие сценарии ручной проверки в `docs/test/$1-manual.md`.
-+4) Запустить `/test-changed`.
++4) Выполнить `$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh` c нужными `TEST_SCOPE`/`STRICT_TESTS` настройками для проверки.
 diff --git a/.claude/hooks/gate-api-contract.sh b/.claude/hooks/gate-api-contract.sh
 new file mode 100755
 --- /dev/null
@@ -330,7 +330,6 @@ diff --git a/.claude/settings.json b/.claude/settings.json
        "Bash(./gradlew:*)","Bash(gradle:*)",
        "Bash(.claude/hooks/*:*)",
        "Bash(python3 scripts/*:*)",
-+      "SlashCommand:/test-changed:*",
 +      "SlashCommand:/commit:*",
        "SlashCommand:/tests-generate:*",
        "SlashCommand:/api-spec-new:*"
