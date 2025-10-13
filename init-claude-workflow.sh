@@ -930,6 +930,28 @@ allowed-tools: Bash(python3 scripts/conventions_set.py:*),Read,Edit,Write
 MD
 }
 
+generate_gradle_helpers() {
+  write_template ".claude/gradle/init-print-projects.gradle" <<'GRADLE'
+// Registers ccPrintProjectDirs to list Gradle project directories for selective test runs.
+gradle.settingsEvaluated {
+    gradle.rootProject { root ->
+        root.tasks.register("ccPrintProjectDirs") {
+            group = "claude"
+            description = "Print Gradle project directories for Claude selective test runner."
+            doLast {
+                root.allprojects
+                    .findAll { it.projectDir?.exists() }
+                    .sort { it.path }
+                    .each { project ->
+                        println("${project.path}:${project.projectDir}")
+                    }
+            }
+        }
+    }
+}
+GRADLE
+}
+
 generate_config_and_scripts() {
   write_template "config/conventions.json" <<'JSON'
 {
@@ -1131,6 +1153,7 @@ main() {
   generate_claude_settings
   generate_agents
   generate_commands
+  generate_gradle_helpers
   generate_config_and_scripts
   replace_commit_mode
   generate_ci_workflow

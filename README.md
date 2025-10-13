@@ -169,7 +169,7 @@
 - **Линтеры и тесты:** запускайте `scripts/ci-lint.sh` для полного набора (`shellcheck`, `markdownlint`, `yamllint`, `python -m unittest`) или адресно `python3 -m unittest tests/test_gate_workflow.py`.
 - **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `.claude/hooks/format-and-test.sh`; `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY` ослабляют `protect-prod.sh`.
 - **Диагностика гейтов:** передайте payload через stdin: `echo '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}' | CLAUDE_PROJECT_DIR=$PWD .claude/hooks/gate-workflow.sh`.
-- **Selective runner:** пересоздайте карту модулей `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs`, проверьте `.claude/cache/project-dirs.txt`.
+- **Selective runner:** выполните `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs` — задача выведет пары `:module:/abs/path`; перенаправьте вывод в `.claude/cache/project-dirs.txt` или используйте результат для обновления `automation.tests.moduleMatrix`.
 - **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /tasks-new`.
 - **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
 

@@ -277,7 +277,7 @@ Switch via `/conventions-set conventional` or the CLI helper. Add a commit-msg h
 ## Selective Gradle tests
 
 `.claude/hooks/format-and-test.sh`:
-1. Builds a project map via `.claude/gradle/init-print-projects.gradle`.
+1. Supports selective runs via `automation.tests.moduleMatrix`; generate module listings with `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs` and wire them into the matrix as needed.
 2. Filters changed files (`git diff` + untracked) to build-impacting paths.
 3. Maps them to Gradle modules, spawning tasks (`:module:clean :module:test`).
 4. Falls back to `:jvmTest` / `:testDebugUnitTest` or repository-wide `gradle test`.
