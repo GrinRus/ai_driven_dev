@@ -162,10 +162,8 @@ demo-monorepo/
 1. Обновите версию в `pyproject.toml` и соответствующий блок в `CHANGELOG.md`.
 2. Запустите `scripts/ci-lint.sh` и `claude-workflow smoke`, зафиксируйте изменения и сделайте `git push` в `main`. Workflow `autotag.yml` создаст тег `v<версия>`, если его ещё нет.
 3. Тег запустит `release.yml`: пакет соберётся (`python -m build`), артефакты попадут в GitHub Release и в артефакты workflow.
-4. После проверки релиза запустите workflow `Publish` (автоматически от события Release или вручную). Опции:
-   - `pypi` (по умолчанию) — требуется секрет `PYPI_API_TOKEN`.
-   - `testpypi` — используйте ручной запуск и секрет `TEST_PYPI_API_TOKEN`.
-5. Убедитесь, что релиз появился на GitHub и что дистрибутив доступен в соответствующем реестре. При ошибках переопубликовать можно, повторно запустив `Publish` с флагом `skip-existing`.
+4. Убедитесь, что релиз появился на GitHub и скачивание wheel/zip работает. Пользователи ставят CLI напрямую через `uv tool install ... --from git+https://github.com/GrinRus/ai_driven_dev.git[@tag]` или `pipx install git+https://github.com/GrinRus/ai_driven_dev.git`.
+5. При необходимости повторите сборку, обновив версию и перезапустив цикл (тег → release).
 
 ## Частые вопросы
 - **Запуск скрипта терпит неудачу:** проверьте вывод проверки зависимостей и убедитесь, что Gradle доступен в PATH.

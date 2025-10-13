@@ -184,8 +184,7 @@
 
 ### Автоматизация релизов CLI
 - [ ] Создать workflow `.github/workflows/release.yml`, который реагирует на тег `v*`, собирает пакет (`python -m build` или `uv build`), прикрепляет `wheel` и `sdist` к GitHub Release через `softprops/action-gh-release`, а также сохраняет артефакты в CI.
-- [ ] Добавить workflow `publish.yml` (ручной `workflow_dispatch` или по тегу) для публикации в PyPI через `pypa/gh-action-pypi-publish`, оформить требования к секретам (`PYPI_API_TOKEN`) и расписать порядок действий в документации.
 - [ ] Продумать авто-тегирование: job на `push` в `main`, который считывает версию из `pyproject.toml`, сверяет с последним релизом и при изменении создаёт аннотированный тег (через `actions/create-release` или `git tag` + `gh`), с защитой от повторов и уведомлением при сбое.
-- [ ] Обновить `README.md`, `README.en.md`, `docs/usage-demo.md` с описанием релизной цепочки (build → release → PyPI), добавить раздел troubleshooting (например, восстановление при провале загрузки).
+- [ ] Обновить `README.md`, `README.en.md`, `docs/usage-demo.md` с описанием релизной цепочки (build → release → установка через `uv`/`pipx`), добавить раздел troubleshooting.
 - [ ] Завести `CHANGELOG.md` или шаблон релизных заметок; интегрировать с релизным workflow (автоподхват последнего раздела или использование Release Drafter).
-- [ ] Протестировать весь путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release → публикация на TestPyPI/PyPI; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.
+- [ ] Протестировать полный путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.

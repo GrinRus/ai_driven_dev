@@ -322,9 +322,8 @@ git checkout -b feature/STORE-123
 ## Релизы CLI
 - Версия берётся из `pyproject.toml`; пуш в `main` автоматически создаёт тег `v<версия>` (`.github/workflows/autotag.yml`), если такого ещё нет.
 - Тег `v*` запускает workflow `release.yml`: собираются `sdist`/`wheel` (`python -m build`), артефакты прикрепляются к GitHub Release и сохраняются как artefact.
-- Workflow `publish.yml` публикует пакет на PyPI/TestPyPI: он стартует автоматически при публикации релиза или вручную через `workflow_dispatch` (параметр `repository`). Необходимые секреты: `PYPI_API_TOKEN`, опционально `TEST_PYPI_API_TOKEN`.
-- Перед релизом обновляйте `CHANGELOG.md` и README, проверяйте `scripts/ci-lint.sh` и `claude-workflow smoke`. После релиза убедитесь, что релиз появился в разделе GitHub Releases и пакет доступен в нужном реестре.
-- Для тестовых выкладок используйте ручной запуск `Publish` с параметром `testpypi`, предварительно настроив секрет `TEST_PYPI_API_TOKEN`.
+- Пользователи устанавливают CLI напрямую из репозитория: `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git` или `pipx install git+https://github.com/GrinRus/ai_driven_dev.git[@tag]`.
+- Перед релизом обновляйте `CHANGELOG.md` и README, проверяйте `scripts/ci-lint.sh` и `claude-workflow smoke`. После релиза убедитесь, что релиз появился в разделе GitHub Releases и что указанные инструкции по установке актуальны.
 
 ## Вклад и лицензия
 - Перед отправкой изменений ознакомьтесь с `CONTRIBUTING.md`.
