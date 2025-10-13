@@ -7,10 +7,10 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-10-12._
+_Last sync with `README.md`: 2025-10-13._
 
 ## TL;DR
-- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /tasks-new → /implement → /review` together with API/DB/test gates.
+- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /tasks-new → /implement → /review` with protective hooks and automated testing.
 - Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
@@ -40,7 +40,7 @@ _Last sync with `README.md`: 2025-10-12._
 
 ## What you get
 - Claude Code slash commands and sub-agents to bootstrap PRD/ADR/Tasklist docs, generate updates, and validate commits.
-- A multi-stage workflow (idea → plan → validation → tasks → implementation → review) powered by `analyst/planner/validator/implementer/reviewer` sub-agents plus `/api-spec-new` and `/tests-generate`.
+- A multi-stage workflow (idea → plan → tasks → implementation → review) powered by `analyst/planner/validator/implementer/reviewer` sub-agents; additional gates are toggled via `config/gates.json`.
 - Git hooks for auto-formatting, selective Gradle runs, and protection of production artifacts.
 - Commit convention presets (`ticket-prefix`, `conventional`, `mixed`) with documented templates for messages and branch names.
 - Documentation pack, issue/PR templates, and optional CI workflow.
@@ -49,7 +49,7 @@ _Last sync with `README.md`: 2025-10-12._
 ## Workflow architecture
 1. `init-claude-workflow.sh` scaffolds `.claude/`, configs, and templates.
 2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, validation, tasklist, implementation, and review with dedicated sub-agents.
-3. The `strict` preset in `.claude/settings.json` enables `gate-workflow`, `gate-api-contract`, `gate-db-migration`, `gate-tests`, and auto-runs `/test-changed` after each write.
+3. The `strict` preset in `.claude/settings.json` enables `protect-prod`, `gate-workflow`, and auto-runs `.claude/hooks/format-and-test.sh`; extra gates (`gate-api-contract`, `gate-db-migration`, `gate-tests`) are toggled via `config/gates.json`.
 4. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
@@ -60,7 +60,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | --- | --- | --- |
 | `.claude/settings.json` | Access & automation policies | `start`/`strict` presets, pre/post hooks, auto formatting/tests, production path protection |
 | `.claude/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review` with `allowed-tools` and inline shell steps |
-| `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, validator, implementer, reviewer, api-designer, qa-author, db-migrator, contract-checker |
+| `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, validator, implementer, reviewer, db-migrator, contract-checker |
 | `.claude/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
 | `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `feature_slug_source` |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
@@ -87,17 +87,15 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Hooks & automation
 - `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active slug, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
 - `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, plan, and tasklist checkboxes, while ignoring documentation/template edits.
-- `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — gates from `config/gates.json` ensuring OpenAPI artefacts (yaml/json), Flyway/Liquibase migrations (tracked and untracked), and matching tests for `soft/hard/disabled` modes with actionable hints.
+- `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — optional checks driven by `config/gates.json`, validating OpenAPI artefacts, Flyway/Liquibase migrations, and matching tests (`disabled|soft|hard`) with actionable hints.
 - `.claude/hooks/protect-prod.sh` and `lint-deps.sh` — guard production paths (`infra/prod/**`, `deploy/prod/**`), honour `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`, and flag Gradle dependencies outside `config/allowed-deps.txt`.
 - `.claude/gradle/init-print-projects.gradle` — helper Gradle script that registers `ccPrintProjectDirs` for selective runner module caching.
 
 ### Claude Code sub-agents
 - `.claude/agents/analyst.md` — turns raw ideas into PRDs, asks clarifying questions, tracks risks/assumptions, and updates `docs/prd/<slug>.prd.md` with READY/BLOCKED status.
 - `.claude/agents/planner.md` — produces `docs/plan/<slug>.md` with DoD and dependencies; `.claude/agents/validator.md` audits the plan and records follow-up questions for product/architecture.
-- `.claude/agents/implementer.md` — guides iterative delivery, enforces `/test-changed`, tracks gate status, and keeps `tasklist.md` aligned.
+- `.claude/agents/implementer.md` — guides iterative delivery, tracks gate status, and relies on `.claude/hooks/format-and-test.sh` for automatic testing.
 - `.claude/agents/reviewer.md` — summarizes review findings, checks tasklists, flips READY/BLOCKED, and records follow-up tasks.
-- `.claude/agents/api-designer.md` — prepares/updates `docs/api/<slug>.yaml`, describing CRUD/edge cases, error schema, and outstanding questions.
-- `.claude/agents/qa-author.md` — generates unit/integration tests, `docs/test/<slug>-manual.md`, triggers `/test-changed`, and reports coverage.
 - `.claude/agents/db-migrator.md` — drafts Flyway/Liquibase migrations (`db/migration/V<timestamp>__<slug>.sql`, changelog) and notes manual steps/dependencies.
 - `.claude/agents/contract-checker.md` — compares controllers against OpenAPI specs, flags missing/extraneous endpoints/status codes, and provides actionable summaries.
 
@@ -106,12 +104,9 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `.claude/commands/idea-new.md` — persists the slug in `docs/.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions.
 - `.claude/commands/plan-new.md` — chains `planner` and `validator`, updating the plan and validation outcomes.
 - `.claude/commands/tasks-new.md` — syncs `tasklist.md` with the plan, grouping items by stage and slug.
-- `.claude/commands/api-spec-new.md` — delegates OpenAPI authoring to `api-designer`, flagging remaining questions.
-- `.claude/commands/tests-generate.md` — calls `qa-author` for automated tests and manual scenarios.
 - `.claude/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
 - `.claude/commands/review.md` — compiles review feedback, statuses, and checklist completion.
 - Craft commits with `git commit`, aligning messages to the schemes described in `config/conventions.json`.
-- `.claude/commands/test-changed.md` — wraps `format-and-test.sh` for selective Gradle execution with custom scopes.
 
 ### Configuration & policy
 - `.claude/settings.json` — `start/strict` presets, allow/ask/deny lists, pre/post hooks, automation knobs (`format/tests`), and production protection with `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`.
@@ -139,7 +134,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Architecture & relationships
 - The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions that are invoked by the hook pipeline.
 - The `strict` preset in `.claude/settings.json` wires pre/post hooks, automatically runs `.claude/hooks/format-and-test.sh` after successful writes, and guards production paths.
-- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → /plan-new → /tasks-new` lifecycle; `/api-spec-new` and `/tests-generate` trigger sub-agents to unblock code changes.
+- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → /plan-new → /tasks-new` lifecycle; enable extra checks (`api_contract`, `db_migration`, `tests_required`) as your process demands.
 - `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active slug, and `moduleMatrix` to decide between selective and full test runs.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
 
@@ -147,7 +142,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, and tasklist entries exist for the active slug (`docs/.active_feature`), checking for tasklist checkboxes.
-- **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — request OpenAPI specs, database migrations, and matching tests according to `config/gates.json` (`soft/hard/disabled`).
+- **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — optional gates: when enabled they expect OpenAPI specs, database migrations, and matching tests as configured in `config/gates.json`.
 - **`protect-prod.sh` & `lint-deps.sh`** — guard production paths (`infra/prod/**`, `deploy/prod/**`), enforce dependency allowlists, and respect `PROTECT_PROD_BYPASS` / `PROTECT_LOG_ONLY`.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → /plan-new → /tasks-new` gate sequence.
@@ -224,22 +219,20 @@ git checkout -b feature/STORE-123
 /idea-new checkout-discounts STORE-123
 /plan-new checkout-discounts
 /tasks-new checkout-discounts
-/api-spec-new checkout-discounts
-/tests-generate checkout-discounts
 /implement checkout-discounts
 /review checkout-discounts
+./.claude/hooks/format-and-test.sh
 ```
 
-You’ll get the full artifact chain (PRD, plan, tasklist, OpenAPI, tests) and automatic `/test-changed` runs guarded by gates; finish with `git commit` and `/review` to close the loop under the active convention.
+You’ll get the essential artefacts (PRD, plan, tasklist) and automated `.claude/hooks/format-and-test.sh` runs guarded by gates; finish with `git commit` and `/review` to close the loop under the active convention.
 
 ## Feature kickoff checklist
 
 1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <slug>` — it will update `docs/.active_feature` automatically.
 2. Generate discovery artifacts: `/idea-new`, `/plan-new`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1).
-3. Prepare integrations and data: `/api-spec-new`, run `contract-checker`, and call `db-migrator` when the domain model changes.
-4. Close the testing loop: `/tests-generate`, make sure `gate-tests` no longer warns or blocks edits.
-5. Implement in small increments via `/implement`, watching messages from `gate-workflow`, `gate-api-contract`, and `gate-db-migration`.
-6. Request `/review` once `tasklist.md` checkboxes are complete, tests are green, and artifacts stay in sync.
+3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
+4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates.
+5. Request `/review` once `tasklist.md` checkboxes are complete, automated tests are green, and artefacts stay in sync.
 
 A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
@@ -252,9 +245,6 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 | `/tasks-new` | Refresh `tasklist.md` from the plan | `checkout-discounts` |
 | `/implement` | Execute the plan with auto tests | `checkout-discounts` |
 | `/review` | Final code review and status sync | `checkout-discounts` |
-| `/api-spec-new` | Generate/update OpenAPI spec | `checkout-discounts` |
-| `/tests-generate` | Produce unit/integration tests | `checkout-discounts` |
-| `/test-changed` | Run selective Gradle tests | — |
 
 ## Branch & commit modes
 
@@ -274,7 +264,7 @@ Update `commit.mode` manually (`ticket-prefix`/`conventional`/`mixed`) and wire 
 3. Maps them to Gradle modules, spawning tasks (`:module:clean :module:test`).
 4. Falls back to `:jvmTest` / `:testDebugUnitTest` or repository-wide `gradle test`.
 5. Runs in soft mode — export `STRICT_TESTS=1` to make failures blocking.
-6. Auto-runs after writes (`/implement`, manual edits); export `SKIP_AUTO_TESTS=1` to pause automatic `/test-changed` executions.
+6. Auto-runs after writes (`/implement`, manual edits); export `SKIP_AUTO_TESTS=1` to pause the automated formatting/test run.
 
 Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `docs/customization.md`.
 

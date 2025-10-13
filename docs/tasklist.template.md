@@ -25,7 +25,7 @@
 - [ ] BLOCKED: задокументированы причины блокировки и ответственные.
 - [ ] `gate-api-contract`: контракт доступен (`docs/api/<slug>.yaml`) и привязан к контроллерам.
 - [ ] `gate-db-migration`: новая миграция размещена в `src/main/resources/**/db/migration/`.
-- [ ] `gate-tests`: добавлены тесты или запрошена генерация (`/tests-generate`), `/test-changed` зелёный.
+- [ ] `gate-tests`: добавлены тесты; `.claude/hooks/format-and-test.sh` завершился успешно.
 - [ ] При работе в монорепо обновлён allowlist зависимостей (если требуется) и `config/gates.json`.
 
 ## 5. Релиз

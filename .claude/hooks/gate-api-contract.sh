@@ -29,7 +29,7 @@ for p in "docs/api/$slug.yaml" "docs/api/$slug.yml" "docs/api/$slug.json" "src/m
 done
 
 if [[ $has_spec -eq 0 ]]; then
-  echo "BLOCK: нет API контракта для '$slug'. Создайте его командой: /api-spec-new $slug" 1>&2
+  echo "BLOCK: нет API контракта для '$slug'. Добавьте docs/api/${slug}.yaml (OpenAPI) или отключите проверку в config/gates.json." 1>&2
   exit 2
 fi
 exit 0

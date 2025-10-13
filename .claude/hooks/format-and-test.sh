@@ -118,7 +118,7 @@ def main() -> int:
     os.chdir(determine_project_dir())
 
     if env_flag("SKIP_AUTO_TESTS"):
-        log("SKIP_AUTO_TESTS=1 — автоматический запуск /test-changed пропущен.")
+        log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
     config = load_config()

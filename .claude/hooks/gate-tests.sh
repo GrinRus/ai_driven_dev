@@ -32,5 +32,5 @@ if [[ "$mode" == "soft" ]]; then
   exit 0
 fi
 
-echo "BLOCK: нет теста для ${file_path}. Создайте ${test1} (или ${test2}) или выполните /tests-generate <slug>." 1>&2
+echo "BLOCK: нет теста для ${file_path}. Создайте ${test1} (или ${test2}) либо переведите tests_required в config/gates.json в soft/disabled." 1>&2
 exit 2

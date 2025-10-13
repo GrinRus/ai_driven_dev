@@ -6,7 +6,7 @@
 - развернуть шаблон всего за один запуск скрипта;
 - понять, какие файлы и настройки добавляются;
 - проверить, что выборочные тесты и хуки работают сразу после установки;
-- пройти многошаговый цикл `/idea-new → /plan-new → /tasks-new → /api-spec-new → /tests-generate → /implement` и увидеть работу гейтов (workflow, API контракт, миграции, тесты).
+- пройти многошаговый цикл `/idea-new → /plan-new → /tasks-new → /implement → /review` и увидеть работу гейтов (workflow, миграции, тесты).
 
 ## Требования
 - установленный `bash`, `git`, `python3`;
@@ -122,37 +122,36 @@ demo-monorepo/
 ### 5. Запустите многошаговый процесс
 
 1. В Claude Code выполните `/idea-new demo-checkout DEMO-1` — команда зафиксирует slug в `docs/.active_feature`, соберёт PRD и список уточнений.
-2. Постройте план и чеклисты: `/plan-new demo-checkout` → `/tasks-new demo-checkout`.
-3. Попробуйте отредактировать условный контроллер (`src/main/kotlin/.../CheckoutController.kt`) без контракта — `gate-api-contract.sh` вернёт блокировку.
-4. Создайте контракт: `/api-spec-new demo-checkout` заполнит `docs/api/demo-checkout.yaml`, после чего правки контроллера проходят.
-5. Измените сущность `src/main/kotlin/.../Checkout.kt` — без миграции `gate-db-migration.sh` напомнит добавить `src/main/resources/db/migration/V<timestamp>__demo-checkout.sql`.
-6. Дозакажите тесты: `/tests-generate demo-checkout` создаст юнит-тесты и `docs/test/demo-checkout-manual.md`. При следующих правках `/implement demo-checkout` автоматически запускает `/test-changed`; отключить автозапуск можно через `SKIP_AUTO_TESTS=1`.
+2. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `tasklist.md`.
+3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты: миграции, OpenAPI-файлы, расширенные тесты.
+4. Запустите `/implement demo-checkout` — агент будет идти малыми шагами, а `.claude/hooks/format-and-test.sh` автоматически выполнит форматирование и выборочные тесты (отключаемо `SKIP_AUTO_TESTS=1`).
+5. Фиксируйте прогресс в git (`git commit -m "DEMO-1: add rule engine"`), пока tasklist не будет закрыт и тесты не станут зелёными.
 
 ## Проверка результата в Claude Code
 1. Создайте ветку `git checkout -b feature/DEMO-1`, соблюдая выбранную конвенцию.
 2. Запустите `/idea-new`, `/plan-new`, `/tasks-new` и убедитесь, что `docs/` и `tasklist.md` обновились.
-3. Проверьте гейты: без `docs/api/<slug>.yaml` изменение контроллера блокируется (`gate-api-contract`), без миграции появится предупреждение `gate-db-migration`, без тестов — напоминание `gate-tests`.
-4. После правок убедитесь, что `/test-changed` запускается автоматически; при необходимости поставьте `SKIP_AUTO_TESTS=1` перед длительными сессиями.
+3. Проверьте гейты: `gate-workflow` пропускает правки только после появления PRD/плана/tasklist; при включённых флагах `api_contract`, `db_migration`, `tests_required` появятся подсказки о недостающих артефактах.
+4. После правок убедитесь, что `.claude/hooks/format-and-test.sh` запускается автоматически; при необходимости выставьте `SKIP_AUTO_TESTS=1` перед длительными сессиями.
 5. Зафиксируйте изменения (`git commit -m "DEMO-1: implement rule engine"`) и вызовите `/review demo-checkout`, чтобы закрыть чеклист и убедиться, что режим коммитов синхронизирован.
 
 ## Работа с пресетами фич
 
 После установки в корне появляется каталог `claude-presets/` с YAML-манифестами для каждого шага фичи. Пресеты используются двумя способами:
 
-1. **Через init-скрипт.** Выполните `bash init-claude-workflow.sh --preset feature-prd --feature checkout-discounts`, чтобы развернуть демо-PRD. Дополнительно вызовите `feature-design`, `feature-plan`, `feature-impl`, `feature-release` для остальных этапов. Скрипт автоматически подставит цели из `docs/usage-demo.md` и задачи из `doc/backlog.md (Wave 7)`.
+1. **Через init-скрипт.** Выполните `bash init-claude-workflow.sh --preset feature-prd --feature checkout-discounts`, чтобы развернуть демо-PRD. По мере необходимости добавляйте `feature-plan` и `feature-impl`, а расширенные пресеты (`feature-design`, `feature-release`) доступны в `claude-presets/advanced/`. Скрипт автоматически подставит цели из `docs/usage-demo.md` и задачи из `doc/backlog.md (Wave 7)`.
 2. **Внутри Claude Code.** Добавьте файл пресета в контекст (например, `claude-presets/feature-plan.yaml`) или настройте кнопку в интерфейсе — описание находится в `claude-workflow-extensions.patch`.
 
 Текущее покрытие:
 
-| Пресет | Результат | Файл |
-| --- | --- | --- |
-| `feature-prd` | Черновик PRD и метрики успеха | `docs/prd/<slug>.prd.md` |
-| `feature-design` | Архитектура/ADR для фичи | `docs/design/<slug>.md` |
-| `feature-plan` | План реализации и контрольные точки | `docs/plan/<slug>.md` |
-| `feature-impl` | Секция чеклистов в tasklist | `tasklist.md` |
-| `feature-release` | Запись в релизных заметках | `docs/release-notes.md` |
+| Пресет | Результат | Файл | Расположение |
+| --- | --- | --- | --- |
+| `feature-prd` | Черновик PRD и метрики успеха | `docs/prd/<slug>.prd.md` | `claude-presets/` |
+| `feature-plan` | План реализации и контрольные точки | `docs/plan/<slug>.md` | `claude-presets/` |
+| `feature-impl` | Секция чеклистов в tasklist | `tasklist.md` | `claude-presets/` |
+| `feature-design` | Архитектура/ADR для фичи | `docs/design/<slug>.md` | `claude-presets/advanced/` |
+| `feature-release` | Запись в релизных заметках | `docs/release-notes.md` | `claude-presets/advanced/` |
 
-Скрипт `scripts/smoke-workflow.sh` демонстрирует полный E2E: он разворачивает шаблон, активирует фичу `demo-checkout`, прогоняет все пресеты и проверяет, что гейт `gate-workflow.sh` начинает пропускать правки только после появления PRD/плана/тасклиста.
+Скрипт `scripts/smoke-workflow.sh` демонстрирует полный E2E: он разворачивает шаблон, активирует фичу `demo-checkout`, прогоняет базовые пресеты (`feature-prd`, `feature-plan`, `feature-impl`) и проверяет, что гейт `gate-workflow.sh` начинает пропускать правки только после появления PRD/плана/тасклиста.
 
 ## Частые вопросы
 - **Запуск скрипта терпит неудачу:** проверьте вывод проверки зависимостей и убедитесь, что Gradle доступен в PATH.

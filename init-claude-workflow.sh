@@ -36,7 +36,7 @@ Usage: bash init-claude-workflow.sh [options]
   --enable-ci          add GitHub Actions workflow (manual trigger)
   --force              overwrite existing files
   --dry-run            show planned actions without writing files
-  --preset NAME        generate demo artifacts for preset (feature-prd|feature-design|feature-plan|feature-impl|feature-release)
+  --preset NAME        generate demo artifacts for preset (feature-prd|feature-plan|feature-impl|feature-design|feature-release)
   --feature SLUG       feature slug to use with --preset (default derived from doc/backlog.md)
   -h, --help           print this help
 EOF
@@ -475,8 +475,6 @@ generate_directories() {
     "docs/prd"
     "docs/adr"
     "docs/plan"
-    "docs/api"
-    "docs/test"
   )
   for dir in "${dirs[@]}"; do
     ensure_directory "$dir"
@@ -488,41 +486,40 @@ generate_core_docs() {
 # Claude Code Workflow (AI-driven)
 
 ## Основной цикл
-1. `/idea-new <slug> [TICKET]` — фиксирует slug в `docs/.active_feature`, агент analyst собирает требования и оформляет PRD.
-2. `/plan-new <slug>` — planner составляет план реализации, validator проверяет полноту.
-3. `/tasks-new <slug>` — tasklist синхронизируется с планом (реализация, тесты, документация).
-4. `/implement <slug>` — агент implementer вносит кодовые изменения, автотесты запускаются через `/test-changed`.
-5. `/review <slug>` — reviewer проводит код-ревью и возвращает замечания в tasklist.
-
-Дополнительно:
-- `/api-spec-new`, `/tests-generate` — поддерживающие артефакты.
+1. `/idea-new <slug> [TICKET]` — фиксирует slug в `docs/.active_feature`, агент analyst оформляет PRD и собирает вводные.
+2. `/plan-new <slug>` — planner строит план реализации, validator проверяет риски и возвращает вопросы.
+3. `/tasks-new <slug>` — tasklist синхронизируется с планом: чеклисты по аналитике, разработке, тестированию и релизу.
+4. `/implement <slug>` — агент implementer вносит изменения малыми итерациями, автозапускает `.claude/hooks/format-and-test.sh`.
+5. `/review <slug>` — reviewer проводит финальное ревью и фиксирует замечания в `tasklist.md`.
 
 ## Хуки и гейты
-- `.claude/hooks/protect-prod.sh` — блокирует опасные правки в infra/prod.
-- `.claude/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD/план/тасклист.
-- `.claude/hooks/gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh` — contract/DB/tests гейты.
-- `.claude/hooks/format-and-test.sh` — автоформатирование и выборочные Gradle тесты.
+- `.claude/hooks/protect-prod.sh` — защищает продовые каталоги (`infra/prod`, `deploy/prod`).
+- `.claude/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD, план и tasklist.
+- `.claude/hooks/gate-db-migration.sh` — опционально проверяет, что изменения домена сопровождаются миграцией (`config/gates.json: db_migration=true`).
+- `.claude/hooks/gate-tests.sh` — опционально требует наличие юнит-тестов для изменённых исходников (`tests_required=soft|hard`).
+- `.claude/hooks/gate-api-contract.sh` — опционально сверяет наличие `docs/api/<slug>.yaml` для контроллеров (`api_contract=true`).
+- `.claude/hooks/format-and-test.sh` — форматирует код и запускает выборочные Gradle-тесты после каждой записи (отключается `SKIP_AUTO_TESTS=1`).
 - `.claude/hooks/lint-deps.sh` — напоминает про allowlist зависимостей.
 
-Настройки и пресеты смотрите в `.claude/settings.json`, правила коммитов — в `config/conventions.json`.
+Дополнительные проверки настраиваются в `config/gates.json`. Пресеты разрешений и хуков описаны в `.claude/settings.json`, правила веток/коммитов — в `config/conventions.json`.
 MD
 
   write_template "conventions.md" <<'MD'
 # conventions.md
 
-- **Стиль кода**: следуем KISS/YAGNI/MVP; используем JetBrains/Google style (Spotless + ktlint при наличии).
+- **Стиль кода**: придерживаемся KISS/YAGNI/MVP; используем JetBrains/Google style (Spotless + ktlint при наличии).
 - **Ветки**: создаём через `git checkout -b` по пресетам (`feature/<TICKET>`, `feat/<scope>`, `hotfix/<TICKET>`).
-- **Коммиты**: используем `git commit`, текст сообщений сверяем с `config/conventions.json`.
-- **Документация**: PRD (`docs/prd/<slug>.prd.md`), план (`docs/plan/<slug>.md`), tasklist (`tasklist.md`), API (`docs/api/<slug>.yaml`).
-- **Автогейты**: для работы с кодом должны быть готовы PRD/план/таски; для контроллеров — актуальный OpenAPI; для сущностей — миграция.
-- **Тесты**: после каждого изменения запускаем `/test-changed`; при необходимости дозаказываем `/tests-generate`.
-- **Контроль зависимостей**: список разрешённых артефактов — `config/allowed-deps.txt`, изменяется через ревью.
+- **Коммиты**: оформляем `git commit`, сообщения валидируются правилами `config/conventions.json`.
+- **Документация**: PRD (`docs/prd/<slug>.prd.md`), план (`docs/plan/<slug>.md`), tasklist (`tasklist.md`), при необходимости ADR (`docs/adr/*.md`).
+- **Автогейты**: базовый цикл требует готовности PRD/плана/tasklist; дополнительные проверки включаются флагами в `config/gates.json`.
+- **Тесты**: `.claude/hooks/format-and-test.sh` запускается автоматически после записей; при длительных правках можно вызвать его вручную.
+- **Контроль зависимостей**: актуальный allowlist — `config/allowed-deps.txt`, изменения проходят через ревью.
 MD
 
   write_template "workflow.md" <<'MD'
 # Workflow Claude Code
 
-Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит шесть этапов: **идея → план → валидация → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и автоматические гейты, которые защищают кодовую базу.
+Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит пять этапов: **идея → план → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
 
 ## Обзор этапов
 
@@ -531,8 +528,7 @@ MD
 | Аналитика идеи | `/idea-new <slug> [TICKET]` | `analyst` | `docs/prd/<slug>.prd.md`, активная фича |
 | Планирование | `/plan-new <slug>` | `planner`, `validator` | `docs/plan/<slug>.md`, уточнённые вопросы |
 | Тасклист | `/tasks-new <slug>` | — | `tasklist.md` (обновлённые чеклисты) |
-| Реализация | `/implement <slug>` | `implementer` | кодовые изменения, обновлённые тесты |
-| Доп. артефакты | `/api-spec-new <slug>`, `/tests-generate <slug>` | `api-designer`, `qa-author` | `docs/api/<slug>.yaml`, `docs/test/<slug>-manual.md` |
+| Реализация | `/implement <slug>` | `implementer` | кодовые изменения, актуальные тесты |
 | Ревью | `/review <slug>` | `reviewer` | замечания в `tasklist.md`, итоговый статус |
 
 ## Подробности по шагам
@@ -540,11 +536,11 @@ MD
 ### 1. Идея (`/idea-new`)
 - Устанавливает активную фичу (`docs/.active_feature`).
 - Создаёт PRD по шаблону (`docs/prd/<slug>.prd.md`), собирает вводные, риски и метрики.
-- Саб-агент **analyst** уточняет контекст и формирует финальный документ.
+- Саб-агент **analyst** уточняет контекст и фиксирует открытые вопросы.
 
 ### 2. План (`/plan-new`)
 - Саб-агент **planner** формирует пошаговый план реализации по PRD.
-- Саб-агент **validator** проверяет план; найденные вопросы возвращаются продукту.
+- Саб-агент **validator** проверяет полноту; найденные вопросы возвращаются продукту.
 - Все открытые вопросы синхронизируются между PRD и планом.
 
 ### 3. Тасклист (`/tasks-new`)
@@ -554,53 +550,39 @@ MD
 
 ### 4. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана и вносит изменения малыми итерациями.
-- После каждой правки автоматически запускается `/test-changed` (отключаемо через `SKIP_AUTO_TESTS=1`).
-- Изменения блокируются до появления необходимых артефактов гейтами:
-  - `gate-workflow.sh` — проверяет наличие PRD/плана/тасклиста.
-  - `gate-api-contract.sh` — требует OpenAPI контракт для активной фичи.
-  - `gate-db-migration.sh` — проверяет наличие миграций при изменении сущностей.
-  - `gate-tests.sh` — убеждается, что для исходников есть тесты (soft/hard режим).
+- После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо через `SKIP_AUTO_TESTS=1`).
+- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-db-migration.sh`, `gate-tests.sh` или `gate-api-contract.sh`.
 
-### 5. Дополнительные артефакты
-- `/api-spec-new <slug>` задействует **api-designer** для генерации или обновления OpenAPI.
-- `/tests-generate <slug>` подключает **qa-author**, который дополняет автотесты и формирует чеклист ручного тестирования (`docs/test/<slug>-manual.md`).
-- Эти команды помогают пройти API/DB/тест-гейты и ускоряют ревью.
-
-### 6. Ревью (`/review`)
+### 5. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `tasklist.md`.
-- При блокирующих проблемах фича возвращается на стадию реализации; при минорных — фиксируется список рекомендаций.
+- При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
 
 ## Автоматизация и гейты
 
-- `.claude/settings.json` включает пресет `strict`, который запускает защитные хуки при любой записи (`Write|Edit`).
-- `.claude/hooks/format-and-test.sh` выполняет форматирование и выборочные Gradle-тесты; полный прогон запускается, если изменены общие файлы.
-- Переменная `SKIP_AUTO_TESTS=1` временно отключает автостарт `/test-changed` (полезно для больших миграций или отладки).
-- `config/gates.json` управляет режимами гейтов:
-  - `api_contract`, `db_migration` — включение/отключение проверок.
-  - `tests_required` — `disabled`/`soft`/`hard`.
-  - `feature_slug_source` — путь к файлу с активной фичей.
-- При необходимости можно расширить список гейтов (см. `docs/customization.md`).
+- Пресет `strict` в `.claude/settings.json` включает `protect-prod`, `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh` после каждой записи.
+- `config/gates.json` управляет дополнительными проверками:
+  - `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
+  - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
+  - `tests_required` — режим `disabled|soft|hard` для проверки юнит-тестов.
+  - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
+- `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
+- `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
 
 ## Роли и ответственность команды
 
-- **Product/Analyst** — поддерживает PRD и контролирует, что вопросы валидируются.
-- **Tech Lead/Architect** — утверждает план и следит за API/DB гейтами.
-- **Разработчики** — реализуют по плану и поддерживают актуальность тестов и документации.
-- **QA** — участвует в `/tests-generate`, наполняет `docs/test/*.md` и помогает с гейтами `gate-tests.sh`.
+- **Product/Analyst** — поддерживает PRD, отвечает на вопросы planner/validator.
+- **Tech Lead/Architect** — утверждает план, следит за гейтами и архитектурными решениями.
+- **Разработчики** — реализуют по плану, поддерживают тесты и документацию в актуальном состоянии.
+- **QA** — помогает с чеклистами в `tasklist.md`, расширяет тестовое покрытие и сценарии ручной проверки.
 - **Reviewer** — финализирует фичу, проверяет, что все чеклисты в `tasklist.md` закрыты.
 
-Следуйте этому циклу, чтобы команда оставалась синхронизированной, а артефакты — в актуальном состоянии.
+Следуйте этому циклу, чтобы команда оставалась синхронизированной, а артефакты — актуальными.
 MD
 
   copy_template "templates/tasklist.md" "tasklist.md"
   write_template "docs/plan/.gitkeep" <<'MD'
 MD
 
-  write_template "docs/api/.gitkeep" <<'MD'
-MD
-
-  write_template "docs/test/.gitkeep" <<'MD'
-MD
 }
 
 generate_templates() {
@@ -698,7 +680,7 @@ model: inherit
 Действия:
 1) Сверься с `docs/plan/$SLUG.md` и чеклистом задач.
 2) Пиши код малыми итерациями, каждый шаг — отдельный коммит (`git commit`).
-3) После каждой правки запускай `/test-changed`. При падениях — исправь и повтори.
+3) После каждой правки дождись автозапуска `.claude/hooks/format-and-test.sh`. При падениях — исправь и повтори.
 4) Если не ясно, какой алгоритм/интеграцию/БД использовать — остановись и задай вопрос пользователю.
 
 Выводи только план следующего шага и изменения в коде. Без лишней болтовни.
@@ -713,29 +695,11 @@ model: inherit
 ---
 Шаги:
 1) Проанализируй `git diff` и соответствие PRD/плану.
-2) Проверь тесты (попроси выполнить `/test-changed` при необходимости).
+2) Проверь тесты (при необходимости вызови `.claude/hooks/format-and-test.sh`).
 3) Найди дефекты/риски (конкурентность, транзакции, NPE, boundary conditions).
 4) Сформируй actionable‑замечания. Если критично — статус BLOCKED, иначе SUGGESTIONS.
 
 Выводи краткий отчёт (итоговый статус + список замечаний).
-MD
-
-  write_template ".claude/agents/api-designer.md" <<'MD'
----
-name: api-designer
-description: Проектирует контракт API (OpenAPI) по PRD. Обновляет docs/api/$SLUG.yaml.
-tools: Read, Write, Grep, Glob
-model: inherit
----
-Задача: на основе `docs/prd/$SLUG.prd.md` спроектируй HTTP API в формате OpenAPI 3.0+.
-Требования:
-- CRUD-ручки и нестандартные операции должны иметь чёткие схемы запросов/ответов.
-- Статусы ошибок и коды описать (error schema).
-- Версионирование и фич-флаг для новой ручки (если применимо).
-- Укажи пример payload и пограничные случаи (empty, large, invalid).
-
-Запиши контракт в `docs/api/$SLUG.yaml` (или дополни существующий), сохраняя валидный YAML.
-В конце кратко перечисли неясности (если есть) — статус READY|BLOCKED.
 MD
 
   write_template ".claude/agents/db-migrator.md" <<'MD'
@@ -770,19 +734,6 @@ model: inherit
 Если критично — статус BLOCKED; иначе SUGGESTIONS.
 MD
 
-  write_template ".claude/agents/qa-author.md" <<'MD'
----
-name: qa-author
-description: Создаёт юнит/интеграционные тесты и сценарии ручной проверки.
-tools: Read, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*)
-model: inherit
----
-Список задач:
-1) На основе `docs/plan/$SLUG.md` и изменённого кода — допиши/создай юнит-тесты (`src/test/**`) для критичной логики.
-2) При необходимости добавь фейковые адаптеры/фабрики данных.
-3) Сформируй `docs/test/$SLUG-manual.md` со сценариями ручной проверки (positive/negative/boundary).
-4) Запусти `/test-changed` и приложи краткий отчёт, что покрыто тестами.
-MD
 }
 
 generate_commands() {
@@ -828,7 +779,7 @@ argument-hint: "<slug>"
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Read,Edit,Write,Grep,Glob
 ---
 1) Вызови саб‑агента **implementer** для выполнения шага реализации по `docs/plan/$1.md`.
-2) После каждой правки запускай `/test-changed` — автозапуск срабатывает автоматически после успешных правок (отключить: `SKIP_AUTO_TESTS=1`).
+2) После каждой правки дождись автозапуска `.claude/hooks/format-and-test.sh` (отключаемо переменной `SKIP_AUTO_TESTS=1`).
 3) Если возникает неопределённость (алгоритм/интеграция/БД) — приостановись и задавай вопросы пользователю.
 MD
 
@@ -841,38 +792,6 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*)
 Вызови саб‑агента **reviewer** для ревью изменений по `$1`.
 При критичных замечаниях — статус BLOCKED и вернуть задачу саб‑агенту implementer; иначе — внести рекомендации в @tasklist.md.
 MD
-
-  write_template ".claude/commands/tests-generate.md" <<'MD'
----
-description: "Сгенерировать тесты к изменённому коду"
-argument-hint: "<slug>"
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(./gradlew:*),Bash(gradle:*)
----
-Вызови саб-агента **qa-author**. Цели:
-1) Создать/обновить юнит-тесты для изменённого кода (по `git diff`).
-2) При необходимости — добавить интеграционные тесты (mock/stub) для внешних взаимодействий.
-3) Сохранить короткие сценарии ручной проверки в `docs/test/$1-manual.md`.
-4) Запустить `/test-changed`.
-MD
-
-  write_template ".claude/commands/api-spec-new.md" <<'MD'
----
-description: "Создать/обновить OpenAPI контракт для фичи"
-argument-hint: "<slug>"
-allowed-tools: Read,Edit,Write,Grep,Glob
----
-Создай каталог `docs/api/` (если нет). Вызови саб-агента **api-designer** для формирования/обновления `docs/api/$1.yaml` на основе `docs/prd/$1.prd.md`.
-Если контракт уже существует — корректно смержи изменения.
-MD
-
-  write_template ".claude/commands/test-changed.md" <<'MD'
----
-description: "Прогнать тесты по затронутым Gradle-модулям"
-allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Read
----
-!`"$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh"`
-MD
-
 }
 
 generate_gradle_helpers() {
@@ -931,9 +850,9 @@ JSON
   write_template "config/gates.json" <<'JSON'
 {
   "feature_slug_source": "docs/.active_feature",
-  "api_contract": true,
-  "db_migration": true,
-  "tests_required": "soft",
+  "api_contract": false,
+  "db_migration": false,
+  "tests_required": "disabled",
   "deps_allowlist": false
 }
 JSON
@@ -992,9 +911,9 @@ Open the project in Claude Code and try:
   /tasks-new checkout-discounts
   /implement checkout-discounts
   /review checkout-discounts
-  /test-changed
+  ./.claude/hooks/format-and-test.sh
 EOF
-  log_info "Preset catalog available at claude-presets/ (use --preset feature-prd --feature demo-checkout for a demo scaffold)."
+  log_info "Preset catalog available at claude-presets/ (advanced presets live under claude-presets/advanced/)."
   if [[ -n "$PRESET_NAME" && "$DRY_RUN" -eq 0 ]]; then
     log_info "Preset ${PRESET_NAME} scaffolded demo artifacts for feature ${PRESET_RESULT_SLUG}."
   fi

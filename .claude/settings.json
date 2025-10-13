@@ -47,11 +47,7 @@
             "Bash(./gradlew:*)",
             "Bash(gradle:*)",
             "Bash(.claude/hooks/*:*)",
-            "Bash(python3 scripts/*:*)",
-            "SlashCommand:/test-changed:*",
-            "SlashCommand:/commit:*",
-            "SlashCommand:/tests-generate:*",
-            "SlashCommand:/api-spec-new:*"
+            "Bash(python3 scripts/*:*)"
           ],
           "ask": [
             "Bash(git add:*)",
@@ -134,11 +130,7 @@
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/*:*)",
-      "Bash(python3 scripts/*:*)",
-      "SlashCommand:/test-changed:*",
-      "SlashCommand:/commit:*",
-      "SlashCommand:/tests-generate:*",
-      "SlashCommand:/api-spec-new:*"
+      "Bash(python3 scripts/*:*)"
     ],
     "ask": [
       "Bash(git add:*)",
@@ -225,7 +217,7 @@
       "strictDefault": 1,
       "moduleMatrix": [],
       "env": {
-        "SKIP_AUTO_TESTS": "1 — временно отключить автоматический запуск /test-changed (формат и тесты пропущены).",
+        "SKIP_AUTO_TESTS": "1 — временно отключить автоматический запуск форматирования и выборочных тестов.",
         "TEST_SCOPE": "Список задач через запятую (например, :app:test,:lib:test).",
         "TEST_CHANGED_ONLY": "0 — запускать полный набор задач независимо от diff.",
         "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать."

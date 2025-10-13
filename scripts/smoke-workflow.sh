@@ -72,9 +72,6 @@ bash "$INIT_SCRIPT" --preset feature-prd --feature "$SLUG" >/dev/null
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
-log "apply preset feature-design"
-bash "$INIT_SCRIPT" --preset feature-design --feature "$SLUG" >/dev/null
-
 log "apply preset feature-plan"
 bash "$INIT_SCRIPT" --preset feature-plan --feature "$SLUG" >/dev/null
 
@@ -89,17 +86,11 @@ tail -n 10 tasklist.md
 log "gate now allows source edits"
 assert_gate_exit 0 "all artifacts ready"
 
-log "apply preset feature-release"
-bash "$INIT_SCRIPT" --preset feature-release --feature "$SLUG" >/dev/null
-
 log "verify generated artifacts"
 [[ -f "docs/prd/${SLUG}.prd.md" ]]
 [[ -f "docs/plan/${SLUG}.md" ]]
-[[ -f "docs/design/${SLUG}.md" ]]
 grep -q "Claude Code" "docs/prd/${SLUG}.prd.md"
-grep -q "feature-presets" "docs/design/${SLUG}.md"
 grep -q "Demo Checkout" tasklist.md
-grep -q "## Demo Checkout" docs/release-notes.md
 
 popd >/dev/null
 log "smoke scenario passed"

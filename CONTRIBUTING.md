@@ -6,13 +6,13 @@
 - Создавайте issue перед крупными доработками.
 - Работайте из веток `feature/<ticket>` или `feat/<scope>` в зависимости от активной конвенции.
 - Обновляйте документацию на двух языках: `README.md` (RU) и `README.en.md` (EN).
-- Перед PR запустите `./.claude/hooks/format-and-test.sh` или `/test-changed`.
+- Перед PR запустите `./.claude/hooks/format-and-test.sh`.
 
 ## Процесс работы
 1. **Обсуждение.** Подготовьте issue или ссылку на ADR/PRD, если изменение затрагивает архитектуру.
 2. **Ветка.** Создайте ветку командой `git checkout -b feature/<TICKET>` (или по другому паттерну из `config/conventions.json`).
 3. **Коммиты.** Формируйте сообщения вручную (`git commit`), сверяясь с шаблонами в `config/conventions.json`. Для строгой проверки подключите git-хук из `docs/customization.md`.
-4. **Тесты и форматирование.** Запустите `/test-changed` или `.claude/hooks/format-and-test.sh`. Для строгого режима выставьте `STRICT_TESTS=1`.
+4. **Тесты и форматирование.** Запустите `.claude/hooks/format-and-test.sh`. Для строгого режима выставьте `STRICT_TESTS=1`.
 5. **Документация.** Обновите связанные файлы в `docs/`, `README.md` и `README.en.md`. Если меняется поведение скриптов, обновите `docs/customization.md` и `docs/usage-demo.md`.
 6. **Pull request.** Используйте шаблон PR, приложите ссылки на связанные задачи и укажите, как проверяли изменения локально.
 

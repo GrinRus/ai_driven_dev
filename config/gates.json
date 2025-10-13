@@ -1,7 +1,7 @@
 {
   "feature_slug_source": "docs/.active_feature",
-  "api_contract": true,
-  "db_migration": true,
-  "tests_required": "soft",
+  "api_contract": false,
+  "db_migration": false,
+  "tests_required": "disabled",
   "deps_allowlist": false
 }

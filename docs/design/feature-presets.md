@@ -23,10 +23,11 @@
 ```
 claude-presets/
   feature-prd.yaml
-  feature-design.yaml
   feature-plan.yaml
   feature-impl.yaml
-  feature-release.yaml
+  advanced/
+    feature-design.yaml
+    feature-release.yaml
 ```
 
 Каждый файл описывает конкретный шаг workflow и содержит поля:
@@ -122,4 +123,3 @@ claude:
 2. Обновить документацию и слэш-команды.
 3. Добавить smoke-тест на полный проход.
 4. Собрать обратную связь от команды и уточнить стандарты для новых пресетов.
-
