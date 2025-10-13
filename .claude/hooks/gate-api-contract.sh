@@ -1,51 +1,19 @@
 #!/usr/bin/env bash
 # Блокирует правки контроллеров/роутов, если нет OpenAPI контракта для активной фичи
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.claude/hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+
 payload="$(cat)"
+file_path="$(hook_payload_file_path "$payload")"
 
-json_get_bool() {
-  python3 - <<'PY' "$1" "$2"
-import json,sys
-path=sys.argv[1]; key=sys.argv[2]
-try:
-  cfg=json.load(open(path,'r',encoding='utf-8'))
-  v=cfg.get(key, False)
-  print("1" if v else "0")
-except Exception:
-  print("0")
-PY
-}
+[[ "$(hook_config_get_bool config/gates.json api_contract)" == "1" ]] || exit 0
 
-file_path="$(
-  PAYLOAD="$payload" python3 - <<'PY'
-import json, os
-payload = os.environ.get("PAYLOAD") or ""
-try:
-    data = json.loads(payload)
-except json.JSONDecodeError:
-    print("")
-else:
-    print(data.get("tool_input", {}).get("file_path", ""))
-PY
-)"
-
-[[ -f config/gates.json ]] || exit 0
-[[ "$(json_get_bool config/gates.json api_contract)" == "1" ]] || exit 0
-
-slug_file="$(python3 - <<'PY'
-import json,sys
-cfg='config/gates.json'
-try:
-  import json
-  g=json.load(open(cfg,'r',encoding='utf-8'))
-  print(g.get('feature_slug_source','docs/.active_feature'))
-except Exception:
-  print('docs/.active_feature')
-PY
-)"
-
+slug_file="$(hook_config_get_str config/gates.json feature_slug_source docs/.active_feature)"
 [[ -f "$slug_file" ]] || exit 0
-slug="$(cat "$slug_file" 2>/dev/null || true)"
+slug="$(hook_read_slug "$slug_file" || true)"
 [[ -n "$slug" ]] || exit 0
 
 # если правится не контроллер/роут — пропустим

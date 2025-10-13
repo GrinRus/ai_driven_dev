@@ -1,34 +1,16 @@
 #!/usr/bin/env bash
 # Требует наличие теста для редактируемого исходника (soft/hard режим)
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.claude/hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+
 payload="$(cat)"
+file_path="$(hook_payload_file_path "$payload")"
 
-json_get_str() {
-  python3 - <<'PY' "$1" "$2" "$3"
-import json,sys
-cfg, key, dv = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-  d=json.load(open(cfg,'r',encoding='utf-8'))
-  print(str(d.get(key, dv)))
-except Exception:
-  print(dv)
-PY
-}
-
-file_path="$(
-  PAYLOAD="$payload" python3 - <<'PY'
-import json, os
-payload = os.environ.get("PAYLOAD") or ""
-try:
-    data = json.loads(payload)
-except json.JSONDecodeError:
-    print("")
-else:
-    print(data.get("tool_input", {}).get("file_path", ""))
-PY
-)"
-
-mode="$(json_get_str config/gates.json tests_required disabled)"
+mode="$(hook_config_get_str config/gates.json tests_required disabled)"
+mode="$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
 [[ "$mode" == "disabled" ]] && exit 0
 
 # интересует только src/main и *.kt|*.java

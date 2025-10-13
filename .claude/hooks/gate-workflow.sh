@@ -1,28 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.claude/hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+
 payload="$(cat)"
-
-# Путь редактируемого файла
-file_path="$(
-  PAYLOAD="$payload" python3 - <<'PY'
-import json
-import os
-import sys
-
-payload = os.environ.get("PAYLOAD") or ""
-try:
-    data = json.loads(payload)
-except json.JSONDecodeError:
-    print("")
-    sys.exit(0)
-
-print(data.get("tool_input", {}).get("file_path", ""))
-PY
-)"
+file_path="$(hook_payload_file_path "$payload")"
 
 slug_file="docs/.active_feature"
 [[ -f "$slug_file" ]] || exit 0  # нет активной фичи — не блокируем
-slug="$(cat "$slug_file" 2>/dev/null || true)"
+slug="$(hook_read_slug "$slug_file" || true)"
 [[ -n "$slug" ]] || exit 0
 
 # Если правится не код, пропускаем

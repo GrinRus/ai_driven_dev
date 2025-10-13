@@ -1,35 +1,15 @@
 #!/usr/bin/env bash
 # Требует наличие новой миграции Flyway/Liquibase при изменении сущностей/схемы
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.claude/hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+
 payload="$(cat)"
+file_path="$(hook_payload_file_path "$payload")"
 
-json_get_bool() {
-  python3 - <<'PY' "$1" "$2"
-import json,sys
-cfg=sys.argv[1]; key=sys.argv[2]
-try:
-  d=json.load(open(cfg,'r',encoding='utf-8'))
-  print("1" if d.get(key, False) else "0")
-except Exception:
-  print("0")
-PY
-}
-
-file_path="$(
-  PAYLOAD="$payload" python3 - <<'PY'
-import json, os
-payload = os.environ.get("PAYLOAD") or ""
-try:
-    data = json.loads(payload)
-except json.JSONDecodeError:
-    print("")
-else:
-    print(data.get("tool_input", {}).get("file_path", ""))
-PY
-)"
-
-[[ -f config/gates.json ]] || exit 0
-[[ "$(json_get_bool config/gates.json db_migration)" == "1" ]] || exit 0
+[[ "$(hook_config_get_bool config/gates.json db_migration)" == "1" ]] || exit 0
 
 # триггеры: сущности/репозитории/схема
 if [[ ! "$file_path" =~ (^|/)src/main/.*(entity|model|repository)/.*\.(kt|java)$ ]] && \
