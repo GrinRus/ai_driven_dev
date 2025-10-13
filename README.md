@@ -75,7 +75,7 @@
 | `CONTRIBUTING.md` | Правила вкладов | Описывает процесс PR/issue, требования к коммитам и линтингу |
 | `LICENSE` | Лицензия | MIT с ограничениями ответственности |
 
-> `init-claude-workflow.sh` генерирует CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и `.claude/gradle/init-print-projects.gradle`. После установки скопируйте их в репозиторий монорепо, чтобы smoke/CI сценарии и команды `/commit`/`/branch-new` работали стабильно.
+> `init-claude-workflow.sh` генерирует CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и `.claude/gradle/init-print-projects.gradle`. Скрипты уже находятся в репозитории и обновляются при переустановке, поэтому команды `/commit`, `/branch-new`, `/conventions-set` готовы к использованию сразу после bootstrap.
 
 ## Детальный анализ компонентов
 
@@ -240,8 +240,8 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 
 ```
 /branch-new feature STORE-123
-/feature-new checkout-discounts STORE-123
-/feature-adr checkout-discounts
+/feature-activate checkout-discounts
+/idea-new checkout-discounts STORE-123
 /plan-new checkout-discounts
 /tasks-new checkout-discounts
 /api-spec-new checkout-discounts
@@ -271,15 +271,14 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 | Команда | Назначение | Аргументы (пример) |
 |---|---|---|
 | `/branch-new` | Создать/переключить ветку по пресету | `feature STORE-123` / `feat orders` / `mixed STORE-123 feat pricing` |
-| `/feature-new` | Создать PRD и стартовые артефакты | `checkout-discounts STORE-123` |
-| `/feature-adr` | Сформировать ADR из PRD | `checkout-discounts` |
+| `/feature-activate` | Зафиксировать slug активной фичи | `checkout-discounts` |
+| `/idea-new` | Собрать вводные и оформить PRD | `checkout-discounts STORE-123` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
 | `/tasks-new` | Обновить `tasklist.md` по плану | `checkout-discounts` |
 | `/implement` | Реализация по плану с автотестами | `checkout-discounts` |
 | `/review` | Финальное ревью и фиксация статуса | `checkout-discounts` |
 | `/api-spec-new` | Создать/обновить OpenAPI контракт | `checkout-discounts` |
 | `/tests-generate` | Сгенерировать юнит/интеграционные тесты | `checkout-discounts` |
-| `/docs-generate` | Сгенерировать/обновить документацию | — |
 | `/test-changed` | Прогнать выборочные Gradle-тесты | — |
 | `/conventions-set` | Сменить режим коммитов | `conventional` / `ticket-prefix` / `mixed` |
 | `/conventions-sync` | Синхронизировать `conventions.md` с Gradle-конфигами | — |

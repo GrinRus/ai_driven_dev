@@ -496,7 +496,7 @@ generate_core_docs() {
 6. `/review <slug>` — reviewer проводит код-ревью и возвращает замечания в tasklist.
 
 Дополнительно:
-- `/api-spec-new`, `/tests-generate`, `/docs-generate` — поддерживающие артефакты.
+- `/api-spec-new`, `/tests-generate` — поддерживающие артефакты.
 - `/branch-new`, `/commit`, `/commit-validate`, `/conventions-set` — управление ветками и коммитами.
 
 ## Хуки и гейты
@@ -875,15 +875,6 @@ allowed-tools: Read,Edit,Write,Grep,Glob
 ---
 Создай каталог `docs/api/` (если нет). Вызови саб-агента **api-designer** для формирования/обновления `docs/api/$1.yaml` на основе `docs/prd/$1.prd.md`.
 Если контракт уже существует — корректно смержи изменения.
-MD
-
-  write_template ".claude/commands/docs-generate.md" <<'MD'
----
-description: "Актуализировать обзорную документацию"
-allowed-tools: Read,Edit,Write,Grep,Glob
----
-На основе текущих PRD/планов обнови `docs/intro.md`, добавь ссылки на артефакты и синхронизируй раздел в README.
-Выложи короткий changelog (основные изменения, риски, тесты).
 MD
 
   write_template ".claude/commands/test-changed.md" <<'MD'

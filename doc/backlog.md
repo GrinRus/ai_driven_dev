@@ -71,13 +71,13 @@
 ## Wave 5
 
 ### Консистентность артефактов и команд
-- [ ] `scripts/{branch_new.py,commit_msg.py,conventions_set.py}`: вернуть скрипты в репозиторий, синхронизировать их генерацию с `init-claude-workflow.sh` и описать использование в `docs/usage-demo.md`; добавить unittest, который проверяет наличие CLI-утилит после установки.
+- [x] `scripts/{branch_new.py,commit_msg.py,conventions_set.py}`: вернуть скрипты в репозиторий, синхронизировать их генерацию с `init-claude-workflow.sh` и описать использование в `docs/usage-demo.md`; добавить unittest, который проверяет наличие CLI-утилит после установки.
 - [ ] `.claude/gradle/init-print-projects.gradle`: добавить файл в исходники, включить его копирование инсталлятором и обновить раздел про selective tests в `README.md`/`README.en.md`; дополнить smoke-сценарий проверкой, что карта модулей создаётся.
-- [ ] `/docs-generate` и `docs/intro.md`: создать шаблон обзорной документации (или скорректировать команду), чтобы выполнение не завершалось ошибкой; задокументировать процесс обновления обзора и проверить, что README синхронизируется автоматически.
+- [ ] `docs/intro.md`: определить новую автоматизацию или пресет для обзорной документации (вместо устаревшей `/docs-generate`), задокументировать процесс обновления и синхронизацию с README.
 
 ### Документация и коммуникация
 - [ ] `README.md` / `README.en.md`: выровнять структуру разделов, актуализировать _Last sync_ и добавить чеклист перевода в `CONTRIBUTING.md`; рассмотреть автоматизированную проверку расхождений (скрипт или unittest).
-- [ ] `docs/customization.md` / `docs/usage-demo.md`: обновить разделы, описывающие вспомогательные скрипты и selective tests, с учётом восстановленных артефактов и новой логики `/docs-generate`.
+- [ ] `docs/customization.md` / `docs/usage-demo.md`: актуализировать описания вспомогательных скриптов и selective tests с учётом новой схемы обновления обзорной документации.
 
 ### CI и тестовый контур
 - [ ] `init-claude-workflow.sh`: привести генерацию CI к фактическому `.github/workflows/ci.yml` (push/pull_request, установка линтеров, шаги secret scan/матрица ОС) или наоборот стандартизировать pipeline и документацию; зафиксировать выбор в README и релиз-нотах.
@@ -113,9 +113,9 @@
 ## Wave 8
 
 ### Чистка устаревших команд и документации
-- [ ] `.claude/commands/{feature-new.md,feature-adr.md,feature-tasks.md,docs-generate.md}`: решить — удалить или переписать под актуальный флоу `/idea-new → /plan-new → /tasks-new → /implement → /review`; обновить quick-reference, чтобы не ссылаться на несуществующие агенты/скрипты.
-- [ ] `README.md` / `README.en.md`: выровнять чеклисты и примеры запуска фичи так, чтобы все ссылки шли через `/feature-activate`, `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`; убрать инструкции по `/feature-new`, `/feature-adr`, `/feature-tasks`, `/docs-generate`.
-- [ ] `docs/usage-demo.md`: переписать walkthrough без `/feature-new` и Python CLI, добавить шаги для `/feature-activate` и актуальных гейтов (workflow/API/DB/tests).
+- [x] `.claude/commands/{feature-new.md,feature-adr.md,feature-tasks.md,docs-generate.md}`: удалить, синхронизировать quick-reference и init-скрипт под флоу `/feature-activate → /idea-new → /plan-new → /tasks-new → /implement → /review`.
+- [x] `README.md` / `README.en.md`: обновить чеклисты и примеры запуска фичи, оставить только актуальные команды (`/feature-activate`, `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`).
+- [x] `docs/usage-demo.md`: переписать walkthrough под новый цикл, добавить шаг `/feature-activate` и детальные проверки гейтов (workflow/API/DB/tests).
 
 ### Контроль использования CLI-утилит
-- [ ] `doc/backlog.md` / `tests/`: принять решение по Python-утилитам (`scripts/branch_new.py`, `scripts/commit_msg.py`, `scripts/conventions_set.py`) — либо вернуть их в репозиторий с тестами, либо переписать слэш-команды на чистый shell; зафиксировать итог в документации и в hooked командах `/branch-new`, `/commit*`, `/conventions-*`.
+- [x] `doc/backlog.md` / `tests/`: закрепить решение — Python-утилиты (`scripts/branch_new.py`, `scripts/commit_msg.py`, `scripts/conventions_set.py`) входят в репозиторий, командные файлы опираются на них; описать в README и убедиться, что init-скрипт и тесты поддерживают сценарий.
