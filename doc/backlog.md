@@ -73,32 +73,32 @@
 ### Консистентность артефактов и команд
 - [x] `scripts/{branch_new.py,commit_msg.py,conventions_set.py}`: вернуть скрипты в репозиторий, синхронизировать их генерацию с `init-claude-workflow.sh` и описать использование в `docs/usage-demo.md`; добавить unittest, который проверяет наличие CLI-утилит после установки.
 - [x] `.claude/gradle/init-print-projects.gradle`: добавить файл в исходники, включить его копирование инсталлятором и обновить раздел про selective tests в `README.md`/`README.en.md`; дополнить smoke-сценарий проверкой, что карта модулей создаётся.
-- [ ] `docs/intro.md`: определить новую автоматизацию или пресет для обзорной документации (вместо устаревшей `/docs-generate`), задокументировать процесс обновления и синхронизацию с README.
+- [ ] `docs/intro.md`: в репозитории отсутствует обзорный документ; определить замену для устаревшей `/docs-generate`, согласовать формат с README и зафиксировать способ поддержания синхронизации.
 
 ### Документация и коммуникация
-- [ ] `README.md` / `README.en.md`: выровнять структуру разделов, актуализировать _Last sync_ и добавить чеклист перевода в `CONTRIBUTING.md`; рассмотреть автоматизированную проверку расхождений (скрипт или unittest).
-- [ ] `docs/customization.md` / `docs/usage-demo.md`: актуализировать описания вспомогательных скриптов и selective tests с учётом новой схемы обновления обзорной документации.
+- [ ] `README.md` / `README.en.md`: синхронизировать структуры разделов, обновить блок «Незакрытые задачи», привести отметку _Last sync_ к фактической дате и добавить явный чеклист перевода в `CONTRIBUTING.md`/CI.
+- [ ] `docs/customization.md` / `docs/usage-demo.md`: обновить walkthrough и разделы настройки с учётом новой обзорной документации и сценария синхронизации README.
 
 ### CI и тестовый контур
-- [ ] `init-claude-workflow.sh`: привести генерацию CI к фактическому `.github/workflows/ci.yml` (push/pull_request, установка линтеров, шаги secret scan/матрица ОС) или наоборот стандартизировать pipeline и документацию; зафиксировать выбор в README и релиз-нотах.
-- [ ] `tests/test_init_claude_workflow.py`: расширить проверки на присутствие helper-скриптов, gradle-шаблона, overview-документа и корректного CI-файла; добавить негативные сценарии (например, запуск без doc/intro) и очистку временных артефактов.
+- [ ] `init-claude-workflow.sh`: устранить рассинхрон с текущим `.github/workflows/ci.yml` (сейчас генерируется `.github/workflows/gradle.yml`); выбрать единый pipeline и описать его в README и релиз-нотах.
+- [ ] `tests/test_init_claude_workflow.py`: дополнить проверками на наличие overview-документа, helper-скриптов и актуального CI-файла; добавить негативные сценарии (например, отсутствие doc/intro) и очистку временных артефактов.
 
 ## Wave 6
 
 ### Расширяемость автоматизации и стеков
-- [ ] `.claude/hooks/format-and-test.sh`: реализовать декларативный список раннеров (Gradle/NPM/Pytest) с автоподбором по `moduleMatrix`; обновить пример конфигурации в `.claude/settings.json` и добавить fallback для смешанных проектов.
-- [ ] `init-claude-workflow.sh`: генерировать пресет `polyglot`, который разворачивает заготовки для Gradle, Node и Python модулей (настройка `automation.format/tests`, примеры `moduleMatrix`, инструкции по зависимостям).
-- [ ] `tests/test_format_and_test.py`: дополнить кейсами, проверяющими переключение раннеров, `TEST_SCOPE` и `STRICT_TESTS` в мульти-стековых проектах; создать заглушки npm/pytest внутри временного каталога.
+- [ ] `.claude/hooks/format-and-test.sh`: добавить поддержку нескольких раннеров (Gradle/NPM/Pytest) и расширить `moduleMatrix`, сохранив совместимость с существующим `scripts/ci-lint.sh`.
+- [ ] `init-claude-workflow.sh`: выпустить пресет `polyglot`, генерирующий конфигурации для Gradle/Node/Python (automation.format/tests, moduleMatrix, инструкции зависимостей).
+- [ ] `tests/test_format_and_test.py`: покрыть переключение раннеров, `TEST_SCOPE` и `STRICT_TESTS` в мульти-стековых проектах; добавить временные npm/pytest заглушки.
 
 ### Наблюдаемость и аналитика
-- [ ] `scripts/ci-lint.sh`: добавить флаг `--json-report`, выводящий длительность и статус каждого шага в `ci-report.json`; сохранять файл как артефакт GitHub Actions.
-- [ ] `.claude/hooks/format-and-test.sh`: писать события запусков в `.claude/cache/test-runs.json` (timestamp, runner, задачи, exit-code) и чистить логи старше N дней; описать формат в `docs/customization.md`.
-- [ ] `docs/usage-demo.md`: расширить раздел troubleshooting инструкцией по анализу новых отчётов (`ci-report.json`, `test-runs.json`) и чеклистом «что делать, если тесты не стартуют».
+- [ ] `scripts/ci-lint.sh`: добавить `--json-report` с длительностью и статусом шагов (`ci-report.json`) и описать экспорт артефактов в CI.
+- [ ] `.claude/hooks/format-and-test.sh`: логировать запуски в `.claude/cache/test-runs.json` (timestamp, runner, задачи, exit-code) и реализовать ротацию логов; задокументировать формат.
+- [ ] `docs/usage-demo.md`: дополнить troubleshooting инструкциями по анализу `ci-report.json` и `test-runs.json` и чеклистом «что делать, если тесты не стартуют».
 
 ### Enterprise-безопасность и процессы
-- [ ] `.claude/hooks/protect-prod.sh`: поддержать профили (`protection.profiles[]`) с разными наборами protected/allowlist и режимом `log-only`; добавить CLI-переключатель `scripts/protection_profile.py`.
-- [ ] `docs/security-hardening.md`: подготовить гайд по настройке профилей защиты, secret-scanning и интеграции с GitHub Advanced Security; сослаться на него из `README.md` и `README.en.md`.
-- [ ] `.github/workflows/ci.yml`: ввести матрицу ОС (ubuntu, macos), шаг `secret-detection` (gitleaks/gh secret scan) и описание кастомизации в `docs/customization.md`.
+- [ ] `.claude/hooks/protect-prod.sh`: внедрить профили `protection.profiles[]` с режимом `log-only` и предоставить CLI (`scripts/protection_profile.py`) для переключения.
+- [ ] `docs/security-hardening.md`: оформить гайд по профилям защиты, secret-scanning и GitHub Advanced Security; добавить перекрёстные ссылки в README.
+- [ ] `.github/workflows/ci.yml`: расширить pipeline матрицей ОС (ubuntu, macos), шагом `secret-detection` (gitleaks/gh secret scan) и описанием кастомизации в `docs/customization.md`.
 
 ## Wave 7
 
