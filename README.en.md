@@ -300,6 +300,13 @@ Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `do
 - Sample Gradle monorepo & helper script: `examples/gradle-demo/`, `examples/apply-demo.sh`.
 - Quick reference for slash commands: `.claude/commands/`.
 
+## CLI releases
+- The package version comes from `pyproject.toml`; pushes to `main` trigger `.github/workflows/autotag.yml`, which creates `v<version>` tags when they do not exist yet.
+- Tags matching `v*` run `release.yml`: the job builds `sdist`/`wheel` via `python -m build`, attaches them to the GitHub Release, and stores them as workflow artefacts.
+- `publish.yml` uploads distributions to PyPI/TestPyPI. It fires automatically when a release is published and can be launched manually (`workflow_dispatch`) with a `repository` choice. Required secrets: `PYPI_API_TOKEN`; optional `TEST_PYPI_API_TOKEN` for TestPyPI.
+- Update `CHANGELOG.md`/README before tagging, then validate `scripts/ci-lint.sh` and `claude-workflow smoke`. After the release, confirm that the package is visible on GitHub Releases and in the selected registry.
+- For dry runs, trigger `Publish` manually with the `testpypi` target after configuring the corresponding secret.
+
 ## Contribution & license
 - Follow `CONTRIBUTING.md` before opening PRs or issues.
 - Licensed under MIT (`LICENSE`).

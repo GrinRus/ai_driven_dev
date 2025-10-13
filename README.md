@@ -319,6 +319,13 @@ git checkout -b feature/STORE-123
 - Демо-монорепо и скрипт применения: `examples/gradle-demo/`, `examples/apply-demo.sh`.
 - Быстрая справка по слэш-командам: `.claude/commands/`.
 
+## Релизы CLI
+- Версия берётся из `pyproject.toml`; пуш в `main` автоматически создаёт тег `v<версия>` (`.github/workflows/autotag.yml`), если такого ещё нет.
+- Тег `v*` запускает workflow `release.yml`: собираются `sdist`/`wheel` (`python -m build`), артефакты прикрепляются к GitHub Release и сохраняются как artefact.
+- Workflow `publish.yml` публикует пакет на PyPI/TestPyPI: он стартует автоматически при публикации релиза или вручную через `workflow_dispatch` (параметр `repository`). Необходимые секреты: `PYPI_API_TOKEN`, опционально `TEST_PYPI_API_TOKEN`.
+- Перед релизом обновляйте `CHANGELOG.md` и README, проверяйте `scripts/ci-lint.sh` и `claude-workflow smoke`. После релиза убедитесь, что релиз появился в разделе GitHub Releases и пакет доступен в нужном реестре.
+- Для тестовых выкладок используйте ручной запуск `Publish` с параметром `testpypi`, предварительно настроив секрет `TEST_PYPI_API_TOKEN`.
+
 ## Вклад и лицензия
 - Перед отправкой изменений ознакомьтесь с `CONTRIBUTING.md`.
 - Лицензия проекта — MIT (`LICENSE`).
