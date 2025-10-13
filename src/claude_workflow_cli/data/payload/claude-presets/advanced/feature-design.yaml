@@ -1,0 +1,32 @@
+name: feature-design
+workflow_step: 2-design
+description: >
+  Проработка архитектуры и решений для фичи на основе PRD и текущих ограничений.
+variables:
+  feature:
+    prompt: "Slug активной фичи."
+  prd_path:
+    prompt: "Путь к PRD, если отличается от стандартного docs/prd/{{feature}}.prd.md."
+    default: "docs/prd/{{feature}}.prd.md"
+context:
+  files:
+    - workflow.md
+    - docs/adr.template.md
+    - docs/customization.md
+    - docs/design/feature-presets.md
+    - "{{prd_path}}"
+  instructions:
+    - "Сформируй архитектурный документ для фичи {{feature}}."
+    - "Зафиксируй ключевые решения, альтернативы и риски."
+    - "Свяжи документ с соответствующими ADR и планом реализации."
+output:
+  path: docs/design/{{feature}}.md
+  format: markdown
+  mode: overwrite
+  scaffold: docs/adr.template.md
+claude:
+  mode: interact
+  temperature: 0.2
+  guardrails:
+    - "Сначала уточни открытые вопросы, затем предложи архитектуру."
+    - "Согласуй решения с ограничениями из workflow и conventions."

@@ -22,8 +22,9 @@
 - [Примеры и демо](#примеры-и-демо)
 - [Незакрытые задачи и наблюдения](#незакрытые-задачи-и-наблюдения)
 - [Установка](#установка)
-  - [Вариант A — curl](#вариант-a--curl)
-  - [Вариант B — локально](#вариант-b--локально)
+  - [Вариант A — `uv tool install` (рекомендуется)](#вариант-a--uv-tool-install-рекомендуется)
+  - [Вариант B — `pipx`](#вариант-b--pipx)
+  - [Вариант C — локально (bash-скрипт)](#вариант-c--локально-bash-скрипт)
 - [Предпосылки](#предпосылки)
 - [Быстрый старт в Claude Code](#быстрый-старт-в-claude-code)
 - [Чеклист запуска фичи](#чеклист-запуска-фичи)
@@ -192,19 +193,33 @@
 
 ## Установка
 
-### Вариант A — `curl`
-
-> Замените `<your-org>/<repo>` на репозиторий, где размещён `init-claude-workflow.sh`.
+### Вариант A — `uv tool install` (рекомендуется)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-org>/<repo>/main/init-claude-workflow.sh \
-  | bash -s -- --commit-mode ticket-prefix --enable-ci
+uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 ```
 
-### Вариант B — локально
+- первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
+- команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
+- для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --feature demo-checkout`.
 
-1. Сохраните `init-claude-workflow.sh` в корень проекта.
-2. Выполните:
+### Вариант B — `pipx`
+
+Если `uv` недоступен, используйте `pipx`:
+
+```bash
+pipx install git+https://github.com/GrinRus/ai_driven_dev.git
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+```
+
+`pipx` добавит CLI в PATH и обеспечит автоматические обновления через `pipx upgrade claude-workflow-cli`.
+
+### Вариант C — локально (bash-скрипт)
+
+1. Скачайте каталог репозитория (git clone или архив) и перейдите в него.
+2. Скопируйте `init-claude-workflow.sh` рядом с вашим проектом.
+3. Запустите:
 
 ```bash
 bash init-claude-workflow.sh --commit-mode ticket-prefix --enable-ci
@@ -212,6 +227,13 @@ bash init-claude-workflow.sh --commit-mode ticket-prefix --enable-ci
 #   --commit-mode ticket-prefix | conventional | mixed
 #   --enable-ci   добавить шаблон CI (ручной триггер по умолчанию)
 #   --force       перезаписывать существующие файлы
+```
+
+Альтернатива для публичных репозиториев — загрузить скрипт напрямую:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GrinRus/ai_driven_dev/main/init-claude-workflow.sh \
+  | bash -s -- --commit-mode ticket-prefix --enable-ci
 ```
 
 После инициализации:
@@ -222,6 +244,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 
 ## Предпосылки
 - `bash`, `git`, `python3`;
+- `uv` (https://github.com/astral-sh/uv) или `pipx` для установки CLI (по желанию);
 - Gradle wrapper (`./gradlew`) или установленный Gradle;
 - (опционально) `ktlint` и/или Spotless для автоформатирования.
 

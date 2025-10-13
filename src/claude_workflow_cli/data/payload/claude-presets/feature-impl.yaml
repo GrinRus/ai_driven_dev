@@ -1,0 +1,33 @@
+name: feature-impl
+workflow_step: 4-implement
+description: >
+  Подготовка итерационного плана реализации и контроль чеклистов во время работы над фичей.
+variables:
+  feature:
+    prompt: "Slug активной фичи."
+  tasklist_section:
+    prompt: "Имя секции в tasklist.md для обновления статусов."
+    default: "{{feature}}"
+context:
+  files:
+    - workflow.md
+    - docs/prd/{{feature}}.prd.md
+    - docs/design/{{feature}}.md
+    - docs/plan/{{feature}}.md
+    - tasklist.md
+    - docs/customization.md
+  instructions:
+    - "Сверь текущий статус фичи {{feature}} с планом и тасклистом."
+    - "Предложи разбивку работы на итерации и проверь критерии прохождения гейтов."
+    - "Сформируй блок обновлений для tasklist.md в секции {{tasklist_section}}."
+output:
+  path: tasklist.md
+  format: markdown
+  mode: append
+  anchor: "## {{tasklist_section}}"
+claude:
+  mode: interact
+  temperature: 0.15
+  guardrails:
+    - "Сначала запланируй шаги, затем предложи изменения в коде и тестах."
+    - "Запрашивай подтверждение пользователя перед изменениями в артефактах."

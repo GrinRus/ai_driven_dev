@@ -27,8 +27,9 @@ _Last sync with `README.md`: 2025-10-13._
 - [Docs & templates](#docs--templates)
 - [Examples & demos](#examples--demos)
 - [Installation](#installation)
-  - [Option A — curl](#option-a--curl)
-  - [Option B — local file](#option-b--local-file)
+  - [Option A — `uv tool install` (recommended)](#option-a--uv-tool-install-recommended)
+  - [Option B — `pipx`](#option-b--pipx)
+  - [Option C — local script](#option-c--local-script)
 - [Prerequisites](#prerequisites)
 - [Quick start in Claude Code](#quick-start-in-claude-code)
 - [Feature kickoff checklist](#feature-kickoff-checklist)
@@ -177,19 +178,33 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 
 ## Installation
 
-### Option A — curl
-
-> Replace `<your-org>/<repo>` with the repository that stores `init-claude-workflow.sh`.
+### Option A — `uv tool install` (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-org>/<repo>/main/init-claude-workflow.sh \
-  | bash -s -- --commit-mode ticket-prefix --enable-ci
+uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 ```
 
-### Option B — local file
+- the first command installs the `claude-workflow` CLI via `uv`;
+- `claude-workflow init` mirrors the behaviour of `init-claude-workflow.sh`, copying presets, hooks, and docs into the current project;
+- need demo data? run `claude-workflow preset feature-prd --feature demo-checkout`.
 
-1. Copy `init-claude-workflow.sh` into the project root.
-2. Run:
+### Option B — `pipx`
+
+When `uv` is unavailable:
+
+```bash
+pipx install git+https://github.com/GrinRus/ai_driven_dev.git
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+```
+
+`pipx` keeps the CLI isolated and upgradeable (`pipx upgrade claude-workflow-cli`).
+
+### Option C — local script
+
+1. Download or clone this repository.
+2. Place `init-claude-workflow.sh` next to your project.
+3. Execute:
 
 ```bash
 bash init-claude-workflow.sh --commit-mode ticket-prefix --enable-ci
@@ -199,7 +214,14 @@ bash init-claude-workflow.sh --commit-mode ticket-prefix --enable-ci
 #   --force       overwrite existing files
 ```
 
-Finish with:
+For public mirrors you can still rely on `curl`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GrinRus/ai_driven_dev/main/init-claude-workflow.sh \
+  | bash -s -- --commit-mode ticket-prefix --enable-ci
+```
+
+After bootstrap:
 
 ```bash
 git add -A && git commit -m "chore: bootstrap Claude Code workflow"
@@ -207,6 +229,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 
 ## Prerequisites
 - `bash`, `git`, `python3`;
+- `uv` (https://github.com/astral-sh/uv) or `pipx` to install the CLI (optional but handy);
 - Gradle wrapper (`./gradlew`) or a local Gradle installation;
 - optional: `ktlint` and/or Spotless.
 
