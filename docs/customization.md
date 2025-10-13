@@ -59,8 +59,7 @@
 ```
 
 Как переключаться:
-- Через слэш-команду `/conventions-set conventional`.
-- Через CLI `python3 scripts/conventions_set.py conventional`.
+- Отредактируйте поле `commit.mode` в `config/conventions.json` (допустимые значения: `ticket-prefix`, `conventional`, `mixed`).
 
 Для кастомизации добавьте собственное поле, например:
 
@@ -111,10 +110,23 @@ ALLOWED_EXCEPTIONS+=("infra/prod/README.md")
 mkdir -p .git/hooks
 cat > .git/hooks/commit-msg <<'HOOK'
 #!/usr/bin/env bash
-python3 scripts/commit_msg.py --validate "$(cat "$1")" >/dev/null || {
-  echo "❌ Commit message не соответствует активному режиму в config/conventions.json" 1>&2
-  exit 1
+python3 - <<'PY' "$1"
+import json
+import re
+import sys
+from pathlib import Path
+
+message = Path(sys.argv[1]).read_text(encoding="utf-8").strip()
+mode = json.loads(Path("config/conventions.json").read_text(encoding="utf-8"))["commit"]["mode"]
+patterns = {
+    "ticket-prefix": r"^[A-Z]+\-\d+: .+",
+    "conventional": r"^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\([\w\-\*]+\))?: .+",
+    "mixed": r"^[A-Z]+\-\d+ (feat|fix|chore|docs|refactor|perf)(\([\w\-\*]+\))?: .+",
 }
+if not re.match(patterns.get(mode, r"^.+$"), message):
+    print(f"Commit message не соответствует режиму {mode}", file=sys.stderr)
+    sys.exit(1)
+PY
 HOOK
 chmod +x .git/hooks/commit-msg
 ```

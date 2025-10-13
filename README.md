@@ -75,16 +75,15 @@
 | `CONTRIBUTING.md` | Правила вкладов | Описывает процесс PR/issue, требования к коммитам и линтингу |
 | `LICENSE` | Лицензия | MIT с ограничениями ответственности |
 
-> `init-claude-workflow.sh` генерирует CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и `.claude/gradle/init-print-projects.gradle`. Скрипты уже находятся в репозитории и обновляются при переустановке, поэтому команды `/commit`, `/branch-new`, `/conventions-set` готовы к использованию сразу после bootstrap.
+> `init-claude-workflow.sh` разворачивает `.claude/hooks/*`, документацию и вспомогательный Gradle-скрипт `.claude/gradle/init-print-projects.gradle`. Ветки и сообщения коммитов настраиваются стандартными git-командами по правилам `config/conventions.json`.
 
 ## Детальный анализ компонентов
 
 ### Скрипты установки и утилиты
-- `init-claude-workflow.sh` — модульный bootstrap со строгими проверками (`bash/git/python3`, Gradle/ktlint), режимами `--commit-mode/--enable-ci/--force/--dry-run`, генерацией `.claude/`, `config/`, `docs/`, `templates/`, `.gitkeep` и CLI-скриптов, а также автоматическим обновлением `config/conventions.json`.
+- `init-claude-workflow.sh` — модульный bootstrap со строгими проверками (`bash/git/python3`, Gradle/ktlint), режимами `--commit-mode/--enable-ci/--force/--dry-run`, генерацией `.claude/`, `config/`, `docs/`, `templates/`, `.gitkeep` и автоматическим обновлением `config/conventions.json`.
 - `scripts/ci-lint.sh` — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, интегрированная с CI и корректно пропускающая отсутствующие линтеры с предупреждением.
 - `scripts/smoke-workflow.sh` — E2E smoke-сценарий: поднимает временный проект, запускает bootstrap, воспроизводит slug → PRD → план → tasklist и убеждается, что `gate-workflow.sh` корректно блокирует/разрешает правки.
 - `examples/apply-demo.sh` — демонстрирует применение шаблона к Gradle-монорепо, печатает дерево каталогов до/после и, при наличии wrapper, запускает `gradlew test`.
-- CLI, генерируемые bootstrap-скриптом (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) — формируют сообщения коммитов, создают ветки по пресетам и позволяют вручную переключать commit-mode.
 
 ### Git-хуки и автоматизация
 - `.claude/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, анализирует `git diff`, slug из `docs/.active_feature`, умеет переключать selective/full run и подбирает задачи через `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
@@ -104,16 +103,15 @@
 - `.claude/agents/contract-checker.md` — сравнивает контроллеры с OpenAPI, выявляет лишние/отсутствующие эндпоинты, статусы и поля, формирует actionable summary.
 
 ### Слэш-команды и пайплайн
-- `.claude/commands/feature-activate.md` — выставляет slug в `docs/.active_feature`, активирует workflow-гейты.
-- `.claude/commands/branch-new.md` — использует `scripts/branch_new.py`, создаёт ветки (`feature/`, `feat/`, `hotfix/`, `mixed`) и возвращает итоговое имя.
-- `.claude/commands/idea-new.md` — вызывает `analyst`, создаёт PRD, фиксирует открытые вопросы и slug.
+- Ветки создайте `git checkout -b feature/<TICKET>` или по другим паттернам из `config/conventions.json`.
+- `.claude/commands/idea-new.md` — фиксирует slug в `docs/.active_feature`, вызывает `analyst`, создаёт PRD и открытые вопросы.
 - `.claude/commands/plan-new.md` — подключает `planner` и `validator`, обновляет план и протокол проверки.
 - `.claude/commands/tasks-new.md` — синхронизирует `tasklist.md` с планом, распределяя задачи по этапам и slug.
 - `.claude/commands/api-spec-new.md` — поручает `api-designer` собрать OpenAPI и подсветить outstanding вопросы.
 - `.claude/commands/tests-generate.md` — активирует `qa-author` для автогенерации тестов и ручных сценариев.
 - `.claude/commands/implement.md` — фиксирует шаги реализации, напоминает про гейты и автоматические тесты.
 - `.claude/commands/review.md` — оформляет ревью, обновляет чеклисты и статус READY/BLOCKED.
-- `.claude/commands/commit.md` и `commit-validate.md` — используют `scripts/commit_msg.py` для формирования/валидации сообщений в активном режиме `config/conventions.json`.
+- Сообщения коммитов формируйте вручную (`git commit`), сверяясь со схемами в `config/conventions.json`.
 - `.claude/commands/test-changed.md` — тонкая настройка `format-and-test.sh`, запускает selective Gradle задачи, умеет передавать кастомный scope.
 
 ### Конфигурация и политики
@@ -140,7 +138,7 @@
 - `claude-workflow-extensions.patch` — patch-файл с расширениями агентов, команд и гейтов, готовый к применению на чистый репозиторий.
 
 ## Архитектура и взаимосвязи
-- Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и CLI, которые затем вызываются слэш-командами и hook-пайплайном.
+- Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды, которые затем задействуются hook-пайплайном.
 - Пресет `strict` в `.claude/settings.json` подключает pre/post-хуки, автоматически запускает `.claude/hooks/format-and-test.sh` после успешной записи и привязывает защиту продовых путей.
 - Гейты (`gate-*`) читают `config/gates.json` и артефакты в `docs/**`, обеспечивая прохождение цепочки `/idea-new → /plan-new → /tasks-new`; команды `/api-spec-new` и `/tests-generate` активируют саб-агентов и разблокируют критичные пути.
 - `.claude/hooks/format-and-test.sh` опирается на Gradle-скрипт `init-print-projects.gradle`, slug в `docs/.active_feature` и `moduleMatrix`, чтобы решать, запускать ли selective или полный набор задач.
@@ -192,9 +190,9 @@
 - `scripts/smoke-workflow.sh` + `docs/usage-demo.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
 
 ## Незакрытые задачи и наблюдения
-- `doc/backlog.md` хранит Wave 2 пункты, среди которых возврат CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`) и Gradle-хелпера в репозиторий после генерации.
+- `doc/backlog.md` хранит Wave 2 пункты, среди которых исторические CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`, удалены в Wave 9) и Gradle-хелпера в репозиторий после генерации.
 - `claude-workflow-extensions.patch` расширяет агентов/команды; применяйте его вручную и фиксируйте конфликты, если используете дополнительные гейты.
-- Собирая новый монорепо, переносите сгенерированные CLI и `.claude/gradle/init-print-projects.gradle` под контроль версий — smoke/CI тесты ожидают их наличия.
+- Собирая новый монорепо, переносите `.claude/` (команды, гейты, Gradle-хелпер) под контроль версий — smoke/CI тесты ожидают их наличия.
 - Следите за синхронизацией `README.en.md` (метка _Last sync_) после обновлений документации.
 
 ## Установка
@@ -239,8 +237,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 Откройте проект в Claude Code и выполните команды:
 
 ```
-/branch-new feature STORE-123
-/feature-activate checkout-discounts
+git checkout -b feature/STORE-123
 /idea-new checkout-discounts STORE-123
 /plan-new checkout-discounts
 /tasks-new checkout-discounts
@@ -253,12 +250,12 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist, OpenAPI, тесты);
 - при правках автоматически запускается `/test-changed`, гейты блокируют изменения без контрактов/миграций/тестов;
-- `/commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
+- `git commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
 
 ## Чеклист запуска фичи
 
-1. Создайте ветку (`/branch-new` или вручную) и активируйте slug через `/feature-activate <slug>`.
-2. Соберите артефакты аналитики: `/idea-new`, `/plan-new`, `/tasks-new` до статуса READY/PASS.
+1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <slug>` — команда автоматически обновит `docs/.active_feature`.
+2. Соберите артефакты аналитики: `/idea-new`, `/plan-new`, `/tasks-new` до статуса READY/PASS (slug уже установлен шагом 1).
 3. Подготовьте интеграции и данные: `/api-spec-new`, запустите `contract-checker`, при необходимости вызовите агента `db-migrator`.
 4. Закройте тестовый контур: `/tests-generate`, убедитесь, что `gate-tests` не выдаёт предупреждений/блокировок.
 5. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow`, `gate-api-contract`, `gate-db-migration`.
@@ -270,8 +267,6 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 
 | Команда | Назначение | Аргументы (пример) |
 |---|---|---|
-| `/branch-new` | Создать/переключить ветку по пресету | `feature STORE-123` / `feat orders` / `mixed STORE-123 feat pricing` |
-| `/feature-activate` | Зафиксировать slug активной фичи | `checkout-discounts` |
 | `/idea-new` | Собрать вводные и оформить PRD | `checkout-discounts STORE-123` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
 | `/tasks-new` | Обновить `tasklist.md` по плану | `checkout-discounts` |
@@ -280,10 +275,6 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 | `/api-spec-new` | Создать/обновить OpenAPI контракт | `checkout-discounts` |
 | `/tests-generate` | Сгенерировать юнит/интеграционные тесты | `checkout-discounts` |
 | `/test-changed` | Прогнать выборочные Gradle-тесты | — |
-| `/conventions-set` | Сменить режим коммитов | `conventional` / `ticket-prefix` / `mixed` |
-| `/conventions-sync` | Синхронизировать `conventions.md` с Gradle-конфигами | — |
-| `/commit` | Сформировать и сделать коммит | `"implement rule engine"` |
-| `/commit-validate` | Проверить сообщение коммита на соответствие режиму | `"feat(orders): add x"` |
 
 ## Режимы веток и коммитов
 
@@ -293,13 +284,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 - **conventional**: `feat/orders` → `feat(orders): краткое описание`;
 - **mixed**: `feature/STORE-123/feat/orders` → `STORE-123 feat(orders): краткое описание`.
 
-Смена режима выполняется командой:
-
-```text
-/conventions-set conventional
-```
-
-Для обязательной проверки сообщений коммитов добавьте git-хук `commit-msg` — пример в `docs/customization.md`.
+Измените поле `commit.mode` вручную (`ticket-prefix`/`conventional`/`mixed`) и добавьте git-хук `commit-msg`, чтобы проверять сообщения — пример настроек в `docs/customization.md`.
 
 ## Выборочные тесты Gradle
 
@@ -317,7 +302,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 - Пошаговый пример использования и снимки до/после: `docs/usage-demo.md`.
 - Подробный обзор цикла и гейтов: `workflow.md`.
 - Playbook агентов и барьеров: `docs/agents-playbook.md`.
-- Руководство по настройке `.claude/settings.json`, `config/conventions.json`, хуков и CLI: `docs/customization.md`.
+- Руководство по настройке `.claude/settings.json`, `config/conventions.json`, хуков и вспомогательных скриптов: `docs/customization.md`.
 - Англоязычная версия README с правилами синхронизации: `README.en.md`.
 - Демо-монорепо и скрипт применения: `examples/gradle-demo/`, `examples/apply-demo.sh`.
 - Быстрая справка по слэш-командам: `.claude/commands/`.

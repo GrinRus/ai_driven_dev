@@ -488,16 +488,14 @@ generate_core_docs() {
 # Claude Code Workflow (AI-driven)
 
 ## Основной цикл
-1. `/feature-activate <slug>` — зафиксируйте активную фичу (используется гейтами).
-2. `/idea-new <slug> [TICKET]` — агент analyst собирает требования и оформляет PRD.
-3. `/plan-new <slug>` — planner составляет план реализации, validator проверяет полноту.
-4. `/tasks-new <slug>` — tasklist синхронизируется с планом (реализация, тесты, документация).
-5. `/implement <slug>` — агент implementer вносит кодовые изменения, автотесты запускаются через `/test-changed`.
-6. `/review <slug>` — reviewer проводит код-ревью и возвращает замечания в tasklist.
+1. `/idea-new <slug> [TICKET]` — фиксирует slug в `docs/.active_feature`, агент analyst собирает требования и оформляет PRD.
+2. `/plan-new <slug>` — planner составляет план реализации, validator проверяет полноту.
+3. `/tasks-new <slug>` — tasklist синхронизируется с планом (реализация, тесты, документация).
+4. `/implement <slug>` — агент implementer вносит кодовые изменения, автотесты запускаются через `/test-changed`.
+5. `/review <slug>` — reviewer проводит код-ревью и возвращает замечания в tasklist.
 
 Дополнительно:
 - `/api-spec-new`, `/tests-generate` — поддерживающие артефакты.
-- `/branch-new`, `/commit`, `/commit-validate`, `/conventions-set` — управление ветками и коммитами.
 
 ## Хуки и гейты
 - `.claude/hooks/protect-prod.sh` — блокирует опасные правки в infra/prod.
@@ -513,8 +511,8 @@ MD
 # conventions.md
 
 - **Стиль кода**: следуем KISS/YAGNI/MVP; используем JetBrains/Google style (Spotless + ktlint при наличии).
-- **Ветки**: создаём через `/branch-new` (`feature/<TICKET>`, `feat/<scope>`, `hotfix/<TICKET>`).
-- **Коммиты**: формируются командой `/commit`, режим задаётся в `config/conventions.json`.
+- **Ветки**: создаём через `git checkout -b` по пресетам (`feature/<TICKET>`, `feat/<scope>`, `hotfix/<TICKET>`).
+- **Коммиты**: используем `git commit`, текст сообщений сверяем с `config/conventions.json`.
 - **Документация**: PRD (`docs/prd/<slug>.prd.md`), план (`docs/plan/<slug>.md`), tasklist (`tasklist.md`), API (`docs/api/<slug>.yaml`).
 - **Автогейты**: для работы с кодом должны быть готовы PRD/план/таски; для контроллеров — актуальный OpenAPI; для сущностей — миграция.
 - **Тесты**: после каждого изменения запускаем `/test-changed`; при необходимости дозаказываем `/tests-generate`.
@@ -699,7 +697,7 @@ model: inherit
 ---
 Действия:
 1) Сверься с `docs/plan/$SLUG.md` и чеклистом задач.
-2) Пиши код малыми итерациями, каждый шаг — отдельный коммит (используй `/commit`).
+2) Пиши код малыми итерациями, каждый шаг — отдельный коммит (`git commit`).
 3) После каждой правки запускай `/test-changed`. При падениях — исправь и повтори.
 4) Если не ясно, какой алгоритм/интеграцию/БД использовать — остановись и задай вопрос пользователю.
 
@@ -788,23 +786,13 @@ MD
 }
 
 generate_commands() {
-  write_template ".claude/commands/feature-activate.md" <<'MD'
----
-description: "Установить активную фичу для гейтов (docs/.active_feature)"
-argument-hint: "<slug>"
-allowed-tools: Bash(*),Read,Write
----
-Создай/перезапиши файл `docs/.active_feature` значением `$1`:
-!`mkdir -p docs && printf "%s" "$1" > docs/.active_feature && echo "active feature: $1"`
-MD
-
   write_template ".claude/commands/idea-new.md" <<'MD'
 ---
 description: "Инициация фичи: сбор идеи → уточнения → PRD"
 argument-hint: "<slug> [TICKET]"
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 ---
-1) Установи активную фичу: создавай/перезапиши файл `docs/.active_feature` значением `$1`.
+1) Установи активную фичу: создавай/перезапиши файл `docs/.active_feature` значением `$1` — это единственный способ синхронизировать slug (отдельной `/feature-activate` больше нет).
 2) Используя @docs/prd.template.md, @conventions.md и @workflow.md, создай/обнови `docs/prd/$1.prd.md`.
 3) Вызови саб‑агента **analyst** для итеративного уточнения идеи. Если передан TICKET ($2) — добавь раздел Tracking.
 
@@ -885,49 +873,6 @@ allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Re
 !`"$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh"`
 MD
 
-  write_template ".claude/commands/conventions-sync.md" <<'MD'
----
-description: "Синхронизировать conventions.md с Gradle конфигами"
-allowed-tools: Read,Edit,Write,Grep,Glob
----
-Просмотри build.gradle*, settings.gradle*, gradle/libs.versions.toml; обнови @conventions.md разделы стиль/линт/тесты.
-MD
-
-  write_template ".claude/commands/branch-new.md" <<'MD'
----
-description: "Создать ветку по пресету (feature/..., feat/..., mixed)"
-argument-hint: "<type> <args>"
-allowed-tools: Bash(git checkout:*),Bash(python3 scripts/branch_new.py:*),Read
----
-!`python3 scripts/branch_new.py $ARGUMENTS | { read n; git checkout -b "$n" || git checkout "$n"; echo "branch: $n"; }`
-MD
-
-  write_template ".claude/commands/commit.md" <<'MD'
----
-description: "Собрать коммит согласно config/conventions.json"
-argument-hint: "<summary>"
-allowed-tools: Bash(git add:*),Bash(git commit:*),Bash(python3 scripts/commit_msg.py:*),Read
----
-!`msg="$(python3 scripts/commit_msg.py --summary "$ARGUMENTS")"; git add -A && git commit -m "$msg" && echo "$msg"`
-MD
-
-  write_template ".claude/commands/commit-validate.md" <<'MD'
----
-description: "Проверить сообщение коммита по текущему пресету"
-argument-hint: "<message>"
-allowed-tools: Bash(python3 scripts/commit_msg.py:*),Read
----
-!`python3 scripts/commit_msg.py --validate "$ARGUMENTS" && echo "OK"`
-MD
-
-  write_template ".claude/commands/conventions-set.md" <<'MD'
----
-description: "Переключить режим: ticket-prefix | conventional | mixed"
-argument-hint: "<commit-mode>"
-allowed-tools: Bash(python3 scripts/conventions_set.py:*),Read,Edit,Write
----
-!`python3 scripts/conventions_set.py --commit-mode "$ARGUMENTS" && echo "commit.mode set to $ARGUMENTS"`
-MD
 }
 
 generate_gradle_helpers() {
@@ -1008,90 +953,6 @@ org.junit.jupiter:junit-jupiter
 org.assertj:assertj-core
 TXT
 
-  write_template "scripts/commit_msg.py" <<'PY'
-#!/usr/bin/env python3
-import json,re,subprocess,sys,argparse
-CFG='config/conventions.json'
-def load_cfg():
-  with open(CFG,'r',encoding='utf-8') as f: return json.load(f)
-def git_branch():
-  try: return subprocess.check_output(["git","rev-parse","--abbrev-ref","HEAD"]).decode().strip()
-  except: return ""
-def validate_msg(mode,msg):
-  pats={
-    "ticket-prefix": r"^[A-Z]+-\\d+: .+",
-    "conventional":  r"^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\\([\\w\\-\\*]+\\))?: .+",
-    "mixed":         r"^[A-Z]+-\\d+ (feat|fix|chore|docs|refactor|perf)(\\([\\w\\-\\*]+\\))?: .+"
-  }
-  return re.match(pats.get(mode,"^.+$"), msg or "") is not None
-def build(cfg,mode,branch,summary,typ=None):
-  c=cfg["commit"]
-  if mode=="ticket-prefix":
-    m=re.match(c["ticket"]["branch_pattern"], branch or "") or sys.exit(f"[commit] Branch '{branch}' not ticket-prefix")
-    ticket=m.group("ticket");  return c["ticket"]["format"].format(ticket=ticket,summary=summary)
-  if mode=="conventional":
-    m=re.match(c["conventional"]["branch_pattern"], branch or "") or sys.exit("[commit] Branch must be 'feat/scope' etc")
-    typ=(typ or m.group("type")); scope=m.group("scope"); return c["conventional"]["format"].format(type=typ,scope=scope,summary=summary)
-  if mode=="mixed":
-    m=re.match(c["mixed"]["branch_pattern"], branch or "") or sys.exit("[commit] Branch must be 'feature/TICKET/{type}/{scope}'")
-    ticket=m.group("ticket"); typ=(typ or m.group("type")); scope=m.group("scope"); return c["mixed"]["format"].format(ticket=ticket,type=typ,scope=scope,summary=summary)
-  sys.exit(f"[commit] Unknown mode: {mode}")
-def main():
-  ap=argparse.ArgumentParser()
-  ap.add_argument("--summary", required=False, default="")
-  ap.add_argument("--type")
-  ap.add_argument("--branch")
-  ap.add_argument("--mode")
-  ap.add_argument("--validate")
-  a=ap.parse_args()
-  cfg=load_cfg(); mode=a.mode or cfg["commit"]["mode"]
-  if a.validate is not None:
-    print("OK" if validate_msg(mode, a.validate.strip()) else "FAIL"); sys.exit(0)
-  if not a.summary.strip(): sys.exit("[commit] require --summary")
-  branch=a.branch or git_branch()
-  print(build(cfg,mode,branch,a.summary.strip(),a.type))
-if __name__=="__main__": main()
-PY
-  set_executable "scripts/commit_msg.py"
-
-  write_template "scripts/branch_new.py" <<'PY'
-#!/usr/bin/env python3
-import re,sys,argparse
-ap=argparse.ArgumentParser()
-ap.add_argument("type"); ap.add_argument("arg1", nargs="?"); ap.add_argument("arg2", nargs="?"); ap.add_argument("arg3", nargs="?")
-a=ap.parse_args()
-t=a.type; name=""
-if t=="feature":
-  if not a.arg1 or not re.match(r"^[A-Z]+-\\d+$", a.arg1): sys.exit("Use: feature <TICKET>")
-  name=f"feature/{a.arg1}"
-elif t in ("feat","fix","chore","docs","test","refactor","perf","build","ci","revert"):
-  if not a.arg1: sys.exit(f"Use: {t} <scope>")
-  name=f"{t}/{a.arg1}"
-elif t=="hotfix":
-  if not a.arg1 or not re.match(r"^[A-Z]+-\\d+$", a.arg1): sys.exit("Use: hotfix <TICKET>")
-  name=f"hotfix/{a.arg1}"
-elif t=="mixed":
-  if not (a.arg1 and a.arg2 and a.arg3): sys.exit("Use: mixed <TICKET> <type> <scope>")
-  if not re.match(r"^[A-Z]+-\\d+$", a.arg1): sys.exit("TICKET must be A-Z+-digits")
-  if a.arg2 not in ("feat","fix","chore","docs","refactor","perf"): sys.exit("type must be feat|fix|chore|docs|refactor|perf")
-  name=f"feature/{a.arg1}/{a.arg2}/{a.arg3}"
-else: sys.exit("Unknown branch type")
-print(name)
-PY
-  set_executable "scripts/branch_new.py"
-
-  write_template "scripts/conventions_set.py" <<'PY'
-#!/usr/bin/env python3
-import json,sys,argparse
-CFG='config/conventions.json'
-ap=argparse.ArgumentParser(); ap.add_argument("--commit-mode", choices=["ticket-prefix","conventional","mixed"], required=True)
-a=ap.parse_args()
-with open(CFG,'r+',encoding='utf-8') as f:
-  cfg=json.load(f); cfg.setdefault("commit",{})["mode"]=a.commit_mode
-  f.seek(0); json.dump(cfg,f,indent=2,ensure_ascii=False); f.truncate()
-print(a.commit_mode)
-PY
-  set_executable "scripts/conventions_set.py"
 }
 
 generate_ci_workflow() {
@@ -1125,8 +986,7 @@ final_message() {
   log_info "Claude Code workflow is ready."
   cat <<'EOF'
 Open the project in Claude Code and try:
-  /branch-new feature STORE-123
-  /feature-activate checkout-discounts
+  git checkout -b feature/STORE-123
   /idea-new checkout-discounts STORE-123
   /plan-new checkout-discounts
   /tasks-new checkout-discounts
