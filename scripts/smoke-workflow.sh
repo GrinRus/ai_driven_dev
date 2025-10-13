@@ -66,43 +66,40 @@ printf '%s' "$SLUG" >docs/.active_feature
 log "expect block until PRD exists"
 assert_gate_exit 2 "missing PRD"
 
-log "simulate /idea-new — create PRD"
-mkdir -p "docs/prd"
-cat <<'PRD' >"docs/prd/${SLUG}.prd.md"
-# PRD — Demo Checkout
-- Краткий обзор: демонстрация smoke-сценария.
-- Цели и метрики: убедиться, что гейты работают.
-PRD
+log "apply preset feature-prd"
+bash "$INIT_SCRIPT" --preset feature-prd --feature "$SLUG" >/dev/null
 
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
-log "simulate /plan-new — create plan"
-mkdir -p "docs/plan"
-cat <<'PLAN' >"docs/plan/${SLUG}.md"
-# План Demo Checkout
-- Итерация 1: подготовить гейты.
-- Итерация 2: обновить tasklist.
-PLAN
+log "apply preset feature-design"
+bash "$INIT_SCRIPT" --preset feature-design --feature "$SLUG" >/dev/null
+
+log "apply preset feature-plan"
+bash "$INIT_SCRIPT" --preset feature-plan --feature "$SLUG" >/dev/null
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
-log "simulate /tasks-new — append tasklist entries"
-cat <<EOF >>tasklist.md
-- [ ] Demo Checkout :: подготовить PRD/план/tasklist
-- [ ] Demo Checkout :: реализовать гейты
-EOF
+log "apply preset feature-impl"
+bash "$INIT_SCRIPT" --preset feature-impl --feature "$SLUG" >/dev/null
 log "tasklist snapshot"
 tail -n 10 tasklist.md
 
 log "gate now allows source edits"
 assert_gate_exit 0 "all artifacts ready"
 
+log "apply preset feature-release"
+bash "$INIT_SCRIPT" --preset feature-release --feature "$SLUG" >/dev/null
+
 log "verify generated artifacts"
 [[ -f "docs/prd/${SLUG}.prd.md" ]]
 [[ -f "docs/plan/${SLUG}.md" ]]
+[[ -f "docs/design/${SLUG}.md" ]]
+grep -q "Claude Code" "docs/prd/${SLUG}.prd.md"
+grep -q "feature-presets" "docs/design/${SLUG}.md"
 grep -q "Demo Checkout" tasklist.md
+grep -q "## Demo Checkout" docs/release-notes.md
 
 popd >/dev/null
 log "smoke scenario passed"

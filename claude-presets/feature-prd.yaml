@@ -1,0 +1,30 @@
+name: feature-prd
+workflow_step: 1-idea
+description: >
+  Подготовка PRD для новой фичи на основе backlog, workflow и шаблона PRD.
+variables:
+  feature:
+    prompt: "Slug активной фичи (например, checkout-improvements)."
+  acceptance_criteria:
+    prompt: "Буллеты с критериями успеха. Оставьте пустым, если нужно сгенерировать."
+context:
+  files:
+    - doc/backlog.md
+    - workflow.md
+    - docs/prd.template.md
+    - docs/customization.md
+  instructions:
+    - "Сформируй PRD для фичи {{feature}}."
+    - "Перечисли целевую аудиторию, сценарии использования и критерии успеха."
+    - "Сопоставь фичу с текущими гейтами и укажи связанные ADR, если они уже есть."
+output:
+  path: docs/prd/{{feature}}.prd.md
+  format: markdown
+  mode: overwrite
+  scaffold: docs/prd.template.md
+claude:
+  mode: interact
+  temperature: 0.2
+  guardrails:
+    - "Уточни недостающие вводные перед генерацией."
+    - "Проверь, что критерии успеха согласованы с гейтами workflow."

@@ -136,6 +136,25 @@ demo-monorepo/
 4. После правок убедитесь, что `/test-changed` запускается автоматически; при необходимости поставьте `SKIP_AUTO_TESTS=1` перед длительными сессиями.
 5. Выполните `/commit "DEMO-1: implement rule engine"` и `/review demo-checkout`, чтобы закрыть чеклист и убедиться, что пресеты коммитов работают.
 
+## Работа с пресетами фич
+
+После установки в корне появляется каталог `claude-presets/` с YAML-манифестами для каждого шага фичи. Пресеты используются двумя способами:
+
+1. **Через init-скрипт.** Выполните `bash init-claude-workflow.sh --preset feature-prd --feature checkout-discounts`, чтобы развернуть демо-PRD. Дополнительно вызовите `feature-design`, `feature-plan`, `feature-impl`, `feature-release` для остальных этапов. Скрипт автоматически подставит цели из `docs/usage-demo.md` и задачи из `doc/backlog.md (Wave 7)`.
+2. **Внутри Claude Code.** Добавьте файл пресета в контекст (например, `claude-presets/feature-plan.yaml`) или настройте кнопку в интерфейсе — описание находится в `claude-workflow-extensions.patch`.
+
+Текущее покрытие:
+
+| Пресет | Результат | Файл |
+| --- | --- | --- |
+| `feature-prd` | Черновик PRD и метрики успеха | `docs/prd/<slug>.prd.md` |
+| `feature-design` | Архитектура/ADR для фичи | `docs/design/<slug>.md` |
+| `feature-plan` | План реализации и контрольные точки | `docs/plan/<slug>.md` |
+| `feature-impl` | Секция чеклистов в tasklist | `tasklist.md` |
+| `feature-release` | Запись в релизных заметках | `docs/release-notes.md` |
+
+Скрипт `scripts/smoke-workflow.sh` демонстрирует полный E2E: он разворачивает шаблон, активирует фичу `demo-checkout`, прогоняет все пресеты и проверяет, что гейт `gate-workflow.sh` начинает пропускать правки только после появления PRD/плана/тасклиста.
+
 ## Частые вопросы
 - **Запуск скрипта терпит неудачу:** проверьте вывод проверки зависимостей и убедитесь, что Gradle доступен в PATH.
 - **Тесты не стартуют:** убедитесь, что `./gradlew` исполняемый (`chmod +x gradlew`) и что скрипт имеет права на запуск.

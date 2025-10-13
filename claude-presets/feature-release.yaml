@@ -1,0 +1,34 @@
+name: feature-release
+workflow_step: 5-release
+description: >
+  Финализация документации, тестов и чеклистов перед релизом фичи.
+variables:
+  feature:
+    prompt: "Slug активной фичи."
+  release_notes_path:
+    prompt: "Путь к файлу с релизными заметками."
+    default: "docs/release-notes.md"
+context:
+  files:
+    - workflow.md
+    - docs/prd/{{feature}}.prd.md
+    - docs/design/{{feature}}.md
+    - docs/plan/{{feature}}.md
+    - tasklist.md
+    - docs/usage-demo.md
+    - "{{release_notes_path}}"
+  instructions:
+    - "Проверь, что все чекбоксы по фиче {{feature}} закрыты."
+    - "Собери ключевые метрики, результаты тестирования и TODO для следующего цикла."
+    - "Обнови релизные заметки и выпиши обратную связь."
+output:
+  path: "{{release_notes_path}}"
+  format: markdown
+  mode: append
+  anchor: "## {{feature}}"
+claude:
+  mode: interact
+  temperature: 0.15
+  guardrails:
+    - "Не отметь задачу выполненной, если отсутствуют подтверждения тестов."
+    - "Согласуй формулировки релизных заметок с продуктовым владельцем."
