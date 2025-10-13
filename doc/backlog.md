@@ -160,3 +160,13 @@
 - [x] `.claude/commands/implement.md`: переписать шаги реализации так, чтобы описывать автозапуск `.claude/hooks/format-and-test.sh`, режимы `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, без требований ручного вызова `/test-changed`.
 - [x] `claude-workflow-extensions.patch`: удалить возвращение `/test-changed` (файл команды, разрешения `SlashCommand:/test-changed:*`, инструкции агентов), заменить на ссылки на автохуки и прямые команды (`scripts/ci-lint.sh`, `./gradlew test`) в расширенных сценариях.
 - [x] `docs/agents-playbook.md`, `docs/usage-demo.md`: добавить явное пояснение, как работает авто запуск тестов после записи и как временно отключить/расширить его без использования устаревшей команды.
+
+## Wave 12
+
+### Автоматизация хуков
+- [ ] `.claude/settings.json`: заполнить `automation.format.commands` реальными командами форматирования (Spotless/Ktlint) и сменить `automation.tests.runner` с `bash scripts/ci-lint.sh` на соответствующие Gradle-задачи, чтобы автозапуск хуков отражал целевой стек; синхронизировать обновление в `docs/customization.md`.
+- [ ] `.claude/settings.json`: описать `automation.tests.moduleMatrix` для сопоставления путей модулей Gradle и конкретных тестовых задач, обновить `tests/test_format_and_test.py`, чтобы зафиксировать выборочный прогон.
+
+### Усиление гейтов
+- [ ] `.claude/hooks/gate-workflow.sh`: вынести список защищаемых путей из жестко заданного `src/**` в конфигурацию (например, `config/gates.json`) и задокументировать расширение для монорепо с альтернативными каталогами исходников.
+- [ ] `.claude/hooks/gate-tests.sh`: расширить проверку наличия тестов анализом diff/соседних тестовых файлов и запуском релевантных Gradle-задач; дополнить `tests/test_gate_tests_hook.py` покрытием новых сценариев.
