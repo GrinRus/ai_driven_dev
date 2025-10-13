@@ -1,6 +1,7 @@
+---
 name: Release
 
-on:
+'on':
   push:
     tags:
       - "v*"
@@ -29,7 +30,8 @@ jobs:
           pip install build
 
       - name: Build distributions
-        run: python -m build
+        run: |
+          python -m build
 
       - name: Upload build artefacts
         uses: actions/upload-artifact@v4

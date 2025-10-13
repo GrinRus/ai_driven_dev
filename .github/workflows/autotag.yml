@@ -1,6 +1,7 @@
+---
 name: Auto Tag
 
-on:
+'on':
   push:
     branches: [main]
 
@@ -29,11 +30,12 @@ jobs:
         id: version
         run: |
           VERSION=$(python - <<'PY'
-import pathlib, tomllib
-data = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
-print(data["project"]["version"])
-PY
-)
+            import pathlib, tomllib
+            text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+            data = tomllib.loads(text)
+            print(data["project"]["version"])
+          PY
+          )
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check tag existence
@@ -48,7 +50,7 @@ PY
 
       - name: Tag already exists
         if: steps.check_tag.outputs.exists == 'true'
-        run: echo "Tag v${{ steps.version.outputs.version }} already exists. Skipping."
+        run: echo "Tag already exists; skipping."
 
       - name: Create tag
         if: steps.check_tag.outputs.exists == 'false'
