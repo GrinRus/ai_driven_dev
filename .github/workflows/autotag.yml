@@ -29,15 +29,9 @@ jobs:
       - name: Extract version
         id: version
         run: |2
-          VERSION=$(python - <<'PY'
-            import pathlib
-            import tomllib
-
-            text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
-            data = tomllib.loads(text)
-            print(data["project"]["version"])
-          PY
-          )
+          VERSION=$(grep -E '^version = "' pyproject.toml |
+            head -n 1 |
+            sed -E 's/^version = "([^"]+)"/\1/')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check tag existence
