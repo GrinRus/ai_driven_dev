@@ -1,6 +1,7 @@
+---
 name: Gradle (selective modules)
 on:
-  workflow_dispatch: {}  # enable pull_request later if needed
+  workflow_dispatch:  # enable pull_request later if needed
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,7 +19,9 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties','gradle/libs.versions.toml') }}
+          key: >-
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*',
+            '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
           restore-keys: gradle-${{ runner.os }}-
       - name: Run selective tests
         run: bash .claude/hooks/format-and-test.sh
