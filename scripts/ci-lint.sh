@@ -56,6 +56,14 @@ run_markdownlint() {
     return
   fi
   log "running markdownlint on ${#MD_FILES[@]} files"
+  local md_config=".markdownlint.yaml"
+  if [[ -f "$md_config" ]]; then
+    if ! markdownlint --config "$md_config" "${MD_FILES[@]}"; then
+      err "markdownlint reported issues"
+      STATUS=1
+    fi
+    return
+  fi
   if ! markdownlint "${MD_FILES[@]}"; then
     err "markdownlint reported issues"
     STATUS=1

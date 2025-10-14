@@ -1,0 +1,29 @@
+---
+default: true
+
+# Allow long lines entirely — localized docs often exceed hard limits.
+MD013: false
+
+# Many knowledge-base markdown files start directly with content.
+MD041: false
+
+# Allow tighter formatting around headings/lists to keep existing style.
+MD022: false
+MD032: false
+MD058: false
+
+# Permit bare URLs (docs intentionally include them).
+MD034: false
+
+# Code fences without language are acceptable in reference docs.
+MD040: false
+
+# Mixed emphasis styles are acceptable (docs use underscores).
+MD049: false
+
+# Duplicate headings and invalid fragments are fine for localized docs.
+MD024: false
+MD051: false
+
+# Allow fences without surrounding blank lines (existing style).
+MD031: false

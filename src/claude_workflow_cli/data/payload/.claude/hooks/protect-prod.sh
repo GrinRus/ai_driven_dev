@@ -68,10 +68,6 @@ PY
 declare BYPASS_ENV=""
 declare LOG_ONLY_ENV=""
 declare HELP_URL=""
-# shellcheck disable=SC2034
-declare -a PROTECTED_GLOBS=()
-# shellcheck disable=SC2034
-declare -a ALLOWLIST_GLOBS=()
 
 for line in "${CHECK_RESULT[@]}"; do
   case "$line" in
@@ -85,10 +81,10 @@ for line in "${CHECK_RESULT[@]}"; do
       HELP_URL="${line#HELP_URL=}"
       ;;
     PROTECTED=*)
-      IFS=$'\0' read -r -a PROTECTED_GLOBS <<< "${line#PROTECTED=}"
+      IFS=$'\0' read -r -a _ <<< "${line#PROTECTED=}"
       ;;
     ALLOWLIST=*)
-      IFS=$'\0' read -r -a ALLOWLIST_GLOBS <<< "${line#ALLOWLIST=}"
+      IFS=$'\0' read -r -a _ <<< "${line#ALLOWLIST=}"
       ;;
   esac
 done
