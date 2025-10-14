@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import filecmp
 import os
+import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -56,6 +58,13 @@ def _run_init(
     extra_args = extra_args or []
     target.mkdir(parents=True, exist_ok=True)
 
+    current_version = _read_template_version(target)
+    if current_version and current_version != VERSION:
+        print(
+            f"[claude-workflow] existing template version {current_version} detected;"
+            f" CLI {VERSION} will refresh files."
+        )
+
     with _payload_root() as payload_path:
         script = payload_path / "init-claude-workflow.sh"
         if not script.exists():
@@ -63,6 +72,7 @@ def _run_init(
         env = {"CLAUDE_TEMPLATE_DIR": str(payload_path)}
         cmd = ["bash", str(script), *extra_args]
         _run_subprocess(cmd, cwd=target, env=env)
+    _write_template_version(target)
 
 
 def _run_smoke(verbose: bool) -> None:
@@ -102,6 +112,127 @@ def _preset_command(args: argparse.Namespace) -> None:
 
 def _smoke_command(args: argparse.Namespace) -> None:
     _run_smoke(args.verbose)
+
+
+def _read_template_version(target: Path) -> str | None:
+    version_file = target / ".claude" / ".template_version"
+    if not version_file.exists():
+        return None
+    return version_file.read_text(encoding="utf-8").strip() or None
+
+
+def _write_template_version(target: Path) -> None:
+    version_file = target / ".claude" / ".template_version"
+    version_file.parent.mkdir(parents=True, exist_ok=True)
+    version_file.write_text(f"{VERSION}\n", encoding="utf-8")
+
+
+def _iter_payload_files(root: Path) -> Iterable[Path]:
+    for path in root.rglob("*"):
+        if path.is_file():
+            yield path
+
+
+def _ensure_unique_backup(path: Path) -> Path:
+    candidate = path.with_name(f"{path.name}.bak")
+    counter = 1
+    while candidate.exists():
+        candidate = path.with_name(f"{path.name}.bak{counter}")
+        counter += 1
+    return candidate
+
+
+def _upgrade_command(args: argparse.Namespace) -> None:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    current_version = _read_template_version(target)
+    if current_version and current_version == VERSION:
+        print(
+            f"[claude-workflow] project already on template version {VERSION};"
+            " upgrade will refresh files if templates changed."
+        )
+
+    updated: list[str] = []
+    skipped: list[str] = []
+    backups: list[str] = []
+
+    with _payload_root() as payload_path:
+        for src in _iter_payload_files(payload_path):
+            rel = src.relative_to(payload_path)
+            dest = target / rel
+
+            if not dest.exists():
+                if not args.dry_run:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dest)
+                updated.append(str(rel))
+                continue
+
+            try:
+                identical = filecmp.cmp(src, dest, shallow=False)
+            except OSError:
+                identical = False
+
+            if identical:
+                if not args.dry_run:
+                    shutil.copy2(src, dest)
+                updated.append(str(rel))
+                continue
+
+            if args.force:
+                if not args.dry_run:
+                    backup_path = _ensure_unique_backup(dest)
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(dest, backup_path)
+                    shutil.copy2(src, dest)
+                    backups.append(str(backup_path.relative_to(target)))
+                updated.append(str(rel))
+            else:
+                skipped.append(str(rel))
+
+    if args.dry_run:
+        print(
+            f"[claude-workflow] upgrade dry-run: {len(updated)} files would update,"
+            f" {len(skipped)} would be skipped."
+        )
+        if skipped:
+            print("[claude-workflow] skipped (differs locally):")
+            for item in skipped:
+                print(f"  - {item}")
+        return
+
+    _write_template_version(target)
+
+    report_lines = [
+        f"claude-workflow upgrade ({VERSION})",
+        f"updated: {len(updated)}",
+        f"skipped (manual merge required): {len(skipped)}",
+        f"backups created: {len(backups)}",
+        "",
+    ]
+
+    if skipped:
+        report_lines.append("Skipped files:")
+        report_lines.extend(f"  - {item}" for item in skipped)
+        report_lines.append("")
+
+    if backups:
+        report_lines.append("Backups:")
+        report_lines.extend(f"  - {item}" for item in backups)
+        report_lines.append("")
+
+    report_path = target / ".claude" / "upgrade-report.txt"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("\n".join(report_lines), encoding="utf-8")
+
+    print(
+        f"[claude-workflow] upgrade complete: {len(updated)} files updated,"
+        f" {len(skipped)} skipped. Report saved to {report_path}."
+    )
+    if skipped:
+        print("[claude-workflow] Some files differ locally; review report for details.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -192,6 +323,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit verbose logs when running the smoke scenario.",
     )
     smoke_parser.set_defaults(func=_smoke_command)
+
+    upgrade_parser = subparsers.add_parser(
+        "upgrade", help="Refresh workflow files from the latest template."
+    )
+    upgrade_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    upgrade_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite files even if they differ; backups are created first.",
+    )
+    upgrade_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show actions without writing files.",
+    )
+    upgrade_parser.set_defaults(func=_upgrade_command)
 
     return parser
 
