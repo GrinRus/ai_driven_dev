@@ -1,0 +1,38 @@
+{
+  "commit": {
+    "mode": "ticket-prefix",
+    "ticket": {
+      "branch_pattern": "^feature/(?P<ticket>[A-Z]+-\\d+)(?:/.*)?$",
+      "format": "{ticket}: {summary}"
+    },
+    "conventional": {
+      "types": [
+        "feat",
+        "fix",
+        "chore",
+        "docs",
+        "test",
+        "refactor",
+        "perf",
+        "build",
+        "ci",
+        "revert"
+      ],
+      "branch_pattern": "^(?P<type>feat|fix|chore|docs|test|refactor|perf|build|ci|revert)/(?P<scope>[\\w\\-]+)$",
+      "format": "{type}({scope}): {summary}"
+    },
+    "mixed": {
+      "branch_pattern": "^feature/(?P<ticket>[A-Z]+-\\d+)/(?:)(?P<type>feat|fix|chore|docs|refactor|perf)/(?P<scope>[\\w\\-]+)$",
+      "format": "{ticket} {type}({scope}): {summary}"
+    }
+  },
+  "branch": {
+    "allowed": [
+      "^feature/[A-Z]+-\\d+(?:/.*)?$",
+      "^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)/[\\w\\-]+$",
+      "^hotfix/[A-Z]+-\\d+$",
+      "^release/v\\d+\\.\\d+\\.\\d+$"
+    ],
+    "mainline": "main"
+  }
+}

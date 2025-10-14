@@ -142,6 +142,85 @@ def _ensure_unique_backup(path: Path) -> Path:
     return candidate
 
 
+def _is_relative_to(path: Path, ancestor: Path) -> bool:
+    try:
+        path.relative_to(ancestor)
+        return True
+    except ValueError:
+        return False
+
+
+def _select_payload_entries(
+    payload_path: Path, includes: Iterable[Path] | None = None
+) -> list[tuple[Path, Path]]:
+    include_list = list(includes or [])
+    entries: list[tuple[Path, Path]] = []
+    for src in _iter_payload_files(payload_path):
+        rel = src.relative_to(payload_path)
+        if include_list and not any(_is_relative_to(rel, inc) for inc in include_list):
+            continue
+        entries.append((src, rel))
+    return entries
+
+
+def _copy_payload_entries(
+    target: Path,
+    entries: Iterable[tuple[Path, Path]],
+    *,
+    force: bool,
+    dry_run: bool,
+    create_backups: bool,
+) -> tuple[list[str], list[str], list[str]]:
+    updated: list[str] = []
+    skipped: list[str] = []
+    backups: list[str] = []
+
+    for src, rel in entries:
+        dest = target / rel
+
+        if not dest.exists():
+            if not dry_run:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dest)
+            updated.append(str(rel))
+            continue
+
+        try:
+            identical = filecmp.cmp(src, dest, shallow=False)
+        except OSError:
+            identical = False
+
+        if identical:
+            if not dry_run:
+                shutil.copy2(src, dest)
+            updated.append(str(rel))
+            continue
+
+        if force:
+            if not dry_run:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                backup_path: Path | None = None
+                if create_backups:
+                    backup_path = _ensure_unique_backup(dest)
+                    shutil.copy2(dest, backup_path)
+                    backups.append(str(backup_path.relative_to(target)))
+                shutil.copy2(src, dest)
+            updated.append(str(rel))
+        else:
+            skipped.append(str(rel))
+
+    return updated, skipped, backups
+
+
+def _normalise_include(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        raise ValueError(f"include path must be relative: {value}")
+    if any(part == ".." for part in path.parts):
+        raise ValueError(f"include path cannot contain '..': {value}")
+    return path
+
+
 def _upgrade_command(args: argparse.Namespace) -> None:
     target = Path(args.target).resolve()
     if not target.exists():
@@ -154,43 +233,15 @@ def _upgrade_command(args: argparse.Namespace) -> None:
             " upgrade will refresh files if templates changed."
         )
 
-    updated: list[str] = []
-    skipped: list[str] = []
-    backups: list[str] = []
-
     with _payload_root() as payload_path:
-        for src in _iter_payload_files(payload_path):
-            rel = src.relative_to(payload_path)
-            dest = target / rel
-
-            if not dest.exists():
-                if not args.dry_run:
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dest)
-                updated.append(str(rel))
-                continue
-
-            try:
-                identical = filecmp.cmp(src, dest, shallow=False)
-            except OSError:
-                identical = False
-
-            if identical:
-                if not args.dry_run:
-                    shutil.copy2(src, dest)
-                updated.append(str(rel))
-                continue
-
-            if args.force:
-                if not args.dry_run:
-                    backup_path = _ensure_unique_backup(dest)
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(dest, backup_path)
-                    shutil.copy2(src, dest)
-                    backups.append(str(backup_path.relative_to(target)))
-                updated.append(str(rel))
-            else:
-                skipped.append(str(rel))
+        entries = _select_payload_entries(payload_path)
+        updated, skipped, backups = _copy_payload_entries(
+            target,
+            entries,
+            force=args.force,
+            dry_run=args.dry_run,
+            create_backups=True,
+        )
 
     if args.dry_run:
         print(
@@ -233,6 +284,58 @@ def _upgrade_command(args: argparse.Namespace) -> None:
     )
     if skipped:
         print("[claude-workflow] Some files differ locally; review report for details.")
+
+
+def _sync_command(args: argparse.Namespace) -> None:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    raw_includes = args.include or [".claude"]
+    try:
+        includes = [_normalise_include(item) for item in raw_includes]
+    except ValueError as exc:
+        raise ValueError(f"invalid include path: {exc}") from exc
+
+    with _payload_root() as payload_path:
+        for include in includes:
+            if not (payload_path / include).exists():
+                raise FileNotFoundError(f"payload path not found: {include}")
+        entries = _select_payload_entries(payload_path, includes)
+        updated, skipped, backups = _copy_payload_entries(
+            target,
+            entries,
+            force=args.force,
+            dry_run=args.dry_run,
+            create_backups=True,
+        )
+
+    if args.dry_run:
+        print(
+            f"[claude-workflow] sync dry-run: {len(updated)} files would update,"
+            f" {len(skipped)} would be skipped."
+        )
+        if skipped:
+            print("[claude-workflow] skipped (differs locally):")
+            for item in skipped:
+                print(f"  - {item}")
+        return
+
+    if any(_is_relative_to(include, Path(".claude")) for include in includes):
+        _write_template_version(target)
+
+    print(
+        f"[claude-workflow] sync complete: {len(updated)} files updated,"
+        f" {len(skipped)} skipped."
+    )
+    if skipped:
+        print("[claude-workflow] Skipped files (manual merge required):")
+        for item in skipped:
+            print(f"  - {item}")
+    if backups:
+        print("[claude-workflow] Backups:")
+        for item in backups:
+            print(f"  - {item}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -343,6 +446,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show actions without writing files.",
     )
     upgrade_parser.set_defaults(func=_upgrade_command)
+
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Synchronise payload fragments (defaults to .claude) into the target directory.",
+    )
+    sync_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    sync_parser.add_argument(
+        "--include",
+        action="append",
+        help=(
+            "Relative payload path to sync. Can be specified multiple times; "
+            "defaults to .claude if omitted."
+        ),
+    )
+    sync_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite files even if they differ; backups are created first.",
+    )
+    sync_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show actions without writing files.",
+    )
+    sync_parser.set_defaults(func=_sync_command)
 
     return parser
 

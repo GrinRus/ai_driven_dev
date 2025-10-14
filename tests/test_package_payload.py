@@ -24,8 +24,19 @@ def test_payload_includes_dotfiles(tmp_path):
     with zipfile.ZipFile(wheel) as z:
         names = set(z.namelist())
         for expected in [
+            "claude_workflow_cli/data/payload/CLAUDE.md",
+            "claude_workflow_cli/data/payload/conventions.md",
+            "claude_workflow_cli/data/payload/workflow.md",
+            "claude_workflow_cli/data/payload/config/conventions.json",
+            "claude_workflow_cli/data/payload/config/gates.json",
+            "claude_workflow_cli/data/payload/config/allowed-deps.txt",
             "claude_workflow_cli/data/payload/.claude/settings.json",
             "claude_workflow_cli/data/payload/.claude/hooks/lib.sh",
+            "claude_workflow_cli/data/payload/.claude/cache/.gitkeep",
+            "claude_workflow_cli/data/payload/.github/workflows/gradle.yml",
+            "claude_workflow_cli/data/payload/docs/plan/.gitkeep",
+            "claude_workflow_cli/data/payload/docs/adr/.gitkeep",
+            "claude_workflow_cli/data/payload/docs/prd/.gitkeep",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"
 

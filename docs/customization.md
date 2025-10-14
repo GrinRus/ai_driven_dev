@@ -2,6 +2,8 @@
 
 Документ описывает, как адаптировать настройки Claude Code workflow под процессы команды: от политик доступа и конвенций до поведения git-хуков и слэш-команд.
 
+> Все служебные файлы (команды, агенты, хуки, шаблоны, конфиги) лежат в payload каталога `src/claude_workflow_cli/data/payload/` и разворачиваются из него через `claude-workflow init` / `claude-workflow upgrade`. Для точечной пересборки используйте `claude-workflow sync` (например, `claude-workflow sync --include .claude --include claude-presets`). Для локального dogfooding без установки CLI предусмотрен скрипт `scripts/bootstrap-local.sh`, который копирует payload в `.dev/.claude-example/`.
+
 ## Содержание
 - [.claude/settings.json](#.claudesettingsjson)
 - [config/conventions.json](#configconventionsjson)
@@ -33,6 +35,7 @@
 - Для временного расширения прав создайте отдельный пресет и переключитесь на него, обновив поле `presets.active` в `.claude/settings.json` или вызвав `claude-workflow preset <name>`.
 - Если нужна строгая политика для production, добавьте список каталогов в `.claude/hooks/protect-prod.sh`.
 - Автопроверка (`tests/test_settings_policy.py`) гарантирует, что критические команды находятся в `ask/deny`. Запускается через `scripts/ci-lint.sh`.
+- Вернуть исходные настройки и хуки можно командой `claude-workflow sync` (по умолчанию синхронизирует `.claude/**`; добавьте `--include claude-presets`, чтобы подтянуть пресеты).
 
 Проверить корректность настроек можно тестом `python -m pytest tests/test_settings_policy.py` или общим `scripts/ci-lint.sh`.
 

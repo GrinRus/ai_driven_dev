@@ -15,6 +15,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(pwd)"
 
+PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-}"
+if [[ -n "$PAYLOAD_ROOT" ]]; then
+  PAYLOAD_ROOT="$(cd "$PAYLOAD_ROOT" && pwd)"
+else
+  if [[ "$SCRIPT_DIR" == */payload ]]; then
+    PAYLOAD_ROOT="$SCRIPT_DIR"
+  elif [[ -d "$SCRIPT_DIR/src/claude_workflow_cli/data/payload" ]]; then
+    PAYLOAD_ROOT="$(cd "$SCRIPT_DIR/src/claude_workflow_cli/data/payload" && pwd)"
+  elif [[ -d "$SCRIPT_DIR/payload" ]]; then
+    PAYLOAD_ROOT="$(cd "$SCRIPT_DIR/payload" && pwd)"
+  elif [[ -d "$SCRIPT_DIR/.claude" ]]; then
+    PAYLOAD_ROOT="$SCRIPT_DIR"
+  else
+    PAYLOAD_ROOT="$SCRIPT_DIR"
+  fi
+fi
+export CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT"
+
 COMMIT_MODE="ticket-prefix"
 ENABLE_CI=0
 FORCE=0
@@ -130,7 +148,7 @@ write_template() {
 copy_template() {
   local relative="$1"
   local destination="$2"
-  local src="$SCRIPT_DIR/$relative"
+  local src="$PAYLOAD_ROOT/$relative"
   local dest_path="$destination"
 
   if [[ "$dest_path" != /* ]]; then
@@ -160,6 +178,34 @@ copy_template() {
   mkdir -p "$(dirname "$dest_path")"
   cp "$src" "$dest_path"
   log_info "copied: ${dest_path#"$ROOT_DIR"/}"
+}
+
+copy_payload_dir() {
+  local source_dir="$1"
+  local target_dir="${2:-$1}"
+  local src_path="$PAYLOAD_ROOT/$source_dir"
+  if [[ ! -d "$src_path" ]]; then
+    log_warn "missing payload directory: $source_dir"
+    return
+  fi
+  while IFS= read -r -d '' file; do
+    local relative="${file#$src_path/}"
+    if [[ "$relative" == "$file" ]]; then
+      relative="$(basename "$file")"
+    fi
+    copy_template "$source_dir/$relative" "$target_dir/$relative"
+  done < <(find "$src_path" -type f -print0)
+}
+
+ensure_hook_permissions() {
+  local hooks_dir="$ROOT_DIR/.claude/hooks"
+  [[ -d "$hooks_dir" ]] || return 0
+  while IFS= read -r -d '' hook; do
+    local rel="${hook#"$ROOT_DIR"/}"
+    case "$rel" in
+      *.sh) set_executable "$rel" ;;
+    esac
+  done < <(find "$hooks_dir" -type f -print0)
 }
 
 set_executable() {
@@ -200,7 +246,7 @@ format_bullets() {
 }
 
 extract_usage_demo_goals() {
-  CLAUDE_TEMPLATE_DIR="$SCRIPT_DIR" python3 - <<'PY'
+  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - <<'PY'
 from pathlib import Path
 import os
 
@@ -226,7 +272,7 @@ PY
 }
 
 extract_wave7_defaults() {
-  CLAUDE_TEMPLATE_DIR="$SCRIPT_DIR" python3 - <<'PY'
+  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - <<'PY'
 from pathlib import Path
 import re
 import os
@@ -280,28 +326,7 @@ slug_to_title() {
 }
 
 copy_presets() {
-  local src="${SCRIPT_DIR}/claude-presets"
-  local dest="${ROOT_DIR}/claude-presets"
-  if [[ ! -d "$src" ]]; then
-    log_warn "preset templates missing at $src"
-    return
-  fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] sync presets from $src -> $dest"
-    return
-  fi
-  mkdir -p "$dest"
-  while IFS= read -r -d '' file; do
-    local rel="${file#"$src"/}"
-    local target="$dest/$rel"
-    mkdir -p "$(dirname "$target")"
-    if [[ -e "$target" && "$FORCE" -ne 1 ]]; then
-      log_warn "skip preset: $target (exists, use --force)"
-      continue
-    fi
-    cp "$file" "$target"
-    log_info "preset: $target"
-  done < <(find "$src" -type f -print0)
+  copy_payload_dir "claude-presets"
 }
 
 append_if_missing() {
@@ -464,17 +489,9 @@ generate_directories() {
   log_info "Ensuring directory structure"
   local dirs=(
     ".claude"
-    ".claude/commands"
-    ".claude/agents"
-    ".claude/hooks"
-    ".claude/gradle"
     ".claude/cache"
     "config"
-    "scripts"
     "docs"
-    "docs/prd"
-    "docs/adr"
-    "docs/plan"
   )
   for dir in "${dirs[@]}"; do
     ensure_directory "$dir"
@@ -482,422 +499,53 @@ generate_directories() {
 }
 
 generate_core_docs() {
-  write_template "CLAUDE.md" <<'MD'
-# Claude Code Workflow (AI-driven)
-
-## Основной цикл
-1. `/idea-new <slug> [TICKET]` — фиксирует slug в `docs/.active_feature`, агент analyst оформляет PRD и собирает вводные.
-2. `/plan-new <slug>` — planner строит план реализации, validator проверяет риски и возвращает вопросы.
-3. `/tasks-new <slug>` — tasklist синхронизируется с планом: чеклисты по аналитике, разработке, тестированию и релизу.
-4. `/implement <slug>` — агент implementer вносит изменения малыми итерациями, автозапускает `.claude/hooks/format-and-test.sh`.
-5. `/review <slug>` — reviewer проводит финальное ревью и фиксирует замечания в `tasklist.md`.
-
-## Хуки и гейты
-- `.claude/hooks/protect-prod.sh` — защищает продовые каталоги (`infra/prod`, `deploy/prod`).
-- `.claude/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD, план и tasklist.
-- `.claude/hooks/gate-db-migration.sh` — опционально проверяет, что изменения домена сопровождаются миграцией (`config/gates.json: db_migration=true`).
-- `.claude/hooks/gate-tests.sh` — опционально требует наличие юнит-тестов для изменённых исходников (`tests_required=soft|hard`).
-- `.claude/hooks/gate-api-contract.sh` — опционально сверяет наличие `docs/api/<slug>.yaml` для контроллеров (`api_contract=true`).
-- `.claude/hooks/format-and-test.sh` — форматирует код и запускает выборочные Gradle-тесты после каждой записи (отключается `SKIP_AUTO_TESTS=1`).
-- `.claude/hooks/lint-deps.sh` — напоминает про allowlist зависимостей.
-
-Дополнительные проверки настраиваются в `config/gates.json`. Пресеты разрешений и хуков описаны в `.claude/settings.json`, правила веток/коммитов — в `config/conventions.json`.
-MD
-
-  write_template "conventions.md" <<'MD'
-# conventions.md
-
-- **Стиль кода**: придерживаемся KISS/YAGNI/MVP; используем JetBrains/Google style (Spotless + ktlint при наличии).
-- **Ветки**: создаём через `git checkout -b` по пресетам (`feature/<TICKET>`, `feat/<scope>`, `hotfix/<TICKET>`).
-- **Коммиты**: оформляем `git commit`, сообщения валидируются правилами `config/conventions.json`.
-- **Документация**: PRD (`docs/prd/<slug>.prd.md`), план (`docs/plan/<slug>.md`), tasklist (`tasklist.md`), при необходимости ADR (`docs/adr/*.md`).
-- **Автогейты**: базовый цикл требует готовности PRD/плана/tasklist; дополнительные проверки включаются флагами в `config/gates.json`.
-- **Тесты**: `.claude/hooks/format-and-test.sh` запускается автоматически после записей; при длительных правках можно вызвать его вручную.
-- **Контроль зависимостей**: актуальный allowlist — `config/allowed-deps.txt`, изменения проходят через ревью.
-MD
-
-  write_template "workflow.md" <<'MD'
-# Workflow Claude Code
-
-Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит пять этапов: **идея → план → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
-
-## Обзор этапов
-
-| Этап | Команда | Саб-агент | Основные артефакты |
-| --- | --- | --- | --- |
-| Аналитика идеи | `/idea-new <slug> [TICKET]` | `analyst` | `docs/prd/<slug>.prd.md`, активная фича |
-| Планирование | `/plan-new <slug>` | `planner`, `validator` | `docs/plan/<slug>.md`, уточнённые вопросы |
-| Тасклист | `/tasks-new <slug>` | — | `tasklist.md` (обновлённые чеклисты) |
-| Реализация | `/implement <slug>` | `implementer` | кодовые изменения, актуальные тесты |
-| Ревью | `/review <slug>` | `reviewer` | замечания в `tasklist.md`, итоговый статус |
-
-## Подробности по шагам
-
-### 1. Идея (`/idea-new`)
-- Устанавливает активную фичу (`docs/.active_feature`).
-- Создаёт PRD по шаблону (`docs/prd/<slug>.prd.md`), собирает вводные, риски и метрики.
-- Саб-агент **analyst** уточняет контекст и фиксирует открытые вопросы.
-
-### 2. План (`/plan-new`)
-- Саб-агент **planner** формирует пошаговый план реализации по PRD.
-- Саб-агент **validator** проверяет полноту; найденные вопросы возвращаются продукту.
-- Все открытые вопросы синхронизируются между PRD и планом.
-
-### 3. Тасклист (`/tasks-new`)
-- Преобразует план в чеклисты в `tasklist.md`.
-- Структурирует задачи по этапам (аналитика, разработка, QA, релиз).
-- Добавляет критерии приёмки и зависимости.
-
-### 4. Реализация (`/implement`)
-- Саб-агент **implementer** следует шагам плана и вносит изменения малыми итерациями.
-- После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо через `SKIP_AUTO_TESTS=1`).
-- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-db-migration.sh`, `gate-tests.sh` или `gate-api-contract.sh`.
-
-### 5. Ревью (`/review`)
-- Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `tasklist.md`.
-- При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
-
-## Автоматизация и гейты
-
-- Пресет `strict` в `.claude/settings.json` включает `protect-prod`, `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh` после каждой записи.
-- `config/gates.json` управляет дополнительными проверками:
-  - `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
-  - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
-  - `tests_required` — режим `disabled|soft|hard` для проверки юнит-тестов.
-  - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
-- `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
-- `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
-
-## Роли и ответственность команды
-
-- **Product/Analyst** — поддерживает PRD, отвечает на вопросы planner/validator.
-- **Tech Lead/Architect** — утверждает план, следит за гейтами и архитектурными решениями.
-- **Разработчики** — реализуют по плану, поддерживают тесты и документацию в актуальном состоянии.
-- **QA** — помогает с чеклистами в `tasklist.md`, расширяет тестовое покрытие и сценарии ручной проверки.
-- **Reviewer** — финализирует фичу, проверяет, что все чеклисты в `tasklist.md` закрыты.
-
-Следуйте этому циклу, чтобы команда оставалась синхронизированной, а артефакты — актуальными.
-MD
-
-  copy_template "templates/tasklist.md" "tasklist.md"
-  write_template "docs/plan/.gitkeep" <<'MD'
-MD
-
+  copy_template "CLAUDE.md" "CLAUDE.md"
+  copy_template "conventions.md" "conventions.md"
+  copy_template "workflow.md" "workflow.md"
 }
 
 generate_templates() {
-  local files=(
-    "docs/prd.template.md"
-    "docs/adr.template.md"
-  )
-  for template in "${files[@]}"; do
-    copy_template "$template" "$template"
-  done
+  copy_payload_dir "docs"
+  copy_template "templates/tasklist.md" "tasklist.md"
+  copy_payload_dir "templates/git-hooks" "templates/git-hooks"
 }
 
 generate_claude_settings() {
   copy_template ".claude/settings.json" ".claude/settings.json"
-
-  local hooks=(
-    ".claude/hooks/lib.sh"
-    ".claude/hooks/protect-prod.sh"
-    ".claude/hooks/gate-workflow.sh"
-    ".claude/hooks/gate-api-contract.sh"
-    ".claude/hooks/gate-db-migration.sh"
-    ".claude/hooks/gate-tests.sh"
-    ".claude/hooks/lint-deps.sh"
-    ".claude/hooks/format-and-test.sh"
-  )
-
-  for hook in "${hooks[@]}"; do
-    copy_template "$hook" "$hook"
-    case "$hook" in
-      *.sh|*.py)
-        set_executable "$hook"
-        ;;
-    esac
-  done
+  copy_payload_dir ".claude/hooks"
+  copy_payload_dir ".claude/cache"
+  ensure_hook_permissions
 }
 
 generate_agents() {
-  write_template ".claude/agents/analyst.md" <<'MD'
----
-name: analyst
-description: Сбор свободной идеи → уточняющие вопросы → PRD. Превращает сырую идею в спецификацию.
-tools: Read, Write, Grep, Glob
-model: inherit
----
-Ты — продуктовый аналитик. Преобразуй сырую идею в PRD.
-Правила:
-1) Итеративно задавай конкретные вопросы (формат: "Вопрос N: …" + краткие варианты/пояснения).
-2) После ответов — оформи PRD по шаблону @docs/prd.template.md в `docs/prd/$SLUG.prd.md`.
-3) Явно перечисли открытые риски/допущения. Если что-то не ясно — снова спроси.
-4) Заверши кратким резюме статуса: READY|BLOCKED и списком открытых вопросов.
-
-Выводи только готовый PRD и список открытых вопросов при необходимости.
-MD
-
-  write_template ".claude/agents/planner.md" <<'MD'
----
-name: planner
-description: План реализации по согласованному PRD. Декомпозиция на итерации и проверяемые шаги.
-tools: Read, Write, Grep, Glob
-model: inherit
----
-Ты — технический планировщик. На основе `docs/prd/$SLUG.prd.md` создай `docs/plan/$SLUG.md`:
-- Архитектурные решения (KISS/YAGNI/MVP), границы модулей.
-- Пошаговый план (итерации) с критериями готовности (DoD) и метриками проверки.
-- Ссылки на файлы/модули, затрагиваемые изменениями.
-
-Если остаются неопределённости — сформируй список вопросов пользователю и пометь общий статус BLOCKED.
-Выводи итоговый план и список вопросов, если есть.
-MD
-
-  write_template ".claude/agents/validator.md" <<'MD'
----
-name: validator
-description: Валидация полноты PRD/плана; формирование вопросов к пользователю.
-tools: Read
-model: inherit
----
-Проверь `docs/prd/$SLUG.prd.md` и `docs/plan/$SLUG.md` по критериям:
-- Полнота user stories и acceptance criteria
-- Зависимости/риски/фич‑флаги
-- Границы модулей и интеграции
-
-Дай статус для каждого раздела (PASS|FAIL) и общий статус:
-- Если FAIL — перечисли конкретные вопросы к пользователю и пометь общий статус BLOCKED.
-- Если PASS — кратко резюмируй почему.
-MD
-
-  write_template ".claude/agents/implementer.md" <<'MD'
----
-name: implementer
-description: Реализация задачи. При неопределённости — задаёт вопросы пользователю; запускает тесты.
-tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*)
-model: inherit
----
-Действия:
-1) Сверься с `docs/plan/$SLUG.md` и чеклистом задач.
-2) Пиши код малыми итерациями, каждый шаг — отдельный коммит (`git commit`).
-3) После каждой правки дождись автозапуска `.claude/hooks/format-and-test.sh`. При падениях — исправь и повтори.
-4) Если не ясно, какой алгоритм/интеграцию/БД использовать — остановись и задай вопрос пользователю.
-
-Выводи только план следующего шага и изменения в коде. Без лишней болтовни.
-MD
-
-  write_template ".claude/agents/reviewer.md" <<'MD'
----
-name: reviewer
-description: Ревью кода. Проверка качества, безопасности, тестов. Возвращает замечания в задачи.
-tools: Read, Grep, Glob, Bash(git diff:*), Bash(./gradlew:*), Bash(gradle:*)
-model: inherit
----
-Шаги:
-1) Проанализируй `git diff` и соответствие PRD/плану.
-2) Проверь тесты (при необходимости вызови `.claude/hooks/format-and-test.sh`).
-3) Найди дефекты/риски (конкурентность, транзакции, NPE, boundary conditions).
-4) Сформируй actionable‑замечания. Если критично — статус BLOCKED, иначе SUGGESTIONS.
-
-Выводи краткий отчёт (итоговый статус + список замечаний).
-MD
-
-  write_template ".claude/agents/db-migrator.md" <<'MD'
----
-name: db-migrator
-description: Готовит миграции БД (Flyway/Liquibase) по изменениям в модели/схеме.
-tools: Read, Write, Grep, Glob
-model: inherit
----
-Найди изменения в доменной модели/схеме (entity/*, schema.sql).
-Сгенерируй миграцию (по принятому инструменту) в `src/main/resources/db/migration/` с именованием:
-- Flyway: `V<timestamp>__<slug>_<short>.sql`
-- Liquibase: файл `changelog-<timestamp>-<slug>.xml` и include в master.
-
-Убедись, что миграция идемпотентна (IF NOT EXISTS / CREATE OR REPLACE …) и обратима (если политика требует).
-Добавь заметку в план/задачи, если есть ручные шаги.
-MD
-
-  write_template ".claude/agents/contract-checker.md" <<'MD'
----
-name: contract-checker
-description: Сверяет контроллеры/эндпоинты с OpenAPI контрактом. Выявляет расхождения.
-tools: Read, Grep, Glob
-model: inherit
----
-Проверь соответствие кода и контракта:
-- Найди контроллеры/роуты (Spring/Ktor) по `$MODULE/src/main/**/(controller|web|rest)/**`.
-- Сверь пути/методы/коды ответа/модели с `docs/api/$SLUG.yaml`.
-- Выяви несовпадающие элементы (лишние/отсутствующие эндпоинты, статусы, поля).
-
-Сформируй отчёт с actionable-исправлениями (куда и что добавить/поправить).
-Если критично — статус BLOCKED; иначе SUGGESTIONS.
-MD
-
+  copy_payload_dir ".claude/agents"
 }
 
 generate_commands() {
-  write_template ".claude/commands/idea-new.md" <<'MD'
----
-description: "Инициация фичи: сбор идеи → уточнения → PRD"
-argument-hint: "<slug> [TICKET]"
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
----
-1) Установи активную фичу: создавай/перезапиши файл `docs/.active_feature` значением `$1` — это единственный способ синхронизировать slug (отдельной `/feature-activate` больше нет).
-2) Используя @docs/prd.template.md, @conventions.md и @workflow.md, создай/обнови `docs/prd/$1.prd.md`.
-3) Вызови саб‑агента **analyst** для итеративного уточнения идеи. Если передан TICKET ($2) — добавь раздел Tracking.
-
-Выполни:
-!`python3 -c 'import pathlib, sys; d = pathlib.Path("docs"); d.mkdir(parents=True, exist_ok=True); (d / ".active_feature").write_text(sys.argv[1], encoding="utf-8"); print(f"active feature: {sys.argv[1]}")' "$1"`
-MD
-
-  write_template ".claude/commands/plan-new.md" <<'MD'
----
-description: "План реализации по согласованному PRD + валидация"
-argument-hint: "<slug>"
-allowed-tools: Read,Edit,Write,Grep,Glob
----
-1) Вызови саб‑агента **planner** для создания `docs/plan/$1.md` на основе `docs/prd/$1.prd.md`.
-2) Затем вызови саб‑агента **validator**. Если статус BLOCKED — верни список вопросов пользователю.
-3) Обнови раздел «Открытые вопросы» в PRD/плане.
-MD
-
-  write_template ".claude/commands/tasks-new.md" <<'MD'
----
-description: "Сформировать чеклист задач (tasklist.md) для фичи"
-argument-hint: "<slug>"
-allowed-tools: Read,Edit,Write,Grep,Glob
----
-На основе `docs/plan/$1.md` обнови @tasklist.md: добавь задачи с чекбоксами по шагам плана
-(реализация, тесты, документация, ревью), отметь зависимости и критерии приёмки.
-MD
-
-  write_template ".claude/commands/implement.md" <<'MD'
----
-description: "Реализация фичи по плану + выборочные тесты"
-argument-hint: "<slug>"
-allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Read,Edit,Write,Grep,Glob
----
-1) Вызови саб‑агента **implementer** для выполнения шага реализации по `docs/plan/$1.md`.
-2) После каждой правки дождись автозапуска `.claude/hooks/format-and-test.sh` (отключаемо переменной `SKIP_AUTO_TESTS=1`).
-3) Если возникает неопределённость (алгоритм/интеграция/БД) — приостановись и задавай вопросы пользователю.
-MD
-
-  write_template ".claude/commands/review.md" <<'MD'
----
-description: "Код-ревью и возврат замечаний в задачи"
-argument-hint: "<slug>"
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*)
----
-Вызови саб‑агента **reviewer** для ревью изменений по `$1`.
-При критичных замечаниях — статус BLOCKED и вернуть задачу саб‑агенту implementer; иначе — внести рекомендации в @tasklist.md.
-MD
+  copy_payload_dir ".claude/commands"
 }
 
 generate_gradle_helpers() {
-  write_template ".claude/gradle/init-print-projects.gradle" <<'GRADLE'
-// Registers ccPrintProjectDirs to list Gradle project directories for selective test runs.
-gradle.settingsEvaluated {
-    gradle.rootProject { root ->
-        root.tasks.register("ccPrintProjectDirs") {
-            group = "claude"
-            description = "Print Gradle project directories for Claude selective test runner."
-            doLast {
-                root.allprojects
-                    .findAll { it.projectDir?.exists() }
-                    .sort { it.path }
-                    .each { project ->
-                        println("${project.path}:${project.projectDir}")
-                    }
-            }
-        }
-    }
-}
-GRADLE
+  copy_payload_dir ".claude/gradle"
 }
 
 generate_config_and_scripts() {
-  write_template "config/conventions.json" <<'JSON'
-{
-  "commit": {
-    "mode": "__COMMIT_MODE__",
-    "ticket": {
-      "branch_pattern": "^feature/(?P<ticket>[A-Z]+-\\d+)(?:/.*)?$",
-      "format": "{ticket}: {summary}"
-    },
-    "conventional": {
-      "types": ["feat","fix","chore","docs","test","refactor","perf","build","ci","revert"],
-      "branch_pattern": "^(?P<type>feat|fix|chore|docs|test|refactor|perf|build|ci|revert)/(?P<scope>[\\w\\-]+)$",
-      "format": "{type}({scope}): {summary}"
-    },
-    "mixed": {
-      "branch_pattern": "^feature/(?P<ticket>[A-Z]+-\\d+)/(?:)(?P<type>feat|fix|chore|docs|refactor|perf)/(?P<scope>[\\w\\-]+)$",
-      "format": "{ticket} {type}({scope}): {summary}"
-    }
-  },
-  "branch": {
-    "allowed": [
-      "^feature/[A-Z]+-\\d+(?:/.*)?$",
-      "^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)/[\\w\\-]+$",
-      "^hotfix/[A-Z]+-\\d+$",
-      "^release/v\\d+\\.\\d+\\.\\d+$"
-    ],
-    "mainline": "main"
-  }
-}
-JSON
-
-  write_template "config/gates.json" <<'JSON'
-{
-  "feature_slug_source": "docs/.active_feature",
-  "api_contract": false,
-  "db_migration": false,
-  "tests_required": "disabled",
-  "deps_allowlist": false
-}
-JSON
-
-  write_template "config/allowed-deps.txt" <<'TXT'
-# Разрешённые зависимости в формате group:artifact (без версии)
-org.jetbrains.kotlin:kotlin-stdlib
-org.jetbrains.kotlin:kotlin-reflect
-org.jetbrains.kotlinx:kotlinx-coroutines-core
-com.fasterxml.jackson.core:jackson-databind
-com.fasterxml.jackson.module:jackson-module-kotlin
-org.springframework.boot:spring-boot-starter-web
-org.springframework.boot:spring-boot-starter-test
-io.ktor:ktor-server-core
-io.ktor:ktor-server-netty
-org.junit.jupiter:junit-jupiter
-org.assertj:assertj-core
-TXT
-
+  copy_payload_dir "config"
+  copy_payload_dir "scripts"
+  local scripts_dir="$ROOT_DIR/scripts"
+  if [[ -d "$scripts_dir" ]]; then
+    while IFS= read -r -d '' script; do
+      local rel="${script#"$ROOT_DIR"/}"
+      case "$rel" in
+        *.sh) set_executable "$rel" ;;
+      esac
+    done < <(find "$scripts_dir" -type f -print0)
+  fi
 }
 
 generate_ci_workflow() {
   if [[ "$ENABLE_CI" -eq 1 ]]; then
-    write_template ".github/workflows/gradle.yml" <<'YML'
-name: Gradle (selective modules)
-on: { workflow_dispatch: {} }  # enable pull_request later if needed
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '21' }
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties','gradle/libs.versions.toml') }}
-          restore-keys: gradle-${{ runner.os }}-
-      - name: Run selective tests
-        run: bash .claude/hooks/format-and-test.sh
-YML
+    copy_template ".github/workflows/gradle.yml" ".github/workflows/gradle.yml"
   fi
 }
 
