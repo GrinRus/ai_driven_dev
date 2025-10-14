@@ -1,0 +1,305 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": ".claude/agents/analyst.md",
+      "size": 1042,
+      "sha256": "5f9740e5eecdc680e2a54468389d0396330ee828cd22c79e74cf66e5190e3dff",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/contract-checker.md",
+      "size": 847,
+      "sha256": "21c4adf23d79a3f24cac3f2263b840f1ccc305c5897f9e2d948301167ca2e64a",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/db-migrator.md",
+      "size": 834,
+      "sha256": "e110a480675b63d8ed2c48336027a075b50dc02efd9abae835da7753164c8188",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/implementer.md",
+      "size": 985,
+      "sha256": "387cbfc74c6da84a435e93fc807ca3cb4a2d65170bcfad3f7443fe552e710242",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/planner.md",
+      "size": 974,
+      "sha256": "a961e3b2790a1b5aa44d41ab76c2ce9a7ea7fed6e2edf45f18077d7d729248e1",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/reviewer.md",
+      "size": 850,
+      "sha256": "87b0f8b9f76c5771112efae4365075eeed70b7f91289674b02c7a111feae9930",
+      "type": "file"
+    },
+    {
+      "path": ".claude/agents/validator.md",
+      "size": 754,
+      "sha256": "35632a7910e9edc778553a17c67f6da70f79e147074cc897c556679c2aeb4bc5",
+      "type": "file"
+    },
+    {
+      "path": ".claude/cache/.gitkeep",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/idea-new.md",
+      "size": 1321,
+      "sha256": "960ee8ba29713d1f1bbe0586cdbf0826257baaeed66ec025bb31ea8bd0573439",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/implement.md",
+      "size": 1371,
+      "sha256": "592f9414b75d64224fa4f83b184268c7d7be83ece1b12aaf5641a5042979ec1e",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/plan-new.md",
+      "size": 784,
+      "sha256": "ce52a15fcb7b550437b3a4b22de7763e8f7346a40933f19086b25a12bb2e4b22",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/review.md",
+      "size": 673,
+      "sha256": "3bf450e49849b0e43bf2b952ea6ca24a5d4c17aaf1f8a5f998e6f4c9eb20063d",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/tasks-new.md",
+      "size": 620,
+      "sha256": "62388d320e1d0bcd1dd0971aea3e17778fe38ce509d0a328ed1c3967ad759587",
+      "type": "file"
+    },
+    {
+      "path": ".claude/gradle/init-print-projects.gradle",
+      "size": 643,
+      "sha256": "d568e2bb2196747bb67f760fd5db4ba28459586b381ec92a8c8e150b2605553b",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/format-and-test.sh",
+      "size": 8113,
+      "sha256": "a14eb618c96566d9748401c87597efae63ad31882abb9507d330ec88de824128",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/gate-api-contract.sh",
+      "size": 1394,
+      "sha256": "bb37e821f1ae488a06f6b6f40ac916123fa94217665cc10ec747adfac2e918de",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/gate-db-migration.sh",
+      "size": 1635,
+      "sha256": "29f74ada768e359218f88fbe15930214e747f7b9f21718b9d03a42fe23d352a2",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/gate-tests.sh",
+      "size": 1310,
+      "sha256": "f411fb5116ea421feae0cdef8fce848a10e44b6cf9ab484e92ce95d3ce407914",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/gate-workflow.sh",
+      "size": 1441,
+      "sha256": "c33ea64c343ae7512b920d97f7f3c98cbd2da503103716e102ef6187bef6176e",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/lib.sh",
+      "size": 2197,
+      "sha256": "8f2f9fd2465b8f28512de326246802f2ba1f31f2652a4d13a4edcd1802d9eb5c",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/lint-deps.sh",
+      "size": 1265,
+      "sha256": "d9d37931c452e3332a75826422d2e1df7b6db69dfbf7ef3ce7cb91e36d872fd9",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/protect-prod.sh",
+      "size": 4375,
+      "sha256": "692f76f4e72816363cb86e1f7a5bbfd6a91690309e65c5861d74804519b80171",
+      "type": "file"
+    },
+    {
+      "path": ".claude/settings.json",
+      "size": 7363,
+      "sha256": "206df5e3cc9cf51a2a498ae0d1ab9ab7ba9a7826d5ef88ac6e3a2d11a5891c7d",
+      "type": "file"
+    },
+    {
+      "path": ".github/workflows/gradle.yml",
+      "size": 733,
+      "sha256": "f211f56ff598cfd1cc0cdb7f9a5cadce2ed60ca8dcee77687207929137e02091",
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "size": 2349,
+      "sha256": "a2c594f3eb964715d9bfd5eab9a1fd546dd75a315f1fdbd9fb18abf6540baeaf",
+      "type": "file"
+    },
+    {
+      "path": "claude-presets/advanced/feature-design.yaml",
+      "size": 1358,
+      "sha256": "3b494faaa470a212392648f0a194850ebe6544d9aefc5dd25fa1f26488f41dff",
+      "type": "file"
+    },
+    {
+      "path": "claude-presets/advanced/feature-release.yaml",
+      "size": 1422,
+      "sha256": "d9c87bbcc91d84274cf9c694c1fe47e80dcad185f976e7cca5c36836496575f2",
+      "type": "file"
+    },
+    {
+      "path": "claude-presets/feature-impl.yaml",
+      "size": 1482,
+      "sha256": "5383700f76a4b5bd52194b1c9475e06bf7e9342498ded0d0439e64cc250f30dd",
+      "type": "file"
+    },
+    {
+      "path": "claude-presets/feature-plan.yaml",
+      "size": 1316,
+      "sha256": "5b1ab44b86849fbadcc1f4f2f494031d48a70a77d6b1180f20117d3495add24c",
+      "type": "file"
+    },
+    {
+      "path": "claude-presets/feature-prd.yaml",
+      "size": 1337,
+      "sha256": "57892117588787075c1a1120cc87e9aa8bf5c4c6ec30a6b90d8628312a992bcc",
+      "type": "file"
+    },
+    {
+      "path": "config/allowed-deps.txt",
+      "size": 522,
+      "sha256": "23848d481be24e503c9ef899947cf6d51e1f7027111fb8164510ad3377df9bc7",
+      "type": "file"
+    },
+    {
+      "path": "config/conventions.json",
+      "size": 1016,
+      "sha256": "4d8e56489b20104f68082b1e24f30eb24cb4dc73772d609973f772f29e7db397",
+      "type": "file"
+    },
+    {
+      "path": "config/gates.json",
+      "size": 161,
+      "sha256": "e9b0720ba70a93145c0b9828a34d505faea92e8590d842cfe94c0e42ed2be3d4",
+      "type": "file"
+    },
+    {
+      "path": "conventions.md",
+      "size": 1253,
+      "sha256": "3d77279a80573147fc68b6e7461c458b1d54606e4192f4a0cd68307069d4f847",
+      "type": "file"
+    },
+    {
+      "path": "doc/backlog.md",
+      "size": 33980,
+      "sha256": "0f2834cef15db56eec5a66426601b7cb95e1636d6d16600d8dbafa769d7d8d6a",
+      "type": "file"
+    },
+    {
+      "path": "docs/adr/.gitkeep",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "type": "file"
+    },
+    {
+      "path": "docs/adr.template.md",
+      "size": 3344,
+      "sha256": "76f9a8b34ab4aa701b3a3ac12a64ea7cf4bf3c701c83eb606b5eba6c8f91c43f",
+      "type": "file"
+    },
+    {
+      "path": "docs/plan/.gitkeep",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "type": "file"
+    },
+    {
+      "path": "docs/prd/.gitkeep",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "type": "file"
+    },
+    {
+      "path": "docs/prd.template.md",
+      "size": 4377,
+      "sha256": "323efeeabea660ba40b9ba32a5774a528d73095cbb4124c62cfc610278469a38",
+      "type": "file"
+    },
+    {
+      "path": "docs/usage-demo.md",
+      "size": 12795,
+      "sha256": "5b2ffba985a7e3ec0d7f1dac18688aac2f4fe4bad2f21e5461b7ce3077b57c8f",
+      "type": "file"
+    },
+    {
+      "path": "init-claude-workflow.sh",
+      "size": 16256,
+      "sha256": "c2f4679dba38c130544f318083efbe3561548fac828c2ae2bd2dcaa968cdf3fa",
+      "type": "file"
+    },
+    {
+      "path": "scripts/ci-lint.sh",
+      "size": 2218,
+      "sha256": "acf835355ae90e4e1bd118b21d68e1b33b396eaf9b0d0d220eaad6b2c21a2c95",
+      "type": "file"
+    },
+    {
+      "path": "scripts/smoke-workflow.sh",
+      "size": 2581,
+      "sha256": "2dd5c13bfb23664505f7d905575337f4868cea7d5ae39195adec0de9256a0a36",
+      "type": "file"
+    },
+    {
+      "path": "templates/git-hooks/README.md",
+      "size": 1491,
+      "sha256": "f4009ba7c8e51d6c8a7370fbce15632f1228bccd60752a27ef6e13ce23b09092",
+      "type": "file"
+    },
+    {
+      "path": "templates/git-hooks/commit-msg.sample",
+      "size": 1720,
+      "sha256": "1ae7824539cec08237fbde11aa2db8aac28aa8424acd66ec93d818ecc436f0a9",
+      "type": "file"
+    },
+    {
+      "path": "templates/git-hooks/pre-push.sample",
+      "size": 539,
+      "sha256": "29bb598a66fb0e1eb41b60201f3e14bbadbb94c764aeb8bfc1b846dd41929d24",
+      "type": "file"
+    },
+    {
+      "path": "templates/git-hooks/prepare-commit-msg.sample",
+      "size": 1652,
+      "sha256": "797a2eb54192f1a4d3ec4899cdc84299f7261d3ae2d0ca91042ef9ce4276a4ef",
+      "type": "file"
+    },
+    {
+      "path": "templates/tasklist.md",
+      "size": 2349,
+      "sha256": "f7756b5aad886d96d8fbc25be106f7f649f9857ca5f2869dbd23ee9cfc66985d",
+      "type": "file"
+    },
+    {
+      "path": "workflow.md",
+      "size": 5085,
+      "sha256": "d6ac37e540555bb479a702a44219f70a9fb2afd87d949cdaf4aee2d289a27f76",
+      "type": "file"
+    }
+  ]
+}

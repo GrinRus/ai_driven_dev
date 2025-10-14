@@ -85,6 +85,7 @@
 - `scripts/ci-lint.sh` — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, интегрированная с CI и корректно пропускающая отсутствующие линтеры с предупреждением.
 - `scripts/smoke-workflow.sh` — E2E smoke-сценарий: поднимает временный проект, запускает bootstrap, воспроизводит slug → PRD → план → tasklist и убеждается, что `gate-workflow.sh` корректно блокирует/разрешает правки.
 - `scripts/bootstrap-local.sh` — копирует `src/claude_workflow_cli/data/payload/` в `.dev/.claude-example/` (или произвольный `--target`), чтобы быстро проверить изменения payload без публикации новой версии CLI.
+- `claude-workflow sync` / `claude-workflow upgrade` — поддерживают режим `--release <tag|owner/repo@tag|latest>` для скачивания payload из GitHub Releases (кешируется в `~/.cache/claude-workflow`, переопределяется `--cache-dir` или `CLAUDE_WORKFLOW_CACHE`). CLI сверяет контрольные суммы из `manifest.json`, перед синхронизацией выводит diff и при недоступности сети откатывается к встроенному payload.
 - `examples/apply-demo.sh` — демонстрирует применение шаблона к Gradle-монорепо, печатает дерево каталогов до/после и, при наличии wrapper, запускает `gradlew test`.
 
 ### Git-хуки и автоматизация
@@ -203,7 +204,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
-- для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/`, добавьте `--include claude-presets` или иные каталоги, если нужно подтянуть дополнительные артефакты);
+- для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/`, добавьте `--include claude-presets` или иные каталоги; чтобы подтянуть свежий payload из GitHub Releases, укажите `--release latest` или конкретный тег);
 - для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --feature demo-checkout`.
 - если инициализируете повторно, запустите команду в каталоге без старого `.claude/` или добавьте `--force`, чтобы перезаписать артефакты.
 - для обновления CLI используйте `uv tool upgrade claude-workflow-cli`.

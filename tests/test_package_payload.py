@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import zipfile
 from pathlib import Path
+import os
 
 
 def test_payload_includes_dotfiles(tmp_path):
@@ -37,7 +38,33 @@ def test_payload_includes_dotfiles(tmp_path):
             "claude_workflow_cli/data/payload/docs/plan/.gitkeep",
             "claude_workflow_cli/data/payload/docs/adr/.gitkeep",
             "claude_workflow_cli/data/payload/docs/prd/.gitkeep",
+            "claude_workflow_cli/data/payload/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"
+
+    shutil.rmtree(dist_dir)
+
+
+def test_package_payload_archive_script(tmp_path):
+    project_root = Path(__file__).resolve().parents[1]
+    dist_dir = project_root / "dist"
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+
+    env = os.environ.copy()
+    env["PAYLOAD_ARCHIVE_VERSION"] = "test"
+    subprocess.run(
+        ["python3", "scripts/package_payload_archive.py"],
+        check=True,
+        cwd=project_root,
+        env=env,
+    )
+
+    archive = dist_dir / "claude-workflow-payload-test.zip"
+    manifest_copy = dist_dir / "claude-workflow-manifest-test.json"
+    assert archive.exists(), "payload archive should be created"
+    assert archive.with_suffix(archive.suffix + ".sha256").exists(), "archive checksum should exist"
+    assert manifest_copy.exists(), "manifest copy should be created"
+    assert manifest_copy.with_suffix(manifest_copy.suffix + ".sha256").exists(), "manifest checksum should exist"
 
     shutil.rmtree(dist_dir)

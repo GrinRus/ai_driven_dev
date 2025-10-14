@@ -40,6 +40,7 @@
 ## Публикация релиза
 - [ ] Проставить тег `vX.Y.Z` (annotated tag).
 - [ ] Создать GitHub Release и вложить основные тезисы из release notes.
+- [ ] Загрузить артефакты из `dist/`: wheel/tarball, `claude-workflow-payload-<tag>.zip`, `claude-workflow-manifest-<tag>.json` и соответствующие `.sha256`.
 - [ ] Приложить ссылки на новые/обновлённые документы (usage/customization/command reference).
 - [ ] Обновить `docs/usage-demo.md`, если поведение установки изменилось.
 - [ ] Сообщить в выбранных каналах (Slack, email, команда).

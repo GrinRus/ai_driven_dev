@@ -13,7 +13,7 @@ def test_sync_materialises_claude(tmp_path):
     target = tmp_path / "workspace"
     target.mkdir()
 
-    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=False)
+    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=False, release=None, cache_dir=None)
     cli._sync_command(args)
 
     settings = target / ".claude" / "settings.json"
@@ -28,7 +28,7 @@ def test_sync_dry_run_does_not_touch_files(tmp_path, capsys):
     target = tmp_path / "workspace"
     target.mkdir()
 
-    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=True)
+    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=True, release=None, cache_dir=None)
     cli._sync_command(args)
 
     assert not any(target.iterdir()), "dry-run must not create new files"
@@ -45,6 +45,8 @@ def test_sync_custom_include(tmp_path):
         include=["claude-presets"],
         force=False,
         dry_run=False,
+        release=None,
+        cache_dir=None,
     )
     cli._sync_command(args)
 

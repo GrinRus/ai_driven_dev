@@ -70,7 +70,7 @@ claude-workflow init \
 [DONE] Claude Code workflow is ready to use 🎉
 ```
 
-> Нужно обновить только `.claude/**` без полного `init`? Выполните `claude-workflow sync` (дополнительно можно указать `--include claude-presets`, `--include templates/git-hooks` и т.п.). Для локального dogfooding самого payload в репозитории воспользуйтесь `scripts/bootstrap-local.sh --force`, он развернёт артефакты в `.dev/.claude-example/`.
+> Нужно обновить только `.claude/**` без полного `init`? Выполните `claude-workflow sync` (дополнительно можно указать `--include claude-presets`, `--include templates/git-hooks` и т.п.; чтобы забрать payload из GitHub Releases, добавьте `--release latest` или конкретный тег). Для локального dogfooding самого payload в репозитории воспользуйтесь `scripts/bootstrap-local.sh --force`, он развернёт артефакты в `.dev/.claude-example/`.
 
 ### 3. Проверьте git-статус и содержимое
 

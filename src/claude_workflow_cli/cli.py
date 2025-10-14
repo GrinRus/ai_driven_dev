@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import hashlib
+import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.request
+import zipfile
 from contextlib import contextmanager
 from importlib import metadata, resources
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 
 PAYLOAD_PACKAGE = "claude_workflow_cli.data"
@@ -19,15 +25,280 @@ try:
 except metadata.PackageNotFoundError:  # pragma: no cover - editable installs
     VERSION = "0.1.0"
 
+DEFAULT_RELEASE_REPO = os.getenv("CLAUDE_WORKFLOW_RELEASE_REPO", "ai-driven-dev/ai_driven_dev")
+CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
+HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
+DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
+
+
+class PayloadError(RuntimeError):
+    """Raised when the payload cannot be prepared for use."""
+
+
+def _cache_root(override: str | None = None) -> Path:
+    if override:
+        return Path(override).expanduser()
+    env_override = os.getenv(CACHE_ENV)
+    if env_override:
+        return Path(env_override).expanduser()
+    return DEFAULT_CACHE_DIR
+
+
+def _github_token() -> str | None:
+    token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    return token.strip() if token else None
+
+
+def _github_headers(token: str | None, *, accept: str = "application/vnd.github+json") -> Dict[str, str]:
+    headers = {
+        "User-Agent": f"claude-workflow-cli/{VERSION}",
+        "Accept": accept,
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _http_get_json(url: str, token: str | None) -> Dict:
+    request = urllib.request.Request(url, headers=_github_headers(token))
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
+            data = response.read()
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network errors
+        raise PayloadError(f"GitHub API request failed ({exc.code} {exc.reason}) for {url}") from exc
+    except urllib.error.URLError as exc:  # pragma: no cover - network errors
+        raise PayloadError(f"GitHub API request failed: {exc.reason}") from exc
+    try:
+        return json.loads(data.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PayloadError(f"Failed to parse GitHub API response from {url}: {exc}") from exc
+
+
+def _download_file(url: str, destination: Path, token: str | None) -> None:
+    request = urllib.request.Request(url, headers=_github_headers(token, accept="application/octet-stream"))
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response, destination.open("wb") as handle:
+            shutil.copyfileobj(response, handle)
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network errors
+        raise PayloadError(f"Download failed ({exc.code} {exc.reason}) for {url}") from exc
+    except urllib.error.URLError as exc:  # pragma: no cover - network errors
+        raise PayloadError(f"Download failed for {url}: {exc.reason}") from exc
+
+
+def _parse_release_spec(spec: str) -> Tuple[str, str]:
+    if "@" in spec:
+        repo, tag = spec.split("@", 1)
+    else:
+        repo = DEFAULT_RELEASE_REPO
+        tag = spec
+    if not repo or "/" not in repo:
+        raise PayloadError("Release specification must include owner/repo (set CLAUDE_WORKFLOW_RELEASE_REPO or use owner/repo@tag).")
+    return repo, tag or "latest"
+
+
+def _fetch_release_data(repo: str, tag: str, token: str | None) -> Dict:
+    owner, name = repo.split("/", 1)
+    if tag.lower() == "latest":
+        url = f"https://api.github.com/repos/{owner}/{name}/releases/latest"
+    else:
+        url = f"https://api.github.com/repos/{owner}/{name}/releases/tags/{tag}"
+    return _http_get_json(url, token)
+
+
+def _select_payload_asset(release: Dict) -> Dict:
+    assets = release.get("assets", [])
+    for asset in assets:
+        name = asset.get("name", "")
+        if name.endswith(".zip") and "payload" in name:
+            return asset
+    raise PayloadError("Release does not contain a payload .zip asset.")
+
+
+def _extract_payload_archive(archive_path: Path, payload_dir: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="claude_payload_") as temp_dir:
+        temp_path = Path(temp_dir)
+        with zipfile.ZipFile(archive_path) as zip_file:
+            zip_file.extractall(temp_path)
+        manifest_candidates = sorted(temp_path.rglob("manifest.json"), key=lambda p: len(p.relative_to(temp_path).parts))
+        if not manifest_candidates:
+            raise PayloadError("Downloaded payload archive does not contain manifest.json.")
+        payload_source = manifest_candidates[0].parent
+        if payload_dir.exists():
+            shutil.rmtree(payload_dir)
+        shutil.copytree(payload_source, payload_dir)
+
+
+def _ensure_remote_payload(spec: str, cache_override: str | None = None) -> Path:
+    repo, requested_tag = _parse_release_spec(spec)
+    token = _github_token()
+    release = _fetch_release_data(repo, requested_tag, token)
+    tag = release.get("tag_name") or requested_tag or "latest"
+    cache_root = _cache_root(cache_override)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    repo_slug = repo.replace("/", "__")
+    release_cache_dir = cache_root / repo_slug / tag
+    payload_dir = release_cache_dir / "payload"
+    asset = _select_payload_asset(release)
+    archive_path = release_cache_dir / asset["name"]
+
+    # Try cached payload first
+    if payload_dir.exists():
+        try:
+            _load_manifest(payload_dir)
+            return payload_dir
+        except PayloadError:
+            shutil.rmtree(payload_dir, ignore_errors=True)
+
+    # Reuse cached archive if present
+    if archive_path.exists():
+        try:
+            _extract_payload_archive(archive_path, payload_dir)
+            _load_manifest(payload_dir)
+            return payload_dir
+        except PayloadError:
+            archive_path.unlink(missing_ok=True)
+
+    release_cache_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[claude-workflow] downloading payload {repo}@{tag} ({asset['name']})")
+    with tempfile.NamedTemporaryFile(prefix="claude_payload_", suffix=".zip", delete=False) as handle:
+        temp_path = Path(handle.name)
+    try:
+        _download_file(asset["browser_download_url"], temp_path, token)
+        shutil.move(str(temp_path), archive_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+    _extract_payload_archive(archive_path, payload_dir)
+    _load_manifest(payload_dir)
+    metadata_path = release_cache_dir / "release.json"
+    metadata_path.write_text(
+        json.dumps(
+            {"repo": repo, "tag": tag, "asset": asset.get("name"), "download_url": asset.get("browser_download_url")},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return payload_dir
+
+
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_manifest(payload_path: Path) -> Dict[str, Dict]:
+    manifest_path = payload_path / "manifest.json"
+    if not manifest_path.exists():
+        raise PayloadError(f"Payload manifest not found at {manifest_path}")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PayloadError(f"Failed to parse payload manifest: {exc}") from exc
+
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise PayloadError("Payload manifest does not contain any files.")
+
+    entries: Dict[str, Dict] = {}
+    for entry in files:
+        rel = entry.get("path")
+        if not rel:
+            raise PayloadError("Payload manifest entry missing path.")
+        if rel in entries:
+            raise PayloadError(f"Duplicate entry in payload manifest: {rel}")
+        file_path = payload_path / rel
+        if not file_path.exists():
+            raise PayloadError(f"Payload file listed in manifest is missing: {rel}")
+        expected_hash = entry.get("sha256")
+        actual_hash = _hash_file(file_path)
+        if expected_hash != actual_hash:
+            raise PayloadError(f"Checksum mismatch for {rel}: manifest has {expected_hash}, actual is {actual_hash}")
+        entries[rel] = entry
+
+    extra_files = []
+    for path in payload_path.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(payload_path).as_posix()
+        if rel == "manifest.json":
+            continue
+        if rel not in entries:
+            extra_files.append(rel)
+    if extra_files:
+        raise PayloadError(f"Payload contains files missing from manifest: {', '.join(sorted(extra_files))}")
+    return entries
+
+
+def _filter_manifest_for_entries(
+    entries: Iterable[Tuple[Path, Path]], manifest: Dict[str, Dict]
+) -> Tuple[Dict[str, Dict], List[str]]:
+    relevant: Dict[str, Dict] = {}
+    unmanaged: List[str] = []
+    for _, rel_path in entries:
+        rel = rel_path.as_posix()
+        entry = manifest.get(rel)
+        if entry:
+            relevant[rel] = entry
+        else:
+            unmanaged.append(rel)
+    unexpected = [item for item in unmanaged if item != "manifest.json"]
+    if unexpected:
+        raise PayloadError(
+            "Payload entries missing from manifest: " + ", ".join(sorted(unexpected))
+        )
+    return relevant, unmanaged
+
+
+def _report_manifest_diff(
+    target: Path, manifest_entries: Dict[str, Dict], *, prefix: str
+) -> Tuple[List[str], List[str]]:
+    new_files: List[str] = []
+    changed_files: List[str] = []
+    for rel, entry in manifest_entries.items():
+        destination = target / rel
+        if not destination.exists():
+            new_files.append(rel)
+            continue
+        dest_hash = _hash_file(destination)
+        if dest_hash != entry.get("sha256"):
+            changed_files.append(rel)
+
+    if new_files or changed_files:
+        print(f"[claude-workflow] manifest diff for {prefix}:")
+        if new_files:
+            print(f"  + new files ({len(new_files)}):")
+            for rel in new_files[:10]:
+                print(f"    {rel}")
+            if len(new_files) > 10:
+                print("    …")
+        if changed_files:
+            print(f"  ~ changed files ({len(changed_files)}):")
+            for rel in changed_files[:10]:
+                print(f"    {rel}")
+            if len(changed_files) > 10:
+                print("    …")
+    else:
+        print(f"[claude-workflow] manifest diff for {prefix}: no changes required.")
+
+    return new_files, changed_files
 
 @contextmanager
-def _payload_root() -> Iterable[Path]:
+def _payload_root(
+    release: str | None = None, cache_dir: str | None = None
+) -> Iterable[Path]:
     """
     Yields a concrete filesystem path that contains the bundled bootstrap
     payload (shell scripts, templates, presets, etc.).  The context manager
     ensures compatibility with zipped installations where resources can only be
     accessed via a temporary directory.
     """
+    if release:
+        yield _ensure_remote_payload(release, cache_dir)
+        return
     payload = resources.files(PAYLOAD_PACKAGE) / "payload"
     with resources.as_file(payload) as resolved:
         yield Path(resolved)
@@ -233,8 +504,11 @@ def _upgrade_command(args: argparse.Namespace) -> None:
             " upgrade will refresh files if templates changed."
         )
 
-    with _payload_root() as payload_path:
+    with _payload_root(args.release, args.cache_dir) as payload_path:
+        manifest = _load_manifest(payload_path)
         entries = _select_payload_entries(payload_path)
+        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
+        _report_manifest_diff(target, managed_manifest, prefix="upgrade")
         updated, skipped, backups = _copy_payload_entries(
             target,
             entries,
@@ -297,11 +571,15 @@ def _sync_command(args: argparse.Namespace) -> None:
     except ValueError as exc:
         raise ValueError(f"invalid include path: {exc}") from exc
 
-    with _payload_root() as payload_path:
+    with _payload_root(args.release, args.cache_dir) as payload_path:
         for include in includes:
             if not (payload_path / include).exists():
                 raise FileNotFoundError(f"payload path not found: {include}")
         entries = _select_payload_entries(payload_path, includes)
+        manifest = _load_manifest(payload_path)
+        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
+        prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
+        _report_manifest_diff(target, managed_manifest, prefix=prefix)
         updated, skipped, backups = _copy_payload_entries(
             target,
             entries,
@@ -445,6 +723,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show actions without writing files.",
     )
+    upgrade_parser.add_argument(
+        "--release",
+        help=(
+            "Download payload from GitHub Releases instead of bundled templates. "
+            "Accepts TAG or owner/repo@TAG. Use 'latest' for the newest release."
+        ),
+    )
+    upgrade_parser.add_argument(
+        "--cache-dir",
+        help=(
+            "Override directory used to cache downloaded payloads "
+            "(defaults to $CLAUDE_WORKFLOW_CACHE or ~/.cache/claude-workflow)."
+        ),
+    )
     upgrade_parser.set_defaults(func=_upgrade_command)
 
     sync_parser = subparsers.add_parser(
@@ -473,6 +765,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Show actions without writing files.",
+    )
+    sync_parser.add_argument(
+        "--release",
+        help=(
+            "Download payload from GitHub Releases instead of bundled templates. "
+            "Accepts TAG or owner/repo@TAG. Use 'latest' for the newest release."
+        ),
+    )
+    sync_parser.add_argument(
+        "--cache-dir",
+        help=(
+            "Override directory used to cache downloaded payloads "
+            "(defaults to $CLAUDE_WORKFLOW_CACHE or ~/.cache/claude-workflow)."
+        ),
     )
     sync_parser.set_defaults(func=_sync_command)
 

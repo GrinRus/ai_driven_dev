@@ -216,3 +216,17 @@
 - [x] Добавить сценарий синхронизации (`claude-workflow sync` или документированное решение), который материализует `.claude/**` из payload и обновляет его по запросу.
 - [x] Скорректировать упаковку (`MANIFEST.in`, `pyproject.toml`) и тесты, проверяющие, что в дистрибутив попадают все файлы payload и игнорируются локальные примеры.
 - [x] Переписать документацию (README, docs/customization.md, docs/usage-demo.md) с описанием разделения payload/локальных настроек и инструкцией по запуску bootstrap-скрипта.
+
+## Wave 18
+
+### Доставка payload через релизы
+- [x] `src/claude_workflow_cli/cli.py`: добавить загрузку payload из GitHub Releases (с выбором версии, кешированием и fallback на локальный бандл) для команд `sync` и `upgrade`.
+- [x] `docs/customization.md`, `docs/usage-demo.md`, `README.md`: описать новый режим удалённого обновления payload, требования к токенам и офлайн-fallback.
+
+### Манифест и контроль целостности
+- [x] `payload/manifest.json`: сгенерировать список всех артефактов (размер, checksum, тип) для использования CLI при `sync`/`upgrade`.
+- [x] `src/claude_workflow_cli/cli.py`: показывать diff по манифесту перед синхронизацией, проверять контрольные суммы и логировать пропущенные файлы.
+
+### Расширение релизного пайплайна
+- [x] `.github/workflows/release.yml`: публиковать zip-архив payload рядом с wheel и прикладывать manifest checksum.
+- [x] `CHANGELOG.md`, `docs/release-notes.md`: задокументировать новые артефакты релиза и процесс отката до конкретной версии payload.

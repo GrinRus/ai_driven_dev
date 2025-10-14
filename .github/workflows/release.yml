@@ -33,6 +33,10 @@ jobs:
         run: |
           python -m build
 
+      - name: Package payload archive
+        run: |
+          python scripts/package_payload_archive.py
+
       - name: Upload build artefacts
         uses: actions/upload-artifact@v4
         with:
