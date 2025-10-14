@@ -28,9 +28,11 @@ jobs:
 
       - name: Extract version
         id: version
-        run: |
+        run: |2
           VERSION=$(python - <<'PY'
-            import pathlib, tomllib
+            import pathlib
+            import tomllib
+
             text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
             data = tomllib.loads(text)
             print(data["project"]["version"])
