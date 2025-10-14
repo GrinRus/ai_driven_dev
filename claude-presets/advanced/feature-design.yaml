@@ -1,3 +1,4 @@
+---
 name: feature-design
 workflow_step: 2-design
 description: >
@@ -6,7 +7,9 @@ variables:
   feature:
     prompt: "Slug активной фичи."
   prd_path:
-    prompt: "Путь к PRD, если отличается от стандартного docs/prd/{{feature}}.prd.md."
+    prompt: >-
+      Путь к PRD, если отличается от стандартного
+      docs/prd/{{feature}}.prd.md.
     default: "docs/prd/{{feature}}.prd.md"
 context:
   files:
@@ -16,9 +19,12 @@ context:
     - docs/design/feature-presets.md
     - "{{prd_path}}"
   instructions:
-    - "Сформируй архитектурный документ для фичи {{feature}}."
-    - "Зафиксируй ключевые решения, альтернативы и риски."
-    - "Свяжи документ с соответствующими ADR и планом реализации."
+    - >-
+      Сформируй архитектурный документ для фичи {{feature}}.
+    - >-
+      Зафиксируй ключевые решения, альтернативы и риски.
+    - >-
+      Свяжи документ с соответствующими ADR и планом реализации.
 output:
   path: docs/design/{{feature}}.md
   format: markdown

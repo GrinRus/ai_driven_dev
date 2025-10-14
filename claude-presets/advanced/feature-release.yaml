@@ -1,3 +1,4 @@
+---
 name: feature-release
 workflow_step: 5-release
 description: >
@@ -6,7 +7,8 @@ variables:
   feature:
     prompt: "Slug активной фичи."
   release_notes_path:
-    prompt: "Путь к файлу с релизными заметками."
+    prompt: >-
+      Путь к файлу с релизными заметками.
     default: "docs/release-notes.md"
 context:
   files:
@@ -18,9 +20,13 @@ context:
     - docs/usage-demo.md
     - "{{release_notes_path}}"
   instructions:
-    - "Проверь, что все чекбоксы по фиче {{feature}} закрыты."
-    - "Собери ключевые метрики, результаты тестирования и TODO для следующего цикла."
-    - "Обнови релизные заметки и выпиши обратную связь."
+    - >-
+      Проверь, что все чекбоксы по фиче {{feature}} закрыты.
+    - >-
+      Собери ключевые метрики, результаты тестирования и TODO для
+      следующего цикла.
+    - >-
+      Обнови релизные заметки и выпиши обратную связь.
 output:
   path: "{{release_notes_path}}"
   format: markdown

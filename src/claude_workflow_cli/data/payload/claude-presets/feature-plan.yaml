@@ -1,3 +1,4 @@
+---
 name: feature-plan
 workflow_step: 3-plan
 description: >
@@ -6,7 +7,9 @@ variables:
   feature:
     prompt: "Slug активной фичи."
   design_path:
-    prompt: "Путь к дизайн-документу, если отличается от стандартного docs/design/{{feature}}.md."
+    prompt: >-
+      Путь к дизайн-документу, если отличается от стандартного
+      docs/design/{{feature}}.md.
     default: "docs/design/{{feature}}.md"
 context:
   files:
@@ -16,9 +19,12 @@ context:
     - docs/tasklist.template.md
     - docs/customization.md
   instructions:
-    - "Составь пошаговый план реализации фичи {{feature}}."
-    - "Определи зависимости, риски и контрольные точки."
-    - "Свяжи план с будущими задачами тасклиста и гейтами (API, DB, тесты)."
+    - >-
+      Составь пошаговый план реализации фичи {{feature}}.
+    - >-
+      Определи зависимости, риски и контрольные точки.
+    - >-
+      Свяжи план с будущими задачами тасклиста и гейтами (API, DB, тесты).
 output:
   path: docs/plan/{{feature}}.md
   format: markdown

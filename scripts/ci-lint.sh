@@ -51,7 +51,10 @@ run_yamllint() {
     warn "yamllint not found; skipping yaml lint"
     return
   fi
-  mapfile -d '' -t YML_FILES < <(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
+  local YML_FILES=()
+  while IFS= read -r -d '' file; do
+    YML_FILES+=("$file")
+  done < <(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
   if ((${#YML_FILES[@]} == 0)); then
     log "no yaml files detected"
     return
