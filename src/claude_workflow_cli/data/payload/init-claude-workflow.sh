@@ -748,7 +748,16 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 3) Вызови саб‑агента **analyst** для итеративного уточнения идеи. Если передан TICKET ($2) — добавь раздел Tracking.
 
 Выполни:
-!`mkdir -p docs && printf "%s" "$1" > docs/.active_feature && echo "active feature: $1"`
+!`python3 - "$1" <<'PY'
+import pathlib
+import sys
+
+slug = sys.argv[1]
+target_dir = pathlib.Path("docs")
+target_dir.mkdir(parents=True, exist_ok=True)
+(target_dir / ".active_feature").write_text(slug, encoding="utf-8")
+print(f"active feature: {slug}")
+PY`
 MD
 
   write_template ".claude/commands/plan-new.md" <<'MD'
