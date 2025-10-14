@@ -11,6 +11,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `claude-workflow sync/upgrade --release` for fetching payloads from GitHub Releases with caching and bundled fallback.
 - Release packaging script (`scripts/package_payload_archive.py`) that produces versioned payload zip, manifest copy and checksum files for publication.
 
+### Fixed
+- CLI now falls back to the bundled payload when release downloads fail.
+
 ## [0.1.0] - 2025-02-XX
 
 ### Added

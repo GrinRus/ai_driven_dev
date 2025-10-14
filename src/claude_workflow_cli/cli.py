@@ -297,8 +297,19 @@ def _payload_root(
     accessed via a temporary directory.
     """
     if release:
-        yield _ensure_remote_payload(release, cache_dir)
-        return
+        try:
+            yield _ensure_remote_payload(release, cache_dir)
+            return
+        except PayloadError as exc:
+            print(
+                f"[claude-workflow] failed to download payload from release '{release}': {exc}; falling back to bundled templates.",
+                file=sys.stderr,
+            )
+        except Exception as exc:  # pragma: no cover - unexpected failure
+            print(
+                f"[claude-workflow] unexpected error while downloading payload from release '{release}': {exc}; falling back to bundled templates.",
+                file=sys.stderr,
+            )
     payload = resources.files(PAYLOAD_PACKAGE) / "payload"
     with resources.as_file(payload) as resolved:
         yield Path(resolved)

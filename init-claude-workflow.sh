@@ -189,7 +189,7 @@ copy_payload_dir() {
     return
   fi
   while IFS= read -r -d '' file; do
-    local relative="${file#$src_path/}"
+    local relative="${file#"$src_path"/}"
     if [[ "$relative" == "$file" ]]; then
       relative="$(basename "$file")"
     fi
