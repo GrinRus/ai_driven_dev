@@ -17,13 +17,26 @@ run_shellcheck() {
     warn "shellcheck not found; skipping shell script lint"
     return
   fi
-  mapfile -d '' -t SH_FILES < <(find . -type f \( -name "*.sh" -o -name "*.bash" \) -print0)
-  if ((${#SH_FILES[@]} == 0)); then
+  local SH_FILES=()
+  while IFS= read -r -d '' file; do
+    SH_FILES+=("$file")
+  done < <(find . -type f \( -name "*.sh" -o -name "*.bash" \) -print0)
+
+  local FILTERED=()
+  for file in "${SH_FILES[@]}"; do
+    if head -n1 "$file" | grep -qE '^#!/usr/bin/env python3'; then
+      continue
+    fi
+    FILTERED+=("$file")
+  done
+
+  if ((${#FILTERED[@]} == 0)); then
     log "no shell scripts detected for shellcheck"
     return
   fi
-  log "running shellcheck on ${#SH_FILES[@]} files"
-  if ! shellcheck "${SH_FILES[@]}"; then
+
+  log "running shellcheck on ${#FILTERED[@]} files"
+  if ! shellcheck "${FILTERED[@]}"; then
     err "shellcheck reported issues"
     STATUS=1
   fi
@@ -34,7 +47,10 @@ run_markdownlint() {
     warn "markdownlint not found; skipping markdown lint"
     return
   fi
-  mapfile -d '' -t MD_FILES < <(find . -type f -name "*.md" ! -path "*/node_modules/*" -print0)
+  local MD_FILES=()
+  while IFS= read -r -d '' file; do
+    MD_FILES+=("$file")
+  done < <(find . -type f -name "*.md" ! -path "*/node_modules/*" -print0)
   if ((${#MD_FILES[@]} == 0)); then
     log "no markdown files detected"
     return

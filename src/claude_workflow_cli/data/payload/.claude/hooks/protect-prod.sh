@@ -68,7 +68,9 @@ PY
 declare BYPASS_ENV=""
 declare LOG_ONLY_ENV=""
 declare HELP_URL=""
+# shellcheck disable=SC2034
 declare -a PROTECTED_GLOBS=()
+# shellcheck disable=SC2034
 declare -a ALLOWLIST_GLOBS=()
 
 for line in "${CHECK_RESULT[@]}"; do

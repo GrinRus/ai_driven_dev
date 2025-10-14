@@ -12,7 +12,6 @@
 #     --dry-run       log planned actions without touching the filesystem
 set -euo pipefail
 
-SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(pwd)"
 
@@ -144,7 +143,7 @@ copy_template() {
   fi
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] copy $relative -> ${dest_path#$ROOT_DIR/}"
+    log_info "[dry-run] copy $relative -> ${dest_path#"$ROOT_DIR"/}"
     return
   fi
 
@@ -154,13 +153,13 @@ copy_template() {
   fi
 
   if [[ -e "$dest_path" && "$FORCE" -ne 1 ]]; then
-    log_warn "skip: ${dest_path#$ROOT_DIR/} (exists, use --force to overwrite)"
+    log_warn "skip: ${dest_path#"$ROOT_DIR"/} (exists, use --force to overwrite)"
     return
   fi
 
   mkdir -p "$(dirname "$dest_path")"
   cp "$src" "$dest_path"
-  log_info "copied: ${dest_path#$ROOT_DIR/}"
+  log_info "copied: ${dest_path#"$ROOT_DIR"/}"
 }
 
 set_executable() {
@@ -293,7 +292,7 @@ copy_presets() {
   fi
   mkdir -p "$dest"
   while IFS= read -r -d '' file; do
-    local rel="${file#$src/}"
+    local rel="${file#"$src"/}"
     local target="$dest/$rel"
     mkdir -p "$(dirname "$target")"
     if [[ -e "$target" && "$FORCE" -ne 1 ]]; then
@@ -329,7 +328,8 @@ apply_preset() {
     return
   fi
 
-  local defaults_output="$(extract_wave7_defaults)"
+  local defaults_output
+  defaults_output="$(extract_wave7_defaults)"
   local default_slug
   default_slug="$(printf '%s\n' "$defaults_output" | sed -n '1p')"
   local default_title

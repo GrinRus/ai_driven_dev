@@ -29,7 +29,7 @@ fi
 
 cleanup() {
   if [[ "$CLEANUP" -eq 1 ]]; then
-    rm -rf "$TARGET_DIR"
+    rm -rf "${TARGET_DIR:?}"
   fi
 }
 trap cleanup EXIT
@@ -38,7 +38,7 @@ copy_demo() {
   if command -v rsync >/dev/null 2>&1; then
     rsync -a --delete "$DEMO_SOURCE/" "$TARGET_DIR/"
   else
-    rm -rf "$TARGET_DIR"/*
+    rm -rf "${TARGET_DIR:?}"/*
     cp -R "$DEMO_SOURCE/." "$TARGET_DIR/"
   fi
   cp "$INIT_SCRIPT" "$TARGET_DIR/"
