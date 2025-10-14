@@ -42,7 +42,7 @@ git clone git@github.com:your-org/demo-monorepo.git
 cd demo-monorepo
 ```
 
-> Нет `uv`? Замените на `pipx install git+https://github.com/GrinRus/ai_driven_dev.git`. Локальный скрипт по-прежнему доступен как резервный вариант.
+> Нет `uv`? Замените на `pipx install git+https://github.com/GrinRus/ai_driven_dev.git`. Перед повторной установкой убедитесь, что удалили старый `.claude/` или добавьте `--force` к команде `claude-workflow init`. Локальный скрипт по-прежнему доступен как резервный вариант.
 
 ### 2. Запустите установку
 

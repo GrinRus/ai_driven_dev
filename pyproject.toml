@@ -29,4 +29,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-claude_workflow_cli = ["data/payload/**"]
+claude_workflow_cli = [
+  "data/payload/**",
+  "data/payload/.claude/**"
+]

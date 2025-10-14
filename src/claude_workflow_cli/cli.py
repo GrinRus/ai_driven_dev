@@ -38,19 +38,15 @@ def _run_subprocess(
     if env:
         run_env.update(env)
     try:
-        completed = subprocess.run(
-            cmd,
-            cwd=str(cwd),
-            env=run_env,
-            check=False,
-        )
+        subprocess.run(cmd, cwd=str(cwd), env=run_env, check=True)
     except FileNotFoundError as exc:
         raise RuntimeError(f"failed to execute {cmd[0]}: {exc}") from exc
-    if completed.returncode != 0:
-        raise subprocess.CalledProcessError(
-            returncode=completed.returncode, cmd=cmd, cwd=str(cwd)
-        )
-    return completed.returncode
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"command {' '.join(cmd)} exited with code {exc.returncode};"
+            " see logs above for details"
+        ) from exc
+    return 0
 
 
 def _run_init(

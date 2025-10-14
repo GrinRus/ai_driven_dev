@@ -188,3 +188,12 @@
 - [ ] Обновить `README.md`, `README.en.md`, `docs/usage-demo.md` с описанием релизной цепочки (build → release → установка через `uv`/`pipx`), добавить раздел troubleshooting.
 - [ ] Завести `CHANGELOG.md` или шаблон релизных заметок; интегрировать с релизным workflow (автоподхват последнего раздела или использование Release Drafter).
 - [ ] Протестировать полный путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.
+
+## Wave 15
+
+### Исправление дистрибутива CLI через uv/pipx
+- [x] Добавить `MANIFEST.in` (или явный список в `pyproject.toml`), чтобы в пакет попадали скрытые файлы `.claude/settings.json`, `.claude/hooks/lib.sh` и остальные dot-каталоги payload (`recursive-include src/claude_workflow_cli/data/payload .claude/*`).
+- [x] Написать регресcионный тест/скрипт, который собирает wheel и проверяет наличие `.claude/**` в архиве (например, `tests/test_package_payload.py`).
+- [x] Исправить обработку ошибок в `src/claude_workflow_cli/cli.py`: убрать ручное создание `CalledProcessError(cwd=...)`, использовать `subprocess.run(..., check=True)` и выводить понятное сообщение при отсутствующем шаблоне.
+- [x] После фикса обновить `README.md` / `docs/usage-demo.md`: отметить, что установка через `uv` теперь не требует ручного вмешательства, и добавить инструкцию по обновлению (`uv tool upgrade`, `pipx upgrade`).
+- [x] Прогнать smoke (`scripts/smoke-workflow.sh`) и `uv tool install` на чистой директории, зафиксировать результат в `CHANGELOG.md`.

@@ -203,6 +203,8 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
 - для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --feature demo-checkout`.
+- если инициализируете повторно, запустите команду в каталоге без старого `.claude/` или добавьте `--force`, чтобы перезаписать артефакты.
+- для обновления CLI используйте `uv tool upgrade claude-workflow-cli`.
 
 ### Вариант B — `pipx`
 
@@ -214,6 +216,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 ```
 
 `pipx` добавит CLI в PATH и обеспечит автоматические обновления через `pipx upgrade claude-workflow-cli`.
+Повторная инициализация также требует чистого каталога (удалите `.claude/` или добавьте `--force` к `claude-workflow init`).
 
 ### Вариант C — локально (bash-скрипт)
 

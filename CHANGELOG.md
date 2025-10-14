@@ -8,6 +8,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 - (placeholder) Document upcoming changes here.
+- Ensure CLI packages include `.claude/**` payload and added regression test for wheel contents.
 
 ## [0.1.0] - 2025-02-XX
 

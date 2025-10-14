@@ -184,8 +184,16 @@
 
 ### Автоматизация релизов CLI
 - [ ] Создать workflow `.github/workflows/release.yml`, который реагирует на тег `v*`, собирает пакет (`python -m build` или `uv build`), прикрепляет `wheel` и `sdist` к GitHub Release через `softprops/action-gh-release`, а также сохраняет артефакты в CI.
-- [ ] Добавить workflow `publish.yml` (ручной `workflow_dispatch` или по тегу) для публикации в PyPI через `pypa/gh-action-pypi-publish`, оформить требования к секретам (`PYPI_API_TOKEN`) и расписать порядок действий в документации.
 - [ ] Продумать авто-тегирование: job на `push` в `main`, который считывает версию из `pyproject.toml`, сверяет с последним релизом и при изменении создаёт аннотированный тег (через `actions/create-release` или `git tag` + `gh`), с защитой от повторов и уведомлением при сбое.
-- [ ] Обновить `README.md`, `README.en.md`, `docs/usage-demo.md` с описанием релизной цепочки (build → release → PyPI), добавить раздел troubleshooting (например, восстановление при провале загрузки).
+- [ ] Обновить `README.md`, `README.en.md`, `docs/usage-demo.md` с описанием релизной цепочки (build → release → установка через `uv`/`pipx`), добавить раздел troubleshooting.
 - [ ] Завести `CHANGELOG.md` или шаблон релизных заметок; интегрировать с релизным workflow (автоподхват последнего раздела или использование Release Drafter).
-- [ ] Протестировать весь путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release → публикация на TestPyPI/PyPI; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.
+- [ ] Протестировать полный путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.
+
+## Wave 15
+
+### Исправление дистрибутива CLI через uv/pipx
+- [x] Добавить `MANIFEST.in` (или явный список в `pyproject.toml`), чтобы в пакет попадали скрытые файлы `.claude/settings.json`, `.claude/hooks/lib.sh` и остальные dot-каталоги payload (`recursive-include src/claude_workflow_cli/data/payload .claude/*`).
+- [x] Написать регресcионный тест/скрипт, который собирает wheel и проверяет наличие `.claude/**` в архиве (например, `tests/test_package_payload.py`).
+- [x] Исправить обработку ошибок в `src/claude_workflow_cli/cli.py`: убрать ручное создание `CalledProcessError(cwd=...)`, использовать `subprocess.run(..., check=True)` и выводить понятное сообщение при отсутствующем шаблоне.
+- [x] После фикса обновить `README.md` / `docs/usage-demo.md`: отметить, что установка через `uv` теперь не требует ручного вмешательства, и добавить инструкцию по обновлению (`uv tool upgrade`, `pipx upgrade`).
+- [x] Прогнать smoke (`scripts/smoke-workflow.sh`) и `uv tool install` на чистой директории, зафиксировать результат в `CHANGELOG.md`.
