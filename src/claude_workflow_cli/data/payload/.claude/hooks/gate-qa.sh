@@ -226,6 +226,7 @@ branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
 
 if ((${#qa_branches[@]} > 0)); then
   match=0
+  # shellcheck disable=SC2053
   for pattern in "${qa_branches[@]}"; do
     [[ -z "$pattern" ]] && continue
     if [[ "$branch" == $pattern ]]; then
@@ -237,6 +238,7 @@ if ((${#qa_branches[@]} > 0)); then
 fi
 
 if ((${#qa_skip[@]} > 0)); then
+  # shellcheck disable=SC2053
   for pattern in "${qa_skip[@]}"; do
     [[ -z "$pattern" ]] && continue
     if [[ "$branch" == $pattern ]]; then

@@ -1,7 +1,7 @@
 ---
 name: Gradle (selective modules)
 on:
-  workflow_dispatch:  # enable pull_request later if needed
+  workflow_dispatch: {}  # enable pull_request later if needed
 jobs:
   test:
     runs-on: ubuntu-latest

@@ -111,8 +111,8 @@
     },
     {
       "path": ".claude/hooks/gate-qa.sh",
-      "size": 9415,
-      "sha256": "4e7db659cd2afb523bfda30125a94beb0ecc5cd66939769dedff4cb6a3749886",
+      "size": 9552,
+      "sha256": "7c617044ad5431d838f0218d2dc8d535ce5dc75399ca1f30dabbacf7f784e746",
       "type": "file"
     },
     {
@@ -153,8 +153,8 @@
     },
     {
       "path": ".github/workflows/gradle.yml",
-      "size": 780,
-      "sha256": "6232c785c9429a12f8a225585fc6995e7d73a680f5e10b87ea41e3f71632f117",
+      "size": 783,
+      "sha256": "43b6f75e18dbf858d2e6b45a1f76eeecc3e00df93ec12ce608f4bac4ccdb0fac",
       "type": "file"
     },
     {
@@ -273,8 +273,8 @@
     },
     {
       "path": "manifest.json",
-      "size": 9128,
-      "sha256": "9e69fdea1bb223bcce126703392d95d088789f67f4557528326e7692a0c5c1e8",
+      "size": 10003,
+      "sha256": "5b2f0c63e2186901aa7f623268970ef9df2f52302410dbe809e21fa381c4979e",
       "type": "file"
     },
     {

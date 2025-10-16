@@ -18,7 +18,7 @@ jobs:
       - name: Fetch base branch
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+          git fetch origin "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}"
 
       - name: Install linters
         run: |
@@ -30,6 +30,10 @@ jobs:
         run: scripts/ci-lint.sh
 
       - name: Run QA gate
-        env:
-          QA_AGENT_DIFF_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.event.pull_request.base.ref) || '' }}
-        run: ./.claude/hooks/gate-qa.sh --payload '{}'
+        run: |
+          if [[ -n "${GITHUB_BASE_REF}" ]]; then
+            export QA_AGENT_DIFF_BASE="origin/${GITHUB_BASE_REF}"
+          else
+            unset QA_AGENT_DIFF_BASE
+          fi
+          ./.claude/hooks/gate-qa.sh --payload '{}'
