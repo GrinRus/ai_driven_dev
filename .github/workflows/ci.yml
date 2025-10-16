@@ -12,6 +12,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
 
       - name: Install linters
         run: |
@@ -21,3 +28,8 @@ jobs:
 
       - name: Run ci-lint script
         run: scripts/ci-lint.sh
+
+      - name: Run QA gate
+        env:
+          QA_AGENT_DIFF_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.event.pull_request.base.ref) || '' }}
+        run: ./.claude/hooks/gate-qa.sh --payload '{}'

@@ -89,6 +89,11 @@
                 },
                 {
                   "type": "command",
+                  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-qa.sh",
+                  "timeout": 60
+                },
+                {
+                  "type": "command",
                   "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-tests.sh",
                   "timeout": 5
                 }
@@ -169,6 +174,11 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-db-migration.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-qa.sh",
+            "timeout": 60
           },
           {
             "type": "command",

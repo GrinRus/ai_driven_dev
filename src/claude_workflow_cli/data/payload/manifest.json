@@ -32,6 +32,12 @@
       "type": "file"
     },
     {
+      "path": ".claude/agents/qa.md",
+      "size": 2599,
+      "sha256": "b2c7d35abbe7da290ac10885557db452b52a882e6bd40e7ee7c438ea6f96a1ed",
+      "type": "file"
+    },
+    {
       "path": ".claude/agents/reviewer.md",
       "size": 850,
       "sha256": "87b0f8b9f76c5771112efae4365075eeed70b7f91289674b02c7a111feae9930",
@@ -104,6 +110,12 @@
       "type": "file"
     },
     {
+      "path": ".claude/hooks/gate-qa.sh",
+      "size": 9415,
+      "sha256": "4e7db659cd2afb523bfda30125a94beb0ecc5cd66939769dedff4cb6a3749886",
+      "type": "file"
+    },
+    {
       "path": ".claude/hooks/gate-tests.sh",
       "size": 1310,
       "sha256": "f411fb5116ea421feae0cdef8fce848a10e44b6cf9ab484e92ce95d3ce407914",
@@ -135,14 +147,14 @@
     },
     {
       "path": ".claude/settings.json",
-      "size": 7363,
-      "sha256": "206df5e3cc9cf51a2a498ae0d1ab9ab7ba9a7826d5ef88ac6e3a2d11a5891c7d",
+      "size": 7707,
+      "sha256": "50e62e649250314af5965d1aa0757dc2ef0b77a8b606c3a9d1c8eb23f16c8c4b",
       "type": "file"
     },
     {
       "path": ".github/workflows/gradle.yml",
-      "size": 733,
-      "sha256": "f211f56ff598cfd1cc0cdb7f9a5cadce2ed60ca8dcee77687207929137e02091",
+      "size": 780,
+      "sha256": "6232c785c9429a12f8a225585fc6995e7d73a680f5e10b87ea41e3f71632f117",
       "type": "file"
     },
     {
@@ -195,8 +207,8 @@
     },
     {
       "path": "config/gates.json",
-      "size": 161,
-      "sha256": "e9b0720ba70a93145c0b9828a34d505faea92e8590d842cfe94c0e42ed2be3d4",
+      "size": 668,
+      "sha256": "88ef7ceb43a0e062afe737dbbdff307354fd5b17b8fbbf72029d9a7ba35fee4b",
       "type": "file"
     },
     {
@@ -207,8 +219,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 33980,
-      "sha256": "0f2834cef15db56eec5a66426601b7cb95e1636d6d16600d8dbafa769d7d8d6a",
+      "size": 36632,
+      "sha256": "abc483a7b63a991c5105846a8edf1645bdb4e30ba85c4781d770a627dc19556d",
       "type": "file"
     },
     {
@@ -242,6 +254,12 @@
       "type": "file"
     },
     {
+      "path": "docs/qa-playbook.md",
+      "size": 4656,
+      "sha256": "9b1926d1ca5bbae31d889d7dee8adeeb5867d1f396e707a97b37dd22d0667f37",
+      "type": "file"
+    },
+    {
       "path": "docs/usage-demo.md",
       "size": 12795,
       "sha256": "5b2ffba985a7e3ec0d7f1dac18688aac2f4fe4bad2f21e5461b7ce3077b57c8f",
@@ -249,14 +267,26 @@
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 16256,
-      "sha256": "c2f4679dba38c130544f318083efbe3561548fac828c2ae2bd2dcaa968cdf3fa",
+      "size": 16258,
+      "sha256": "551f000adb5594393cb7d1e2b6e7faf21c710ec1ed7612a568fbec6235bc2bd2",
+      "type": "file"
+    },
+    {
+      "path": "manifest.json",
+      "size": 9128,
+      "sha256": "9e69fdea1bb223bcce126703392d95d088789f67f4557528326e7692a0c5c1e8",
       "type": "file"
     },
     {
       "path": "scripts/ci-lint.sh",
       "size": 2218,
       "sha256": "acf835355ae90e4e1bd118b21d68e1b33b396eaf9b0d0d220eaad6b2c21a2c95",
+      "type": "file"
+    },
+    {
+      "path": "scripts/qa-agent.py",
+      "size": 11790,
+      "sha256": "b1b6aef169079c48d8a113896b2cb6dd6c10dfab844f878abf89083d4db0cb81",
       "type": "file"
     },
     {

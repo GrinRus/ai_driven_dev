@@ -11,6 +11,7 @@
 | 3 | `/tasks-new <slug>` | — | Утверждённый план | Обновлённый `tasklist.md` | Чеклисты привязаны к slug и этапам |
 | 4 | `/implement <slug>` | `implementer` | План, tasklist, активная фича | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
 | 5 | `/review <slug>` | `reviewer` | Готовая ветка и артефакты | Замечания в `tasklist.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
+| 6 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, tasklist, результаты гейтов | JSON-отчёт `reports/qa/<slug>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
 > Дополнительные агенты (`contract-checker`, `db-migrator`) вызываются вручную через палитру `Claude: Run agent …`, когда включены соответствующие гейты или требуется ручная проверка. Рядом с ними нет отдельных слэш-команд.
 
@@ -50,6 +51,12 @@
 - **Вход:** готовая ветка, PRD, план, tasklist.
 - **Выход:** отчёт об обнаруженных проблемах и рекомендации; чеклисты обновлены состоянием READY/BLOCKED.
 - **Готовность:** все блокирующие замечания устранены, финальный статус — READY.
+
+### qa — финальная проверка качества
+- **Вызов:** `Claude: Run agent → qa`, либо `python3 scripts/qa-agent.py --gate` / `./.claude/hooks/gate-qa.sh`.
+- **Вход:** активная фича, diff, результаты гейтов, раздел QA в `tasklist.md`.
+- **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<slug>.json`, обновлённый чеклист.
+- **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `docs/qa-playbook.md` для чеклистов и переменных окружения.
 
 ### db-migrator — миграции БД *(опционально)*
 - **Вызов:** `Claude: Run agent → db-migrator`, когда `config/gates.json: db_migration=true`.

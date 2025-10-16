@@ -3,5 +3,35 @@
   "api_contract": false,
   "db_migration": false,
   "tests_required": "disabled",
-  "deps_allowlist": false
+  "deps_allowlist": false,
+  "qa": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "requires": [
+      "gate-tests",
+      "gate-api-contract"
+    ],
+    "command": [
+      "python3",
+      "scripts/qa-agent.py"
+    ],
+    "timeout": 600,
+    "report": "reports/qa/{slug}.json",
+    "block_on": [
+      "blocker",
+      "critical"
+    ],
+    "warn_on": [
+      "major",
+      "minor"
+    ],
+    "allow_missing_report": false
+  }
 }
