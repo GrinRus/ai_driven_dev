@@ -1,13 +1,13 @@
 ---
-Feature: <slug>
+Feature: &lt;slug&gt;
 Status: draft
-PRD: docs/prd/<slug>.prd.md
-Plan: docs/plan/<slug>.md
-Research: docs/research/<slug>.md
+PRD: docs/prd/&lt;slug&gt;.prd.md
+Plan: docs/plan/&lt;slug&gt;.md
+Research: docs/research/&lt;slug&gt;.md
 Updated: YYYY-MM-DD
 ---
 
-# Tasklist — <feature name>
+# Tasklist — &lt;feature name&gt;
 
 > Заполните чеклист для конкретной фичи. Удалите неактуальные пункты, добавьте договорённости команды и ссылки на рабочие артефакты.
 
@@ -29,9 +29,9 @@ Updated: YYYY-MM-DD
 - [ ] Проведено ручное тестирование / UAT, результаты зафиксированы.
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_feature` указывает на `<slug>`, чеклист в статусе READY.
-- [ ] Researcher: ссылка на `docs/research/<slug>.md`, статус `Status: reviewed`.
-- [ ] API: обновлены `docs/api/<slug>.yaml` и связанные контроллеры.
+- [ ] READY: `docs/.active_feature` указывает на `&lt;slug&gt;`, чеклист в статусе READY.
+- [ ] Researcher: ссылка на `docs/research/&lt;slug&gt;.md`, статус `Status: reviewed`.
+- [ ] API: обновлены `docs/api/&lt;slug&gt;.yaml` и связанные контроллеры.
 - [ ] DB: миграции размещены и проверены (`src/**/db/migration`).
 - [ ] Tests: `.claude/hooks/format-and-test.sh` успешен, покрытие принято.
 

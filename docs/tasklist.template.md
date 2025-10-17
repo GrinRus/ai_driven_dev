@@ -1,18 +1,18 @@
 # Tasklist — шаблон фичи
 
-Tasklist хранится по адресу `docs/tasklist/<slug>.md` и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте slug и ссылки, либо воспользуйтесь `/tasks-new <slug>` — команда создаст файл автоматически.
+Tasklist хранится по адресу `docs/tasklist/&lt;slug&gt;.md` и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте slug и ссылки, либо воспользуйтесь `/tasks-new &lt;slug&gt;` — команда создаст файл автоматически.
 
 ```markdown
 ---
-Feature: <slug>
+Feature: &lt;slug&gt;
 Status: draft
-PRD: docs/prd/<slug>.prd.md
-Plan: docs/plan/<slug>.md
-Research: docs/research/<slug>.md
+PRD: docs/prd/&lt;slug&gt;.prd.md
+Plan: docs/plan/&lt;slug&gt;.md
+Research: docs/research/&lt;slug&gt;.md
 Updated: YYYY-MM-DD
 ---
 
-# Tasklist — <Feature title>
+# Tasklist — &lt;Feature title&gt;
 
 ## 1. Аналитика и дизайн
 - [ ] PRD и дизайн синхронизированы, риски зафиксированы.
@@ -30,8 +30,8 @@ Updated: YYYY-MM-DD
 - [ ] Проведено ручное тестирование или UAT.
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_feature` указывает на `<slug>`, чеклист READY.
-- [ ] Researcher: `docs/research/<slug>.md` со статусом `Status: reviewed`.
+- [ ] READY: `docs/.active_feature` указывает на `&lt;slug&gt;`, чеклист READY.
+- [ ] Researcher: `docs/research/&lt;slug&gt;.md` со статусом `Status: reviewed`.
 - [ ] API/DB: обновлены контракты и миграции, гейты зелёные.
 - [ ] Tests: включены новые тесты, `gate-tests` завершился успешно.
 

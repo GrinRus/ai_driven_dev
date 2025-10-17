@@ -5,7 +5,32 @@ SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test environment setup
     sys.path.insert(0, str(SRC_ROOT))
 
-import pytest
+try:
+    import pytest
+except ModuleNotFoundError:  # pragma: no cover - fallback for unittest environments
+    class _RaisesContext:
+        def __init__(self, expected_exception):
+            self._expected = expected_exception
+            self.value = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            if exc_type is None:
+                message = f"Did not raise {self._expected!r}"
+                raise AssertionError(message)
+            if not issubclass(exc_type, self._expected):
+                return False
+            self.value = exc_value
+            return True
+
+    class _PytestStub:
+        @staticmethod
+        def raises(expected_exception):
+            return _RaisesContext(expected_exception)
+
+    pytest = _PytestStub()
 
 from claude_workflow_cli.tools.analyst_guard import (
     AnalystValidationError,

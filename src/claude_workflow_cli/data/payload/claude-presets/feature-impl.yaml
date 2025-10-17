@@ -22,7 +22,8 @@ context:
     - docs/customization.md
   instructions:
     - >-
-      Сверь текущий статус фичи {{feature}} с планом и tasklist (docs/tasklist/{{feature}}.md).
+      Сверь текущий статус фичи {{feature}} с планом и tasklist
+      (docs/tasklist/{{feature}}.md).
     - >-
       Предложи разбивку работы на итерации и проверь критерии прохождения
       гейтов.

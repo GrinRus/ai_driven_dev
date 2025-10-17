@@ -101,7 +101,7 @@ def main() -> None:
     root = Path(args.target).resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_feature").write_text(args.slug + "\n", encoding="utf-8")
+    (docs_dir / ".active_feature").write_text(args.slug, encoding="utf-8")
     print(f"active feature: {args.slug}")
     _maybe_migrate_tasklist(root, args.slug)
 
