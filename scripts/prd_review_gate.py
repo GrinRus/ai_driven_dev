@@ -21,6 +21,7 @@ from typing import Iterable, List, Set
 
 DEFAULT_APPROVED = {"approved"}
 DEFAULT_BLOCKING = {"blocked"}
+DEFAULT_BLOCKING_SEVERITIES = {"critical"}
 REVIEW_HEADER = "## PRD Review"
 
 
@@ -106,6 +107,12 @@ def format_message(kind: str, slug: str, status: str | None = None) -> str:
         return f"BLOCK: PRD Review не утверждён (Status: {human}) → выполните /review-prd {slug}"
     if kind == "open_actions":
         return "BLOCK: В PRD Review остались незакрытые action items → перенесите их в tasklist и отметьте выполнение."
+    if kind == "missing_report":
+        return f"BLOCK: нет отчёта PRD Review (reports/prd/{slug}.json) → перезапустите /review-prd {slug}"
+    if kind == "report_corrupted":
+        return f"BLOCK: отчёт PRD Review повреждён → пересоздайте через /review-prd {slug}"
+    if kind == "blocking_finding":
+        return f"BLOCK: отчёт PRD Review содержит критичные findings → устраните замечания и обновите отчёт."
     return f"BLOCK: PRD Review не готов → выполните /review-prd {slug}"
 
 
@@ -160,6 +167,42 @@ def main() -> None:
             if item.startswith("- [ ]"):
                 print(format_message("open_actions", args.slug, status))
                 raise SystemExit(1)
+
+    allow_missing_report = bool(gate.get("allow_missing_report", False))
+    report_template = gate.get("report_path") or "reports/prd/{slug}.json"
+    report_path = Path(report_template.format(slug=args.slug))
+    if not report_path.is_absolute():
+        report_path = Path.cwd() / report_path
+
+    if report_path.exists():
+        try:
+            report_data = json.loads(report_path.read_text(encoding="utf-8"))
+        except Exception:
+            print(format_message("report_corrupted", args.slug))
+            raise SystemExit(1)
+
+        findings = report_data.get("findings") or []
+        blocking_severities: Set[str] = {
+            str(item).lower() for item in gate.get("blocking_severities", DEFAULT_BLOCKING_SEVERITIES)
+        }
+        if blocking_severities:
+            for finding in findings:
+                severity = ""
+                if isinstance(finding, dict):
+                    severity = str(finding.get("severity") or "").lower()
+                if severity and severity in blocking_severities:
+                    print(
+                        f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /review-prd {args.slug}."
+                    )
+                    raise SystemExit(1)
+    else:
+        if not allow_missing_report:
+            if "{slug}" in report_template:
+                message = format_message("missing_report", args.slug)
+            else:
+                message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-prd {args.slug}"
+            print(message)
+            raise SystemExit(1)
 
     raise SystemExit(0)
 

@@ -21,7 +21,12 @@
       "blocked"
     ],
     "allow_missing_section": false,
-    "require_action_items_closed": true
+    "require_action_items_closed": true,
+    "allow_missing_report": false,
+    "blocking_severities": [
+      "critical"
+    ],
+    "report_path": "reports/prd/{slug}.json"
   },
   "researcher": {
     "enabled": true,

@@ -18,6 +18,9 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "blocking_statuses": ["blocked"],
         "allow_missing_section": False,
         "require_action_items_closed": True,
+        "allow_missing_report": False,
+        "blocking_severities": ["critical"],
+        "report_path": "reports/prd/{slug}.json",
     },
     "researcher": {
         "enabled": True,
