@@ -255,12 +255,12 @@ git checkout -b feature/STORE-123
 ./.claude/hooks/format-and-test.sh
 ```
 
-You’ll get the essential artefacts (PRD, PRD review, plan, tasklist) and automated `.claude/hooks/format-and-test.sh` runs guarded by gates; finish with `git commit` and `/review` to close the loop under the active convention.
+You’ll get the essential artefacts (PRD, PRD review, plan, tasklist); the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
 
 ## Feature kickoff checklist
 
-1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <slug>` — it will update `docs/.active_feature` automatically.
-2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --feature <slug>` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1).
+1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <slug>` — it will update `docs/.active_feature` automatically. Answer every analyst prompt as `Answer N: …` until the dialog reaches `Status: READY`, `## Диалог analyst` is complete, and `claude-workflow analyst-check --feature <slug>` reports success.
+2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --feature <slug>` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1 and verified via `analyst-check`).
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates.
 5. Request `/review` once `tasklist.md` checkboxes are complete, automated tests are green, and artefacts stay in sync.

@@ -45,6 +45,22 @@
     "allow_missing": false,
     "minimum_paths": 1
   },
+  "analyst": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "min_questions": 1,
+    "require_ready": true,
+    "allow_blocked": false,
+    "check_open_questions": true,
+    "require_dialog_section": true
+  },
   "qa": {
     "enabled": true,
     "branches": [

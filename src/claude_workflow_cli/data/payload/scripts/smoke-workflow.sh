@@ -70,6 +70,36 @@ assert_gate_exit 2 "missing PRD"
 log "apply preset feature-prd"
 bash "$INIT_SCRIPT" --preset feature-prd --feature "$SLUG" >/dev/null
 
+log "mark analyst dialog ready"
+python3 - "$SLUG" <<'PY'
+from pathlib import Path
+import sys
+
+slug = sys.argv[1]
+path = Path("docs/prd") / f"{slug}.prd.md"
+text = path.read_text(encoding="utf-8")
+if "## Диалог analyst" not in text:
+    raise SystemExit("an analyst dialog block is expected in the PRD template")
+if "Вопрос 1:" in text:
+    text = text.replace(
+        "Вопрос 1: `<Что нужно уточнить?>`",
+        "Вопрос 1: Какие этапы checkout нужно покрыть в демо?",
+        1,
+    )
+if "Ответ 1:" in text:
+    text = text.replace(
+        "Ответ 1: `<Ответ или TBD>`",
+        "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.",
+        1,
+    )
+if "Status: pending" in text:
+    text = text.replace("Status: pending", "Status: READY", 1)
+path.write_text(text, encoding="utf-8")
+PY
+
+log "analyst-check must pass"
+python3 -m claude_workflow_cli.cli analyst-check --feature "$SLUG" --target . >/dev/null
+
 log "expect block until PRD review approved"
 assert_gate_exit 2 "pending PRD review"
 

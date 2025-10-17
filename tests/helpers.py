@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 import subprocess
 from typing import Any, Dict, Optional
@@ -31,6 +32,16 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_missing": False,
         "minimum_paths": 1,
     },
+    "analyst": {
+        "enabled": True,
+        "branches": ["feature/*", "release/*", "hotfix/*"],
+        "skip_branches": ["docs/*"],
+        "min_questions": 1,
+        "require_ready": True,
+        "allow_blocked": False,
+        "check_open_questions": True,
+        "require_dialog_section": True,
+    },
 }
 
 
@@ -40,12 +51,20 @@ def hook_path(name: str) -> pathlib.Path:
 
 def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess.CompletedProcess[str]:
     """Execute the given hook inside tmp_path and capture output."""
+    env = os.environ.copy()
+    src_path = REPO_ROOT / "src"
+    existing = env.get("PYTHONPATH")
+    path_value = str(src_path)
+    if existing:
+        path_value = f"{str(src_path)}:{existing}"
+    env["PYTHONPATH"] = path_value
     result = subprocess.run(
         [str(hook_path(hook_name))],
         input=payload,
         text=True,
         capture_output=True,
         cwd=tmp_path,
+        env=env,
     )
     return result
 

@@ -18,6 +18,11 @@ from importlib import metadata, resources
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from claude_workflow_cli.tools.analyst_guard import (
+    AnalystValidationError,
+    load_settings as _load_analyst_settings,
+    validate_prd as _validate_analyst_prd,
+)
 from claude_workflow_cli.tools.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,
@@ -401,6 +406,36 @@ def _preset_command(args: argparse.Namespace) -> None:
 
 def _smoke_command(args: argparse.Namespace) -> None:
     _run_smoke(args.verbose)
+
+
+def _analyst_check_command(args: argparse.Namespace) -> None:
+    target = Path(args.target).resolve()
+    slug = args.feature or _read_active_feature(target)
+    if not slug:
+        raise ValueError(
+            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
+        )
+    settings = _load_analyst_settings(target)
+    try:
+        summary = _validate_analyst_prd(
+            target,
+            slug,
+            settings=settings,
+            branch=args.branch,
+            require_ready_override=False if args.no_ready_required else None,
+            allow_blocked_override=True if args.allow_blocked else None,
+            min_questions_override=args.min_questions,
+        )
+    except AnalystValidationError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    if summary.status is None:
+        print("[claude-workflow] analyst gate disabled; nothing to validate.")
+        return
+
+    print(
+        f"[claude-workflow] analyst dialog ready (status: {summary.status}, questions: {summary.question_count})."
+    )
 
 
 def _research_command(args: argparse.Namespace) -> None:
@@ -819,6 +854,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit verbose logs when running the smoke scenario.",
     )
     smoke_parser.set_defaults(func=_smoke_command)
+
+    analyst_parser = subparsers.add_parser(
+        "analyst-check",
+        help="Validate the analyst dialog (Вопрос/Ответ) for the active feature PRD.",
+    )
+    analyst_parser.add_argument(
+        "--feature",
+        help="Feature slug to validate (defaults to docs/.active_feature).",
+    )
+    analyst_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    analyst_parser.add_argument(
+        "--branch",
+        help="Current Git branch used to evaluate config.gates analyst branch rules.",
+    )
+    analyst_parser.add_argument(
+        "--allow-blocked",
+        action="store_true",
+        help="Allow Status: BLOCKED without failing validation.",
+    )
+    analyst_parser.add_argument(
+        "--no-ready-required",
+        action="store_true",
+        help="Skip enforcing Status: READY (useful mid-dialog).",
+    )
+    analyst_parser.add_argument(
+        "--min-questions",
+        type=int,
+        help="Override minimum number of questions expected from analyst.",
+    )
+    analyst_parser.set_defaults(func=_analyst_check_command)
 
     research_parser = subparsers.add_parser(
         "research",

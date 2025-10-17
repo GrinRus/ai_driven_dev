@@ -17,7 +17,8 @@
 ### 1. Идея (`/idea-new`)
 - Устанавливает активную фичу (`docs/.active_feature`).
 - Создаёт PRD по шаблону (`docs/prd/<slug>.prd.md`), собирает вводные, риски и метрики.
-- Саб-агент **analyst** уточняет контекст и фиксирует открытые вопросы.
+- Саб-агент **analyst** стартует с `Вопрос 1`, ждёт `Ответ 1`, повторяет цикл до закрытия блокирующих неопределённостей, фиксирует историю в `## Диалог analyst` и обновляет `Status: READY|BLOCKED`.
+- По завершении диалога запустите `claude-workflow analyst-check --feature <slug>` — команда проверит, что все вопросы имеют ответы и статус соответствует содержимому PRD.
 
 ### 2. План (`/plan-new`)
 - Саб-агент **planner** формирует пошаговый план реализации по PRD.
@@ -41,10 +42,10 @@
 ## Автоматизация и гейты
 
 - `.claude/hooks/format-and-test.sh` — базовый раннер форматирования и выборочных тестов.
-- `.claude/hooks/gate-workflow.sh` — блокирует редактирование ключевых директорий до готовности PRD/плана/tasklist.
+- `.claude/hooks/gate-workflow.sh` — блокирует редактирование ключевых директорий до готовности PRD/плана/tasklist (включая проверку `## Диалог analyst` и `Status: READY`).
 - `.claude/hooks/gate-tests.sh` — проверяет наличие тестов (режимы `disabled|soft|hard`).
 - `.claude/hooks/gate-api-contract.sh` и `.claude/hooks/gate-db-migration.sh` — следят за контрактами API и миграциями БД.
-- `config/gates.json` — включает/отключает гейты и управляет режимом тестов.
+- `config/gates.json` — включает/отключает гейты и управляет режимом тестов, статусом PRD (`analyst`), PRD review, Researcher и QA.
 - `config/allowed-deps.txt` — allowlist зависимостей, который поддерживает `lint-deps.sh`.
 
 ## Роли и взаимодействие

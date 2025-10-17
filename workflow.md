@@ -19,7 +19,9 @@
 ### 1. Идея (`/idea-new`)
 - Устанавливает активную фичу (`docs/.active_feature`).
 - Создаёт PRD по шаблону (`docs/prd/<slug>.prd.md`), собирает вводные, риски и метрики.
-- Саб-агент **analyst** уточняет контекст и фиксирует открытые вопросы.
+- Саб-агент **analyst** стартует с `Вопрос 1`, ждёт `Ответ 1` и продолжает цикл уточнений, пока не закроет блокирующие неопределённости.
+- Каждая пара «Вопрос N»/«Ответ N» фиксируется в разделе `## Диалог analyst`, итоговый статус переводится в READY только после полного комплекта ответов; незакрытые вопросы отражаются в `## 10. Открытые вопросы`.
+- После диалога запускайте `claude-workflow analyst-check --feature <slug>` — команда проверит формат вопросов/ответов и статус. При ошибке вернитесь к агенту и дополните информацию.
 
 ### 2. Research (`claude-workflow research` + `/researcher`)
 - CLI-команда `claude-workflow research --feature <slug>` собирает контекст: пути из `config/conventions.json`, существующие модули и документацию. Результат сохраняется в `reports/research/<slug>-targets.json` и `<slug>-context.json`.
@@ -44,7 +46,7 @@
 ### 6. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана и вносит изменения малыми итерациями.
 - После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо через `SKIP_AUTO_TESTS=1`).
-- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-db-migration.sh`, `gate-tests.sh` или `gate-api-contract.sh`.
+- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`, `gate-api-contract.sh` и `gate-db-migration.sh`.
 
 ### 7. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `tasklist.md`.
@@ -52,14 +54,17 @@
 
 ## Автоматизация и гейты
 
-- Пресет `strict` в `.claude/settings.json` включает `protect-prod`, `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh` после каждой записи.
+- Пресет `strict` в `.claude/settings.json` включает защиту `protect-prod`, pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
 - `config/gates.json` управляет дополнительными проверками:
-- `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
-- `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
-- `prd_review` — управляет проверкой раздела `## PRD Review`: разрешённые ветки, статус, блокирующие уровни.
-- `researcher` — контролирует наличие `docs/research/<slug>.md`, статус `Status: reviewed`, свежесть отчёта (`reports/research/<slug>-context.json`) и покрытие целевых директорий.
-- `tests_required` — режим `disabled|soft|hard` для проверки юнит-тестов.
-- `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
+  - `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
+  - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
+  - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `reports/prd/<slug>.json`.
+  - `researcher` — проверяет наличие `docs/research/<slug>.md`, статус `Status: reviewed`, свежесть `reports/research/<slug>-context.json` и заполненность `reports/research/<slug>-targets.json`.
+  - `analyst` — следит за блоком `## Диалог analyst`, наличием ответов `Ответ N` и запретом статуса READY при незакрытых вопросах; используется командой `claude-workflow analyst-check` и хуком `gate-workflow.sh`.
+  - `qa` — запускает `scripts/qa-agent.py`, блокируя фичу при критичных/блокирующих находках.
+  - `tests_required` — режим `disabled|soft|hard` для обязательных тестов.
+  - `deps_allowlist` — включает проверку зависимостей через `scripts/lint-deps.sh`.
+  - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
 - `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
 - `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
 

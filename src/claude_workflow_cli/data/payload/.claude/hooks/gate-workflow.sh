@@ -22,6 +22,13 @@ fi
 
 # Проверим артефакты
 [[ -f "docs/prd/$slug.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $slug"; exit 2; }
+analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --slug "$slug")
+if [[ -n "$current_branch" ]]; then
+  analyst_cmd+=(--branch "$current_branch")
+fi
+if ! "${analyst_cmd[@]}" >/dev/null; then
+  exit 2
+fi
 if ! review_msg="$(python3 "$ROOT_DIR/scripts/prd_review_gate.py" --slug "$slug" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"

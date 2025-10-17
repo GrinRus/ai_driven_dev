@@ -129,6 +129,8 @@ demo-monorepo/
 ### 5. Запустите многошаговый процесс
 
 1. В Claude Code выполните `/idea-new demo-checkout DEMO-1` — команда зафиксирует slug в `docs/.active_feature`, соберёт PRD и список уточнений.
+   - Агент начнёт с `Вопрос 1: …`. Отвечайте на каждый пункт строго в формате `Ответ 1: …`, `Ответ 2: …`, пока статус не станет READY и раздел `## Диалог analyst` не заполнится.
+   - После генерации PRD выполните `claude-workflow analyst-check --feature demo-checkout`. Если проверка сообщает о пропущенных ответах или статусе BLOCKED, вернитесь к агенту и дополните сведения.
 2. Соберите исследование: `claude-workflow research --feature demo-checkout --paths "service-checkout:service-payments"` подготовит `reports/research/demo-checkout-*.json`, после чего запустите `/researcher demo-checkout` и обновите `docs/research/demo-checkout.md` до `Status: reviewed`.
 3. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `tasklist.md`.
 4. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты: миграции, OpenAPI-файлы, расширенные тесты.

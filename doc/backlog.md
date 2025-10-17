@@ -278,3 +278,37 @@
 - [x] `docs/usage-demo.md`, `docs/qa-playbook.md`: добавить walkthrough с вызовом Researcher на демо-фиче, демонстрацией найденных участков кода и тем, как отчёт используется в QA/код-ревью.
 - [x] `tests/test_researcher_context.py`, `tests/test_gate_researcher.py`: наметить автотесты, которые проверяют сбор контекста, корректность генерации отчёта и работу гейтов (включая edge-case: нет совпадений, конфликтующие рекомендации).
 - [x] `scripts/smoke-workflow.sh`, `scripts/ci-lint.sh`: включить Researcher в smoke-сценарий (generate context → вызвать агента → проверить наличие отчёта) и покрыть линтером структуру новых шаблонов.
+
+## Wave 22
+
+### Итеративный диалог analyst
+- [ ] `.claude/agents/analyst.md`: усилить мандат — прописать, что первые действия агента всегда сбор уточняющих вопросов в формате «Вопрос N», ожидание ответов «Ответ N» и повтор цикла, пока все блокеры не закрыты; зафиксировать, что без подтверждения READY агент завершает с `Status: BLOCKED`.
+- [ ] `.claude/commands/idea-new.md`: обновить сценарий, чтобы оператор видел явные инструкции отвечать в формате `Ответ N:` и чтобы генерация PRD откладывалась, пока не получены ответы на все вопросы.
+- [ ] `src/claude_workflow_cli/cli.py`: добавить подсказки/валидацию при запуске `/idea-new`, напоминающие о необходимости отвечать на вопросы и возвращающие к циклу, если ответы пропущены.
+
+### Документация и обучение
+- [ ] `docs/agents-playbook.md`, `docs/workflow.md`: расширить описание роли analyst с пошаговым Q&A-циклом, критерия READY и форматом фиксации ответов.
+- [ ] `docs/usage-demo.md`, `docs/feature-cookbook.md`: включить пример диалога (вопрос → ответ → уточнение) и подчеркнуть, что без закрытия вопросов фича остаётся BLOCKED.
+- [ ] `README.md`, `README.en.md`: обновить quick start/TL;DR, упомянув обязательные ответы на вопросы analyst перед переходом к планированию.
+
+### Контроль качества
+- [ ] `scripts/smoke-workflow.sh`, `tests/test_analyst_dialog.py`: внедрить проверку, что первый вывод агента содержит «Вопрос 1», PRD не получает статус READY до явного набора ответов и что формат ответов соблюдён.
+- [ ] `config/gates.json`, `.claude/hooks/gate-workflow.sh`: добавить правило, блокирующее переход к плану, пока в PRD есть незакрытые вопросы или отсутствуют ответы в требуемом формате.
+- [ ] `CHANGELOG.md`: описать новые требования к взаимодействию с analyst и влияние на команду (обязательные ответы, обновлённые подсказки CLI).
+
+## Wave 23
+
+### Перенос tasklist в контур фичи
+- [ ] `docs/tasklist/<slug>.md`, `docs/tasklist.template.md`: перенести tasklist в каталог `docs/tasklist/`, сформировать slug-ориентированную структуру (аналогично `docs/prd/<slug>.prd.md`), добавить front-matter с `Feature:` и ссылками на PRD/plan/research.
+- [ ] `templates/tasklist.md`, `src/claude_workflow_cli/data/payload/templates/tasklist.md`: обновить шаблон и генерацию, чтобы `init-claude-workflow.sh` и CLI создавали `docs/tasklist/<slug>.md` вместо корневого `tasklist.md`, учитывая payload-артефакты.
+- [ ] `scripts/migrate-tasklist.py` (новый), `src/claude_workflow_cli/tools/set_active_feature.py`: подготовить миграцию, которая переносит legacy `tasklist.md` в новую директорию и обновляет ссылки в `.active_feature`.
+
+### Обновление CLI, команд и гейтов
+- [ ] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/data/payload/.claude/commands/tasks-new.md`, `.claude/commands/tasks-new.md`: научить команды работать с slug-ориентированным tasklist, синхронизировать инструкции и вывод.
+- [ ] `.claude/hooks/gate-workflow.sh`, `.claude/hooks/gate-tests.sh`, `.claude/hooks/gate-qa.sh`: обновить проверки чеклистов и путь к tasklist; синхронизировать payload-версии хуков.
+- [ ] `config/gates.json`, `claude-presets/advanced/feature-release.yaml`, `claude-presets/feature-plan.yaml`: скорректировать конфиг и пресеты, чтобы агенты и гейты ссылались на `docs/tasklist/<slug>.md`.
+
+### Документация, тесты и UX
+- [ ] `docs/workflow.md`, `docs/agents-playbook.md`, `docs/usage-demo.md`, `README.md`, `README.en.md`: обновить схемы и walkthrough, подчёркивая, что tasklist теперь хранится в `docs/tasklist/<slug>.md`.
+- [ ] `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`: адаптировать тесты и smoke-сценарий под новую структуру tasklist, покрыть миграцию и параллельные slug'и.
+- [ ] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`: зафиксировать переход на feature-ориентированный tasklist и обновить примеры использования.

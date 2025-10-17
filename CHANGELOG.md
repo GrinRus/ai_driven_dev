@@ -12,6 +12,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Release packaging script (`scripts/package_payload_archive.py`) that produces versioned payload zip, manifest copy and checksum files for publication.
 - QA gate: `.claude/hooks/gate-qa.sh`, heuristic agent `scripts/qa-agent.py`, `docs/qa-playbook.md`, and `/.claude/agents/qa.md` with severity guidance.
 - CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
+- Analyst dialog enforcement: updated `/.claude/agents/analyst.md`, PRD template with `## Диалог analyst`, new CLI command `claude-workflow analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 
 ### Fixed
 - CLI now falls back to the bundled payload when release downloads fail.
