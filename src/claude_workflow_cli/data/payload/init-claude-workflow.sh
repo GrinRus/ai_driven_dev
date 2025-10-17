@@ -374,6 +374,10 @@ replacements = {
     "<feature name>": title,
     "<Feature title>": title,
     "<Feature name>": title,
+    "&lt;slug&gt;": slug,
+    "&lt;feature name&gt;": title,
+    "&lt;Feature title&gt;": title,
+    "&lt;Feature name&gt;": title,
     "YYYY-MM-DD": updated,
 }
 
