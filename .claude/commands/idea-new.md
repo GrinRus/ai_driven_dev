@@ -9,4 +9,6 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 4) Для быстрого старта воспользуйся пресетом `feature-prd` (`bash init-claude-workflow.sh --preset feature-prd --feature "$1"`), чтобы подхватить готовый шаблон и цели из backlog/usage-demo.
 
 Выполни:
-!`python3 -c 'import pathlib, sys; d = pathlib.Path("docs"); d.mkdir(parents=True, exist_ok=True); (d / ".active_feature").write_text(sys.argv[1], encoding="utf-8"); print(f"active feature: {sys.argv[1]}")' "$1"`
+- Если отсутствует `tools/set_active_feature.py`, создай его из шаблона (см. README) через инструмент `Write`.
+- Запусти скрипт без редиректов:
+!`python3 tools/set_active_feature.py "$1"`
