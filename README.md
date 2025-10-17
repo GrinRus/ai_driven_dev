@@ -63,7 +63,7 @@
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
 | `config/allowed-deps.txt` | Allowlist зависимостей | Формат `group:artifact`; предупреждения выводит `lint-deps.sh` |
 | `doc/backlog.md` | План работ | Зафиксированные Wave 1/2 задачи и состояние их выполнения |
-| `docs/` | Руководства и шаблоны | `usage-demo.md`, `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `release-notes.md`, шаблоны PRD/ADR/tasklist, рабочие артефакты фич |
+| `docs/` | Руководства и шаблоны | `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, шаблоны PRD/ADR/tasklist, рабочие артефакты фич |
 | `examples/` | Демо-материалы | Сценарий `apply-demo.sh`, заготовка Gradle-монорепо `gradle-demo/` |
 | `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke сценарий gate-workflow), `prd-review-agent.py` (эвристика ревью PRD), `qa-agent.py` (эвристический QA-агент), `bootstrap-local.sh` (локальное dogfooding payload) |
 | `templates/` | Шаблоны вендорных артефактов | Git-хуки (`commit-msg`, `pre-push`, `prepare-commit-msg`) и расширенный шаблон `docs/tasklist/<slug>.md` |
@@ -122,7 +122,7 @@
 - `config/allowed-deps.txt` — allowlist `group:artifact`, поддерживает комментарии, используется `lint-deps.sh`.
 
 ### Документация и шаблоны
-- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — описывают процесс idea→research→review, walkthrough установки, настройку `.claude/settings.json` и роли саб-агентов.
+- `workflow.md`, `docs/customization.md`, `docs/agents-playbook.md` — описывают процесс idea→research→review, walkthrough установки, настройку `.claude/settings.json` и роли саб-агентов.
 - `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — шаблоны с подсказками, чеклистами, секциями истории изменений и примерами заполнения.
 - `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — готовые `commit-msg`, `prepare-commit-msg`, `pre-push` с инструкциями, переменными окружения и советами по развёртыванию.
 - `doc/backlog.md`, `docs/release-notes.md` — wave-бэклог (Wave 1/2) и регламент релизов, помогают планировать roadmap и управлять changelog.
@@ -180,7 +180,7 @@
 
 ## Документация и шаблоны
 - `workflow.md`, `docs/agents-playbook.md` — описывают целевой цикл idea→review, роли саб-агентов и взаимодействие с гейтами.
-- `docs/usage-demo.md`, `docs/customization.md` — walkthrough применения bootstrap к Gradle-монорепо и подробности настройки `.claude/settings.json`, гейтов, шаблонов команд.
+- `workflow.md`, `docs/customization.md` — walkthrough применения bootstrap к Gradle-монорепо и подробности настройки `.claude/settings.json`, гейтов, шаблонов команд.
 - `docs/release-notes.md`, `doc/backlog.md` — регламент релизов и wave-бэклог (Wave 1/2) для планирования roadmap.
 - Шаблоны PRD/ADR/tasklist (`docs/*.template.md`, `templates/tasklist.md`) и git-хуки (`templates/git-hooks/*.sample`) — расширенные заготовки с подсказками, чеклистами и переменными окружения.
 - `README.en.md` — синхронизированный перевод; при правках обновляйте обе версии и поле Last sync.
@@ -188,7 +188,7 @@
 ## Примеры и демо
 - `examples/gradle-demo/` — двухсервисный Gradle-монорепо (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5), демонстрирующий структуру модулей и пригодный для selective тестов.
 - `examples/apply-demo.sh` — пошаговый сценарий применения bootstrap к демо-проекту, полезен для воркшопов и презентаций.
-- `scripts/smoke-workflow.sh` + `docs/usage-demo.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
+- `scripts/smoke-workflow.sh` + `workflow.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
 
 ## Незакрытые задачи и наблюдения
 - `doc/backlog.md` хранит Wave 2 пункты, среди которых исторические CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`, удалены в Wave 9) и Gradle-хелпера в репозиторий после генерации.
@@ -319,10 +319,10 @@ git checkout -b feature/STORE-123
 5. Работает в «мягком» режиме — падение тестов не блокирует коммит (можно ужесточить в настройках).
 6. Запускается автоматически после записей (`/implement`, ручные правки); чтобы временно отключить автозапуск, выставьте `SKIP_AUTO_TESTS=1`.
 
-Подробности и советы по тройблшутингу собраны в `docs/usage-demo.md` и `docs/customization.md`.
+Подробности и советы по тройблшутингу собраны в `workflow.md` и `docs/customization.md`.
 
 ## Дополнительно
-- Пошаговый пример использования и снимки до/после: `docs/usage-demo.md`.
+- Пошаговый пример использования и снимки до/после: `examples/apply-demo.sh` и раздел «Обзор этапов» в `workflow.md`.
 - Подробный обзор цикла и гейтов: `workflow.md`.
 - Playbook агентов и барьеров: `docs/agents-playbook.md`.
 - Руководство по настройке `.claude/settings.json`, `config/conventions.json`, хуков и вспомогательных скриптов: `docs/customization.md`.

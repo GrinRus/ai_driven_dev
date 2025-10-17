@@ -17,7 +17,6 @@ context:
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
     - docs/tasklist/{{feature}}.md
-    - docs/usage-demo.md
     - docs/research/{{feature}}.md
     - "{{release_notes_path}}"
   instructions:

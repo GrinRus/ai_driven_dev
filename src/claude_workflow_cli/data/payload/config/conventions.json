@@ -46,7 +46,7 @@
       "docs": [
         "docs/prd",
         "docs/plan",
-        "docs/usage-demo.md"
+        "workflow.md"
       ],
       "keywords": []
     },

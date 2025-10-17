@@ -67,7 +67,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
 | `doc/backlog.md` | Wave backlog | Tracks Wave 1/2 tasks and completion status |
-| `docs/` | Guides & templates | `usage-demo.md`, `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `release-notes.md`, PRD/ADR/tasklist templates and feature artefacts |
+| `docs/` | Guides & templates | `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, PRD/ADR/tasklist templates and feature artefacts |
 | `examples/` | Demo assets | `apply-demo.sh` and the placeholder Gradle monorepo `gradle-demo/` |
 | `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `prd-review-agent.py` (heuristic PRD reviewer), `qa-agent.py` (heuristic QA agent) |
 | `templates/` | Copyable templates | Git hooks (`commit-msg`, `pre-push`, `prepare-commit-msg`) and the extended `docs/tasklist/<slug>.md` template |
@@ -121,7 +121,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `config/allowed-deps.txt` — comment-friendly `group:artifact` allowlist consumed by `lint-deps.sh`.
 
 ### Docs & templates
-- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — cover the idea→research→PRD review→implementation lifecycle, bootstrap walkthrough, `.claude/settings.json` tuning, and sub-agent responsibilities.
+- `workflow.md`, `docs/customization.md`, `docs/agents-playbook.md` — cover the idea→research→PRD review→implementation lifecycle, bootstrap walkthrough, `.claude/settings.json` tuning, and sub-agent responsibilities.
 - `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — enriched artefact templates with prompts, checklists, and change logs.
 - `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — ready-to-copy `commit-msg`, `prepare-commit-msg`, `pre-push` hooks with setup guidance and env toggles.
 - `doc/backlog.md`, `docs/release-notes.md` — wave backlog (Wave 1/2) and release governance to steer the roadmap.
@@ -173,7 +173,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 
 ## Docs & templates
 - `workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
-- `docs/usage-demo.md` provides a Gradle bootstrap walkthrough, while `docs/customization.md` covers tuning `.claude/settings.json`, gates, and command templates.
+- `workflow.md` also carries the Gradle bootstrap walkthrough, while `docs/customization.md` covers tuning `.claude/settings.json`, gates, and command templates.
 - `docs/release-notes.md` and `doc/backlog.md` track release cadence and the Wave 1/2 roadmap.
 - PRD/ADR/tasklist templates (`docs/*.template.md`, `templates/tasklist.md`) plus git-hook samples (`templates/git-hooks/*.sample`) streamline onboarding.
 - Keep `README.md` and `README.en.md` in sync and update the _Last sync_ stamp whenever content changes.
@@ -181,7 +181,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Examples & demos
 - `examples/gradle-demo/` ships a two-service monorepo (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5) illustrating the target module layout for selective testing.
 - `examples/apply-demo.sh` applies the bootstrap to a Gradle workspace step by step, handy for workshops and demos.
-- `scripts/smoke-workflow.sh` plus `docs/usage-demo.md` provide a living example: the script automates the flow, the doc explains expected outcomes and troubleshooting tips.
+- `scripts/smoke-workflow.sh` plus `workflow.md` provide a living example: the script automates the flow, the doc explains expected outcomes and troubleshooting tips.
 
 ## Installation
 
@@ -298,10 +298,10 @@ Update `commit.mode` manually (`ticket-prefix`/`conventional`/`mixed`) and wire 
 5. Runs in soft mode — export `STRICT_TESTS=1` to make failures blocking.
 6. Auto-runs after writes (`/implement`, manual edits); export `SKIP_AUTO_TESTS=1` to pause the automated formatting/test run.
 
-Troubleshooting tips and environment tweaks live in `docs/usage-demo.md` and `docs/customization.md`.
+Troubleshooting tips and environment tweaks live in `workflow.md` and `docs/customization.md`.
 
 ## Additional resources
-- Step-by-step walkthrough with before/after structure: `docs/usage-demo.md`.
+- Step-by-step walkthrough with before/after structure: `examples/apply-demo.sh` and the "Stage overview" section in `workflow.md`.
 - Workflow and gate overview: `workflow.md`.
 - Agent & gate playbook: `docs/agents-playbook.md`.
 - Configuration deep dive: `docs/customization.md`.

@@ -245,30 +245,13 @@ format_bullets() {
   fi
 }
 
-extract_usage_demo_goals() {
-  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - <<'PY'
-from pathlib import Path
-import os
-
-primary = Path("docs/usage-demo.md")
-fallback_dir = Path(os.environ.get("CLAUDE_TEMPLATE_DIR", ""))
-fallback = fallback_dir / "docs/usage-demo.md"
-path = primary if primary.exists() else fallback
-if not path.exists():
-    raise SystemExit(0)
-
-lines = path.read_text(encoding="utf-8").splitlines()
-capture = False
-for line in lines:
-    if line.startswith("## "):
-        capture = line.strip() == "## Цель сценария"
-        continue
-    if capture:
-        if line.startswith("## "):
-            break
-        if line.startswith("- "):
-            print(line[2:].strip())
-PY
+preset_default_goals() {
+  cat <<'EOF'
+- развернуть шаблон всего за один запуск скрипта;
+- понять, какие файлы и настройки добавляются;
+- проверить, что выборочные тесты и хуки работают сразу после установки;
+- пройти многошаговый цикл `/idea-new → claude-workflow research → /plan-new → /tasks-new → /implement → /review` и увидеть работу гейтов (workflow, research, миграции, тесты).
+EOF
 }
 
 extract_wave7_defaults() {
@@ -468,7 +451,7 @@ PY
     fi
   fi
   local goals_block
-  goals_block="$(extract_usage_demo_goals | format_bullets)"
+  goals_block="$(preset_default_goals | format_bullets)"
   local tasks_block
   tasks_block="$(printf '%s' "$tasks_source" | format_bullets)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -486,7 +469,7 @@ PY
 ## Контекст
 - Фича: ${title}
 - Цель: автоматизировать пресеты Claude Code для стадий фичи.
-- Источники: doc/backlog.md (Wave 7), docs/usage-demo.md.
+- Источники: doc/backlog.md (Wave 7), workflow.md.
 
 ## Цели и метрики успеха
 ${goals_block}
@@ -513,7 +496,7 @@ ${tasks_block}
 
 ## Риски и ограничения
 - Пересоздание артефактов должно быть безопасным (учитываем режим overwrite/append).
-- Подбор дефолтных значений для плейсхолдеров берём из doc/backlog.md и docs/usage-demo.md.
+- Подбор дефолтных значений для плейсхолдеров берём из doc/backlog.md и workflow.md.
 
 ## План проверки
 ${goals_block}

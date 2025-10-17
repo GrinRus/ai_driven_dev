@@ -103,7 +103,7 @@ claude:
 ### Smoke- и демо-сценарии
 
 - `scripts/smoke-workflow.sh` запускает цепочку пресетов на демо-фиче и проверяет, что файлы созданы.
-- `docs/usage-demo.md` содержит walkthrough с указанием команды `init-claude-workflow.sh --preset feature-prd --feature checkout`.
+- `workflow.md` содержит walkthrough с указанием команды `init-claude-workflow.sh --preset feature-prd --feature checkout`.
 
 ## Источники данных
 

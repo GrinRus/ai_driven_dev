@@ -319,12 +319,6 @@
       "type": "file"
     },
     {
-      "path": "docs/usage-demo.md",
-      "size": 13486,
-      "sha256": "4382f4eb1facf481d722fb666ad869990c54d504f798867d95efbec39a9c1735",
-      "type": "file"
-    },
-    {
       "path": "init-claude-workflow.sh",
       "size": 18270,
       "sha256": "45d6ae6e821e111d4336d2baf4f97f5591e26f738791e1cc87359193ce30bc93",
