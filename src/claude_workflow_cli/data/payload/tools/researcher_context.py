@@ -134,8 +134,8 @@ class ResearcherContextBuilder:
         for tag in tags:
             info = tags_config.get(tag, {})
             tag_paths.extend(info.get("paths", []))
-        tag_docs.extend(info.get("docs", []))
-        tag_keywords.extend(info.get("keywords", []))
+            tag_docs.extend(info.get("docs", []))
+            tag_keywords.extend(info.get("keywords", []))
 
         def _norm_all(values: Sequence[str]) -> List[str]:
             return _unique([_normalise_rel(item, self.root) for item in values])

@@ -76,6 +76,40 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(payload["slug"], "demo-checkout")
         self.assertGreaterEqual(len(payload["matches"]), 1)
 
+    def test_builder_handles_slug_without_tags(self) -> None:
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-untagged")
+        self.assertEqual(scope.slug, "demo-untagged")
+        self.assertEqual(scope.tags, [])
+        self.assertIn("src/main", scope.paths)
+        self.assertIn("docs/research", scope.docs)
+
+    def test_builder_merges_multiple_tags(self) -> None:
+        config_path = self.root / "config" / "conventions.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["researcher"]["tags"]["payments"] = {
+            "paths": ["src/payments"],
+            "docs": ["docs/research/payments.md"],
+            "keywords": ["payments"],
+        }
+        config["researcher"]["features"]["demo-checkout"] = ["checkout", "payments"]
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+        (self.root / "src" / "payments").mkdir(parents=True, exist_ok=True)
+        write_file(
+            self.root,
+            "docs/research/payments.md",
+            "# Payments\n\nStatus: pending\n",
+        )
+
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-checkout")
+        self.assertIn("checkout", scope.tags)
+        self.assertIn("payments", scope.tags)
+        self.assertIn("src/payments", scope.paths)
+        self.assertIn("docs/research/payments.md", scope.docs)
+        self.assertIn("payments", scope.keywords)
+
     def test_set_active_feature_refreshes_targets(self) -> None:
         script = REPO_ROOT / "tools" / "set_active_feature.py"
         env = os.environ.copy()

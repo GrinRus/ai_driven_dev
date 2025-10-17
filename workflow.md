@@ -23,7 +23,7 @@
 
 ### 2. Research (`claude-workflow research` + `/researcher`)
 - CLI-команда `claude-workflow research --feature <slug>` собирает контекст: пути из `config/conventions.json`, существующие модули и документацию. Результат сохраняется в `reports/research/<slug>-targets.json` и `<slug>-context.json`.
-- Саб-агент **researcher** оформляет отчёт в `docs/research/<slug>.md`: куда встраивать изменения, что переиспользовать, какие риски учесть.
+- Саб-агент **researcher** оформляет отчёт в `docs/research/<slug>.md`: куда встраивать изменения, что переиспользовать, какие риски учесть; добавьте ссылку на этот отчёт в PRD и tasklist, чтобы команда видела актуальные рекомендации.
 - Статус в отчёте должен стать `Status: reviewed`, критичные действия переносятся в план и `tasklist.md`.
 
 ### 3. План (`/plan-new`)

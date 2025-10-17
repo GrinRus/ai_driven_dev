@@ -14,4 +14,5 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 4) Запусти агента **researcher** через палитру (`Claude: Run agent → researcher`) и передай ему собранный контекст; после диалога обнови `docs/research/$1.md`.
 5) Зафиксируй решения:
    - проставь `Status: reviewed`, когда вывод согласован с командой;
+   - добавь ссылку на `docs/research/$1.md` в секцию артефактов `docs/prd/$1.prd.md` и соответствующий блок `tasklist.md`;
    - перенеси обязательные action items в `docs/plan/$1.md` и `tasklist.md`.

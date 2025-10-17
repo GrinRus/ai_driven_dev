@@ -28,7 +28,7 @@
 ### researcher — исследование кодовой базы
 - **Вызов:** `claude-workflow research --feature <slug>` (сбор контекста) и агент `/researcher <slug>`.
 - **Вход:** PRD, backlog, `reports/research/<slug>-targets.json`, существующие источники в `src/**` и документации.
-- **Выход:** `docs/research/<slug>.md` со статусом `Status: reviewed`, обновлённые файлы контекста `reports/research/<slug>-targets.json` и `<slug>-context.json`.
+- **Выход:** `docs/research/<slug>.md` со статусом `Status: reviewed`, обновлённые файлы контекста `reports/research/<slug>-targets.json` и `<slug>-context.json`; ссылка на отчёт зафиксирована в PRD и tasklist.
 - **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист, список директорий покрывает изменяемый код.
 
 ### planner — план реализации

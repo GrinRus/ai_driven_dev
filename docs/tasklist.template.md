@@ -22,6 +22,7 @@
 
 ## 4. Интеграция с автогейтами
 - [ ] READY: `docs/.active_feature` обновлён (через `/idea-new <slug>`), чеклист в статусе READY.
+- [ ] В чеклисте зафиксирована ссылка на `docs/research/<slug>.md` и ключевые выводы Researcher.
 - [ ] BLOCKED: задокументированы причины блокировки и ответственные.
 - [ ] `gate-api-contract`: контракт доступен (`docs/api/<slug>.yaml`) и привязан к контроллерам.
 - [ ] `gate-db-migration`: новая миграция размещена в `src/main/resources/**/db/migration/`.

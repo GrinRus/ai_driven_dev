@@ -25,6 +25,7 @@ class GateResearcherTests(unittest.TestCase):
         (self.root / "docs" / "plan").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "reports" / "research").mkdir(parents=True, exist_ok=True)
+        (self.root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
         helpers.ensure_gates_config(self.root)
@@ -41,6 +42,11 @@ class GateResearcherTests(unittest.TestCase):
         )
         write_file(self.root, "docs/plan/demo-checkout.md", "# План\n")
         write_file(self.root, "tasklist.md", "- [ ] demo-checkout :: prepare plan\n")
+        write_json(
+            self.root,
+            "reports/prd/demo-checkout.json",
+            {"status": "approved"},
+        )
 
         write_file(
             self.root,

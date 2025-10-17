@@ -11,6 +11,8 @@
 - Через `/researcher <slug>` оформите `docs/research/<slug>.md` по шаблону
   `docs/templates/research-summary.md`; зафиксируйте точки интеграции,
   reuse-компоненты и риски.
+- Вставьте ссылку на `docs/research/<slug>.md` в раздел артефактов PRD и
+  чеклист `tasklist.md`, чтобы команда видела результаты исследования.
 - Проставьте `Status: reviewed`, как только вывод согласован, и перенесите
   блокирующие действия в `docs/plan/<slug>.md` и `tasklist.md`.
 
