@@ -5,6 +5,7 @@ from .helpers import ensure_gates_config, run_hook, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
+APPROVED_PRD = """# PRD\n\n## PRD Review\nStatus: approved\n"""
 
 
 def test_no_active_feature_allows_changes(tmp_path):
@@ -25,7 +26,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
 def test_missing_plan_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_file(tmp_path, "docs/.active_feature", "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", "# PRD")
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -35,7 +36,7 @@ def test_missing_plan_blocks(tmp_path):
 def test_missing_tasks_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_file(tmp_path, "docs/.active_feature", "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", "# PRD")
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -46,7 +47,7 @@ def test_missing_tasks_blocks(tmp_path):
 def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_file(tmp_path, "docs/.active_feature", "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", "# PRD")
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(
         tmp_path,

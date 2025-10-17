@@ -70,6 +70,23 @@ assert_gate_exit 2 "missing PRD"
 log "apply preset feature-prd"
 bash "$INIT_SCRIPT" --preset feature-prd --feature "$SLUG" >/dev/null
 
+log "expect block until PRD review approved"
+assert_gate_exit 2 "pending PRD review"
+
+log "mark PRD review as approved"
+python3 - <<'PY'
+from pathlib import Path
+
+slug = "demo-checkout"
+path = Path("docs/prd") / f"{slug}.prd.md"
+content = path.read_text(encoding="utf-8")
+if "## PRD Review" not in content:
+    raise SystemExit("PRD Review section missing in smoke scenario")
+if "Status: approved" not in content:
+    content = content.replace("Status: pending", "Status: approved", 1)
+path.write_text(content, encoding="utf-8")
+PY
+
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
@@ -91,6 +108,7 @@ log "verify generated artifacts"
 [[ -f "docs/prd/${SLUG}.prd.md" ]]
 [[ -f "docs/plan/${SLUG}.md" ]]
 grep -q "Claude Code" "docs/prd/${SLUG}.prd.md"
+grep -q "Status: approved" "docs/prd/${SLUG}.prd.md"
 grep -q "Demo Checkout" tasklist.md
 
 popd >/dev/null

@@ -79,6 +79,11 @@
                 },
                 {
                   "type": "command",
+                  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-prd-review.sh",
+                  "timeout": 5
+                },
+                {
+                  "type": "command",
                   "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-api-contract.sh",
                   "timeout": 5
                 },
@@ -163,6 +168,11 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-prd-review.sh",
             "timeout": 5
           },
           {

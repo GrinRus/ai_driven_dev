@@ -12,6 +12,13 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "db_migration": True,
     "tests_required": "soft",
     "deps_allowlist": False,
+    "prd_review": {
+        "enabled": True,
+        "approved_statuses": ["approved"],
+        "blocking_statuses": ["blocked"],
+        "allow_missing_section": False,
+        "require_action_items_closed": True,
+    },
 }
 
 

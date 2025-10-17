@@ -3,7 +3,7 @@
 > Готовый GitHub-шаблон и инсталлятор, который подключает Claude Code к вашему Java/Kotlin монорепозиторию, добавляет слэш-команды, безопасные хуки и выборочный запуск Gradle-тестов.
 
 ## TL;DR
-- `/init-claude-workflow.sh` разворачивает цикл `/idea-new → /plan-new → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
+- `/init-claude-workflow.sh` разворачивает цикл `/idea-new → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
 - Автоформат и выборочные Gradle-тесты запускаются после каждой правки (можно отключить `SKIP_AUTO_TESTS=1`), артефакты защищены хуками `gate-*`.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
@@ -36,7 +36,7 @@
 
 ## Что входит в шаблон
 - Слэш-команды Claude Code и саб-агенты для подготовки PRD/ADR/Tasklist, генерации документации и валидации коммитов.
-- Многошаговый workflow (идея → план → задачи → реализация → ревью → QA) с саб-агентами `analyst/planner/validator/implementer/reviewer/qa`; дополнительные проверки включаются через `config/gates.json`.
+- Многошаговый workflow (идея → план → PRD review → задачи → реализация → ревью → QA) с саб-агентами `analyst/planner/prd-reviewer/validator/implementer/reviewer/qa`; дополнительные проверки включаются через `config/gates.json`.
 - Git-хуки для автоформатирования, запуска выборочных тестов и защиты продакшн-артефактов.
 - Конфигурация коммитов (`ticket-prefix`, `conventional`, `mixed`) и вспомогательные скрипты CLI.
 - Базовый набор документации, issue/PR шаблонов и CI workflow (включается флагом `--enable-ci`).
@@ -55,22 +55,22 @@
 | Каталог/файл | Назначение | Ключевые детали |
 | --- | --- | --- |
 | `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, pre/post-хуки, auto-форматирование/тесты, защита prod-путей |
-| `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
-| `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `validator`, `implementer`, `reviewer`, `qa`, `db-migrator`, `contract-checker` |
+| `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
+| `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa`, `db-migrator`, `contract-checker` |
 | `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
 | `.claude/gradle/` *(создаётся при установке)* | Gradle-хелперы | `init-print-projects.gradle` объявляет задачу `ccPrintProjectDirs` для selective runner |
-| `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, `qa`, `feature_slug_source` |
+| `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_slug_source` |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
 | `config/allowed-deps.txt` | Allowlist зависимостей | Формат `group:artifact`; предупреждения выводит `lint-deps.sh` |
 | `doc/backlog.md` | План работ | Зафиксированные Wave 1/2 задачи и состояние их выполнения |
 | `docs/` | Руководства и шаблоны | `usage-demo.md`, `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `release-notes.md`, шаблоны PRD/ADR/tasklist, рабочие артефакты фич |
 | `examples/` | Демо-материалы | Сценарий `apply-demo.sh`, заготовка Gradle-монорепо `gradle-demo/` |
-| `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke сценарий gate-workflow), `qa-agent.py` (эвристический QA-агент), `bootstrap-local.sh` (локальное dogfooding payload) |
+| `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke сценарий gate-workflow), `prd-review-agent.py` (эвристика ревью PRD), `qa-agent.py` (эвристический QA-агент), `bootstrap-local.sh` (локальное dogfooding payload) |
 | `templates/` | Шаблоны вендорных артефактов | Git-хуки (`commit-msg`, `pre-push`, `prepare-commit-msg`) и расширенный `tasklist.md` |
 | `tests/` | Python-юнит-тесты | Проверяют init-скрипт, хуки, selective tests и настройки доступа |
 | `.github/workflows/ci.yml` | CI pipeline | Запускает `scripts/ci-lint.sh`, ставит `shellcheck`, `markdownlint`, `yamllint` |
 | `init-claude-workflow.sh` | Bootstrap-скрипт | Флаги `--commit-mode`, `--enable-ci`, `--force`, `--dry-run`, проверка зависимостей и генерация структуры |
-| `workflow.md` | Процессная документация | Детальный сценарий idea → plan → tasks → implement → review |
+| `workflow.md` | Процессная документация | Детальный сценарий idea → plan → PRD review → tasks → implement → review |
 | `claude-workflow-extensions.patch` | Пакет расширений | Diff с дополнительными агентами, гейтами и командами для продвинутых установок |
 | `README.en.md` | Англоязычный README | Синхронизируется с этой версией, содержит пометку _Last sync_ |
 | `CONTRIBUTING.md` | Правила вкладов | Описывает процесс PR/issue, требования к коммитам и линтингу |
@@ -140,7 +140,7 @@
 ## Архитектура и взаимосвязи
 - Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды, которые затем задействуются hook-пайплайном.
 - Пресет `strict` в `.claude/settings.json` подключает pre/post-хуки, автоматически запускает `.claude/hooks/format-and-test.sh` после успешной записи и привязывает защиту продовых путей.
-- Гейты (`gate-*`) читают `config/gates.json` и артефакты в `docs/**`, обеспечивая прохождение цепочки `/idea-new → /plan-new → /tasks-new`; включайте дополнительные проверки (`api_contract`, `db_migration`, `tests_required`) по мере необходимости.
+- Гейты (`gate-*`) читают `config/gates.json` и артефакты в `docs/**`, обеспечивая прохождение цепочки `/idea-new → /plan-new → /review-prd → /tasks-new`; включайте дополнительные проверки (`prd_review`, `api_contract`, `db_migration`, `tests_required`) по мере необходимости.
 - `.claude/hooks/format-and-test.sh` опирается на Gradle-скрипт `init-print-projects.gradle`, slug в `docs/.active_feature` и `moduleMatrix`, чтобы решать, запускать ли selective или полный набор задач.
 - Тестовый набор на Python использует `tests/helpers.py` для эмуляции git/файловой системы, покрывая dry-run, tracked/untracked изменения и поведение хуков.
 
@@ -151,7 +151,7 @@
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — опциональные гейты: при включении проверяют наличие OpenAPI (`docs/api/<slug>.yaml`), миграций в `src/main/resources/**/db/migration/` и тестов `src/test/**` (режимы задаёт `config/gates.json`).
 - **`protect-prod.sh` и `lint-deps.sh`** — защищают продовые пути (`infra/prod/**`, `deploy/prod/**`), поддерживают allowlist зависимостей `config/allowed-deps.txt` и поддерживают bypass/log-only переменные окружения.
 - **`scripts/ci-lint.sh`** — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, используется локально и в GitHub Actions.
-- **`scripts/smoke-workflow.sh`** — поднимает временной проект, гоняет init-скрипт и проверяет прохождение `gate-workflow` по шагам `/idea-new → /plan-new → /tasks-new`.
+- **`scripts/smoke-workflow.sh`** — поднимает временной проект, гоняет init-скрипт и проверяет прохождение `gate-workflow` по шагам `/idea-new → /plan-new → /review-prd → /tasks-new`.
 - **`examples/apply-demo.sh`** — пошагово применяет шаблон к директории с Gradle-модулями, демонстрируя интеграцию с `gradlew`.
 
 ## Тестовый контур
@@ -168,7 +168,7 @@
 - **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `.claude/hooks/format-and-test.sh`; `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY` ослабляют `protect-prod.sh`.
 - **Диагностика гейтов:** передайте payload через stdin: `echo '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}' | CLAUDE_PROJECT_DIR=$PWD .claude/hooks/gate-workflow.sh`.
 - **Selective runner:** выполните `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs` — задача выведет пары `:module:/abs/path`; перенаправьте вывод в `.claude/cache/project-dirs.txt` или используйте результат для обновления `automation.tests.moduleMatrix`.
-- **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /tasks-new`.
+- **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /review-prd → /tasks-new`.
 - **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
 
 ## Политики доступа и гейты
@@ -266,6 +266,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 git checkout -b feature/STORE-123
 /idea-new checkout-discounts STORE-123
 /plan-new checkout-discounts
+/review-prd checkout-discounts
 /tasks-new checkout-discounts
 /implement checkout-discounts
 /review checkout-discounts
@@ -279,7 +280,7 @@ git checkout -b feature/STORE-123
 ## Чеклист запуска фичи
 
 1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <slug>` — команда автоматически обновит `docs/.active_feature`.
-2. Соберите артефакты аналитики: `/idea-new`, `/plan-new`, `/tasks-new` до статуса READY/PASS (slug уже установлен шагом 1).
+2. Соберите артефакты аналитики: `/idea-new`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (slug уже установлен шагом 1).
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов.
 5. Запросите `/review`, когда чеклисты в `tasklist.md` закрыты, автотесты зелёные и артефакты синхронизированы.
@@ -292,6 +293,7 @@ git checkout -b feature/STORE-123
 |---|---|---|
 | `/idea-new` | Собрать вводные и оформить PRD | `checkout-discounts STORE-123` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
+| `/review-prd` | Провести ревью PRD и зафиксировать статус | `checkout-discounts` |
 | `/tasks-new` | Обновить `tasklist.md` по плану | `checkout-discounts` |
 | `/implement` | Реализация по плану с автотестами | `checkout-discounts` |
 | `/review` | Финальное ревью и фиксация статуса | `checkout-discounts` |

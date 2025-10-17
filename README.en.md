@@ -10,7 +10,7 @@
 _Last sync with `README.md`: 2025-10-13._
 
 ## TL;DR
-- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /tasks-new → /implement → /review` with protective hooks and automated testing.
+- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
 - Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
@@ -41,7 +41,7 @@ _Last sync with `README.md`: 2025-10-13._
 
 ## What you get
 - Claude Code slash commands and sub-agents to bootstrap PRD/ADR/Tasklist docs, generate updates, and validate commits.
-- A multi-stage workflow (idea → plan → tasks → implementation → review → QA) powered by `analyst/planner/validator/implementer/reviewer/qa` sub-agents; additional gates are toggled via `config/gates.json`.
+- A multi-stage workflow (idea → plan → PRD review → tasks → implementation → review → QA) powered by `analyst/planner/prd-reviewer/validator/implementer/reviewer/qa` sub-agents; additional gates are toggled via `config/gates.json`.
 - Git hooks for auto-formatting, selective Gradle runs, and protection of production artifacts.
 - Commit convention presets (`ticket-prefix`, `conventional`, `mixed`) with documented templates for messages and branch names.
 - Documentation pack, issue/PR templates, and optional CI workflow.
@@ -49,8 +49,8 @@ _Last sync with `README.md`: 2025-10-13._
 
 ## Workflow architecture
 1. `init-claude-workflow.sh` scaffolds `.claude/`, configs, and templates.
-2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, validation, tasklist, implementation, and review with dedicated sub-agents.
-3. The `strict` preset in `.claude/settings.json` enables `protect-prod`, `gate-workflow`, and auto-runs `.claude/hooks/format-and-test.sh`; extra gates (`gate-api-contract`, `gate-db-migration`, `gate-tests`, `gate-qa`) are toggled via `config/gates.json`.
+2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, PRD review, tasklist, implementation, and review with dedicated sub-agents.
+3. The `strict` preset in `.claude/settings.json` enables `protect-prod`, `gate-workflow`, `gate-prd-review`, and auto-runs `.claude/hooks/format-and-test.sh`; extra gates (`gate-api-contract`, `gate-db-migration`, `gate-tests`, `gate-qa`) are toggled via `config/gates.json`.
 4. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
@@ -60,34 +60,35 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | Path | Purpose | Highlights |
 | --- | --- | --- |
 | `.claude/settings.json` | Access & automation policies | `start`/`strict` presets, pre/post hooks, auto formatting/tests, production path protection |
-| `.claude/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review` with `allowed-tools` and inline shell steps |
-| `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, validator, implementer, reviewer, qa, db-migrator, contract-checker |
-| `.claude/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
-| `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, `qa`, and `feature_slug_source` |
+| `.claude/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` with `allowed-tools` and inline shell steps |
+| `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, prd-reviewer, validator, implementer, reviewer, qa, db-migrator, contract-checker |
+| `.claude/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
+| `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, and `feature_slug_source` |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
 | `doc/backlog.md` | Wave backlog | Tracks Wave 1/2 tasks and completion status |
 | `docs/` | Guides & templates | `usage-demo.md`, `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `release-notes.md`, PRD/ADR/tasklist templates and feature artefacts |
 | `examples/` | Demo assets | `apply-demo.sh` and the placeholder Gradle monorepo `gradle-demo/` |
-| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `qa-agent.py` (heuristic QA agent) |
+| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `prd-review-agent.py` (heuristic PRD reviewer), `qa-agent.py` (heuristic QA agent) |
 | `templates/` | Copyable templates | Git hooks (`commit-msg`, `pre-push`, `prepare-commit-msg`) and the extended `tasklist.md` |
 | `tests/` | Python unit tests | Cover init bootstrap, hooks, selective tests, and settings policy |
 | `.github/workflows/ci.yml` | CI pipeline | Installs linters and runs `scripts/ci-lint.sh` |
 | `init-claude-workflow.sh` | Bootstrap script | Flags `--commit-mode`, `--enable-ci`, `--force`, `--dry-run`; dependency detection |
-| `workflow.md` | Process playbook | Explains the idea → plan → tasks → implement → review loop |
+| `workflow.md` | Process playbook | Explains the idea → plan → PRD review → tasklist → implementation → review loop |
 
 ## Deep dive into components
 
 ### Bootstrap & utilities
 - `init-claude-workflow.sh` — modular bootstrap with strict prerequisite checks (`bash/git/python3`, Gradle/ktlint), `--commit-mode/--enable-ci/--force/--dry-run`, generation of `.claude/`, `config/`, `docs/`, `templates/`, `.gitkeep`, and automatic commit-mode updates.
 - `scripts/ci-lint.sh` — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`; gracefully skips missing linters and is wired into CI.
-- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks slug → PRD → plan → tasklist, and asserts `gate-workflow.sh` behaviour.
+- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks slug → PRD → plan → PRD review → tasklist, and asserts `gate-workflow.sh` behaviour.
 - `examples/apply-demo.sh` — demonstrates applying the bootstrap to a Gradle monorepo, prints before/after trees, and runs `gradlew test` when the wrapper is available.
 - The bootstrap provisions `.claude/hooks/*`, documentation, and the Gradle helper `.claude/gradle/init-print-projects.gradle`; branch and commit flows rely on native git commands guided by `config/conventions.json`.
 
 ### Hooks & automation
 - `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active slug, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
-- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, plan, and tasklist checkboxes, while ignoring documentation/template edits.
+- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, `## PRD Review` with `Status: approved`, plan, and tasklist checkboxes, while ignoring documentation/template edits.
+- `.claude/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — optional checks driven by `config/gates.json`, validating OpenAPI artefacts, Flyway/Liquibase migrations, and matching tests (`disabled|soft|hard`) with actionable hints.
 - `.claude/hooks/protect-prod.sh` and `lint-deps.sh` — guard production paths (`infra/prod/**`, `deploy/prod/**`), honour `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`, and flag Gradle dependencies outside `config/allowed-deps.txt`.
 - `.claude/gradle/init-print-projects.gradle` — helper Gradle script that registers `ccPrintProjectDirs` for selective runner module caching.
@@ -95,6 +96,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Claude Code sub-agents
 - `.claude/agents/analyst.md` — turns raw ideas into PRDs, asks clarifying questions, tracks risks/assumptions, and updates `docs/prd/<slug>.prd.md` with READY/BLOCKED status.
 - `.claude/agents/planner.md` — produces `docs/plan/<slug>.md` with DoD and dependencies; `.claude/agents/validator.md` audits the plan and records follow-up questions for product/architecture.
+- `.claude/agents/prd-reviewer.md` — performs structured PRD audits, verifies metrics/risks, fills `## PRD Review` (status, summary, findings, action items), and hands blockers back to product.
 - `.claude/agents/implementer.md` — guides iterative delivery, tracks gate status, and relies on `.claude/hooks/format-and-test.sh` for automatic testing.
 - `.claude/agents/reviewer.md` — summarizes review findings, checks tasklists, flips READY/BLOCKED, and records follow-up tasks.
 - `.claude/agents/db-migrator.md` — drafts Flyway/Liquibase migrations (`db/migration/V<timestamp>__<slug>.sql`, changelog) and notes manual steps/dependencies.
@@ -104,8 +106,9 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Slash-command definitions
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
 - `.claude/commands/idea-new.md` — persists the slug in `docs/.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions.
-- `.claude/commands/plan-new.md` — chains `planner` and `validator`, updating the plan and validation outcomes.
-- `.claude/commands/tasks-new.md` — syncs `tasklist.md` with the plan, grouping items by stage and slug.
+- `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: approved`) before plan creation.
+- `.claude/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<slug>.json`, and exports blockers to the tasklist.
+- `.claude/commands/tasks-new.md` — syncs `tasklist.md` with the plan and migrates PRD Review action items into executable checklists.
 - `.claude/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
 - `.claude/commands/review.md` — compiles review feedback, statuses, and checklist completion.
 - Craft commits with `git commit`, aligning messages to the schemes described in `config/conventions.json`.
@@ -113,11 +116,11 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Configuration & policy
 - `.claude/settings.json` — `start/strict` presets, allow/ask/deny lists, pre/post hooks, automation knobs (`format/tests`), and production protection with `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`.
 - `config/conventions.json` — branch/commit modes (`ticket-prefix`, `conventional`, `mixed`), message templates, examples, and review/CLI guidance.
-- `config/gates.json` — toggles for `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `feature_slug_source`; drives gate behaviour and `lint-deps.sh`.
+- `config/gates.json` — toggles for `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `feature_slug_source`; drives gate behaviour and `lint-deps.sh`.
 - `config/allowed-deps.txt` — comment-friendly `group:artifact` allowlist consumed by `lint-deps.sh`.
 
 ### Docs & templates
-- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — cover the idea→review process, bootstrap walkthrough, `.claude/settings.json` tuning, and sub-agent responsibilities.
+- `workflow.md`, `docs/customization.md`, `docs/usage-demo.md`, `docs/agents-playbook.md` — cover the idea→PRD review→implementation lifecycle, bootstrap walkthrough, `.claude/settings.json` tuning, and sub-agent responsibilities.
 - `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — enriched artefact templates with prompts, checklists, and change logs.
 - `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — ready-to-copy `commit-msg`, `prepare-commit-msg`, `pre-push` hooks with setup guidance and env toggles.
 - `doc/backlog.md`, `docs/release-notes.md` — wave backlog (Wave 1/2) and release governance to steer the roadmap.
@@ -136,19 +139,20 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Architecture & relationships
 - The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions that are invoked by the hook pipeline.
 - The `strict` preset in `.claude/settings.json` wires pre/post hooks, automatically runs `.claude/hooks/format-and-test.sh` after successful writes, and guards production paths.
-- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → /plan-new → /tasks-new` lifecycle; enable extra checks (`api_contract`, `db_migration`, `tests_required`) as your process demands.
+- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`prd_review`, `api_contract`, `db_migration`, `tests_required`) as your process demands.
 - `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active slug, and `moduleMatrix` to decide between selective and full test runs.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
 
 ## Key scripts and hooks
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
-- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, and tasklist entries exist for the active slug (`docs/.active_feature`), checking for tasklist checkboxes.
+- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and tasklist entries exist for the active slug (`docs/.active_feature`).
+- **`gate-prd-review.sh`** — checks `## PRD Review` and blocks when blockers or unchecked items remain; integrates with `config/gates.json` (`prd_review` section).
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — optional gates: when enabled they expect OpenAPI specs, database migrations, and matching tests as configured in `config/gates.json`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<slug>.json`, and treats `blocker/critical` as hard failures; see `docs/qa-playbook.md`.
 - **`protect-prod.sh` & `lint-deps.sh`** — guard production paths (`infra/prod/**`, `deploy/prod/**`), enforce dependency allowlists, and respect `PROTECT_PROD_BYPASS` / `PROTECT_LOG_ONLY`.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
-- **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → /plan-new → /tasks-new` gate sequence.
+- **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → /plan-new → /review-prd → /tasks-new` gate sequence.
 - **`examples/apply-demo.sh`** — applies the bootstrap to a Gradle project step by step, handy for workshops and demos.
 
 ## Test toolkit
@@ -158,13 +162,13 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `tests/test_format_and_test.py` exercises the Python hook, checking `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS` and `TEST_SCOPE`.
 - `tests/test_settings_policy.py` guards `.claude/settings.json`, ensuring critical commands (`git add/commit/push`, `curl`, prod writes) sit in `ask/deny`.
 - `scripts/ci-lint.sh` plus `.github/workflows/ci.yml` deliver linters and the unittest suite as a single local/CI entrypoint.
-- `scripts/smoke-workflow.sh` runs an E2E smoke to ensure `gate-workflow` blocks code edits until artefacts exist.
+- `scripts/smoke-workflow.sh` runs an E2E smoke to ensure `gate-workflow` blocks code edits until PRD Review, plan, and tasklist artefacts exist.
 
 ## Access policies & gates
 - `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter enables pre/post hooks (`protect-prod`, `gate-*`, `format-and-test`, `lint-deps`) and requires approval for `git add/commit/push`.
 - The `automation` section drives formatting/test runners, while `protection` secures production paths with `PROTECT_PROD_BYPASS` and `PROTECT_LOG_ONLY` environment switches.
-- `config/gates.json` centralises `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside the active slug path (`feature_slug_source`).
-- Combined `gate-*` hooks inside `.claude/hooks/` enforce the workflow: blocking code without PRD/plan/tasklist, requiring migrations/tests, and validating OpenAPI specs.
+- `config/gates.json` centralises `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside the active slug path (`feature_slug_source`).
+- Combined `gate-*` hooks inside `.claude/hooks/` enforce the workflow: blocking code without PRD review/plan/tasklist, requiring migrations/tests, and validating OpenAPI specs.
 
 ## Docs & templates
 - `workflow.md` outlines the end-to-end idea → plan → tasks → implementation → review loop; `docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
@@ -243,18 +247,19 @@ Supports macOS/Linux. Use WSL or Git Bash on Windows.
 git checkout -b feature/STORE-123
 /idea-new checkout-discounts STORE-123
 /plan-new checkout-discounts
+/review-prd checkout-discounts
 /tasks-new checkout-discounts
 /implement checkout-discounts
 /review checkout-discounts
 ./.claude/hooks/format-and-test.sh
 ```
 
-You’ll get the essential artefacts (PRD, plan, tasklist) and automated `.claude/hooks/format-and-test.sh` runs guarded by gates; finish with `git commit` and `/review` to close the loop under the active convention.
+You’ll get the essential artefacts (PRD, PRD review, plan, tasklist) and automated `.claude/hooks/format-and-test.sh` runs guarded by gates; finish with `git commit` and `/review` to close the loop under the active convention.
 
 ## Feature kickoff checklist
 
 1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <slug>` — it will update `docs/.active_feature` automatically.
-2. Generate discovery artifacts: `/idea-new`, `/plan-new`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1).
+2. Generate discovery artifacts: `/idea-new`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1).
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates.
 5. Request `/review` once `tasklist.md` checkboxes are complete, automated tests are green, and artefacts stay in sync.
@@ -267,6 +272,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 |---|---|---|
 | `/idea-new` | Gather inputs and draft a PRD | `checkout-discounts STORE-123` |
 | `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
+| `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
 | `/tasks-new` | Refresh `tasklist.md` from the plan | `checkout-discounts` |
 | `/implement` | Execute the plan with auto tests | `checkout-discounts` |
 | `/review` | Final code review and status sync | `checkout-discounts` |

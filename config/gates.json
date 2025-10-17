@@ -4,6 +4,25 @@
   "db_migration": false,
   "tests_required": "disabled",
   "deps_allowlist": false,
+  "prd_review": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "approved_statuses": [
+      "approved"
+    ],
+    "blocking_statuses": [
+      "blocked"
+    ],
+    "allow_missing_section": false,
+    "require_action_items_closed": true
+  },
   "qa": {
     "enabled": true,
     "branches": [

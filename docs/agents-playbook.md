@@ -8,10 +8,11 @@
 | --- | --- | --- | --- | --- | --- |
 | 1 | `/idea-new <slug> [TICKET]` | `analyst` | Свободная идея, вводные, ограничения | `docs/.active_feature`, `docs/prd/<slug>.prd.md` | PRD заполнен, статус READY/BLOCKED выставлен |
 | 2 | `/plan-new <slug>` | `planner`, `validator` | PRD и ответы на вопросы | `docs/plan/<slug>.md`, протокол проверки | План покрывает все этапы, критичные риски закрыты |
-| 3 | `/tasks-new <slug>` | — | Утверждённый план | Обновлённый `tasklist.md` | Чеклисты привязаны к slug и этапам |
-| 4 | `/implement <slug>` | `implementer` | План, tasklist, активная фича | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
-| 5 | `/review <slug>` | `reviewer` | Готовая ветка и артефакты | Замечания в `tasklist.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
-| 6 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, tasklist, результаты гейтов | JSON-отчёт `reports/qa/<slug>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
+| 3 | `/review-prd <slug>` | `prd-reviewer` | PRD, план, ADR | Раздел `## PRD Review`, отчёт `reports/prd/<slug>.json` | Status: approved, action items перенесены |
+| 4 | `/tasks-new <slug>` | — | Утверждённый план | Обновлённый `tasklist.md` | Чеклисты привязаны к slug и этапам |
+| 5 | `/implement <slug>` | `implementer` | План, tasklist, активная фича | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
+| 6 | `/review <slug>` | `reviewer` | Готовая ветка и артефакты | Замечания в `tasklist.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
+| 7 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, tasklist, результаты гейтов | JSON-отчёт `reports/qa/<slug>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
 > Дополнительные агенты (`contract-checker`, `db-migrator`) вызываются вручную через палитру `Claude: Run agent …`, когда включены соответствующие гейты или требуется ручная проверка. Рядом с ними нет отдельных слэш-команд.
 
@@ -34,6 +35,12 @@
 - **Вход:** черновой план.
 - **Выход:** статус PASS/BLOCKED, список уточняющих вопросов и рисков.
 - **Готовность:** все критичные вопросы закрыты или перенесены в backlog; план можно раздавать исполнителям.
+
+### prd-reviewer — контроль качества PRD
+- **Вызов:** `/review-prd <slug>`
+- **Вход:** `docs/prd/<slug>.prd.md`, `docs/plan/<slug>.md`, актуальные ADR, открытые вопросы.
+- **Выход:** Раздел `## PRD Review` с `Status: approved|blocked|pending`, summary, findings и action items; отчёт `reports/prd/<slug>.json`.
+- **Особенности:** блокирующие замечания фиксируйте как `Status: blocked` и переносите action items в `tasklist.md`. Без `approved` гейт `gate-workflow` не даст менять код.
 
 ### tasks-new — чеклист команды
 - **Команда:** `/tasks-new <slug>`

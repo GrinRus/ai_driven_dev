@@ -32,7 +32,7 @@ jobs:
       - name: Run QA gate
         run: |
           if [[ -n "${GITHUB_BASE_REF}" ]]; then
-            export QA_AGENT_DIFF_BASE="origin/${GITHUB_BASE_REF}"
+            export QA_AGENT_DIFF_BASE="${GITHUB_BASE_REF}"
           else
             unset QA_AGENT_DIFF_BASE
           fi
