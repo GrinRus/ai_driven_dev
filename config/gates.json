@@ -2,7 +2,7 @@
   "feature_slug_source": "docs/.active_feature",
   "api_contract": false,
   "db_migration": false,
-  "tests_required": "disabled",
+  "tests_required": "soft",
   "deps_allowlist": false,
   "prd_review": {
     "enabled": true,
