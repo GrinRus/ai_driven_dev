@@ -492,6 +492,9 @@ generate_directories() {
     ".claude/cache"
     "config"
     "docs"
+    "reports"
+    "reports/qa"
+    "reports/research"
   )
   for dir in "${dirs[@]}"; do
     ensure_directory "$dir"

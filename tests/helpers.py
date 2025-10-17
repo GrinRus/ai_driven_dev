@@ -19,6 +19,15 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_missing_section": False,
         "require_action_items_closed": True,
     },
+    "researcher": {
+        "enabled": True,
+        "branches": ["feature/*", "release/*", "hotfix/*"],
+        "skip_branches": ["docs/*"],
+        "require_status": ["reviewed"],
+        "freshness_days": 14,
+        "allow_missing": False,
+        "minimum_paths": 1,
+    },
 }
 
 

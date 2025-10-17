@@ -1,12 +1,13 @@
 # Workflow Claude Code
 
-Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит шесть этапов: **идея → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
+Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит семь этапов: **идея → research → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
 
 ## Обзор этапов
 
 | Этап | Команда | Саб-агент | Основные артефакты |
 | --- | --- | --- | --- |
 | Аналитика идеи | `/idea-new <slug> [TICKET]` | `analyst` | `docs/prd/<slug>.prd.md`, активная фича |
+| Research | `claude-workflow research --feature <slug>` → `/researcher <slug>` | `researcher` | `docs/research/<slug>.md`, `reports/research/<slug>-targets.json` |
 | Планирование | `/plan-new <slug>` | `planner`, `validator` | `docs/plan/<slug>.md`, уточнённые вопросы |
 | PRD review | `/review-prd <slug>` | `prd-reviewer` | `docs/prd/<slug>.prd.md`, отчёт `reports/prd/<slug>.json` |
 | Тасклист | `/tasks-new <slug>` | — | `tasklist.md` (обновлённые чеклисты) |
@@ -20,27 +21,32 @@
 - Создаёт PRD по шаблону (`docs/prd/<slug>.prd.md`), собирает вводные, риски и метрики.
 - Саб-агент **analyst** уточняет контекст и фиксирует открытые вопросы.
 
-### 2. План (`/plan-new`)
+### 2. Research (`claude-workflow research` + `/researcher`)
+- CLI-команда `claude-workflow research --feature <slug>` собирает контекст: пути из `config/conventions.json`, существующие модули и документацию. Результат сохраняется в `reports/research/<slug>-targets.json` и `<slug>-context.json`.
+- Саб-агент **researcher** оформляет отчёт в `docs/research/<slug>.md`: куда встраивать изменения, что переиспользовать, какие риски учесть.
+- Статус в отчёте должен стать `Status: reviewed`, критичные действия переносятся в план и `tasklist.md`.
+
+### 3. План (`/plan-new`)
 - Саб-агент **planner** формирует пошаговый план реализации по PRD.
 - Саб-агент **validator** проверяет полноту; найденные вопросы возвращаются продукту.
 - Все открытые вопросы синхронизируются между PRD и планом.
 
-### 3. PRD Review (`/review-prd`)
+### 4. PRD Review (`/review-prd`)
 - Саб-агент **prd-reviewer** проверяет полноту PRD, метрики, риски и соответствие ADR.
 - Результат фиксируется в разделе `## PRD Review` (статус, summary, findings, action items) и в отчёте `reports/prd/<slug>.json`.
 - Блокирующие action items и открытые вопросы синхронизируются с планом и `tasklist.md`.
 
-### 4. Тасклист (`/tasks-new`)
+### 5. Тасклист (`/tasks-new`)
 - Преобразует план в чеклисты в `tasklist.md`.
 - Структурирует задачи по этапам (аналитика, разработка, QA, релиз).
 - Добавляет критерии приёмки и зависимости.
 
-### 5. Реализация (`/implement`)
+### 6. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана и вносит изменения малыми итерациями.
 - После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо через `SKIP_AUTO_TESTS=1`).
 - Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-db-migration.sh`, `gate-tests.sh` или `gate-api-contract.sh`.
 
-### 6. Ревью (`/review`)
+### 7. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `tasklist.md`.
 - При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
 
@@ -48,17 +54,19 @@
 
 - Пресет `strict` в `.claude/settings.json` включает `protect-prod`, `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh` после каждой записи.
 - `config/gates.json` управляет дополнительными проверками:
-  - `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
-  - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
-  - `prd_review` — управляет проверкой раздела `## PRD Review`: разрешённые ветки, статус, блокирующие уровни.
-  - `tests_required` — режим `disabled|soft|hard` для проверки юнит-тестов.
-  - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
+- `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
+- `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
+- `prd_review` — управляет проверкой раздела `## PRD Review`: разрешённые ветки, статус, блокирующие уровни.
+- `researcher` — контролирует наличие `docs/research/<slug>.md`, статус `Status: reviewed`, свежесть отчёта (`reports/research/<slug>-context.json`) и покрытие целевых директорий.
+- `tests_required` — режим `disabled|soft|hard` для проверки юнит-тестов.
+- `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
 - `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
 - `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
 
 ## Роли и ответственность команды
 
 - **Product/Analyst** — поддерживает PRD, отвечает на вопросы planner/validator.
+- **Researcher** — исследует кодовую базу, фиксирует reuse/риски, поддерживает `docs/research/<slug>.md` и контекст для команды.
 - **Tech Lead/Architect** — утверждает план, следит за гейтами и архитектурными решениями.
 - **Разработчики** — реализуют по плану, поддерживают тесты и документацию в актуальном состоянии.
 - **QA** — помогает с чеклистами в `tasklist.md`, расширяет тестовое покрытие и сценарии ручной проверки.

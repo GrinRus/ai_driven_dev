@@ -18,6 +18,7 @@ context:
     - docs/plan/{{feature}}.md
     - tasklist.md
     - docs/usage-demo.md
+    - docs/research/{{feature}}.md
     - "{{release_notes_path}}"
   instructions:
     - >-
@@ -27,6 +28,9 @@ context:
       следующего цикла.
     - >-
       Обнови релизные заметки и выпиши обратную связь.
+    - >-
+      Убедись, что рекомендации Researcher закрыты: статус `Status: reviewed`,
+      action items перенесены в план/тасклист или описаны в релизнных заметках.
 output:
   path: "{{release_notes_path}}"
   format: markdown

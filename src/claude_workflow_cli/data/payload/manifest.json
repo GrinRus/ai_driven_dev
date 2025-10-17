@@ -43,6 +43,12 @@
       "type": "file"
     },
     {
+      "path": ".claude/agents/researcher.md",
+      "size": 1927,
+      "sha256": "184c3e83f7cd62c042e38fc06228c25fef8c6e99d726d234dcfcd83ba47da72d",
+      "type": "file"
+    },
+    {
       "path": ".claude/agents/reviewer.md",
       "size": 850,
       "sha256": "87b0f8b9f76c5771112efae4365075eeed70b7f91289674b02c7a111feae9930",
@@ -76,6 +82,12 @@
       "path": ".claude/commands/plan-new.md",
       "size": 1037,
       "sha256": "a24cf89be422c9cd84c372e3f7f39100f913df7618f316d91f600ab48d2d4ba5",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/researcher.md",
+      "size": 1586,
+      "sha256": "597c34d2c9a3dd16e75dc6ac9d99678599f1cd89c2b43557c16bc2ebaff28fd8",
       "type": "file"
     },
     {
@@ -134,14 +146,14 @@
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
-      "size": 1310,
-      "sha256": "f411fb5116ea421feae0cdef8fce848a10e44b6cf9ab484e92ce95d3ce407914",
+      "size": 2912,
+      "sha256": "54dc1e75c818640fbef905a0c6128829748930e3d359cb14e4b750c5566dbb0e",
       "type": "file"
     },
     {
       "path": ".claude/hooks/gate-workflow.sh",
-      "size": 1441,
-      "sha256": "c33ea64c343ae7512b920d97f7f3c98cbd2da503103716e102ef6187bef6176e",
+      "size": 6854,
+      "sha256": "9578a1b2cd3f2cda01e06dba58ddbdee2c541ad8b6a0b6398761f37c34f57ce9",
       "type": "file"
     },
     {
@@ -182,26 +194,26 @@
     },
     {
       "path": "claude-presets/advanced/feature-design.yaml",
-      "size": 1358,
-      "sha256": "3b494faaa470a212392648f0a194850ebe6544d9aefc5dd25fa1f26488f41dff",
+      "size": 1599,
+      "sha256": "089583e334bca40c2d2c15ba681f87c94372501168f478439c428d02ae6f1594",
       "type": "file"
     },
     {
       "path": "claude-presets/advanced/feature-release.yaml",
-      "size": 1422,
-      "sha256": "d9c87bbcc91d84274cf9c694c1fe47e80dcad185f976e7cca5c36836496575f2",
+      "size": 1711,
+      "sha256": "76fc94c6be38c455b205d6e5c37f0c4c98c55e21f72e82372fb45cd92357244f",
       "type": "file"
     },
     {
       "path": "claude-presets/feature-impl.yaml",
-      "size": 1482,
-      "sha256": "5383700f76a4b5bd52194b1c9475e06bf7e9342498ded0d0439e64cc250f30dd",
+      "size": 1749,
+      "sha256": "b7a516b69375288d9988a56a77dfa05afce15dfd39ac3f2afd6e7111d42aebd8",
       "type": "file"
     },
     {
       "path": "claude-presets/feature-plan.yaml",
-      "size": 1316,
-      "sha256": "5b1ab44b86849fbadcc1f4f2f494031d48a70a77d6b1180f20117d3495add24c",
+      "size": 1556,
+      "sha256": "326157ac32bf6223625737a4bf7b6e2d1c3694f949e1062aebe0828e2b433545",
       "type": "file"
     },
     {
@@ -218,14 +230,14 @@
     },
     {
       "path": "config/conventions.json",
-      "size": 1016,
-      "sha256": "4d8e56489b20104f68082b1e24f30eb24cb4dc73772d609973f772f29e7db397",
+      "size": 1810,
+      "sha256": "7399c600b01490a03b17e55073d627ce760570da4d2edf0417910a7bce3a7ddb",
       "type": "file"
     },
     {
       "path": "config/gates.json",
-      "size": 1014,
-      "sha256": "20694ac43c6880a4d19788d009fb2244e7c68c15d0e8d0e5dd5231171939e764",
+      "size": 1308,
+      "sha256": "0e9331cee86e5995002572be153fd8cbbb14925e52b332f80a119632e3a60e6f",
       "type": "file"
     },
     {
@@ -236,8 +248,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 36632,
-      "sha256": "abc483a7b63a991c5105846a8edf1645bdb4e30ba85c4781d770a627dc19556d",
+      "size": 49290,
+      "sha256": "8d937788f280569be313990e0833d25287820af74cdfc74d1f8fd70cfa096066",
       "type": "file"
     },
     {
@@ -250,6 +262,12 @@
       "path": "docs/adr.template.md",
       "size": 3344,
       "sha256": "76f9a8b34ab4aa701b3a3ac12a64ea7cf4bf3c701c83eb606b5eba6c8f91c43f",
+      "type": "file"
+    },
+    {
+      "path": "docs/feature-cookbook.md",
+      "size": 1633,
+      "sha256": "bcfde25f2f56ed4f4f0e60b3bf516b5041a6c60fe8cb1e2f7667d27fff91deb5",
       "type": "file"
     },
     {
@@ -277,6 +295,18 @@
       "type": "file"
     },
     {
+      "path": "docs/research/.gitkeep",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "type": "file"
+    },
+    {
+      "path": "docs/templates/research-summary.md",
+      "size": 705,
+      "sha256": "e151f8e49f01818fd11719d8e899e3fa76d39dc2c907339bba12183dfe0df7a8",
+      "type": "file"
+    },
+    {
       "path": "docs/usage-demo.md",
       "size": 12795,
       "sha256": "5b2ffba985a7e3ec0d7f1dac18688aac2f4fe4bad2f21e5461b7ce3077b57c8f",
@@ -284,8 +314,14 @@
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 16258,
-      "sha256": "551f000adb5594393cb7d1e2b6e7faf21c710ec1ed7612a568fbec6235bc2bd2",
+      "size": 16312,
+      "sha256": "65bc91c4af03cdc5dead61964642cff5ae8404a89aba39297e776490a0500a72",
+      "type": "file"
+    },
+    {
+      "path": "manifest.json",
+      "size": 12195,
+      "sha256": "31c801a66e791f4d5b16370ab90b40d3a0a51dd9fdde45c8e17e817494d34c76",
       "type": "file"
     },
     {
@@ -349,9 +385,15 @@
       "type": "file"
     },
     {
+      "path": "tools/researcher_context.py",
+      "size": 17490,
+      "sha256": "f62eaeb70b2f917b26076320af2d4d7713725b45a66330b2daca2bb8bc480a82",
+      "type": "file"
+    },
+    {
       "path": "tools/set_active_feature.py",
-      "size": 701,
-      "sha256": "2d2fe815e058a140989b16d778508948fe9e478ffd249af1c361e3e4b24bbe33",
+      "size": 2523,
+      "sha256": "343117d1644e98d9d5b99df49b337a988067b6e9732b523853099386e8dbd960",
       "type": "file"
     },
     {

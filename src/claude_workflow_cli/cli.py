@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import filecmp
 import hashlib
 import json
@@ -15,7 +16,13 @@ import zipfile
 from contextlib import contextmanager
 from importlib import metadata, resources
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
+
+from claude_workflow_cli.tools.researcher_context import (
+    ResearcherContextBuilder,
+    _parse_keywords as _research_parse_keywords,
+    _parse_paths as _research_parse_paths,
+)
 
 
 PAYLOAD_PACKAGE = "claude_workflow_cli.data"
@@ -396,6 +403,69 @@ def _smoke_command(args: argparse.Namespace) -> None:
     _run_smoke(args.verbose)
 
 
+def _research_command(args: argparse.Namespace) -> None:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    slug = args.feature or _read_active_feature(target)
+    if not slug:
+        raise ValueError(
+            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
+        )
+
+    config_path: Optional[Path] = None
+    if args.config:
+        config_path = Path(args.config)
+        if not config_path.is_absolute():
+            config_path = (target / config_path).resolve()
+        else:
+            config_path = config_path.resolve()
+    builder = ResearcherContextBuilder(target, config_path=config_path)
+    scope = builder.build_scope(slug)
+    scope = builder.extend_scope(
+        scope,
+        extra_paths=_research_parse_paths(args.paths),
+        extra_keywords=_research_parse_keywords(args.keywords),
+    )
+
+    targets_path = builder.write_targets(scope)
+    rel_targets = targets_path.relative_to(target).as_posix()
+    print(
+        f"[claude-workflow] researcher targets saved to {rel_targets} "
+        f"({len(scope.paths)} paths, {len(scope.docs)} docs)."
+    )
+
+    if args.targets_only:
+        return
+
+    context = builder.collect_context(scope, limit=args.limit)
+    if args.dry_run:
+        print(json.dumps(context, indent=2, ensure_ascii=False))
+        return
+
+    output = Path(args.output) if args.output else None
+    output_path = builder.write_context(scope, context, output=output)
+    rel_output = output_path.relative_to(target).as_posix()
+    print(
+        f"[claude-workflow] researcher context saved to {rel_output} "
+        f"({len(context['matches'])} matches)."
+    )
+
+    if args.no_template:
+        return
+
+    doc_path, created = _ensure_research_doc(target, slug)
+    if not doc_path:
+        print("[claude-workflow] research summary template not found; skipping materialisation.")
+        return
+    rel_doc = doc_path.relative_to(target).as_posix()
+    if created:
+        print(f"[claude-workflow] research summary created at {rel_doc}.")
+    else:
+        print(f"[claude-workflow] research summary already exists at {rel_doc}.")
+
+
 def _read_template_version(target: Path) -> str | None:
     version_file = target / ".claude" / ".template_version"
     if not version_file.exists():
@@ -407,6 +477,40 @@ def _write_template_version(target: Path) -> None:
     version_file = target / ".claude" / ".template_version"
     version_file.parent.mkdir(parents=True, exist_ok=True)
     version_file.write_text(f"{VERSION}\n", encoding="utf-8")
+
+
+def _active_feature_file(target: Path) -> Path:
+    return target / "docs" / ".active_feature"
+
+
+def _read_active_feature(target: Path) -> Optional[str]:
+    slug_path = _active_feature_file(target)
+    if not slug_path.exists():
+        return None
+    return slug_path.read_text(encoding="utf-8").strip() or None
+
+
+def _ensure_research_doc(target: Path, slug: str) -> tuple[Optional[Path], bool]:
+    template = target / "docs" / "templates" / "research-summary.md"
+    destination = target / "docs" / "research" / f"{slug}.md"
+    if not template.exists():
+        return None, False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        return destination, False
+    content = template.read_text(encoding="utf-8")
+    replacements = {
+        "{{feature}}": slug,
+        "{{date}}": dt.date.today().isoformat(),
+        "{{owner}}": os.getenv("GIT_AUTHOR_NAME")
+        or os.getenv("GIT_COMMITTER_NAME")
+        or os.getenv("USER")
+        or "",
+    }
+    for placeholder, value in replacements.items():
+        content = content.replace(placeholder, value)
+    destination.write_text(content, encoding="utf-8")
+    return destination, True
 
 
 def _iter_payload_files(root: Path) -> Iterable[Path]:
@@ -715,6 +819,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit verbose logs when running the smoke scenario.",
     )
     smoke_parser.set_defaults(func=_smoke_command)
+
+    research_parser = subparsers.add_parser(
+        "research",
+        help="Collect scope and context for the Researcher agent.",
+    )
+    research_parser.add_argument(
+        "--feature",
+        help="Feature slug to analyse (defaults to the active feature in docs/.active_feature).",
+    )
+    research_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    research_parser.add_argument(
+        "--config",
+        help="Path to conventions JSON containing the researcher section (defaults to config/conventions.json).",
+    )
+    research_parser.add_argument(
+        "--paths",
+        help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
+    )
+    research_parser.add_argument(
+        "--keywords",
+        help="Comma-separated list of extra keywords to search for.",
+    )
+    research_parser.add_argument(
+        "--limit",
+        type=int,
+        default=24,
+        help="Maximum number of code/document matches to capture (default: 24).",
+    )
+    research_parser.add_argument(
+        "--output",
+        help="Override output JSON path (default: reports/research/<slug>-context.json).",
+    )
+    research_parser.add_argument(
+        "--targets-only",
+        action="store_true",
+        help="Only refresh targets JSON; skip content scan and context export.",
+    )
+    research_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print context JSON to stdout without writing files (targets are still refreshed).",
+    )
+    research_parser.add_argument(
+        "--no-template",
+        action="store_true",
+        help="Do not materialise docs/research/<slug>.md from the template.",
+    )
+    research_parser.set_defaults(func=_research_command)
 
     upgrade_parser = subparsers.add_parser(
         "upgrade", help="Refresh workflow files from the latest template."

@@ -6,7 +6,7 @@
 - развернуть шаблон всего за один запуск скрипта;
 - понять, какие файлы и настройки добавляются;
 - проверить, что выборочные тесты и хуки работают сразу после установки;
-- пройти многошаговый цикл `/idea-new → /plan-new → /tasks-new → /implement → /review` и увидеть работу гейтов (workflow, миграции, тесты).
+- пройти многошаговый цикл `/idea-new → claude-workflow research → /plan-new → /tasks-new → /implement → /review` и увидеть работу гейтов (workflow, research, миграции, тесты).
 
 ## Требования
 - установленный `bash`, `git`, `python3`;
@@ -129,15 +129,16 @@ demo-monorepo/
 ### 5. Запустите многошаговый процесс
 
 1. В Claude Code выполните `/idea-new demo-checkout DEMO-1` — команда зафиксирует slug в `docs/.active_feature`, соберёт PRD и список уточнений.
-2. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `tasklist.md`.
-3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты: миграции, OpenAPI-файлы, расширенные тесты.
-4. Запустите `/implement demo-checkout` — агент будет идти малыми шагами, а `.claude/hooks/format-and-test.sh` автоматически выполнит форматирование и выборочные тесты (отключаемо `SKIP_AUTO_TESTS=1`).
-5. Фиксируйте прогресс в git (`git commit -m "DEMO-1: add rule engine"`), пока tasklist не будет закрыт и тесты не станут зелёными.
+2. Соберите исследование: `claude-workflow research --feature demo-checkout --paths "service-checkout:service-payments"` подготовит `reports/research/demo-checkout-*.json`, после чего запустите `/researcher demo-checkout` и обновите `docs/research/demo-checkout.md` до `Status: reviewed`.
+3. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `tasklist.md`.
+4. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты: миграции, OpenAPI-файлы, расширенные тесты.
+5. Запустите `/implement demo-checkout` — агент будет идти малыми шагами, а `.claude/hooks/format-and-test.sh` автоматически выполнит форматирование и выборочные тесты (отключаемо `SKIP_AUTO_TESTS=1`).
+6. Фиксируйте прогресс в git (`git commit -m "DEMO-1: add rule engine"`), пока tasklist не будет закрыт и тесты не станут зелёными.
 
 ## Проверка результата в Claude Code
 1. Создайте ветку `git checkout -b feature/DEMO-1`, соблюдая выбранную конвенцию.
 2. Запустите `/idea-new`, `/plan-new`, `/tasks-new` и убедитесь, что `docs/` и `tasklist.md` обновились.
-3. Проверьте гейты: `gate-workflow` пропускает правки только после появления PRD/плана/tasklist; при включённых флагах `api_contract`, `db_migration`, `tests_required` появятся подсказки о недостающих артефактах.
+3. Проверьте гейты: `gate-workflow` пропускает правки только после появления PRD/плана/tasklist и отчёта Researcher; при включённых флагах `api_contract`, `db_migration`, `tests_required` появятся подсказки о недостающих артефактах.
 4. После правок убедитесь, что `.claude/hooks/format-and-test.sh` запускается автоматически; при необходимости используйте `SKIP_AUTO_TESTS=1` для паузы, `FORMAT_ONLY=1` или `TEST_SCOPE=":module:test"` для точечной настройки и запускайте скрипт вручную при сложных изменениях.
 5. Зафиксируйте изменения (`git commit -m "DEMO-1: implement rule engine"`) и вызовите `/review demo-checkout`, чтобы закрыть чеклист и убедиться, что режим коммитов синхронизирован.
 
@@ -152,6 +153,7 @@ demo-monorepo/
 
 | Пресет | Результат | Файл | Расположение |
 | --- | --- | --- | --- |
+| `claude-workflow research` | Отчёт Researcher, targets и context JSON | `docs/research/<slug>.md`, `reports/research/<slug>-*.json` | CLI `claude-workflow` |
 | `feature-prd` | Черновик PRD и метрики успеха | `docs/prd/<slug>.prd.md` | `claude-presets/` |
 | `feature-plan` | План реализации и контрольные точки | `docs/plan/<slug>.md` | `claude-presets/` |
 | `feature-impl` | Секция чеклистов в tasklist | `tasklist.md` | `claude-presets/` |

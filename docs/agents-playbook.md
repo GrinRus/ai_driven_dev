@@ -7,12 +7,13 @@
 | Шаг | Команда | Агент(ы) | Основной вход | Основной выход | Готовность |
 | --- | --- | --- | --- | --- | --- |
 | 1 | `/idea-new <slug> [TICKET]` | `analyst` | Свободная идея, вводные, ограничения | `docs/.active_feature`, `docs/prd/<slug>.prd.md` | PRD заполнен, статус READY/BLOCKED выставлен |
-| 2 | `/plan-new <slug>` | `planner`, `validator` | PRD и ответы на вопросы | `docs/plan/<slug>.md`, протокол проверки | План покрывает все этапы, критичные риски закрыты |
-| 3 | `/review-prd <slug>` | `prd-reviewer` | PRD, план, ADR | Раздел `## PRD Review`, отчёт `reports/prd/<slug>.json` | Status: approved, action items перенесены |
-| 4 | `/tasks-new <slug>` | — | Утверждённый план | Обновлённый `tasklist.md` | Чеклисты привязаны к slug и этапам |
-| 5 | `/implement <slug>` | `implementer` | План, tasklist, активная фича | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
-| 6 | `/review <slug>` | `reviewer` | Готовая ветка и артефакты | Замечания в `tasklist.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
-| 7 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, tasklist, результаты гейтов | JSON-отчёт `reports/qa/<slug>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
+| 2 | `claude-workflow research --feature <slug>` → `/researcher <slug>` | `researcher` | PRD, backlog, целевые модули | `docs/research/<slug>.md`, `reports/research/<slug>-context.json` | Status: reviewed, пути интеграции подтверждены |
+| 3 | `/plan-new <slug>` | `planner`, `validator` | PRD, отчёт Researcher, ответы на вопросы | `docs/plan/<slug>.md`, протокол проверки | План покрывает модули из research, критичные риски закрыты |
+| 4 | `/review-prd <slug>` | `prd-reviewer` | PRD, план, ADR, Researcher | Раздел `## PRD Review`, отчёт `reports/prd/<slug>.json` | Status: approved, action items перенесены |
+| 5 | `/tasks-new <slug>` | — | Утверждённый план | Обновлённый `tasklist.md` | Чеклисты привязаны к slug и этапам |
+| 6 | `/implement <slug>` | `implementer` | План, tasklist, отчёт Researcher | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
+| 7 | `/review <slug>` | `reviewer` | Готовая ветка и артефакты | Замечания в `tasklist.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
+| 8 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, tasklist, результаты гейтов | JSON-отчёт `reports/qa/<slug>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
 > Дополнительные агенты (`contract-checker`, `db-migrator`) вызываются вручную через палитру `Claude: Run agent …`, когда включены соответствующие гейты или требуется ручная проверка. Рядом с ними нет отдельных слэш-команд.
 
@@ -24,23 +25,29 @@
 - **Выход:** PRD `docs/prd/<slug>.prd.md` с целями, пользовательскими историями, метриками успеха, рисками и списком открытых вопросов.
 - **Готовность:** PRD имеет статус READY либо содержит явный список блокирующих вопросов; активная фича в `docs/.active_feature` совпадает со slug.
 
+### researcher — исследование кодовой базы
+- **Вызов:** `claude-workflow research --feature <slug>` (сбор контекста) и агент `/researcher <slug>`.
+- **Вход:** PRD, backlog, `reports/research/<slug>-targets.json`, существующие источники в `src/**` и документации.
+- **Выход:** `docs/research/<slug>.md` со статусом `Status: reviewed`, обновлённые файлы контекста `reports/research/<slug>-targets.json` и `<slug>-context.json`.
+- **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист, список директорий покрывает изменяемый код.
+
 ### planner — план реализации
 - **Вызов:** `/plan-new <slug>`
 - **Вход:** актуальный PRD и ответы на вопросы аналитика.
 - **Выход:** `docs/plan/<slug>.md` с декомпозицией на итерации, DoD и ссылками на модули/файлы.
-- **Особенности:** сразу после генерации план проходит проверку агентом `validator`; открытые вопросы возвращаются продукту и синхронизируются в PRD.
+- **Особенности:** используй вывод Researcher как опорный список модулей и reuse; сразу после генерации план проходит проверку агентом `validator`, открытые вопросы синхронизируются в PRD.
 
 ### validator — проверка плана
 - **Вызов:** автоматически внутри `/plan-new`.
 - **Вход:** черновой план.
 - **Выход:** статус PASS/BLOCKED, список уточняющих вопросов и рисков.
-- **Готовность:** все критичные вопросы закрыты или перенесены в backlog; план можно раздавать исполнителям.
+- **Готовность:** все критичные вопросы закрыты или перенесены в backlog; рекомендации Researcher учтены, план можно раздавать исполнителям.
 
 ### prd-reviewer — контроль качества PRD
 - **Вызов:** `/review-prd <slug>`
 - **Вход:** `docs/prd/<slug>.prd.md`, `docs/plan/<slug>.md`, актуальные ADR, открытые вопросы.
 - **Выход:** Раздел `## PRD Review` с `Status: approved|blocked|pending`, summary, findings и action items; отчёт `reports/prd/<slug>.json`.
-- **Особенности:** блокирующие замечания фиксируйте как `Status: blocked` и переносите action items в `tasklist.md`. Без `approved` гейт `gate-workflow` не даст менять код.
+- **Особенности:** блокирующие замечания фиксируйте как `Status: blocked` и переносите action items в `tasklist.md`; проверяйте, что `docs/research/<slug>.md` имеет `Status: reviewed`. Без `approved` гейт `gate-workflow` не даст менять код.
 
 ### tasks-new — чеклист команды
 - **Команда:** `/tasks-new <slug>`

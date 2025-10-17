@@ -17,6 +17,7 @@ context:
     - docs/prd/{{feature}}.prd.md
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
+    - docs/research/{{feature}}.md
     - tasklist.md
     - docs/customization.md
   instructions:
@@ -28,6 +29,9 @@ context:
     - >-
       Сформируй блок обновлений для tasklist.md в секции
       {{tasklist_section}}.
+    - >-
+      Уточни, какие подсистемы затрагивает Researcher, и зафиксируй
+      действия для повторного использования и закрытия рисков.
 output:
   path: tasklist.md
   format: markdown

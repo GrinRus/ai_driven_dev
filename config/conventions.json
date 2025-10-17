@@ -64,5 +64,45 @@
       "Ветки создаются только допустимой командой (feature/fix/hotfix/mixed).",
       "Перед выпуском релиза обновите conventions.md вручную, чтобы зафиксировать актуальные правила."
     ]
+  },
+  "researcher": {
+    "defaults": {
+      "paths": [
+        "src/main",
+        "src/test",
+        "docs/prd",
+        "docs/plan"
+      ],
+      "docs": [
+        "docs/prd",
+        "docs/plan",
+        "docs/usage-demo.md"
+      ],
+      "keywords": []
+    },
+    "tags": {
+      "checkout": {
+        "description": "Модули оформления заказа и оплаты.",
+        "paths": [
+          "src/main/kotlin",
+          "src/test/kotlin"
+        ],
+        "docs": [
+          "docs/prd/demo-checkout.prd.md",
+          "docs/plan/demo-checkout.md"
+        ],
+        "keywords": [
+          "checkout",
+          "order",
+          "payment",
+          "cart"
+        ]
+      }
+    },
+    "features": {
+      "demo-checkout": [
+        "checkout"
+      ]
+    }
   }
 }

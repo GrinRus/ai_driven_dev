@@ -74,16 +74,36 @@ log "expect block until PRD review approved"
 assert_gate_exit 2 "pending PRD review"
 
 log "mark PRD review as approved"
-python3 - <<'PY'
+python3 - "$SLUG" <<'PY'
 from pathlib import Path
+import sys
 
-slug = "demo-checkout"
+slug = sys.argv[1]
 path = Path("docs/prd") / f"{slug}.prd.md"
 content = path.read_text(encoding="utf-8")
 if "## PRD Review" not in content:
     raise SystemExit("PRD Review section missing in smoke scenario")
 if "Status: approved" not in content:
     content = content.replace("Status: pending", "Status: approved", 1)
+path.write_text(content, encoding="utf-8")
+PY
+
+log "expect block until research report ready"
+assert_gate_exit 2 "missing research report"
+
+log "collect research artefacts"
+python3 -m claude_workflow_cli.cli research --feature "$SLUG" --target . >/dev/null
+
+log "mark research summary as reviewed"
+python3 - "$SLUG" <<'PY'
+from pathlib import Path
+import sys
+
+slug = sys.argv[1]
+path = Path("docs/research") / f"{slug}.md"
+content = path.read_text(encoding="utf-8")
+if "Status: reviewed" not in content:
+    content = content.replace("Status: pending", "Status: reviewed", 1)
 path.write_text(content, encoding="utf-8")
 PY
 

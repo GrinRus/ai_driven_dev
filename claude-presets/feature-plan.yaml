@@ -16,6 +16,7 @@ context:
     - workflow.md
     - "{{design_path}}"
     - docs/prd/{{feature}}.prd.md
+    - docs/research/{{feature}}.md
     - docs/tasklist.template.md
     - docs/customization.md
   instructions:
@@ -25,6 +26,9 @@ context:
       Определи зависимости, риски и контрольные точки.
     - >-
       Свяжи план с будущими задачами тасклиста и гейтами (API, DB, тесты).
+    - >-
+      Учти выводы Researcher: куда встраиваем изменения, что переиспользуем,
+      какие долги и риски нужно закрыть.
 output:
   path: docs/plan/{{feature}}.md
   format: markdown

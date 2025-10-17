@@ -23,6 +23,23 @@
     "allow_missing_section": false,
     "require_action_items_closed": true
   },
+  "researcher": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "require_status": [
+      "reviewed"
+    ],
+    "freshness_days": 14,
+    "allow_missing": false,
+    "minimum_paths": 1
+  },
   "qa": {
     "enabled": true,
     "branches": [
