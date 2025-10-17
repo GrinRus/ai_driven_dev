@@ -192,42 +192,43 @@ def analyse_code_tokens(files: Iterable[str]) -> List[Finding]:
 
 
 def analyse_tasklist(slug: Optional[str]) -> List[Finding]:
-    tasklist_path = ROOT_DIR / "tasklist.md"
-    if not tasklist_path.exists():
-        return []
-    try:
-        lines = tasklist_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-
-    findings: List[Finding] = []
-    slug_tokens: Set[str] = set()
+    tasklist_dir = ROOT_DIR / "docs" / "tasklist"
+    candidates: List[Path] = []
     if slug:
-        slug_tokens = {
-            slug.lower(),
-            slug.replace("-", " ").lower(),
-            slug.replace("-", "_").lower(),
-        }
-
-    for idx, raw in enumerate(lines, start=1):
-        line = raw.strip()
-        if not line.startswith("- ["):
+        candidate = tasklist_dir / f"{slug}.md"
+        if candidate.exists():
+            candidates.append(candidate)
+    else:
+        candidates.extend(sorted(tasklist_dir.glob("*.md")))
+    findings: List[Finding] = []
+    for tasklist_path in candidates:
+        try:
+            lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
             continue
-        if re.match(r"- \[[xX]\]", line):
-            continue
-        if "qa" not in line.lower():
-            continue
-        if slug_tokens and not any(token in line.lower() for token in slug_tokens):
-            continue
-        findings.append(
-            Finding(
-                severity="blocker",
-                scope="checklist",
-                title="Незакрыт QA пункт в tasklist.md",
-                details=f"Строка {idx}: {line}",
-                recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
+        in_front_matter = False
+        for idx, raw in enumerate(lines, start=1):
+            stripped = raw.strip()
+            if stripped == "---":
+                in_front_matter = not in_front_matter
+                continue
+            if in_front_matter:
+                continue
+            if not stripped.startswith("- ["):
+                continue
+            if re.match(r"- \[[xX]\]", stripped):
+                continue
+            if "qa" not in stripped.lower():
+                continue
+            findings.append(
+                Finding(
+                    severity="blocker",
+                    scope="checklist",
+                    title=f"Незакрыт QA пункт в {tasklist_path.relative_to(ROOT_DIR)}",
+                    details=f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}",
+                    recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
+                )
             )
-        )
     return findings
 
 

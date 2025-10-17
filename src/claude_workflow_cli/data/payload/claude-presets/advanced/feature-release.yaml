@@ -16,7 +16,7 @@ context:
     - docs/prd/{{feature}}.prd.md
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
-    - tasklist.md
+    - docs/tasklist/{{feature}}.md
     - docs/usage-demo.md
     - docs/research/{{feature}}.md
     - "{{release_notes_path}}"

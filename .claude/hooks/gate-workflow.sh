@@ -160,24 +160,24 @@ fi
 
 [[ -f "docs/plan/$slug.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $slug"; exit 2; }
 if ! python3 - "$slug" <<'PY'
-import sys, pathlib
+import sys
+from pathlib import Path
+
 slug = sys.argv[1]
-tasklist = pathlib.Path("tasklist.md")
+tasklist = Path("docs") / "tasklist" / f"{slug}.md"
 if not tasklist.exists():
     sys.exit(1)
-slug_tokens = {slug, slug.replace("-", " "), slug.replace("-", "_")}
 for raw in tasklist.read_text(encoding="utf-8").splitlines():
     line = raw.strip()
     if not line.startswith("- [ ]"):
         continue
-    if "<slug>" in line:
+    if "<slug>" in line.lower():
         continue
-    if any(token and token in line for token in slug_tokens) or "::" in line:
-        sys.exit(0)
+    sys.exit(0)
 sys.exit(1)
 PY
 then
-  echo "BLOCK: нет задач → запустите /tasks-new $slug"
+  echo "BLOCK: нет задач → запустите /tasks-new $slug (docs/tasklist/$slug.md)"
   exit 2
 fi
 

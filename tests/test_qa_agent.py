@@ -41,7 +41,11 @@ class QaAgentTests(unittest.TestCase):
 
     def test_tasklist_qa_item_report(self):
         write_file(self.root, "docs/.active_feature", "checkout")
-        write_file(self.root, "tasklist.md", "- [ ] QA: smoke checkout flow\n")
+        write_file(
+            self.root,
+            "docs/tasklist/checkout.md",
+            "- [ ] QA: smoke checkout flow\n",
+        )
 
         report_path = self.root / "reports" / "qa" / "checkout.json"
         result = self.run_agent(

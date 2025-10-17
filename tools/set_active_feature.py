@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 from pathlib import Path
 from typing import Optional, Sequence
@@ -39,6 +40,56 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _slug_to_title(slug: str) -> str:
+    parts = [chunk for chunk in slug.replace("_", "-").split("-") if chunk]
+    if not parts:
+        return slug
+    return " ".join(part.capitalize() for part in parts)
+
+
+def _render_body_with_heading(original: str, title: str) -> str:
+    lines = original.splitlines()
+    idx = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if idx is None:
+        return f"# Tasklist — {title}\n"
+    first = lines[idx].strip()
+    if first.lower().startswith("# tasklist"):
+        lines[idx] = f"# Tasklist — {title}"
+    else:
+        lines.insert(idx, f"# Tasklist — {title}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _maybe_migrate_tasklist(root: Path, slug: str) -> None:
+    legacy = root / "tasklist.md"
+    if not legacy.exists():
+        return
+    destination = root / "docs" / "tasklist" / f"{slug}.md"
+    if destination.exists():
+        return
+    try:
+        title = _slug_to_title(slug)
+        today = dt.date.today().isoformat()
+        legacy_text = legacy.read_text(encoding="utf-8")
+        body = _render_body_with_heading(legacy_text, title)
+        front_matter = (
+            "---\n"
+            f"Feature: {slug}\n"
+            "Status: draft\n"
+            f"PRD: docs/prd/{slug}.prd.md\n"
+            f"Plan: docs/plan/{slug}.md\n"
+            f"Research: docs/research/{slug}.md\n"
+            f"Updated: {today}\n"
+            "---\n\n"
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(front_matter + body, encoding="utf-8")
+        legacy.unlink()
+        print(f"[tasklist] migrated legacy tasklist.md to {destination}", file=sys.stderr)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print(f"[tasklist] failed to migrate legacy tasklist.md: {exc}", file=sys.stderr)
+
+
 def _split_keywords(value: Optional[str]) -> Sequence[str]:
     if not value:
         return []
@@ -50,8 +101,9 @@ def main() -> None:
     root = Path(args.target).resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_feature").write_text(args.slug, encoding="utf-8")
+    (docs_dir / ".active_feature").write_text(args.slug + "\n", encoding="utf-8")
     print(f"active feature: {args.slug}")
+    _maybe_migrate_tasklist(root, args.slug)
 
     if ResearcherContextBuilder is None:
         print("[researcher] skip: researcher_context module not found", file=sys.stderr)

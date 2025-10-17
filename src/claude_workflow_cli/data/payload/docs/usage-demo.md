@@ -129,15 +129,15 @@ demo-monorepo/
 1. В Claude Code выполните `/idea-new demo-checkout DEMO-1` — команда зафиксирует slug в `docs/.active_feature`, соберёт PRD и список уточнений.
    - Агент начнёт с `Вопрос 1: …`. Отвечайте на каждый пункт строго в формате `Ответ 1: …`, `Ответ 2: …`, пока статус не станет READY и раздел `## Диалог analyst` не заполнится.
    - После генерации PRD выполните `claude-workflow analyst-check --feature demo-checkout`. Если проверка сообщает о пропущенных ответах или статусе BLOCKED, вернитесь к агенту и дополните сведения.
-2. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `tasklist.md`.
+2. Постройте план и чеклисты: `/plan-new demo-checkout` сформирует план, а `/tasks-new demo-checkout` перенесёт его в `docs/tasklist/demo-checkout.md`.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты: миграции, OpenAPI-файлы, расширенные тесты.
 4. Запустите `/implement demo-checkout` — агент будет идти малыми шагами, а `.claude/hooks/format-and-test.sh` автоматически выполнит форматирование и выборочные тесты (отключаемо `SKIP_AUTO_TESTS=1`).
-5. Фиксируйте прогресс в git (`git commit -m "DEMO-1: add rule engine"`), пока tasklist не будет закрыт и тесты не станут зелёными.
+5. Фиксируйте прогресс в git (`git commit -m "DEMO-1: add rule engine"`), пока `docs/tasklist/demo-checkout.md` не будет закрыт и тесты не станут зелёными.
 
 ## Проверка результата в Claude Code
 1. Создайте ветку `git checkout -b feature/DEMO-1`, соблюдая выбранную конвенцию.
-2. Запустите `/idea-new`, `/plan-new`, `/tasks-new` и убедитесь, что `docs/` и `tasklist.md` обновились.
-3. Проверьте гейты: `gate-workflow` пропускает правки только после появления PRD/плана/tasklist; при включённых флагах `api_contract`, `db_migration`, `tests_required` появятся подсказки о недостающих артефактах.
+2. Запустите `/idea-new`, `/plan-new`, `/tasks-new` и убедитесь, что `docs/` и `docs/tasklist/<slug>.md` обновились.
+3. Проверьте гейты: `gate-workflow` пропускает правки только после появления PRD/плана/tasklist (`docs/tasklist/<slug>.md`); при включённых флагах `api_contract`, `db_migration`, `tests_required` появятся подсказки о недостающих артефактах.
 4. После правок убедитесь, что `.claude/hooks/format-and-test.sh` запускается автоматически; при необходимости используйте `SKIP_AUTO_TESTS=1` для паузы, `FORMAT_ONLY=1` или `TEST_SCOPE=":module:test"` для точечной настройки и запускайте скрипт вручную при сложных изменениях.
 5. Зафиксируйте изменения (`git commit -m "DEMO-1: implement rule engine"`) и вызовите `/review demo-checkout`, чтобы закрыть чеклист и убедиться, что режим коммитов синхронизирован.
 
@@ -154,7 +154,7 @@ demo-monorepo/
 | --- | --- | --- | --- |
 | `feature-prd` | Черновик PRD и метрики успеха | `docs/prd/<slug>.prd.md` | `claude-presets/` |
 | `feature-plan` | План реализации и контрольные точки | `docs/plan/<slug>.md` | `claude-presets/` |
-| `feature-impl` | Секция чеклистов в tasklist | `tasklist.md` | `claude-presets/` |
+| `feature-impl` | Секция чеклистов в tasklist | `docs/tasklist/<slug>.md` | `claude-presets/` |
 | `feature-design` | Архитектура/ADR для фичи | `docs/design/<slug>.md` | `claude-presets/advanced/` |
 | `feature-release` | Запись в релизных заметках | `docs/release-notes.md` | `claude-presets/advanced/` |
 

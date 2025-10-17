@@ -129,7 +129,7 @@ assert_gate_exit 2 "missing tasklist items"
 log "apply preset feature-impl"
 bash "$INIT_SCRIPT" --preset feature-impl --feature "$SLUG" >/dev/null
 log "tasklist snapshot"
-tail -n 10 tasklist.md
+tail -n 10 "docs/tasklist/${SLUG}.md"
 
 log "gate now allows source edits"
 assert_gate_exit 0 "all artifacts ready"
@@ -139,7 +139,7 @@ log "verify generated artifacts"
 [[ -f "docs/plan/${SLUG}.md" ]]
 grep -q "Claude Code" "docs/prd/${SLUG}.prd.md"
 grep -q "Status: approved" "docs/prd/${SLUG}.prd.md"
-grep -q "Demo Checkout" tasklist.md
+grep -q "Demo Checkout" "docs/tasklist/${SLUG}.md"
 
 popd >/dev/null
 log "smoke scenario passed"

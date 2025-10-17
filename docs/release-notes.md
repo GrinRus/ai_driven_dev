@@ -52,3 +52,11 @@
 - [ ] Обновить Wave backlog: перенести оставшиеся задачи в следующую волну.
 
 Храните заметки в одном файле (`docs/release-notes.md`), добавляя записи в обратном хронологическом порядке.
+
+## vNext — YYYY-MM-DD
+
+### Changed
+- Tasklist чеклисты перенесены в `docs/tasklist/<slug>.md`: обновлены шаблоны, init/CLI пресеты, гейты и документация, добавлена автомиграция через `scripts/migrate-tasklist.py` и `set_active_feature.py`.
+
+### Migration
+- Запустить `python3 scripts/migrate-tasklist.py --slug <slug>` в проектах с legacy `tasklist.md`, либо повторно вызвать `tools/set_active_feature.py <slug>` для автопереноса. Убедиться, что гейты используют новый путь и PRD/план ссылаются на `docs/tasklist/<slug>.md`.

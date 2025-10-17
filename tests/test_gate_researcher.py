@@ -41,7 +41,11 @@ class GateResearcherTests(unittest.TestCase):
             "# PRD\n\n## PRD Review\nStatus: approved\n- [x] ready\n",
         )
         write_file(self.root, "docs/plan/demo-checkout.md", "# План\n")
-        write_file(self.root, "tasklist.md", "- [ ] demo-checkout :: prepare plan\n")
+        write_file(
+            self.root,
+            "docs/tasklist/demo-checkout.md",
+            "- [ ] prepare plan\n",
+        )
         write_json(
             self.root,
             "reports/prd/demo-checkout.json",

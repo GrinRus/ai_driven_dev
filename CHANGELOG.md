@@ -14,6 +14,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `/.claude/agents/analyst.md`, PRD template with `## Диалог analyst`, new CLI command `claude-workflow analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 
+### Changed
+- Tasklist артефакты перемещены в `docs/tasklist/<slug>.md`: обновлены шаблоны, init/CLI пресеты, гейты, тесты и документация; добавлен скрипт миграции `scripts/migrate-tasklist.py` и автоперенос в `set_active_feature.py`.
+
 ### Fixed
 - CLI now falls back to the bundled payload when release downloads fail.
 

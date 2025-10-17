@@ -83,11 +83,19 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_file(
         tmp_path,
-        "tasklist.md",
+        "docs/tasklist/demo-checkout.md",
         dedent(
             """\
-            # demo tasklist
-            - [ ] Demo Checkout :: подготовить PRD/план/tasklist
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] QA :: подготовить smoke сценарии
             """
         ),
     )

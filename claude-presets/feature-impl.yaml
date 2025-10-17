@@ -9,7 +9,7 @@ variables:
     prompt: "Slug активной фичи."
   tasklist_section:
     prompt: >-
-      Имя секции в tasklist.md для обновления статусов.
+      Имя секции в docs/tasklist/{{feature}}.md для обновления статусов.
     default: "{{feature}}"
 context:
   files:
@@ -18,22 +18,22 @@ context:
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
     - docs/research/{{feature}}.md
-    - tasklist.md
+    - docs/tasklist/{{feature}}.md
     - docs/customization.md
   instructions:
     - >-
-      Сверь текущий статус фичи {{feature}} с планом и тасклистом.
+      Сверь текущий статус фичи {{feature}} с планом и tasklist (docs/tasklist/{{feature}}.md).
     - >-
       Предложи разбивку работы на итерации и проверь критерии прохождения
       гейтов.
     - >-
-      Сформируй блок обновлений для tasklist.md в секции
+      Сформируй блок обновлений для docs/tasklist/{{feature}}.md в секции
       {{tasklist_section}}.
     - >-
       Уточни, какие подсистемы затрагивает Researcher, и зафиксируй
       действия для повторного использования и закрытия рисков.
 output:
-  path: tasklist.md
+  path: docs/tasklist/{{feature}}.md
   format: markdown
   mode: append
   anchor: "## {{tasklist_section}}"

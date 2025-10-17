@@ -79,7 +79,7 @@ def format_message(kind: str, slug: str, status: str | None = None) -> str:
         human = status or "pending"
         return f"BLOCK: PRD Review не утверждён (Status: {human}) → выполните /review-prd {slug}"
     if kind == "open_actions":
-        return "BLOCK: В PRD Review остались незакрытые action items → перенесите их в tasklist и отметьте выполнение."
+        return f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в docs/tasklist/{slug}.md и отметьте выполнение."
     return f"BLOCK: PRD Review не готов → выполните /review-prd {slug}"
 
 

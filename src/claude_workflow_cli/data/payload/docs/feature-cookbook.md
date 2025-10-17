@@ -17,7 +17,7 @@
   `docs/templates/research-summary.md`; зафиксируйте точки интеграции,
   reuse-компоненты и риски.
 - Проставьте `Status: reviewed`, как только вывод согласован, и перенесите
-  блокирующие действия в `docs/plan/<slug>.md` и `tasklist.md`.
+  блокирующие действия в `docs/plan/<slug>.md` и `docs/tasklist/<slug>.md`.
 
 ## Plan → Implementation
 - Проверяйте, что план покрывает все директории из `reports/research/<slug>-targets.json`.

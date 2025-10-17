@@ -17,9 +17,9 @@
   `docs/templates/research-summary.md`; зафиксируйте точки интеграции,
   reuse-компоненты и риски.
 - Вставьте ссылку на `docs/research/<slug>.md` в раздел артефактов PRD и
-  чеклист `tasklist.md`, чтобы команда видела результаты исследования.
+  чеклист `docs/tasklist/<slug>.md`, чтобы команда видела результаты исследования.
 - Проставьте `Status: reviewed`, как только вывод согласован, и перенесите
-  блокирующие действия в `docs/plan/<slug>.md` и `tasklist.md`.
+  блокирующие действия в `docs/plan/<slug>.md` и `docs/tasklist/<slug>.md`.
 
 ## Plan → Implementation
 - Проверяйте, что план покрывает все директории из `reports/research/<slug>-targets.json`.

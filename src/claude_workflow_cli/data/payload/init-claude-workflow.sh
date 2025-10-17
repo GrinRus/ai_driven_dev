@@ -329,6 +329,84 @@ copy_presets() {
   copy_payload_dir "claude-presets"
 }
 
+tasklist_path_for_slug() {
+  local slug="$1"
+  printf 'docs/tasklist/%s.md\n' "$slug"
+}
+
+render_tasklist_template() {
+  local slug="$1"
+  local title="$2"
+  local updated="$3"
+  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - "$slug" "$title" "$updated" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+slug, title, updated = sys.argv[1:4]
+template_candidates = [
+    Path("templates/tasklist.md"),
+    Path(os.environ.get("CLAUDE_TEMPLATE_DIR", "")) / "templates/tasklist.md",
+]
+template_text = None
+for candidate in template_candidates:
+    if candidate.exists():
+        template_text = candidate.read_text(encoding="utf-8")
+        break
+if template_text is None:
+    template_text = """---
+Feature: {slug}
+Status: draft
+PRD: docs/prd/{slug}.prd.md
+Plan: docs/plan/{slug}.md
+Research: docs/research/{slug}.md
+Updated: {updated}
+---
+
+# Tasklist — {title}
+
+## 1. Аналитика и дизайн
+- [ ] Обновите пункты чеклиста под свою фичу.
+"""
+
+replacements = {
+    "<slug>": slug,
+    "<feature name>": title,
+    "<Feature title>": title,
+    "<Feature name>": title,
+    "YYYY-MM-DD": updated,
+}
+
+text = template_text
+for placeholder, value in replacements.items():
+    text = text.replace(placeholder, value)
+
+print(text)
+PY
+}
+
+ensure_tasklist_file() {
+  local slug="$1"
+  local title="$2"
+  local path
+  path="$(tasklist_path_for_slug "$slug")"
+  if [[ -f "$path" && "$FORCE" -ne 1 ]]; then
+    log_info "tasklist exists: ${path}"
+    return
+  fi
+  local today
+  today="$(date +%Y-%m-%d)"
+  local content
+  content="$(render_tasklist_template "$slug" "$title" "$today")"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] write tasklist ${path}"
+    return
+  fi
+  mkdir -p "$(dirname "$path")"
+  printf '%s\n' "$content" >"$path"
+  log_info "written: ${path}"
+}
+
 append_if_missing() {
   local path="$1"
   local marker="$2"
@@ -467,7 +545,10 @@ EOF
       fi
       local block="${section}
 ${checklist_block}"
-      append_if_missing "tasklist.md" "$section" "$block"
+      ensure_tasklist_file "$slug" "$title"
+      local tasklist_path
+      tasklist_path="$(tasklist_path_for_slug "$slug")"
+      append_if_missing "$tasklist_path" "$section" "$block"
       ;;
     feature-release)
       local release_block="## ${title}
@@ -509,7 +590,7 @@ generate_core_docs() {
 
 generate_templates() {
   copy_payload_dir "docs"
-  copy_template "templates/tasklist.md" "tasklist.md"
+  copy_template "templates/tasklist.md" "templates/tasklist.md"
   copy_payload_dir "templates/git-hooks" "templates/git-hooks"
 }
 
