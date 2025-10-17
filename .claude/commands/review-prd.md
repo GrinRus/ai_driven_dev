@@ -8,4 +8,4 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 scripts/prd-review-agent.p
 3) Обнови раздел `## PRD Review` в `docs/prd/$1.prd.md`: выстави `Status: approved|blocked|pending`, добавь summary, findings и action items (чеклист).
 4) Перенеси блокирующие action items в `tasklist.md`, назначь владельцев и сроки закрытия.
 5) Зафиксируй результат в логах:
-!`python3 scripts/prd-review-agent.py --slug "$1" --report "reports/prd/$1.json" --emit-text`
+!bash -lc 'python3 scripts/prd-review-agent.py --slug "$1" --report "reports/prd/$1.json" --emit-text'

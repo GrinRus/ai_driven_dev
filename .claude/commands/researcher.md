@@ -5,7 +5,7 @@ allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 ---
 1) Убедись, что активная фича совпадает со `slug`: файл `docs/.active_feature` должен содержать `$1`. Если нет — запусти `/idea-new $1`.
 2) Сформируй контекст для поиска: вызови
-!`claude-workflow research --feature "$1" {{optional args}}`
+!bash -lc 'claude-workflow research --feature "$1"'
    - добавь `--paths "pathA:pathB"` для ручного расширения областей анализа;
    - укажи `--dry-run`, чтобы только собрать контекст без запуска агента.
 3) Если отчёт ещё не создан, распакуй шаблон:
