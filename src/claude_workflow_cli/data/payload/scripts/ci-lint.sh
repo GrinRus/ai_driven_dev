@@ -17,7 +17,10 @@ run_shellcheck() {
     warn "shellcheck not found; skipping shell script lint"
     return
   fi
-  mapfile -d '' -t SH_FILES < <(find . -type f \( -name "*.sh" -o -name "*.bash" \) -print0)
+  local SH_FILES=()
+  while IFS= read -r -d '' file; do
+    SH_FILES+=("$file")
+  done < <(find . -type f \( -name "*.sh" -o -name "*.bash" \) -print0)
   if ((${#SH_FILES[@]} == 0)); then
     log "no shell scripts detected for shellcheck"
     return
@@ -34,7 +37,10 @@ run_markdownlint() {
     warn "markdownlint not found; skipping markdown lint"
     return
   fi
-  mapfile -d '' -t MD_FILES < <(find . -type f -name "*.md" ! -path "*/node_modules/*" -print0)
+  local MD_FILES=()
+  while IFS= read -r -d '' file; do
+    MD_FILES+=("$file")
+  done < <(find . -type f -name "*.md" ! -path "*/node_modules/*" -print0)
   if ((${#MD_FILES[@]} == 0)); then
     log "no markdown files detected"
     return
@@ -51,7 +57,10 @@ run_yamllint() {
     warn "yamllint not found; skipping yaml lint"
     return
   fi
-  mapfile -d '' -t YML_FILES < <(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
+  local YML_FILES=()
+  while IFS= read -r -d '' file; do
+    YML_FILES+=("$file")
+  done < <(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
   if ((${#YML_FILES[@]} == 0)); then
     log "no yaml files detected"
     return

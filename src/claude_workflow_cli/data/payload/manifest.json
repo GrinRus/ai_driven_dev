@@ -169,15 +169,9 @@
       "type": "file"
     },
     {
-      "path": ".claude/hooks/protect-prod.sh",
-      "size": 4375,
-      "sha256": "692f76f4e72816363cb86e1f7a5bbfd6a91690309e65c5861d74804519b80171",
-      "type": "file"
-    },
-    {
       "path": ".claude/settings.json",
-      "size": 8065,
-      "sha256": "abf495f4cd31a8ad4d7458edeeab9817ce7f067dfdb5364f2bc0061bee021fea",
+      "size": 7267,
+      "sha256": "f60103d19d6f0ab05c53ef4893aec471f36a5ce3d619e173b0d861dd0f5a0c6d",
       "type": "file"
     },
     {
@@ -188,8 +182,8 @@
     },
     {
       "path": "CLAUDE.md",
-      "size": 2378,
-      "sha256": "5b17fc0d069eab14961244e54aa37409151bd0e21b761065acad03db21872ed8",
+      "size": 2258,
+      "sha256": "3bbc9c04cbecfbea4ea7be6859daa67c0e1c1cce5ce93fbe3be96e9da092ffb9",
       "type": "file"
     },
     {
@@ -248,8 +242,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 52111,
-      "sha256": "f5a16779d4baa91fb62ca4095250e41d2376dc6be1c9ef3b910a712606a9dba3",
+      "size": 52531,
+      "sha256": "b109bc6afeccc7468a65335e6748dd558d7817b49f90a698aa930a3e162d69f0",
       "type": "file"
     },
     {
@@ -326,14 +320,14 @@
     },
     {
       "path": "manifest.json",
-      "size": 12195,
-      "sha256": "d99738dc77055fa0a0b3b9ec0b0695f1dc35c99073812c69fe5f4f11eac24be3",
+      "size": 12375,
+      "sha256": "7d8ac040bbe0b89324d1f906fd1c5c146a6ed7807902432ec4b4b86c4a75b7d2",
       "type": "file"
     },
     {
       "path": "scripts/ci-lint.sh",
-      "size": 2218,
-      "sha256": "acf835355ae90e4e1bd118b21d68e1b33b396eaf9b0d0d220eaad6b2c21a2c95",
+      "size": 2396,
+      "sha256": "a214f78d1f1310236426056f11be5be8e082e8b555ba9374c136fcd84cadceaa",
       "type": "file"
     },
     {

@@ -37,7 +37,7 @@
 ## Что входит в шаблон
 - Слэш-команды Claude Code и саб-агенты для подготовки PRD/ADR/Tasklist, генерации документации и валидации коммитов.
 - Многошаговый workflow (идея → план → PRD review → задачи → реализация → ревью → QA) с саб-агентами `analyst/planner/prd-reviewer/validator/implementer/reviewer/qa`; дополнительные проверки включаются через `config/gates.json`.
-- Git-хуки для автоформатирования, запуска выборочных тестов и защиты продакшн-артефактов.
+- Git-хуки для автоформатирования, запуска выборочных тестов и workflow-гейтов.
 - Конфигурация коммитов (`ticket-prefix`, `conventional`, `mixed`) и вспомогательные скрипты CLI.
 - Базовый набор документации, issue/PR шаблонов и CI workflow (включается флагом `--enable-ci`).
 - Локальная, прозрачная установка без зависимости от Spec Kit или BMAD.
@@ -45,7 +45,7 @@
 ## Архитектура workflow
 1. `init-claude-workflow.sh` разворачивает структуру `.claude/`, конфиги и шаблоны.
 2. Slash-команды Claude Code запускают многошаговый процесс (см. `workflow.md`): от идеи и плана до реализации и ревью, подключая специализированных саб-агентов.
-3. Пресет `strict` в `.claude/settings.json` включает `protect-prod`, `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh`; дополнительные гейты (`gate-api-contract`, `gate-db-migration`, `gate-tests`, `gate-qa`) включаются флагами в `config/gates.json`.
+3. Пресет `strict` в `.claude/settings.json` включает `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh`; дополнительные гейты (`gate-api-contract`, `gate-db-migration`, `gate-tests`, `gate-qa`) включаются флагами в `config/gates.json`.
 4. Git-хук `format-and-test.sh` выполняет форматирование и выборочные Gradle-тесты; полный прогон инициируется при изменении общих артефактов.
 5. Политики доступа и режимы веток/коммитов управляются через `.claude/settings.json` и `config/conventions.json`.
 
@@ -57,7 +57,7 @@
 | `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, pre/post-хуки, auto-форматирование/тесты, защита prod-путей |
 | `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
 | `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa`, `db-migrator`, `contract-checker` |
-| `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `protect-prod.sh`, `lint-deps.sh`, `format-and-test.sh` |
+| `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
 | `.claude/gradle/` *(создаётся при установке)* | Gradle-хелперы | `init-print-projects.gradle` объявляет задачу `ccPrintProjectDirs` для selective runner |
 | `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_slug_source` |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
@@ -93,7 +93,7 @@
 - `.claude/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного slug нет PRD, плана или чекбоксов в `docs/tasklist/<slug>.md`, игнорирует изменения в документации/шаблонах.
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — опциональные проверки из `config/gates.json`: контролируют наличие OpenAPI-файлов, миграций Flyway/Liquibase и сопутствующих тестов (`disabled|soft|hard`), выводят подсказки по разблокировке.
 - `.claude/hooks/gate-qa.sh` — вызывает `scripts/qa-agent.py`, формирует `reports/qa/<slug>.json`, маркирует `blocker/critical` как блокирующие; см. `docs/qa-playbook.md`.
-- `.claude/hooks/protect-prod.sh` и `lint-deps.sh` — защищают продакшн-пути (`infra/prod/**`, `deploy/prod/**`), уважают `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`, проверяют allowlist `config/allowed-deps.txt` и анализируют diff Gradle-файлов.
+- `.claude/hooks/lint-deps.sh` — отслеживает изменения зависимостей, сверяет их с allowlist `config/allowed-deps.txt` и сигнализирует при расхождениях.
 - `.claude/gradle/init-print-projects.gradle` — вспомогательный скрипт, регистрирует задачу `ccPrintProjectDirs` для построения кеша модулей selective runner.
 
 ### Саб-агенты Claude Code
@@ -116,7 +116,7 @@
 - Сообщения коммитов формируйте вручную (`git commit`), сверяясь со схемами в `config/conventions.json`.
 
 ### Конфигурация и политики
-- `.claude/settings.json` — пресеты `start/strict`, списки `allow/ask/deny`, pre/post-хуки, параметры `automation` (формат/тесты) и `protection` с переменными `PROTECT_PROD_BYPASS`/`PROTECT_LOG_ONLY`.
+- `.claude/settings.json` — пресеты `start/strict`, списки `allow/ask/deny` и параметры `automation` (формат/тесты).
 - `config/conventions.json` — commit/branch режимы (`ticket-prefix`, `conventional`, `mixed`), шаблоны сообщений, примеры, заметки для ревью и CLI.
 - `config/gates.json` — флаги `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, `qa`, `feature_slug_source`; управляет поведением гейтов и `lint-deps.sh`.
 - `config/allowed-deps.txt` — allowlist `group:artifact`, поддерживает комментарии, используется `lint-deps.sh`.
@@ -140,7 +140,7 @@
 
 ## Архитектура и взаимосвязи
 - Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды, которые затем задействуются hook-пайплайном.
-- Пресет `strict` в `.claude/settings.json` подключает pre/post-хуки, автоматически запускает `.claude/hooks/format-and-test.sh` после успешной записи и привязывает защиту продовых путей.
+- Пресет `strict` в `.claude/settings.json` подключает pre/post-хуки и автоматически запускает `.claude/hooks/format-and-test.sh` после успешной записи.
 - Гейты (`gate-*`) читают `config/gates.json` и артефакты в `docs/**`, обеспечивая прохождение цепочки `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new`; включайте дополнительные проверки (`researcher`, `prd_review`, `api_contract`, `db_migration`, `tests_required`) по мере необходимости.
 - `.claude/hooks/format-and-test.sh` опирается на Gradle-скрипт `init-print-projects.gradle`, slug в `docs/.active_feature` и `moduleMatrix`, чтобы решать, запускать ли selective или полный набор задач.
 - Тестовый набор на Python использует `tests/helpers.py` для эмуляции git/файловой системы, покрывая dry-run, tracked/untracked изменения и поведение хуков.
@@ -150,7 +150,7 @@
 - **`.claude/hooks/format-and-test.sh`** — анализирует `git diff`, собирает задачи из `automation.tests` (`changedOnly`, `moduleMatrix`), уважает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS` и умеет подстраивать полный прогон при изменении общих файлов.
 - **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока не создана цепочка PRD/план/tasklist для активной фичи (`docs/.active_feature`); проверяет чекбоксы `docs/tasklist/<slug>.md`.
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — опциональные гейты: при включении проверяют наличие OpenAPI (`docs/api/<slug>.yaml`), миграций в `src/main/resources/**/db/migration/` и тестов `src/test/**` (режимы задаёт `config/gates.json`).
-- **`protect-prod.sh` и `lint-deps.sh`** — защищают продовые пути (`infra/prod/**`, `deploy/prod/**`), поддерживают allowlist зависимостей `config/allowed-deps.txt` и поддерживают bypass/log-only переменные окружения.
+- **`lint-deps.sh`** — напоминает про allowlist зависимостей из `config/allowed-deps.txt` и анализирует изменения Gradle-конфигураций.
 - **`scripts/ci-lint.sh`** — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, используется локально и в GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — поднимает временной проект, гоняет init-скрипт и проверяет прохождение `gate-workflow` по шагам `/idea-new → /plan-new → /review-prd → /tasks-new`.
 - **`examples/apply-demo.sh`** — пошагово применяет шаблон к директории с Gradle-модулями, демонстрируя интеграцию с `gradlew`.
@@ -166,15 +166,15 @@
 
 ## Диагностика и отладка
 - **Линтеры и тесты:** запускайте `scripts/ci-lint.sh` для полного набора (`shellcheck`, `markdownlint`, `yamllint`, `python -m unittest`) или адресно `python3 -m unittest tests/test_gate_workflow.py`.
-- **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `.claude/hooks/format-and-test.sh`; `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY` ослабляют `protect-prod.sh`.
+- **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `.claude/hooks/format-and-test.sh`.
 - **Диагностика гейтов:** передайте payload через stdin: `echo '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}' | CLAUDE_PROJECT_DIR=$PWD .claude/hooks/gate-workflow.sh`.
 - **Selective runner:** выполните `./gradlew -I .claude/gradle/init-print-projects.gradle ccPrintProjectDirs` — задача выведет пары `:module:/abs/path`; перенаправьте вывод в `.claude/cache/project-dirs.txt` или используйте результат для обновления `automation.tests.moduleMatrix`.
 - **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /review-prd → /tasks-new`.
 - **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
 
 ## Политики доступа и гейты
-- `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй включает pre- и post-хуки (`protect-prod`, `gate-*`, `format-and-test`, `lint-deps`) и требует явного подтверждения `git add/commit/push`.
-- Раздел `automation` управляет форматированием и тестами, а `protection` задаёт сохранность продовых артефактов с поддержкой `PROTECT_PROD_BYPASS` и `PROTECT_LOG_ONLY`.
+- `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй включает pre- и post-хуки (`gate-*`, `format-and-test`, `lint-deps`) и требует явного подтверждения `git add/commit/push`.
+- Раздел `automation` управляет форматированием и тестами; настройте `format`/`tests` под ваш Gradle-пайплайн.
 - `config/gates.json` централизует флаги `api_contract`, `db_migration`, `tests_required` и `deps_allowlist`, а также путь к активной фиче (`feature_slug_source`).
 - Комбинация хуков `gate-*` в `.claude/hooks/` реализует согласованную политику: блокировка кода без артефактов, требование миграций и тестов, контроль API-контрактов.
 

@@ -54,7 +54,7 @@
 
 ## Автоматизация и гейты
 
-- Пресет `strict` в `.claude/settings.json` включает защиту `protect-prod`, pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
+- Пресет `strict` в `.claude/settings.json` включает pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
 - `config/gates.json` управляет дополнительными проверками:
   - `api_contract` — при `true` ожидает наличие `docs/api/<slug>.yaml` для контроллеров.
   - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.

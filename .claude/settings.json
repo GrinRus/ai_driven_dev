@@ -32,7 +32,7 @@
         }
       },
       "strict": {
-        "description": "Строгий режим: включены проверки защищённых путей и автозапуск форматирования/тестов.",
+        "description": "Строгий режим: включает дополнительные гейты и автозапуск форматирования/тестов.",
         "permissions": {
           "allow": [
             "Read",
@@ -67,11 +67,6 @@
             {
               "matcher": "Write|Edit",
               "hooks": [
-                {
-                  "type": "command",
-                  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh",
-                  "timeout": 5
-                },
                 {
                   "type": "command",
                   "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
@@ -162,11 +157,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
             "timeout": 5
           },
@@ -243,18 +233,5 @@
         "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать."
       }
     }
-  },
-  "protection": {
-    "protectedGlobs": [
-      "infra/prod/*",
-      "deploy/prod/*"
-    ],
-    "allowlist": [
-      "infra/prod/README.md"
-    ],
-    "bypassEnv": "PROTECT_PROD_BYPASS",
-    "logOnlyEnv": "PROTECT_LOG_ONLY",
-    "docs": "docs/customization.md#prod-protection",
-    "notes": "Добавьте новые паттерны или перенесите объекты в allowlist, если они безопасны."
   }
 }

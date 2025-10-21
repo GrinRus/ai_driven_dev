@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Tuple
 
 LOG_PREFIX = "[format-and-test]"
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -29,6 +29,166 @@ COMMON_PATTERNS = (
     "build.gradle.kts",
     "buildSrc/",
 )
+
+DEFAULT_CODE_PATHS = (
+    "src",
+    "app",
+    "apps",
+    "modules",
+    "packages",
+    "service",
+    "services",
+    "backend",
+    "frontend",
+    "lib",
+    "libs",
+    "server",
+    "client",
+    "core",
+    "domain",
+    "shared",
+    "python",
+    "java",
+    "kotlin",
+)
+
+DEFAULT_CODE_EXTENSIONS = (
+    ".kt",
+    ".kts",
+    ".java",
+    ".groovy",
+    ".gradle",
+    ".gradle.kts",
+    ".scala",
+    ".swift",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".go",
+    ".rb",
+    ".rs",
+    ".py",
+    ".pyi",
+    ".pyx",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".m",
+    ".mm",
+    ".php",
+    ".dart",
+    ".mjs",
+    ".cjs",
+    ".fs",
+    ".fsx",
+    ".fsharp",
+    ".hs",
+    ".erl",
+    ".ex",
+    ".exs",
+    ".cls",
+)
+
+DEFAULT_CODE_FILES = (
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "pom.xml",
+)
+
+
+def dedupe_preserve(items: Iterable[str]) -> Tuple[str, ...]:
+    seen: set[str] = set()
+    result: List[str] = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return tuple(result)
+
+
+def normalize_code_paths(values: Iterable[str] | None) -> Tuple[str, ...]:
+    if values is None:
+        values = DEFAULT_CODE_PATHS
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("./")
+        if not text:
+            continue
+        text = text.rstrip("/")
+        if not text:
+            continue
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
+
+
+def normalize_code_extensions(values: Iterable[str] | None) -> Tuple[str, ...]:
+    if values is None:
+        values = DEFAULT_CODE_EXTENSIONS
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("*")
+        if not text:
+            continue
+        if not text.startswith("."):
+            text = f".{text}"
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
+
+
+def normalize_code_files(values: Iterable[str] | None) -> Tuple[str, ...]:
+    if values is None:
+        values = DEFAULT_CODE_FILES
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("./")
+        if not text:
+            continue
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
+
+
+def is_code_related(path: str, prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
+    if not path:
+        return False
+    normalized = path.lstrip("./")
+    lowered = normalized.lower()
+    if lowered in exact:
+        return True
+    for prefix in prefixes:
+        if not prefix:
+            continue
+        if lowered == prefix or lowered.startswith(prefix + "/"):
+            return True
+    for suffix in suffixes:
+        if not suffix:
+            continue
+        if lowered.endswith(suffix):
+            return True
+    return False
+
+
+def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: Tuple[str, ...], exact: Tuple[str, ...]) -> bool:
+    for path in files:
+        if is_code_related(path, prefixes, suffixes, exact):
+            return True
+    return False
 
 
 def log(message: str) -> None:
@@ -153,21 +313,6 @@ def main() -> int:
     changed_only_default = bool(tests_cfg.get("changedOnly", True))
     strict_default = bool(tests_cfg.get("strictDefault", 1))
 
-    skip_format = os.environ.get("SKIP_FORMAT", "0") == "1"
-    if skip_format:
-        log("SKIP_FORMAT=1 — форматирование пропущено.")
-    else:
-        if not format_commands:
-            log("Команды форматирования не настроены (automation.format.commands).")
-        else:
-            for cmd in format_commands:
-                if not run_subprocess(cmd):
-                    return 1
-
-    if os.environ.get("FORMAT_ONLY", "0") == "1":
-        log("FORMAT_ONLY=1 — стадия тестов пропущена.")
-        return 0
-
     strict_flag = env_flag("STRICT_TESTS")
     if strict_flag is None:
         strict_flag = strict_default
@@ -183,7 +328,64 @@ def main() -> int:
             append_unique(test_tasks, item)
         changed_only_flag = False
 
+    code_paths_raw = tests_cfg.get("codePaths")
+    if isinstance(code_paths_raw, list):
+        code_prefixes = normalize_code_paths(code_paths_raw)
+    elif code_paths_raw is None:
+        code_prefixes = normalize_code_paths(None)
+    else:
+        code_prefixes = normalize_code_paths([code_paths_raw])
+
+    code_ext_raw = tests_cfg.get("codeExtensions")
+    if isinstance(code_ext_raw, list):
+        code_suffixes = normalize_code_extensions(code_ext_raw)
+    elif code_ext_raw is None:
+        code_suffixes = normalize_code_extensions(None)
+    else:
+        code_suffixes = normalize_code_extensions([code_ext_raw])
+
+    code_files_raw = tests_cfg.get("codeFiles")
+    if isinstance(code_files_raw, list):
+        code_exact = normalize_code_files(code_files_raw)
+    elif code_files_raw is None:
+        code_exact = normalize_code_files(None)
+    else:
+        code_exact = normalize_code_files([code_files_raw])
+
     changed_files = collect_changed_files()
+
+    skip_format_flag = os.environ.get("SKIP_FORMAT", "0") == "1"
+    format_only_flag = os.environ.get("FORMAT_ONLY", "0") == "1"
+
+    if changed_only_flag:
+        if not changed_files:
+            log("Изменения не обнаружены — форматирование и тесты пропущены.")
+            if not format_only_flag:
+                return 0
+        elif not has_code_changes(changed_files, code_prefixes, code_suffixes, code_exact):
+            preview = " ".join(changed_files[:8])
+            if len(changed_files) > 8:
+                preview = f"{preview} ..."
+            if format_only_flag:
+                log(f"Изменены только некодовые файлы ({preview}) — FORMAT_ONLY=1, выполняем только форматирование.")
+            else:
+                log(f"Изменены только некодовые файлы ({preview}) — форматирование и тесты пропущены.")
+                return 0
+
+    if skip_format_flag:
+        log("SKIP_FORMAT=1 — форматирование пропущено.")
+    else:
+        if not format_commands:
+            log("Команды форматирования не настроены (automation.format.commands).")
+        else:
+            for cmd in format_commands:
+                if not run_subprocess(cmd):
+                    return 1
+
+    if format_only_flag:
+        log("FORMAT_ONLY=1 — стадия тестов пропущена.")
+        return 0
+
     active_slug = Path("docs/.active_feature").read_text(encoding="utf-8").strip() if Path("docs/.active_feature").exists() else ""
 
     if active_slug and changed_files:

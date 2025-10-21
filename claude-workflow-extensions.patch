@@ -340,7 +340,6 @@ diff --git a/.claude/settings.json b/.claude/settings.json
      "PreToolUse": [
        { "matcher": "Write|Edit",
          "hooks": [
-           { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh", "timeout": 5 },
 -          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", "timeout": 5 }
 +          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", "timeout": 5 },
 +          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-api-contract.sh", "timeout": 5 },

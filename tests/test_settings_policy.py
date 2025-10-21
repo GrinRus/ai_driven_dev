@@ -43,7 +43,7 @@ class SettingsPolicyTest(unittest.TestCase):
         pre_commands = {h.get("hooks", [{}])[0].get("command") for h in pre_hooks}
         post_commands = {h.get("hooks", [{}])[0].get("command") for h in post_hooks}
 
-        self.assertIn("\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-prod.sh", pre_commands)
+        self.assertIn("\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", pre_commands)
         self.assertIn("\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh", post_commands)
 
 
