@@ -1,4 +1,5 @@
 from .helpers import ensure_gates_config, run_hook, write_file
+from .helpers import write_json
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/service/RuleEngine.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/readme.md"}}'
@@ -54,3 +55,18 @@ def test_non_source_paths_not_checked(tmp_path):
 
     result = run_hook(tmp_path, "gate-tests.sh", DOC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_warns_when_reviewer_requests_tests(tmp_path):
+    ensure_gates_config(tmp_path, {"tests_required": "soft"})
+    write_file(tmp_path, "docs/.active_feature", "demo")
+    write_json(
+        tmp_path,
+        "reports/reviewer/demo.json",
+        {"slug": "demo", "tests": "required", "requested_by": "ci"},
+    )
+    write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+
+    result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
+    assert result.returncode == 0
+    assert "reviewer запросил обязательный запуск тестов" in (result.stderr or "")

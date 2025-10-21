@@ -90,5 +90,19 @@
       "minor"
     ],
     "allow_missing_report": false
+  },
+  "reviewer": {
+    "enabled": true,
+    "tests_marker": "reports/reviewer/{slug}.json",
+    "tests_field": "tests",
+    "required_values": [
+      "required"
+    ],
+    "optional_values": [
+      "optional",
+      "skipped",
+      "not-required"
+    ],
+    "warn_on_missing": true
   }
 }

@@ -66,6 +66,7 @@
 - **Вход:** готовая ветка, PRD, план, `docs/tasklist/<slug>.md`.
 - **Выход:** отчёт об обнаруженных проблемах и рекомендации; чеклисты обновлены состоянием READY/BLOCKED.
 - **Готовность:** все блокирующие замечания устранены, финальный статус — READY.
+- **Тесты:** используйте `claude-workflow reviewer-tests --status required [--feature <slug>]`, чтобы запросить автотесты. После выполнения обновите маркер на `optional`, иначе `.claude/hooks/format-and-test.sh` будет запускать тесты автоматически.
 
 ### qa — финальная проверка качества
 - **Вызов:** `Claude: Run agent → qa`, либо `python3 scripts/qa-agent.py --gate` / `./.claude/hooks/gate-qa.sh`.

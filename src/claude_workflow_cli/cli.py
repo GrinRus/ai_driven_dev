@@ -41,6 +41,9 @@ DEFAULT_RELEASE_REPO = os.getenv("CLAUDE_WORKFLOW_RELEASE_REPO", "ai-driven-dev/
 CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
 HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
+DEFAULT_REVIEWER_MARKER = "reports/reviewer/{slug}.json"
+DEFAULT_REVIEWER_REQUIRED = ("required",)
+DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 
 
 class PayloadError(RuntimeError):
@@ -501,6 +504,91 @@ def _research_command(args: argparse.Namespace) -> None:
         print(f"[claude-workflow] research summary already exists at {rel_doc}.")
 
 
+def _reviewer_tests_command(args: argparse.Namespace) -> None:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    slug = args.feature or _read_active_feature(target)
+    if not slug:
+        raise ValueError(
+            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
+        )
+
+    reviewer_cfg = _reviewer_gate_config(target)
+    marker_template = str(
+        reviewer_cfg.get("marker")
+        or reviewer_cfg.get("tests_marker")
+        or DEFAULT_REVIEWER_MARKER
+    )
+    marker_path = _reviewer_marker_path(target, marker_template, slug)
+    rel_marker = marker_path.relative_to(target).as_posix()
+
+    if args.clear:
+        if marker_path.exists():
+            marker_path.unlink()
+            print(f"[claude-workflow] reviewer marker cleared ({rel_marker}).")
+        else:
+            print(f"[claude-workflow] reviewer marker not found at {rel_marker}.")
+        return
+
+    status = (args.status or "required").strip().lower()
+    alias_map = {"skip": "skipped"}
+    status = alias_map.get(status, status)
+
+    required_values = [
+        str(value).strip().lower()
+        for value in reviewer_cfg.get("requiredValues", DEFAULT_REVIEWER_REQUIRED)
+    ]
+    if not required_values:
+        required_values = list(DEFAULT_REVIEWER_REQUIRED)
+    optional_values = [
+        str(value).strip().lower()
+        for value in reviewer_cfg.get("optionalValues", DEFAULT_REVIEWER_OPTIONAL)
+    ]
+    if not optional_values:
+        optional_values = list(DEFAULT_REVIEWER_OPTIONAL)
+    allowed_values = {*required_values, *optional_values}
+    if status not in allowed_values:
+        choices = ", ".join(sorted(allowed_values))
+        raise ValueError(f"status must be one of: {choices}")
+
+    field_name = str(
+        reviewer_cfg.get("field")
+        or reviewer_cfg.get("tests_field")
+        or "tests"
+    )
+
+    requested_by = args.requested_by or os.getenv("GIT_AUTHOR_NAME") or os.getenv("USER") or ""
+    record: dict = {}
+    if marker_path.exists():
+        try:
+            record = json.loads(marker_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            record = {}
+
+    record.update(
+        {
+            "slug": slug,
+            field_name: status,
+            "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+    )
+    if requested_by:
+        record["requested_by"] = requested_by
+    if args.note:
+        record["note"] = args.note
+    elif "note" in record and not record["note"]:
+        record.pop("note", None)
+
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    state_label = "required" if status in required_values else status
+    print(f"[claude-workflow] reviewer marker updated ({rel_marker} → {state_label}).")
+    if status in required_values:
+        print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
+
 def _read_template_version(target: Path) -> str | None:
     version_file = target / ".claude" / ".template_version"
     if not version_file.exists():
@@ -516,6 +604,50 @@ def _write_template_version(target: Path) -> None:
 
 def _active_feature_file(target: Path) -> Path:
     return target / "docs" / ".active_feature"
+
+
+def _settings_path(target: Path) -> Path:
+    return target / ".claude" / "settings.json"
+
+
+def _load_settings_json(target: Path) -> dict:
+    settings_file = _settings_path(target)
+    if not settings_file.exists():
+        raise FileNotFoundError(
+            f"settings file not found at {settings_file}. Initialise the workflow or run from project root."
+        )
+    try:
+        return json.loads(settings_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"cannot parse {settings_file}: {exc}") from exc
+
+
+def _load_tests_settings(target: Path) -> dict:
+    settings = _load_settings_json(target)
+    automation = settings.get("automation") or {}
+    tests_cfg = automation.get("tests")
+    return tests_cfg if isinstance(tests_cfg, dict) else {}
+
+
+def _reviewer_gate_config(target: Path) -> dict:
+    tests_cfg = _load_tests_settings(target)
+    reviewer_cfg = tests_cfg.get("reviewerGate") if isinstance(tests_cfg, dict) else None
+    return reviewer_cfg if isinstance(reviewer_cfg, dict) else {}
+
+
+def _reviewer_marker_path(target: Path, template: str, slug: str) -> Path:
+    rel_text = template.replace("{slug}", slug)
+    marker_path = Path(rel_text)
+    if not marker_path.is_absolute():
+        marker_path = (target / marker_path).resolve()
+    else:
+        marker_path = marker_path.resolve()
+    target_root = target.resolve()
+    if not _is_relative_to(marker_path, target_root):
+        raise ValueError(
+            f"reviewer marker path {marker_path} escapes project root {target_root}"
+        )
+    return marker_path
 
 
 def _read_active_feature(target: Path) -> Optional[str]:
@@ -940,6 +1072,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not materialise docs/research/<slug>.md from the template.",
     )
     research_parser.set_defaults(func=_research_command)
+
+    reviewer_tests_parser = subparsers.add_parser(
+        "reviewer-tests",
+        help="Update reviewer test requirement marker for the active feature.",
+    )
+    reviewer_tests_parser.add_argument(
+        "--feature",
+        help="Feature slug to use (defaults to docs/.active_feature).",
+    )
+    reviewer_tests_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    reviewer_tests_parser.add_argument(
+        "--status",
+        choices=("required", "optional", "skipped", "not-required", "skip"),
+        default="required",
+        help="Tests state to store in the marker (default: required).",
+    )
+    reviewer_tests_parser.add_argument(
+        "--note",
+        help="Optional note stored alongside the reviewer marker.",
+    )
+    reviewer_tests_parser.add_argument(
+        "--requested-by",
+        help="Override requested_by field in the marker (defaults to $USER).",
+    )
+    reviewer_tests_parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Remove the marker instead of updating it.",
+    )
+    reviewer_tests_parser.set_defaults(func=_reviewer_tests_command)
 
     upgrade_parser = subparsers.add_parser(
         "upgrade", help="Refresh workflow files from the latest template."

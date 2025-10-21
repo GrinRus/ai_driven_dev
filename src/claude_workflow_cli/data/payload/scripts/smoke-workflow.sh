@@ -138,6 +138,16 @@ log "verify generated artifacts"
 [[ -f "docs/prd/${SLUG}.prd.md" ]]
 [[ -f "docs/plan/${SLUG}.md" ]]
 grep -q "Claude Code" "docs/prd/${SLUG}.prd.md"
+
+log "reviewer requests automated tests"
+python3 -m claude_workflow_cli.cli reviewer-tests --feature "$SLUG" --target . --status required >/dev/null
+[[ -f "reports/reviewer/${SLUG}.json" ]] || {
+  echo "[smoke] reviewer marker was not created" >&2
+  exit 1
+}
+
+log "reviewer clears test requirement"
+python3 -m claude_workflow_cli.cli reviewer-tests --feature "$SLUG" --target . --status optional >/dev/null
 grep -q "Status: approved" "docs/prd/${SLUG}.prd.md"
 grep -q "Demo Checkout" "docs/tasklist/${SLUG}.md"
 

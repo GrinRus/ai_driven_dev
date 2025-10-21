@@ -42,6 +42,14 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "check_open_questions": True,
         "require_dialog_section": True,
     },
+    "reviewer": {
+        "enabled": True,
+        "tests_marker": "reports/reviewer/{slug}.json",
+        "tests_field": "tests",
+        "required_values": ["required"],
+        "optional_values": ["optional", "skipped", "not-required"],
+        "warn_on_missing": True,
+    },
 }
 
 

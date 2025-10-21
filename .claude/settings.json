@@ -226,11 +226,28 @@
       "changedOnly": true,
       "strictDefault": 1,
       "moduleMatrix": [],
+      "reviewerGate": {
+        "enabled": true,
+        "marker": "reports/reviewer/{slug}.json",
+        "field": "tests",
+        "requiredValues": [
+          "required"
+        ],
+        "optionalValues": [
+          "optional",
+          "skipped",
+          "not-required"
+        ],
+        "forceEnv": "FORCE_TESTS",
+        "skipEnv": "SKIP_TESTS"
+      },
       "env": {
         "SKIP_AUTO_TESTS": "1 — временно отключить автоматический запуск форматирования и выборочных тестов.",
         "TEST_SCOPE": "Список задач через запятую (например, :app:test,:lib:test).",
         "TEST_CHANGED_ONLY": "0 — запускать полный набор задач независимо от diff.",
-        "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать."
+        "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать.",
+        "FORCE_TESTS": "1 — запустить тесты независимо от статуса reviewer.",
+        "SKIP_TESTS": "1 — пропустить тесты даже при статусе reviewer=required (не рекомендуется)."
       }
     }
   }

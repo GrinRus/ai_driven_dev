@@ -50,8 +50,8 @@
     },
     {
       "path": ".claude/agents/reviewer.md",
-      "size": 850,
-      "sha256": "87b0f8b9f76c5771112efae4365075eeed70b7f91289674b02c7a111feae9930",
+      "size": 1269,
+      "sha256": "d1324fad2a320531e67ad73a06db472e8c3f5f32b2d59ea7ed04bc05d9ddd09b",
       "type": "file"
     },
     {
@@ -98,14 +98,20 @@
     },
     {
       "path": ".claude/commands/review.md",
-      "size": 682,
-      "sha256": "dc95b97560115f50b5321b529fac29cbe5ca73942633230de35ddcfe24a49bc2",
+      "size": 918,
+      "sha256": "1db32ee8aff5269d6da14f875bd2f3380e17b452df793bf58248f11434d112b2",
+      "type": "file"
+    },
+    {
+      "path": ".claude/commands/reviewer.md",
+      "size": 717,
+      "sha256": "37f25fcd6914cf7448233df4aa67ee937d4d1ad42faf44c44678bdf8a8ead778",
       "type": "file"
     },
     {
       "path": ".claude/commands/tasks-new.md",
-      "size": 885,
-      "sha256": "0e5b52f9dd97d682fcf190bcbb9c3b9cb4235ff5b196277e1b594011b77aa7d1",
+      "size": 897,
+      "sha256": "610b9bf810f11106b26e4d712e54c4727e574d6ac98f0edaee9a0f3f9cd5c5cb",
       "type": "file"
     },
     {
@@ -116,8 +122,8 @@
     },
     {
       "path": ".claude/hooks/format-and-test.sh",
-      "size": 8113,
-      "sha256": "a14eb618c96566d9748401c87597efae63ad31882abb9507d330ec88de824128",
+      "size": 17999,
+      "sha256": "20858483fd4f7b6c369d331264f9bc11a7a56fccbf26776639ab5e4b8cd8650a",
       "type": "file"
     },
     {
@@ -146,14 +152,14 @@
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
-      "size": 2912,
-      "sha256": "54dc1e75c818640fbef905a0c6128829748930e3d359cb14e4b750c5566dbb0e",
+      "size": 4466,
+      "sha256": "5d41460b676ddc723e679ccdae6f60e5c36a2da1103171613ccbe01a8bb4173e",
       "type": "file"
     },
     {
       "path": ".claude/hooks/gate-workflow.sh",
-      "size": 6983,
-      "sha256": "babdae3b095af85ead8ddc8e6079973183cb0573273625a9dd19fa3176bdd62b",
+      "size": 8974,
+      "sha256": "cdcab22744b7012aac5e9e2b8e236f3e96cffbccdd777b33115bdb6c3485bc99",
       "type": "file"
     },
     {
@@ -170,14 +176,14 @@
     },
     {
       "path": ".claude/settings.json",
-      "size": 7267,
-      "sha256": "f60103d19d6f0ab05c53ef4893aec471f36a5ce3d619e173b0d861dd0f5a0c6d",
+      "size": 7895,
+      "sha256": "5ceecb18c9e9cc6a96212082659d4ccf844e5c11cdae542782ca78ac985daace",
       "type": "file"
     },
     {
       "path": ".github/workflows/gradle.yml",
-      "size": 783,
-      "sha256": "43b6f75e18dbf858d2e6b45a1f76eeecc3e00df93ec12ce608f4bac4ccdb0fac",
+      "size": 811,
+      "sha256": "61e73d170886fe69548d60c7b33e3ba190f461d959f5cdfc9745c8562439b681",
       "type": "file"
     },
     {
@@ -194,14 +200,14 @@
     },
     {
       "path": "claude-presets/advanced/feature-release.yaml",
-      "size": 1728,
-      "sha256": "680d9881059db242f2cf33784f6f800853310290a14ca07c181e6d68cdfae717",
+      "size": 1703,
+      "sha256": "219b8d3316348d0b4468603df87d226c57e4d5743101e84945d3321717b3adce",
       "type": "file"
     },
     {
       "path": "claude-presets/feature-impl.yaml",
-      "size": 1836,
-      "sha256": "e5a2738c9a869ca7de9bd4b34af3fef4ca1243d0d542ce40587cb5d9bf360186",
+      "size": 1842,
+      "sha256": "f1afeac3a4e02017d0823a14382897a8fe9f2169bd8022d1cf91feae8692cf8d",
       "type": "file"
     },
     {
@@ -224,14 +230,14 @@
     },
     {
       "path": "config/conventions.json",
-      "size": 1810,
-      "sha256": "7399c600b01490a03b17e55073d627ce760570da4d2edf0417910a7bce3a7ddb",
+      "size": 1803,
+      "sha256": "c28e7ca2085440a853905188ebb5fe6b20f4bf10fb4a54afdc6fd5a79022e916",
       "type": "file"
     },
     {
       "path": "config/gates.json",
-      "size": 1756,
-      "sha256": "184975dcbd71931dff8d493b8b85835e9bd2438dc7d61b2ff5d86c04e8b18d4a",
+      "size": 2039,
+      "sha256": "b8e4a4e2cf05096c9ee8e9921e8f93be075d166d7bee19021096cbf00faae70b",
       "type": "file"
     },
     {
@@ -242,8 +248,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 52531,
-      "sha256": "b109bc6afeccc7468a65335e6748dd558d7817b49f90a698aa930a3e162d69f0",
+      "size": 56711,
+      "sha256": "1b8615ed6646bfdfa8a85bbf606262fd99544cdea891a3f11bd7e3c1da8f2620",
       "type": "file"
     },
     {
@@ -302,8 +308,8 @@
     },
     {
       "path": "docs/tasklist.template.md",
-      "size": 2981,
-      "sha256": "30cca1c14bcc9a42f51ef4166445bf8431d379fd85f4039b48015a4806da2739",
+      "size": 3013,
+      "sha256": "c35b6cc234cd2ec6cffce09200d48c3092ee4b685ffbdbda68d29b14b8149089",
       "type": "file"
     },
     {
@@ -314,14 +320,8 @@
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 18270,
-      "sha256": "45d6ae6e821e111d4336d2baf4f97f5591e26f738791e1cc87359193ce30bc93",
-      "type": "file"
-    },
-    {
-      "path": "manifest.json",
-      "size": 12375,
-      "sha256": "7d8ac040bbe0b89324d1f906fd1c5c146a6ed7807902432ec4b4b86c4a75b7d2",
+      "size": 18268,
+      "sha256": "a5aab4d48c1670941ca187816a7afd1bb634db7bebe73688c9e21ac1a56bbaaf",
       "type": "file"
     },
     {
@@ -356,8 +356,8 @@
     },
     {
       "path": "scripts/smoke-workflow.sh",
-      "size": 4237,
-      "sha256": "6a9229a15469bc543a1fbce15e55177ed1f3fe1a020fff819f2f775c8dfbde82",
+      "size": 4644,
+      "sha256": "accb1f40be3c8777f4f423c190fcf2d3b7f7aa7f5ef3f5982c461c89136a1e89",
       "type": "file"
     },
     {
@@ -386,8 +386,8 @@
     },
     {
       "path": "templates/tasklist.md",
-      "size": 2908,
-      "sha256": "fda0834ca55dd468eea4ed66e6bf59f65713566d076305cbc0d371c0aeb41294",
+      "size": 2956,
+      "sha256": "9fda772781fb41f1cdd357bce1c4f3f83b9f37ed3715352ca7039bd304f43c46",
       "type": "file"
     },
     {
@@ -398,14 +398,14 @@
     },
     {
       "path": "tools/set_active_feature.py",
-      "size": 4448,
-      "sha256": "82db6fdec2f3648f30b9423dcbd1677dd8b04add723283fdcea83c83654e1a70",
+      "size": 4441,
+      "sha256": "524930a6dd685960a89caae4a4ef8d15ec44e29d7ee9e777f3a39b92c5cbfbf8",
       "type": "file"
     },
     {
       "path": "workflow.md",
-      "size": 5792,
-      "sha256": "76d481808f1f90703b529abd4e31eebe0bcef6a1fb1bd9e4600529901e68da65",
+      "size": 6089,
+      "sha256": "4220dfb25cf798957bb62f7c1658dc277b83133f34b30caa75cd8f473309d9cb",
       "type": "file"
     }
   ]

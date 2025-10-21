@@ -11,6 +11,58 @@ file_path="$(hook_payload_file_path "$payload")"
 slug_file="docs/.active_feature"
 slug="$(hook_read_slug "$slug_file" || true)"
 
+if [[ -n "$slug" ]]; then
+  reviewer_tests_msg="$(python3 - "$slug" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+slug = sys.argv[1]
+config_path = Path("config/gates.json")
+try:
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+
+reviewer_cfg = config.get("reviewer") or {}
+if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
+    raise SystemExit(0)
+
+template = str(
+    reviewer_cfg.get("tests_marker")
+    or reviewer_cfg.get("marker")
+    or "reports/reviewer/{slug}.json"
+)
+field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
+required_values = [
+    str(value).strip().lower()
+    for value in reviewer_cfg.get("required_values", ["required"])
+]
+
+marker_path = Path(template.replace("{slug}", slug))
+if not marker_path.exists():
+    raise SystemExit(0)
+
+try:
+    data = json.loads(marker_path.read_text(encoding="utf-8"))
+except Exception:
+    print(
+        f"WARN: reviewer маркер повреждён ({marker_path}). Пересоздайте его командой `claude-workflow reviewer-tests --status required`."
+    )
+    raise SystemExit(0)
+
+value = str(data.get(field, "")).strip().lower()
+if value in required_values:
+    print(
+        f"WARN: reviewer запросил обязательный запуск тестов ({marker_path}). Не забудьте подтвердить выполнение перед merge."
+    )
+PY
+)"
+  if [[ -n "$reviewer_tests_msg" ]]; then
+    echo "$reviewer_tests_msg" 1>&2
+  fi
+fi
+
 mode="$(hook_config_get_str config/gates.json tests_required disabled)"
 mode="$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
 [[ "$mode" == "disabled" ]] && exit 0

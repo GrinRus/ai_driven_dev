@@ -102,6 +102,11 @@ DEFAULT_CODE_FILES = (
     "pom.xml",
 )
 
+DEFAULT_REVIEWER_MARKER = "reports/reviewer/{slug}.json"
+DEFAULT_REVIEWER_FIELD = "tests"
+DEFAULT_REVIEWER_REQUIRED = ("required",)
+DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
+
 
 def dedupe_preserve(items: Iterable[str]) -> Tuple[str, ...]:
     seen: set[str] = set()
@@ -189,6 +194,40 @@ def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: 
         if is_code_related(path, prefixes, suffixes, exact):
             return True
     return False
+
+
+def reviewer_marker_path(template: str, slug: str) -> Path:
+    resolved = template.replace("{slug}", slug)
+    return Path(resolved)
+
+
+def reviewer_tests_required(slug: str, config: dict) -> tuple[bool, str]:
+    marker_template = str(config.get("marker", DEFAULT_REVIEWER_MARKER))
+    field = str(config.get("field", DEFAULT_REVIEWER_FIELD))
+    required_values = [
+        str(value).strip().lower() for value in config.get("requiredValues", DEFAULT_REVIEWER_REQUIRED)
+    ]
+    optional_values = [
+        str(value).strip().lower() for value in config.get("optionalValues", DEFAULT_REVIEWER_OPTIONAL)
+    ]
+    fallback_value = str(config.get("defaultValue", "")).strip().lower()
+    marker = reviewer_marker_path(marker_template, slug)
+    if not marker.exists():
+        return False, marker.as_posix()
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        log(f"Не удалось прочитать маркер reviewer {marker}: {exc}; запускаем тесты по умолчанию.")
+        return True, marker.as_posix()
+    value_raw = data.get(field, "")
+    value = str(value_raw).strip().lower()
+    if value in required_values:
+        return True, marker.as_posix()
+    if value in optional_values:
+        return False, marker.as_posix()
+    if fallback_value and fallback_value in required_values:
+        return True, marker.as_posix()
+    return False, marker.as_posix()
 
 
 def log(message: str) -> None:
@@ -353,11 +392,70 @@ def main() -> int:
         code_exact = normalize_code_files([code_files_raw])
 
     changed_files = collect_changed_files()
+    active_slug_path = Path("docs/.active_feature")
+    try:
+        active_slug = active_slug_path.read_text(encoding="utf-8").strip() if active_slug_path.exists() else ""
+    except OSError:
+        active_slug = ""
+
+    reviewer_cfg = tests_cfg.get("reviewerGate") or {}
+    reviewer_enabled = bool(reviewer_cfg.get("enabled", False))
+    force_env_name = str(reviewer_cfg.get("forceEnv", "FORCE_TESTS") or "")
+    skip_env_name = str(reviewer_cfg.get("skipEnv", "SKIP_TESTS") or "")
+
+    force_tests_flag = env_flag(force_env_name) if force_env_name else None
+    skip_tests_flag = env_flag(skip_env_name) if skip_env_name else None
+
+    force_tests = bool(force_tests_flag) if force_env_name else False
+    skip_tests = bool(skip_tests_flag) if skip_env_name else False
+
+    manual_scope_requested = bool(test_scope_env)
+    if manual_scope_requested:
+        force_tests = True
+    if force_tests:
+        skip_tests = False
+
+    reviewer_required = False
+    reviewer_marker_source = ""
+    if reviewer_enabled and not force_tests and not skip_tests:
+        if active_slug:
+            reviewer_required, reviewer_marker_source = reviewer_tests_required(active_slug, reviewer_cfg)
+        else:
+            log("reviewerGate.enabled=1, но docs/.active_feature не найден — тесты будут ожидать запроса reviewer.")
+
+    tests_should_run = True
+    skip_reason = ""
+    if skip_tests:
+        tests_should_run = False
+        skip_reason = f"{skip_env_name}=1 — стадия тестов пропущена."
+    elif force_tests or manual_scope_requested:
+        tests_should_run = True
+        if manual_scope_requested:
+            log("TEST_SCOPE задан — выполняем указанные задачи тестов.")
+        elif force_env_name and force_tests:
+            log(f"{force_env_name}=1 — тесты будут запущены независимо от маркера reviewer.")
+    elif reviewer_enabled:
+        if reviewer_required:
+            tests_should_run = True
+            if reviewer_marker_source:
+                log(f"reviewer запросил тесты ({reviewer_marker_source}).")
+            else:
+                log("reviewer запросил тесты — выполняем стадия тестов.")
+        else:
+            tests_should_run = False
+            if reviewer_marker_source:
+                skip_reason = (
+                    f"reviewer не запросил тесты (маркер {reviewer_marker_source}) — стадия тестов пропущена."
+                )
+            else:
+                skip_reason = "reviewer не запросил тесты — стадия тестов пропущена."
+    else:
+        tests_should_run = True
 
     skip_format_flag = os.environ.get("SKIP_FORMAT", "0") == "1"
     format_only_flag = os.environ.get("FORMAT_ONLY", "0") == "1"
 
-    if changed_only_flag:
+    if changed_only_flag and not force_tests and not reviewer_required:
         if not changed_files:
             log("Изменения не обнаружены — форматирование и тесты пропущены.")
             if not format_only_flag:
@@ -386,7 +484,12 @@ def main() -> int:
         log("FORMAT_ONLY=1 — стадия тестов пропущена.")
         return 0
 
-    active_slug = Path("docs/.active_feature").read_text(encoding="utf-8").strip() if Path("docs/.active_feature").exists() else ""
+    if not tests_should_run:
+        if skip_reason:
+            log(skip_reason)
+        else:
+            log("Стадия тестов пропущена (reviewerGate).")
+        return 0
 
     if active_slug and changed_files:
         common_hits = [

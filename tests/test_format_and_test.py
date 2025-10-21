@@ -19,6 +19,15 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "changedOnly": True,
                 "strictDefault": 1,
                 "moduleMatrix": [],
+                "reviewerGate": {
+                    "enabled": True,
+                    "marker": "reports/reviewer/{slug}.json",
+                    "field": "tests",
+                    "requiredValues": ["required"],
+                    "optionalValues": ["optional", "skipped", "not-required"],
+                    "forceEnv": "FORCE_TESTS",
+                    "skipEnv": "SKIP_TESTS",
+                },
             },
         },
     }
@@ -73,7 +82,24 @@ def test_common_change_forces_full_suite(tmp_path):
 
     result = run_hook(tmp_path, settings)
 
-    assert "полный прогон тестов" in result.stderr
+    assert "Изменены только некодовые файлы" in result.stderr
+    assert "Запуск тестов" not in result.stderr
+
+
+def test_reviewer_marker_forces_full_suite(tmp_path):
+    git_init(tmp_path)
+    settings = write_settings(tmp_path, {})
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs/.active_feature").write_text("demo", encoding="utf-8")
+    marker = tmp_path / "reports" / "reviewer" / "demo.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"slug": "demo", "tests": "required"}', encoding="utf-8")
+
+    result = run_hook(tmp_path, settings)
+
+    assert "reviewer запросил тесты" in result.stderr
     assert "Выбранные задачи тестов: default_task" in result.stderr
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
