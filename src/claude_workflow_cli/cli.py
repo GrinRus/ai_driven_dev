@@ -16,8 +16,9 @@ import zipfile
 from contextlib import contextmanager
 from importlib import metadata, resources
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from claude_workflow_cli import progress as _progress
 from claude_workflow_cli.tools.analyst_guard import (
     AnalystValidationError,
     load_settings as _load_analyst_settings,
@@ -589,6 +590,59 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     if status in required_values:
         print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
 
+
+def _progress_command(args: argparse.Namespace) -> int:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    slug = args.feature or _read_active_feature(target)
+    branch = args.branch or _detect_branch(target)
+    config = _progress.ProgressConfig.load(target)
+    result = _progress.check_progress(
+        root=target,
+        slug=slug,
+        source=args.source,
+        branch=branch,
+        config=config,
+    )
+
+    if args.json:
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        return result.exit_code()
+
+    def _print_items(items: Sequence[str], prefix: str = "  - ", limit: int = 5) -> None:
+        for index, item in enumerate(items):
+            if index == limit:
+                remaining = len(items) - limit
+                print(f"{prefix}… (+{remaining})")
+                break
+            print(f"{prefix}{item}")
+
+    if result.status.startswith("error:"):
+        print(result.message or "BLOCK: проверка прогресса не пройдена.")
+        if args.verbose and result.code_files:
+            print("Изменённые файлы:")
+            _print_items(result.code_files)
+        return result.exit_code()
+
+    if result.status.startswith("skip:"):
+        print(result.message or "Прогресс-чек пропущен.")
+        if args.verbose and result.code_files:
+            print("Изменённые файлы:")
+            _print_items(result.code_files)
+        return 0
+
+    display_slug = slug or "активной фичи"
+    print(f"✅ Прогресс tasklist для `{display_slug}` подтверждён.")
+    if result.new_items:
+        print("Новые чекбоксы:")
+        _print_items(result.new_items)
+    if args.verbose and result.code_files:
+        print("Затронутые файлы:")
+        _print_items(result.code_files)
+    return 0
+
 def _read_template_version(target: Path) -> str | None:
     version_file = target / ".claude" / ".template_version"
     if not version_file.exists():
@@ -655,6 +709,26 @@ def _read_active_feature(target: Path) -> Optional[str]:
     if not slug_path.exists():
         return None
     return slug_path.read_text(encoding="utf-8").strip() or None
+
+
+def _detect_branch(target: Path) -> Optional[str]:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=target,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    branch = proc.stdout.strip()
+    if not branch or branch.upper() == "HEAD":
+        return None
+    return branch
 
 
 def _ensure_research_doc(target: Path, slug: str) -> tuple[Optional[Path], bool]:
@@ -1107,6 +1181,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewer_tests_parser.set_defaults(func=_reviewer_tests_command)
 
+    progress_parser = subparsers.add_parser(
+        "progress",
+        help="Check that docs/tasklist/<slug>.md has new completed items after code changes.",
+    )
+    progress_parser.add_argument(
+        "--feature",
+        help="Feature slug to check (defaults to docs/.active_feature).",
+    )
+    progress_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    progress_parser.add_argument(
+        "--branch",
+        help="Git branch name used to evaluate skip_branches (autodetected by default).",
+    )
+    progress_parser.add_argument(
+        "--source",
+        choices=("manual", "implement", "qa", "review", "gate"),
+        default="manual",
+        help="Context in which the check is executed (default: manual).",
+    )
+    progress_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit result as JSON for scripting.",
+    )
+    progress_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed lists of code changes and checkbox updates.",
+    )
+    progress_parser.set_defaults(func=_progress_command)
+
     upgrade_parser = subparsers.add_parser(
         "upgrade", help="Refresh workflow files from the latest template."
     )
@@ -1191,12 +1300,14 @@ def main(argv: List[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        args.func(args)
+        result = args.func(args)
     except subprocess.CalledProcessError as exc:
         # Propagate the same exit code but provide human-friendly output.
         parser.exit(exc.returncode, f"[claude-workflow] command failed: {exc}\n")
     except Exception as exc:  # pragma: no cover - safety net
         parser.exit(1, f"[claude-workflow] {exc}\n")
+    if isinstance(result, int):
+        return result
     return 0
 
 

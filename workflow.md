@@ -46,10 +46,12 @@
 ### 6. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана и вносит изменения малыми итерациями.
 - После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо через `SKIP_AUTO_TESTS=1`).
+- Каждая итерация должна завершаться фиксацией прогресса в `docs/tasklist/<slug>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …` и запустите `claude-workflow progress --source implement --feature <slug>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
 - Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`, `gate-api-contract.sh` и `gate-db-migration.sh`.
 
 ### 7. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `docs/tasklist/<slug>.md`.
+- Reviewer сверяет, что выполненные пункты отмечены `- [x]`, обновляет строку `Checkbox updated: …` и при необходимости запускает `claude-workflow progress --source review --feature <slug>`, чтобы убедиться, что прогресс зафиксирован.
 - Для запуска автотестов reviewer помечает маркер `reports/reviewer/<slug>.json` командой `claude-workflow reviewer-tests --status required` (slug берётся из `docs/.active_feature`). После успешного прогона обновите статус на `optional`, чтобы отключить авто‑запуск.
 - При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
 
@@ -66,6 +68,7 @@
   - `tests_required` — режим `disabled|soft|hard` для обязательных тестов.
   - `deps_allowlist` — включает проверку зависимостей через `scripts/lint-deps.sh`.
   - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_feature`).
+  - `tasklist_progress` — гарантирует, что при изменениях в коде появляются новые `- [x]` в `docs/tasklist/<slug>.md`. Гейт активен для `/implement`, `/qa`, `/review` и хука `gate-workflow.sh`; при технических задачах можно настроить `skip_branches` или временно выставить `CLAUDE_SKIP_TASKLIST_PROGRESS=1`.
 - `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
 - `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
 
@@ -75,7 +78,7 @@
 - **Researcher** — исследует кодовую базу, фиксирует reuse/риски, поддерживает `docs/research/<slug>.md` и контекст для команды.
 - **Tech Lead/Architect** — утверждает план, следит за гейтами и архитектурными решениями.
 - **Разработчики** — реализуют по плану, поддерживают тесты и документацию в актуальном состоянии.
-- **QA** — помогает с чеклистами в `docs/tasklist/<slug>.md`, расширяет тестовое покрытие и сценарии ручной проверки.
+- **QA** — помогает с чеклистами в `docs/tasklist/<slug>.md`, расширяет тестовое покрытие и сценарии ручной проверки, по итогам каждого цикла запускает `claude-workflow progress --source qa --feature <slug>` и фиксирует строку `Checkbox updated: …` в отчёте.
 - **PRD reviewer** — утверждает готовность PRD, закрывает блокирующие вопросы до начала разработки.
 - **Reviewer** — финализирует фичу, проверяет, что все чеклисты в `docs/tasklist/<slug>.md` закрыты.
 

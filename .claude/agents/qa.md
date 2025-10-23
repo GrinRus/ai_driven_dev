@@ -1,7 +1,7 @@
 ---
 name: qa
 description: Финальная QA-проверка: регрессии, UX, производительность, артефакты релиза.
-tools: Read, Grep, Glob, Bash(scripts/qa-agent.py:*), Bash(.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh)
+tools: Read, Grep, Glob, Bash(scripts/qa-agent.py:*), Bash(.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh), Bash(claude-workflow progress:*)
 model: inherit
 ---
 Контекст:
@@ -30,3 +30,5 @@ model: inherit
 - `blocker/critical` → фича не проходит gate, устанавливай `BLOCKED`. `major/minor` → `WARN`, поясни приоритет и возможность релиза c known issue.
 - Если автоматические гейты отключены (`CLAUDE_SKIP_QA`, `.claude/settings.json`), явно отметь зоны, которые не покрыты.
 - Синхронизируй итоги с `docs/qa-playbook.md`, обнови `CHANGELOG.md`/release notes, если на выходе новые риски.
+- Перед завершением отметь прогресс в `docs/tasklist/<slug>.md`: закрой релевантные чекбоксы, добавь дату и итерацию ручного тестирования, затем запусти `claude-workflow progress --source qa --feature "$SLUG"`. Если команда сообщает, что новые `- [x]` не найдены, вернись к tasklist и зафиксируй, что было проверено.
+- В выводе начинай блок состояния строкой `Checkbox updated: …`, перечисляй, какие чекбоксы в `docs/tasklist/<slug>.md` закрыты/открыты после проверки (с номером или названием), чтобы команда видела прогресс QA.

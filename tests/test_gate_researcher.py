@@ -44,7 +44,7 @@ class GateResearcherTests(unittest.TestCase):
         write_file(
             self.root,
             "docs/tasklist/demo-checkout.md",
-            "- [ ] prepare plan\n",
+            "- [x] prepare plan — baseline\n- [ ] QA pending\n",
         )
         write_json(
             self.root,

@@ -5,9 +5,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import REPO_ROOT, git_init, write_file
+from .helpers import REPO_ROOT, ensure_gates_config, git_config_user, git_init, write_file
 
 QA_AGENT = REPO_ROOT / "scripts" / "qa-agent.py"
+
+APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: approved\n"
 
 
 class QaAgentTests(unittest.TestCase):
@@ -15,6 +17,7 @@ class QaAgentTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="qa-agent-test-")
         self.root = Path(self._tmp.name)
         git_init(self.root)
+        git_config_user(self.root)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -77,3 +80,104 @@ class QaAgentTests(unittest.TestCase):
                 for finding in payload["findings"]
             )
         )
+
+    def test_progress_cli_requires_tasklist_update(self):
+        slug = "demo-checkout"
+        ensure_gates_config(
+            self.root,
+            {
+                "prd_review": {"enabled": False},
+                "researcher": {"enabled": False},
+                "analyst": {"enabled": False},
+            },
+        )
+        write_file(self.root, "docs/.active_feature", slug)
+        write_file(
+            self.root,
+            f"docs/tasklist/{slug}.md",
+            """---
+Feature: demo-checkout
+Status: draft
+PRD: docs/prd/demo-checkout.prd.md
+Plan: docs/plan/demo-checkout.md
+Research: docs/research/demo-checkout.md
+Updated: 2024-01-01
+
+- [ ] Реализация :: подготовить сервис
+""",
+        )
+        write_file(self.root, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
+        write_file(self.root, f"docs/plan/{slug}.md", "# Plan")
+        write_file(self.root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "feat: baseline"],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+        )
+
+        write_file(self.root, "src/main/App.kt", "class App { fun run() = \"updated\" }\n")
+
+        env = os.environ.copy()
+        python_path = str(REPO_ROOT / "src")
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
+        result = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "claude_workflow_cli.cli",
+                "progress",
+                "--target",
+                ".",
+                "--feature",
+                slug,
+                "--source",
+                "qa",
+            ],
+            cwd=self.root,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, msg=output)
+        self.assertIn("`- [x]`", output)
+
+        write_file(
+            self.root,
+            f"docs/tasklist/{slug}.md",
+            """---
+Feature: demo-checkout
+Status: draft
+PRD: docs/prd/demo-checkout.prd.md
+Plan: docs/plan/demo-checkout.md
+Research: docs/research/demo-checkout.md
+Updated: 2024-01-02
+
+- [x] Реализация :: подготовить сервис — 2024-01-02 • итерация 1
+""",
+        )
+
+        result_ok = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "claude_workflow_cli.cli",
+                "progress",
+                "--target",
+                ".",
+                "--feature",
+                slug,
+                "--source",
+                "qa",
+            ],
+            cwd=self.root,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+        self.assertEqual(result_ok.returncode, 0, msg=result_ok.stderr)
+        self.assertIn("Прогресс tasklist", result_ok.stdout)

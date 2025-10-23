@@ -60,6 +60,7 @@
 - **Вход:** утверждённый план и `docs/tasklist/<slug>.md`.
 - **Выход:** серия небольших коммитов, обновлённые тесты и документация.
 - **Особенности:** после каждой записи автоматически запускается `.claude/hooks/format-and-test.sh` (отключаемо `SKIP_AUTO_TESTS=1`). Агент следит за сообщениями `gate-workflow`, `gate-db-migration`, `gate-tests`, если они включены.
+- **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …` и запускайте `claude-workflow progress --source implement --feature <slug>`. При отсутствии новых `- [x]` команда подскажет, что нужно отметить прогресс до завершения ответа.
 
 ### reviewer — код-ревью
 - **Вызов:** `/review <slug>`
@@ -67,12 +68,14 @@
 - **Выход:** отчёт об обнаруженных проблемах и рекомендации; чеклисты обновлены состоянием READY/BLOCKED.
 - **Готовность:** все блокирующие замечания устранены, финальный статус — READY.
 - **Тесты:** используйте `claude-workflow reviewer-tests --status required [--feature <slug>]`, чтобы запросить автотесты. После выполнения обновите маркер на `optional`, иначе `.claude/hooks/format-and-test.sh` будет запускать тесты автоматически.
+- **Прогресс:** убедитесь, что отмечены выполненные пункты `- [x]`, добавьте строку `Checkbox updated: …` с перечислением закрытых чекбоксов и при необходимости выполните `claude-workflow progress --source review --feature <slug>`.
 
 ### qa — финальная проверка качества
 - **Вызов:** `Claude: Run agent → qa`, либо `python3 scripts/qa-agent.py --gate` / `./.claude/hooks/gate-qa.sh`.
 - **Вход:** активная фича, diff, результаты гейтов, раздел QA в `docs/tasklist/<slug>.md`.
 - **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<slug>.json`, обновлённый чеклист.
 - **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `docs/qa-playbook.md` для чеклистов и переменных окружения.
+- **Прогресс:** после каждой регрессии фиксируйте, какие чекбоксы закрыты (`Checkbox updated: …`), и запускайте `claude-workflow progress --source qa --feature <slug>`, чтобы хук `gate-workflow.sh` не блокировал правки.
 
 ### db-migrator — миграции БД *(опционально)*
 - **Вызов:** `Claude: Run agent → db-migrator`, когда `config/gates.json: db_migration=true`.
@@ -86,7 +89,7 @@
 
 ## Работа с барьерами
 
-- `gate-workflow.sh` активен всегда и блокирует `src/**`, пока не готовы PRD, план и `docs/tasklist/<slug>.md`.
+- `gate-workflow.sh` активен всегда и блокирует `src/**`, пока не готовы PRD, план и `docs/tasklist/<slug>.md`. Он также проверяет, что после изменений появились новые `- [x]` (гейт `tasklist_progress`).
 - Дополнительные проверки настраиваются в `config/gates.json`:
   - `api_contract=true` — требует `docs/api/<slug>.yaml` для правок контроллеров.
   - `db_migration=true` — ищет новые файлы в `src/main/resources/**/db/migration/`.

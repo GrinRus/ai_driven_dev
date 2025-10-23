@@ -17,6 +17,7 @@
 - **Diff** — локально агент анализирует рабочее дерево (`git diff HEAD` +
   незакоммиченные файлы). В CI добавьте `QA_AGENT_DIFF_BASE=origin/<base>`, чтобы
   сравнивать с веткой-основой.
+- **Прогресс** — в `docs/tasklist/<slug>.md` фиксируются завершённые пункты `- [x]`, рядом указаны дата/итерация и строка `Checkbox updated: …`; предыдущий запуск `claude-workflow progress --source qa --feature <slug>` прошёл без ошибок.
 
 ## Как запускать QA-агента
 
@@ -29,6 +30,8 @@ python3 scripts/qa-agent.py --gate --report "reports/qa/{slug}.json"
 # dry-run (не проваливать выполнение при блокерах)
 CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
 ```
+
+Перед завершением каждой сессии QA обновите чеклист, сформируйте строку `Checkbox updated: …` и выполните `claude-workflow progress --source qa --feature <slug>` — гейт `gate-workflow.sh` блокирует правки без новых `- [x]`.
 
 ### В CI
 
@@ -71,3 +74,4 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 - [ ] `gate-workflow` подтвердил актуальность отчёта Researcher (`Status: reviewed`, свежий контекст).
 - [ ] Результаты `scripts/qa-agent.py` приложены к описанию PR или загружены в CI артефакты.
 - [ ] В `CHANGELOG.md`/release notes отмечены найденные и устранённые дефекты.
+- [ ] Строка `Checkbox updated: …` отражает прогресс QA, а `claude-workflow progress --source qa --feature <slug>` возвращает успех.

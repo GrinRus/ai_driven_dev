@@ -50,6 +50,27 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "optional_values": ["optional", "skipped", "not-required"],
         "warn_on_missing": True,
     },
+    "tasklist_progress": {
+        "enabled": True,
+        "code_prefixes": [
+            "src/",
+            "tests/",
+            "test/",
+            "app/",
+            "services/",
+            "backend/",
+            "frontend/",
+            "lib/",
+            "core/",
+            "packages/",
+            "modules/",
+            "cmd/",
+        ],
+        "skip_branches": ["docs/*", "chore/*"],
+        "allow_missing_tasklist": False,
+        "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
+        "sources": ["implement", "qa", "review", "gate"],
+    },
 }
 
 

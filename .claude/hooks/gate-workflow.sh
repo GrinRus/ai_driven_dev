@@ -242,4 +242,24 @@ PY
   fi
 fi
 
+progress_args=("--root" "$PWD" "--slug" "$slug" "--source" "gate" "--quiet-ok")
+if [[ -n "$current_branch" ]]; then
+  progress_args+=("--branch" "$current_branch")
+fi
+set +e
+progress_output="$(python3 -m claude_workflow_cli.progress "${progress_args[@]}" 2>&1)"
+progress_status=$?
+set -e
+if [[ "$progress_status" -ne 0 ]]; then
+  if [[ -n "$progress_output" ]]; then
+    echo "$progress_output"
+  else
+    echo "BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением."
+  fi
+  exit 2
+fi
+if [[ -n "$progress_output" ]]; then
+  echo "$progress_output"
+fi
+
 exit 0

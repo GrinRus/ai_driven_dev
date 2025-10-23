@@ -20,8 +20,8 @@
     },
     {
       "path": ".claude/agents/implementer.md",
-      "size": 985,
-      "sha256": "387cbfc74c6da84a435e93fc807ca3cb4a2d65170bcfad3f7443fe552e710242",
+      "size": 2105,
+      "sha256": "e2a754c3a1dad7151ba2d136a7a201f667e877bc8c2ef9288f9014e7c7d1d76f",
       "type": "file"
     },
     {
@@ -38,8 +38,8 @@
     },
     {
       "path": ".claude/agents/qa.md",
-      "size": 2623,
-      "sha256": "4fdc52bc7647262e83f485ca4ec8f7b83bc4f3bbd7667d5fdca1760d9436d77e",
+      "size": 3496,
+      "sha256": "e5e3fc8fea4fa5cd202080ce49c59c6232d4e2421b2b5a71e39835a42f8980f3",
       "type": "file"
     },
     {
@@ -50,8 +50,8 @@
     },
     {
       "path": ".claude/agents/reviewer.md",
-      "size": 1269,
-      "sha256": "d1324fad2a320531e67ad73a06db472e8c3f5f32b2d59ea7ed04bc05d9ddd09b",
+      "size": 1985,
+      "sha256": "f1e7bad4a14aa73994cbe80127d86258f33023496744ec6b20659f6039d47ec2",
       "type": "file"
     },
     {
@@ -74,8 +74,8 @@
     },
     {
       "path": ".claude/commands/implement.md",
-      "size": 1380,
-      "sha256": "dd9da1f8e9b12f7868638420f7dae3da83d7c347e4e4c53d60e307d47223f967",
+      "size": 2123,
+      "sha256": "2b519f148799e77b5e191cb1a4f5332cace592f280fd51bccc994586770a56a4",
       "type": "file"
     },
     {
@@ -98,8 +98,8 @@
     },
     {
       "path": ".claude/commands/review.md",
-      "size": 918,
-      "sha256": "1db32ee8aff5269d6da14f875bd2f3380e17b452df793bf58248f11434d112b2",
+      "size": 1547,
+      "sha256": "a755530ad82bf0ec6ca18f2eebc41e2d7b9b0ae3030fef4b9aba617ee6864eb3",
       "type": "file"
     },
     {
@@ -110,8 +110,8 @@
     },
     {
       "path": ".claude/commands/tasks-new.md",
-      "size": 897,
-      "sha256": "610b9bf810f11106b26e4d712e54c4727e574d6ac98f0edaee9a0f3f9cd5c5cb",
+      "size": 1425,
+      "sha256": "5aa72e60a33afd624bdcb678dbf3a7439622cb3c6ef2d63374af74145033764f",
       "type": "file"
     },
     {
@@ -236,8 +236,8 @@
     },
     {
       "path": "config/gates.json",
-      "size": 2039,
-      "sha256": "b8e4a4e2cf05096c9ee8e9921e8f93be075d166d7bee19021096cbf00faae70b",
+      "size": 2549,
+      "sha256": "c966c22249acbae7f7ba57983ca0bcd256051782e49169b6951f16cfb5ccd7df",
       "type": "file"
     },
     {
@@ -308,8 +308,8 @@
     },
     {
       "path": "docs/tasklist.template.md",
-      "size": 3013,
-      "sha256": "c35b6cc234cd2ec6cffce09200d48c3092ee4b685ffbdbda68d29b14b8149089",
+      "size": 4371,
+      "sha256": "cf35098ae50272845de896ff2820056d6223626c1b7326bb2164954fa187cabd",
       "type": "file"
     },
     {

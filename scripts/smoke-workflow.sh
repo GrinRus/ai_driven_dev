@@ -9,6 +9,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
 SLUG="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+PYTHONPATH_CLI="${ROOT_DIR}/src"
+if [[ -n "${PYTHONPATH:-}" ]]; then
+  PYTHONPATH_CLI="${PYTHONPATH_CLI}:${PYTHONPATH}"
+fi
 
 [[ -x "$INIT_SCRIPT" ]] || {
   echo "[smoke] missing init script at $INIT_SCRIPT" >&2
@@ -43,6 +47,10 @@ assert_gate_exit() {
 
 log "working directory: $TMP_DIR"
 pushd "$TMP_DIR" >/dev/null
+log "initialise git repository"
+git init -q
+git config user.name "Smoke Bot"
+git config user.email "smoke@example.com"
 
 log "bootstrap workflow scaffolding"
 bash "$INIT_SCRIPT" --force >/dev/null
@@ -153,6 +161,43 @@ tail -n 10 "docs/tasklist/${SLUG}.md"
 
 log "gate now allows source edits"
 assert_gate_exit 0 "all artifacts ready"
+
+log "commit baseline state"
+git add .
+git commit -qm "chore: smoke baseline"
+
+log "modify source without updating tasklist"
+cat <<'KT' >src/main/kotlin/App.kt
+package demo
+
+class App {
+    fun run(): String = "updated"
+}
+KT
+
+log "gate blocks when checkbox is missing"
+assert_gate_exit 2 "missing progress checkbox"
+
+log "progress CLI reports missing checkbox"
+if progress_output="$(PYTHONPATH="$PYTHONPATH_CLI" python3 -m claude_workflow_cli.cli progress --target . --feature "$SLUG" --source implement 2>&1)"; then
+  printf '[smoke] expected progress CLI to fail but it succeeded:\n%s\n' "$progress_output" >&2
+  exit 1
+fi
+echo "$progress_output" | grep -q "новых \`- \[x\]\`" || {
+  printf '[smoke] unexpected progress CLI output:\n%s\n' "$progress_output" >&2
+  exit 1
+}
+
+log "mark checkbox as completed in tasklist"
+today="$(date +%Y-%m-%d)"
+printf '\n- [x] Smoke iteration — %s • итерация 1\n' "$today" >> "docs/tasklist/${SLUG}.md"
+
+log "progress CLI passes after checkbox update"
+if ! progress_ok="$(PYTHONPATH="$PYTHONPATH_CLI" python3 -m claude_workflow_cli.cli progress --target . --feature "$SLUG" --source implement --verbose 2>&1)"; then
+  printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
+  exit 1
+fi
+assert_gate_exit 0 "progress checkbox added"
 
 log "verify generated artifacts"
 [[ -f "docs/prd/${SLUG}.prd.md" ]]

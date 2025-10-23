@@ -1,7 +1,8 @@
 import pathlib
+import subprocess
 from textwrap import dedent
 
-from .helpers import ensure_gates_config, run_hook, write_file
+from .helpers import ensure_gates_config, git_config_user, git_init, run_hook, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
@@ -102,6 +103,90 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_progress_blocks_without_checkbox(tmp_path):
+    slug = "demo-checkout"
+    git_init(tmp_path)
+    git_config_user(tmp_path)
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "researcher": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {"enabled": False},
+        },
+    )
+
+    write_file(tmp_path, "docs/.active_feature", slug)
+    write_file(tmp_path, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
+    write_file(tmp_path, f"docs/plan/{slug}.md", "# Plan")
+    write_file(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{slug}.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] Реализация :: подготовить сервис
+            """
+        ),
+    )
+    write_file(
+        tmp_path,
+        "src/main/kotlin/App.kt",
+        "class App {\n    fun call() = \"ok\"\n}\n",
+    )
+
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "feat: baseline"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    write_file(
+        tmp_path,
+        "src/main/kotlin/App.kt",
+        "class App {\n    fun call() = \"updated\"\n}\n",
+    )
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    assert "новых `- [x]`" in result.stdout or "новых `- [x]`" in result.stderr
+
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{slug}.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
+            - [ ] QA :: подготовить smoke сценарии
+            """
+        ),
+    )
+
+    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result_ok.returncode == 0, result_ok.stderr
 
 
 def test_documents_are_not_blocked(tmp_path):

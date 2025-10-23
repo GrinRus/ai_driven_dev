@@ -81,13 +81,13 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Bootstrap & utilities
 - `init-claude-workflow.sh` — modular bootstrap with strict prerequisite checks (`bash/git/python3`, Gradle/ktlint), `--commit-mode/--enable-ci/--force/--dry-run`, generation of `.claude/`, `config/`, `docs/`, `templates/`, `.gitkeep`, and automatic commit-mode updates.
 - `scripts/ci-lint.sh` — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`; gracefully skips missing linters and is wired into CI.
-- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks slug → PRD → plan → PRD review → tasklist (`docs/tasklist/<slug>.md`), and asserts `gate-workflow.sh` behaviour.
+- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks slug → PRD → plan → PRD review → tasklist (`docs/tasklist/<slug>.md`), and asserts `gate-workflow.sh`/`tasklist_progress` behaviour (changes without new `- [x]` are blocked).
 - `examples/apply-demo.sh` — demonstrates applying the bootstrap to a Gradle monorepo, prints before/after trees, and runs `gradlew test` when the wrapper is available.
 - The bootstrap provisions `.claude/hooks/*`, documentation, and the Gradle helper `.claude/gradle/init-print-projects.gradle`; branch and commit flows rely on native git commands guided by `config/conventions.json`.
 
 ### Hooks & automation
 - `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active slug, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
-- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, `## PRD Review` with `Status: approved`, plan, and checkboxes in `docs/tasklist/<slug>.md`, while ignoring documentation/template edits.
+- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, `## PRD Review` with `Status: approved`, plan, and fresh `- [x]` entries in `docs/tasklist/<slug>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
 - `.claude/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — optional checks driven by `config/gates.json`, validating OpenAPI artefacts, Flyway/Liquibase migrations, and matching tests (`disabled|soft|hard`) with actionable hints.
 - `.claude/hooks/lint-deps.sh` — monitors dependency changes, validates them against `config/allowed-deps.txt`, and reports drift.
@@ -97,11 +97,11 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `.claude/agents/analyst.md` — turns raw ideas into PRDs, asks clarifying questions, tracks risks/assumptions, and updates `docs/prd/<slug>.prd.md` with READY/BLOCKED status.
 - `.claude/agents/planner.md` — produces `docs/plan/<slug>.md` with DoD and dependencies; `.claude/agents/validator.md` audits the plan and records follow-up questions for product/architecture.
 - `.claude/agents/prd-reviewer.md` — performs structured PRD audits, verifies metrics/risks, fills `## PRD Review` (status, summary, findings, action items), and hands blockers back to product.
-- `.claude/agents/implementer.md` — guides iterative delivery, tracks gate status, and relies on `.claude/hooks/format-and-test.sh` for automatic testing.
-- `.claude/agents/reviewer.md` — summarizes review findings, checks tasklists, flips READY/BLOCKED, and records follow-up tasks in `docs/tasklist/<slug>.md`.
+- `.claude/agents/implementer.md` — guides iterative delivery, tracks gate status, updates tasklists (`Checkbox updated: …`, new `- [x]`), and calls `claude-workflow progress --source implement` in between iterations.
+- `.claude/agents/reviewer.md` — summarizes review findings, checks tasklists, flips READY/BLOCKED, records follow-up tasks in `docs/tasklist/<slug>.md`, and runs `claude-workflow progress --source review` before handing off.
 - `.claude/agents/db-migrator.md` — drafts Flyway/Liquibase migrations (`db/migration/V<timestamp>__<slug>.sql`, changelog) and notes manual steps/dependencies.
 - `.claude/agents/contract-checker.md` — compares controllers against OpenAPI specs, flags missing/extraneous endpoints/status codes, and provides actionable summaries.
-- `.claude/agents/qa.md` — final QA sweep; produces severity-tagged findings, updates `docs/tasklist/<slug>.md`, and feeds `gate-qa.sh`.
+- `.claude/agents/qa.md` — final QA sweep; produces severity-tagged findings, updates `docs/tasklist/<slug>.md`, runs `claude-workflow progress --source qa`, and feeds `gate-qa.sh`.
 
 ### Slash-command definitions
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
@@ -147,7 +147,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Key scripts and hooks
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
-- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and tasklist entries (`docs/tasklist/<slug>.md`) exist for the active slug (`docs/.active_feature`).
+- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and new completed checkboxes (`- [x]` in `docs/tasklist/<slug>.md`) exist for the active slug (`docs/.active_feature`).
 - **`gate-prd-review.sh`** — checks `## PRD Review` and blocks when blockers or unchecked items remain; integrates with `config/gates.json` (`prd_review` section).
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — optional gates: when enabled they expect OpenAPI specs, database migrations, and matching tests as configured in `config/gates.json`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<slug>.json`, and treats `blocker/critical` as hard failures; see `docs/qa-playbook.md`.
@@ -262,8 +262,8 @@ You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `docs/task
 1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <slug>` — it will update `docs/.active_feature` automatically. Answer every analyst prompt as `Answer N: …` until the dialog reaches `Status: READY`, `## Диалог analyst` is complete, and `claude-workflow analyst-check --feature <slug>` reports success.
 2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --feature <slug>` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the slug is already in place after step 1 and verified via `analyst-check`).
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
-4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates.
-5. Request `/review` once `docs/tasklist/<slug>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync.
+4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --feature <slug>`.
+5. Request `/review` once `docs/tasklist/<slug>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review|qa --feature <slug>` before closing the loop.
 
 A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
@@ -277,6 +277,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 | `/tasks-new` | Refresh `docs/tasklist/<slug>.md` from the plan | `checkout-discounts` |
 | `/implement` | Execute the plan with auto tests | `checkout-discounts` |
 | `/review` | Final code review and status sync | `checkout-discounts` |
+| `claude-workflow progress` | Ensure new completed checkboxes exist before closing a step | `--source implement --feature checkout-discounts` |
 
 ## Branch & commit modes
 

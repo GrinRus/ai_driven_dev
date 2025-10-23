@@ -104,5 +104,34 @@
       "not-required"
     ],
     "warn_on_missing": true
+  },
+  "tasklist_progress": {
+    "enabled": true,
+    "code_prefixes": [
+      "src/",
+      "tests/",
+      "test/",
+      "app/",
+      "services/",
+      "backend/",
+      "frontend/",
+      "lib/",
+      "core/",
+      "packages/",
+      "modules/",
+      "cmd/"
+    ],
+    "skip_branches": [
+      "docs/*",
+      "chore/*"
+    ],
+    "allow_missing_tasklist": false,
+    "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
+    "sources": [
+      "implement",
+      "qa",
+      "review",
+      "gate"
+    ]
   }
 }
