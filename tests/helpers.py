@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
-    "feature_slug_source": "docs/.active_feature",
+    "feature_ticket_source": "docs/.active_ticket",
+    "feature_slug_hint_source": "docs/.active_feature",
     "api_contract": True,
     "db_migration": True,
     "tests_required": "soft",
@@ -21,7 +22,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "require_action_items_closed": True,
         "allow_missing_report": False,
         "blocking_severities": ["critical"],
-        "report_path": "reports/prd/{slug}.json",
+        "report_path": "reports/prd/{ticket}.json",
     },
     "researcher": {
         "enabled": True,
@@ -44,7 +45,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     },
     "reviewer": {
         "enabled": True,
-        "tests_marker": "reports/reviewer/{slug}.json",
+        "tests_marker": "reports/reviewer/{ticket}.json",
         "tests_field": "tests",
         "required_values": ["required"],
         "optional_values": ["optional", "skipped", "not-required"],
@@ -111,6 +112,12 @@ def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathl
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return target
+
+
+def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[str] = None) -> None:
+    write_file(root, "docs/.active_ticket", ticket)
+    hint = ticket if slug_hint is None else slug_hint
+    write_file(root, "docs/.active_feature", hint)
 
 
 def ensure_gates_config(

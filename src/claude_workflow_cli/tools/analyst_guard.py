@@ -130,7 +130,7 @@ def _collect_numbers(pattern: re.Pattern[str], text: str) -> list[int]:
 
 def validate_prd(
     root: Path,
-    slug: str,
+    ticket: str,
     *,
     settings: AnalystSettings,
     branch: Optional[str] = None,
@@ -141,9 +141,9 @@ def validate_prd(
     if not settings.enabled or not _branch_enabled(branch, settings):
         return AnalystCheckSummary(status=None, question_count=0, answered_count=0)
 
-    prd_path = root / "docs" / "prd" / f"{slug}.prd.md"
+    prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
     if not prd_path.exists():
-        raise AnalystValidationError(f"BLOCK: нет PRD → запустите /idea-new {slug}")
+        raise AnalystValidationError(f"BLOCK: нет PRD → запустите /idea-new {ticket}")
 
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
@@ -189,7 +189,7 @@ def validate_prd(
         if len(missing_answers) > 3:
             sample += ", …"
         raise AnalystValidationError(
-            f"BLOCK: отсутствуют ответы для вопросов {sample}. Ответьте в формате «Ответ N: …» и повторите /idea-new {slug}."
+            f"BLOCK: отсутствуют ответы для вопросов {sample}. Ответьте в формате «Ответ N: …» и повторите /idea-new {ticket}."
         )
 
     status_match = STATUS_RE.search(text)
@@ -236,7 +236,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validate analyst dialog state for the active feature PRD.",
     )
-    parser.add_argument("--slug", required=True, help="Feature slug to validate.")
+    parser.add_argument("--ticket", "--slug", dest="ticket", required=True, help="Feature ticket to validate (legacy alias: --slug).")
     parser.add_argument(
         "--target",
         default=".",
@@ -272,7 +272,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         summary = validate_prd(
             root,
-            args.slug,
+            args.ticket,
             settings=settings,
             branch=args.branch,
             require_ready_override=False if args.no_ready_required else None,

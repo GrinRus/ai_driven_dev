@@ -11,10 +11,11 @@ file_path="$(hook_payload_file_path "$payload")"
 
 [[ "$(hook_config_get_bool config/gates.json api_contract)" == "1" ]] || exit 0
 
-slug_file="$(hook_config_get_str config/gates.json feature_slug_source docs/.active_feature)"
-[[ -f "$slug_file" ]] || exit 0
-slug="$(hook_read_slug "$slug_file" || true)"
-[[ -n "$slug" ]] || exit 0
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
+[[ -n "$ticket" ]] || exit 0
 
 # если правится не контроллер/роут — пропустим
 if [[ ! "$file_path" =~ (^|/)src/main/.*/(controller|rest|web|routes?)/.*\.(kt|java)$ ]] && \
@@ -24,12 +25,16 @@ fi
 
 # проверим наличие контракта
 has_spec=0
-for p in "docs/api/$slug.yaml" "docs/api/$slug.yml" "docs/api/$slug.json" "src/main/resources/openapi.yaml" "openapi.yaml"; do
+for p in "docs/api/$ticket.yaml" "docs/api/$ticket.yml" "docs/api/$ticket.json" "src/main/resources/openapi.yaml" "openapi.yaml"; do
   [[ -f "$p" ]] && has_spec=1 && break
 done
 
 if [[ $has_spec -eq 0 ]]; then
-  echo "BLOCK: нет API контракта для '$slug'. Добавьте docs/api/${slug}.yaml (OpenAPI) или отключите проверку в config/gates.json." 1>&2
+  if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+    echo "BLOCK: нет API контракта для '${ticket}' (slug hint: ${slug_hint}). Добавьте docs/api/${ticket}.yaml (OpenAPI) или отключите проверку в config/gates.json." 1>&2
+  else
+    echo "BLOCK: нет API контракта для '${ticket}'. Добавьте docs/api/${ticket}.yaml (OpenAPI) или отключите проверку в config/gates.json." 1>&2
+  fi
   exit 2
 fi
 exit 0

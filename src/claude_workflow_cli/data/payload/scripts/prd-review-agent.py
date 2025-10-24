@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Lightweight PRD review helper for Claude workflow."""
+"""Lightweight PRD review helper for Claude workflow.
+
+The script inspects docs/prd/<ticket>.prd.md, looks for the dedicated
+`## PRD Review` section, checks status/action items and surfaces obvious
+placeholders (TODO/TBD/<...>) that must be resolved before development.
+
+It produces a structured JSON report that can be stored in reports/prd/
+and optionally prints a concise human-readable summary.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +30,7 @@ REVIEW_SECTION_HEADER = "## PRD Review"
 
 @dataclass
 class Finding:
-    severity: str
+    severity: str  # critical | major | minor
     title: str
     details: str
 
@@ -50,12 +58,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prd",
         type=Path,
-        help="Explicit path to PRD file. Defaults to docs/prd/<slug>.prd.md.",
+        help="Explicit path to PRD file. Defaults to docs/prd/<ticket>.prd.md.",
     )
     parser.add_argument(
         "--report",
         type=Path,
-        help="Optional path to store JSON report.",
+        help="Optional path to store JSON report. Directories are created automatically.",
     )
     parser.add_argument(
         "--emit-text",
@@ -66,7 +74,7 @@ def parse_args() -> argparse.Namespace:
         "--stdout-format",
         choices=("json", "text", "auto"),
         default="auto",
-        help="Format for stdout output (default: auto).",
+        help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
     )
     return parser.parse_args()
 
@@ -92,6 +100,7 @@ def locate_prd(slug: str, explicit: Optional[Path]) -> Path:
 
 
 def extract_review_section(content: str) -> tuple[str, List[str]]:
+    """Return status string and action items from the PRD Review section."""
     lines = content.splitlines()
     status = DEFAULT_STATUS
     action_items: List[str] = []
@@ -143,6 +152,15 @@ def analyse_prd(slug: str, prd_path: Path) -> Report:
             )
         )
 
+    if status not in APPROVED_STATUSES and not placeholder_hits and not action_items:
+        findings.append(
+            Finding(
+                severity="minor",
+                title="Статус PRD Review не обновлён",
+                details="Укажите Status: approved после ревью.",
+            )
+        )
+
     if status in BLOCKING_TOKENS:
         findings.append(
             Finding(
@@ -152,27 +170,18 @@ def analyse_prd(slug: str, prd_path: Path) -> Report:
             )
         )
 
-    if not placeholder_hits and not action_items and status not in APPROVED_STATUSES:
-        findings.append(
-            Finding(
-                severity="minor",
-                title="Статус PRD Review не обновлён",
-                details="Укажите Status: approved после ревью.",
-            )
-        )
-
-    recommended = status
+    recomputed_status = status
     if status in BLOCKING_TOKENS:
-        recommended = "blocked"
+        recomputed_status = "blocked"
     elif action_items:
-        recommended = "pending"
+        recomputed_status = "pending"
     elif status not in APPROVED_STATUSES:
-        recommended = status or DEFAULT_STATUS
+        recomputed_status = status or DEFAULT_STATUS
 
     return Report(
         slug=slug,
         status=status or DEFAULT_STATUS,
-        recommended_status=recommended,
+        recommended_status=recomputed_status,
         findings=findings,
         action_items=action_items,
         generated_at=dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
@@ -201,11 +210,16 @@ def main() -> None:
     prd_path = locate_prd(slug, args.prd)
     report = analyse_prd(slug, prd_path)
 
-    print_text = args.emit_text or args.stdout_format == "text"
+    if args.emit_text or args.stdout_format in ("text", "auto"):
+        print_text = args.emit_text or args.stdout_format == "text"
+    else:
+        print_text = False
+
     if print_text:
         print_text_report(report)
 
-    if args.stdout_format in ("json", "auto") and not print_text:
+    should_emit_json = (args.stdout_format in ("json", "auto") and not print_text) or args.stdout_format == "json"
+    if should_emit_json:
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
 
     if args.report:

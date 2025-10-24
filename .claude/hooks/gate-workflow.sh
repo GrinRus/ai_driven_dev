@@ -10,10 +10,17 @@ payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
-slug_file="docs/.active_feature"
-[[ -f "$slug_file" ]] || exit 0  # нет активной фичи — не блокируем
-slug="$(hook_read_slug "$slug_file" || true)"
-[[ -n "$slug" ]] || exit 0
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
+  exit 0
+fi
+if [[ -n "$ticket_source" && ! -f "$ticket_source" ]] && [[ -n "$slug_hint_source" && ! -f "$slug_hint_source" ]]; then
+  exit 0  # нет активной фичи — не блокируем
+fi
+ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
+[[ -n "$ticket" ]] || exit 0
 
 # Если правится не код, пропускаем
 if [[ ! "$file_path" =~ (^|/)src/ ]]; then
@@ -21,31 +28,31 @@ if [[ ! "$file_path" =~ (^|/)src/ ]]; then
 fi
 
 # Проверим артефакты
-[[ -f "docs/prd/$slug.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $slug"; exit 2; }
-analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --slug "$slug")
+[[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
+analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticket")
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
 if ! "${analyst_cmd[@]}" >/dev/null; then
   exit 2
 fi
-if ! review_msg="$(python3 "$ROOT_DIR/scripts/prd_review_gate.py" --slug "$slug" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+if ! review_msg="$(python3 "$ROOT_DIR/scripts/prd_review_gate.py" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"
   else
-    echo "BLOCK: PRD Review не готов → выполните /review-prd $slug"
+    echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
   fi
   exit 2
 fi
 
-if ! research_msg="$(python3 - "$slug" "$current_branch" <<'PY'
+if ! research_msg="$(python3 - "$ticket" "$current_branch" <<'PY'
 import datetime as dt
 import json
 import sys
 from pathlib import Path
 from fnmatch import fnmatch
 
-slug = sys.argv[1]
+ticket = sys.argv[1]
 branch = sys.argv[2] if len(sys.argv) > 2 else ""
 config_path = Path("config/gates.json")
 if not config_path.exists():
@@ -70,12 +77,12 @@ if branch and isinstance(skip_branches, list):
     if any(fnmatch(branch, pattern) for pattern in skip_branches if isinstance(pattern, str)):
         raise SystemExit(0)
 
-doc_path = Path("docs/research") / f"{slug}.md"
+doc_path = Path("docs/research") / f"{ticket}.md"
 allow_missing = settings.get("allow_missing", False)
 if not doc_path.exists():
     if allow_missing:
         raise SystemExit(0)
-    print(f"BLOCK: нет отчёта Researcher для {slug} → запустите `claude-workflow research --feature {slug}` и оформите docs/research/{slug}.md")
+    print(f"BLOCK: нет отчёта Researcher для {ticket} → запустите `claude-workflow research --ticket {ticket}` и оформите docs/research/{ticket}.md")
     raise SystemExit(1)
 
 status = None
@@ -86,7 +93,7 @@ try:
             status = stripped.split(":", 1)[1].strip().lower()
             break
 except Exception:
-    print(f"BLOCK: не удалось прочитать docs/research/{slug}.md.")
+    print(f"BLOCK: не удалось прочитать docs/research/{ticket}.md.")
     raise SystemExit(1)
 
 required_statuses = [
@@ -96,13 +103,13 @@ required_statuses = [
 ]
 if required_statuses:
     if not status:
-        print(f"BLOCK: docs/research/{slug}.md не содержит строки `Status:` или она пуста.")
+        print(f"BLOCK: docs/research/{ticket}.md не содержит строки `Status:` или она пуста.")
         raise SystemExit(1)
     if status not in required_statuses:
         print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
         raise SystemExit(1)
 
-targets_path = Path("reports/research") / f"{slug}-targets.json"
+targets_path = Path("reports/research") / f"{ticket}-targets.json"
 min_paths = int(settings.get("minimum_paths", 0) or 0)
 if min_paths > 0:
     try:
@@ -120,11 +127,11 @@ if min_paths > 0:
 
 freshness_days = settings.get("freshness_days")
 if freshness_days:
-    context_path = Path("reports/research") / f"{slug}-context.json"
+    context_path = Path("reports/research") / f"{ticket}-context.json"
     try:
         context = json.loads(context_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        print(f"BLOCK: отсутствует {context_path}; выполните claude-workflow research для {slug}.")
+        print(f"BLOCK: отсутствует {context_path}; выполните claude-workflow research для {ticket}.")
         raise SystemExit(1)
     except json.JSONDecodeError:
         print(f"BLOCK: повреждён {context_path}; пересоздайте его.")
@@ -144,7 +151,7 @@ if freshness_days:
     now = dt.datetime.now(dt.timezone.utc)
     age_days = (now - generated_dt.astimezone(dt.timezone.utc)).days
     if age_days > int(freshness_days):
-        print(f"BLOCK: контекст Researcher устарел ({age_days} дней) → обновите claude-workflow research для {slug}.")
+        print(f"BLOCK: контекст Researcher устарел ({age_days} дней) → обновите claude-workflow research для {ticket}.")
         raise SystemExit(1)
 
 raise SystemExit(0)
@@ -158,36 +165,37 @@ PY
   exit 2
 fi
 
-[[ -f "docs/plan/$slug.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $slug"; exit 2; }
-if ! python3 - "$slug" <<'PY'
+[[ -f "docs/plan/$ticket.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
+if ! python3 - "$ticket" <<'PY'
 import sys
 from pathlib import Path
 
-slug = sys.argv[1]
-tasklist = Path("docs") / "tasklist" / f"{slug}.md"
+ticket = sys.argv[1]
+tasklist = Path("docs") / "tasklist" / f"{ticket}.md"
 if not tasklist.exists():
     sys.exit(1)
 for raw in tasklist.read_text(encoding="utf-8").splitlines():
     line = raw.strip()
     if not line.startswith("- [ ]"):
         continue
-    if "<slug>" in line.lower():
+    lower_line = line.lower()
+    if "<slug>" in lower_line or "<ticket>" in lower_line:
         continue
     sys.exit(0)
 sys.exit(1)
 PY
 then
-  echo "BLOCK: нет задач → запустите /tasks-new $slug (docs/tasklist/$slug.md)"
+  echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
   exit 2
 fi
 
-if [[ -n "$slug" ]]; then
-  reviewer_notice="$(python3 - "$slug" <<'PY'
+if [[ -n "$ticket" ]]; then
+  reviewer_notice="$(python3 - "$ticket" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-slug = sys.argv[1]
+ticket = sys.argv[1]
 config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -201,20 +209,21 @@ if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
 template = str(
     reviewer_cfg.get("tests_marker")
     or reviewer_cfg.get("marker")
-    or "reports/reviewer/{slug}.json"
+    or "reports/reviewer/{ticket}.json"
 )
 field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
+required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
 required_values = [
     str(value).strip().lower()
-    for value in reviewer_cfg.get("required_values", ["required"])
+    for value in (required_values_source if isinstance(required_values_source, list) else ["required"])
 ]
-optional_values = reviewer_cfg.get("optional_values", [])
+optional_values = reviewer_cfg.get("optionalValues", reviewer_cfg.get("optional_values", []))
 if isinstance(optional_values, list):
     optional_values = [str(value).strip().lower() for value in optional_values]
 else:
     optional_values = []
 
-marker_path = Path(template.replace("{slug}", slug))
+marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", ticket))
 if not marker_path.exists():
     if reviewer_cfg.get("warn_on_missing", True):
         print(
@@ -242,7 +251,10 @@ PY
   fi
 fi
 
-progress_args=("--root" "$PWD" "--slug" "$slug" "--source" "gate" "--quiet-ok")
+progress_args=("--root" "$PWD" "--ticket" "$ticket" "--source" "gate" "--quiet-ok")
+if [[ -n "$slug_hint" ]]; then
+  progress_args+=("--slug-hint" "$slug_hint")
+fi
 if [[ -n "$current_branch" ]]; then
   progress_args+=("--branch" "$current_branch")
 fi

@@ -62,7 +62,9 @@ class ResearcherContextTests(unittest.TestCase):
 
     def test_builder_creates_targets_and_context(self) -> None:
         builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout")
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
+        self.assertEqual(scope.ticket, "demo-checkout")
+        self.assertEqual(scope.slug_hint, "demo-checkout")
         self.assertIn("src/main/kotlin", scope.paths)
         self.assertIn("docs/research/demo-checkout.md", scope.docs)
 
@@ -73,13 +75,14 @@ class ResearcherContextTests(unittest.TestCase):
         context_path = builder.write_context(scope, context)
 
         payload = json.loads(context_path.read_text(encoding="utf-8"))
-        self.assertEqual(payload["slug"], "demo-checkout")
+        self.assertEqual(payload["ticket"], "demo-checkout")
         self.assertGreaterEqual(len(payload["matches"]), 1)
 
     def test_builder_handles_slug_without_tags(self) -> None:
         builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-untagged")
-        self.assertEqual(scope.slug, "demo-untagged")
+        scope = builder.build_scope("demo-untagged", slug_hint="demo-untagged")
+        self.assertEqual(scope.ticket, "demo-untagged")
+        self.assertEqual(scope.slug_hint, "demo-untagged")
         self.assertEqual(scope.tags, [])
         self.assertIn("src/main", scope.paths)
         self.assertIn("docs/research", scope.docs)
@@ -103,7 +106,7 @@ class ResearcherContextTests(unittest.TestCase):
         )
 
         builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout")
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
         self.assertIn("checkout", scope.tags)
         self.assertIn("payments", scope.tags)
         self.assertIn("src/payments", scope.paths)
@@ -121,6 +124,8 @@ class ResearcherContextTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
 
+        ticket_file = self.root / "docs" / ".active_ticket"
+        self.assertEqual(ticket_file.read_text(encoding="utf-8"), "demo-checkout")
         slug_file = self.root / "docs" / ".active_feature"
         self.assertEqual(slug_file.read_text(encoding="utf-8"), "demo-checkout")
 

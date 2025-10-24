@@ -26,7 +26,7 @@ def test_no_active_feature_allows_changes(tmp_path):
 
 def test_missing_prd_blocks_when_feature_active(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -35,7 +35,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
 
 def test_missing_plan_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
 
@@ -46,7 +46,7 @@ def test_missing_plan_blocks(tmp_path):
 
 def test_blocked_status_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     blocked_prd = (
         "# PRD\n\n"
         "## Диалог analyst\n"
@@ -66,7 +66,7 @@ def test_blocked_status_blocks(tmp_path):
 
 def test_missing_tasks_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
@@ -78,7 +78,7 @@ def test_missing_tasks_blocks(tmp_path):
 
 def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
@@ -119,7 +119,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
         },
     )
 
-    write_file(tmp_path, "docs/.active_feature", slug)
+    write_active_feature(tmp_path, slug)
     write_file(tmp_path, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
     write_file(tmp_path, f"docs/plan/{slug}.md", "# Plan")
     write_file(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
@@ -190,7 +190,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
 
 def test_documents_are_not_blocked(tmp_path):
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     # PRD and plan intentionally absent
 
     result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)

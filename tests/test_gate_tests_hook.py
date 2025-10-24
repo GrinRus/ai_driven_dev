@@ -1,4 +1,4 @@
-from .helpers import ensure_gates_config, run_hook, write_file
+from .helpers import ensure_gates_config, run_hook, write_active_feature, write_file
 from .helpers import write_json
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/service/RuleEngine.kt"}}'
@@ -59,11 +59,11 @@ def test_non_source_paths_not_checked(tmp_path):
 
 def test_warns_when_reviewer_requests_tests(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "soft"})
-    write_file(tmp_path, "docs/.active_feature", "demo")
+    write_active_feature(tmp_path, "demo")
     write_json(
         tmp_path,
         "reports/reviewer/demo.json",
-        {"slug": "demo", "tests": "required", "requested_by": "ci"},
+        {"ticket": "demo", "slug": "demo", "tests": "required", "requested_by": "ci"},
     )
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
 

@@ -15,9 +15,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Analyst dialog enforcement: updated `/.claude/agents/analyst.md`, PRD template with `## Диалог analyst`, new CLI command `claude-workflow analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 - Progress tracking: CLI command `claude-workflow progress`, new `tasklist_progress` gate in `config/gates.json`, gate-workflow integration, smoke coverage, and unit tests validating missing/updated checkboxes.
 - Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`) reflecting the mandatory tasklist sync.
+- Migration helper `tools/migrate_ticket.py` (and payload copy) for converting legacy slug-based repositories to the ticket-first layout.
 
 ### Changed
-- Tasklist артефакты перемещены в `docs/tasklist/<slug>.md`: обновлены шаблоны, init/CLI пресеты, гейты, тесты и документация; добавлен скрипт миграции `scripts/migrate-tasklist.py` и автоперенос в `set_active_feature.py`.
+- Tasklist артефакты перемещены в `docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI пресеты, гейты, тесты и документация; добавлен скрипт миграции `scripts/migrate-tasklist.py` и автоперенос в `set_active_feature.py`.
+- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`, `docs/feature-cookbook.md`, `docs/customization.md`, дизайн-пресеты и шаблоны tasklist.
 
 ### Fixed
 - CLI now falls back to the bundled payload when release downloads fail.

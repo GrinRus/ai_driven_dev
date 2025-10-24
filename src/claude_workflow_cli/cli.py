@@ -18,6 +18,12 @@ from importlib import metadata, resources
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from claude_workflow_cli.feature_ids import (
+    FeatureIdentifiers,
+    resolve_identifiers,
+    write_identifiers,
+)
+
 from claude_workflow_cli import progress as _progress
 from claude_workflow_cli.tools.analyst_guard import (
     AnalystValidationError,
@@ -42,7 +48,7 @@ DEFAULT_RELEASE_REPO = os.getenv("CLAUDE_WORKFLOW_RELEASE_REPO", "ai-driven-dev/
 CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
 HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
-DEFAULT_REVIEWER_MARKER = "reports/reviewer/{slug}.json"
+DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 
@@ -399,8 +405,8 @@ def _init_command(args: argparse.Namespace) -> None:
 
 def _preset_command(args: argparse.Namespace) -> None:
     script_args: List[str] = ["--preset", args.name]
-    if args.feature:
-        script_args.extend(["--feature", args.feature])
+    if getattr(args, "ticket", None):
+        script_args.extend(["--ticket", args.ticket])
     if args.force:
         script_args.append("--force")
     if args.dry_run:
@@ -414,16 +420,16 @@ def _smoke_command(args: argparse.Namespace) -> None:
 
 def _analyst_check_command(args: argparse.Namespace) -> None:
     target = Path(args.target).resolve()
-    slug = args.feature or _read_active_feature(target)
-    if not slug:
-        raise ValueError(
-            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
-        )
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
     settings = _load_analyst_settings(target)
     try:
         summary = _validate_analyst_prd(
             target,
-            slug,
+            ticket,
             settings=settings,
             branch=args.branch,
             require_ready_override=False if args.no_ready_required else None,
@@ -437,9 +443,9 @@ def _analyst_check_command(args: argparse.Namespace) -> None:
         print("[claude-workflow] analyst gate disabled; nothing to validate.")
         return
 
-    print(
-        f"[claude-workflow] analyst dialog ready (status: {summary.status}, questions: {summary.question_count})."
-    )
+    label = _format_ticket_label(context, fallback=ticket)
+    print(f"[claude-workflow] analyst dialog ready for `{label}` "
+          f"(status: {summary.status}, questions: {summary.question_count}).")
 
 
 def _research_command(args: argparse.Namespace) -> None:
@@ -447,11 +453,11 @@ def _research_command(args: argparse.Namespace) -> None:
     if not target.exists():
         raise FileNotFoundError(f"target directory {target} does not exist")
 
-    slug = args.feature or _read_active_feature(target)
-    if not slug:
-        raise ValueError(
-            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
-        )
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
 
     config_path: Optional[Path] = None
     if args.config:
@@ -461,7 +467,7 @@ def _research_command(args: argparse.Namespace) -> None:
         else:
             config_path = config_path.resolve()
     builder = ResearcherContextBuilder(target, config_path=config_path)
-    scope = builder.build_scope(slug)
+    scope = builder.build_scope(ticket, slug_hint=context.slug_hint)
     scope = builder.extend_scope(
         scope,
         extra_paths=_research_parse_paths(args.paths),
@@ -494,7 +500,7 @@ def _research_command(args: argparse.Namespace) -> None:
     if args.no_template:
         return
 
-    doc_path, created = _ensure_research_doc(target, slug)
+    doc_path, created = _ensure_research_doc(target, ticket, slug_hint=context.slug_hint)
     if not doc_path:
         print("[claude-workflow] research summary template not found; skipping materialisation.")
         return
@@ -510,11 +516,11 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     if not target.exists():
         raise FileNotFoundError(f"target directory {target} does not exist")
 
-    slug = args.feature or _read_active_feature(target)
-    if not slug:
-        raise ValueError(
-            "feature slug is required; pass --feature or set docs/.active_feature via /idea-new."
-        )
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
 
     reviewer_cfg = _reviewer_gate_config(target)
     marker_template = str(
@@ -522,7 +528,7 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
         or reviewer_cfg.get("tests_marker")
         or DEFAULT_REVIEWER_MARKER
     )
-    marker_path = _reviewer_marker_path(target, marker_template, slug)
+    marker_path = _reviewer_marker_path(target, marker_template, ticket, context.slug_hint)
     rel_marker = marker_path.relative_to(target).as_posix()
 
     if args.clear:
@@ -570,7 +576,8 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
 
     record.update(
         {
-            "slug": slug,
+            "ticket": ticket,
+            "slug": context.slug_hint or ticket,
             field_name: status,
             "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         }
@@ -596,12 +603,18 @@ def _progress_command(args: argparse.Namespace) -> int:
     if not target.exists():
         raise FileNotFoundError(f"target directory {target} does not exist")
 
-    slug = args.feature or _read_active_feature(target)
+    context = _resolve_feature_context(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    ticket = context.resolved_ticket
     branch = args.branch or _detect_branch(target)
     config = _progress.ProgressConfig.load(target)
     result = _progress.check_progress(
         root=target,
-        slug=slug,
+        ticket=ticket,
+        slug_hint=context.slug_hint,
         source=args.source,
         branch=branch,
         config=config,
@@ -633,8 +646,8 @@ def _progress_command(args: argparse.Namespace) -> int:
             _print_items(result.code_files)
         return 0
 
-    display_slug = slug or "активной фичи"
-    print(f"✅ Прогресс tasklist для `{display_slug}` подтверждён.")
+    label = _format_ticket_label(context)
+    print(f"✅ Прогресс tasklist для `{label}` подтверждён.")
     if result.new_items:
         print("Новые чекбоксы:")
         _print_items(result.new_items)
@@ -656,8 +669,35 @@ def _write_template_version(target: Path) -> None:
     version_file.write_text(f"{VERSION}\n", encoding="utf-8")
 
 
-def _active_feature_file(target: Path) -> Path:
-    return target / "docs" / ".active_feature"
+def _resolve_feature_context(
+    target: Path,
+    *,
+    ticket: Optional[str] = None,
+    slug_hint: Optional[str] = None,
+) -> FeatureIdentifiers:
+    return resolve_identifiers(target, ticket=ticket, slug_hint=slug_hint)
+
+
+def _require_ticket(
+    target: Path,
+    *,
+    ticket: Optional[str] = None,
+    slug_hint: Optional[str] = None,
+) -> tuple[str, FeatureIdentifiers]:
+    context = _resolve_feature_context(target, ticket=ticket, slug_hint=slug_hint)
+    resolved = (context.resolved_ticket or "").strip()
+    if not resolved:
+        raise ValueError(
+            "feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new."
+        )
+    return resolved, context
+
+
+def _format_ticket_label(context: FeatureIdentifiers, fallback: str = "активной фичи") -> str:
+    ticket = (context.resolved_ticket or "").strip() or fallback
+    if context.slug_hint and context.slug_hint.strip() and context.slug_hint.strip() != ticket:
+        return f"{ticket} (slug hint: {context.slug_hint.strip()})"
+    return ticket
 
 
 def _settings_path(target: Path) -> Path:
@@ -689,8 +729,10 @@ def _reviewer_gate_config(target: Path) -> dict:
     return reviewer_cfg if isinstance(reviewer_cfg, dict) else {}
 
 
-def _reviewer_marker_path(target: Path, template: str, slug: str) -> Path:
-    rel_text = template.replace("{slug}", slug)
+def _reviewer_marker_path(target: Path, template: str, ticket: str, slug_hint: Optional[str]) -> Path:
+    rel_text = template.replace("{ticket}", ticket)
+    if "{slug}" in template:
+        rel_text = rel_text.replace("{slug}", slug_hint or ticket)
     marker_path = Path(rel_text)
     if not marker_path.is_absolute():
         marker_path = (target / marker_path).resolve()
@@ -702,13 +744,6 @@ def _reviewer_marker_path(target: Path, template: str, slug: str) -> Path:
             f"reviewer marker path {marker_path} escapes project root {target_root}"
         )
     return marker_path
-
-
-def _read_active_feature(target: Path) -> Optional[str]:
-    slug_path = _active_feature_file(target)
-    if not slug_path.exists():
-        return None
-    return slug_path.read_text(encoding="utf-8").strip() or None
 
 
 def _detect_branch(target: Path) -> Optional[str]:
@@ -731,17 +766,25 @@ def _detect_branch(target: Path) -> Optional[str]:
     return branch
 
 
-def _ensure_research_doc(target: Path, slug: str) -> tuple[Optional[Path], bool]:
+def _ensure_research_doc(
+    target: Path,
+    ticket: str,
+    slug_hint: Optional[str],
+) -> tuple[Optional[Path], bool]:
     template = target / "docs" / "templates" / "research-summary.md"
-    destination = target / "docs" / "research" / f"{slug}.md"
+    destination = target / "docs" / "research" / f"{ticket}.md"
     if not template.exists():
         return None, False
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         return destination, False
     content = template.read_text(encoding="utf-8")
+    feature_label = slug_hint or ticket
     replacements = {
-        "{{feature}}": slug,
+        "{{feature}}": feature_label,
+        "{{ticket}}": ticket,
+        "{{slug}}": slug_hint or "",
+        "{{slug_hint}}": slug_hint or "",
         "{{date}}": dt.date.today().isoformat(),
         "{{owner}}": os.getenv("GIT_AUTHOR_NAME")
         or os.getenv("GIT_COMMITTER_NAME")
@@ -1031,8 +1074,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name of the preset to apply.",
     )
     preset_parser.add_argument(
+        "--ticket",
         "--feature",
-        help="Feature slug to use when generating artefacts.",
+        dest="ticket",
+        help="Ticket identifier to use when generating artefacts (legacy alias: --feature).",
     )
     preset_parser.add_argument(
         "--target",
@@ -1066,8 +1111,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate the analyst dialog (Вопрос/Ответ) for the active feature PRD.",
     )
     analyst_parser.add_argument(
+        "--ticket",
         "--feature",
-        help="Feature slug to validate (defaults to docs/.active_feature).",
+        dest="ticket",
+        help="Ticket identifier to validate (defaults to docs/.active_ticket).",
+    )
+    analyst_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for messaging (defaults to docs/.active_feature if present).",
     )
     analyst_parser.add_argument(
         "--target",
@@ -1100,8 +1152,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Collect scope and context for the Researcher agent.",
     )
     research_parser.add_argument(
+        "--ticket",
         "--feature",
-        help="Feature slug to analyse (defaults to the active feature in docs/.active_feature).",
+        dest="ticket",
+        help="Ticket identifier to analyse (defaults to docs/.active_ticket).",
+    )
+    research_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override used for templates and keywords (defaults to docs/.active_feature).",
     )
     research_parser.add_argument(
         "--target",
@@ -1128,7 +1187,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     research_parser.add_argument(
         "--output",
-        help="Override output JSON path (default: reports/research/<slug>-context.json).",
+        help="Override output JSON path (default: reports/research/<ticket>-context.json).",
     )
     research_parser.add_argument(
         "--targets-only",
@@ -1143,7 +1202,7 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--no-template",
         action="store_true",
-        help="Do not materialise docs/research/<slug>.md from the template.",
+        help="Do not materialise docs/research/<ticket>.md from the template.",
     )
     research_parser.set_defaults(func=_research_command)
 
@@ -1152,8 +1211,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Update reviewer test requirement marker for the active feature.",
     )
     reviewer_tests_parser.add_argument(
+        "--ticket",
         "--feature",
-        help="Feature slug to use (defaults to docs/.active_feature).",
+        dest="ticket",
+        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+    )
+    reviewer_tests_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for marker metadata.",
     )
     reviewer_tests_parser.add_argument(
         "--target",
@@ -1183,11 +1249,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     progress_parser = subparsers.add_parser(
         "progress",
-        help="Check that docs/tasklist/<slug>.md has new completed items after code changes.",
+        help="Check that docs/tasklist/<ticket>.md has new completed items after code changes.",
     )
     progress_parser.add_argument(
+        "--ticket",
         "--feature",
-        help="Feature slug to check (defaults to docs/.active_feature).",
+        dest="ticket",
+        help="Ticket identifier to check (defaults to docs/.active_ticket).",
+    )
+    progress_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override used for messaging.",
     )
     progress_parser.add_argument(
         "--target",

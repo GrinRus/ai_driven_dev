@@ -8,16 +8,19 @@ source "${SCRIPT_DIR}/lib.sh"
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
-slug_file="docs/.active_feature"
-slug="$(hook_read_slug "$slug_file" || true)"
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 
-if [[ -n "$slug" ]]; then
-  reviewer_tests_msg="$(python3 - "$slug" <<'PY'
+if [[ -n "$ticket" ]]; then
+  reviewer_tests_msg="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-slug = sys.argv[1]
+ticket = sys.argv[1]
+slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
 config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -31,15 +34,16 @@ if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
 template = str(
     reviewer_cfg.get("tests_marker")
     or reviewer_cfg.get("marker")
-    or "reports/reviewer/{slug}.json"
+    or "reports/reviewer/{ticket}.json"
 )
 field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
+required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
 required_values = [
     str(value).strip().lower()
-    for value in reviewer_cfg.get("required_values", ["required"])
+    for value in (required_values_source if isinstance(required_values_source, list) else ["required"])
 ]
 
-marker_path = Path(template.replace("{slug}", slug))
+marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", ticket))
 if not marker_path.exists():
     raise SystemExit(0)
 
@@ -53,8 +57,9 @@ except Exception:
 
 value = str(data.get(field, "")).strip().lower()
 if value in required_values:
+    label = ticket if not slug_hint or slug_hint == ticket else f"{ticket} (slug hint: {slug_hint})"
     print(
-        f"WARN: reviewer запросил обязательный запуск тестов ({marker_path}). Не забудьте подтвердить выполнение перед merge."
+        f"WARN: reviewer запросил обязательный запуск тестов для {label} ({marker_path}). Не забудьте подтвердить выполнение перед merge."
     )
 PY
 )"
@@ -82,15 +87,16 @@ if [[ -f "$test1" || -f "$test2" ]]; then
 fi
 
 emit_research_hint() {
-  [[ -z "$slug" ]] && return 0
+  [[ -z "$ticket" ]] && return 0
   local message
-  message="$(python3 - "$file_path" "$slug" <<'PY'
+  message="$(python3 - "$file_path" "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 file_path = Path(sys.argv[1]).as_posix()
-slug = sys.argv[2]
+ticket = sys.argv[2]
+slug_hint = sys.argv[3] if len(sys.argv) > 3 else ""
 config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -101,7 +107,7 @@ research = config.get("researcher") or {}
 if not research.get("enabled", True):
     raise SystemExit(0)
 
-targets_path = Path("reports/research") / f"{slug}-targets.json"
+targets_path = Path("reports/research") / f"{ticket}-targets.json"
 try:
     targets = json.loads(targets_path.read_text(encoding="utf-8"))
 except Exception:
@@ -120,10 +126,12 @@ for candidate in paths:
         candidate_rel = raw.as_posix().lstrip("./")
     if not candidate_rel:
         continue
-    if file_path.startswith(candidate_rel.rstrip("/") + "/") or file_path == candidate_rel.rstrip("/"):
+    normalized = candidate_rel.rstrip("/")
+    if file_path.startswith(normalized + "/") or file_path == normalized:
         raise SystemExit(0)
 
-print(f"WARN: {file_path} не входит в список Researcher targets → обновите claude-workflow research для {slug} или настройте paths.")
+label = ticket if not slug_hint or slug_hint == ticket else f"{ticket} (slug hint: {slug_hint})"
+print(f"WARN: {file_path} не входит в список Researcher targets → обновите claude-workflow research для {label} или настройте paths.")
 PY
 )"
   if [[ -n "$message" ]]; then

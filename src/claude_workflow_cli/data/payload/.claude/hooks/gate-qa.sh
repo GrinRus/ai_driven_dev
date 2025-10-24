@@ -263,11 +263,10 @@ if [[ -n "$file_path" ]]; then
   esac
 fi
 
-slug_source="$(hook_config_get_str config/gates.json feature_slug_source docs/.active_feature)"
-slug=""
-if [[ -n "$slug_source" && -f "$slug_source" ]]; then
-  slug="$(hook_read_slug "$slug_source" || true)"
-fi
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 
 if ((${#qa_requires[@]} > 0)); then
   tests_mode="$(hook_config_get_str config/gates.json tests_required disabled)"
@@ -300,8 +299,10 @@ fi
 
 replace_placeholders() {
   local raw="$1"
-  local slug_val="${slug:-unknown}"
+  local ticket_val="${ticket:-unknown}"
+  local slug_val="${slug_hint:-$ticket_val}"
   local branch_val="${branch:-detached}"
+  raw="${raw//\{ticket\}/$ticket_val}"
   raw="${raw//\{slug\}/$slug_val}"
   raw="${raw//\{branch\}/$branch_val}"
   printf '%s\n' "$raw"
@@ -324,7 +325,12 @@ block_arg="$(IFS=','; printf '%s' "${qa_block[*]}")"
 warn_arg="$(IFS=','; printf '%s' "${qa_warn[*]}")"
 
 runner=("${cmd[@]}" "--gate" "--block-on" "$block_arg" "--warn-on" "$warn_arg")
-[[ -n "$slug" ]] && runner+=("--slug" "$slug")
+if [[ -n "$ticket" ]]; then
+  runner+=("--ticket" "$ticket")
+  if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+    runner+=("--slug-hint" "$slug_hint")
+  fi
+fi
 [[ -n "$branch" ]] && runner+=("--branch" "$branch")
 
 report_path="$qa_report"
@@ -344,7 +350,15 @@ if [[ "$qa_timeout" =~ ^[0-9]+$ ]] && (( qa_timeout > 0 )); then
   fi
 fi
 
-echo "[gate-qa] Запуск QA-агента (ветка: $branch, slug: ${slug:-n/a})" >&2
+if [[ -n "$ticket" ]]; then
+  if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+    echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: $ticket, slug hint: $slug_hint)" >&2
+  else
+    echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: $ticket)" >&2
+  fi
+else
+  echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: n/a)" >&2
+fi
 ((dry_run == 1)) && echo "[gate-qa] dry-run режим: блокеры не провалят команду." >&2
 
 set +e

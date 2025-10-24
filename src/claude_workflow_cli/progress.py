@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+from claude_workflow_cli.feature_ids import resolve_identifiers
+
 DEFAULT_CODE_PREFIXES: Tuple[str, ...] = (
     "src/",
     "tests/",
@@ -174,7 +176,8 @@ class ProgressConfig:
 @dataclasses.dataclass
 class ProgressCheckResult:
     status: str
-    slug: Optional[str]
+    ticket: Optional[str]
+    slug_hint: Optional[str]
     tasklist_path: Optional[Path]
     code_files: List[str]
     new_items: List[str]
@@ -186,7 +189,8 @@ class ProgressCheckResult:
     def to_dict(self) -> dict:
         return {
             "status": self.status,
-            "slug": self.slug,
+            "ticket": self.ticket,
+            "slug_hint": self.slug_hint,
             "tasklist": str(self.tasklist_path) if self.tasklist_path else None,
             "code_files": list(self.code_files),
             "new_items": list(self.new_items),
@@ -277,13 +281,6 @@ def _read_git_file(root: Path, relative: Path) -> str:
     return proc.stdout
 
 
-def _read_active_feature(root: Path) -> Optional[str]:
-    slug_path = root / "docs" / ".active_feature"
-    try:
-        value = slug_path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
 
 
 def _is_code_file(path: str, config: ProgressConfig) -> bool:
@@ -356,8 +353,9 @@ def _diff_checked(old_text: str, new_text: str) -> List[str]:
 
 def check_progress(
     root: Path,
-    slug: Optional[str],
+    ticket: Optional[str],
     *,
+    slug_hint: Optional[str] = None,
     source: str = "manual",
     branch: Optional[str] = None,
     config: Optional[ProgressConfig] = None,
@@ -365,11 +363,15 @@ def check_progress(
     root = root.resolve()
     config = config or ProgressConfig.load(root)
     context = (source or "manual").lower()
+    identifiers = resolve_identifiers(root, ticket=ticket, slug_hint=slug_hint)
+    ticket = identifiers.resolved_ticket
+    slug_hint = identifiers.slug_hint
 
     if not config.enabled:
         return ProgressCheckResult(
             status="skip:disabled",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=None,
             code_files=[],
             new_items=[],
@@ -381,7 +383,8 @@ def check_progress(
         if override_raw and _is_truthy(override_raw.strip()):
             return ProgressCheckResult(
                 status="skip:override",
-                slug=slug,
+                ticket=ticket,
+                slug_hint=slug_hint,
                 tasklist_path=None,
                 code_files=[],
                 new_items=[],
@@ -391,7 +394,8 @@ def check_progress(
     if config.sources and context not in config.sources:
         return ProgressCheckResult(
             status="skip:source",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=None,
             code_files=[],
             new_items=[],
@@ -404,7 +408,8 @@ def check_progress(
             if fnmatch.fnmatch(detected_branch, pattern):
                 return ProgressCheckResult(
                     status="skip:branch",
-                    slug=slug,
+                    ticket=ticket,
+                    slug_hint=slug_hint,
                     tasklist_path=None,
                     code_files=[],
                     new_items=[],
@@ -415,7 +420,8 @@ def check_progress(
     if not git_available:
         return ProgressCheckResult(
             status="skip:no-git",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=None,
             code_files=[],
             new_items=[],
@@ -426,30 +432,33 @@ def check_progress(
     if not code_files:
         return ProgressCheckResult(
             status="skip:no-changes",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=None,
             code_files=[],
             new_items=[],
             message="Кодовых изменений не найдено — новые чекбоксы не требуются.",
         )
 
-    if not slug:
+    if not ticket:
         return ProgressCheckResult(
-            status="error:no-slug",
-            slug=None,
+            status="error:no-ticket",
+            ticket=None,
+            slug_hint=slug_hint,
             tasklist_path=None,
             code_files=code_files,
             new_items=[],
-            message="Не удалось определить slug фичи. Убедитесь, что docs/.active_feature заполнен или передайте --slug.",
+            message="Не удалось определить ticket фичи. Убедитесь, что docs/.active_ticket заполнен или передайте --ticket.",
         )
 
-    tasklist_rel = TASKLIST_DIR / f"{slug}.md"
+    tasklist_rel = TASKLIST_DIR / f"{ticket}.md"
     tasklist_path = root / tasklist_rel
     if not tasklist_path.exists():
         if config.allow_missing_tasklist:
             return ProgressCheckResult(
                 status="skip:missing-tasklist",
-                slug=slug,
+                ticket=ticket,
+                slug_hint=slug_hint,
                 tasklist_path=tasklist_path,
                 code_files=code_files,
                 new_items=[],
@@ -457,11 +466,12 @@ def check_progress(
             )
         return ProgressCheckResult(
             status="error:no-tasklist",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=tasklist_path,
             code_files=code_files,
             new_items=[],
-            message=f"BLOCK: не найден {tasklist_rel}. Создайте его через `/tasks-new {slug}` и отметьте прогресс.",
+            message=f"BLOCK: не найден {tasklist_rel}. Создайте его через `/tasks-new {ticket}` и отметьте прогресс.",
         )
 
     try:
@@ -469,7 +479,8 @@ def check_progress(
     except OSError as exc:
         return ProgressCheckResult(
             status="error:read-tasklist",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=tasklist_path,
             code_files=code_files,
             new_items=[],
@@ -481,7 +492,8 @@ def check_progress(
     if new_items:
         return ProgressCheckResult(
             status="ok",
-            slug=slug,
+            ticket=ticket,
+            slug_hint=slug_hint,
             tasklist_path=tasklist_path,
             code_files=code_files,
             new_items=new_items,
@@ -490,15 +502,16 @@ def check_progress(
 
     summary = _summarise_paths(code_files)
     guidance = (
-        f"BLOCK: в фиче `{slug}` есть изменения в коде ({summary}), "
+        f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
         f"но файл {tasklist_rel} не получил новых `- [x]`.\n"
         "Переведите соответствующие пункты `- [ ] → - [x]`, добавьте отметку даты/итерации, "
         "обновите строку `Checkbox updated: …` и повторите `claude-workflow progress --source "
-        f"{context or 'manual'} --feature {slug}`."
+        f"{context or 'manual'} --ticket {ticket}`."
     )
     return ProgressCheckResult(
         status="error:no-checkbox",
-        slug=slug,
+        ticket=ticket,
+        slug_hint=slug_hint,
         tasklist_path=tasklist_path,
         code_files=code_files,
         new_items=[],
@@ -528,8 +541,15 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Каталог проекта (по умолчанию текущий).",
     )
     parser.add_argument(
+        "--ticket",
         "--slug",
-        help="Slug активной фичи. По умолчанию берётся из docs/.active_feature.",
+        dest="ticket",
+        help="Идентификатор фичи (ticket). По умолчанию берётся из docs/.active_ticket или legacy .active_feature.",
+    )
+    parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Необязательный slug-хинт (по умолчанию считывается из docs/.active_feature, если присутствует).",
     )
     parser.add_argument(
         "--branch",
@@ -562,13 +582,16 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
     root = Path(args.root).resolve()
-    slug = args.slug or _read_active_feature(root)
+    identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+    ticket = identifiers.resolved_ticket
+    slug_hint = identifiers.slug_hint
     branch = args.branch or detect_branch(root)
     config = ProgressConfig.load(root)
 
     result = check_progress(
         root=root,
-        slug=slug,
+        ticket=ticket,
+        slug_hint=slug_hint,
         source=args.source,
         branch=branch,
         config=config,

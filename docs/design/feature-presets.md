@@ -90,7 +90,7 @@ claude:
 ### init-claude-workflow.sh
 
 - Добавить копирование каталога `claude-presets/` в целевой проект.
-- Поддержать флаг `--preset <name> [--feature <slug>]` для генерации артефактов по шаблону.
+- Поддержать флаг `--preset <name> [--ticket <ticket>]` для генерации артефактов по шаблону.
 - Расширить вывод инструкциями по запуску пресетов.
 
 ### Slash-команды
@@ -103,7 +103,7 @@ claude:
 ### Smoke- и демо-сценарии
 
 - `scripts/smoke-workflow.sh` запускает цепочку пресетов на демо-фиче и проверяет, что файлы созданы.
-- `workflow.md` содержит walkthrough с указанием команды `init-claude-workflow.sh --preset feature-prd --feature checkout`.
+- `workflow.md` содержит walkthrough с указанием команды `init-claude-workflow.sh --preset feature-prd --ticket checkout`.
 
 ## Источники данных
 

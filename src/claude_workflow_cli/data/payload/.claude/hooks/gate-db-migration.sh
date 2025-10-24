@@ -32,7 +32,7 @@ fi
 
 if [[ $has_migration -eq 0 ]]; then
   echo "BLOCK: изменения модели/схемы требуют миграции в src/main/resources/**/db/migration/" 1>&2
-  echo "Подсказка: создайте миграцию (например, V<timestamp>__<slug>.sql) или переведите db_migration=false в config/gates.json." 1>&2
+  echo "Подсказка: создайте миграцию (например, V<timestamp>__<ticket>.sql) или переведите db_migration=false в config/gates.json." 1>&2
   exit 2
 fi
 exit 0

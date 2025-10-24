@@ -1,24 +1,26 @@
 # Tasklist — шаблон фичи
 
-Tasklist хранится по адресу `docs/tasklist/<slug>.md` и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте slug и ссылки, либо воспользуйтесь `/tasks-new <slug>` — команда создаст файл автоматически.
+Tasklist хранится по адресу `docs/tasklist/&lt;ticket&gt;.md` и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте ticket/slug-hint и ссылки, либо воспользуйтесь `/tasks-new &lt;ticket&gt;` — команда создаст файл автоматически.
 
 ```markdown
 ---
-Feature: <slug>
+Ticket: &lt;ticket&gt;
+Slug hint: &lt;slug-hint или повторите ticket&gt;
+Feature: &lt;display name&gt;
 Status: draft
-PRD: docs/prd/<slug>.prd.md
-Plan: docs/plan/<slug>.md
-Research: docs/research/<slug>.md
+PRD: docs/prd/&lt;ticket&gt;.prd.md
+Plan: docs/plan/&lt;ticket&gt;.md
+Research: docs/research/&lt;ticket&gt;.md
 Updated: YYYY-MM-DD
 ---
 
-# Tasklist — <Feature title>
+# Tasklist — &lt;Feature title&gt;
 
 ## Как отмечать прогресс
 - После каждого инкремента заменяйте выполненные пункты `- [ ]` на `- [x]`, добавляя в конце `— YYYY-MM-DD • итерация N` и ссылку на PR/commit или краткое описание результата.
 - Если закрываете часть большого пункта, добавляйте отдельный `- [x]` с пояснением, что именно готово (история прогресса сохраняется).
 - В ответах агентов используйте строку `Checkbox updated: …`, чтобы перечислить закрытые элементы и договорённости на следующий шаг.
-- Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --feature "<slug>"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
+- Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "&lt;ticket&gt;"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
 
 ## 1. Аналитика и дизайн
 - [ ] PRD и дизайн синхронизированы, риски зафиксированы.
@@ -36,8 +38,8 @@ Updated: YYYY-MM-DD
 - [ ] Проведено ручное тестирование или UAT.
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_feature` указывает на `<slug>`, чеклист READY.
-- [ ] Researcher: `docs/research/<slug>.md` со статусом `Status: reviewed`.
+- [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.
+- [ ] Researcher: `docs/research/&lt;ticket&gt;.md` со статусом `Status: reviewed`.
 - [ ] API/DB: обновлены контракты и миграции, гейты зелёные.
 - [ ] Tests: включены новые тесты, `gate-tests` завершился успешно.
 

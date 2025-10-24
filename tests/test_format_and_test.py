@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from .helpers import git_init
+from .helpers import git_init, write_active_feature
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude/hooks/format-and-test.sh"
 
@@ -21,7 +21,7 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "moduleMatrix": [],
                 "reviewerGate": {
                     "enabled": True,
-                    "marker": "reports/reviewer/{slug}.json",
+                    "marker": "reports/reviewer/{ticket}.json",
                     "field": "tests",
                     "requiredValues": ["required"],
                     "optionalValues": ["optional", "skipped", "not-required"],
@@ -78,7 +78,7 @@ def test_common_change_forces_full_suite(tmp_path):
     (tmp_path / "config").mkdir(parents=True, exist_ok=True)
     (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "docs/.active_feature").write_text("demo", encoding="utf-8")
+    write_active_feature(tmp_path, "demo")
 
     result = run_hook(tmp_path, settings)
 
@@ -92,10 +92,10 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     (tmp_path / "config").mkdir(parents=True, exist_ok=True)
     (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "docs/.active_feature").write_text("demo", encoding="utf-8")
+    write_active_feature(tmp_path, "demo")
     marker = tmp_path / "reports" / "reviewer" / "demo.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text('{"slug": "demo", "tests": "required"}', encoding="utf-8")
+    marker.write_text('{"ticket": "demo", "slug": "demo", "tests": "required"}', encoding="utf-8")
 
     result = run_hook(tmp_path, settings)
 

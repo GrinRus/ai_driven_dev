@@ -1,5 +1,6 @@
 {
-  "feature_slug_source": "docs/.active_feature",
+  "feature_ticket_source": "docs/.active_ticket",
+  "feature_slug_hint_source": "docs/.active_feature",
   "api_contract": false,
   "db_migration": false,
   "tests_required": "soft",
@@ -26,7 +27,7 @@
     "blocking_severities": [
       "critical"
     ],
-    "report_path": "reports/prd/{slug}.json"
+    "report_path": "reports/prd/{ticket}.json"
   },
   "researcher": {
     "enabled": true,
@@ -80,7 +81,7 @@
       "scripts/qa-agent.py"
     ],
     "timeout": 600,
-    "report": "reports/qa/{slug}.json",
+    "report": "reports/qa/{ticket}.json",
     "block_on": [
       "blocker",
       "critical"
@@ -93,7 +94,7 @@
   },
   "reviewer": {
     "enabled": true,
-    "tests_marker": "reports/reviewer/{slug}.json",
+    "tests_marker": "reports/reviewer/{ticket}.json",
     "tests_field": "tests",
     "required_values": [
       "required"

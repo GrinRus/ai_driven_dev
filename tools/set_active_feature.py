@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Persist the active feature slug and refresh Researcher targets."""
+"""Persist the active feature ticket and refresh Researcher targets."""
 
 from __future__ import annotations
 
@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 try:
+    from claude_workflow_cli.feature_ids import write_identifiers  # type: ignore
+except ImportError:  # pragma: no cover - fallback when installed standalone
+    write_identifiers = None  # type: ignore
+
+try:
     from researcher_context import ResearcherContextBuilder, _parse_paths
 except ImportError:  # pragma: no cover - fallback when module unavailable
     ResearcherContextBuilder = None  # type: ignore
@@ -17,13 +22,13 @@ except ImportError:  # pragma: no cover - fallback when module unavailable
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write the provided slug to docs/.active_feature and update Researcher targets."
+        description="Write the provided ticket to docs/.active_ticket and update Researcher targets."
     )
-    parser.add_argument("slug", help="Feature identifier to persist")
+    parser.add_argument("ticket", help="Feature ticket identifier to persist")
     parser.add_argument(
         "--target",
         default=".",
-        help="Project root containing docs/.active_feature (default: current directory).",
+        help="Project root containing docs/.active_ticket (default: current directory).",
     )
     parser.add_argument(
         "--paths",
@@ -36,6 +41,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         help="Path to conventions.json with researcher section (defaults to config/conventions.json).",
+    )
+    parser.add_argument(
+        "--slug-note",
+        dest="slug_hint",
+        help="Optional slug hint to persist alongside the ticket.",
     )
     return parser.parse_args()
 
@@ -60,25 +70,27 @@ def _render_body_with_heading(original: str, title: str) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _maybe_migrate_tasklist(root: Path, slug: str) -> None:
+def _maybe_migrate_tasklist(root: Path, ticket: str, slug_hint: Optional[str]) -> None:
     legacy = root / "tasklist.md"
     if not legacy.exists():
         return
-    destination = root / "docs" / "tasklist" / f"{slug}.md"
+    destination = root / "docs" / "tasklist" / f"{ticket}.md"
     if destination.exists():
         return
     try:
-        title = _slug_to_title(slug)
+        display_name = slug_hint or ticket
+        title = _slug_to_title(display_name)
         today = dt.date.today().isoformat()
         legacy_text = legacy.read_text(encoding="utf-8")
         body = _render_body_with_heading(legacy_text, title)
         front_matter = (
             "---\n"
-            f"Feature: {slug}\n"
+            f"Ticket: {ticket}\n"
+            f"Slug hint: {slug_hint or ''}\n"
             "Status: draft\n"
-            f"PRD: docs/prd/{slug}.prd.md\n"
-            f"Plan: docs/plan/{slug}.md\n"
-            f"Research: docs/research/{slug}.md\n"
+            f"PRD: docs/prd/{ticket}.prd.md\n"
+            f"Plan: docs/plan/{ticket}.md\n"
+            f"Research: docs/research/{ticket}.md\n"
             f"Updated: {today}\n"
             "---\n\n"
         )
@@ -101,9 +113,14 @@ def main() -> None:
     root = Path(args.target).resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_feature").write_text(args.slug, encoding="utf-8")
-    print(f"active feature: {args.slug}")
-    _maybe_migrate_tasklist(root, args.slug)
+    if write_identifiers is not None:
+        write_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+    else:  # pragma: no cover - minimal fallback without package
+        (docs_dir / ".active_ticket").write_text(args.ticket, encoding="utf-8")
+        if args.slug_hint:
+            (docs_dir / ".active_feature").write_text(args.slug_hint, encoding="utf-8")
+    print(f"active feature: {args.ticket}")
+    _maybe_migrate_tasklist(root, args.ticket, args.slug_hint)
 
     if ResearcherContextBuilder is None:
         print("[researcher] skip: researcher_context module not found", file=sys.stderr)
@@ -111,7 +128,7 @@ def main() -> None:
 
     config_path = Path(args.config).resolve() if args.config else None
     builder = ResearcherContextBuilder(root, config_path=config_path)
-    scope = builder.build_scope(args.slug)
+    scope = builder.build_scope(args.ticket, slug_hint=args.slug_hint)
     scope = builder.extend_scope(
         scope,
         extra_paths=_parse_paths(args.paths) if args.paths else None,

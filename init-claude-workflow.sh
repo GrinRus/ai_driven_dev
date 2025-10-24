@@ -38,7 +38,7 @@ ENABLE_CI=0
 FORCE=0
 DRY_RUN=0
 PRESET_NAME=""
-PRESET_FEATURE=""
+PRESET_TICKET=""
 PRESET_RESULT_SLUG=""
 
 log_info()   { printf '[INFO] %s\n' "$*"; }
@@ -54,7 +54,8 @@ Usage: bash init-claude-workflow.sh [options]
   --force              overwrite existing files
   --dry-run            show planned actions without writing files
   --preset NAME        generate demo artifacts for preset (feature-prd|feature-plan|feature-impl|feature-design|feature-release)
-  --feature SLUG       feature slug to use with --preset (default derived from doc/backlog.md)
+  --ticket VALUE       ticket identifier to use with --preset (legacy alias: --feature)
+  --feature SLUG       deprecated alias for --ticket
   -h, --help           print this help
 EOF
 }
@@ -71,9 +72,13 @@ parse_args() {
       --preset)
         [[ $# -ge 2 ]] || die "--preset requires a value"
         PRESET_NAME="$2"; shift 2;;
+      --ticket)
+        [[ $# -ge 2 ]] || die "--ticket requires a value"
+        PRESET_TICKET="$2"; shift 2;;
       --feature)
         [[ $# -ge 2 ]] || die "--feature requires a value"
-        PRESET_FEATURE="$2"; shift 2;;
+        log_warn "--feature is deprecated; use --ticket instead."
+        PRESET_TICKET="$2"; shift 2;;
       -h|--help)   usage; exit 0;;
       *)           die "Unknown argument: $1";;
     esac
@@ -337,8 +342,10 @@ for candidate in template_candidates:
         template_text = candidate.read_text(encoding="utf-8")
         break
 if template_text is None:
-    template_text = """---
-Feature: {slug}
+template_text = """---
+Ticket: {slug}
+Slug hint: {slug}
+Feature: {title}
 Status: draft
 PRD: docs/prd/{slug}.prd.md
 Plan: docs/plan/{slug}.md
@@ -354,11 +361,19 @@ Updated: {updated}
 
 replacements = {
     "<slug>": slug,
+    "<ticket>": slug,
+    "<slug-hint>": slug,
+    "<slug-hint или повторите ticket>": slug,
     "<feature name>": title,
+    "<display name>": title,
     "<Feature title>": title,
     "<Feature name>": title,
     "&lt;slug&gt;": slug,
+    "&lt;ticket&gt;": slug,
+    "&lt;slug-hint&gt;": slug,
+    "&lt;slug-hint или повторите ticket&gt;": slug,
     "&lt;feature name&gt;": title,
+    "&lt;display name&gt;": title,
     "&lt;Feature title&gt;": title,
     "&lt;Feature name&gt;": title,
     "YYYY-MM-DD": updated,
@@ -440,9 +455,9 @@ PY
 )"
   fi
 
-  local slug="${PRESET_FEATURE:-${default_slug:-demo-checkout}}"
+  local slug="${PRESET_TICKET:-${default_slug:-demo-checkout}}"
   local title=""
-  if [[ -n "$PRESET_FEATURE" ]]; then
+  if [[ -n "$PRESET_TICKET" ]] ; then
     title="$(slug_to_title "$slug")"
   else
     title="${default_title:-}"
@@ -455,7 +470,7 @@ PY
   local tasks_block
   tasks_block="$(printf '%s' "$tasks_source" | format_bullets)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] preset ${PRESET_NAME} (feature=${slug})"
+    log_info "[dry-run] preset ${PRESET_NAME} (ticket=${slug})"
     return
   fi
 

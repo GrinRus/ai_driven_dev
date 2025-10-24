@@ -1,9 +1,11 @@
 ---
-Feature: &lt;slug&gt;
+Ticket: &lt;ticket&gt;
+Slug hint: &lt;slug-hint или повторите ticket&gt;
+Feature: &lt;display name&gt;
 Status: draft
-PRD: docs/prd/&lt;slug&gt;.prd.md
-Plan: docs/plan/&lt;slug&gt;.md
-Research: docs/research/&lt;slug&gt;.md
+PRD: docs/prd/&lt;ticket&gt;.prd.md
+Plan: docs/plan/&lt;ticket&gt;.md
+Research: docs/research/&lt;ticket&gt;.md
 Updated: YYYY-MM-DD
 ---
 
@@ -29,9 +31,9 @@ Updated: YYYY-MM-DD
 - [ ] Проведено ручное тестирование / UAT, результаты зафиксированы.
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_feature` указывает на `&lt;slug&gt;`, чеклист в статусе READY.
-- [ ] Researcher: ссылка на `docs/research/&lt;slug&gt;.md`, статус `Status: reviewed`.
-- [ ] API: обновлены `docs/api/&lt;slug&gt;.yaml` и связанные контроллеры.
+- [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист в статусе READY.
+- [ ] Researcher: ссылка на `docs/research/&lt;ticket&gt;.md`, статус `Status: reviewed`.
+- [ ] API: обновлены `docs/api/&lt;ticket&gt;.yaml` и связанные контроллеры.
 - [ ] DB: миграции размещены и проверены (`src/**/db/migration`).
 - [ ] Tests: `.claude/hooks/format-and-test.sh` успешен, покрытие принято.
 

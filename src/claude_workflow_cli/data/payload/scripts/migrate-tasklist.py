@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Migrate legacy tasklist.md into docs/tasklist/<slug>.md."""
+"""Migrate legacy slug-based tasklist.md into docs/tasklist/<slug>.md.
+
+This helper targets pre-ticket installations. Modern projects should use
+`tools/migrate_ticket.py` to adopt the ticket-first layout.
+
+This helper is retained for repositories created before Wave 26 (when tasklists
+were stored at the repo root and identified only by slug). Modern ticket-first
+projects should use `tools/migrate_ticket.py` instead.
+"""
 
 from __future__ import annotations
 
@@ -79,16 +87,22 @@ def migrate(root: Path, slug: str, force: bool) -> int:
     destination.write_text(front_matter + body, encoding="utf-8")
     legacy.unlink()
 
-    active_file = root / "docs" / ".active_feature"
-    active_file.parent.mkdir(parents=True, exist_ok=True)
-    active_file.write_text(slug + "\n", encoding="utf-8")
+    feature_file = root / "docs" / ".active_feature"
+    feature_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_file.write_text(slug + "\n", encoding="utf-8")
+
+    ticket_file = root / "docs" / ".active_ticket"
+    ticket_file.parent.mkdir(parents=True, exist_ok=True)
+    ticket_file.write_text(slug + "\n", encoding="utf-8")
 
     print(f"[tasklist] migrated to {destination}")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Move legacy tasklist.md under docs/tasklist/<slug>.md")
+    parser = argparse.ArgumentParser(
+        description="Move legacy slug-based tasklist.md under docs/tasklist/<slug>.md (pre-ticket workflow)."
+    )
     parser.add_argument("--slug", help="Feature slug to use; defaults to docs/.active_feature or single plan file.")
     parser.add_argument("--target", default=".", help="Project root containing legacy tasklist.md (default: cwd).")
     parser.add_argument("--force", action="store_true", help="Overwrite existing docs/tasklist/<slug>.md if present.")

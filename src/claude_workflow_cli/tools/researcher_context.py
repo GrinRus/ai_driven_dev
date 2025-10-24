@@ -11,9 +11,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
+from claude_workflow_cli.feature_ids import resolve_identifiers
+
 
 _DEFAULT_CONFIG = Path("config") / "conventions.json"
-_ACTIVE_FEATURE_FILE = Path("docs") / ".active_feature"
 _REPORT_DIR = Path("reports") / "research"
 _ALLOWED_SUFFIXES = {
     ".kt",
@@ -42,16 +43,25 @@ def _unique(items: Iterable[str]) -> List[str]:
     return result
 
 
-def _slug_tokens(slug: str) -> List[str]:
+def _identifier_tokens(ticket: str, slug_hint: Optional[str]) -> List[str]:
     separators = ("-", "_", " ", "/")
-    tokens = [slug]
-    value = slug
-    for sep in separators:
-        value = value.replace(sep, " ")
-    for token in value.split():
-        token = token.strip().lower()
-        if token and token not in tokens:
-            tokens.append(token)
+    sources = [ticket]
+    if slug_hint:
+        sources.append(slug_hint)
+    tokens: List[str] = []
+    for source in sources:
+        normalized = (source or "").strip()
+        if not normalized:
+            continue
+        if normalized not in tokens:
+            tokens.append(normalized)
+        value = normalized
+        for sep in separators:
+            value = value.replace(sep, " ")
+        for token in value.split():
+            lowered = token.strip().lower()
+            if lowered and lowered not in tokens:
+                tokens.append(lowered)
     return _unique(tokens)
 
 
@@ -93,7 +103,8 @@ def _extract_status(path: Path) -> Optional[str]:
 
 @dataclass
 class Scope:
-    slug: str
+    ticket: str
+    slug_hint: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     paths: List[str] = field(default_factory=list)
     docs: List[str] = field(default_factory=list)
@@ -119,14 +130,18 @@ class ResearcherContextBuilder:
         section = raw.get("researcher", {})
         return section if isinstance(section, dict) else {}
 
-    def build_scope(self, slug: str) -> Scope:
+    def build_scope(self, ticket: str, slug_hint: Optional[str] = None) -> Scope:
+        ticket_value = (ticket or "").strip()
+        if not ticket_value:
+            raise ValueError("ticket must be a non-empty string")
+        hint_value = (slug_hint or "").strip() or None
         settings = self._settings
         defaults = settings.get("defaults", {})
         default_paths = defaults.get("paths", ["src"])
         default_docs = defaults.get("docs", ["docs"])
         default_keywords = defaults.get("keywords", [])
 
-        tags = self._resolve_tags(slug)
+        tags = self._resolve_tags(ticket_value, hint_value)
         tag_paths: List[str] = []
         tag_docs: List[str] = []
         tag_keywords: List[str] = []
@@ -141,11 +156,12 @@ class ResearcherContextBuilder:
             return _unique([_normalise_rel(item, self.root) for item in values])
 
         scope = Scope(
-            slug=slug,
+            ticket=ticket_value,
+            slug_hint=hint_value,
             tags=tags,
             paths=_norm_all(list(default_paths) + list(tag_paths)),
             docs=_norm_all(list(default_docs) + list(tag_docs)),
-            keywords=_unique(default_keywords + tag_keywords + _slug_tokens(slug)),
+            keywords=_unique(default_keywords + tag_keywords + _identifier_tokens(ticket_value, hint_value)),
         )
         return scope
 
@@ -180,7 +196,9 @@ class ResearcherContextBuilder:
         report_dir = self.root / _REPORT_DIR
         report_dir.mkdir(parents=True, exist_ok=True)
         payload = {
-            "slug": scope.slug,
+            "ticket": scope.ticket,
+            "slug": scope.slug_hint or scope.ticket,
+            "slug_hint": scope.slug_hint,
             "generated_at": _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
@@ -188,7 +206,7 @@ class ResearcherContextBuilder:
             "docs": scope.docs,
             "keywords": scope.keywords,
         }
-        target_path = report_dir / f"{scope.slug}-targets.json"
+        target_path = report_dir / f"{scope.ticket}-targets.json"
         target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return target_path
 
@@ -207,7 +225,9 @@ class ResearcherContextBuilder:
         matches = self._scan_matches(search_roots, scope.keywords, limit=limit)
 
         return {
-            "slug": scope.slug,
+            "ticket": scope.ticket,
+            "slug": scope.slug_hint or scope.ticket,
+            "slug_hint": scope.slug_hint,
             "generated_at": _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
@@ -220,7 +240,7 @@ class ResearcherContextBuilder:
     def write_context(self, scope: Scope, context: Dict[str, Any], *, output: Optional[Path] = None) -> Path:
         report_dir = self.root / _REPORT_DIR
         report_dir.mkdir(parents=True, exist_ok=True)
-        target_path = output or (report_dir / f"{scope.slug}-context.json")
+        target_path = output or (report_dir / f"{scope.ticket}-context.json")
         if not target_path.is_absolute():
             target_path = self.root / target_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -314,15 +334,19 @@ class ResearcherContextBuilder:
                 break
         return samples
 
-    def _resolve_tags(self, slug: str) -> List[str]:
+    def _resolve_tags(self, ticket: str, slug_hint: Optional[str]) -> List[str]:
         settings = self._settings
         features = settings.get("features", {})
-        tags_from_config = features.get(slug, [])
-        tags = [tag for tag in tags_from_config if isinstance(tag, str)]
+        tags: List[str] = []
+        for key in (ticket, slug_hint):
+            if not key:
+                continue
+            config_tags = features.get(key, [])
+            tags.extend(tag for tag in config_tags if isinstance(tag, str))
         if tags:
             return _unique(tags)
         available_tags = settings.get("tags", {})
-        tokens = _slug_tokens(slug)
+        tokens = _identifier_tokens(ticket, slug_hint)
         for token in tokens:
             lowered = token.lower()
             if lowered in available_tags and lowered not in tags:
@@ -411,22 +435,26 @@ def _parse_keywords(value: Optional[str]) -> List[str]:
     return items
 
 
-def _read_active_slug(root: Path) -> Optional[str]:
-    slug_path = root / _ACTIVE_FEATURE_FILE
-    if not slug_path.exists():
-        return None
-    return slug_path.read_text(encoding="utf-8").strip() or None
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Prepare context for the Researcher agent.")
     parser.add_argument("--target", default=".", help="Project root (default: current directory).")
     parser.add_argument("--config", help="Path to conventions JSON with researcher section.")
-    parser.add_argument("--slug", "--feature", dest="slug", help="Feature slug to analyse (defaults to active feature).")
+    parser.add_argument(
+        "--ticket",
+        "--slug",
+        "--feature",
+        dest="ticket",
+        help="Ticket identifier to analyse (defaults to docs/.active_ticket or legacy .active_feature).",
+    )
+    parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override used for templates and keywords.",
+    )
     parser.add_argument("--paths", help="Colon-separated list of additional paths to scan.")
     parser.add_argument("--keywords", help="Comma-separated list of extra keywords.")
     parser.add_argument("--limit", type=int, default=_MAX_MATCHES, help="Maximum number of code/document matches to capture.")
-    parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<slug>-context.json).")
+    parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<ticket>-context.json).")
     parser.add_argument("--targets-only", action="store_true", help="Only refresh targets JSON, skip scanning sources.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing files; prints context JSON to stdout.")
     return parser
@@ -440,13 +468,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not root.exists():
         parser.error(f"target directory does not exist: {root}")
 
-    slug = args.slug or _read_active_slug(root)
-    if not slug:
-        parser.error("feature slug is required (--slug) or set docs/.active_feature first.")
+    identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+    ticket = identifiers.resolved_ticket
+    if not ticket:
+        parser.error("feature ticket is required (--ticket) or set docs/.active_ticket first.")
 
     config_path = Path(args.config).resolve() if args.config else None
     builder = ResearcherContextBuilder(root, config_path=config_path)
-    scope = builder.build_scope(slug)
+    scope = builder.build_scope(ticket, slug_hint=identifiers.slug_hint)
     scope = builder.extend_scope(
         scope,
         extra_paths=_parse_paths(args.paths),
@@ -465,7 +494,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(json.dumps(context, indent=2, ensure_ascii=False))
         return 0
 
-    output_path = builder.write_context(scope, context, output=Path(args.output) if args.output else None)
+    output_override = Path(args.output) if args.output else None
+    output_path = builder.write_context(scope, context, output=output_override)
     rel_output = output_path.relative_to(root).as_posix()
     print(f"[researcher] context saved to {rel_output} ({len(context['matches'])} matches).")
     return 0

@@ -15,8 +15,13 @@ import sys
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-LOG_PREFIX = "[format-and-test]"
 ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR / "src"))
+
+from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
+
+LOG_PREFIX = "[format-and-test]"
 SETTINGS_PATH = Path(
     os.environ.get("CLAUDE_SETTINGS_PATH", ROOT_DIR / ".claude" / "settings.json")
 )
@@ -102,7 +107,7 @@ DEFAULT_CODE_FILES = (
     "pom.xml",
 )
 
-DEFAULT_REVIEWER_MARKER = "reports/reviewer/{slug}.json"
+DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -196,12 +201,14 @@ def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: 
     return False
 
 
-def reviewer_marker_path(template: str, slug: str) -> Path:
-    resolved = template.replace("{slug}", slug)
+def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None) -> Path:
+    resolved = template.replace("{ticket}", ticket)
+    if "{slug}" in template:
+        resolved = resolved.replace("{slug}", slug_hint or ticket)
     return Path(resolved)
 
 
-def reviewer_tests_required(slug: str, config: dict) -> tuple[bool, str]:
+def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) -> tuple[bool, str]:
     marker_template = str(config.get("marker", DEFAULT_REVIEWER_MARKER))
     field = str(config.get("field", DEFAULT_REVIEWER_FIELD))
     required_values = [
@@ -211,7 +218,7 @@ def reviewer_tests_required(slug: str, config: dict) -> tuple[bool, str]:
         str(value).strip().lower() for value in config.get("optionalValues", DEFAULT_REVIEWER_OPTIONAL)
     ]
     fallback_value = str(config.get("defaultValue", "")).strip().lower()
-    marker = reviewer_marker_path(marker_template, slug)
+    marker = reviewer_marker_path(marker_template, ticket, slug_hint)
     if not marker.exists():
         return False, marker.as_posix()
     try:
@@ -293,6 +300,15 @@ def collect_changed_files() -> List[str]:
 def append_unique(container: List[str], value: str) -> None:
     if value and value not in container:
         container.append(value)
+
+
+def feature_label(ticket: str, slug_hint: str | None) -> str:
+    if not ticket:
+        return ""
+    hint = (slug_hint or "").strip()
+    if hint and hint != ticket:
+        return f"{ticket} (slug hint: {hint})"
+    return ticket
 
 
 def parse_scope(value: str) -> List[str]:
@@ -392,11 +408,9 @@ def main() -> int:
         code_exact = normalize_code_files([code_files_raw])
 
     changed_files = collect_changed_files()
-    active_slug_path = Path("docs/.active_feature")
-    try:
-        active_slug = active_slug_path.read_text(encoding="utf-8").strip() if active_slug_path.exists() else ""
-    except OSError:
-        active_slug = ""
+    identifiers = resolve_identifiers(Path.cwd())
+    active_ticket = identifiers.resolved_ticket or ""
+    slug_hint = identifiers.slug_hint
 
     reviewer_cfg = tests_cfg.get("reviewerGate") or {}
     reviewer_enabled = bool(reviewer_cfg.get("enabled", False))
@@ -418,10 +432,10 @@ def main() -> int:
     reviewer_required = False
     reviewer_marker_source = ""
     if reviewer_enabled and not force_tests and not skip_tests:
-        if active_slug:
-            reviewer_required, reviewer_marker_source = reviewer_tests_required(active_slug, reviewer_cfg)
+        if active_ticket:
+            reviewer_required, reviewer_marker_source = reviewer_tests_required(active_ticket, slug_hint, reviewer_cfg)
         else:
-            log("reviewerGate.enabled=1, но docs/.active_feature не найден — тесты будут ожидать запроса reviewer.")
+            log("reviewerGate.enabled=1, но docs/.active_ticket не найден — тесты будут ожидать запроса reviewer.")
 
     tests_should_run = True
     skip_reason = ""
@@ -491,7 +505,7 @@ def main() -> int:
             log("Стадия тестов пропущена (reviewerGate).")
         return 0
 
-    if active_slug and changed_files:
+    if active_ticket and changed_files:
         common_hits = [
             path
             for path in changed_files
@@ -500,7 +514,7 @@ def main() -> int:
         if common_hits:
             changed_only_flag = False
             log(
-                f"Активная фича '{active_slug}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов."
+                f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов."
             )
 
     if changed_only_flag and changed_files and module_matrix:

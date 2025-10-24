@@ -34,7 +34,7 @@ class GateResearcherTests(unittest.TestCase):
         config_data.setdefault("researcher", {})["branches"] = []
         config_path.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
 
-        write_file(self.root, "docs/.active_feature", "demo-checkout")
+        write_active_feature(self.root, "demo-checkout")
         write_file(
             self.root,
             "docs/prd/demo-checkout.prd.md",
@@ -63,6 +63,7 @@ class GateResearcherTests(unittest.TestCase):
             self.root,
             "reports/research/demo-checkout-targets.json",
             {
+                "ticket": "demo-checkout",
                 "slug": "demo-checkout",
                 "paths": ["src/main/kotlin"],
                 "docs": ["docs/research/demo-checkout.md"],
@@ -73,6 +74,7 @@ class GateResearcherTests(unittest.TestCase):
             self.root,
             "reports/research/demo-checkout-context.json",
             {
+                "ticket": "demo-checkout",
                 "slug": "demo-checkout",
                 "generated_at": now,
                 "matches": [],

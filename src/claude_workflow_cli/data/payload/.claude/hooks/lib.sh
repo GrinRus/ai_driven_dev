@@ -46,6 +46,22 @@ elif mode == "read_slug":
         print(path.read_text(encoding="utf-8").strip())
     except Exception:
         pass
+elif mode == "read_ticket":
+    ticket_path = Path(os.environ.get("HOOK_TICKET_PATH", ""))
+    slug_path = Path(os.environ.get("HOOK_SLUG_PATH", ""))
+    value = ""
+    if ticket_path.is_file():
+        try:
+            value = ticket_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            value = ""
+    if not value and slug_path.is_file():
+        try:
+            value = slug_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            value = ""
+    if value:
+        print(value)
 else:
     raise SystemExit(f"Unsupported helper mode: {mode}")
 PY
@@ -84,4 +100,20 @@ hook_read_slug() {
   local slug_path="$1"
   [[ -f "$slug_path" ]] || return 1
   HOOK_SLUG_PATH="$slug_path" _hook_python read_slug
+}
+
+hook_read_ticket() {
+  local ticket_path="$1"
+  local slug_path="${2:-}"
+  if [[ -n "$ticket_path" && -f "$ticket_path" ]]; then
+    HOOK_TICKET_PATH="$ticket_path"
+  else
+    HOOK_TICKET_PATH=""
+  fi
+  if [[ -n "$slug_path" && -f "$slug_path" ]]; then
+    HOOK_SLUG_PATH="$slug_path"
+  else
+    HOOK_SLUG_PATH=""
+  fi
+  _hook_python read_ticket
 }

@@ -1,11 +1,11 @@
 ---
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента."
-argument-hint: "<slug> [--paths path1,path2] [--no-agent]"
+argument-hint: "<TICKET> [--paths path1,path2] [--no-agent]"
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
 ---
-1) Убедись, что активная фича совпадает со `slug`: файл `docs/.active_feature` должен содержать `$1`. Если нет — запусти `/idea-new $1`.
+1) Убедись, что активная фича совпадает с `ticket`: файл `docs/.active_ticket` должен содержать `$1`. Если нет — запусти `/idea-new $1` (ticket) и повторно синхронизируй slug-хинт при необходимости.
 2) Сформируй контекст для поиска: вызови
-!bash -lc 'claude-workflow research --feature "$1"'
+!bash -lc 'claude-workflow research --ticket "$1"'
    - добавь `--paths "pathA:pathB"` для ручного расширения областей анализа;
    - укажи `--dry-run`, чтобы только собрать контекст без запуска агента.
 3) Если отчёт ещё не создан, распакуй шаблон:

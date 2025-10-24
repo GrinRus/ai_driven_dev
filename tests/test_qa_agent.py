@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import REPO_ROOT, ensure_gates_config, git_config_user, git_init, write_file
+from .helpers import REPO_ROOT, ensure_gates_config, git_config_user, git_init, write_active_feature, write_file
 
 QA_AGENT = REPO_ROOT / "scripts" / "qa-agent.py"
 
@@ -43,7 +43,7 @@ class QaAgentTests(unittest.TestCase):
         self.assertIn("FIXME", result.stderr)
 
     def test_tasklist_qa_item_report(self):
-        write_file(self.root, "docs/.active_feature", "checkout")
+        write_active_feature(self.root, "checkout")
         write_file(
             self.root,
             "docs/tasklist/checkout.md",
@@ -91,7 +91,7 @@ class QaAgentTests(unittest.TestCase):
                 "analyst": {"enabled": False},
             },
         )
-        write_file(self.root, "docs/.active_feature", slug)
+        write_active_feature(self.root, slug)
         write_file(
             self.root,
             f"docs/tasklist/{slug}.md",
@@ -132,7 +132,7 @@ Updated: 2024-01-01
                 "progress",
                 "--target",
                 ".",
-                "--feature",
+                "--ticket",
                 slug,
                 "--source",
                 "qa",
@@ -169,7 +169,7 @@ Updated: 2024-01-02
                 "progress",
                 "--target",
                 ".",
-                "--feature",
+                "--ticket",
                 slug,
                 "--source",
                 "qa",

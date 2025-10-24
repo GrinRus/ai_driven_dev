@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from .helpers import ensure_gates_config, run_hook, write_file, write_json
+from .helpers import ensure_gates_config, run_hook, write_active_feature, write_file, write_json
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 PRD_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
@@ -20,7 +20,7 @@ def make_prd(status: str, action_items: str = "") -> str:
 
 
 def setup_base(tmp_path) -> None:
-    write_file(tmp_path, "docs/.active_feature", "demo-checkout")
+    write_active_feature(tmp_path, "demo-checkout")
     ensure_gates_config(
         tmp_path,
         {
@@ -32,7 +32,7 @@ def setup_base(tmp_path) -> None:
                 "require_action_items_closed": True,
                 "allow_missing_report": False,
                 "blocking_severities": ["critical"],
-                "report_path": "reports/prd/{slug}.json",
+                "report_path": "reports/prd/{ticket}.json",
             }
         },
     )
@@ -75,7 +75,7 @@ def test_allows_when_review_approved(tmp_path):
     write_json(
         tmp_path,
         "reports/prd/demo-checkout.json",
-        {"slug": "demo-checkout", "findings": []},
+        {"ticket": "demo-checkout", "findings": []},
     )
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
@@ -106,7 +106,7 @@ def test_blocks_on_blocking_severity(tmp_path):
         tmp_path,
         "reports/prd/demo-checkout.json",
         {
-            "slug": "demo-checkout",
+            "ticket": "demo-checkout",
             "findings": [{"severity": "critical", "title": "issue", "details": "..."}],
         },
     )

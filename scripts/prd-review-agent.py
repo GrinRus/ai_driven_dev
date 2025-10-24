@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lightweight PRD review helper for Claude workflow.
 
-The script inspects docs/prd/<slug>.prd.md, looks for the dedicated
+The script inspects docs/prd/<ticket>.prd.md, looks for the dedicated
 `## PRD Review` section, checks status/action items and surfaces obvious
 placeholders (TODO/TBD/<...>) that must be resolved before development.
 
@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prd",
         type=Path,
-        help="Explicit path to PRD file. Defaults to docs/prd/<slug>.prd.md.",
+        help="Explicit path to PRD file. Defaults to docs/prd/<ticket>.prd.md.",
     )
     parser.add_argument(
         "--report",

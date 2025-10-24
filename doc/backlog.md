@@ -49,7 +49,7 @@
 
 ### Автоматические проверки и выборочные тесты
 - [x] `.claude/hooks/gate-workflow.sh`: покрыть unit-/интеграционными тестами (через `bats` или `pytest`) сценарии: нет активной фичи, отсутствует PRD/план/тасклисты, разрешение правок в документации, блокировка `src/**`.
-- [x] Новые гейты (`gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`): добавить тесты на позитивные и негативные сценарии (feature slug отсутствует, контракт/миграция/тест найден, исправление документации и т.д.).
+- [x] Новые гейты (`gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`): добавить тесты на позитивные и негативные сценарии (feature ticket отсутствует, контракт/миграция/тест найден, исправление документации и т.д.).
 - [x] `.claude/hooks/format-and-test.sh`: удостовериться, что при наличии активной фичи и изменениях в общих файлах запускается полный набор тестов; добавить логирование затронутых модулей в артефакты команд.
 - [x] `/implement`: реализовать автоматический перезапуск `/test-changed` после успешных правок (через embedded slash-команду) и добавить fallback-настройку для отключения автозапуска (env `SKIP_AUTO_TESTS`).
 
@@ -243,8 +243,8 @@
 ## Wave 20
 
 ### Агент ревью PRD и его интеграция в процесс
-- [x] `.claude/agents/prd-reviewer.md`: сформулировать мандат агента (структурный аудит PRD, оценка рисков, проверка метрик/гипотез), перечислить входные данные (slug, `docs/prd/<slug>.prd.md`, связанные ADR/план) и формат отчёта (summary, критичность, замечания по разделам, список открытых вопросов).
-- [x] `.claude/commands/review-prd.md`: описать сценарий вызова агента ревью PRD из IDE/CLI; зафиксировать, что результат ревью добавляется в раздел `## PRD Review` внутри `docs/prd/<slug>.prd.md` и чеклист в `docs/tasklist/<slug>.md`.
+- [x] `.claude/agents/prd-reviewer.md`: сформулировать мандат агента (структурный аудит PRD, оценка рисков, проверка метрик/гипотез), перечислить входные данные (slug, `docs/prd/<ticket>.prd.md`, связанные ADR/план) и формат отчёта (summary, критичность, замечания по разделам, список открытых вопросов).
+- [x] `.claude/commands/review-prd.md`: описать сценарий вызова агента ревью PRD из IDE/CLI; зафиксировать, что результат ревью добавляется в раздел `## PRD Review` внутри `docs/prd/<ticket>.prd.md` и чеклист в `docs/tasklist/<ticket>.md`.
 - [x] `.claude/commands/plan-new.md` и `.claude/commands/tasks-new.md`: дополнить инструкциями по обязательной ссылке на результаты PRD-ревью (обновление статуса READY/BLOCKED, перенос критичных замечаний в план и чеклист).
 - [x] `.claude/hooks/gate-workflow.sh`: расширить проверку, чтобы перед правками в `src/**` подтверждалось наличие раздела `## PRD Review` с меткой `Status: approved` и отсутствием блокирующих пунктов; предусмотреть bypass через конфиг/slug для прототипов.
 - [x] `.claude/hooks/gate-prd-review.sh` (новый): реализовать изолированный хук, который запускает `review-prd` при изменении PRD и блокирует merge при наличии незакрытых blockers; вынести таймаут/уровни серьёзности в `config/gates.json`.
@@ -258,7 +258,7 @@
 
 ### Мандат агента Researcher и артефакты
 - [x] `.claude/agents/researcher.md`: описать миссию агента «Researcher» — поиск существующей логики, принятых подходов и практик для интеграции новой фичи; перечислить обязательные входные данные (slug фичи, предполагаемый scope изменений, список целевых модулей/директорий, ключевые требования) и формат отчёта (обзор найденных модулей, reuse-возможности, найденные риски, список рекомендаций и open questions).
-- [x] `.claude/commands/researcher.md`: задать сценарий вызова агента (когда запускать, какие артефакты приложить, куда сохранять результат), предусмотреть автоматический экспорт отчёта в `docs/research/<slug>.md` и ссылку на него внутри `docs/tasklist/<slug>.md` / `docs/prd/<slug>.prd.md`.
+- [x] `.claude/commands/researcher.md`: задать сценарий вызова агента (когда запускать, какие артефакты приложить, куда сохранять результат), предусмотреть автоматический экспорт отчёта в `docs/research/<ticket>.md` и ссылку на него внутри `docs/tasklist/<ticket>.md` / `docs/prd/<ticket>.prd.md`.
 - [x] `docs/templates/research-summary.md`: подготовить шаблон, куда агент будет помещать результаты (структурированные секции «Где встроить», «Повторное использование», «Принятые практики», «Gap-анализ», «Следующие шаги»), и документировать обязательные поля/формат для гейтов.
 
 ### Сбор контекста и инструменты для агента
@@ -268,7 +268,7 @@
 
 ### Интеграция Researcher в флоу и гейты
 - [x] `claude-presets/advanced/feature-design.yaml`, `claude-presets/advanced/feature-release.yaml`: встроить шаг Researcher до `plan-new`, описать ожидаемый output и ссылки на отчёт в последующих стадиях (план, тасклист, QA).
-- [x] `.claude/hooks/gate-workflow.sh`, `.claude/hooks/gate-tests.sh`: добавить проверку, что для активной фичи существует актуальный `docs/research/<slug>.md` со статусом `Status: reviewed`, а план/тасклист ссылается на найденные модули; предусмотреть bypass для hotfix/прототипов через `config/gates.json`.
+- [x] `.claude/hooks/gate-workflow.sh`, `.claude/hooks/gate-tests.sh`: добавить проверку, что для активной фичи существует актуальный `docs/research/<ticket>.md` со статусом `Status: reviewed`, а план/тасклист ссылается на найденные модули; предусмотреть bypass для hotfix/прототипов через `config/gates.json`.
 - [x] `config/gates.json`: добавить секцию `researcher` с настройками (требование свежести отчёта, минимальный список проверенных директорий, уровни предупреждений) и связать её с новым хуком/CLI.
 
 ### Документация, обучение и контроль качества
@@ -297,17 +297,17 @@
 ## Wave 23
 
 ### Перенос tasklist в контур фичи
-- [x] `docs/tasklist/<slug>.md`, `docs/tasklist.template.md`: перенести tasklist в каталог `docs/tasklist/`, сформировать slug-ориентированную структуру (аналогично `docs/prd/<slug>.prd.md`), добавить front-matter с `Feature:` и ссылками на PRD/plan/research.
-- [x] `templates/tasklist.md`, `src/claude_workflow_cli/data/payload/templates/tasklist.md`: обновить шаблон и генерацию, чтобы `init-claude-workflow.sh` и CLI создавали `docs/tasklist/<slug>.md` вместо корневого `tasklist.md`, учитывая payload-артефакты.
+- [x] `docs/tasklist/<ticket>.md`, `docs/tasklist.template.md`: перенести tasklist в каталог `docs/tasklist/`, сформировать ticket-ориентированную структуру (аналогично `docs/prd/<ticket>.prd.md`), добавить front-matter с `Feature:` и ссылками на PRD/plan/research.
+- [x] `templates/tasklist.md`, `src/claude_workflow_cli/data/payload/templates/tasklist.md`: обновить шаблон и генерацию, чтобы `init-claude-workflow.sh` и CLI создавали `docs/tasklist/<ticket>.md` вместо корневого `tasklist.md`, учитывая payload-артефакты.
 - [x] `scripts/migrate-tasklist.py` (новый), `src/claude_workflow_cli/tools/set_active_feature.py`: подготовить миграцию, которая переносит legacy `tasklist.md` в новую директорию и обновляет ссылки в `.active_feature`.
 
 ### Обновление CLI, команд и гейтов
 - [x] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/data/payload/.claude/commands/tasks-new.md`, `.claude/commands/tasks-new.md`: научить команды работать с slug-ориентированным tasklist, синхронизировать инструкции и вывод.
 - [x] `.claude/hooks/gate-workflow.sh`, `.claude/hooks/gate-tests.sh`, `.claude/hooks/gate-qa.sh`: обновить проверки чеклистов и путь к tasklist; синхронизировать payload-версии хуков.
-- [x] `config/gates.json`, `claude-presets/advanced/feature-release.yaml`, `claude-presets/feature-plan.yaml`: скорректировать конфиг и пресеты, чтобы агенты и гейты ссылались на `docs/tasklist/<slug>.md`.
+- [x] `config/gates.json`, `claude-presets/advanced/feature-release.yaml`, `claude-presets/feature-plan.yaml`: скорректировать конфиг и пресеты, чтобы агенты и гейты ссылались на `docs/tasklist/<ticket>.md`.
 
 ### Документация, тесты и UX
-- [x] `docs/workflow.md`, `docs/agents-playbook.md`, `workflow.md`, `README.md`, `README.en.md`: обновить схемы и walkthrough, подчёркивая, что tasklist теперь хранится в `docs/tasklist/<slug>.md`.
+- [x] `docs/workflow.md`, `docs/agents-playbook.md`, `workflow.md`, `README.md`, `README.en.md`: обновить схемы и walkthrough, подчёркивая, что tasklist теперь хранится в `docs/tasklist/<ticket>.md`.
 - [x] `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`: адаптировать тесты и smoke-сценарий под новую структуру tasklist, покрыть миграцию и параллельные slug'и.
 - [x] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`: зафиксировать переход на feature-ориентированный tasklist и обновить примеры использования.
 
@@ -322,7 +322,7 @@
 ## Wave 25
 
 ### Итеративное отмечание прогресса
-- [x] `.claude/agents/implementer.md`, `.claude/agents/qa.md`, `.claude/agents/reviewer.md`: усилить инструкции, требуя после каждого инкремента работы фиксировать, какие пункты `docs/tasklist/<slug>.md` закрыты, и явно указывать номер/название чекбокса, который был отмечен.
+- [x] `.claude/agents/implementer.md`, `.claude/agents/qa.md`, `.claude/agents/reviewer.md`: усилить инструкции, требуя после каждого инкремента работы фиксировать, какие пункты `docs/tasklist/<ticket>.md` закрыты, и явно указывать номер/название чекбокса, который был отмечен.
 - [x] `.claude/commands/implement.md`, `.claude/commands/review.md`, `.claude/commands/tasks-new.md`, `src/claude_workflow_cli/data/payload/.claude/commands/{implement.md,review.md,tasks-new.md}`: добавить шаги с обязательным подтверждением «checkbox updated» и подсказками, как обновлять `- [ ] → - [x]` в текущей ветке перед завершением ответа агента.
 - [x] `docs/tasklist.template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist.template.md`: вшить блок «Как отмечать прогресс», описать формат указания времени/итерации рядом с чекбоксом и требования к ссылкам на выполнение.
 
@@ -334,3 +334,17 @@
 ### Документация и обучение команды
 - [x] `docs/workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`: переписать walkthrough, подчёркивая итеративное отмечание прогресса и необходимость ссылаться на обновлённые чекбоксы в ответах агентов.
 - [x] `README.md`, `README.en.md`, `CHANGELOG.md`: зафиксировать новое требование и обновить разделы quick start / release notes с описанием обязательной синхронизации tasklist.
+
+## Wave 26
+
+### Переход на идентификатор TICKET
+- [x] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/progress.py`, `src/claude_workflow_cli/data/payload/tools/set_active_feature.py`: перевести CLI и хранение состояния на TICKET как основной идентификатор (`--ticket`, `docs/.active_ticket`), мигрировать legacy slug и оставить slug-хинт в качестве дополнительного контекста (`--slug-note`) для агентов.
+- [x] `config/gates.json`, `.claude/hooks/format-and-test.sh`, `.claude/hooks/gate-workflow.sh`, `.claude/hooks/gate-tests.sh`, `scripts/smoke-workflow.sh`: обновить проверки и отчёты на использование `{ticket}` вместо `{slug}`, прокидывая slug только как дополнительную подсказку в логах и отчётах.
+
+### Команды и шаблоны
+- [x] `.claude/commands/*.md`, `.claude/agents/*.md`, `src/claude_workflow_cli/data/payload/.claude/**`: переписать сигнатуры команд и инструкции агентов под обязательный `<TICKET>` с опциональным блоком `slug`, синхронизировать payload-версии.
+- [x] `docs/tasklist.template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist.template.md`, `docs/tasklist/*.md`: внедрить фронт-маттер `Ticket:` и `Slug hint:`, обновить генерацию tasklist/PRD и ссылки на артефакты.
+
+### Документация и миграция
+- [x] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`: переписать walkthrough и примеры команд под модель TICKET-first, описать роль slug-хинта как пользовательского ориентира.
+- [x] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`, `tools/migrate_ticket.py` (новый), `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`: подготовить миграцию Wave 26 (скрипт преобразования slug → ticket-first), обновить релизные заметки и покрыть сценарии тестами.

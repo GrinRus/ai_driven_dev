@@ -6,11 +6,11 @@ model: inherit
 ---
 Шаги:
 1) Проанализируй `git diff` и соответствие PRD/плану.
-2) Если требуются автотесты, отметь это командой `claude-workflow reviewer-tests --status required` (по умолчанию берётся активный slug).
+2) Если требуются автотесты, отметь это командой `claude-workflow reviewer-tests --status required [--ticket <id>]` (по умолчанию используется активный ticket).
 3) Проверь тесты (попроси выполнить `/test-changed` или дождись автоматического прогона format-and-test).
-4) После успешного прогона обнови маркер `claude-workflow reviewer-tests --status optional`.
-5) Зафиксируй прогресс в `docs/tasklist/<slug>.md`: какие пункты стали `- [x]`, что осталось `- [ ]`, где требуется дополнительная работа. Ссылайся на конкретные строки/заголовки.
-6) При необходимости запусти `claude-workflow progress --source review --feature "$SLUG"` и уточни у implementer/qa, какие чекбоксы нужно закрыть перед следующим раундом.
+4) После успешного прогона обнови маркер `claude-workflow reviewer-tests --status optional [--ticket <id>]`.
+5) Зафиксируй прогресс в `docs/tasklist/<ticket>.md`: какие пункты стали `- [x]`, что осталось `- [ ]`, где требуется дополнительная работа. Ссылайся на конкретные строки/заголовки.
+6) При необходимости запусти `claude-workflow progress --source review --ticket "$TICKET"` и уточни у implementer/qa, какие чекбоксы нужно закрыть перед следующим раундом.
 7) Найди дефекты/риски (конкурентность, транзакции, NPE, boundary conditions).
 8) Сформируй actionable‑замечания. Если критично — статус BLOCKED, иначе SUGGESTIONS.
 

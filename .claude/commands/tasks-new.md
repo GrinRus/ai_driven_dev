@@ -1,5 +1,5 @@
-description: "Сформировать чеклист задач (docs/tasklist/&lt;slug&gt;.md) для фичи"
-argument-hint: "&lt;slug&gt;"
+description: "Сформировать чеклист задач (docs/tasklist/&lt;ticket&gt;.md) для фичи"
+argument-hint: "&lt;TICKET&gt;"
 allowed-tools: Read,Edit,Write,Grep,Glob
 ---
 На основе `docs/plan/$1.md` обнови `docs/tasklist/$1.md`: синхронизируй чеклисты по этапам

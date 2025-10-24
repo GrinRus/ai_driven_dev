@@ -129,7 +129,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         )
 
         payload = json.loads(report_path.read_text(encoding="utf-8"))
-        self.assertEqual(payload["slug"], "demo-feature")
+        self.assertEqual(payload["ticket"], "demo-feature")
         self.assertEqual(payload["status"], "approved")
         self.assertEqual(payload["recommended_status"], "approved")
 

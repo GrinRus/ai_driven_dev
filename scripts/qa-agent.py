@@ -21,9 +21,24 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 ROOT_DIR = Path.cwd()
+if str(ROOT_DIR / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR / "src"))
+
+from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
+
 DEFAULT_BLOCKERS = ("blocker", "critical")
 DEFAULT_WARNINGS = ("major", "minor")
 SEVERITY_ORDER = ["blocker", "critical", "major", "minor", "info"]
+
+
+def feature_label(ticket: Optional[str], slug_hint: Optional[str]) -> str:
+    ticket_value = (ticket or "").strip()
+    hint_value = (slug_hint or "").strip()
+    if not ticket_value:
+        return ""
+    if hint_value and hint_value != ticket_value:
+        return f"{ticket_value} (slug hint: {hint_value})"
+    return ticket_value
 
 
 @dataclass
@@ -48,7 +63,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run heuristic QA checks for the current Claude workflow project."
     )
-    parser.add_argument("--slug", help="Active feature slug. Autodetected from docs/.active_feature when omitted.")
+    parser.add_argument("--ticket", "--slug", dest="ticket", help="Active feature ticket (legacy alias: --slug).")
+    parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint used for messaging.")
     parser.add_argument("--branch", help="Current branch name. Autodetected when omitted.")
     parser.add_argument(
         "--format",
@@ -94,17 +110,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def detect_slug(explicit: Optional[str]) -> Optional[str]:
-    if explicit:
-        return explicit.strip() or None
-    slug_path = ROOT_DIR / "docs" / ".active_feature"
-    if not slug_path.exists():
-        return None
-    try:
-        value = slug_path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
+def detect_feature(ticket_arg: Optional[str], slug_hint_arg: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    identifiers = resolve_identifiers(ROOT_DIR, ticket=ticket_arg, slug_hint=slug_hint_arg)
+    return identifiers.resolved_ticket, identifiers.slug_hint
 
 
 def run_git(args: Sequence[str]) -> List[str]:
@@ -191,11 +199,11 @@ def analyse_code_tokens(files: Iterable[str]) -> List[Finding]:
     return findings
 
 
-def analyse_tasklist(slug: Optional[str]) -> List[Finding]:
+def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> List[Finding]:
     tasklist_dir = ROOT_DIR / "docs" / "tasklist"
     candidates: List[Path] = []
-    if slug:
-        candidate = tasklist_dir / f"{slug}.md"
+    if ticket:
+        candidate = tasklist_dir / f"{ticket}.md"
         if candidate.exists():
             candidates.append(candidate)
     else:
@@ -220,6 +228,7 @@ def analyse_tasklist(slug: Optional[str]) -> List[Finding]:
                 continue
             if "qa" not in stripped.lower():
                 continue
+            label = feature_label(ticket, slug_hint)
             findings.append(
                 Finding(
                     severity="blocker",
@@ -251,10 +260,10 @@ def analyse_tests_coverage(files: Sequence[str]) -> List[Finding]:
     ]
 
 
-def aggregate_findings(files: Sequence[str], slug: Optional[str]) -> List[Finding]:
+def aggregate_findings(files: Sequence[str], ticket: Optional[str], slug_hint: Optional[str]) -> List[Finding]:
     findings: List[Finding] = []
     findings.extend(analyse_code_tokens(files))
-    findings.extend(analyse_tasklist(slug))
+    findings.extend(analyse_tasklist(ticket, slug_hint))
     findings.extend(analyse_tests_coverage(files))
     return findings
 
@@ -295,18 +304,20 @@ def write_report(report_path: Path, payload: dict) -> None:
 
 def main() -> int:
     args = parse_args()
-    slug = detect_slug(args.slug)
+    ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
     branch = detect_branch(args.branch)
     files = collect_changed_files()
-    findings = aggregate_findings(files, slug)
+    findings = aggregate_findings(files, ticket, slug_hint)
 
     summary, counts, blockers, warnings = summarise(findings)
+    label = feature_label(ticket, slug_hint)
 
     payload = {
         "generated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "status": "fail" if blockers else ("warn" if warnings else "pass"),
         "summary": summary,
-        "slug": slug,
+        "ticket": ticket,
+        "slug_hint": slug_hint,
         "branch": branch,
         "counts": counts,
         "files_considered": files,
@@ -327,7 +338,11 @@ def main() -> int:
 
     if args.gate:
         log_prefix = "[qa-agent]"
-        print(f"{log_prefix} {summary}", file=sys.stderr)
+        context = f"{label}" if label else ""
+        if context:
+            print(f"{log_prefix} {summary} (feature: {context})", file=sys.stderr)
+        else:
+            print(f"{log_prefix} {summary}", file=sys.stderr)
         for finding in findings:
             severity = finding.severity.upper()
             scope = finding.scope or "-"
