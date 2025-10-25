@@ -106,7 +106,7 @@
 
 ## Чеклист быстрого старта фичи
 
-1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — slug попадёт в `docs/.active_ticket`.
+1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — команда зафиксирует ticket в `docs/.active_ticket` и, при необходимости, сохранит slug-хинт в `docs/.active_feature`.
 2. Выполните `/plan-new` и `/tasks-new`, пока артефакты не получат статус READY.
 3. При необходимости включите дополнительные гейты (`config/gates.json`) и подготовьте связанные артефакты: миграции, OpenAPI, дополнительные тесты.
 4. Реализуйте фичу через `/implement`, следя за сообщениями `gate-workflow` и выбранных гейтов; фиксируйте прогресс в `docs/tasklist/<ticket>.md`.

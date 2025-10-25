@@ -190,12 +190,13 @@ then
 fi
 
 if [[ -n "$ticket" ]]; then
-  reviewer_notice="$(python3 - "$ticket" <<'PY'
+  reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
+slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
 config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -223,7 +224,8 @@ if isinstance(optional_values, list):
 else:
     optional_values = []
 
-marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", ticket))
+slug_value = slug_hint.strip() or ticket
+marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
 if not marker_path.exists():
     if reviewer_cfg.get("warn_on_missing", True):
         print(

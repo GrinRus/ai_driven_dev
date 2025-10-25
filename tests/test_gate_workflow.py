@@ -9,6 +9,7 @@ from .helpers import (
     run_hook,
     write_active_feature,
     write_file,
+    write_json,
 )
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
@@ -194,6 +195,62 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
+
+
+def test_reviewer_marker_with_slug_hint(tmp_path):
+    ticket = "FEAT-123"
+    slug_hint = "checkout-lite"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "researcher": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {
+                "enabled": True,
+                "tests_marker": "reports/reviewer/{slug}.json",
+                "tests_field": "tests",
+                "required_values": ["required"],
+                "warn_on_missing": True,
+            },
+        },
+    )
+    write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", APPROVED_PRD)
+    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{ticket}.md",
+        dedent(
+            """\
+            ---
+            Ticket: FEAT-123
+            Slug hint: checkout-lite
+            Status: draft
+            PRD: docs/prd/FEAT-123.prd.md
+            Plan: docs/plan/FEAT-123.md
+            Research: docs/research/FEAT-123.md
+            Updated: 2024-06-01
+            ---
+
+            - [ ] Реализация :: подготовить сервис
+            """
+        ),
+    )
+    reviewer_marker = {
+        "ticket": ticket,
+        "slug": slug_hint,
+        "tests": "required",
+    }
+    write_json(tmp_path, f"reports/reviewer/{slug_hint}.json", reviewer_marker)
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+    combined_output = (result.stdout + result.stderr).lower()
+    assert "checkout-lite" in combined_output
+    assert "reviewer запросил тесты" in combined_output
 
 
 def test_documents_are_not_blocked(tmp_path):

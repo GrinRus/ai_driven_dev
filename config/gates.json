@@ -129,6 +129,7 @@
     "allow_missing_tasklist": false,
     "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
     "sources": [
+      "manual",
       "implement",
       "qa",
       "review",

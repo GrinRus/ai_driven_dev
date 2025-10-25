@@ -63,7 +63,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | `.claude/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` with `allowed-tools` and inline shell steps |
 | `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, prd-reviewer, validator, implementer, reviewer, qa, db-migrator, contract-checker |
 | `.claude/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
-| `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, and `feature_slug_source` |
+| `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
 | `doc/backlog.md` | Wave backlog | Tracks Wave 1/2 tasks and completion status |
@@ -81,13 +81,13 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Bootstrap & utilities
 - `init-claude-workflow.sh` — modular bootstrap with strict prerequisite checks (`bash/git/python3`, Gradle/ktlint), `--commit-mode/--enable-ci/--force/--dry-run`, generation of `.claude/`, `config/`, `docs/`, `templates/`, `.gitkeep`, and automatic commit-mode updates.
 - `scripts/ci-lint.sh` — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`; gracefully skips missing linters and is wired into CI.
-- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks slug → PRD → plan → PRD review → tasklist (`docs/tasklist/<ticket>.md`), and asserts `gate-workflow.sh`/`tasklist_progress` behaviour (changes without new `- [x]` are blocked).
+- `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks the ticket-first loop (`ticket → PRD → plan → PRD review → tasklist`), and asserts `gate-workflow.sh`/`tasklist_progress` behaviour (changes without new `- [x]` are blocked).
 - `examples/apply-demo.sh` — demonstrates applying the bootstrap to a Gradle monorepo, prints before/after trees, and runs `gradlew test` when the wrapper is available.
 - The bootstrap provisions `.claude/hooks/*`, documentation, and the Gradle helper `.claude/gradle/init-print-projects.gradle`; branch and commit flows rely on native git commands guided by `config/conventions.json`.
 
 ### Hooks & automation
-- `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active slug, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
-- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active slug has PRD, `## PRD Review` with `Status: approved`, plan, and fresh `- [x]` entries in `docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
+- `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active ticket/slug hint, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
+- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active ticket has PRD, `## PRD Review` with `Status: approved`, plan, and fresh `- [x]` entries in `docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
 - `.claude/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
 - `.claude/hooks/gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh` — optional checks driven by `config/gates.json`, validating OpenAPI artefacts, Flyway/Liquibase migrations, and matching tests (`disabled|soft|hard`) with actionable hints.
 - `.claude/hooks/lint-deps.sh` — monitors dependency changes, validates them against `config/allowed-deps.txt`, and reports drift.
@@ -105,11 +105,11 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 
 ### Slash-command definitions
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
-- `.claude/commands/idea-new.md` — persists the slug in `docs/.active_ticket`, invokes `analyst`, assembles the PRD, and captures outstanding questions.
+- `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `docs/.active_ticket`/`.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions.
 - `.claude/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `docs/research/<ticket>.md`.
 - `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: approved`) before plan creation.
 - `.claude/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
-- `.claude/commands/tasks-new.md` — syncs `docs/tasklist/<ticket>.md` with the plan and migrates PRD Review action items into executable checklists.
+- `.claude/commands/tasks-new.md` — syncs `docs/tasklist/<ticket>.md` with the plan and migrates PRD Review action items with the proper slug hint/front matter.
 - `.claude/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
 - `.claude/commands/review.md` — compiles review feedback, statuses, and checklist completion.
 - Craft commits with `git commit`, aligning messages to the schemes described in `config/conventions.json`.
@@ -117,7 +117,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ### Configuration & policy
 - `.claude/settings.json` — `start/strict` presets, allow/ask/deny lists, and automation knobs (`format/tests`).
 - `config/conventions.json` — branch/commit modes (`ticket-prefix`, `conventional`, `mixed`), message templates, examples, and review/CLI guidance.
-- `config/gates.json` — toggles for `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `feature_slug_source`; drives gate behaviour and `lint-deps.sh`.
+- `config/gates.json` — toggles for `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, plus pointers to the active ticket/slug hint (`feature_ticket_source`, `feature_slug_hint_source`); drives gate behaviour and `lint-deps.sh`.
 - `config/allowed-deps.txt` — comment-friendly `group:artifact` allowlist consumed by `lint-deps.sh`.
 
 ### Docs & templates
@@ -141,13 +141,13 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions that are invoked by the hook pipeline.
 - The `strict` preset in `.claude/settings.json` wires pre/post hooks and automatically runs `.claude/hooks/format-and-test.sh` after successful writes.
 - Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`researcher`, `prd_review`, `api_contract`, `db_migration`, `tests_required`) as your process demands.
-- `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active slug, and `moduleMatrix` to decide between selective and full test runs.
+- `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active ticket/slug hint, and `moduleMatrix` to decide between selective and full test runs.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
 
 ## Key scripts and hooks
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
-- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and new completed checkboxes (`- [x]` in `docs/tasklist/<ticket>.md`) exist for the active slug (`docs/.active_ticket`).
+- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and new completed checkboxes (`- [x]` in `docs/tasklist/<ticket>.md`) exist for the active ticket (`docs/.active_ticket`).
 - **`gate-prd-review.sh`** — checks `## PRD Review` and blocks when blockers or unchecked items remain; integrates with `config/gates.json` (`prd_review` section).
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — optional gates: when enabled they expect OpenAPI specs, database migrations, and matching tests as configured in `config/gates.json`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `docs/qa-playbook.md`.
@@ -168,7 +168,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Access policies & gates
 - `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter enables pre/post hooks (`gate-*`, `format-and-test`, `lint-deps`) and requires approval for `git add/commit/push`.
 - The `automation` section drives formatting/test runners; adjust `format`/`tests` there to align with your Gradle setup.
-- `config/gates.json` centralises `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside the active slug path (`feature_slug_source`).
+- `config/gates.json` centralises `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`).
 - Combined `gate-*` hooks inside `.claude/hooks/` enforce the workflow: blocking code without PRD review/plan/tasklist (`docs/tasklist/<ticket>.md`), requiring migrations/tests, and validating OpenAPI specs.
 
 ## Docs & templates

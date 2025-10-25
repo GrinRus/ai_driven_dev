@@ -136,7 +136,7 @@ new file mode 100755
 +try:
 +  import json
 +  g=json.load(open(cfg,'r',encoding='utf-8'))
-+  print(g.get('feature_slug_source','docs/.active_feature'))
++  print(g.get('feature_slug_hint_source','docs/.active_feature'))
 +except Exception:
 +  print('docs/.active_feature')
 +PY
@@ -380,7 +380,8 @@ new file mode 100644
 +++ b/config/gates.json
 @@ -0,0 +1,11 @@
 +{
-+  "feature_slug_source": "docs/.active_feature",
++  "feature_ticket_source": "docs/.active_ticket",
++  "feature_slug_hint_source": "docs/.active_feature",
 +  "api_contract": true,
 +  "db_migration": true,
 +  "tests_required": "soft",  // soft | hard | disabled

@@ -69,7 +69,7 @@
   - `qa` — запускает `scripts/qa-agent.py`, блокируя фичу при критичных/блокирующих находках.
   - `tests_required` — режим `disabled|soft|hard` для обязательных тестов.
   - `deps_allowlist` — включает проверку зависимостей через `scripts/lint-deps.sh`.
-  - `feature_slug_source` — путь к файлу с активной фичей (по умолчанию `docs/.active_ticket`).
+  - `feature_ticket_source` — путь к файлу с активным ticket (по умолчанию `docs/.active_ticket`); `feature_slug_hint_source` управляет slug-хинтом (`docs/.active_feature`).
   - `tasklist_progress` — гарантирует, что при изменениях в коде появляются новые `- [x]` в `docs/tasklist/<ticket>.md`. Гейт активен для `/implement`, `/qa`, `/review` и хука `gate-workflow.sh`; при технических задачах можно настроить `skip_branches` или временно выставить `CLAUDE_SKIP_TASKLIST_PROGRESS=1`.
 - `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
 - `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.

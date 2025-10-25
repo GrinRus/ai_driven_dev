@@ -94,13 +94,15 @@ def _maybe_migrate_tasklist(root: Path, ticket: str, slug_hint: Optional[str]) -
     try:
         display_name = slug_hint or ticket
         title = _slug_to_title(display_name)
+        slug_value = slug_hint or ticket
         today = dt.date.today().isoformat()
         legacy_text = legacy.read_text(encoding="utf-8")
         body = _render_body_with_heading(legacy_text, title)
         front_matter = (
             "---\n"
             f"Ticket: {ticket}\n"
-            f"Slug hint: {slug_hint or ''}\n"
+            f"Slug hint: {slug_value}\n"
+            f"Feature: {title}\n"
             "Status: draft\n"
             f"PRD: docs/prd/{ticket}.prd.md\n"
             f"Plan: docs/plan/{ticket}.md\n"
