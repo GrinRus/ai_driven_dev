@@ -9,6 +9,20 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
+_SCRIPT_PATH = Path(__file__).resolve()
+_REPO_ROOT_CANDIDATE: Optional[Path] = None
+for _candidate in _SCRIPT_PATH.parents:
+    if (_candidate / "src").is_dir():
+        _REPO_ROOT_CANDIDATE = _candidate
+        break
+if _REPO_ROOT_CANDIDATE is None:
+    _REPO_ROOT_CANDIDATE = _SCRIPT_PATH.parent
+_REPO_SRC = _REPO_ROOT_CANDIDATE / "src"
+if _REPO_SRC.is_dir():
+    _reporc = str(_REPO_SRC)
+    if _reporc not in sys.path:
+        sys.path.insert(0, _reporc)
+
 try:
     from claude_workflow_cli.feature_ids import write_identifiers  # type: ignore
 except ImportError:  # pragma: no cover - fallback when installed standalone
@@ -117,8 +131,8 @@ def main() -> None:
         write_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     else:  # pragma: no cover - minimal fallback without package
         (docs_dir / ".active_ticket").write_text(args.ticket, encoding="utf-8")
-        if args.slug_hint:
-            (docs_dir / ".active_feature").write_text(args.slug_hint, encoding="utf-8")
+        hint_value = args.slug_hint if args.slug_hint is not None else args.ticket
+        (docs_dir / ".active_feature").write_text(hint_value, encoding="utf-8")
     print(f"active feature: {args.ticket}")
     _maybe_migrate_tasklist(root, args.ticket, args.slug_hint)
 

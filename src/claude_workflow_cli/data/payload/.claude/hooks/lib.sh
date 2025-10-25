@@ -105,15 +105,13 @@ hook_read_slug() {
 hook_read_ticket() {
   local ticket_path="$1"
   local slug_path="${2:-}"
+  local ticket_env=""
+  local slug_env=""
   if [[ -n "$ticket_path" && -f "$ticket_path" ]]; then
-    HOOK_TICKET_PATH="$ticket_path"
-  else
-    HOOK_TICKET_PATH=""
+    ticket_env="$ticket_path"
   fi
   if [[ -n "$slug_path" && -f "$slug_path" ]]; then
-    HOOK_SLUG_PATH="$slug_path"
-  else
-    HOOK_SLUG_PATH=""
+    slug_env="$slug_path"
   fi
-  _hook_python read_ticket
+  HOOK_TICKET_PATH="$ticket_env" HOOK_SLUG_PATH="$slug_env" _hook_python read_ticket
 }

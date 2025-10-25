@@ -20,9 +20,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_SRC = Path.cwd() / "src"
+for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
+    if candidate.is_dir():
+        candidate_str = str(candidate)
+        if candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+
 ROOT_DIR = Path.cwd()
-if str(ROOT_DIR / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
 
@@ -311,9 +317,12 @@ def main() -> int:
 
     summary, counts, blockers, warnings = summarise(findings)
     label = feature_label(ticket, slug_hint)
+    generated_at = (
+        dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
 
     payload = {
-        "generated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "generated_at": generated_at,
         "status": "fail" if blockers else ("warn" if warnings else "pass"),
         "summary": summary,
         "ticket": ticket,

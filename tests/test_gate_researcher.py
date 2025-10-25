@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from . import helpers
-from .helpers import write_file, write_json
+from .helpers import write_active_feature, write_file, write_json
 
 
 PAYLOAD = json.dumps({"tool_input": {"file_path": "src/main/kotlin/App.kt"}})

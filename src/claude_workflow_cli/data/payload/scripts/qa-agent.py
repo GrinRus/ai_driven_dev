@@ -20,9 +20,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
+_SCRIPT_PATH = Path(__file__).resolve()
+_REPO_ROOT_CANDIDATE: Optional[Path] = None
+for _candidate in _SCRIPT_PATH.parents:
+    if (_candidate / "src").is_dir():
+        _REPO_ROOT_CANDIDATE = _candidate
+        break
+if _REPO_ROOT_CANDIDATE is None:
+    _REPO_ROOT_CANDIDATE = _SCRIPT_PATH.parent
+REPO_ROOT = _REPO_ROOT_CANDIDATE
+WORKSPACE_SRC = Path.cwd() / "src"
+for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
+    if candidate.is_dir():
+        candidate_str = str(candidate)
+        if candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+
 ROOT_DIR = Path.cwd()
-if str(ROOT_DIR / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
 
@@ -311,9 +325,12 @@ def main() -> int:
 
     summary, counts, blockers, warnings = summarise(findings)
     label = feature_label(ticket, slug_hint)
+    generated_at = (
+        dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
 
     payload = {
-        "generated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "generated_at": generated_at,
         "status": "fail" if blockers else ("warn" if warnings else "pass"),
         "summary": summary,
         "ticket": ticket,

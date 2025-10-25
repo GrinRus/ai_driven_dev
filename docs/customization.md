@@ -5,7 +5,7 @@
 > Все служебные файлы (команды, агенты, хуки, шаблоны, конфиги) лежат в payload каталога `src/claude_workflow_cli/data/payload/` и разворачиваются из него через `claude-workflow init` / `claude-workflow upgrade`. Для точечной пересборки используйте `claude-workflow sync` (например, `claude-workflow sync --include .claude --include claude-presets`; чтобы подтянуть последнюю версию из GitHub Releases, укажите `--release latest` или конкретный тег `--release v0.2.0`). CLI сверяет контрольные суммы из `manifest.json` и выводит diff перед синхронизацией. Для локального dogfooding без установки CLI предусмотрен скрипт `scripts/bootstrap-local.sh`, который копирует payload в `.dev/.claude-example/`.
 >
 > По умолчанию релизы скачиваются из `ai-driven-dev/ai_driven_dev`; переопределите репозиторий переменной `CLAUDE_WORKFLOW_RELEASE_REPO` или явно укажите `--release owner/repo@tag`. Кеш скачанных архивов хранится в `~/.cache/claude-workflow` (`CLAUDE_WORKFLOW_CACHE` или `--cache-dir`). Чтобы избежать лимитов GitHub API, задайте `GH_TOKEN` / `GITHUB_TOKEN`.
-
+>
 > Ticket — основной идентификатор фичи; при необходимости указывайте slug-hint (сохраняется в `docs/.active_feature`).
 
 ## Содержание

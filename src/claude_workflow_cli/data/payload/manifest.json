@@ -164,8 +164,8 @@
     },
     {
       "path": ".claude/hooks/lib.sh",
-      "size": 3076,
-      "sha256": "601e98914be26d1636028e7b68caa3b99c08eb59839eb668562b291d056a8704",
+      "size": 3104,
+      "sha256": "9dc76fddba037c726d78a1c37a15d78e347b36264dc807672bf3f46bb4febc61",
       "type": "file"
     },
     {
@@ -337,12 +337,6 @@
       "type": "file"
     },
     {
-      "path": "manifest.json",
-      "size": 13103,
-      "sha256": "b10cfbeaed4f4c5df9fe68a95876a1c3fce659bccc5a224657eb6819b34acf35",
-      "type": "file"
-    },
-    {
       "path": "scripts/ci-lint.sh",
       "size": 2396,
       "sha256": "a214f78d1f1310236426056f11be5be8e082e8b555ba9374c136fcd84cadceaa",
@@ -356,8 +350,8 @@
     },
     {
       "path": "scripts/prd-review-agent.py",
-      "size": 7213,
-      "sha256": "5381e08e511f1b860ed0580a8ca4490cf6d67bd6da736dfbc23f9221e6b00e12",
+      "size": 9386,
+      "sha256": "8c62810c46929f1b4f50f582b919e41d1c189ee72fe1ca150e7bdf96c581e4d1",
       "type": "file"
     },
     {
@@ -368,8 +362,8 @@
     },
     {
       "path": "scripts/qa-agent.py",
-      "size": 13018,
-      "sha256": "7fb154a6fc42251fb06768b04d705a977d0c5ff63071c0e18b97fce782037b37",
+      "size": 13581,
+      "sha256": "a074cc71ef6c20281303ecc1682b21fd0ec236c5f0ba46e27947305e2342f94e",
       "type": "file"
     },
     {
@@ -422,8 +416,8 @@
     },
     {
       "path": "tools/set_active_feature.py",
-      "size": 5293,
-      "sha256": "fe5e98e914609edfaceb915bb509edd8e9c5efea64cc05d805b28b346ded59cb",
+      "size": 5801,
+      "sha256": "d89606b4f699c9c40e83e9d44a834cd3aeb7952790a588d667c4b45db4183a8c",
       "type": "file"
     },
     {

@@ -2,7 +2,14 @@ import pathlib
 import subprocess
 from textwrap import dedent
 
-from .helpers import ensure_gates_config, git_config_user, git_init, run_hook, write_file
+from .helpers import (
+    ensure_gates_config,
+    git_config_user,
+    git_init,
+    run_hook,
+    write_active_feature,
+    write_file,
+)
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'

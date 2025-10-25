@@ -29,7 +29,7 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
 
     args = SimpleNamespace(
         target=str(workspace),
-        feature="demo",
+        ticket="demo",
         status="required",
         note=None,
         requested_by=None,
@@ -65,7 +65,7 @@ def test_reviewer_tests_rejects_unknown_status(tmp_path, monkeypatch):
 
     args = SimpleNamespace(
         target=str(workspace),
-        feature="demo",
+        ticket="demo",
         status="unexpected",
         note=None,
         requested_by=None,
