@@ -68,11 +68,23 @@ def write_identifiers(
     ticket_value = ticket.strip()
     if not ticket_value:
         raise ValueError("ticket must be a non-empty string")
+
+    stored = read_identifiers(root)
+
     ticket_path = root / ACTIVE_TICKET_FILE
     ticket_path.parent.mkdir(parents=True, exist_ok=True)
     ticket_path.write_text(ticket_value, encoding="utf-8")
 
-    hint_value = ticket_value if slug_hint is None else slug_hint.strip()
+    if slug_hint is None:
+        if stored.slug_hint and (stored.ticket or stored.slug_hint) == ticket_value:
+            hint_value = stored.slug_hint
+        else:
+            hint_value = None
+    else:
+        hint_value = slug_hint.strip() or None
+    if not hint_value:
+        hint_value = ticket_value
+
     hint_path = root / SLUG_HINT_FILE
     hint_path.parent.mkdir(parents=True, exist_ok=True)
     hint_path.write_text(hint_value, encoding="utf-8")

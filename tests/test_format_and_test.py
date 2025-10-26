@@ -1,9 +1,10 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Optional
 
-from .helpers import git_init, write_active_feature
+from .helpers import REPO_ROOT, git_init, write_active_feature, write_file
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude/hooks/format-and-test.sh"
 
@@ -112,3 +113,85 @@ def test_skip_auto_tests_env(tmp_path):
 
     assert "SKIP_AUTO_TESTS=1" in result.stderr
     assert "Запуск тестов" not in result.stderr
+
+
+def test_snake_case_reviewer_gate_config(tmp_path):
+    git_init(tmp_path)
+    settings = write_settings(tmp_path, {})
+    payload = json.loads(settings.read_text(encoding="utf-8"))
+    payload["automation"]["tests"]["reviewerGate"].update(
+        {
+            "enabled": True,
+            "tests_marker": "reports/reviewer/{slug}.json",
+            "tests_field": "state",
+            "required_values": ["force"],
+            "optional_values": ["idle"],
+        }
+    )
+    settings.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    write_active_feature(tmp_path, "demo", slug_hint="checkout-lite")
+    marker = tmp_path / "reports" / "reviewer" / "checkout-lite.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"ticket": "demo", "slug": "checkout-lite", "state": "force"}', encoding="utf-8")
+
+    result = run_hook(tmp_path, settings)
+
+    assert "reviewer запросил тесты" in result.stderr
+    assert "default_task" in result.stderr
+
+
+def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
+    settings = {
+        "automation": {
+            "tests": {
+                "reviewerGate": {
+                    "enabled": True,
+                    "tests_marker": "reports/reviewer/{ticket}.json",
+                    "tests_field": "state",
+                    "required_values": ["force"],
+                    "optional_values": ["idle"],
+                }
+            }
+        }
+    }
+    write_file(tmp_path, ".claude/settings.json", json.dumps(settings, indent=2))
+    write_active_feature(tmp_path, "demo")
+    env = os.environ.copy()
+    python_path = str(REPO_ROOT / "src")
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
+
+    cmd = [
+        "python3",
+        "-m",
+        "claude_workflow_cli.cli",
+        "reviewer-tests",
+        "--target",
+        ".",
+        "--status",
+        "force",
+    ]
+    result = subprocess.run(cmd, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
+    assert result.returncode == 0, result.stderr
+
+    marker = tmp_path / "reports" / "reviewer" / "demo.json"
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    assert payload["state"] == "force"
+
+    cmd_idle = [
+        "python3",
+        "-m",
+        "claude_workflow_cli.cli",
+        "reviewer-tests",
+        "--target",
+        ".",
+        "--status",
+        "idle",
+    ]
+    result_idle = subprocess.run(cmd_idle, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
+    assert result_idle.returncode == 0, result_idle.stderr
+    payload_idle = json.loads(marker.read_text(encoding="utf-8"))
+    assert payload_idle["state"] == "idle"

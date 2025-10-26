@@ -62,3 +62,14 @@ Status: draft
     ticket_path = tmp_path / "docs" / ".active_ticket"
     assert not ticket_path.exists()
     assert (tmp_path / "docs/tasklist/checkout.md").read_text(encoding="utf-8") == tasklist
+
+
+def test_blank_active_ticket_is_rewritten(tmp_path: Path) -> None:
+    write_file(tmp_path, "docs/.active_feature", "demo\n")
+    write_file(tmp_path, "docs/.active_ticket", "   \n")
+
+    result = run_migration(tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    ticket_path = tmp_path / "docs" / ".active_ticket"
+    assert ticket_path.read_text(encoding="utf-8").strip() == "demo"

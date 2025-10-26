@@ -209,15 +209,47 @@ def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None) -> P
 
 
 def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) -> tuple[bool, str]:
-    marker_template = str(config.get("marker", DEFAULT_REVIEWER_MARKER))
-    field = str(config.get("field", DEFAULT_REVIEWER_FIELD))
+    marker_template = str(
+        config.get("tests_marker")
+        or config.get("marker")
+        or DEFAULT_REVIEWER_MARKER
+    )
+    field = str(
+        config.get("tests_field")
+        or config.get("field")
+        or DEFAULT_REVIEWER_FIELD
+    )
+
+    required_source = config.get("required_values")
+    if required_source is None:
+        required_source = config.get("requiredValues")
+    if required_source is None:
+        required_source = DEFAULT_REVIEWER_REQUIRED
+    elif not isinstance(required_source, list):
+        required_source = [required_source]
     required_values = [
-        str(value).strip().lower() for value in config.get("requiredValues", DEFAULT_REVIEWER_REQUIRED)
+        str(value).strip().lower() for value in required_source
     ]
+    if not required_values:
+        required_values = list(DEFAULT_REVIEWER_REQUIRED)
+
+    optional_source = config.get("optional_values")
+    if optional_source is None:
+        optional_source = config.get("optionalValues")
+    if optional_source is None:
+        optional_source = DEFAULT_REVIEWER_OPTIONAL
+    elif not isinstance(optional_source, list):
+        optional_source = [optional_source]
     optional_values = [
-        str(value).strip().lower() for value in config.get("optionalValues", DEFAULT_REVIEWER_OPTIONAL)
+        str(value).strip().lower() for value in optional_source
     ]
-    fallback_value = str(config.get("defaultValue", "")).strip().lower()
+    if not optional_values:
+        optional_values = list(DEFAULT_REVIEWER_OPTIONAL)
+
+    fallback_raw = config.get("default_value")
+    if fallback_raw is None:
+        fallback_raw = config.get("defaultValue", "")
+    fallback_value = str(fallback_raw).strip().lower()
     marker = reviewer_marker_path(marker_template, ticket, slug_hint)
     if not marker.exists():
         return False, marker.as_posix()

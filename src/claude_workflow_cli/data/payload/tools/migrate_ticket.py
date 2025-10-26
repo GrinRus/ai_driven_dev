@@ -43,10 +43,11 @@ def ensure_active_ticket(root: Path, *, dry_run: bool) -> Tuple[bool, str | None
     ticket_file = docs_dir / ".active_ticket"
 
     slug_value = read_text(slug_file)
-    ticket_value = read_text(ticket_file)
+    ticket_value_raw = read_text(ticket_file)
+    ticket_value = ticket_value_raw.strip() if ticket_value_raw else ""
 
     if ticket_value:
-        return False, ticket_value.strip() or None
+        return False, ticket_value
 
     if not slug_value:
         return False, None

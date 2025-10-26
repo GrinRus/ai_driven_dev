@@ -17,8 +17,9 @@ if REPO_SRC.is_dir():
         sys.path.insert(0, repo_src_str)
 
 try:
-    from claude_workflow_cli.feature_ids import write_identifiers  # type: ignore
+    from claude_workflow_cli.feature_ids import read_identifiers, write_identifiers  # type: ignore
 except ImportError:  # pragma: no cover - fallback when installed standalone
+    read_identifiers = None  # type: ignore
     write_identifiers = None  # type: ignore
 
 try:
@@ -122,14 +123,19 @@ def main() -> None:
     root = Path(args.target).resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
+    resolved_slug_hint = args.slug_hint
     if write_identifiers is not None:
         write_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+        if read_identifiers is not None:
+            identifiers = read_identifiers(root)
+            resolved_slug_hint = (identifiers.slug_hint or identifiers.ticket or args.ticket)
     else:  # pragma: no cover - minimal fallback without package
         (docs_dir / ".active_ticket").write_text(args.ticket, encoding="utf-8")
         hint_value = args.slug_hint if args.slug_hint is not None else args.ticket
         (docs_dir / ".active_feature").write_text(hint_value, encoding="utf-8")
+        resolved_slug_hint = hint_value
     print(f"active feature: {args.ticket}")
-    _maybe_migrate_tasklist(root, args.ticket, args.slug_hint)
+    _maybe_migrate_tasklist(root, args.ticket, resolved_slug_hint)
 
     if ResearcherContextBuilder is None:
         print("[researcher] skip: researcher_context module not found", file=sys.stderr)
@@ -137,7 +143,7 @@ def main() -> None:
 
     config_path = Path(args.config).resolve() if args.config else None
     builder = ResearcherContextBuilder(root, config_path=config_path)
-    scope = builder.build_scope(args.ticket, slug_hint=args.slug_hint)
+    scope = builder.build_scope(args.ticket, slug_hint=resolved_slug_hint)
     scope = builder.extend_scope(
         scope,
         extra_paths=_parse_paths(args.paths) if args.paths else None,

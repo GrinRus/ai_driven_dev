@@ -138,3 +138,39 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertTrue(targets_path.exists(), "Researcher targets should be generated")
         targets = json.loads(targets_path.read_text(encoding="utf-8"))
         self.assertIn("src/main/kotlin", targets["paths"])
+
+    def test_slug_hint_persists_without_repeating_argument(self) -> None:
+        script = REPO_ROOT / "tools" / "set_active_feature.py"
+        env = os.environ.copy()
+        first = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--target",
+                str(self.root),
+                "--slug-note",
+                "checkout-lite",
+                "demo-checkout",
+            ],
+            text=True,
+            capture_output=True,
+            env=env,
+            check=True,
+        )
+        self.assertEqual(first.returncode, 0, msg=first.stderr)
+
+        second = subprocess.run(
+            ["python3", str(script), "--target", str(self.root), "demo-checkout"],
+            text=True,
+            capture_output=True,
+            env=env,
+            check=True,
+        )
+        self.assertEqual(second.returncode, 0, msg=second.stderr)
+
+        slug_file = self.root / "docs" / ".active_feature"
+        self.assertEqual(slug_file.read_text(encoding="utf-8"), "checkout-lite")
+
+        targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
+        targets = json.loads(targets_path.read_text(encoding="utf-8"))
+        self.assertEqual(targets["slug"], "checkout-lite")

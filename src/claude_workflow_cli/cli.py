@@ -543,27 +543,30 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     alias_map = {"skip": "skipped"}
     status = alias_map.get(status, status)
 
-    required_values = [
-        str(value).strip().lower()
-        for value in reviewer_cfg.get("requiredValues", DEFAULT_REVIEWER_REQUIRED)
-    ]
-    if not required_values:
-        required_values = list(DEFAULT_REVIEWER_REQUIRED)
-    optional_values = [
-        str(value).strip().lower()
-        for value in reviewer_cfg.get("optionalValues", DEFAULT_REVIEWER_OPTIONAL)
-    ]
-    if not optional_values:
-        optional_values = list(DEFAULT_REVIEWER_OPTIONAL)
+    def _extract_values(primary_key: str, legacy_key: str, fallback: Sequence[str]) -> list[str]:
+        raw = reviewer_cfg.get(primary_key)
+        if raw is None:
+            raw = reviewer_cfg.get(legacy_key)
+        if raw is None:
+            source = fallback
+        elif isinstance(raw, list):
+            source = raw
+        else:
+            source = [raw]
+        values = [str(value).strip().lower() for value in source if str(value).strip()]
+        return values or list(fallback)
+
+    required_values = _extract_values("required_values", "requiredValues", DEFAULT_REVIEWER_REQUIRED)
+    optional_values = _extract_values("optional_values", "optionalValues", DEFAULT_REVIEWER_OPTIONAL)
     allowed_values = {*required_values, *optional_values}
     if status not in allowed_values:
         choices = ", ".join(sorted(allowed_values))
         raise ValueError(f"status must be one of: {choices}")
 
     field_name = str(
-        reviewer_cfg.get("field")
-        or reviewer_cfg.get("tests_field")
-        or "tests"
+        reviewer_cfg.get("tests_field")
+        or reviewer_cfg.get("field")
+        or DEFAULT_REVIEWER_FIELD
     )
 
     requested_by = args.requested_by or os.getenv("GIT_AUTHOR_NAME") or os.getenv("USER") or ""
@@ -1228,7 +1231,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewer_tests_parser.add_argument(
         "--status",
-        choices=("required", "optional", "skipped", "not-required", "skip"),
         default="required",
         help="Tests state to store in the marker (default: required).",
     )
