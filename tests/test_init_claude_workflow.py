@@ -64,8 +64,11 @@ class InitClaudeWorkflowTests(unittest.TestCase):
 
         # run without force: file should remain untouched
         result_no_force = self.run_script(workdir)
-        self.assertIn("skip: CLAUDE.md", result_no_force.stderr + result_no_force.stdout)
-        self.assertEqual(target.read_text(encoding="utf-8"), "custom placeholder")
+        combined_output = result_no_force.stderr + result_no_force.stdout
+        self.assertIn("appended: CLAUDE.md", combined_output)
+        content = target.read_text(encoding="utf-8")
+        self.assertTrue(content.startswith("custom placeholder"))
+        self.assertIn("\n# Claude Code Workflow", content)
 
         # run with force: file should be reset to template contents
         self.run_script(workdir, "--force")
