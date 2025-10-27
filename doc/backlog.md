@@ -348,3 +348,19 @@
 ### Документация и миграция
 - [x] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`: переписать walkthrough и примеры команд под модель TICKET-first, описать роль slug-хинта как пользовательского ориентира.
 - [x] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`, `tools/migrate_ticket.py` (новый), `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`: подготовить миграцию Wave 26 (скрипт преобразования slug → ticket-first), обновить релизные заметки и покрыть сценарии тестами.
+
+## Wave 27
+
+### Дизайн новой структуры установки
+- [ ] `docs/design/install-subdir.md` (новый): зафиксировать требования к переносу сгенерированного workflow в отдельную директорию при установке через `uv tool install` + `claude-workflow init`, описать сценарии (жёсткий дефолт `./claude-workflow/`, интерактивный выбор каталога, флаг `--workspace-root`) и оценить влияние на DX/совместимость.
+- [ ] `docs/adr/install-subdir-decision.md` (новый): сравнить минимум три варианта реализации (авто-перенос, генерация поверх `--target`, создание шаблонного репозитория) и выбрать целевой подход, определив миграционные требования и fallback для существующих проектов.
+
+### Реализация CLI и payload
+- [ ] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/init.py`, `src/claude_workflow_cli/data/payload/**`: добавить поддержку нового каталога установки (например, `claude-workflow/`), автоматический перенос шаблонов и конфигов при запуске `claude-workflow init --target .`, флаг/настройку для переопределения пути и защиту от конфликтов с существующими файлами.
+- [ ] `init-claude-workflow.sh`, `scripts/smoke-workflow.sh`: синхронизировать bash-обёртку и smoke-сценарий с новой структурой, гарантировать, что shell-скрипт повторяет логику CLI и корректно обрабатывает пустые/существующие директории.
+- [ ] `src/claude_workflow_cli/resources.py` (новый) или аналог: вынести слой, который умеет копировать payload в произвольный корень, чтобы обеспечить переиспользование между CLI и будущими командами миграции.
+
+### Документация, миграция и тесты
+- [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`: обновить инструкции по установке (`uv tool install` → `claude-workflow init`) с описанием новой директории, пошаговыми примерами и примечаниями об обратной совместимости.
+- [ ] `tools/migrate_install_root.py` (новый), `tests/test_migrate_install_root.py` (новый): подготовить утилиту и автотесты, которые переносят существующий проект в новую структуру, гарантируя, что `.claude/`, `config/`, `docs/`, `scripts/` переезжают корректно и сохраняются ссылки в `.active_ticket`.
+- [ ] `tests/test_cli_init.py`, `tests/test_researcher_context.py`, `tests/test_migrate_ticket.py`: обновить и расширить покрытия, чтобы проверять генерацию в новой директории и сохранение ссылок в payload.

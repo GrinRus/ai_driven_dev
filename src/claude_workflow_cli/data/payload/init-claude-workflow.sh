@@ -153,6 +153,7 @@ write_template() {
 copy_template() {
   local relative="$1"
   local destination="$2"
+  local mode="${3:-copy}"
   local src="$PAYLOAD_ROOT/$relative"
   local dest_path="$destination"
 
@@ -165,8 +166,14 @@ copy_template() {
     return
   fi
 
+  local rel_dest="${dest_path#"$ROOT_DIR"/}"
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] copy $relative -> ${dest_path#"$ROOT_DIR"/}"
+    if [[ "$mode" == "append" && -e "$dest_path" && "$FORCE" -ne 1 ]]; then
+      log_info "[dry-run] append $relative -> $rel_dest"
+    else
+      log_info "[dry-run] copy $relative -> $rel_dest"
+    fi
     return
   fi
 
@@ -175,14 +182,24 @@ copy_template() {
     return
   fi
 
-  if [[ -e "$dest_path" && "$FORCE" -ne 1 ]]; then
-    log_warn "skip: ${dest_path#"$ROOT_DIR"/} (exists, use --force to overwrite)"
-    return
+  if [[ -e "$dest_path" ]]; then
+    if [[ "$mode" == "append" && "$FORCE" -ne 1 ]]; then
+      if [[ -s "$dest_path" ]] && [[ "$(tail -c 1 "$dest_path" 2>/dev/null)" != $'\n' ]]; then
+        printf '\n' >>"$dest_path"
+      fi
+      cat "$src" >>"$dest_path"
+      log_info "appended: $rel_dest"
+      return
+    fi
+    if [[ "$FORCE" -ne 1 ]]; then
+      log_warn "skip: $rel_dest (exists, use --force to overwrite)"
+      return
+    fi
   fi
 
   mkdir -p "$(dirname "$dest_path")"
   cp "$src" "$dest_path"
-  log_info "copied: ${dest_path#"$ROOT_DIR"/}"
+  log_info "copied: $rel_dest"
 }
 
 copy_payload_dir() {
@@ -585,7 +602,7 @@ generate_directories() {
 }
 
 generate_core_docs() {
-  copy_template "CLAUDE.md" "CLAUDE.md"
+  copy_template "CLAUDE.md" "CLAUDE.md" "append"
   copy_template "conventions.md" "conventions.md"
   copy_template "workflow.md" "workflow.md"
 }
