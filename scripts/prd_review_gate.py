@@ -165,15 +165,15 @@ def main() -> None:
     if branches and not matches(branches, args.branch):
         raise SystemExit(0)
 
-    prd_path = Path("docs/prd") / f"{ticket}.prd.md"
-    if not prd_path.is_file():
-        print(format_message("missing_prd", ticket, slug_hint))
-        raise SystemExit(1)
-
     normalized = args.file_path.replace("\\", "/") if args.file_path else ""
     target_suffix = f"docs/prd/{ticket}.prd.md"
     if args.skip_on_prd_edit and normalized.endswith(target_suffix):
         raise SystemExit(0)
+
+    prd_path = Path("docs/prd") / f"{ticket}.prd.md"
+    if not prd_path.is_file():
+        print(format_message("missing_prd", ticket, slug_hint))
+        raise SystemExit(1)
 
     allow_missing = bool(gate.get("allow_missing_section", False))
     require_closed = bool(gate.get("require_action_items_closed", True))
