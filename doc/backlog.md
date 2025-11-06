@@ -385,3 +385,34 @@
 - [ ] `docs/agents-playbook.md`, `workflow.md`, `README.md`: описать обновлённый порядок `/idea-new → claude-workflow research → analyst`, правила для пустых репозиториев и требования к паттернам.
 - [ ] `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`: добавить сценарии для «project new» (нулевые совпадения) и для кейса с найденными паттернами, проверять, что гейт отрабатывает предупреждение.
 - [ ] `scripts/smoke-workflow.sh`, `examples/gradle-demo/`: показать новую последовательность и пример отчёта Researcher с перечислением найденных паттернов.
+
+## Wave 29
+
+### Архитектура и решение
+- [ ] `docs/adr/claude-standard-tools.md` (новый): зафиксировать стратегию перехода на стандартные инструменты Claude (Read/Write/Bash) без `claude-workflow` CLI, описать риски и критерии завершения миграции.
+- [ ] `docs/design/standard-tools-rollout.md` (новый): расписать поэтапный план отключения CLI/хуков, определить миграционные сценарии и fallback для существующих проектов.
+
+### Команды и пресеты
+- [ ] `.claude/commands/*.md`: удалить вызовы `claude-workflow ...`, заменить их пошаговыми инструкциями с использованием стандартных инструментов, обновить описания прогресса.
+- [ ] `.claude/agents/*.md`, `claude-presets/*.yaml`: синхронизировать подсказки и guardrails с новой моделью работы, исключив ссылки на кастомные скрипты.
+
+### Настройки и хуки
+- [ ] `.claude/settings.json`: переработать блоки `PreToolUse`/`PostToolUse`, отключив `gate-*`/`format-and-test.sh`; описать, какие проверки выполняются вручную или через CI.
+- [ ] `.claude/hooks/`: заменить bash-скрипты на Python entrypoint'ы (`.py`), адаптировать вызовы в настройках на `python3 -m ...`, гарантировать отсутствие зависимостей от shell.
+- [ ] `config/gates.json`: удалить секции, требующие CLI (`prd_review`, `researcher`, `qa`, `tasklist_progress`), зафиксировать минимальный набор настроек для стандартных инструментов.
+
+### CLI и Python-утилиты
+- [ ] `src/claude_workflow_cli/**`, `scripts/*.py`, `tools/*.py`: демонтировать функциональность workflow (progress, researcher_context, qa-agent), оставить только части, нужные для установки payload и релизов.
+- [ ] `init-claude-workflow.sh`, `scripts/bootstrap-local.sh`: переписать на Python (`init_claude_workflow.py`, `scripts/bootstrap_local.py`), сохранив функциональность развертывания статического payload.
+
+### Документация и обучение
+- [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/agents-playbook.md`, `docs/customization.md`: переписать инструкции под стандартные инструменты, подчеркнуть ручные проверки и обновлённый цикл.
+- [ ] `doc/backlog.md`, `docs/release-notes.md`: задокументировать завершение миграции и действия, необходимые командам при обновлении.
+
+### Тесты и CI
+- [ ] `tests/test_gate_*.py`, `tests/test_cli_*.py`, `tests/test_progress.py`: удалить или переписать под новый стек, добавить smoke-тесты, проверяющие базовую работоспособность `.claude/` без CLI.
+- [ ] `.github/workflows/ci.yml`: пересобрать pipeline, убрав вызовы CLI и bash, закрепить использование Python-скриптов для lint/test шагов.
+- [ ] `scripts/ci-lint.sh`: заменить на Python эквивалент (`scripts/ci_lint.py`), объединяющий линтеры без shell-обёрток.
+
+### Миграция действующих проектов
+- [ ] `docs/migration/wave29-standard-tools.md` (новый): подготовить гайд по обновлению существующих репозиториев (удаление CLI, пересоздание `.claude/`, smoke-проверки).
