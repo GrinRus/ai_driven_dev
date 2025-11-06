@@ -364,3 +364,24 @@
 - [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`: обновить инструкции по установке (`uv tool install` → `claude-workflow init`) с описанием новой директории, пошаговыми примерами и примечаниями об обратной совместимости.
 - [ ] `tools/migrate_install_root.py` (новый), `tests/test_migrate_install_root.py` (новый): подготовить утилиту и автотесты, которые переносят существующий проект в новую структуру, гарантируя, что `.claude/`, `config/`, `docs/`, `scripts/` переезжают корректно и сохраняются ссылки в `.active_ticket`.
 - [ ] `tests/test_cli_init.py`, `tests/test_researcher_context.py`, `tests/test_migrate_ticket.py`: обновить и расширить покрытия, чтобы проверять генерацию в новой директории и сохранение ссылок в payload.
+
+## Wave 28
+
+### Интеграция Researcher в `/idea-new`
+- [ ] `.claude/commands/idea-new.md`: встроить шаг `claude-workflow research --ticket "$1"` перед запуском саб-агента analyst, описать опции `--paths/--keywords`, обработать сценарий «новый проект» (создаём отчёт со статусом `Status: pending` и пометкой «контекст пуст, требуется первичный baseline»).
+- [ ] `.claude/agents/analyst.md`: требовать актуальный `docs/research/<ticket>.md`, использовать вывод Researcher как источник вопросов, фиксировать в `## Диалог analyst` ссылку на отчёт и отмечать, если исследование выявило готовые паттерны или подтвердило «нет данных».
+- [ ] `.claude/commands/researcher.md`, `docs/templates/research-summary.md`: добавить блок «Отсутствие паттернов» и обязательную секцию `## Паттерны/анти-паттерны`, описать, как оформлять вывод для пустого проекта.
+
+### CLI и сбор контекста
+- [ ] `src/claude_workflow_cli/cli.py`: добавить опцию `--auto` для `research` (запуск из `/idea-new` без дополнительных вопросов), возвращать явное уведомление, если найдено 0 матчей, и прокидывать флаг в шаблон.
+- [ ] `tools/researcher_context.py`: реализовать эвристики поиска актуальных паттернов (детектирование тестов, конфигураций, слоёв `src/*`, шаблонов логирования); при отсутствии совпадений генерировать блок «проект новый» и список рекомендаций на основе `config/conventions.json`.
+- [ ] `tools/set_active_feature.py`: после установки фичи автоматически запускать `claude-workflow research --targets-only` для подготовки путей ещё до `/idea-new`.
+
+### Автоматические проверки
+- [ ] `src/claude_workflow_cli/tools/analyst_guard.py`: убедиться, что при Status: READY в PRD присутствует ссылка на исследование и метка статуса из `docs/research/<ticket>.md`; для статуса `Status:.pending` указывать, что research нужно довести до reviewed.
+- [ ] `.claude/hooks/gate-workflow.sh`, `config/gates.json`: синхронизировать новые статусы research, разрешить merge с пометкой «контекст пуст» только если зафиксирован baseline после `/idea-new`.
+
+### Документация и тесты
+- [ ] `docs/agents-playbook.md`, `workflow.md`, `README.md`: описать обновлённый порядок `/idea-new → claude-workflow research → analyst`, правила для пустых репозиториев и требования к паттернам.
+- [ ] `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`: добавить сценарии для «project new» (нулевые совпадения) и для кейса с найденными паттернами, проверять, что гейт отрабатывает предупреждение.
+- [ ] `scripts/smoke-workflow.sh`, `examples/gradle-demo/`: показать новую последовательность и пример отчёта Researcher с перечислением найденных паттернов.
