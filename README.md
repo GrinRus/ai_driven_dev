@@ -57,7 +57,7 @@
 | `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, pre/post-хуки, auto-форматирование/тесты, защита prod-путей |
 | `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
 | `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa`, `db-migrator`, `contract-checker` |
-| `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
+| `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
 | `.claude/gradle/` *(создаётся при установке)* | Gradle-хелперы | `init-print-projects.gradle` объявляет задачу `ccPrintProjectDirs` для selective runner |
 | `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
@@ -148,6 +148,7 @@
 ## Ключевые скрипты и хуки
 - **`init-claude-workflow.sh`** — валидирует `bash/git/python3`, ищет Gradle/kotlin-линтеры, генерирует каталоги `.claude/ config/ docs/ templates/`, перезаписывает артефакты по `--force`, выводит dry-run и настраивает режим коммитов.
 - **`.claude/hooks/format-and-test.sh`** — анализирует `git diff`, собирает задачи из `automation.tests` (`changedOnly`, `moduleMatrix`), уважает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS` и умеет подстраивать полный прогон при изменении общих файлов.
+- **`gate-prd-review.sh`** — вызывает `scripts/prd_review_gate.py`, который требует наличие `docs/prd/<ticket>.prd.md`, секции `## PRD Review` со статусом из `approved_statuses`, закрытые action items и JSON-отчёт (`reports/prd/<ticket>.json` по умолчанию); блокирующие статусы, `- [ ]` и findings с severity из `blocking_severities` завершают проверку ошибкой, а флаги `skip_branches`, `allow_missing_section`, `allow_missing_report` и шаблон `report_path` задаются в `config/gates.json`.
 - **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока не создана цепочка PRD/план/tasklist для активной фичи (`docs/.active_ticket`) и не появилось новых `- [x]` в `docs/tasklist/<ticket>.md`.
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — опциональные гейты: при включении проверяют наличие OpenAPI (`docs/api/<ticket>.yaml`), миграций в `src/main/resources/**/db/migration/` и тестов `src/test/**` (режимы задаёт `config/gates.json`).
 - **`lint-deps.sh`** — напоминает про allowlist зависимостей из `config/allowed-deps.txt` и анализирует изменения Gradle-конфигураций.
@@ -175,7 +176,7 @@
 ## Политики доступа и гейты
 - `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй включает pre- и post-хуки (`gate-*`, `format-and-test`, `lint-deps`) и требует явного подтверждения `git add/commit/push`.
 - Раздел `automation` управляет форматированием и тестами; настройте `format`/`tests` под ваш Gradle-пайплайн.
-- `config/gates.json` централизует флаги `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, а также пути к активному ticket (`feature_ticket_source`) и slug-хинту (`feature_slug_hint_source`).
+- `config/gates.json` централизует флаги `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, а также пути к активному ticket (`feature_ticket_source`) и slug-хинту (`feature_slug_hint_source`); для `prd_review` доступны параметры `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches` и `branches`.
 - Комбинация хуков `gate-*` в `.claude/hooks/` реализует согласованную политику: блокировка кода без артефактов, требование миграций и тестов, контроль API-контрактов.
 
 ## Документация и шаблоны

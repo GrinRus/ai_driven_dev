@@ -148,7 +148,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and new completed checkboxes (`- [x]` in `docs/tasklist/<ticket>.md`) exist for the active ticket (`docs/.active_ticket`).
-- **`gate-prd-review.sh`** — checks `## PRD Review` and blocks when blockers or unchecked items remain; integrates with `config/gates.json` (`prd_review` section).
+- **`gate-prd-review.sh`** — funnels to `scripts/prd_review_gate.py`, which requires `docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-api-contract.sh` / `gate-db-migration.sh` / `gate-tests.sh`** — optional gates: when enabled they expect OpenAPI specs, database migrations, and matching tests as configured in `config/gates.json`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `docs/qa-playbook.md`.
 - **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky Gradle changes.
@@ -168,7 +168,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Access policies & gates
 - `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter enables pre/post hooks (`gate-*`, `format-and-test`, `lint-deps`) and requires approval for `git add/commit/push`.
 - The `automation` section drives formatting/test runners; adjust `format`/`tests` there to align with your Gradle setup.
-- `config/gates.json` centralises `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`).
+- `config/gates.json` centralises `prd_review`, `api_contract`, `db_migration`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`); the `prd_review` section exposes `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches`, and `branches`.
 - Combined `gate-*` hooks inside `.claude/hooks/` enforce the workflow: blocking code without PRD review/plan/tasklist (`docs/tasklist/<ticket>.md`), requiring migrations/tests, and validating OpenAPI specs.
 
 ## Docs & templates
