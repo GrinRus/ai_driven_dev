@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Tuple
 
 
 QUESTION_RE = re.compile(r"^\s*Вопрос\s+(\d+)\s*:", re.MULTILINE)
@@ -15,6 +15,7 @@ STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
 OPEN_QUESTIONS_HEADING = "## 10. Открытые вопросы"
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
+RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
 
 
 class AnalystValidationError(RuntimeError):
@@ -128,6 +129,37 @@ def _collect_numbers(pattern: re.Pattern[str], text: str) -> list[int]:
     return numbers
 
 
+def _read_research_status(root: Path, ticket: str) -> Tuple[Optional[str], Optional[str]]:
+    doc_path = root / "docs" / "research" / f"{ticket}.md"
+    if not doc_path.exists():
+        return None, None
+    try:
+        text = doc_path.read_text(encoding="utf-8")
+    except Exception as exc:  # pragma: no cover - defensive
+        raise AnalystValidationError(f"не удалось прочитать {doc_path}: {exc}")
+    status = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("status:"):
+            status = stripped.split(":", 1)[1].strip().upper()
+            break
+    return status, text
+
+
+def _has_pending_baseline(root: Path, ticket: str, doc_text: Optional[str]) -> bool:
+    if not doc_text:
+        return False
+    context_path = root / "reports" / "research" / f"{ticket}-context.json"
+    try:
+        payload = json.loads(context_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
+    profile = payload.get("profile") or {}
+    auto_mode = bool(payload.get("auto_mode"))
+    is_new_project = bool(profile.get("is_new_project"))
+    return auto_mode and is_new_project and ("контекст пуст" in doc_text.lower())
+
+
 def validate_prd(
     root: Path,
     ticket: str,
@@ -216,6 +248,24 @@ def validate_prd(
             )
         if status == "PENDING":
             raise AnalystValidationError("BLOCK: статус PENDING. Закройте вопросы и установите Status: READY.")
+
+    research_ref = RESEARCH_REF_TEMPLATE.format(ticket=ticket)
+    if research_ref not in text:
+        raise AnalystValidationError(
+            f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
+        )
+
+    research_status, research_text = _read_research_status(root, ticket)
+    if research_status is None:
+        raise AnalystValidationError(f"BLOCK: отсутствует docs/research/{ticket}.md → выполните `claude-workflow research --ticket {ticket}`.")
+    baseline_pending = _has_pending_baseline(root, ticket, research_text)
+    if status == "READY" and research_status != "REVIEWED":
+        if research_status == "PENDING" and baseline_pending:
+            pass
+        else:
+            raise AnalystValidationError(
+                f"BLOCK: Researcher имеет статус {research_status or 'N/A'} → доведите отчёт docs/research/{ticket}.md до reviewed."
+            )
 
     if settings.check_open_questions and status == "READY":
         open_section = _extract_section(text, OPEN_QUESTIONS_HEADING)

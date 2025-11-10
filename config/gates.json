@@ -44,7 +44,9 @@
     ],
     "freshness_days": 14,
     "allow_missing": false,
-    "minimum_paths": 1
+    "minimum_paths": 1,
+    "allow_pending_baseline": true,
+    "baseline_phrase": "контекст пуст"
   },
   "analyst": {
     "enabled": true,

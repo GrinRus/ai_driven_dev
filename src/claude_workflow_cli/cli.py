@@ -33,6 +33,7 @@ from claude_workflow_cli.tools.analyst_guard import (
 from claude_workflow_cli.tools.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,
+    _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
 
@@ -49,6 +50,7 @@ CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
 HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
 DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 
@@ -472,6 +474,7 @@ def _research_command(args: argparse.Namespace) -> None:
         scope,
         extra_paths=_research_parse_paths(args.paths),
         extra_keywords=_research_parse_keywords(args.keywords),
+        extra_notes=_research_parse_notes(getattr(args, "notes", None), target),
     )
 
     targets_path = builder.write_targets(scope)
@@ -485,6 +488,12 @@ def _research_command(args: argparse.Namespace) -> None:
         return
 
     context = builder.collect_context(scope, limit=args.limit)
+    context["auto_mode"] = bool(getattr(args, "auto", False))
+    match_count = len(context["matches"])
+    if match_count == 0:
+        print(
+            f"[claude-workflow] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
+        )
     if args.dry_run:
         print(json.dumps(context, indent=2, ensure_ascii=False))
         return
@@ -494,13 +503,26 @@ def _research_command(args: argparse.Namespace) -> None:
     rel_output = output_path.relative_to(target).as_posix()
     print(
         f"[claude-workflow] researcher context saved to {rel_output} "
-        f"({len(context['matches'])} matches)."
+        f"({match_count} matches)."
     )
 
     if args.no_template:
         return
 
-    doc_path, created = _ensure_research_doc(target, ticket, slug_hint=context.slug_hint)
+    template_overrides: dict[str, str] = {}
+    if match_count == 0:
+        template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
+        template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
+        template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
+    if scope.manual_notes:
+        template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
+
+    doc_path, created = _ensure_research_doc(
+        target,
+        ticket,
+        slug_hint=context.slug_hint,
+        template_overrides=template_overrides or None,
+    )
     if not doc_path:
         print("[claude-workflow] research summary template not found; skipping materialisation.")
         return
@@ -773,6 +795,8 @@ def _ensure_research_doc(
     target: Path,
     ticket: str,
     slug_hint: Optional[str],
+    *,
+    template_overrides: Optional[Dict[str, str]] = None,
 ) -> tuple[Optional[Path], bool]:
     template = target / "docs" / "templates" / "research-summary.md"
     destination = target / "docs" / "research" / f"{ticket}.md"
@@ -794,6 +818,8 @@ def _ensure_research_doc(
         or os.getenv("USER")
         or "",
     }
+    if template_overrides:
+        replacements.update(template_overrides)
     for placeholder, value in replacements.items():
         content = content.replace(placeholder, value)
     destination.write_text(content, encoding="utf-8")
@@ -1183,6 +1209,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated list of extra keywords to search for.",
     )
     research_parser.add_argument(
+        "--note",
+        dest="notes",
+        action="append",
+        help="Free-form note or @path to include in the context; use '-' to read stdin once.",
+    )
+    research_parser.add_argument(
         "--limit",
         type=int,
         default=24,
@@ -1206,6 +1238,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-template",
         action="store_true",
         help="Do not materialise docs/research/<ticket>.md from the template.",
+    )
+    research_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Automation-friendly mode for /idea-new integrations (warn on empty matches).",
     )
     research_parser.set_defaults(func=_research_command)
 

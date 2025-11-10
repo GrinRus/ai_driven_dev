@@ -32,6 +32,8 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "freshness_days": 14,
         "allow_missing": False,
         "minimum_paths": 1,
+        "allow_pending_baseline": True,
+        "baseline_phrase": "контекст пуст",
     },
     "analyst": {
         "enabled": True,

@@ -7,6 +7,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
@@ -109,6 +110,7 @@ class Scope:
     paths: List[str] = field(default_factory=list)
     docs: List[str] = field(default_factory=list)
     keywords: List[str] = field(default_factory=list)
+    manual_notes: List[str] = field(default_factory=list)
 
 
 class ResearcherContextBuilder:
@@ -171,6 +173,7 @@ class ResearcherContextBuilder:
         *,
         extra_paths: Optional[Iterable[str]] = None,
         extra_keywords: Optional[Iterable[str]] = None,
+        extra_notes: Optional[Iterable[str]] = None,
     ) -> Scope:
         if extra_paths:
             normalised = []
@@ -190,6 +193,8 @@ class ResearcherContextBuilder:
             scope.paths = _unique(scope.paths + normalised)
         if extra_keywords:
             scope.keywords = _unique(scope.keywords + [item.strip().lower() for item in extra_keywords])
+        if extra_notes:
+            scope.manual_notes = _unique(scope.manual_notes + [note for note in extra_notes if note])
         return scope
 
     def write_targets(self, scope: Scope) -> Path:
@@ -223,6 +228,7 @@ class ResearcherContextBuilder:
         search_roots.extend(doc_roots)
 
         matches = self._scan_matches(search_roots, scope.keywords, limit=limit)
+        profile = self._build_project_profile(scope, matches)
 
         return {
             "ticket": scope.ticket,
@@ -235,6 +241,8 @@ class ResearcherContextBuilder:
             "paths": path_infos,
             "docs": doc_infos,
             "matches": matches,
+            "profile": profile,
+            "manual_notes": scope.manual_notes,
         }
 
     def write_context(self, scope: Scope, context: Dict[str, Any], *, output: Optional[Path] = None) -> Path:
@@ -333,6 +341,117 @@ class ResearcherContextBuilder:
             if len(samples) >= limit:
                 break
         return samples
+
+    def _build_project_profile(self, scope: Scope, matches: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+        profile = {
+            "is_new_project": len(matches) == 0,
+            "src_layers": self._detect_src_layers(),
+            "tests_detected": self._detect_tests(),
+            "config_detected": self._detect_configs(),
+            "logging_artifacts": self._detect_logging_artifacts(),
+            "recommendations": [],
+        }
+        profile["recommendations"] = self._baseline_recommendations(profile, scope)
+        return profile
+
+    def _detect_src_layers(self, limit: int = 8) -> List[str]:
+        src_dir = self.root / "src"
+        if not src_dir.exists():
+            return []
+        layers: List[str] = []
+        for child in sorted(src_dir.iterdir()):
+            if not child.is_dir():
+                continue
+            layers.append(child.relative_to(self.root).as_posix())
+            if len(layers) >= limit:
+                break
+        return layers
+
+    def _detect_tests(self) -> bool:
+        candidates = [
+            self.root / "tests",
+            self.root / "test",
+            self.root / "src" / "test",
+            self.root / "src" / "tests",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return True
+        return False
+
+    def _detect_configs(self) -> bool:
+        candidates = [
+            self.root / "config",
+            self.root / "configs",
+            self.root / "settings",
+            self.root / "src" / "main" / "resources",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return True
+        return False
+
+    def _detect_logging_artifacts(self, limit: int = 5) -> List[str]:
+        tokens = ("logback", "logging", "logger", "log4j")
+        candidates: List[str] = []
+        search_roots = [
+            self.root / "config",
+            self.root / "configs",
+            self.root / "src",
+        ]
+        for root in search_roots:
+            if not root.exists():
+                continue
+            try:
+                iterator = root.rglob("*")
+            except OSError:
+                continue
+            for path in iterator:
+                if len(candidates) >= limit:
+                    break
+                if not path.is_file():
+                    continue
+                lowered = path.name.lower()
+                if any(token in lowered for token in tokens):
+                    try:
+                        rel = path.relative_to(self.root).as_posix()
+                    except ValueError:
+                        rel = path.as_posix()
+                    candidates.append(rel)
+            if len(candidates) >= limit:
+                break
+        return candidates
+
+    def _baseline_recommendations(self, profile: Dict[str, Any], scope: Scope) -> List[str]:
+        recommendations: List[str] = []
+        defaults = self._settings.get("defaults", {})
+        default_paths = [item for item in defaults.get("paths", []) if isinstance(item, str) and item.strip()]
+        default_docs = [item for item in defaults.get("docs", []) if isinstance(item, str) and item.strip()]
+        default_keywords = [item for item in defaults.get("keywords", []) if isinstance(item, str) and item.strip()]
+
+        if profile["is_new_project"] and default_paths:
+            recommendations.append(
+                "Создайте базовые директории для разработки: " + ", ".join(default_paths)
+            )
+        if profile["is_new_project"] and default_docs:
+            recommendations.append(
+                "Подготовьте документацию по умолчанию: " + ", ".join(default_docs)
+            )
+        if profile["is_new_project"] and default_keywords:
+            recommendations.append(
+                "Добавьте ключевые термины в код/доки: " + ", ".join(default_keywords[:5])
+            )
+        if not profile["tests_detected"]:
+            recommendations.append("Добавьте tests/ или src/test для smoke-покрытия.")
+        if not profile["config_detected"]:
+            recommendations.append("Создайте config/ или settings/ с базовыми конфигурациями.")
+        if not profile["logging_artifacts"]:
+            recommendations.append("Настройте логирование (logback/logging.yaml) для наблюдаемости.")
+
+        if scope.manual_notes:
+            recommendations.append("Проверьте ручные заметки исследователя и перенесите их в отчёт.")
+
+        return _unique(recommendations)
 
     def _resolve_tags(self, ticket: str, slug_hint: Optional[str]) -> List[str]:
         settings = self._settings
@@ -435,6 +554,37 @@ def _parse_keywords(value: Optional[str]) -> List[str]:
     return items
 
 
+def _parse_notes(values: Optional[Iterable[str]], root: Path) -> List[str]:
+    if not values:
+        return []
+    notes: List[str] = []
+    stdin_payload: Optional[str] = None
+    for raw in values:
+        value = (raw or "").strip()
+        if not value:
+            continue
+        if value == "-":
+            if stdin_payload is None:
+                stdin_payload = sys.stdin.read()
+            payload = (stdin_payload or "").strip()
+            if payload:
+                notes.append(payload)
+            continue
+        if value.startswith("@"):
+            note_path = Path(value[1:])
+            if not note_path.is_absolute():
+                note_path = (root / note_path).resolve()
+            try:
+                payload = note_path.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if payload:
+                notes.append(payload)
+            continue
+        notes.append(value)
+    return notes
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Prepare context for the Researcher agent.")
     parser.add_argument("--target", default=".", help="Project root (default: current directory).")
@@ -453,10 +603,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--paths", help="Colon-separated list of additional paths to scan.")
     parser.add_argument("--keywords", help="Comma-separated list of extra keywords.")
+    parser.add_argument(
+        "--note",
+        dest="notes",
+        action="append",
+        help="Free-form note or @path to include in the context; use '-' to read stdin once.",
+    )
     parser.add_argument("--limit", type=int, default=_MAX_MATCHES, help="Maximum number of code/document matches to capture.")
     parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<ticket>-context.json).")
     parser.add_argument("--targets-only", action="store_true", help="Only refresh targets JSON, skip scanning sources.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing files; prints context JSON to stdout.")
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Automation-friendly mode for /idea-new integrations (prints warnings on empty matches).",
+    )
     return parser
 
 
@@ -480,6 +641,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         scope,
         extra_paths=_parse_paths(args.paths),
         extra_keywords=_parse_keywords(args.keywords),
+        extra_notes=_parse_notes(args.notes, root),
     )
 
     targets_path = builder.write_targets(scope)
@@ -490,6 +652,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     context = builder.collect_context(scope, limit=args.limit)
+    context["auto_mode"] = bool(args.auto)
+    match_count = len(context["matches"])
+    if match_count == 0:
+        print(
+            f"[researcher] 0 matches found for {ticket} — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
+        )
     if args.dry_run:
         print(json.dumps(context, indent=2, ensure_ascii=False))
         return 0
@@ -497,7 +665,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     output_override = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, context, output=output_override)
     rel_output = output_path.relative_to(root).as_posix()
-    print(f"[researcher] context saved to {rel_output} ({len(context['matches'])} matches).")
+    print(f"[researcher] context saved to {rel_output} ({match_count} matches).")
     return 0
 
 

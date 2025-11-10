@@ -38,7 +38,14 @@ class GateResearcherTests(unittest.TestCase):
         write_file(
             self.root,
             "docs/prd/demo-checkout.prd.md",
-            "# PRD\n\n## PRD Review\nStatus: approved\n- [x] ready\n",
+            (
+                "# PRD\n\n"
+                "## Диалог analyst\n"
+                "Status: READY\n\n"
+                "Researcher: docs/research/demo-checkout.md (Status: reviewed)\n\n"
+                "## PRD Review\n"
+                "Status: approved\n- [x] ready\n"
+            ),
         )
         write_file(self.root, "docs/plan/demo-checkout.md", "# План\n")
         write_file(
@@ -78,6 +85,8 @@ class GateResearcherTests(unittest.TestCase):
                 "slug": "demo-checkout",
                 "generated_at": now,
                 "matches": [],
+                "profile": {"is_new_project": False},
+                "auto_mode": False,
             },
         )
 
@@ -99,3 +108,47 @@ class GateResearcherTests(unittest.TestCase):
         result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Researcher", result.stdout + result.stderr)
+
+    def test_gate_allows_pending_with_baseline_marker(self) -> None:
+        baseline_doc = (
+            "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
+        )
+        write_file(self.root, "docs/research/demo-checkout.md", baseline_doc)
+        now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        write_json(
+            self.root,
+            "reports/research/demo-checkout-context.json",
+            {
+                "ticket": "demo-checkout",
+                "slug": "demo-checkout",
+                "generated_at": now,
+                "matches": [],
+                "profile": {"is_new_project": True},
+                "auto_mode": True,
+            },
+        )
+        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+    def test_gate_blocks_pending_without_baseline_marker(self) -> None:
+        write_file(
+            self.root,
+            "docs/research/demo-checkout.md",
+            "# Research\n\nStatus: pending\n",
+        )
+        now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        write_json(
+            self.root,
+            "reports/research/demo-checkout-context.json",
+            {
+                "ticket": "demo-checkout",
+                "slug": "demo-checkout",
+                "generated_at": now,
+                "matches": [],
+                "profile": {"is_new_project": True},
+                "auto_mode": True,
+            },
+        )
+        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("baseline", result.stdout + result.stderr)

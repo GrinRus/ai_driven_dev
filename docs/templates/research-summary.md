@@ -20,11 +20,21 @@ Prepared by: {{owner}}
 ## Принятые практики
 - {{guideline}}
 
+## Паттерны/анти-паттерны
+- **Паттерны:** {{positive-patterns}}
+- **Анти-паттерны:** {{negative-patterns}}
+
+## Отсутствие паттернов
+- {{empty-context-note}}
+
 ## Gap-анализ
 - {{gap-description}}
 
 ## Следующие шаги
 - {{next-step}}
+
+## Дополнительные заметки
+- {{manual-note}}
 
 ## Открытые вопросы
 - {{question}}

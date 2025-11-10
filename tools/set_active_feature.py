@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Sequence
@@ -118,6 +120,43 @@ def _split_keywords(value: Optional[str]) -> Sequence[str]:
     return [chunk.strip().lower() for chunk in value.split(",") if chunk.strip()]
 
 
+def _run_cli_research_targets(
+    root: Path,
+    ticket: str,
+    slug_hint: Optional[str],
+    *,
+    paths_arg: Optional[str],
+    keywords_arg: Optional[str],
+    config_arg: Optional[str],
+) -> bool:
+    cli_cmd = [
+        sys.executable,
+        "-m",
+        "claude_workflow_cli.cli",
+        "research",
+        "--target",
+        str(root),
+        "--ticket",
+        ticket,
+        "--targets-only",
+        "--auto",
+        "--no-template",
+    ]
+    if slug_hint:
+        cli_cmd.extend(["--slug-hint", slug_hint])
+    if config_arg:
+        cli_cmd.extend(["--config", config_arg])
+    if paths_arg:
+        cli_cmd.extend(["--paths", paths_arg])
+    if keywords_arg:
+        cli_cmd.extend(["--keywords", keywords_arg])
+    try:
+        subprocess.run(cli_cmd, check=True, cwd=root, env=os.environ.copy())
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return False
+
+
 def main() -> None:
     args = parse_args()
     root = Path(args.target).resolve()
@@ -136,6 +175,16 @@ def main() -> None:
         resolved_slug_hint = hint_value
     print(f"active feature: {args.ticket}")
     _maybe_migrate_tasklist(root, args.ticket, resolved_slug_hint)
+
+    if _run_cli_research_targets(
+        root,
+        args.ticket,
+        resolved_slug_hint,
+        paths_arg=args.paths,
+        keywords_arg=args.keywords,
+        config_arg=args.config,
+    ):
+        return
 
     if ResearcherContextBuilder is None:
         print("[researcher] skip: researcher_context module not found", file=sys.stderr)

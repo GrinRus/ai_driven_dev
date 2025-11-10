@@ -1,3 +1,4 @@
+import datetime as dt
 import pathlib
 import subprocess
 from textwrap import dedent
@@ -14,15 +15,25 @@ from .helpers import (
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
-APPROVED_PRD = (
-    "# PRD\n\n"
-    "## Диалог analyst\n"
-    "Status: READY\n\n"
-    "Вопрос 1: Требуется ли отдельный сценарий оплаты?\n"
-    "Ответ 1: Покрываем happy-path и отказ платежа.\n\n"
-    "## PRD Review\n"
-    "Status: approved\n"
-)
+def approved_prd(ticket: str = "demo-checkout") -> str:
+    return (
+        "# PRD\n\n"
+        "## Диалог analyst\n"
+        "Status: READY\n\n"
+        f"Researcher: docs/research/{ticket}.md (Status: reviewed)\n\n"
+        "Вопрос 1: Требуется ли отдельный сценарий оплаты?\n"
+        "Ответ 1: Покрываем happy-path и отказ платежа.\n\n"
+        "## PRD Review\n"
+        "Status: approved\n"
+    )
+
+
+def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", status: str = "reviewed") -> None:
+    write_file(
+        tmp_path,
+        f"docs/research/{ticket}.md",
+        f"# Research\n\nStatus: {status}\n",
+    )
 REVIEW_REPORT = '{"summary": "", "findings": []}'
 
 
@@ -44,8 +55,9 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
 def test_missing_plan_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_research_doc(tmp_path)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -59,6 +71,7 @@ def test_blocked_status_blocks(tmp_path):
         "# PRD\n\n"
         "## Диалог analyst\n"
         "Status: BLOCKED\n\n"
+        "Researcher: docs/research/demo-checkout.md (Status: pending)\n\n"
         "Вопрос 1: Требуется ли отдельный сценарий оплаты?\n"
         "Ответ 1: Нужен список кейсов, уточнение в процессе.\n\n"
         "## PRD Review\n"
@@ -66,6 +79,7 @@ def test_blocked_status_blocks(tmp_path):
     )
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", blocked_prd)
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_research_doc(tmp_path)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -75,9 +89,10 @@ def test_blocked_status_blocks(tmp_path):
 def test_missing_tasks_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_research_doc(tmp_path)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -87,9 +102,10 @@ def test_missing_tasks_blocks(tmp_path):
 def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", APPROVED_PRD)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_research_doc(tmp_path)
     write_file(
         tmp_path,
         "docs/tasklist/demo-checkout.md",
@@ -113,6 +129,63 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_allows_pending_research_baseline(tmp_path):
+    ensure_gates_config(tmp_path)
+    ticket = "demo-checkout"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{ticket}.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] Реализация :: подготовить сервис
+            """
+        ),
+    )
+    baseline_doc = (
+        "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
+    )
+    write_file(tmp_path, f"docs/research/{ticket}.md", baseline_doc)
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {
+            "ticket": ticket,
+            "paths": ["src/main/kotlin"],
+            "docs": [f"docs/research/{ticket}.md"],
+        },
+    )
+    now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "slug": ticket,
+            "generated_at": now,
+            "matches": [],
+            "profile": {"is_new_project": True},
+            "auto_mode": True,
+        },
+    )
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
 def test_progress_blocks_without_checkbox(tmp_path):
     slug = "demo-checkout"
     git_init(tmp_path)
@@ -128,9 +201,10 @@ def test_progress_blocks_without_checkbox(tmp_path):
     )
 
     write_active_feature(tmp_path, slug)
-    write_file(tmp_path, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
+    write_file(tmp_path, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_file(tmp_path, f"docs/plan/{slug}.md", "# Plan")
     write_file(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
+    write_research_doc(tmp_path, slug)
     write_file(
         tmp_path,
         f"docs/tasklist/{slug}.md",
@@ -217,7 +291,8 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
         },
     )
     write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
-    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", APPROVED_PRD)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_research_doc(tmp_path, ticket)
     write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
     write_file(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(

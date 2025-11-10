@@ -69,9 +69,10 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-mkdir -p docs
-printf '%s' "$TICKET" >docs/.active_ticket
-printf '%s' "$TICKET" >docs/.active_feature
+python3 tools/set_active_feature.py "$TICKET" >/dev/null
+
+log "auto-collect research context before analyst"
+python3 -m claude_workflow_cli.cli research --ticket "$TICKET" --target . --auto >/dev/null
 
 log "expect block until PRD exists"
 assert_gate_exit 2 "missing PRD"
@@ -129,9 +130,6 @@ PY
 
 log "expect block until research report ready"
 assert_gate_exit 2 "missing research report"
-
-log "collect research artefacts"
-python3 -m claude_workflow_cli.cli research --ticket "$TICKET" --target . >/dev/null
 
 log "mark research summary as reviewed"
 python3 - "$TICKET" <<'PY'

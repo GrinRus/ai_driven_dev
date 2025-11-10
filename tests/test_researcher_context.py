@@ -82,6 +82,8 @@ class ResearcherContextTests(unittest.TestCase):
         payload = json.loads(context_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["ticket"], "demo-checkout")
         self.assertGreaterEqual(len(payload["matches"]), 1)
+        self.assertIn("profile", payload)
+        self.assertIn("manual_notes", payload)
 
     def test_builder_handles_slug_without_tags(self) -> None:
         builder = ResearcherContextBuilder(self.root)
@@ -117,6 +119,16 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("src/payments", scope.paths)
         self.assertIn("docs/research/payments.md", scope.docs)
         self.assertIn("payments", scope.keywords)
+
+    def test_builder_captures_manual_notes_and_profile(self) -> None:
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
+        scope = builder.extend_scope(scope, extra_notes=["Свободное наблюдение"])
+        context = builder.collect_context(scope, limit=5)
+        self.assertIn("Свободное наблюдение", context["manual_notes"])
+        profile = context["profile"]
+        self.assertIn("recommendations", profile)
+        self.assertIn("is_new_project", profile)
 
     def test_set_active_feature_refreshes_targets(self) -> None:
         script = REPO_ROOT / "tools" / "set_active_feature.py"
