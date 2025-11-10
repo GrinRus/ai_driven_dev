@@ -32,6 +32,10 @@ _MAX_MATCHES = 24
 _MAX_FILE_BYTES = 512 * 1024
 
 
+def _utc_timestamp() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _unique(items: Iterable[str]) -> List[str]:
     seen: set[str] = set()
     result: List[str] = []
@@ -204,7 +208,7 @@ class ResearcherContextBuilder:
             "ticket": scope.ticket,
             "slug": scope.slug_hint or scope.ticket,
             "slug_hint": scope.slug_hint,
-            "generated_at": _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "generated_at": _utc_timestamp(),
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
             "paths": scope.paths,
@@ -234,7 +238,7 @@ class ResearcherContextBuilder:
             "ticket": scope.ticket,
             "slug": scope.slug_hint or scope.ticket,
             "slug_hint": scope.slug_hint,
-            "generated_at": _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "generated_at": _utc_timestamp(),
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
             "keywords": scope.keywords,

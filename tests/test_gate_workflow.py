@@ -15,6 +15,13 @@ from .helpers import (
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
+REVIEW_REPORT = '{"summary": "", "findings": []}'
+
+
+def _timestamp() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def approved_prd(ticket: str = "demo-checkout") -> str:
     return (
         "# PRD\n\n"
@@ -34,7 +41,6 @@ def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", st
         f"docs/research/{ticket}.md",
         f"# Research\n\nStatus: {status}\n",
     )
-REVIEW_REPORT = '{"summary": "", "findings": []}'
 
 
 def test_no_active_feature_allows_changes(tmp_path):
@@ -168,7 +174,7 @@ def test_allows_pending_research_baseline(tmp_path):
             "docs": [f"docs/research/{ticket}.md"],
         },
     )
-    now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    now = _timestamp()
     write_json(
         tmp_path,
         f"reports/research/{ticket}-context.json",

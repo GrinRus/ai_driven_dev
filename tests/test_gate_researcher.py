@@ -13,6 +13,10 @@ from .helpers import write_active_feature, write_file, write_json
 PAYLOAD = json.dumps({"tool_input": {"file_path": "src/main/kotlin/App.kt"}})
 
 
+def _timestamp() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 class GateResearcherTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmpdir = tempfile.mkdtemp(prefix="gate-research-")
@@ -65,7 +69,7 @@ class GateResearcherTests(unittest.TestCase):
             "# Research\n\nStatus: reviewed\n",
         )
 
-        now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        now = _timestamp()
         write_json(
             self.root,
             "reports/research/demo-checkout-targets.json",
@@ -114,7 +118,7 @@ class GateResearcherTests(unittest.TestCase):
             "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
         )
         write_file(self.root, "docs/research/demo-checkout.md", baseline_doc)
-        now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        now = _timestamp()
         write_json(
             self.root,
             "reports/research/demo-checkout-context.json",
@@ -136,7 +140,7 @@ class GateResearcherTests(unittest.TestCase):
             "docs/research/demo-checkout.md",
             "# Research\n\nStatus: pending\n",
         )
-        now = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        now = _timestamp()
         write_json(
             self.root,
             "reports/research/demo-checkout-context.json",
