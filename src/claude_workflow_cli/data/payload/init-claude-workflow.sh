@@ -635,6 +635,7 @@ generate_gradle_helpers() {
 generate_config_and_scripts() {
   copy_payload_dir "config"
   copy_payload_dir "scripts"
+  copy_payload_dir "tools"
   local scripts_dir="$ROOT_DIR/scripts"
   if [[ -d "$scripts_dir" ]]; then
     while IFS= read -r -d '' script; do

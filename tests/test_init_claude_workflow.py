@@ -38,6 +38,7 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             ".claude/hooks/format-and-test.sh",
             ".claude/gradle/init-print-projects.gradle",
             "config/conventions.json",
+            "tools/set_active_feature.py",
             "docs/prd.template.md",
         ]
         for rel in expected_paths:
