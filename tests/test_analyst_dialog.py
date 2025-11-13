@@ -45,11 +45,17 @@ def _write_prd(root, slug, body):
     return write_file(root, f"docs/prd/{slug}.prd.md", body)
 
 
+def _write_research(root, slug, status="reviewed"):
+    payload = f"# Research\n\nStatus: {status}\n"
+    return write_file(root, f"docs/research/{slug}.md", payload)
+
+
 def test_validate_prd_passes_when_ready(tmp_path):
     ensure_gates_config(tmp_path)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\n\nВопрос 1: Какие этапы checkout нужно покрыть?\nОтвет 1: Используем happy-path и неуспешную оплату.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\nОтвет 1: Используем happy-path и неуспешную оплату.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
     _write_prd(tmp_path, slug, prd)
+    _write_research(tmp_path, slug)
     settings = load_settings(tmp_path)
 
     summary = validate_prd(tmp_path, slug, settings=settings)
@@ -62,8 +68,9 @@ def test_validate_prd_passes_when_ready(tmp_path):
 def test_missing_answer_blocks_validation(tmp_path):
     ensure_gates_config(tmp_path)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\n\nВопрос 1: Что уточнить?\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Уточнить детали\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Уточнить детали\n"""
     _write_prd(tmp_path, slug, prd)
+    _write_research(tmp_path, slug, status="pending")
     settings = load_settings(tmp_path)
 
     with pytest.raises(AnalystValidationError) as excinfo:
@@ -75,8 +82,9 @@ def test_missing_answer_blocks_validation(tmp_path):
 def test_ready_status_with_open_questions_fails(tmp_path):
     ensure_gates_config(tmp_path)
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Остаётся блокер\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [ ] Остаётся блокер\n"""
     _write_prd(tmp_path, slug, prd)
+    _write_research(tmp_path, slug)
     settings = load_settings(tmp_path)
 
     with pytest.raises(AnalystValidationError) as excinfo:
@@ -85,11 +93,26 @@ def test_ready_status_with_open_questions_fails(tmp_path):
     assert "Открытые вопросы" in str(excinfo.value)
 
 
+def test_draft_status_rejected(tmp_path):
+    ensure_gates_config(tmp_path)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: draft\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: TBD\n"""
+    _write_prd(tmp_path, slug, prd)
+    _write_research(tmp_path, slug, status="pending")
+    settings = load_settings(tmp_path)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(tmp_path, slug, settings=settings)
+
+    assert "draft" in str(excinfo.value).lower()
+
+
 def test_validation_skipped_when_disabled(tmp_path):
     ensure_gates_config(tmp_path, {"analyst": {"enabled": False}})
     slug = "demo"
-    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\n\nВопрос 1: Что уточнить?\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
     _write_prd(tmp_path, slug, prd)
+    _write_research(tmp_path, slug, status="pending")
     settings = load_settings(tmp_path)
 
     summary = validate_prd(tmp_path, slug, settings=settings)

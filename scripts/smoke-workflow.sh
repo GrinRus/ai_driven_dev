@@ -69,13 +69,13 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-python3 tools/set_active_feature.py --skip-prd-scaffold "$TICKET" >/dev/null
+python3 tools/set_active_feature.py "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
 python3 -m claude_workflow_cli.cli research --ticket "$TICKET" --target . --auto >/dev/null
 
-log "expect block until PRD exists"
-assert_gate_exit 2 "missing PRD"
+log "expect block while PRD в статусе draft"
+assert_gate_exit 2 "draft PRD"
 
 log "apply preset feature-prd"
 bash "$INIT_SCRIPT" --preset feature-prd --ticket "$TICKET" >/dev/null

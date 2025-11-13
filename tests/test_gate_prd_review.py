@@ -6,10 +6,16 @@ SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 PRD_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 
 
-def make_prd(status: str, action_items: str = "") -> str:
+def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") -> str:
     body = dedent(
         f"""\
         # PRD
+
+        ## Диалог analyst
+        Status: {dialog_status}
+
+        Вопрос 1: Что уточнить?
+        Ответ 1: Ответ получен.
 
         ## PRD Review
         Status: {status}
@@ -54,6 +60,19 @@ def test_blocks_when_status_pending(tmp_path):
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "не утверждён" in (result.stdout + result.stderr)
+
+
+def test_blocks_when_dialog_status_draft(tmp_path):
+    setup_base(tmp_path)
+    write_file(
+        tmp_path,
+        "docs/prd/demo-checkout.prd.md",
+        make_prd("approved", dialog_status="draft"),
+    )
+
+    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    assert "draft" in (result.stdout + result.stderr).lower()
 
 
 def test_blocks_when_action_items_open(tmp_path):

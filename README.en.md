@@ -105,7 +105,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 
 ### Slash-command definitions
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
-- `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `docs/.active_ticket`/`.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions.
+- `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `docs/.active_ticket`/`.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions **starting from an auto-generated `docs/prd/<ticket>.prd.md` with `Status: draft`.**
 - `.claude/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `docs/research/<ticket>.md`.
 - `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: approved`) before plan creation.
 - `.claude/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
@@ -257,11 +257,11 @@ git checkout -b feature/STORE-123
 
 > The first argument is the ticket identifier; add an optional slug hint (e.g. `checkout-discounts`) as the second argument if you want a human-readable alias in `docs/.active_feature`.
 
-You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `docs/tasklist/<ticket>.md`); the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
+You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `docs/tasklist/<ticket>.md`): `/idea-new` immediately scaffolds `docs/prd/<ticket>.prd.md` with `Status: draft`, the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
 
 ## Feature kickoff checklist
 
-1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `docs/.active_ticket` (and, if provided, `.active_feature`). Answer every analyst prompt as `Answer N: …` until the dialog reaches `Status: READY`, `## Диалог analyst` is complete, and `claude-workflow analyst-check --ticket <ticket>` reports success.
+1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `docs/prd/<ticket>.prd.md` with `Status: draft`.** Answer every analyst prompt as `Answer N: …`, update the PRD link to `docs/research/<ticket>.md`, and keep iterating until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
 2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --ticket <ticket>` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the ticket is already in place after step 1 and verified via `analyst-check`).
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
@@ -273,7 +273,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
 | Command | Purpose | Example |
 |---|---|---|
-| `/idea-new` | Gather inputs and draft a PRD | `STORE-123 checkout-discounts` |
+| `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
 | `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
 | `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
 | `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |

@@ -23,6 +23,7 @@ DEFAULT_APPROVED = {"approved"}
 DEFAULT_BLOCKING = {"blocked"}
 DEFAULT_BLOCKING_SEVERITIES = {"critical"}
 REVIEW_HEADER = "## PRD Review"
+DIALOG_HEADER = "## Диалог analyst"
 
 
 
@@ -125,7 +126,9 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
             f"BLOCK: нет раздела '## PRD Review' в docs/prd/{ticket}.prd.md → выполните /review-prd {label}"
         )
     if kind == "missing_prd":
-        return f"BLOCK: нет PRD → запустите /idea-new {label or ticket}"
+        return (
+            f"BLOCK: PRD не найден или не заполнен → откройте docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-prd {label or ticket}."
+        )
     if kind == "blocking_status":
         return (
             f"BLOCK: PRD Review помечен как '{status}' → устраните блокеры и обновите статус через /review-prd {label or ticket}"
@@ -145,7 +148,26 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
         return (
             f"BLOCK: отчёт PRD Review содержит критичные findings → устраните замечания и обновите отчёт для {label or ticket}."
         )
+    if kind == "draft_dialog":
+        return (
+            f"BLOCK: PRD в статусе draft → заполните раздел '## Диалог analyst', обновите Status: READY и только затем запускайте /review-prd {label or ticket}."
+        )
     return f"BLOCK: PRD Review не готов → выполните /review-prd {label or ticket}"
+
+
+def extract_dialog_status(content: str) -> str | None:
+    inside = False
+    for raw in content.splitlines():
+        stripped = raw.strip()
+        lower = stripped.lower()
+        if lower.startswith(DIALOG_HEADER.lower()):
+            inside = True
+            continue
+        if inside and stripped.startswith("## "):
+            break
+        if inside and lower.startswith("status:"):
+            return stripped.split(":", 1)[1].strip().lower()
+    return None
 
 
 def main() -> None:
@@ -181,6 +203,10 @@ def main() -> None:
     blocking: Set[str] = {str(item).lower() for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
 
     content = prd_path.read_text(encoding="utf-8")
+    dialog_status = extract_dialog_status(content)
+    if dialog_status == "draft":
+        print(format_message("draft_dialog", ticket, slug_hint))
+        raise SystemExit(1)
     found, status, action_items = parse_review_section(content)
 
     if not found:

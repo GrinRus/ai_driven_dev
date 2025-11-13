@@ -228,6 +228,10 @@ def validate_prd(
     status = status_match.group(1).upper() if status_match else None
     if status is None:
         raise AnalystValidationError("BLOCK: в PRD отсутствует строка `Status:` → обновите раздел `## Диалог analyst`.")
+    if status == "DRAFT":
+        raise AnalystValidationError(
+            "BLOCK: PRD в статусе draft. Заполните диалог analyst и обновите Status: READY перед запуском analyst-check."
+        )
     if status not in ALLOWED_STATUSES:
         raise AnalystValidationError(
             f"BLOCK: некорректное значение статуса (`{status}`), допустимо READY|BLOCKED|PENDING."
