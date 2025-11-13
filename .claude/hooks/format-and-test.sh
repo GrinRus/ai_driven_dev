@@ -18,6 +18,10 @@ from typing import Iterable, List, Tuple
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR / "src") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "src"))
+HOOKS_DIR = Path(__file__).resolve().parent
+VENDOR_DIR = HOOKS_DIR / "_vendor"
+if VENDOR_DIR.exists():
+    sys.path.insert(0, str(VENDOR_DIR))
 
 from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
 

@@ -208,6 +208,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
+- CLI разворачивает необходимые Python-модули прямо в `.claude/hooks/_vendor`, поэтому хуки, которые вызывают `python3 -m claude_workflow_cli ...`, работают сразу без отдельного `pip install`;
 - для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/`, добавьте `--include claude-presets` или иные каталоги; чтобы подтянуть свежий payload из GitHub Releases, укажите `--release latest` или конкретный тег);
 - для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --ticket demo-checkout`.
 - если инициализируете повторно, запустите команду в каталоге без старого `.claude/` или добавьте `--force`, чтобы перезаписать артефакты.

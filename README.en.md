@@ -194,6 +194,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 
 - the first command installs the `claude-workflow` CLI via `uv`;
 - `claude-workflow init` mirrors the behaviour of `init-claude-workflow.sh`, copying presets, hooks, and docs into the current project;
+- the CLI now vendors the required Python modules into `.claude/hooks/_vendor`, so hooks that invoke `python3 -m claude_workflow_cli ...` run immediately with no extra `pip install`;
 - need demo data? run `claude-workflow preset feature-prd --ticket demo-checkout`.
 
 ### Option B — `pipx`

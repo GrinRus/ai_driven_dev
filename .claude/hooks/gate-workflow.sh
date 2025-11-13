@@ -5,6 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
+HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
+if [[ -d "$HOOK_VENDOR_DIR" ]]; then
+  if [[ -n "${PYTHONPATH:-}" ]]; then
+    export PYTHONPATH="$HOOK_VENDOR_DIR:${PYTHONPATH}"
+  else
+    export PYTHONPATH="$HOOK_VENDOR_DIR"
+  fi
+fi
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
