@@ -21,6 +21,9 @@ class ResearcherContextTests(unittest.TestCase):
         self.root = Path(self._tmp.name)
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs").mkdir(parents=True, exist_ok=True)
+        template_src = (REPO_ROOT / "docs" / "prd.template.md").read_text(encoding="utf-8")
+        write_file(self.root, "docs/prd.template.md", template_src)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
         config_payload = {
@@ -150,6 +153,12 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertTrue(targets_path.exists(), "Researcher targets should be generated")
         targets = json.loads(targets_path.read_text(encoding="utf-8"))
         self.assertIn("src/main/kotlin", targets["paths"])
+
+        prd_path = self.root / "docs" / "prd" / "demo-checkout.prd.md"
+        self.assertTrue(prd_path.exists(), "PRD scaffold should be created automatically")
+        prd_body = prd_path.read_text(encoding="utf-8")
+        self.assertIn("Status: draft", prd_body)
+        self.assertIn("docs/research/demo-checkout.md", prd_body)
 
     def test_slug_hint_persists_without_repeating_argument(self) -> None:
         script = REPO_ROOT / "tools" / "set_active_feature.py"

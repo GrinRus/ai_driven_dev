@@ -7,6 +7,8 @@ from typing import Optional
 
 ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
+PRD_TEMPLATE_FILE = Path("docs") / "prd.template.md"
+PRD_DIR = Path("docs") / "prd"
 
 
 def _read_text(path: Path) -> Optional[str]:
@@ -58,11 +60,41 @@ def resolve_identifiers(
     return FeatureIdentifiers(ticket=resolved_ticket, slug_hint=resolved_hint)
 
 
+def scaffold_prd(root: Path, ticket: str) -> bool:
+    """Ensure docs/prd/<ticket>.prd.md exists by copying the template."""
+
+    root = root.resolve()
+    ticket_value = ticket.strip()
+    if not ticket_value:
+        return False
+
+    template_path = root / PRD_TEMPLATE_FILE
+    prd_path = root / PRD_DIR / f"{ticket_value}.prd.md"
+
+    if not template_path.exists() or prd_path.exists():
+        return False
+
+    try:
+        content = template_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    content = content.replace("<ticket>", ticket_value)
+    prd_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        prd_path.write_text(content, encoding="utf-8")
+    except OSError:
+        return False
+
+    return True
+
+
 def write_identifiers(
     root: Path,
     *,
     ticket: str,
     slug_hint: Optional[str] = None,
+    scaffold_prd_file: bool = True,
 ) -> None:
     root = root.resolve()
     ticket_value = ticket.strip()
@@ -88,3 +120,6 @@ def write_identifiers(
     hint_path = root / SLUG_HINT_FILE
     hint_path.parent.mkdir(parents=True, exist_ok=True)
     hint_path.write_text(hint_value, encoding="utf-8")
+
+    if scaffold_prd_file:
+        scaffold_prd(root, ticket_value)

@@ -69,7 +69,7 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-python3 tools/set_active_feature.py "$TICKET" >/dev/null
+python3 tools/set_active_feature.py --skip-prd-scaffold "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
 python3 -m claude_workflow_cli.cli research --ticket "$TICKET" --target . --auto >/dev/null
@@ -102,8 +102,8 @@ if "Ответ 1:" in text:
         "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.",
         1,
     )
-if "Status: pending" in text:
-    text = text.replace("Status: pending", "Status: READY", 1)
+if "Status: draft" in text:
+    text = text.replace("Status: draft", "Status: READY", 1)
 path.write_text(text, encoding="utf-8")
 PY
 

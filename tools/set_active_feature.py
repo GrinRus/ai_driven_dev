@@ -57,6 +57,11 @@ def parse_args() -> argparse.Namespace:
         dest="slug_hint",
         help="Optional slug hint to persist alongside the ticket.",
     )
+    parser.add_argument(
+        "--skip-prd-scaffold",
+        action="store_true",
+        help="Skip automatic docs/prd/<ticket>.prd.md scaffold creation.",
+    )
     return parser.parse_args()
 
 
@@ -157,14 +162,40 @@ def _run_cli_research_targets(
         return False
 
 
+def _scaffold_prd_manual(root: Path, ticket: str) -> bool:
+    docs_dir = root / "docs"
+    template_path = docs_dir / "prd.template.md"
+    prd_path = docs_dir / "prd" / f"{ticket}.prd.md"
+    if not template_path.exists() or prd_path.exists():
+        return False
+    try:
+        content = template_path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    content = content.replace("<ticket>", ticket)
+    prd_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        prd_path.write_text(content, encoding="utf-8")
+    except Exception:
+        return False
+    return True
+
+
 def main() -> None:
     args = parse_args()
     root = Path(args.target).resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     resolved_slug_hint = args.slug_hint
+    scaffold_enabled = not args.skip_prd_scaffold
+
     if write_identifiers is not None:
-        write_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+        write_identifiers(
+            root,
+            ticket=args.ticket,
+            slug_hint=args.slug_hint,
+            scaffold_prd_file=scaffold_enabled,
+        )
         if read_identifiers is not None:
             identifiers = read_identifiers(root)
             resolved_slug_hint = (identifiers.slug_hint or identifiers.ticket or args.ticket)
@@ -173,6 +204,8 @@ def main() -> None:
         hint_value = args.slug_hint if args.slug_hint is not None else args.ticket
         (docs_dir / ".active_feature").write_text(hint_value, encoding="utf-8")
         resolved_slug_hint = hint_value
+        if scaffold_enabled and _scaffold_prd_manual(root, args.ticket):
+            print(f"[prd] scaffolded docs/prd/{args.ticket}.prd.md", file=sys.stderr)
     print(f"active feature: {args.ticket}")
     _maybe_migrate_tasklist(root, args.ticket, resolved_slug_hint)
 
