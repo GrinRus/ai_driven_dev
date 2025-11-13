@@ -14,7 +14,7 @@ authors = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: Apache Software License",
+  "License :: OSI Approved :: MIT License",
   "Topic :: Software Development :: Build Tools",
 ]
 
