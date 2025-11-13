@@ -658,7 +658,7 @@ final_message() {
   cat <<'EOF'
 Open the project in Claude Code and try:
   git checkout -b feature/STORE-123
-  /idea-new checkout-discounts STORE-123
+  /idea-new STORE-123 checkout-discounts
   /plan-new checkout-discounts
   /tasks-new checkout-discounts
   /implement checkout-discounts

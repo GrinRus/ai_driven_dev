@@ -266,7 +266,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 
 ```
 git checkout -b feature/STORE-123
-/idea-new checkout-discounts STORE-123
+/idea-new STORE-123 checkout-discounts
 claude-workflow research --ticket STORE-123 --auto
 /plan-new checkout-discounts
 /review-prd checkout-discounts
@@ -275,7 +275,7 @@ claude-workflow research --ticket STORE-123 --auto
 /review checkout-discounts
 ```
 
-> Первый аргумент — ticket фичи; при необходимости добавляйте второй параметр как slug-hint (например, `STORE-123`), чтобы сохранить человекочитаемый идентификатор в `docs/.active_feature`.
+> Первый аргумент — ticket фичи; при необходимости добавляйте второй параметр как slug-hint (например, `checkout-discounts`), чтобы сохранить человекочитаемый идентификатор в `docs/.active_feature`.
 
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist `docs/tasklist/<ticket>.md`); аналитик фиксирует диалог в `## Диалог analyst`, а ответы даются в формате `Ответ N: …`;
@@ -298,7 +298,7 @@ claude-workflow research --ticket STORE-123 --auto
 
 | Команда | Назначение | Аргументы (пример) |
 |---|---|---|
-| `/idea-new` | Собрать вводные и оформить PRD | `checkout-discounts STORE-123` |
+| `/idea-new` | Собрать вводные и оформить PRD | `STORE-123 checkout-discounts` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
 | `/review-prd` | Провести ревью PRD и зафиксировать статус | `checkout-discounts` |
 | `/tasks-new` | Обновить `docs/tasklist/<ticket>.md` по плану | `checkout-discounts` |

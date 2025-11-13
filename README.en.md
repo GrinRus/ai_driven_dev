@@ -246,7 +246,7 @@ Supports macOS/Linux. Use WSL or Git Bash on Windows.
 
 ```
 git checkout -b feature/STORE-123
-/idea-new checkout-discounts STORE-123
+/idea-new STORE-123 checkout-discounts
 /plan-new checkout-discounts
 /review-prd checkout-discounts
 /tasks-new checkout-discounts
@@ -255,7 +255,7 @@ git checkout -b feature/STORE-123
 ./.claude/hooks/format-and-test.sh
 ```
 
-> The first argument is the ticket identifier; add an optional slug hint (e.g. `STORE-123`) as the second argument if you want a human-readable alias in `docs/.active_feature`.
+> The first argument is the ticket identifier; add an optional slug hint (e.g. `checkout-discounts`) as the second argument if you want a human-readable alias in `docs/.active_feature`.
 
 You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `docs/tasklist/<ticket>.md`); the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
 
@@ -273,7 +273,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
 | Command | Purpose | Example |
 |---|---|---|
-| `/idea-new` | Gather inputs and draft a PRD | `checkout-discounts STORE-123` |
+| `/idea-new` | Gather inputs and draft a PRD | `STORE-123 checkout-discounts` |
 | `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
 | `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
 | `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |
