@@ -13,7 +13,6 @@ DEFAULT_PATHS = [
     ".claude",
     "claude-presets",
     "config",
-    "doc",
     "docs",
     "templates",
     "tools",

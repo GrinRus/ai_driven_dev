@@ -618,6 +618,7 @@ generate_claude_settings() {
   copy_payload_dir ".claude/hooks"
   copy_payload_dir ".claude/cache"
   ensure_hook_permissions
+  embed_project_dir_in_settings
 }
 
 generate_agents() {
@@ -644,6 +645,71 @@ generate_config_and_scripts() {
         *.sh) set_executable "$rel" ;;
       esac
     done < <(find "$scripts_dir" -type f -print0)
+  fi
+}
+
+embed_project_dir_in_settings() {
+  local settings_path="$ROOT_DIR/.claude/settings.json"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] rewrite hook commands in .claude/settings.json"
+    return
+  fi
+  if [[ ! -f "$settings_path" ]]; then
+    return
+  fi
+  local replacements
+  replacements="$(python3 - "$settings_path" "$ROOT_DIR" <<'PY'
+import json
+import pathlib
+import sys
+
+settings_path = pathlib.Path(sys.argv[1])
+project_dir = pathlib.Path(sys.argv[2]).resolve()
+
+def update(entries):
+    count = 0
+    if not isinstance(entries, list):
+        return 0
+    for entry in entries:
+        hooks = entry.get("hooks") if isinstance(entry, dict) else None
+        if not isinstance(hooks, list):
+            continue
+        for hook in hooks:
+            cmd = hook.get("command") if isinstance(hook, dict) else None
+            if isinstance(cmd, str) and "\"$CLAUDE_PROJECT_DIR\"" in cmd:
+                hook["command"] = cmd.replace("\"$CLAUDE_PROJECT_DIR\"", f'"{project_dir}"')
+                count += 1
+    return count
+
+try:
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+except Exception:
+    print(0)
+    raise SystemExit(0)
+
+total = 0
+hooks_section = data.get("hooks")
+if isinstance(hooks_section, dict):
+    total += update(hooks_section.get("PreToolUse"))
+    total += update(hooks_section.get("PostToolUse"))
+
+presets = data.get("presets", {}).get("list", {})
+if isinstance(presets, dict):
+    for preset in presets.values():
+        preset_hooks = preset.get("hooks") if isinstance(preset, dict) else None
+        if isinstance(preset_hooks, dict):
+            total += update(preset_hooks.get("PreToolUse"))
+            total += update(preset_hooks.get("PostToolUse"))
+
+if total:
+    settings_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+print(total)
+PY
+  )"
+  replacements="${replacements:-0}"
+  if [[ "$replacements" =~ ^[0-9]+$ && "$replacements" -gt 0 ]]; then
+    log_info "updated hook commands in .claude/settings.json ($replacements entries)"
   fi
 }
 

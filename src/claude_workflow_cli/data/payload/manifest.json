@@ -2,8 +2,8 @@
   "files": [
     {
       "path": ".claude/agents/analyst.md",
-      "size": 2467,
-      "sha256": "3bae3747ad604eadca52d6f15799d8dd4ddd3dd831992a262388d549c90406a1",
+      "size": 3302,
+      "sha256": "16317fd1481990d6cfebe51117fe3bb4844a3aac195bb6837aecaaf452453463",
       "type": "file"
     },
     {
@@ -50,8 +50,8 @@
     },
     {
       "path": ".claude/agents/reviewer.md",
-      "size": 2022,
-      "sha256": "73c5eb6226e4ef4dd6e7f7805dae91af2f56cecc04710478bbe94bf8fc8ce598",
+      "size": 2032,
+      "sha256": "f133f0a9bd1d75c6192fe991a704119d7b9c31633f0da5cfaf7ebf880db33dd9",
       "type": "file"
     },
     {
@@ -68,8 +68,8 @@
     },
     {
       "path": ".claude/commands/idea-new.md",
-      "size": 1848,
-      "sha256": "13cb3f7b77ad0ec0bc666d16e05c788d2201e1add33efed9a56c604709e81f3d",
+      "size": 3476,
+      "sha256": "e53ec177512df17190796245e2dc83ff268104b594b4a5f4c33ddc8ef0a5372d",
       "type": "file"
     },
     {
@@ -86,8 +86,8 @@
     },
     {
       "path": ".claude/commands/researcher.md",
-      "size": 1871,
-      "sha256": "be2b3ceec4ac1f41ba32670f444fe0fd738be7bbcf0eeb58f6beb191dcb7d635",
+      "size": 2496,
+      "sha256": "2bce33191d22182cc3deca970ae934057e3f1982428f28717dc999ba940500cb",
       "type": "file"
     },
     {
@@ -121,9 +121,39 @@
       "type": "file"
     },
     {
+      "path": ".claude/hooks/_vendor/claude_workflow_cli/__init__.py",
+      "size": 81,
+      "sha256": "c120060ac8e673499deb323bbdcee0e93ffc33ae6de087c8c19a92883e3d66d4",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
+      "size": 3567,
+      "sha256": "9a4f8a7114382026115d10c9502d3b366672fbccc3f4dfc81b6585f5a12801c9",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/_vendor/claude_workflow_cli/progress.py",
+      "size": 19887,
+      "sha256": "cfde71bf371cd2a08aa7028aa6d3118acc16bae95b0c33cfeed85bebf77a86e2",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
+      "size": 55,
+      "sha256": "875028fe3ae24587ee49a27fa177668b3975bcf27b30d6be19c49419a5dbc4dd",
+      "type": "file"
+    },
+    {
+      "path": ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+      "size": 13967,
+      "sha256": "f0176ef92e5e74ca33a32730daff9bb145d53b85604f75dddc844872df5bd17b",
+      "type": "file"
+    },
+    {
       "path": ".claude/hooks/format-and-test.sh",
-      "size": 18537,
-      "sha256": "1a42e39ebb0f81bb1df6d236504de3cecc4f7795d6a19477bb0cf1e4e9718aa3",
+      "size": 19640,
+      "sha256": "8bc4b011e15445316b84dfe7d635b4d319f4985e4684bb319c848da5b67e3571",
       "type": "file"
     },
     {
@@ -152,14 +182,14 @@
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
-      "size": 5277,
-      "sha256": "86098c80296c16704c97c9a4c32bc72025c1a9f02dac136ebdfde522d60ce68f",
+      "size": 5322,
+      "sha256": "545de319d2b56e64c4c07dae8a33a677005b79d2b5263c26b596003b10310895",
       "type": "file"
     },
     {
       "path": ".claude/hooks/gate-workflow.sh",
-      "size": 10453,
-      "sha256": "b1b05ffa1d823889519c5e1310490586f0cf82c6886b1795de670f6223822cc5",
+      "size": 12067,
+      "sha256": "89363a944e29b25fc86659b98e5a0b782572bac724b69eb658b01baa27186055",
       "type": "file"
     },
     {
@@ -187,9 +217,21 @@
       "type": "file"
     },
     {
+      "path": ".pre-commit-config.yaml",
+      "size": 207,
+      "sha256": "12fe54ab2b4e85770020c1e2dd3c8759a09ca88352cea4088b8ac7b1084f32c4",
+      "type": "file"
+    },
+    {
       "path": "CLAUDE.md",
       "size": 2352,
       "sha256": "55c21bb60166ff881aaadc9fcf76b0aaac8c9315055bd308234c91fbb1a42346",
+      "type": "file"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "size": 4976,
+      "sha256": "51c45d80f3855a69b00cd9bd3a2f47fe8eac77d56aa4161578696c24f86a8754",
       "type": "file"
     },
     {
@@ -230,14 +272,14 @@
     },
     {
       "path": "config/conventions.json",
-      "size": 1803,
-      "sha256": "c28e7ca2085440a853905188ebb5fe6b20f4bf10fb4a54afdc6fd5a79022e916",
+      "size": 4119,
+      "sha256": "76aebfc3c3305809b28a9cd9709fac7cfcd701343d90ca942d790d4b1e788d27",
       "type": "file"
     },
     {
       "path": "config/gates.json",
-      "size": 2610,
-      "sha256": "a1a216327044d42c3b67acda0f7187a22decfb556f70e4f6f83e637e2dfd62c3",
+      "size": 2714,
+      "sha256": "9573db612a3cfcd896f8b0f07448ceaa8cdf48e1a44b7a7dcab0b50359853569",
       "type": "file"
     },
     {
@@ -248,8 +290,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 56739,
-      "sha256": "0aeaa1a52df13b117c9cfe94b83fd3a2f1385ff33d51d160022e6bfcd8f27c9f",
+      "size": 78854,
+      "sha256": "e46f89307c507cf2cb07a7ca24ef657c8099dd3ae5162d3ac4a8346706ed5a5c",
       "type": "file"
     },
     {
@@ -266,20 +308,32 @@
     },
     {
       "path": "docs/agents-playbook.md",
-      "size": 15445,
-      "sha256": "c550f0d7f007987b7b96f10b5aec613b78f0d8770cc43de1c0a88d4239235a9c",
+      "size": 16657,
+      "sha256": "bcc4a0a4e6f2a00475dbf1fadbcf91c55f9fd2859b4d133471759e30764d9683",
+      "type": "file"
+    },
+    {
+      "path": "docs/customization.md",
+      "size": 14508,
+      "sha256": "c84d2f403104ce7ea2808f4cc179b845ac6fca02cdad5c2286052b25064f3f3c",
+      "type": "file"
+    },
+    {
+      "path": "docs/design/feature-presets.md",
+      "size": 6875,
+      "sha256": "25ac81a65b33c0fac17f04778eff44449fd13867407a3408389ab7e39aeae4c7",
       "type": "file"
     },
     {
       "path": "docs/feature-cookbook.md",
-      "size": 2801,
-      "sha256": "ff21bb7ef2de79dddb43664d264ac0c665f1ee5557ef0411de2b0a16e7194b36",
+      "size": 3102,
+      "sha256": "eb4ff877a7cb7d892cbe98abbc358d12346fa434af38518d6722b110984e3138",
       "type": "file"
     },
     {
       "path": "docs/plan/.gitkeep",
-      "size": 1,
-      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "type": "file"
     },
     {
@@ -290,8 +344,8 @@
     },
     {
       "path": "docs/prd.template.md",
-      "size": 5267,
-      "sha256": "361e1f0e1a9536f693aecefa09204e2148c651ccc5049a1de51825add6ef3285",
+      "size": 5678,
+      "sha256": "1f6634085f4bf7670ab137cde8c6e99b1ef2c56bffc73fe68e0eaea01c946c45",
       "type": "file"
     },
     {
@@ -302,8 +356,8 @@
     },
     {
       "path": "docs/release-notes.md",
-      "size": 4295,
-      "sha256": "5326037c2b5254a448971c77902c554012da15d0bf8c422dacd3cd6575618d1d",
+      "size": 5153,
+      "sha256": "25f3bdd3298dc35a12abc1fdbeee2ce7633a702571db0bac31077447fbab2a29",
       "type": "file"
     },
     {
@@ -326,50 +380,56 @@
     },
     {
       "path": "docs/templates/research-summary.md",
-      "size": 705,
-      "sha256": "e151f8e49f01818fd11719d8e899e3fa76d39dc2c907339bba12183dfe0df7a8",
+      "size": 988,
+      "sha256": "81c2276279fe51d31653ccaa9083e0e09c6323a044ce2f8ea870e0796204a2aa",
       "type": "file"
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 18809,
-      "sha256": "dff16a3e6e6eebb6907db176cd9cf3d5f24cc18de5459429001fe5ba26fd3c87",
+      "size": 21421,
+      "sha256": "7d1459800c97b4e05717076f8949ef5aff911211ef49c078a1ee652a0064782e",
       "type": "file"
     },
     {
       "path": "scripts/ci-lint.sh",
-      "size": 2396,
-      "sha256": "a214f78d1f1310236426056f11be5be8e082e8b555ba9374c136fcd84cadceaa",
+      "size": 3263,
+      "sha256": "97e1c9774e35549226bcb8863bb1135791a3251baa74555afdf3d11fd75096f5",
       "type": "file"
     },
     {
       "path": "scripts/migrate-tasklist.py",
-      "size": 4061,
-      "sha256": "d3c2a1bda39f2d43c99ff1c0b604aadf802ca9ae3dda0c7ae946f67948ffcd97",
+      "size": 3883,
+      "sha256": "44c082d55e0dadcd83e7224e4c3c644759f940c1813e550942aeb81c987526b5",
       "type": "file"
     },
     {
       "path": "scripts/prd-review-agent.py",
-      "size": 9386,
-      "sha256": "8c62810c46929f1b4f50f582b919e41d1c189ee72fe1ca150e7bdf96c581e4d1",
+      "size": 9082,
+      "sha256": "885c3fa02df1dd14907daa07dfff5e4e5f6f85c657567311cde745b7769572fb",
       "type": "file"
     },
     {
       "path": "scripts/prd_review_gate.py",
-      "size": 9393,
-      "sha256": "67e2c16dbb686ce0fdd22652282bc1af98811f3f70693dca9b822f7ee045d465",
+      "size": 10508,
+      "sha256": "2edc516f59b1ac7d5837a73154ed1e2962f9da17a7bdc302d1b6d6ab857b70fc",
       "type": "file"
     },
     {
       "path": "scripts/qa-agent.py",
-      "size": 13581,
-      "sha256": "a074cc71ef6c20281303ecc1682b21fd0ec236c5f0ba46e27947305e2342f94e",
+      "size": 13298,
+      "sha256": "990b8b7d47bc86b601e81cb28a665e10c55af270fc34ab0d8813fcf9624ad5de",
       "type": "file"
     },
     {
       "path": "scripts/smoke-workflow.sh",
-      "size": 6892,
-      "sha256": "1ceef52f05170bb7ad1ba32119db98e3c036e2d70402af58b32ab1f6f8c37bde",
+      "size": 6884,
+      "sha256": "b4da30dfba1cb52f54536c29e95098889cacbf29e0923036a818bd4bab39b2fb",
+      "type": "file"
+    },
+    {
+      "path": "scripts/sync-payload.sh",
+      "size": 3374,
+      "sha256": "14a15137815edc7bf96581e6162e5ad8e1f6afa9b0a7fcc6fe2a67229dd940a4",
       "type": "file"
     },
     {
@@ -403,27 +463,45 @@
       "type": "file"
     },
     {
+      "path": "tests/test_payload_sync.py",
+      "size": 2120,
+      "sha256": "601b6f328a2e080ee61c2c2fd0e345a67650105b4c954269f4cd1d1ef4889eb9",
+      "type": "file"
+    },
+    {
+      "path": "tools/__pycache__/check_payload_sync.cpython-311.pyc",
+      "size": 8839,
+      "sha256": "37bfb56eff0ea60cc4451ec94871beafd898fa8f24c55f39e1cef4d050ce9646",
+      "type": "file"
+    },
+    {
+      "path": "tools/check_payload_sync.py",
+      "size": 5130,
+      "sha256": "e549da307f33bc83afa7405db6754eb2241ad0ab75d7ef410a48d37ec513f0e3",
+      "type": "file"
+    },
+    {
       "path": "tools/migrate_ticket.py",
-      "size": 5707,
-      "sha256": "d48bd78c4c958b570cf0fbd5c8fc3f829b66752bebaacdecf0425b999046c6c7",
+      "size": 5767,
+      "sha256": "8087719ce30150ad14adaa24f8eaabb641e2902c1e36530f4ec13cd1d8a4cf23",
       "type": "file"
     },
     {
       "path": "tools/researcher_context.py",
-      "size": 18789,
-      "sha256": "769280147d3b303b1a50dc34e91125f35ea890fd2ca95d749b6563f916cf07f8",
+      "size": 25654,
+      "sha256": "857ac1664670b1a563653c54dd342ef1a47e5807941fee72678d4843fae9a84f",
       "type": "file"
     },
     {
       "path": "tools/set_active_feature.py",
-      "size": 5801,
-      "sha256": "d89606b4f699c9c40e83e9d44a834cd3aeb7952790a588d667c4b45db4183a8c",
+      "size": 8224,
+      "sha256": "8646d389970a581ec5ef75d98277cc0e77212a7ba88ffcb31f670aa650b0479e",
       "type": "file"
     },
     {
       "path": "workflow.md",
-      "size": 11895,
-      "sha256": "9c6c3284c42be0f75c41a4e497a3c2a2c79bd984ad04d84d11dd4218776afc0b",
+      "size": 13432,
+      "sha256": "027deb827af9643af18803c0ef1bb8ae9e12bc817cc2759e8b91d013b49c8384",
       "type": "file"
     }
   ]
