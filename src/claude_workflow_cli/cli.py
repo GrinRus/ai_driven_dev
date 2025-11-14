@@ -455,7 +455,7 @@ def _research_command(args: argparse.Namespace) -> None:
     if not target.exists():
         raise FileNotFoundError(f"target directory {target} does not exist")
 
-    ticket, context = _require_ticket(
+    ticket, feature_context = _require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
@@ -469,7 +469,7 @@ def _research_command(args: argparse.Namespace) -> None:
         else:
             config_path = config_path.resolve()
     builder = ResearcherContextBuilder(target, config_path=config_path)
-    scope = builder.build_scope(ticket, slug_hint=context.slug_hint)
+    scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
     scope = builder.extend_scope(
         scope,
         extra_paths=_research_parse_paths(args.paths),
@@ -487,19 +487,19 @@ def _research_command(args: argparse.Namespace) -> None:
     if args.targets_only:
         return
 
-    context = builder.collect_context(scope, limit=args.limit)
-    context["auto_mode"] = bool(getattr(args, "auto", False))
-    match_count = len(context["matches"])
+    collected_context = builder.collect_context(scope, limit=args.limit)
+    collected_context["auto_mode"] = bool(getattr(args, "auto", False))
+    match_count = len(collected_context["matches"])
     if match_count == 0:
         print(
             f"[claude-workflow] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
         )
     if args.dry_run:
-        print(json.dumps(context, indent=2, ensure_ascii=False))
+        print(json.dumps(collected_context, indent=2, ensure_ascii=False))
         return
 
     output = Path(args.output) if args.output else None
-    output_path = builder.write_context(scope, context, output=output)
+    output_path = builder.write_context(scope, collected_context, output=output)
     rel_output = output_path.relative_to(target).as_posix()
     print(
         f"[claude-workflow] researcher context saved to {rel_output} "
@@ -520,7 +520,7 @@ def _research_command(args: argparse.Namespace) -> None:
     doc_path, created = _ensure_research_doc(
         target,
         ticket,
-        slug_hint=context.slug_hint,
+        slug_hint=feature_context.slug_hint,
         template_overrides=template_overrides or None,
     )
     if not doc_path:
