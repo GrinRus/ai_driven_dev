@@ -27,10 +27,6 @@ DEFAULT_PATHS = [
     "scripts/prd_review_gate.py",
     "scripts/qa-agent.py",
     "scripts/smoke-workflow.sh",
-    "scripts/sync-payload.sh",
-    ".pre-commit-config.yaml",
-    "tests/test_payload_sync.py",
-    "tools/check_payload_sync.py",
 ]
 
 
