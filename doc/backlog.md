@@ -432,3 +432,12 @@
 ### Документация и обучение
 - [x] `README.md`, `README.en.md`, `workflow.md`, `docs/feature-cookbook.md`, `docs/agents-playbook.md`: описать, что `/idea-new` сразу создаёт PRD-шаблон, поэтому гейты больше не просят перезапуск; выделить обязанности агента (заполнить `## Диалог analyst`, снять статус draft).
 - [x] `docs/release-notes.md`, `CHANGELOG.md`: зафиксировать Wave 30 как обновление UX аналитики, перечислить шаги автосоздания PRD и обновлённые сообщения гейтов.
+
+## Wave 31
+
+### Единый источник payload + автоматическая синхронизация
+- [ ] `scripts/sync-payload.sh`: добавить утилиту синхронизации между `src/claude_workflow_cli/data/payload` и корнем. Поддержать режимы `--direction=to-root` (разворачиваем payload в репозитории для dogfooding) и `--direction=from-root` (зеркалим обратно при подготовке релиза); предусмотреть инвариант, что список копируемых директорий задаётся явно (`.claude`, `docs`, `templates`, `scripts/init-claude-workflow.sh` и т.д.), и выводим diff по ключевым файлам.
+- [ ] `tools/check_payload_sync.py` + CI/pre-commit: написать проверку, которая сравнивает контрольные суммы payload-контента и корневых «runtime snapshot» файлов. Если обнаружены расхождения без фиксации `sync --direction=from-root`, тест/CI должен падать. Добавить запуск в `.github/workflows/ci.yml` и как pre-commit hook.
+- [ ] Документация и процессы: в `docs/customization.md`, `CONTRIBUTING.md`, `workflow.md` описать правило «редактируем только payload → синхронизуем скриптом». В release checklist добавить обязательный шаг `scripts/sync-payload.sh --direction=from-root && pytest tests/test_init_hook_paths.py` перед `uv publish`. Упомянуть, что для локальной проверки нужно использовать `scripts/bootstrap-local.sh --payload src/.../payload`, а не трогать `.claude` вручную.
+- [ ] Тесты: расширить `tests/test_init_hook_paths.py` и/или создать `tests/test_payload_sync.py`, который проходит по списку критичных файлов (хуки, `init-claude-workflow.sh`, шаблоны docs) и проверяет, что payload и root синхронизированы. Тест должен использовать общий helper для расчёта хэшей и работать от `src/claude_workflow_cli/data/payload`.
+- [ ] CI/tooling: обновить `scripts/ci-lint.sh` и `Makefile` (если появится) так, чтобы новые проверки запускались локально командой `scripts/sync-payload.sh --direction=from-root && python tools/check_payload_sync.py`. Зафиксировать рекомендацию в `doc/backlog.md` для последующих волн.
