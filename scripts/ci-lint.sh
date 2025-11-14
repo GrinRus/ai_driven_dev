@@ -90,6 +90,22 @@ run_yamllint() {
   fi
 }
 
+run_payload_sync_check() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping payload sync check"
+    return
+  }
+  if [[ ! -f "tools/check_payload_sync.py" ]]; then
+    warn "tools/check_payload_sync.py missing; skipping payload sync check"
+    return
+  }
+  log "validating payload vs repository snapshots"
+  if ! python3 tools/check_payload_sync.py; then
+    err "payload sync check failed"
+    STATUS=1
+  fi
+}
+
 run_python_tests() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping tests"
@@ -109,6 +125,7 @@ run_python_tests() {
 run_shellcheck
 run_markdownlint
 run_yamllint
+run_payload_sync_check
 run_python_tests
 
 exit "$STATUS"

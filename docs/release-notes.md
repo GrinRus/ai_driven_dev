@@ -35,6 +35,7 @@
 - [ ] Обновить демо (`examples/gradle-demo/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить `scripts/ci-lint.sh` локально.
+- [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
 - [ ] Зафиксировать изменения в `docs/release-notes.md`.
 
 ## Публикация релиза
