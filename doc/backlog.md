@@ -415,3 +415,29 @@
 - [x] Документация и процессы: в `docs/customization.md`, `CONTRIBUTING.md`, `workflow.md` описать правило «редактируем только payload → синхронизуем скриптом». В release checklist добавить обязательный шаг `scripts/sync-payload.sh --direction=from-root && pytest tests/test_init_hook_paths.py` перед `uv publish`. Упомянуть, что для локальной проверки нужно использовать `scripts/bootstrap-local.sh --payload src/.../payload`, а не трогать `.claude` вручную.
 - [x] Тесты: расширить `tests/test_init_hook_paths.py` и/или создать `tests/test_payload_sync.py`, который проходит по списку критичных файлов (хуки, `init-claude-workflow.sh`, шаблоны docs) и проверяет, что payload и root синхронизированы. Тест должен использовать общий helper для расчёта хэшей и работать от `src/claude_workflow_cli/data/payload`.
 - [x] CI/tooling: обновить `scripts/ci-lint.sh` и `Makefile` (если появится) так, чтобы новые проверки запускались локально командой `scripts/sync-payload.sh --direction=from-root && python tools/check_payload_sync.py`. Зафиксировать рекомендацию в `doc/backlog.md` для последующих волн.
+
+## Wave 32
+
+### Управление промптами и единые шаблоны
+- [ ] `docs/prompt-playbook.md` (новый), `README.md`, `docs/agents-playbook.md`: зафиксировать обязательные секции для агентов/команд (Контекст, Входы, Автоматизация, Формат ответа, Fail-fast), описать требования к строке `Checkbox updated`, ссылкам на `docs/prd|plan|tasklist`, правилам эскалации блокеров и матрицу «роль → артефакты/хуки».
+- [ ] `templates/prompt-agent.md`, `templates/prompt-command.md`, `claude-presets/advanced/prompt-governance.yaml` (новый): добавить шаблоны фронт-маттера (`name/description/tools/inputs/outputs/hooks`) и готовые заголовки, а также preset/скрипт развёртывания (`scripts/scaffold_prompt.py` или Make target) с примерами использования в CLI.
+
+### Обновление агентов
+- [ ] `.claude/agents/{analyst,planner,implementer,reviewer,qa,researcher,validator,db-migrator,contract-checker,prd-reviewer}.md`: переписать на новый шаблон, явно прописать входные артефакты, чеклисты, статусы READY/BLOCKED/WARN и единый формат вывода; удалить дубли описания «Checkbox updated», заменив ссылкой на playbook.
+
+### Обновление команд
+- [ ] `.claude/commands/{idea-new,plan-new,tasks-new,implement,review-prd,review,reviewer,researcher}.md`: структурировать инструкции блоками «Когда запускать», «Автоматические хуки/переменные», «Что редактируется», «Ожидаемый вывод», «Примеры CLI»; убедиться, что каждая команда ссылается на соответствующего агента и актуальные документы через `@docs/...` нотацию.
+
+### Автоматизация и проверки
+- [ ] `scripts/lint-prompts.py`, `scripts/ci-lint.sh`, `.github/workflows/ci.yml`, `tests/test_prompt_lint.py`: добавить линтер промптов, который валидирует фронт-маттер, наличие обязательных секций, консистентность между парами агент↔команда (например, implementer/implement), и включить его в CI/pre-commit.
+
+### Мультиязычные промпты и версионирование
+- [ ] `.claude/agents/**`, `.claude/commands/**`: ввести структуру `prompts/<lang>/...` (RU/EN) или дубликаты `.ru.md`/`.en.md`; в каждом фронт-маттере добавить поля `lang`, `prompt_version`, `source_version` и ссылку на базовый шаблон. Обеспечить, чтобы RU и EN варианты содержали одинаковые блоки (через lint).
+- [ ] `docs/prompt-playbook.md`, `docs/prompt-versioning.md` (новый): описать политику двух языков, правила синхронизации (когда менять обе версии, как обозначать отличия), формулу версионирования (`major.minor.patch`, где major — изменение структуры, minor — правки текста, patch — правки примечаний), и процедуру ревью (обновление changelog/prompts.json).
+- [ ] `scripts/lint-prompts.py`, `tools/prompt_diff.py` (новый), `.claude/hooks/gate-workflow.sh`: добавить проверку парности RU/EN (одинаковый `prompt_version`, diff без пропусков блоков), авто-репорт отличий и запрет мержить, если обновлена только одна локаль. В gate выводить подсказку «обновите обе локали или добавьте `Lang-Parity: skip` в фронт-маттер».
+- [ ] `docs/release-notes.md`, `CHANGELOG.md`: задокументировать запуск двуязычных промптов и версионирования, включая инструкцию «как откатиться к предыдущей версии промпта» (git tag/manifest), и добавить пример записи в release checklist (`scripts/prompt-version bump --lang ru,en`).
+
+### Тесты и проверка качества
+- [ ] `tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py` (новый): покрыть сценарии линтера и diff-инструмента (валидация фронт-маттера, парность RU/EN, проверка `prompt_version`), падение на рассинхронизацию и корректное сообщение об обходе `Lang-Parity: skip`.
+- [ ] `scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`: добавить smoke-тест на gate, который редактирует только один язык и убеждается, что gate блокирует merge; предусмотреть позитивный сценарий, где обе локали обновлены и gate пропускает изменения.
+- [ ] `scripts/ci-lint.sh`: включить новые тесты и эмулировать минимум один прогон `scripts/prompt-version bump --lang ru,en` для проверки версионирования.
