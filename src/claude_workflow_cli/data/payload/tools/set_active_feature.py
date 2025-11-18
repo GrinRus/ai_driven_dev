@@ -11,19 +11,12 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-_SCRIPT_PATH = Path(__file__).resolve()
-_REPO_ROOT_CANDIDATE: Optional[Path] = None
-for _candidate in _SCRIPT_PATH.parents:
-    if (_candidate / "src").is_dir():
-        _REPO_ROOT_CANDIDATE = _candidate
-        break
-if _REPO_ROOT_CANDIDATE is None:
-    _REPO_ROOT_CANDIDATE = _SCRIPT_PATH.parent
-_REPO_SRC = _REPO_ROOT_CANDIDATE / "src"
-if _REPO_SRC.is_dir():
-    _reporc = str(_REPO_SRC)
-    if _reporc not in sys.path:
-        sys.path.insert(0, _reporc)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_SRC = REPO_ROOT / "src"
+if REPO_SRC.is_dir():
+    repo_src_str = str(REPO_SRC)
+    if repo_src_str not in sys.path:
+        sys.path.insert(0, repo_src_str)
 
 try:
     from claude_workflow_cli.feature_ids import read_identifiers, write_identifiers  # type: ignore
@@ -162,9 +155,8 @@ def _run_cli_research_targets(
         cli_cmd.extend(["--paths", paths_arg])
     if keywords_arg:
         cli_cmd.extend(["--keywords", keywords_arg])
-    env = os.environ.copy()
     try:
-        subprocess.run(cli_cmd, check=True, cwd=root, env=env)
+        subprocess.run(cli_cmd, check=True, cwd=root, env=os.environ.copy())
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return False

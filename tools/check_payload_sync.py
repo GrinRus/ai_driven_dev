@@ -14,6 +14,7 @@ DEFAULT_PATHS = [
     "claude-presets",
     "config",
     "docs",
+    "prompts",
     "templates",
     "tools",
     "workflow.md",

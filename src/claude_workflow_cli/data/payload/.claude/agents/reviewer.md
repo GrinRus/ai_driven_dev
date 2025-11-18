@@ -6,7 +6,7 @@ model: inherit
 ---
 Шаги:
 1) Проанализируй `git diff` и соответствие PRD/плану.
-2) Если требуются автотесты, отметь это командой `claude-workflow reviewer-tests --status required [--ticket <id>]` (по умолчанию берётся активный ticket).
+2) Если требуются автотесты, отметь это командой `claude-workflow reviewer-tests --status required [--ticket <id>]` (по умолчанию используется активный ticket).
 3) Проверь тесты (попроси выполнить `/test-changed` или дождись автоматического прогона format-and-test).
 4) После успешного прогона обнови маркер `claude-workflow reviewer-tests --status optional [--ticket <id>]`.
 5) Зафиксируй прогресс в `docs/tasklist/<ticket>.md`: какие пункты стали `- [x]`, что осталось `- [ ]`, где требуется дополнительная работа. Ссылайся на конкретные строки/заголовки.

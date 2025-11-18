@@ -37,6 +37,7 @@ COMMIT_MODE="ticket-prefix"
 ENABLE_CI=0
 FORCE=0
 DRY_RUN=0
+PROMPT_LOCALE="ru"
 PRESET_NAME=""
 PRESET_TICKET=""
 PRESET_RESULT_SLUG=""
@@ -53,6 +54,7 @@ Usage: bash init-claude-workflow.sh [options]
   --enable-ci          add GitHub Actions workflow (manual trigger)
   --force              overwrite existing files
   --dry-run            show planned actions without writing files
+  --prompt-locale LOCALE   ru | en (default: ru) — copy соответствующие промпты в .claude/agents и .claude/commands
   --preset NAME        generate demo artifacts for preset (feature-prd|feature-plan|feature-impl|feature-design|feature-release)
   --ticket VALUE       ticket identifier to use with --preset (legacy alias: --feature)
   --feature SLUG       deprecated alias for --ticket
@@ -69,6 +71,9 @@ parse_args() {
       --enable-ci) ENABLE_CI=1; shift;;
       --force)     FORCE=1; shift;;
       --dry-run)   DRY_RUN=1; shift;;
+      --prompt-locale)
+        [[ $# -ge 2 ]] || die "--prompt-locale requires a value"
+        PROMPT_LOCALE="$2"; shift 2;;
       --preset)
         [[ $# -ge 2 ]] || die "--preset requires a value"
         PRESET_NAME="$2"; shift 2;;
@@ -87,6 +92,11 @@ parse_args() {
   case "$COMMIT_MODE" in
     ticket-prefix|conventional|mixed) ;;
     *) die "Unsupported --commit-mode: $COMMIT_MODE";;
+  esac
+
+  case "$PROMPT_LOCALE" in
+    ru|en) ;;
+    *) die "Unsupported --prompt-locale: $PROMPT_LOCALE";;
   esac
 }
 
@@ -217,6 +227,22 @@ copy_payload_dir() {
     fi
     copy_template "$source_dir/$relative" "$target_dir/$relative"
   done < <(find "$src_path" -type f -print0)
+}
+
+apply_prompt_locale() {
+  case "$PROMPT_LOCALE" in
+    ru)
+      return
+      ;;
+    en)
+      log_info "Applying prompt locale: en"
+      local previous_force="$FORCE"
+      FORCE=1
+      copy_payload_dir "prompts/en/agents" ".claude/agents"
+      copy_payload_dir "prompts/en/commands" ".claude/commands"
+      FORCE="$previous_force"
+      ;;
+  esac
 }
 
 ensure_hook_permissions() {
@@ -613,6 +639,10 @@ generate_templates() {
   copy_payload_dir "templates/git-hooks" "templates/git-hooks"
 }
 
+generate_prompt_references() {
+  copy_payload_dir "prompts/en" "prompts/en"
+}
+
 generate_claude_settings() {
   copy_template ".claude/settings.json" ".claude/settings.json"
   copy_payload_dir ".claude/hooks"
@@ -746,10 +776,12 @@ main() {
   generate_directories
   generate_core_docs
   generate_templates
+  generate_prompt_references
   copy_presets
   generate_claude_settings
   generate_agents
   generate_commands
+  apply_prompt_locale
   generate_gradle_helpers
   generate_config_and_scripts
   replace_commit_mode

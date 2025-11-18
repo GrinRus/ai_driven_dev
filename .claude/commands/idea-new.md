@@ -1,16 +1,57 @@
 ---
 description: "Инициация фичи: сбор идеи → уточнения → PRD"
 argument-hint: "<TICKET> [slug-hint]"
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
+lang: ru
+prompt_version: 1.0.0
+source_version: 1.0.0
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow research:*),Bash(claude-workflow analyst-check:*)
+model: inherit
 ---
-1) Установи активную фичу: запусти `python3 tools/set_active_feature.py "$1"` (если нужно передать slug-хинт, добавь `--slug-note "$2"`). Скрипт обновит `docs/.active_ticket`, синхронизирует `.active_feature`, пересоберёт цели Researcher **и автоматически создаст черновик `docs/prd/$1.prd.md` со статусом `Status: draft`.** Для редких ручных сценариев можно добавить `--skip-prd-scaffold`, но по умолчанию PRD должен появляться сразу.
-2) Сразу после фиксации тикета собери контекст:
-!bash -lc 'claude-workflow research --ticket "$1" --auto'
-   - добавь `--paths "pathA:pathB"` и/или `--keywords "foo,bar"` если нужно расширить охват; свободные текстовые заметки передавай через `--note "что нашли"` или `--note @file.md`;
-   - если CLI сообщает `0 matches`, создай `docs/research/$1.md` на базе шаблона, оставь `Status: pending` и впиши маркер «Контекст пуст, требуется baseline» в секции `## Отсутствие паттернов` и `## Следующие шаги`.
-3) Используя @docs/prd.template.md, @docs/research/$1.md и @workflow.md, **допиши автоматически созданный черновик**. Файл `docs/prd/$1.prd.md` должен содержать актуальные разделы. Зафиксируй блок `## Диалог analyst` и опиши ответы заказчика. Обнови статус с `draft` на `READY` только когда ответы собраны и добавь ссылку на `docs/research/$1.md` в списке связанных материалов.
-4) Перед запуском саб-агента **analyst** объясни пользователю, что ответы должны приходить в формате `Ответ N: …`. Агент обязан начать с `Вопрос 1`, дождаться `Ответ 1` и продолжать цикл вопросов/ответов, пока все блокеры не закрыты. Если ответы отсутствуют, не переходи к генерации PRD и повторно запроси информацию; опирайся на вывод Researcher при формулировании уточнений.
-5) После обновления PRD запусти проверку:
-!bash -lc 'claude-workflow analyst-check --ticket "$1"'
-   - Если команда сообщает о пропущенных вопросах или статусе `Status: BLOCKED`, вернись к диалогу, запроси недостающие ответы и повтори проверку.
-6) Для быстрого старта воспользуйся пресетом `feature-prd` (`bash init-claude-workflow.sh --preset feature-prd --ticket "$1"`), чтобы подхватить готовый шаблон и актуальные цели Researcher из backlog/usage-demo.
+
+## Контекст
+Команда `/idea-new` заводит новую фичу: фиксирует активный ticket, подготавливает шаблон PRD и запускает аналитика. Команда открывает Wave 32 цикл («идея → research → PRD») и задаёт основу для всех следующих агентов.
+
+## Входные артефакты
+- `doc/backlog.md`, заметки пользователя — исходное описание идеи.
+- `docs/prd.template.md` — шаблон PRD для автосборки.
+- `docs/research/<ticket>.md` — создаётся/обновляется в рамках шага (если отсутствует, используется шаблон `docs/templates/research-summary.md`).
+
+## Когда запускать
+- В самом начале работы над фичей, до любого планирования/кодовых правок.
+- Повторный запуск допустим только если нужно пересоздать активный ticket (используй флаг `--force` и убедись, что не перетираешь заполненный PRD).
+
+## Автоматические хуки и переменные
+- `python3 tools/set_active_feature.py` синхронизирует `docs/.active_ticket`, `.active_feature` и scaffold'ит PRD.
+- `claude-workflow research --auto` собирает кодовый контекст и создаёт `reports/research/<ticket>-context.json`.
+- `claude-workflow analyst-check` валидирует, что блок `## Диалог analyst` заполнен и статус PRD не `draft`.
+
+## Что редактируется
+- `docs/.active_ticket`, `docs/.active_feature` — текущее состояние фичи.
+- `docs/prd/<ticket>.prd.md` — основной документ; после запуска всегда существует хотя бы с `Status: draft`.
+- `docs/research/<ticket>.md` — отчёт Researcher (при отсутствии разворачивается из шаблона).
+- Дополнительные заметки/файлы, которые пользователь указал в аргументах (`--note`).
+
+## Пошаговый план
+1. Запусти `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` (при необходимости добавь `--skip-prd-scaffold`, но по умолчанию scaffold обязателен).
+2. Сразу после фиксации тикета выполни `claude-workflow research --ticket "$1" --auto` (при необходимости дополни `--paths`, `--keywords`, `--note`).
+3. Если CLI сообщает `0 matches`, создавай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline» в разделы `## Отсутствие паттернов` / `## Дополнительные заметки`.
+4. Допиши `docs/prd/$1.prd.md` по шаблону: заполни раздел `## Диалог analyst`, ссылку на research, цели, сценарии, риски; переведи статус из `draft` в READY только после полного диалога.
+5. Перед запуском саб-агента **analyst** объясни пользователю правила ответов (`Ответ N: ...`) и при необходимости уточни пропущенные детали.
+6. После завершения диалога запусти `claude-workflow analyst-check --ticket "$1"`. Если есть замечания — вернись к PRD и дополни.
+7. По желанию используй пресет `feature-prd` (`bash init-claude-workflow.sh --preset feature-prd --ticket "$1"`) для быстрого наполнения целей.
+
+## Fail-fast и вопросы
+- Если ticket не указан — остановись и попроси пользователя назвать ID (и при необходимости slug-hint).
+- Не перезаписывай заполненный PRD без явного подтверждения: предупреди, что потребуется `--force`.
+- При отсутствии контекста (нет путей/ключевых слов) попроси пользователя указать каталоги через `--paths` или заметки через `--note`.
+
+## Ожидаемый вывод
+- Активный ticket и slug зафиксированы в `docs/.active_ticket`, `.active_feature`.
+- `docs/prd/<ticket>.prd.md` создан и заполнен (как минимум черновик) + статус READY/BLOCKED отражает состояние диалога.
+- `docs/research/<ticket>.md` создан/обновлён, а `reports/research/<ticket>-context.json` содержит цели.
+- Пользователь понимает, какие вопросы ещё остались (`Status: BLOCKED` + список).
+
+## Примеры CLI
+- `/idea-new ABC-123 checkout-demo`
+- `/idea-new ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --slug-note checkout-demo`
+- `!bash -lc 'claude-workflow research --ticket "ABC-123" --auto --note "reuse payment gateway"'`

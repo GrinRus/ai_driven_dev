@@ -1,0 +1,47 @@
+---
+name: prompt-governance
+workflow_step: internal
+description: >
+  Шаблон для подготовки промптов агентов и слэш-команд с учётом требований
+  Prompt Playbook.
+variables:
+  prompt_type:
+    prompt: "Тип промпта (agent или command)."
+    default: "agent"
+  target_path:
+    prompt: >-
+      Путь к файлу, который нужно создать/обновить
+      (например, .claude/agents/new-agent.md).
+  lang:
+    prompt: "Локаль (ru|en)."
+    default: "ru"
+  name:
+    prompt: "Имя агента или команды (используется в тексте)."
+    default: "new-agent"
+context:
+  files:
+    - docs/prompt-playbook.md
+    - templates/prompt-agent.md
+    - templates/prompt-command.md
+  instructions:
+    - >-
+      Создай промпт типа {{prompt_type}}, используя структуру из
+      docs/prompt-playbook.md и подсказки в templates/prompt-{{prompt_type}}.md.
+    - >-
+      Проверь, что секции «Контекст → Входы → Автоматизация → Пошаговый план →
+      Fail-fast → Формат ответа» заполнены и содержат ссылки на артефакты.
+    - >-
+      Зафиксируй строку `Checkbox updated: ...` в формате, описанном в
+      playbook, и отметь требования к гейтам/хукам.
+output:
+  path: "{{target_path}}"
+  format: markdown
+  mode: overwrite
+  scaffold: templates/prompt-{{prompt_type}}.md
+claude:
+  mode: interact
+  temperature: 0.1
+  guardrails:
+    - "Сначала уточни недостающие вводные (ticket, зависимости, статусы)."
+    - "Убедись, что lang={{lang}} отражён во фронт-маттере и совпадает с текстом."
+    - "При ссылках используй формат @docs/... и требования playbook."

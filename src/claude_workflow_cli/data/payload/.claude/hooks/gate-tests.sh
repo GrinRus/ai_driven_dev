@@ -43,7 +43,8 @@ required_values = [
     for value in (required_values_source if isinstance(required_values_source, list) else ["required"])
 ]
 
-marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", ticket))
+slug_value = slug_hint.strip() or ticket
+marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
 if not marker_path.exists():
     raise SystemExit(0)
 

@@ -402,6 +402,8 @@ def _init_command(args: argparse.Namespace) -> None:
         script_args.append("--force")
     if args.dry_run:
         script_args.append("--dry-run")
+    if getattr(args, "prompt_locale", None):
+        script_args.extend(["--prompt-locale", args.prompt_locale])
     _run_init(Path(args.target).resolve(), script_args)
 
 
@@ -413,6 +415,8 @@ def _preset_command(args: argparse.Namespace) -> None:
         script_args.append("--force")
     if args.dry_run:
         script_args.append("--dry-run")
+    if getattr(args, "prompt_locale", None):
+        script_args.extend(["--prompt-locale", args.prompt_locale])
     _run_init(Path(args.target).resolve(), script_args)
 
 
@@ -1086,6 +1090,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Log actions without modifying files.",
     )
+    init_parser.add_argument(
+        "--prompt-locale",
+        choices=("ru", "en"),
+        default="ru",
+        help="Copy prompts in the specified locale into .claude/ (default: ru).",
+    )
     init_parser.set_defaults(func=_init_command)
 
     preset_parser = subparsers.add_parser(
@@ -1117,6 +1127,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Overwrite existing preset artefacts.",
+    )
+    preset_parser.add_argument(
+        "--prompt-locale",
+        choices=("ru", "en"),
+        default="ru",
+        help="Copy prompts in the specified locale into .claude/ (default: ru).",
     )
     preset_parser.add_argument(
         "--dry-run",

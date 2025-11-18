@@ -18,6 +18,14 @@ payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
+if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
+  if ! python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD" >/dev/null; then
+    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
+    exit 2
+  fi
+  exit 0
+fi
+
 ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
 slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then

@@ -290,8 +290,8 @@
     },
     {
       "path": "doc/backlog.md",
-      "size": 78854,
-      "sha256": "e46f89307c507cf2cb07a7ca24ef657c8099dd3ae5162d3ac4a8346706ed5a5c",
+      "size": 75193,
+      "sha256": "de9487b9da00fae4c513dea1fdfa0e1d441492c9c64e518e02048903bf400a41",
       "type": "file"
     },
     {
@@ -386,8 +386,122 @@
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 21421,
-      "sha256": "7d1459800c97b4e05717076f8949ef5aff911211ef49c078a1ee652a0064782e",
+      "size": 22302,
+      "sha256": "715a63f3d1f3266400a373202940b5fb83956e3cfd0df40a283adc9fe6a2efa9",
+      "type": "file"
+    },
+    {
+      "path": "manifest.json",
+      "size": 15462,
+      "sha256": "3d13a96e90394ffe76561866bfdaa28bce08d5907fc773b999891f4e1231b14b",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/analyst.md",
+      "size": 2363,
+      "sha256": "28d737c82c069a16168acd216c5d58c92f51738d253197e4d5ecc14b60969581",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/contract-checker.md",
+      "size": 1623,
+      "sha256": "99a7d45d4d170f8476001f1e8d8f84697d711c67f67615cbdc86194a33caebe8",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/db-migrator.md",
+      "size": 1766,
+      "sha256": "d4e888978f9f47a9a252b6d8a39b64283bb07a528ce3d2debd342f748f1b1b50",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/implementer.md",
+      "size": 2143,
+      "sha256": "3b2638fc760ea99e4e52ab7321563701b1467f4d4db8244f18cf88b712c75d02",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/planner.md",
+      "size": 1991,
+      "sha256": "7afda8792c04baf55bc1efaf7b73ef0b05c254d26b3401486bb3f8e95ee05eac",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/prd-reviewer.md",
+      "size": 1724,
+      "sha256": "e4a77f52a008f771c583a13392115c1b56011c321bb8d875e7b5d19ca56a7ff4",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/qa.md",
+      "size": 2487,
+      "sha256": "258b8fdc2464083e34d555d9caae052494b87379bd33f195da93f04e0f0f6b63",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/researcher.md",
+      "size": 2126,
+      "sha256": "abbf83c126bb170de4582089a4d87d6689078c5d96e5656d55c7b55edf4ff5fd",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/reviewer.md",
+      "size": 2126,
+      "sha256": "87352d94ce2eebd87456ce93d582e720808d6de6db7a31a5a4692216d25c10ef",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/agents/validator.md",
+      "size": 1437,
+      "sha256": "002b16d4e3af0f23c17251c2bde3bf78579da3b75cab2ac60556e998e0697c3c",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/idea-new.md",
+      "size": 2905,
+      "sha256": "1bf289946713a3e54ebfb14d2a178d5a23fc98794a49c126510720ed401f00b4",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/implement.md",
+      "size": 2073,
+      "sha256": "0e786a9af3f7e620f1fd6160dfebba6be65a382851d704afce947c051f98ffa4",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/plan-new.md",
+      "size": 1874,
+      "sha256": "c1c4fbc1b9461d0913c603844393c855407abba9bf09021c1516638b7355a46b",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/researcher.md",
+      "size": 2314,
+      "sha256": "923d31abfabaf7b4c8b103b287f02b29195f3dd9fc1bb97a730613f62e2fe8f4",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/review-prd.md",
+      "size": 1890,
+      "sha256": "8e4c9c1c6f39d5ebfef3e45223cdcb10befe20d8e212b7f336b2f396feae1db9",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/review.md",
+      "size": 1827,
+      "sha256": "2285de165db2b7bd71c58b1bfcd7cf62bcae5a7b5d98a1d3a883693d120bcec9",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/reviewer.md",
+      "size": 1606,
+      "sha256": "e76deb533c672f4b2816f48ed3786d94edf4bee514415ece2821386669cdd800",
+      "type": "file"
+    },
+    {
+      "path": "prompts/en/commands/tasks-new.md",
+      "size": 2128,
+      "sha256": "2db1a39fac58e5baecf1f84fdb50c6c76dd4b383038d4ba96a12505d4434c33f",
       "type": "file"
     },
     {
@@ -422,8 +536,8 @@
     },
     {
       "path": "scripts/smoke-workflow.sh",
-      "size": 6884,
-      "sha256": "b4da30dfba1cb52f54536c29e95098889cacbf29e0923036a818bd4bab39b2fb",
+      "size": 10568,
+      "sha256": "45d88cf5b43a81c756d66c90d56ef66aef380e2e0a92b2653d32bdc7cfca17fe",
       "type": "file"
     },
     {
