@@ -2,8 +2,8 @@
   "files": [
     {
       "path": ".claude/agents/analyst.md",
-      "size": 4975,
-      "sha256": "d98c39b4cc143bf08bef5be9daae4a13c13039291fe4ab4e21cf6545ce579d38",
+      "size": 5708,
+      "sha256": "7ba839bb0e3bc5ac1c3f4ee7d04c5729140fd60e31907a9ad73b57fdbb1158d4",
       "type": "file"
     },
     {
@@ -68,8 +68,8 @@
     },
     {
       "path": ".claude/commands/idea-new.md",
-      "size": 5798,
-      "sha256": "7a962f097a13bb73586ddee93c6c6c703529c7e670018ed05a50851e2bbd0f5f",
+      "size": 5857,
+      "sha256": "47baddd3c94b00e7a8352c763323caba61a3e653712932773039e68d4eec6801",
       "type": "file"
     },
     {
@@ -404,8 +404,8 @@
     },
     {
       "path": "prompts/en/agents/analyst.md",
-      "size": 2737,
-      "sha256": "55505ef55c0fb6d285facc3f111c9bef81f965f9f824e80ba2c017616d0a5d5d",
+      "size": 3105,
+      "sha256": "eff1847cbdafb37f2b20841144e145c710673b3bd24921d1192b2bc5047f7284",
       "type": "file"
     },
     {
@@ -464,8 +464,8 @@
     },
     {
       "path": "prompts/en/commands/idea-new.md",
-      "size": 2905,
-      "sha256": "1bf289946713a3e54ebfb14d2a178d5a23fc98794a49c126510720ed401f00b4",
+      "size": 3000,
+      "sha256": "8968a661c0b99cb75ef93558afab10965048e3a21c373dcc3a0c68e544051595",
       "type": "file"
     },
     {

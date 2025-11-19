@@ -34,8 +34,8 @@ model: inherit
 1. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` (supports `--skip-prd-scaffold` but default is to scaffold).
 2. Execute `claude-workflow research --ticket "$1" --auto` (extend with `--paths`, `--keywords`, `--note` when helpful).
 3. If the CLI reports `0 matches`, create `docs/research/$1.md` from the template and mark the baseline (“Context empty, baseline required”).
-4. Fill `docs/prd/$1.prd.md`: dialog section, goals, scenarios, metrics, risks, dependencies. Keep `Status: draft` until the dialog is done.
-5. Call the **analyst** agent and instruct the user to answer with `Answer N:`.
+4. Launch the **analyst** agent manually (palette `/analyst` or agent picker) and remind the user to answer in the `Answer N:` format.
+5. Fill `docs/prd/$1.prd.md`: dialog section (include link to `docs/research/$1.md`), goals, scenarios, metrics, risks, dependencies. Keep `Status: draft` until the dialog is done.
 6. When all questions are resolved, run `claude-workflow analyst-check --ticket "$1"` and apply fixes as needed.
 7. Optionally expand preset `feature-prd` for example goals.
 
