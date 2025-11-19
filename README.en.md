@@ -273,7 +273,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 ## Slash commands
 
 | Command | Purpose | Example |
-|---|---|---|
+| --- | --- | --- |
 | `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
 | `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
 | `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |

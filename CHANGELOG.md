@@ -17,11 +17,15 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`) reflecting the mandatory tasklist sync.
 - Migration helper `tools/migrate_ticket.py` (and payload copy) for converting legacy slug-based repositories to the ticket-first layout.
 - Auto PRD scaffolding: `tools/set_active_feature.py` and `claude_workflow_cli.feature_ids` now create `docs/prd/<ticket>.prd.md` with `Status: draft`, so agents/gates always work against an existing artefact.
+- Prompt locale selector: `init-claude-workflow.sh`/`claude-workflow init` accept `--prompt-locale en`, копируя английские шаблоны в `.claude/agents|commands` и добавляя `prompts/en/**` в проект.
+- Release helper `scripts/prompt-release.sh` автоматизирует цепочку `prompt-version bump → lint → pytest → payload sync → gate-tests` перед публикацией payload/релиза.
+- Bilingual prompt workflow: EN prompts live under `prompts/en/**`, added `docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, lint parity, and gate-workflow blocks commits when RU/EN локали расходятся.
 
 ### Changed
 - Tasklist артефакты перемещены в `docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI пресеты, гейты, тесты и документация; добавлен скрипт миграции `scripts/migrate-tasklist.py` и автоперенос в `set_active_feature.py`.
 - Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`, `docs/feature-cookbook.md`, `docs/customization.md`, дизайн-пресеты и шаблоны tasklist.
 - `scripts/prd_review_gate.py`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
+- `scripts/ci-lint.sh` запускает линтер промптов, dry-run `scripts/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а smoke/gate-workflow проверяют синхронность RU/EN.
 
 ### Fixed
 - CLI now falls back to the bundled payload when release downloads fail.

@@ -3,10 +3,6 @@
 
 This helper targets pre-ticket installations. Modern projects should use
 `tools/migrate_ticket.py` to adopt the ticket-first layout.
-
-This helper is retained for repositories created before Wave 26 (when tasklists
-were stored at the repo root and identified only by slug). Modern ticket-first
-projects should use `tools/migrate_ticket.py` instead.
 """
 
 from __future__ import annotations
@@ -74,7 +70,9 @@ def migrate(root: Path, slug: str, force: bool) -> int:
     body = render_body_with_heading(legacy_text, title)
     front_matter = (
         "---\n"
-        f"Feature: {slug}\n"
+        f"Ticket: {slug}\n"
+        f"Slug hint: {slug}\n"
+        f"Feature: {title}\n"
         "Status: draft\n"
         f"PRD: docs/prd/{slug}.prd.md\n"
         f"Plan: docs/plan/{slug}.md\n"
@@ -100,9 +98,7 @@ def migrate(root: Path, slug: str, force: bool) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Move legacy slug-based tasklist.md under docs/tasklist/<slug>.md (pre-ticket workflow)."
-    )
+    parser = argparse.ArgumentParser(description="Move legacy slug-based tasklist.md under docs/tasklist/<slug>.md (pre-ticket).")
     parser.add_argument("--slug", help="Feature slug to use; defaults to docs/.active_feature or single plan file.")
     parser.add_argument("--target", default=".", help="Project root containing legacy tasklist.md (default: cwd).")
     parser.add_argument("--force", action="store_true", help="Overwrite existing docs/tasklist/<slug>.md if present.")

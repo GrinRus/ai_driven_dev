@@ -72,31 +72,15 @@
 ### Консистентность артефактов и команд
 - [x] `scripts/{branch_new.py,commit_msg.py,conventions_set.py}`: вернуть скрипты в репозиторий, синхронизировать их генерацию с `init-claude-workflow.sh` и описать использование в `workflow.md`; добавить unittest, который проверяет наличие CLI-утилит после установки. _(устарело, отменено в Wave 9)_
 - [x] `.claude/gradle/init-print-projects.gradle`: добавить файл в исходники, включить его копирование инсталлятором и обновить раздел про selective tests в `README.md`/`README.en.md`; дополнить smoke-сценарий проверкой, что карта модулей создаётся.
-- [ ] `docs/intro.md`: в репозитории отсутствует обзорный документ; определить замену для устаревшей `/docs-generate`, согласовать формат с README и зафиксировать способ поддержания синхронизации.
+- [x] `docs/intro.md`: в репозитории отсутствует обзорный документ; определить замену для устаревшей `/docs-generate`, согласовать формат с README и зафиксировать способ поддержания синхронизации.
 
 ### Документация и коммуникация
-- [ ] `README.md` / `README.en.md`: синхронизировать структуры разделов, обновить блок «Незакрытые задачи», привести отметку _Last sync_ к фактической дате и добавить явный чеклист перевода в `CONTRIBUTING.md`/CI.
-- [ ] `docs/customization.md` / `workflow.md`: обновить walkthrough и разделы настройки с учётом новой обзорной документации и сценария синхронизации README.
+- [x] `README.md` / `README.en.md`: синхронизировать структуры разделов, обновить блок «Незакрытые задачи», привести отметку _Last sync_ к фактической дате и добавить явный чеклист перевода в `CONTRIBUTING.md`/CI.
+- [x] `docs/customization.md` / `workflow.md`: обновить walkthrough и разделы настройки с учётом новой обзорной документации и сценария синхронизации README.
 
 ### CI и тестовый контур
-- [ ] `init-claude-workflow.sh`: устранить рассинхрон с текущим `.github/workflows/ci.yml` (сейчас генерируется `.github/workflows/gradle.yml`); выбрать единый pipeline и описать его в README и релиз-нотах.
-- [ ] `tests/test_init_claude_workflow.py`: дополнить проверками на наличие overview-документа, helper-скриптов и актуального CI-файла; добавить негативные сценарии (например, отсутствие doc/intro) и очистку временных артефактов.
-
-## Wave 6
-
-### Расширяемость автоматизации и стеков
-- [ ] `.claude/hooks/format-and-test.sh`: добавить поддержку нескольких раннеров (Gradle/NPM/Pytest) и расширить `moduleMatrix`, сохранив совместимость с существующим `scripts/ci-lint.sh`.
-- [ ] `init-claude-workflow.sh`: выпустить пресет `polyglot`, генерирующий конфигурации для Gradle/Node/Python (automation.format/tests, moduleMatrix, инструкции зависимостей).
-- [ ] `tests/test_format_and_test.py`: покрыть переключение раннеров, `TEST_SCOPE` и `STRICT_TESTS` в мульти-стековых проектах; добавить временные npm/pytest заглушки.
-
-### Наблюдаемость и аналитика
-- [ ] `scripts/ci-lint.sh`: добавить `--json-report` с длительностью и статусом шагов (`ci-report.json`) и описать экспорт артефактов в CI.
-- [ ] `.claude/hooks/format-and-test.sh`: логировать запуски в `.claude/cache/test-runs.json` (timestamp, runner, задачи, exit-code) и реализовать ротацию логов; задокументировать формат.
-- [ ] `workflow.md`: дополнить troubleshooting инструкциями по анализу `ci-report.json` и `test-runs.json` и чеклистом «что делать, если тесты не стартуют».
-
-### Enterprise-безопасность и процессы
-- [ ] `docs/security-hardening.md`: оформить гайд по профилям защиты, secret-scanning и GitHub Advanced Security; добавить перекрёстные ссылки в README.
-- [ ] `.github/workflows/ci.yml`: расширить pipeline матрицей ОС (ubuntu, macos), шагом `secret-detection` (gitleaks/gh secret scan) и описанием кастомизации в `docs/customization.md`.
+- [x] `init-claude-workflow.sh`: устранить рассинхрон с текущим `.github/workflows/ci.yml` (сейчас генерируется `.github/workflows/gradle.yml`); выбрать единый pipeline и описать его в README и релиз-нотах.
+- [x] `tests/test_init_claude_workflow.py`: дополнить проверками на наличие overview-документа, helper-скриптов и актуального CI-файла; добавить негативные сценарии (например, отсутствие doc/intro) и очистку временных артефактов.
 
 ## Wave 7
 
@@ -158,16 +142,6 @@
 - [x] `.claude/commands/implement.md`: переписать шаги реализации так, чтобы описывать автозапуск `.claude/hooks/format-and-test.sh`, режимы `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, без требований ручного вызова `/test-changed`.
 - [x] `claude-workflow-extensions.patch`: удалить возвращение `/test-changed` (файл команды, разрешения `SlashCommand:/test-changed:*`, инструкции агентов), заменить на ссылки на автохуки и прямые команды (`scripts/ci-lint.sh`, `./gradlew test`) в расширенных сценариях.
 - [x] `docs/agents-playbook.md`, `workflow.md`: добавить явное пояснение, как работает авто запуск тестов после записи и как временно отключить/расширить его без использования устаревшей команды.
-
-## Wave 12
-
-### Автоматизация хуков
-- [ ] `.claude/settings.json`: заполнить `automation.format.commands` реальными командами форматирования (Spotless/Ktlint) и сменить `automation.tests.runner` с `bash scripts/ci-lint.sh` на соответствующие Gradle-задачи, чтобы автозапуск хуков отражал целевой стек; синхронизировать обновление в `docs/customization.md`.
-- [ ] `.claude/settings.json`: описать `automation.tests.moduleMatrix` для сопоставления путей модулей Gradle и конкретных тестовых задач, обновить `tests/test_format_and_test.py`, чтобы зафиксировать выборочный прогон.
-
-### Усиление гейтов
-- [ ] `.claude/hooks/gate-workflow.sh`: вынести список защищаемых путей из жестко заданного `src/**` в конфигурацию (например, `config/gates.json`) и задокументировать расширение для монорепо с альтернативными каталогами исходников.
-- [ ] `.claude/hooks/gate-tests.sh`: расширить проверку наличия тестов анализом diff/соседних тестовых файлов и запуском релевантных Gradle-задач; дополнить `tests/test_gate_tests_hook.py` покрытием новых сценариев.
 
 ## Wave 13
 
@@ -441,3 +415,42 @@
 - [x] Документация и процессы: в `docs/customization.md`, `CONTRIBUTING.md`, `workflow.md` описать правило «редактируем только payload → синхронизуем скриптом». В release checklist добавить обязательный шаг `scripts/sync-payload.sh --direction=from-root && pytest tests/test_init_hook_paths.py` перед `uv publish`. Упомянуть, что для локальной проверки нужно использовать `scripts/bootstrap-local.sh --payload src/.../payload`, а не трогать `.claude` вручную.
 - [x] Тесты: расширить `tests/test_init_hook_paths.py` и/или создать `tests/test_payload_sync.py`, который проходит по списку критичных файлов (хуки, `init-claude-workflow.sh`, шаблоны docs) и проверяет, что payload и root синхронизированы. Тест должен использовать общий helper для расчёта хэшей и работать от `src/claude_workflow_cli/data/payload`.
 - [x] CI/tooling: обновить `scripts/ci-lint.sh` и `Makefile` (если появится) так, чтобы новые проверки запускались локально командой `scripts/sync-payload.sh --direction=from-root && python tools/check_payload_sync.py`. Зафиксировать рекомендацию в `doc/backlog.md` для последующих волн.
+
+## Wave 32
+
+- [x] `docs/prompt-playbook.md` (новый), `README.md`, `docs/agents-playbook.md`: зафиксировать обязательные секции для агентов/команд (Контекст, Входы, Автоматизация, Формат ответа, Fail-fast), описать требования к строке `Checkbox updated`, ссылкам на `docs/prd|plan|tasklist`, правилам эскалации блокеров и матрицу «роль → артефакты/хуки`.
+- [x] `templates/prompt-agent.md`, `templates/prompt-command.md`, `claude-presets/advanced/prompt-governance.yaml` (новый): добавить шаблоны фронт-маттера (`name/description/tools/inputs/outputs/hooks`) и готовые заголовки, а также preset/скрипт развёртывания (`scripts/scaffold_prompt.py` или Make target) с примерами использования в CLI.
+
+### Обновление агентов
+- [x] `.claude/agents/{analyst,planner,implementer,reviewer,qa,researcher,validator,db-migrator,contract-checker,prd-reviewer}.md`: переписать на новый шаблон, явно прописать входные артефакты, чеклисты, статусы READY/BLOCKED/WARN и единый формат вывода; удалить дубли описания «Checkbox updated», заменив ссылкой на playbook.
+
+### Обновление команд
+- [x] `.claude/commands/{idea-new,plan-new,tasks-new,implement,review-prd,review,reviewer,researcher}.md`: структурировать инструкции блоками «Когда запускать», «Автоматические хуки/переменные», «Что редактируется», «Ожидаемый вывод», «Примеры CLI»; убедиться, что каждая команда ссылается на соответствующего агента и актуальные документы через `@docs/...` нотацию.
+
+### Автоматизация и проверки
+- [x] `scripts/lint-prompts.py`, `scripts/ci-lint.sh`, `.github/workflows/ci.yml`, `tests/test_prompt_lint.py`: добавить линтер промптов, который валидирует фронт-маттер, наличие обязательных секций, консистентность между парами агент↔команда (например, implementer/implement), и включить его в CI/pre-commit.
+
+### Мультиязычные промпты и версионирование
+- [x] `.claude/agents/**`, `.claude/commands/**`: ввести структуру `prompts/<lang>/...` (RU/EN) или дубликаты `.ru.md`/`.en.md`; в каждом фронт-маттере добавить поля `lang`, `prompt_version`, `source_version` и ссылку на базовый шаблон. Обеспечить, чтобы RU и EN варианты содержали одинаковые блоки (через lint).
+- [x] `docs/prompt-playbook.md`, `docs/prompt-versioning.md` (новый): описать политику двух языков, правила синхронизации (когда менять обе версии, как обозначать отличия), формулу версионирования (`major.minor.patch`, где major — изменение структуры, minor — правки текста, patch — правки примечаний), и процедуру ревью (обновление changelog/prompts.json).
+- [x] `scripts/lint-prompts.py`, `tools/prompt_diff.py` (новый), `.claude/hooks/gate-workflow.sh`: добавить проверку парности RU/EN (одинаковый `prompt_version`, diff без пропусков блоков), авто-репорт отличий и запрет мержить, если обновлена только одна локаль. В gate выводить подсказку «обновите обе локали или добавьте `Lang-Parity: skip` в фронт-маттер».
+- [x] `docs/release-notes.md`, `CHANGELOG.md`: задокументировать запуск двуязычных промптов и версионирования, включая инструкцию «как откатиться к предыдущей версии промпта» (git tag/manifest), и добавить пример записи в release checklist (`scripts/prompt-version bump --lang ru,en`).
+
+### Тесты и проверка качества
+- [x] `tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py` (новый): покрыть сценарии линтера и diff-инструмента (валидация фронт-маттера, парность RU/EN, проверка `prompt_version`), падение на рассинхронизацию и корректное сообщение об обходе `Lang-Parity: skip`.
+- [x] `scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`: добавить smoke-тест на gate, который редактирует только один язык и убеждается, что gate блокирует merge; предусмотреть позитивный сценарий, где обе локали обновлены и gate пропускает изменения.
+- [x] `scripts/ci-lint.sh`: включить новые тесты и эмулировать минимум один прогон `scripts/prompt-version bump --lang ru,en` для проверки версионирования.
+
+- [x] `tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`: добавить проверки для команд (а не только агентов) и сценария `Lang-Parity: skip` (позитивный/негативный случаи), убедиться, что линтер корректно пропускает и блокирует файлы с этим маркером.
+- [x] `tests/test_prompt_versioning.py`: добавить тесты `scripts/prompt-version` для команд и ситуаций с частичным bump (например, только ru, только en, skip), проверить обновление `source_version`.
+- [x] `scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`: расширить сценарии gate для команд и `Lang-Parity: skip`, включить проверку, что после удаления skip гейт снова требует синхронное обновление.
+- [x] `init-claude-workflow.sh`, `claude_workflow_cli` (`cli.py`, payload settings): добавить CLI-переключатель (например, `--prompt-locale en`) или конфиг, который копирует `prompts/en/**` в `.claude/` при установке; обновить документацию и smoke-тест.
+- [x] `scripts/prompt-version`, `tools/prompt_diff.py`, release pipeline: автоматизировать шаг «обновить payload → bump версию → проверить lint» (например, make-таргет или GitHub Actions job, который запускает `scripts/prompt-version bump --prompts all --lang ru,en`, lint и проверку gate).
+
+## Wave 33
+
+### Zero-touch запуск CLI после установки
+- [ ] `tools/run_cli.py` (новый), `tools/set_active_feature.py`, `.claude/hooks/gate-workflow.sh`, `.claude/hooks/format-and-test.sh`, `scripts/smoke-workflow.sh`, `scripts/qa-agent.py`: внедрить helper `run_cli(command: list[str])`, который ищет бинарь `claude-workflow` в PATH (поддержка uv/pipx шима), умеет читать `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`, а при отсутствии печатает инструкцию «установите CLI командой …»; все скрипты должны использовать helper вместо прямого `python3 -m claude_workflow_cli`, чтобы пользователю хватало шагов установки из README.
+- [ ] `src/claude_workflow_cli/data/payload/scripts/*.sh`, `src/claude_workflow_cli/data/payload/tools/*.py`, `.claude/hooks/*.sh`: зеркалировать helper в payload (например, через `scripts/run-cli.sh`), чтобы артефакты, которые копирует `claude-workflow init`, автоматически вызывают CLI из установленного пакета без ручного PYTHONPATH.
+- [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/agents-playbook.md`: обновить инструкции по установке/требованиям окружения — явно указать, что `claude-workflow` попадает в PATH после `uv tool install`/`pipx install`, удалить рекомендации импортировать модуль напрямую и добавить troubleshooting-блок «CLI не найден» с подсказками `uv tool install …`/`pipx install …`.
+- [ ] `tests/test_cli_entrypoint.py` (новый), `scripts/smoke-workflow.sh`, `scripts/ci-lint.sh`: добавить проверки, эмулирующие чистую систему (`PYTHONPATH` без `src`, только бинарь `claude-workflow`), и убедиться, что helper корректно находит CLI; при отсутствии бинаря тесты должны давать понятное сообщение и ссылку на команды установки.

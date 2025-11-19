@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 TOOLS_DIR = REPO_ROOT / "tools"
 if str(TOOLS_DIR) not in sys.path:  # pragma: no cover - environment setup
     sys.path.insert(0, str(TOOLS_DIR))

@@ -118,3 +118,14 @@ def test_bootstrap_force_overwrites_modified_files():
 
         payload_gate = PAYLOAD_ROOT / ".claude" / "hooks" / "gate-workflow.sh"
         assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore payload version"
+
+
+def test_bootstrap_prompt_locale_en():
+    with tempfile.TemporaryDirectory(prefix="claude-workflow-en-") as tmpdir:
+        target = Path(tmpdir)
+        _run_bootstrap(target, "--prompt-locale", "en")
+
+        analyst = (target / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
+        idea = (target / ".claude" / "commands" / "idea-new.md").read_text(encoding="utf-8")
+        assert "lang: en" in analyst
+        assert "lang: en" in idea

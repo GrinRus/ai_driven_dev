@@ -1,10 +1,11 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
-from .helpers import REPO_ROOT, git_init, write_active_feature, write_file
+from .helpers import REPO_ROOT, cli_cmd, git_init, write_active_feature, write_file
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude/hooks/format-and-test.sh"
 
@@ -164,16 +165,13 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
 
-    cmd = [
-        "python3",
-        "-m",
-        "claude_workflow_cli.cli",
+    cmd = cli_cmd(
         "reviewer-tests",
         "--target",
         ".",
         "--status",
         "force",
-    ]
+    )
     result = subprocess.run(cmd, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
     assert result.returncode == 0, result.stderr
 
@@ -181,16 +179,13 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     payload = json.loads(marker.read_text(encoding="utf-8"))
     assert payload["state"] == "force"
 
-    cmd_idle = [
-        "python3",
-        "-m",
-        "claude_workflow_cli.cli",
+    cmd_idle = cli_cmd(
         "reviewer-tests",
         "--target",
         ".",
         "--status",
         "idle",
-    ]
+    )
     result_idle = subprocess.run(cmd_idle, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
     assert result_idle.returncode == 0, result_idle.stderr
     payload_idle = json.loads(marker.read_text(encoding="utf-8"))

@@ -20,15 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
-_SCRIPT_PATH = Path(__file__).resolve()
-_REPO_ROOT_CANDIDATE: Optional[Path] = None
-for _candidate in _SCRIPT_PATH.parents:
-    if (_candidate / "src").is_dir():
-        _REPO_ROOT_CANDIDATE = _candidate
-        break
-if _REPO_ROOT_CANDIDATE is None:
-    _REPO_ROOT_CANDIDATE = _SCRIPT_PATH.parent
-REPO_ROOT = _REPO_ROOT_CANDIDATE
+REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_SRC = Path.cwd() / "src"
 for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
     if candidate.is_dir():

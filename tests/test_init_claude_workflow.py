@@ -79,6 +79,14 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             "force flag must overwrite existing files",
         )
 
+    def test_prompt_locale_en_switches_prompts(self):
+        workdir = self.make_tempdir()
+        self.run_script(workdir, "--prompt-locale", "en")
+        analyst = (workdir / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
+        idea = (workdir / ".claude" / "commands" / "idea-new.md").read_text(encoding="utf-8")
+        self.assertIn("lang: en", analyst)
+        self.assertIn("lang: en", idea)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,20 @@ from typing import Iterable, List, Set
 DEFAULT_APPROVED = {"approved"}
 DEFAULT_BLOCKING = {"blocked"}
 DEFAULT_BLOCKING_SEVERITIES = {"critical"}
+DEFAULT_CODE_PREFIXES = (
+    "src/",
+    "tests/",
+    "test/",
+    "app/",
+    "services/",
+    "backend/",
+    "frontend/",
+    "lib/",
+    "core/",
+    "packages/",
+    "modules/",
+    "cmd/",
+)
 REVIEW_HEADER = "## PRD Review"
 DIALOG_HEADER = "## Диалог analyst"
 
@@ -93,6 +107,48 @@ def matches(patterns: Iterable[str], value: str) -> bool:
         return False
     for pattern in patterns or ():
         if pattern and fnmatch(value, pattern):
+            return True
+    return False
+
+
+def _normalize_file_path(raw: str) -> str:
+    if not raw:
+        return ""
+    try:
+        rel = Path(raw).resolve().relative_to(Path.cwd().resolve())
+        return str(rel).replace("\\", "/")
+    except Exception:
+        normalized = raw.replace("\\", "/")
+        if normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized.lstrip("/")
+
+
+def _normalize_items(values: Iterable[str] | None, *, suffix: str = "") -> List[str]:
+    result: List[str] = []
+    for item in values or ():
+        text = str(item or "").strip()
+        if not text:
+            continue
+        text = text.replace("\\", "/")
+        while text.startswith("./"):
+            text = text[2:]
+        text = text.lstrip("/")
+        if suffix and not text.endswith(suffix):
+            text = f"{text}{suffix}"
+        result.append(text)
+    return result
+
+
+def _is_code_path(path: str, prefixes: Iterable[str], globs: Iterable[str]) -> bool:
+    normalized = path.replace("\\", "/")
+    if not normalized:
+        return False
+    for prefix in prefixes:
+        if normalized.startswith(prefix):
+            return True
+    for pattern in globs:
+        if fnmatch(normalized, pattern):
             return True
     return False
 
@@ -187,15 +243,19 @@ def main() -> None:
     if branches and not matches(branches, args.branch):
         raise SystemExit(0)
 
+    code_prefixes = tuple(_normalize_items(gate.get("code_prefixes"), suffix="/") or DEFAULT_CODE_PREFIXES)
+    code_globs = tuple(_normalize_items(gate.get("code_globs")))
+    normalized = _normalize_file_path(args.file_path)
+    target_suffix = f"docs/prd/{ticket}.prd.md"
+    if args.skip_on_prd_edit and normalized.endswith(target_suffix):
+        raise SystemExit(0)
+    if normalized and not _is_code_path(normalized, code_prefixes, code_globs):
+        raise SystemExit(0)
+
     prd_path = Path("docs/prd") / f"{ticket}.prd.md"
     if not prd_path.is_file():
         print(format_message("missing_prd", ticket, slug_hint))
         raise SystemExit(1)
-
-    normalized = args.file_path.replace("\\", "/") if args.file_path else ""
-    target_suffix = f"docs/prd/{ticket}.prd.md"
-    if args.skip_on_prd_edit and normalized.endswith(target_suffix):
-        raise SystemExit(0)
 
     allow_missing = bool(gate.get("allow_missing_section", False))
     require_closed = bool(gate.get("require_action_items_closed", True))

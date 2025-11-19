@@ -39,7 +39,6 @@ def test_payload_includes_dotfiles(tmp_path):
             "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
             "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
             "claude_workflow_cli/data/payload/.claude/cache/.gitkeep",
-            "claude_workflow_cli/data/payload/.github/workflows/gradle.yml",
             "claude_workflow_cli/data/payload/docs/plan/.gitkeep",
             "claude_workflow_cli/data/payload/docs/adr/.gitkeep",
             "claude_workflow_cli/data/payload/docs/prd/.gitkeep",

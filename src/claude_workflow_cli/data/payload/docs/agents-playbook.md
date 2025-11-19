@@ -3,6 +3,7 @@
 Документ помогает быстро провести фичу через цикл Claude Code, понять роли саб-агентов и поведение гейтов. Следуйте последовательности, чтобы избегать блокирующих хуков и расхождений в артефактах.
 
 > Ticket — основной идентификатор фичи, сохраняется в `docs/.active_ticket`. При необходимости указывайте slug-hint (человекочитаемый алиас) — он хранится в `docs/.active_feature` и используется в шаблонах/логах.
+> Требования к структуре промптов агентов и слэш-команд описаны в `docs/prompt-playbook.md`. При редактировании `.claude/agents/*.md` и `.claude/commands/*.md` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`. EN локализации хранятся в `prompts/en/**` и синхронизируются по правилам `docs/prompt-versioning.md`.
 
 ## Ролевая цепочка
 
@@ -24,15 +25,17 @@
 ### analyst — аналитика идеи
 - **Вызов:** `/idea-new <ticket> [slug-hint]`
 - **Вход:** свободное описание задачи, бизнес-контекст, ограничения.
+- **Перед стартом:** убедитесь, что `claude-workflow research --ticket <ticket> --auto` собрал контекст и `docs/research/<ticket>.md` создан (при необходимости добавьте `--note` для ручных наблюдений).
+- **Автошаблон:** `/idea-new` автоматически создаёт `docs/prd/<ticket>.prd.md` со статусом `Status: draft`; добавьте ссылку на `docs/research/<ticket>.md` и обновите статус на READY только после полного комплекта ответов.
 - **Процесс:** агент стартует с `Вопрос 1`, ждёт ответ `Ответ 1` и продолжает цикл, пока не закроет все блокирующие неопределённости. Каждая пара «Вопрос N»/«Ответ N» фиксируется в разделе `## Диалог analyst`, статусы обновляются на каждом раунде.
 - **Выход:** PRD `docs/prd/<ticket>.prd.md` с заполненным блоком `## Диалог analyst`, актуальным `Status: READY|BLOCKED`, целями, сценариями, рисками и открытыми вопросами.
 - **Готовность:** `Status: READY`, отсутствуют незакрытые `- [ ]` в `## 10. Открытые вопросы`, все вопросы имеют ответы. При любом пропуске `claude-workflow analyst-check --ticket <ticket>` вернёт ошибку и нужно вернуться к агенту с ответами.
 
 ### researcher — исследование кодовой базы
-- **Вызов:** `claude-workflow research --ticket <ticket>` (сбор контекста) и агент `/researcher <ticket>`.
-- **Вход:** PRD, backlog, `reports/research/<ticket>-targets.json`, существующие источники в `src/**` и документации.
-- **Выход:** `docs/research/<ticket>.md` со статусом `Status: reviewed`, обновлённые файлы контекста `reports/research/<ticket>-targets.json` и `<ticket>-context.json`; ссылка на отчёт зафиксирована в PRD и `docs/tasklist/<ticket>.md`.
-- **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист, список директорий покрывает изменяемый код.
+- **Вызов:** `claude-workflow research --ticket <ticket> --auto` (подбор целей/контекста, опции `--paths`, `--keywords`, `--note/@file`) и агент `/researcher <ticket>`.
+- **Вход:** PRD, backlog, `reports/research/<ticket>-targets.json`, `reports/research/<ticket>-context.json`, slug-хинт, ручные заметки.
+- **Выход:** `docs/research/<ticket>.md` со статусом `Status: reviewed` (или `pending` с baseline для новых проектов), заполненными секциями `## Паттерны/анти-паттерны`, `## Отсутствие паттернов`, `## Дополнительные заметки`; ссылка на отчёт зафиксирована в PRD и `docs/tasklist/<ticket>.md`.
+- **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист; `reports/research/<ticket>-context.json` не устарел, baseline (если был) отмечен маркером «Контекст пуст, требуется baseline».
 
 ### planner — план реализации
 - **Вызов:** `/plan-new <ticket>`
@@ -106,7 +109,7 @@
 
 ## Чеклист быстрого старта фичи
 
-1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — команда зафиксирует ticket в `docs/.active_ticket` и, при необходимости, сохранит slug-хинт в `docs/.active_feature`.
+1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — команда зафиксирует ticket в `docs/.active_ticket`, при необходимости сохранит slug-хинт в `docs/.active_feature` **и автоматически создаст PRD `docs/prd/<ticket>.prd.md` со статусом `Status: draft`, который нужно довести до READY.**
 2. Выполните `/plan-new` и `/tasks-new`, пока артефакты не получат статус READY.
 3. При необходимости включите дополнительные гейты (`config/gates.json`) и подготовьте связанные артефакты: миграции, OpenAPI, дополнительные тесты.
 4. Реализуйте фичу через `/implement`, следя за сообщениями `gate-workflow` и выбранных гейтов; фиксируйте прогресс в `docs/tasklist/<ticket>.md`.

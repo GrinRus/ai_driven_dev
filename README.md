@@ -57,6 +57,7 @@
 | `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, pre/post-хуки, auto-форматирование/тесты, защита prod-путей |
 | `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
 | `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa`, `db-migrator`, `contract-checker` |
+| `prompts/en/` | EN-версии промптов | `prompts/en/agents/*.md`, `prompts/en/commands/*.md`, синхронизированы с `.claude/**` (см. `docs/prompt-versioning.md`) |
 | `.claude/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
 | `.claude/gradle/` *(создаётся при установке)* | Gradle-хелперы | `init-print-projects.gradle` объявляет задачу `ccPrintProjectDirs` для selective runner |
 | `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` |
@@ -155,6 +156,8 @@
 - **`scripts/ci-lint.sh`** — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, используется локально и в GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — поднимает временной проект, гоняет init-скрипт и проверяет прохождение `gate-workflow` по шагам `/idea-new → /plan-new → /review-prd → /tasks-new`.
 - **`examples/apply-demo.sh`** — пошагово применяет шаблон к директории с Gradle-модулями, демонстрируя интеграцию с `gradlew`.
+- **`scripts/prompt-release.sh`** — автоматизирует bump версий промптов (`scripts/prompt-version`), линтер, pytest-наборы и проверку payload/gate перед подготовкой релиза.
+- **`scripts/scaffold_prompt.py`** — разворачивает шаблоны `templates/prompt-agent.md` / `templates/prompt-command.md`, подставляет фронт-маттер и создаёт новые промпты (`--type agent|command`, `--target ...`, `--force`).
 
 ## Тестовый контур
 - `tests/helpers.py` — вспомогательные функции (создание файлов, git init/config, запуск хуков) для изоляции сценариев.
@@ -183,6 +186,9 @@
 - `workflow.md`, `docs/agents-playbook.md` — описывают целевой цикл idea→review, роли саб-агентов и взаимодействие с гейтами.
 - `workflow.md`, `docs/customization.md` — walkthrough применения bootstrap к Gradle-монорепо и подробности настройки `.claude/settings.json`, гейтов, шаблонов команд.
 - `docs/release-notes.md`, `doc/backlog.md` — регламент релизов и wave-бэклог (Wave 1/2) для планирования roadmap.
+- `docs/prompt-playbook.md` — единые правила оформления промптов агентов/команд (обязательные секции, `Checkbox updated`, Fail-fast, ссылки на артефакты и матрица ролей).
+- `docs/prompt-versioning.md` — политика двуязычных промптов, правила `prompt_version`, `Lang-Parity: skip`, скрипты `prompt-version` и `prompt_diff`.
+- `templates/prompt-agent.md`, `templates/prompt-command.md`, `claude-presets/advanced/prompt-governance.yaml` — шаблоны и пресет для генерации новых промптов; используйте вместе со скриптом `scripts/scaffold_prompt.py`.
 - Шаблоны PRD/ADR/tasklist (`docs/*.template.md`, `templates/tasklist.md`) и git-хуки (`templates/git-hooks/*.sample`) — расширенные заготовки с подсказками, чеклистами и переменными окружения.
 - `README.en.md` — синхронизированный перевод; при правках обновляйте обе версии и поле Last sync.
 
@@ -208,6 +214,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
+- для EN-локали промптов добавьте `--prompt-locale en` (по умолчанию копируется русская версия `.claude/agents|commands`); каталоги `prompts/en/**` копируются для редактирования EN-версий;
 - CLI разворачивает необходимые Python-модули прямо в `.claude/hooks/_vendor`, поэтому хуки, которые вызывают `python3 -m claude_workflow_cli ...`, работают сразу без отдельного `pip install`;
 - для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/`, добавьте `--include claude-presets` или иные каталоги; чтобы подтянуть свежий payload из GitHub Releases, укажите `--release latest` или конкретный тег);
 - для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --ticket demo-checkout`.
@@ -298,7 +305,7 @@ claude-workflow research --ticket STORE-123 --auto
 ## Слэш-команды
 
 | Команда | Назначение | Аргументы (пример) |
-|---|---|---|
+| --- | --- | --- |
 | `/idea-new` | Собрать вводные и автосоздать PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
 | `/review-prd` | Провести ревью PRD и зафиксировать статус | `checkout-discounts` |

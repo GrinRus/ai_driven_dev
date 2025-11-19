@@ -4,6 +4,7 @@ from .helpers import ensure_gates_config, run_hook, write_active_feature, write_
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 PRD_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
+DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/plan/demo-checkout.md"}}'
 
 
 def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") -> str:
@@ -51,6 +52,13 @@ def test_blocks_when_section_missing(tmp_path):
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "PRD Review" in (result.stdout + result.stderr)
+
+
+def test_skips_for_non_code_paths(tmp_path):
+    setup_base(tmp_path)
+
+    result = run_hook(tmp_path, "gate-prd-review.sh", DOC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
 
 
 def test_blocks_when_status_pending(tmp_path):

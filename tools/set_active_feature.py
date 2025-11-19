@@ -11,6 +11,12 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
+try:
+    from run_cli import CliNotFoundError, run_cli  # type: ignore
+except Exception:  # pragma: no cover - helper missing (legacy payload)
+    CliNotFoundError = RuntimeError  # type: ignore
+    run_cli = None  # type: ignore
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPO_SRC = REPO_ROOT / "src"
 if REPO_SRC.is_dir():
@@ -134,10 +140,9 @@ def _run_cli_research_targets(
     keywords_arg: Optional[str],
     config_arg: Optional[str],
 ) -> bool:
-    cli_cmd = [
-        sys.executable,
-        "-m",
-        "claude_workflow_cli.cli",
+    if run_cli is None:
+        return False
+    cli_args = [
         "research",
         "--target",
         str(root),
@@ -148,18 +153,21 @@ def _run_cli_research_targets(
         "--no-template",
     ]
     if slug_hint:
-        cli_cmd.extend(["--slug-hint", slug_hint])
+        cli_args.extend(["--slug-hint", slug_hint])
     if config_arg:
-        cli_cmd.extend(["--config", config_arg])
+        cli_args.extend(["--config", config_arg])
     if paths_arg:
-        cli_cmd.extend(["--paths", paths_arg])
+        cli_args.extend(["--paths", paths_arg])
     if keywords_arg:
-        cli_cmd.extend(["--keywords", keywords_arg])
+        cli_args.extend(["--keywords", keywords_arg])
     try:
-        subprocess.run(cli_cmd, check=True, cwd=root, env=os.environ.copy())
+        run_cli(cli_args, cwd=str(root))
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+    except CliNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+    except subprocess.CalledProcessError:
         return False
+    return False
 
 
 def _scaffold_prd_manual(root: Path, ticket: str) -> bool:

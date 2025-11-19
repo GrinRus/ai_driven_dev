@@ -18,6 +18,14 @@ payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
+if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
+  if ! python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD" >/dev/null; then
+    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
+    exit 2
+  fi
+  exit 0
+fi
+
 ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
 slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
@@ -86,7 +94,11 @@ if branch and isinstance(skip_branches, list):
         raise SystemExit(0)
 
 doc_path = Path("docs/research") / f"{ticket}.md"
+context_path = Path("reports/research") / f"{ticket}-context.json"
+targets_path = Path("reports/research") / f"{ticket}-targets.json"
 allow_missing = settings.get("allow_missing", False)
+baseline_phrase = (settings.get("baseline_phrase") or "контекст пуст").strip().lower()
+allow_pending_baseline = bool(settings.get("allow_pending_baseline", False))
 if not doc_path.exists():
     if allow_missing:
         raise SystemExit(0)
@@ -95,14 +107,15 @@ if not doc_path.exists():
 
 status = None
 try:
-    for line in doc_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if stripped.lower().startswith("status:"):
-            status = stripped.split(":", 1)[1].strip().lower()
-            break
+    doc_text = doc_path.read_text(encoding="utf-8")
 except Exception:
     print(f"BLOCK: не удалось прочитать docs/research/{ticket}.md.")
     raise SystemExit(1)
+for line in doc_text.splitlines():
+    stripped = line.strip()
+    if stripped.lower().startswith("status:"):
+        status = stripped.split(":", 1)[1].strip().lower()
+        break
 
 required_statuses = [
     (item or "").strip().lower()
@@ -114,10 +127,27 @@ if required_statuses:
         print(f"BLOCK: docs/research/{ticket}.md не содержит строки `Status:` или она пуста.")
         raise SystemExit(1)
     if status not in required_statuses:
-        print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
-        raise SystemExit(1)
+        if status == "pending" and allow_pending_baseline:
+            baseline_ok = False
+            try:
+                context = json.loads(context_path.read_text(encoding="utf-8"))
+            except (FileNotFoundError, json.JSONDecodeError):
+                baseline_ok = False
+            else:
+                profile = context.get("profile") or {}
+                auto_mode = bool(context.get("auto_mode"))
+                is_new_project = bool(profile.get("is_new_project"))
+                doc_has_marker = baseline_phrase and baseline_phrase in doc_text.lower()
+                baseline_ok = is_new_project and auto_mode and doc_has_marker
+            if baseline_ok:
+                print(f"WARN: Researcher baseline pending для {ticket} — контекст пуст, продолжайте после первичного аудита.")
+            else:
+                print("BLOCK: статус Researcher `pending` допускается только после фиксации baseline (контекст пуст).")
+                raise SystemExit(1)
+        else:
+            print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
+            raise SystemExit(1)
 
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
 min_paths = int(settings.get("minimum_paths", 0) or 0)
 if min_paths > 0:
     try:
@@ -135,7 +165,6 @@ if min_paths > 0:
 
 freshness_days = settings.get("freshness_days")
 if freshness_days:
-    context_path = Path("reports/research") / f"{ticket}-context.json"
     try:
         context = json.loads(context_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -198,12 +227,13 @@ then
 fi
 
 if [[ -n "$ticket" ]]; then
-  reviewer_notice="$(python3 - "$ticket" <<'PY'
+  reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
+slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
 config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -231,7 +261,8 @@ if isinstance(optional_values, list):
 else:
     optional_values = []
 
-marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", ticket))
+slug_value = slug_hint.strip() or ticket
+marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
 if not marker_path.exists():
     if reviewer_cfg.get("warn_on_missing", True):
         print(

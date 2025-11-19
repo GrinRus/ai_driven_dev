@@ -1,5 +1,6 @@
 import datetime as dt
 import pathlib
+from pathlib import Path
 import subprocess
 from textwrap import dedent
 
@@ -15,6 +16,16 @@ from .helpers import (
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
+PROMPT_PAYLOAD = '{"tool_input":{"file_path":".claude/agents/analyst.md"}}'
+CMD_PAYLOAD = '{"tool_input":{"file_path":".claude/commands/plan-new.md"}}'
+PROMPT_PAIRS = [
+    ("analyst", "idea-new"),
+    ("planner", "plan-new"),
+    ("implementer", "implement"),
+    ("reviewer", "review"),
+    ("researcher", "researcher"),
+    ("prd-reviewer", "review-prd"),
+]
 REVIEW_REPORT = '{"summary": "", "findings": []}'
 
 
@@ -133,6 +144,223 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def _ru_prompt(version: str, name: str = "analyst", skip: bool = False) -> str:
+    text = dedent(
+        f"""
+        ---
+        name: {name}
+        description: test
+        lang: ru
+        prompt_version: {version}
+        source_version: {version}
+        tools: Read
+        model: inherit
+        ---
+
+        ## Контекст
+        text
+
+        ## Входные артефакты
+        - item
+
+        ## Автоматизация
+        text
+
+        ## Пошаговый план
+        1. step
+
+        ## Fail-fast и вопросы
+        text
+
+        ## Формат ответа
+        text
+        """
+    ).strip() + "\n"
+    if skip:
+        text = text.replace("model: inherit", "model: inherit\nLang-Parity: skip", 1)
+    return text
+
+
+def _en_prompt(version: str, source: str, name: str = "analyst") -> str:
+    return dedent(
+        f"""
+        ---
+        name: {name}
+        description: test en
+        lang: en
+        prompt_version: {version}
+        source_version: {source}
+        tools: Read
+        model: inherit
+        ---
+
+        ## Context
+        text
+
+        ## Input Artifacts
+        - item
+
+        ## Automation
+        text
+
+        ## Step-by-step Plan
+        1. step
+
+        ## Fail-fast & Questions
+        text
+
+        ## Response Format
+        text
+        """
+    ).strip() + "\n"
+
+
+def test_prompt_locale_mismatch_blocks(tmp_path):
+    _seed_prompt_pairs(tmp_path)
+    result = run_hook(tmp_path, "gate-workflow.sh", PROMPT_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+    write_file(tmp_path, ".claude/agents/analyst.md", _ru_prompt("1.0.1"))
+    result = run_hook(tmp_path, "gate-workflow.sh", PROMPT_PAYLOAD)
+    assert result.returncode == 2
+    assert "Lang-Parity" in result.stderr or "Lang-Parity" in result.stdout
+
+    _update_pair_versions(tmp_path, "analyst", "idea-new", "1.0.1")
+    result = run_hook(tmp_path, "gate-workflow.sh", PROMPT_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
+def _ru_command(version: str, skip: bool = False, name: str = "plan-new") -> str:
+    text = dedent(
+        f"""
+        ---
+        description: "{name}"
+        argument-hint: "<TICKET>"
+        lang: ru
+        prompt_version: {version}
+        source_version: {version}
+        allowed-tools: Read
+        model: inherit
+        ---
+
+        ## Контекст
+        text
+
+        ## Входные артефакты
+        - item
+
+        ## Когда запускать
+        text
+
+        ## Автоматические хуки и переменные
+        text
+
+        ## Что редактируется
+        text
+
+        ## Пошаговый план
+        1. step
+
+        ## Fail-fast и вопросы
+        text
+
+        ## Ожидаемый вывод
+        text
+
+        ## Примеры CLI
+        - `/cmd`
+        """
+    ).strip() + "\n"
+    if skip:
+        text = text.replace("model: inherit", "model: inherit\nLang-Parity: skip", 1)
+    return text
+
+
+def _en_command(version: str, source: str, name: str = "plan-new") -> str:
+    return dedent(
+        f"""
+        ---
+        description: "{name}"
+        argument-hint: "<TICKET>"
+        lang: en
+        prompt_version: {version}
+        source_version: {source}
+        allowed-tools: Read
+        model: inherit
+        ---
+
+        ## Context
+        text
+
+        ## Input Artifacts
+        - item
+
+        ## When to Run
+        text
+
+        ## Automation & Hooks
+        text
+
+        ## What is Edited
+        text
+
+        ## Step-by-step Plan
+        1. step
+
+        ## Fail-fast & Questions
+        text
+
+        ## Expected Output
+        text
+
+        ## CLI Examples
+        - `/cmd`
+        """
+    ).strip() + "\n"
+
+
+def test_command_locale_mismatch_blocks(tmp_path):
+    _seed_prompt_pairs(tmp_path)
+    result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+    write_file(tmp_path, ".claude/commands/plan-new.md", _ru_command("1.0.1"))
+    result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
+    assert result.returncode == 2
+    assert "Lang-Parity" in result.stderr or "Lang-Parity" in result.stdout
+
+    _apply_lang_parity_skip(tmp_path, "planner", "plan-new", "1.0.1")
+    result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+    _update_pair_versions(tmp_path, "planner", "plan-new", "1.1.0")
+    result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
+def _seed_prompt_pairs(root: Path) -> None:
+    for agent_name, command_name in PROMPT_PAIRS:
+        _update_pair_versions(root, agent_name, command_name, "1.0.0")
+
+
+def _update_pair_versions(root: Path, agent_name: str, command_name: str, version: str) -> None:
+    write_file(root, f".claude/agents/{agent_name}.md", _ru_prompt(version, agent_name))
+    write_file(root, f"prompts/en/agents/{agent_name}.md", _en_prompt(version, version, agent_name))
+    write_file(root, f".claude/commands/{command_name}.md", _ru_command(version, name=command_name))
+    write_file(root, f"prompts/en/commands/{command_name}.md", _en_command(version, version, command_name))
+
+
+def _apply_lang_parity_skip(root: Path, agent_name: str, command_name: str, version: str) -> None:
+    write_file(root, f".claude/agents/{agent_name}.md", _ru_prompt(version, agent_name, skip=True))
+    write_file(root, f".claude/commands/{command_name}.md", _ru_command(version, skip=True, name=command_name))
+    for path in (
+        root / "prompts/en/agents" / f"{agent_name}.md",
+        root / "prompts/en/commands" / f"{command_name}.md",
+    ):
+        if path.exists():
+            path.unlink()
 
 
 def test_allows_pending_research_baseline(tmp_path):
