@@ -47,7 +47,7 @@ claude-presets/
 ```yaml
 context:
   files:
-    - doc/backlog.md
+    - docs/.active_feature
     - workflow.md
     - docs/customization.md
   instructions:
@@ -55,7 +55,7 @@ context:
     - "Отрази критерии успеха и связанные ADR."
 ```
 
-Слоты `{{feature}}`, `{{acceptance_criteria}}`, `{{plan_links}}` заполняются CLI-утилитой, которая читает `doc/backlog.md`, актуальный тасклист и дополнительные аргументы пользователя.
+Слоты `{{feature}}`, `{{acceptance_criteria}}`, `{{plan_links}}` заполняются CLI-утилитой, которая читает slug-hint (`docs/.active_feature`), актуальный тасклист и дополнительные аргументы пользователя.
 
 ### Выходные данные
 
@@ -107,7 +107,7 @@ claude:
 
 ## Источники данных
 
-- `doc/backlog.md` — база идей и активных фич.
+- `docs/.active_feature` — хранит пользовательский slug-hint и описание активной фичи.
 - `workflow.md` — структура этапов; пресеты должны ссылаться на соответствующие гейты.
 - `docs/tasklist.template.md`, `docs/prd.template.md`, `docs/adr.template.md` — шаблоны, которые агент использует при генерации.
 

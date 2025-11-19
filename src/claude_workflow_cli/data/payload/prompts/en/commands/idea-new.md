@@ -9,12 +9,13 @@ model: inherit
 ---
 
 ## Context
-`/idea-new` registers the active feature, scaffolds a PRD, runs Researcher, and kicks off the analyst dialog. It enforces the agent-first flow: analysts and researchers mine repository artifacts (`doc/backlog.md`, `docs/research/*.md`, `reports/research/*.json`) and run allowed CLI commands before escalating to the user.
+`/idea-new` registers the active feature, scaffolds a PRD, runs Researcher, and kicks off the analyst dialog. It enforces the agent-first flow: analysts and researchers mine the slug-hint (`docs/.active_feature`), `docs/research/*.md`, `reports/research/*.json`, and run allowed CLI commands before escalating to the user.
 
 ## Input Artifacts
-- Backlog idea / user notes (`doc/backlog.md`, `rg <ticket> doc/backlog.md`).
+- Slug-hint / user notes (argument `[slug-hint]` and `rg <ticket> docs/**`).
 - `docs/prd.template.md` — used for scaffolding.
 - `docs/research/<ticket>.md`, `reports/research/<ticket>-(context|targets).json` — created/updated automatically; when missing, `docs/templates/research-summary.md` is used as baseline.
+- User-provided `slug-hint` from `/idea-new <ticket> [slug-hint]` — treat it as the primary raw idea; record it in PRD (overview/context) and backlog notes if applicable.
 
 ## When to Run
 - At the very beginning of a feature lifecycle.
@@ -32,10 +33,10 @@ model: inherit
 - Auto-generated `reports/research/<ticket>-(context|targets).json`.
 
 ## Step-by-step Plan
-1. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` — it updates `docs/.active_ticket`, `.active_feature`, and scaffolds the PRD (use `--force` only after confirming you may overwrite the current ticket).
+1. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` — it updates `docs/.active_ticket`, `.active_feature` (capturing the slug-hint as the raw user request), and scaffolds the PRD (use `--force` only after confirming you may overwrite the current ticket).
 2. Execute `claude-workflow research --ticket "$1" --auto` to collect repository context. Pass `--paths/--keywords/--note` only when the default scan misses important modules; otherwise rely on the repo-driven output.
 3. If the CLI reports `0 matches`, expand `docs/templates/research-summary.md` into `docs/research/$1.md`, add the “Context empty, baseline required” note, and list all commands/paths that returned nothing.
-4. Launch the **analyst** agent via `/analyst`. Instruct it to extract data from `doc/backlog.md`, `docs/research/<ticket>.md`, `reports/research/*.json` first and raise user questions only for gaps (answers must follow `Answer N:` format).
+4. Launch the **analyst** agent via `/analyst`. Instruct it to extract data from the slug-hint (`docs/.active_feature`), `docs/research/<ticket>.md`, `reports/research/*.json` first and raise user questions only for gaps (answers must follow `Answer N:` format).
 5. Analyst fills `docs/prd/$1.prd.md`: references to research/backlog, goals, scenarios, metrics, risks, dialog block. Switch the status from draft to READY once repo data plus any needed answers cover all sections.
 6. Run `claude-workflow analyst-check --ticket "$1"` and fix any reported mismatches before continuing.
 7. Optionally apply preset `feature-prd` or attach notes via `--note @file.md` to pre-populate research/PRD context.

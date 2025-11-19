@@ -5,7 +5,7 @@
 исследование завершено и рекомендации приняты командой.
 
 ## Idea → Research
-- Запустите `/idea-new <ticket> [slug-hint]`: команда фиксирует активный тикет, автогенерирует `docs/prd/<ticket>.prd.md` и вызывает `claude-workflow research --ticket <ticket> --auto`. Аналитик сначала читает `doc/backlog.md`, `docs/research/<ticket>.md`, `reports/research/*.json`, фиксирует источники в PRD, и только если репозитория недостаточно — формирует вопросы формата `Вопрос/Ответ N`.
+- Запустите `/idea-new <ticket> [slug-hint]`: команда фиксирует активный тикет, сохраняет slug-hint пользователя в `docs/.active_feature`, автогенерирует `docs/prd/<ticket>.prd.md` и вызывает `claude-workflow research --ticket <ticket> --auto`. Аналитик начинает со slug-hint, затем читает `docs/research/<ticket>.md`, `reports/research/*.json`, фиксирует источники в PRD и только при нехватке данных запускает Q&A.
 - Поддерживайте `Status: READY/BLOCKED` и `## 10. Открытые вопросы`, указывая, какие данные нужны (ссылки на файлы/команды). После каждого обновления запускайте `claude-workflow analyst-check --ticket <ticket>` — он подтвердит, что диалог заполнен и PRD не остался в `draft`.
 - Если `claude-workflow research --auto` не находит контекст, Researcher разворачивает `docs/templates/research-summary.md`, добавляет baseline «Контекст пуст...» и перечисляет команды/пути, которые уже проверены; только после этого просите команду уточнить `--paths/--keywords`.
 

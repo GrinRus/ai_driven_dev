@@ -2,8 +2,8 @@
   "files": [
     {
       "path": ".claude/agents/analyst.md",
-      "size": 6767,
-      "sha256": "d4459b2da62fac93c83f79e9419b3e74cc41c0a0bb5c933ce1e8ba6f4dfed493",
+      "size": 6754,
+      "sha256": "36d02c4c0881e666b10d7287d93659d7d1f700560bfe90120171727b1acd9b39",
       "type": "file"
     },
     {
@@ -26,14 +26,14 @@
     },
     {
       "path": ".claude/agents/planner.md",
-      "size": 4024,
-      "sha256": "b7b3082fe1fedbbfbd045832463d3bc7bd2c572f7dd5ede2ef4013ef5f0cbcd9",
+      "size": 4056,
+      "sha256": "664182b9ffa693b7582a9d3c2326e691b674a8e0f95a4448016a6de93a1297ce",
       "type": "file"
     },
     {
       "path": ".claude/agents/prd-reviewer.md",
-      "size": 3231,
-      "sha256": "752d65abc0267c46d3ce5a52072b5e5e04c9ad235e4a5a685788036894d97768",
+      "size": 3252,
+      "sha256": "ebaa0f6c66b44bfe4fed84887cd71fa502f337ad01754c0b9b1ed9d1f50edc09",
       "type": "file"
     },
     {
@@ -44,8 +44,8 @@
     },
     {
       "path": ".claude/agents/researcher.md",
-      "size": 6647,
-      "sha256": "5af1fd9e72073a3475b06af9145451d52da654b2256a2efeacbe18781cc18510",
+      "size": 6665,
+      "sha256": "4f50167b5fb2325eccb9369a07dc8ebb01054fe9e5cd7771335c53235fd0823c",
       "type": "file"
     },
     {
@@ -68,8 +68,8 @@
     },
     {
       "path": ".claude/commands/idea-new.md",
-      "size": 7941,
-      "sha256": "f64a543f153a33f2a89274aaf18248b32b46da7c916a550e2e3c1705f552474c",
+      "size": 8389,
+      "sha256": "83baace8094a7d647b67653d5047bcad055cb18741e5a2591284a67da1658925",
       "type": "file"
     },
     {
@@ -236,14 +236,14 @@
     },
     {
       "path": "README.en.md",
-      "size": 31028,
-      "sha256": "ac2ed46b37980ddcc1770b632af4bfc08c00686ea5cc88f455949fd609d9f73e",
+      "size": 30948,
+      "sha256": "6753618bf4bc45b9628c123ba97cb4cd2ec771bb1eb0ae0d6820f54706fe049d",
       "type": "file"
     },
     {
       "path": "README.md",
-      "size": 51768,
-      "sha256": "b9bdcadfd68432b9dd096a026e9c706cd2c685f4953cd2284df855168c253aaf",
+      "size": 51388,
+      "sha256": "2c38eb4c974170042d63f0e9651bf2f4eb22d27f8a8b2a06cbaac31577a9e0e2",
       "type": "file"
     },
     {
@@ -266,8 +266,8 @@
     },
     {
       "path": "claude-presets/feature-impl.yaml",
-      "size": 2744,
-      "sha256": "751adc6250ff31d9c6e1ae7f8c34ddb318f293af2acd166d006844a3a6f7a01e",
+      "size": 2723,
+      "sha256": "dc9288be419e079a3f14140648acbb771fb194a027ef8e62a2e777b0acf100fd",
       "type": "file"
     },
     {
@@ -278,8 +278,8 @@
     },
     {
       "path": "claude-presets/feature-prd.yaml",
-      "size": 2134,
-      "sha256": "ab9f74dcaa8451b06445223648777c650c0122c5fb5759e62f7a334561227eef",
+      "size": 2185,
+      "sha256": "80fb39d813d2f1289902b3d4ae8a4c757949292f82ad078da9c0b8e62f0b5848",
       "type": "file"
     },
     {
@@ -326,8 +326,8 @@
     },
     {
       "path": "docs/agents-playbook.md",
-      "size": 20579,
-      "sha256": "0d1ad725e0456693c4ca0ca18219b496522484a467b2691bd664b362a1d66170",
+      "size": 20574,
+      "sha256": "6cf9e3a762c68a9578833176726fcb1e23cf5cc5880efb3e319bc29c3002d67a",
       "type": "file"
     },
     {
@@ -338,14 +338,14 @@
     },
     {
       "path": "docs/design/feature-presets.md",
-      "size": 6632,
-      "sha256": "8020646917eb67bc9cb412d6babe7776a51649082e65eb23cd1bf5a0e145ea06",
+      "size": 6719,
+      "sha256": "f674786485ea6760cf96126f30608f160ec87bac8a792e253a590d8fa87b9cc9",
       "type": "file"
     },
     {
       "path": "docs/feature-cookbook.md",
-      "size": 4402,
-      "sha256": "0618e7c67097b49f09b0d543aa85172dccc7551d6229b7cb2ce84519162aa956",
+      "size": 4415,
+      "sha256": "021d0637c3fc4de8c6741e6ea1dae677d317c3bf404dc7a2235e099677bb9306",
       "type": "file"
     },
     {
@@ -362,14 +362,14 @@
     },
     {
       "path": "docs/prd.template.md",
-      "size": 6096,
-      "sha256": "089538ce218c07436bd6fb7d9dfedd289f4a39ce2e1767171cfff89214cab7c0",
+      "size": 6089,
+      "sha256": "421bebb429ac8cd18aeb9dce9599416dc83f27d144ed2dba022e5b862e60555f",
       "type": "file"
     },
     {
       "path": "docs/prompt-playbook.md",
-      "size": 13690,
-      "sha256": "ad1a216d2757df893e0de33d61295537401f004ed5cb3c10648e94b04343e0b6",
+      "size": 13763,
+      "sha256": "47de345503f9a8a5c100eff4afb2b728f638b6cfb8e0975663604c9b97c89a00",
       "type": "file"
     },
     {
@@ -404,8 +404,8 @@
     },
     {
       "path": "docs/tasklist.template.md",
-      "size": 5561,
-      "sha256": "c057008e2616342694491e1569930062d46abf924e975a8572b0805c9905ec1d",
+      "size": 5630,
+      "sha256": "7f7a97cc2e5d44f22004620c84def6c7113df6f0250885d322557df1d82c7a19",
       "type": "file"
     },
     {
@@ -416,14 +416,14 @@
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 23980,
-      "sha256": "7fe9ac286260ff7f8e259d9b93b24797eb78920db8f89a0509be144b413124bb",
+      "size": 20188,
+      "sha256": "d3cfa2cecda921fd3ecfed947998a07771bc553ee37af93c7e0c9395b443342f",
       "type": "file"
     },
     {
       "path": "prompts/en/agents/analyst.md",
-      "size": 4207,
-      "sha256": "dc6e74b14d521a96594760c17f822699da56c3275e8724dc3ae24fadeebce002",
+      "size": 4463,
+      "sha256": "1d59f9b3fa2b531952328373d35ea3ded1a066efad48f67c3cfa1bd91d2cc17e",
       "type": "file"
     },
     {
@@ -464,8 +464,8 @@
     },
     {
       "path": "prompts/en/agents/researcher.md",
-      "size": 3401,
-      "sha256": "60da40f493bf90666df01dd34e9640b97e667e0d720654e964fbf4dccca4be8d",
+      "size": 3419,
+      "sha256": "ad6e80c491a034bfbeba704f39b7197d45048e6dc5c2fc2a1981af20fdf8da12",
       "type": "file"
     },
     {
@@ -482,8 +482,8 @@
     },
     {
       "path": "prompts/en/commands/idea-new.md",
-      "size": 4113,
-      "sha256": "da2316374560328aacb1bca04a96252dd48156e1327de1eec7b6c25ce693525a",
+      "size": 4357,
+      "sha256": "5f1542abdf5ce4a3abe960c978dd6cef7016f0e0044e9f6421435484b36c67d5",
       "type": "file"
     },
     {
@@ -596,14 +596,14 @@
     },
     {
       "path": "templates/prompt-agent.md",
-      "size": 3436,
-      "sha256": "f06b8db853b2a895f9d53a3239bb9f2626a75a2ec12ede9f47e8fba3f48f56bd",
+      "size": 3494,
+      "sha256": "ff8ffc68c47b10466b3679a84f5457374cb2e0fb63f83224b0fb27334f1c4654",
       "type": "file"
     },
     {
       "path": "templates/prompt-command.md",
-      "size": 4272,
-      "sha256": "18d2333103235b9b3042bcfb7bb8850a23be65ae6dc4b0146a5fdcf98f34b7ab",
+      "size": 4290,
+      "sha256": "3e503f729b9fdbeb273fbef81e630cea57c9577037b1290a7c891d515d508faf",
       "type": "file"
     },
     {
@@ -656,8 +656,8 @@
     },
     {
       "path": "workflow.md",
-      "size": 14996,
-      "sha256": "f49603a1a633b2b98ddebe11cc5ee9b086710e745f6d4bb993053484f0d1e01b",
+      "size": 14990,
+      "sha256": "72bbdadf57935cd43cb01eb3c6b8429711ce67fa5d58a77e1c48dbb7515b82f7",
       "type": "file"
     }
   ]

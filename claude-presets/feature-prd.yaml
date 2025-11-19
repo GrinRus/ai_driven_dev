@@ -2,7 +2,7 @@
 name: feature-prd
 workflow_step: 1-idea
 description: >
-  Подготовка PRD для новой фичи на основе backlog, workflow и шаблона PRD.
+  Подготовка PRD для новой фичи на основе slug-hint пользователя, workflow и шаблона PRD.
 variables:
   feature:
     prompt: "Slug активной фичи (например, checkout-improvements)."
@@ -12,7 +12,7 @@ variables:
       сгенерировать.
 context:
   files:
-    - doc/backlog.md
+    - docs/.active_feature
     - workflow.md
     - docs/prd.template.md
     - docs/customization.md
@@ -21,7 +21,7 @@ context:
     - reports/research/{{feature}}-targets.json
   instructions:
     - >-
-      Перед генерацией прочитай doc/backlog.md, docs/research/{{feature}}.md и
+      Перед генерацией прочитай slug-hint (docs/.active_feature), docs/research/{{feature}}.md и
       reports/research/{{feature}}-(context|targets).json. Зафиксируй в PRD,
       какие источники использовались, и перечисли команды/пути, которые уже
       проверил.

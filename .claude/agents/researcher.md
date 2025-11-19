@@ -14,7 +14,7 @@ model: inherit
 ## Входные артефакты
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md` (если уже создан), `docs/tasklist/<ticket>.md` — границы изменений.
 - `reports/research/<ticket>-context.json` и `reports/research/<ticket>-targets.json` — список каталогов/ключевых слов/экспертов.
-- `doc/backlog.md`, `docs/prompt-playbook.md`, ADR/исторические PR — используем для поиска похожих решений (`rg <ticket|feature>`).
+- `docs/.active_feature` (slug-hint), `docs/prompt-playbook.md`, ADR/исторические PR — используем для поиска похожих решений (`rg <ticket|feature>`).
 - Тестовые каталоги (`tests/**`, `src/**/test*`) и скрипты миграций — чтобы предложить готовые паттерны проверки.
 
 ## Автоматизация

@@ -54,7 +54,7 @@
 Детали настройки и расширения описаны в `workflow.md` и `docs/customization.md`.
 
 ## Agent-first принципы
-- **Сначала репозиторий, затем вопросы.** Аналитик читает `doc/backlog.md`, `docs/research/<ticket>.md`, `reports/research/*.json` и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto`, `rg "<ticket>" src/**`, `find`, `python`), а implementer обновляет tasklist и перечисляет запущенные `./gradlew`/`claude-workflow progress` перед тем как обращаться к пользователю.
+- **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `docs/.active_feature` (пользовательский slug-hint), затем читает `docs/research/<ticket>.md`, `reports/research/*.json`, существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto`, `rg "<ticket>" src/**`, `find`, `python`), а implementer обновляет tasklist и перечисляет запущенные `./gradlew`/`claude-workflow progress` перед тем как обращаться к пользователю.
 - **Команды и логи — часть ответа.** Все промпты и шаблоны требуют указывать разрешённые CLI (Gradle, `rg`, `claude-workflow`) и прикладывать вывод/пути, чтобы downstream-агенты могли воспроизвести шаги. Tasklist и research-шаблон теперь содержат разделы «Commands/Reports».
 - **Автогенерация артефактов.** `/idea-new` автоматически создаёт PRD, обновляет отчёты Researcher и инструктирует аналитика собирать данные из репозитория. Пресеты `templates/prompt-agent.md` и `templates/prompt-command.md` подсказывают, как описывать входы, гейты, команды и fail-fast блоки в стиле agent-first.
 
@@ -70,7 +70,6 @@
 | `config/gates.json` | Параметры гейтов | Управляет `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
 | `config/allowed-deps.txt` | Allowlist зависимостей | Формат `group:artifact`; предупреждения выводит `lint-deps.sh` |
-| `doc/backlog.md` | План работ | Зафиксированные Wave 1/2 задачи и состояние их выполнения |
 | `docs/` | Руководства и шаблоны | `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, шаблоны PRD/ADR/tasklist, рабочие артефакты фич |
 | `examples/` | Демо-материалы | Сценарий `apply-demo.sh`, заготовка Gradle-монорепо `gradle-demo/` |
 | `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke сценарий gate-workflow), `prd-review-agent.py` (эвристика ревью PRD), `qa-agent.py` (эвристический QA-агент), `bootstrap-local.sh` (локальное dogfooding payload) |
@@ -133,7 +132,7 @@
 - `workflow.md`, `docs/customization.md`, `docs/agents-playbook.md` — описывают процесс idea→research→review, walkthrough установки, настройку `.claude/settings.json` и роли саб-агентов.
 - `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — шаблоны с подсказками, чеклистами, секциями истории изменений и примерами заполнения.
 - `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — готовые `commit-msg`, `prepare-commit-msg`, `pre-push` с инструкциями, переменными окружения и советами по развёртыванию.
-- `doc/backlog.md`, `docs/release-notes.md` — wave-бэклог (Wave 1/2) и регламент релизов, помогают планировать roadmap и управлять changelog.
+- `docs/release-notes.md` — регламент релизов и checklist обновлений (используется для планирования roadmap и changelog).
 
 ### Тесты и контроль качества
 - `tests/helpers.py` — утилиты: генерация файлов, git init/config, создание `config/gates.json`, запуск хуков.
@@ -192,7 +191,7 @@
 ## Документация и шаблоны
 - `workflow.md`, `docs/agents-playbook.md` — описывают целевой цикл idea→review, роли саб-агентов и взаимодействие с гейтами.
 - `workflow.md`, `docs/customization.md` — walkthrough применения bootstrap к Gradle-монорепо и подробности настройки `.claude/settings.json`, гейтов, шаблонов команд.
-- `docs/release-notes.md`, `doc/backlog.md` — регламент релизов и wave-бэклог (Wave 1/2) для планирования roadmap.
+- `docs/release-notes.md` — регламент релизов и планирование roadmap.
 - `docs/prompt-playbook.md` — единые правила оформления промптов агентов/команд (обязательные секции, `Checkbox updated`, Fail-fast, ссылки на артефакты и матрица ролей).
 - `docs/prompt-versioning.md` — политика двуязычных промптов, правила `prompt_version`, `Lang-Parity: skip`, скрипты `prompt-version` и `prompt_diff`.
 - `templates/prompt-agent.md`, `templates/prompt-command.md`, `claude-presets/advanced/prompt-governance.yaml` — шаблоны и пресет для генерации новых промптов; используйте вместе со скриптом `scripts/scaffold_prompt.py`.
@@ -205,7 +204,6 @@
 - `scripts/smoke-workflow.sh` + `workflow.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
 
 ## Незакрытые задачи и наблюдения
-- `doc/backlog.md` хранит Wave 2 пункты, среди которых исторические CLI (`scripts/commit_msg.py`, `scripts/branch_new.py`, `scripts/conventions_set.py`, удалены в Wave 9) и Gradle-хелпера в репозиторий после генерации.
 - `claude-workflow-extensions.patch` расширяет агентов/команды; применяйте его вручную и фиксируйте конфликты, если используете дополнительные гейты.
 - Собирая новый монорепо, переносите `.claude/` (команды, гейты, Gradle-хелпер) под контроль версий — smoke/CI тесты ожидают их наличия.
 - Следите за синхронизацией `README.en.md` (метка _Last sync_) после обновлений документации.

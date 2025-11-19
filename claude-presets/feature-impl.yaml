@@ -18,7 +18,6 @@ context:
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
     - docs/research/{{feature}}.md
-    - doc/backlog.md
     - reports/research/{{feature}}-context.json
     - reports/research/{{feature}}-targets.json
   instructions:

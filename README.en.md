@@ -57,7 +57,7 @@ _Last sync with `README.md`: 2025-11-19._
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
 ## Agent-first principles
-- **Repository-first, questions later.** Analyst reads `doc/backlog.md`, `docs/research/<ticket>.md`, and `reports/research/*.json` before creating any Q&A. Researcher records every command (`claude-workflow research --auto`, `rg "<ticket>" src/**`, `find`, `python`), and implementer updates the tasklist plus lists executed `./gradlew` / `claude-workflow progress` runs before pinging the user.
+- **Slug-hint and repository first, questions later.** Analyst starts with the slug-hint stored in `docs/.active_feature`, then reads `docs/research/<ticket>.md`, `reports/research/*.json`, and existing plans before creating any Q&A. Researcher records every command (`claude-workflow research --auto`, `rg "<ticket>" src/**`, `find`, `python`), and implementer updates the tasklist plus lists executed `./gradlew` / `claude-workflow progress` runs before pinging the user.
 - **Commands & logs are part of the answer.** Prompts and templates now require documenting allowed CLI invocations (Gradle, `rg`, `claude-workflow`) and attaching logs/paths so downstream agents can reproduce the steps. Tasklist and research templates include explicit `Commands/Reports` sections.
 - **Auto-generated artifacts.** `/idea-new` scaffolds PRD, refreshes research reports, and instructs the analyst to mine repository data. The `templates/prompt-agent.md` / `templates/prompt-command.md` presets describe how to document inputs, gates, commands, and fail-fast rules in an agent-first style.
 
@@ -73,7 +73,6 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 | `config/gates.json` | Gate toggles | Controls `api_contract`, `db_migration`, `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
-| `doc/backlog.md` | Wave backlog | Tracks Wave 1/2 tasks and completion status |
 | `docs/` | Guides & templates | `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, PRD/ADR/tasklist templates and feature artefacts |
 | `examples/` | Demo assets | `apply-demo.sh` and the placeholder Gradle monorepo `gradle-demo/` |
 | `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `prd-review-agent.py` (heuristic PRD reviewer), `qa-agent.py` (heuristic QA agent) |
@@ -131,7 +130,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `workflow.md`, `docs/customization.md`, `docs/agents-playbook.md` — cover the idea→research→PRD review→implementation lifecycle, bootstrap walkthrough, `.claude/settings.json` tuning, and sub-agent responsibilities.
 - `docs/prd.template.md`, `docs/adr.template.md`, `docs/tasklist.template.md`, `templates/tasklist.md` — enriched artefact templates with prompts, checklists, and change logs.
 - `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — ready-to-copy `commit-msg`, `prepare-commit-msg`, `pre-push` hooks with setup guidance and env toggles.
-- `doc/backlog.md`, `docs/release-notes.md` — wave backlog (Wave 1/2) and release governance to steer the roadmap.
+- `docs/release-notes.md` — release governance to steer the roadmap.
 
 ### Tests & quality
 - `tests/helpers.py` — helper utilities to create files, initialise git, generate `config/gates.json`, and run hooks.
@@ -181,7 +180,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Docs & templates
 - `workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
 - `workflow.md` also carries the Gradle bootstrap walkthrough, while `docs/customization.md` covers tuning `.claude/settings.json`, gates, and command templates.
-- `docs/release-notes.md` and `doc/backlog.md` track release cadence and the Wave 1/2 roadmap.
+- `docs/release-notes.md` tracks release cadence and the roadmap.
 - PRD/ADR/tasklist templates (`docs/*.template.md`, `templates/tasklist.md`) plus git-hook samples (`templates/git-hooks/*.sample`) streamline onboarding.
 - Keep `README.md` and `README.en.md` in sync and update the _Last sync_ stamp whenever content changes.
 

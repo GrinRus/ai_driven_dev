@@ -14,7 +14,7 @@ Researcher runs before planning and implementation. It must walk the repository,
 ## Input Artifacts
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md` (scope), `docs/tasklist/<ticket>.md` if available.
 - `reports/research/<ticket>-context.json` / `-targets.json` produced by `claude-workflow research` (paths, keywords, experts).
-- `doc/backlog.md`, ADRs, historical PRs for similar initiatives (`rg <ticket|feature>`).
+- `docs/.active_feature` (slug-hint), ADRs, historical PRs for similar initiatives (`rg <ticket|feature>`).
 - Test suites (`tests/**`, `src/**/test*`) and migration scripts to recommend validation patterns.
 
 ## Automation

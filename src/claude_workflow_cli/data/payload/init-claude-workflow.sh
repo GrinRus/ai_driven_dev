@@ -302,53 +302,6 @@ preset_default_goals() {
 EOF
 }
 
-extract_wave7_defaults() {
-  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - <<'PY'
-from pathlib import Path
-import re
-import os
-import base64
-
-primary = Path("doc/backlog.md")
-fallback_dir = Path(os.environ.get("CLAUDE_TEMPLATE_DIR", ""))
-fallback = fallback_dir / "doc/backlog.md"
-path = primary if primary.exists() else fallback
-slug = ""
-title = ""
-tasks = []
-if path.exists():
-    lines = path.read_text(encoding="utf-8").splitlines()
-    in_wave7 = False
-    collecting = False
-    for line in lines:
-        if line.startswith("## "):
-            in_wave7 = line.strip().lower() == "## wave 7"
-            collecting = False
-            continue
-        if in_wave7 and line.startswith("### "):
-            title = line[4:].strip()
-            slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
-            collecting = True
-            continue
-        if collecting:
-            if line.startswith("### "):
-                break
-            stripped = line.strip()
-            if stripped.startswith("- ["):
-                entry = stripped.split("]", 1)[1].strip()
-                if entry:
-                    tasks.append(entry)
-if not slug and title:
-    slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
-
-joined = "\n".join(tasks)
-encoded = base64.b64encode(joined.encode("utf-8")).decode("ascii") if joined else ""
-print(slug or "demo-checkout")
-print(title or "Demo Checkout Presets")
-print(encoded)
-PY
-}
-
 slug_to_title() {
   local slug="$1"
   slug="${slug//_/ }"
@@ -476,42 +429,12 @@ apply_preset() {
     return
   fi
 
-  local defaults_output
-  defaults_output="$(extract_wave7_defaults)"
-  local default_slug
-  default_slug="$(printf '%s\n' "$defaults_output" | sed -n '1p')"
-  local default_title
-  default_title="$(printf '%s\n' "$defaults_output" | sed -n '2p')"
-  local tasks_source=""
-  local tasks_b64
-  tasks_b64="$(printf '%s\n' "$defaults_output" | sed -n '3p')"
-  if [[ -n "$tasks_b64" ]]; then
-    tasks_source="$(TASKS_B64="$tasks_b64" python3 - <<'PY'
-import base64, os
-data = os.environ.get("TASKS_B64", "")
-if data:
-    try:
-        print(base64.b64decode(data.encode("ascii")).decode("utf-8"))
-    except Exception:
-        pass
-PY
-)"
-  fi
-
-  local slug="${PRESET_TICKET:-${default_slug:-demo-checkout}}"
-  local title=""
-  if [[ -n "$PRESET_TICKET" ]] ; then
-    title="$(slug_to_title "$slug")"
-  else
-    title="${default_title:-}"
-    if [[ -z "$title" ]]; then
-      title="$(slug_to_title "$slug")"
-    fi
-  fi
+  local slug="${PRESET_TICKET:-demo-agent-first}"
+  local title="$(slug_to_title "$slug")"
   local goals_block
   goals_block="$(preset_default_goals | format_bullets)"
   local tasks_block
-  tasks_block="$(printf '%s' "$tasks_source" | format_bullets)"
+  tasks_block="$(format_bullets < /dev/null)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log_info "[dry-run] preset ${PRESET_NAME} (ticket=${slug})"
     return
@@ -527,7 +450,7 @@ PY
 ## Контекст
 - Фича: ${title}
 - Цель: автоматизировать пресеты Claude Code для стадий фичи.
-- Источники: doc/backlog.md (Wave 7), workflow.md.
+- Источники: slug-hint пользователя, workflow.md.
 
 ## Цели и метрики успеха
 ${goals_block}
@@ -554,7 +477,7 @@ ${tasks_block}
 
 ## Риски и ограничения
 - Пересоздание артефактов должно быть безопасным (учитываем режим overwrite/append).
-- Подбор дефолтных значений для плейсхолдеров берём из doc/backlog.md и workflow.md.
+- Подбор дефолтных значений для плейсхолдеров берём из workflow.md и пользовательских вводных.
 
 ## План проверки
 ${goals_block}
@@ -632,34 +555,6 @@ generate_core_docs() {
   copy_template "CLAUDE.md" "CLAUDE.md" "append"
   copy_template "conventions.md" "conventions.md"
   copy_template "workflow.md" "workflow.md"
-}
-
-generate_backlog_stub() {
-  local backlog_path="doc/backlog.md"
-  if [[ -f "$backlog_path" && "$FORCE" -ne 1 ]]; then
-    log_info "backlog exists: ${backlog_path}"
-    return
-  fi
-  local content
-  content="$(cat <<'EOF'
-# Feature Backlog
-
-## SAMPLE-1 — Demo agent-first ticket
-- **Контекст:** используйте `/idea-new SAMPLE-1`, затем сразу `claude-workflow research --ticket SAMPLE-1 --auto`, чтобы получить `reports/research/SAMPLE-1-(context|targets).json`.
-- **Источники:** `doc/backlog.md`, `docs/prd.template.md`, `docs/templates/research-summary.md`, `docs/tasklist.template.md`.
-- **Ожидания:**
-  - Аналитик читает backlog + research + reports, заполняет PRD и задаёт вопросы пользователю только если репозиторий не содержит ответа.
-  - Researcher перечисляет команды (`rg "sample" src/`, `python tools/list_modules.py`) и ссылки на файлы в `docs/research/SAMPLE-1.md`.
-  - Implementer запускает `claude-workflow progress --source implement --ticket SAMPLE-1` после каждой итерации и прикладывает логи `.claude/hooks/format-and-test.sh` / `./gradlew test` в tasklist.
-EOF
-)"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] write ${backlog_path}"
-    return
-  fi
-  mkdir -p "$(dirname "$backlog_path")"
-  printf '%s\n' "$content" >"$backlog_path"
-  log_info "written: ${backlog_path}"
 }
 
 generate_templates() {
@@ -804,7 +699,6 @@ main() {
   check_dependencies
   generate_directories
   generate_core_docs
-  generate_backlog_stub
   generate_templates
   generate_prompt_references
   copy_presets
