@@ -23,8 +23,9 @@ context:
   instructions:
     - >-
       Используй repo-first данные: прочитай PRD, research, backlog и отчёты
-      `reports/research/{{feature}}-(context|targets).json`, перечисли затронутые
-      модули и существующие точки интеграции.
+      `reports/research/{{feature}}-context.json` и
+      `reports/research/{{feature}}-targets.json`; перечисли затронутые модули
+      и существующие точки интеграции.
     - >-
       Сформируй план итерациями, ссылаясь на файлы/команды (например,
       `.claude/hooks/format-and-test.sh`, `./gradlew :service:test`). План
