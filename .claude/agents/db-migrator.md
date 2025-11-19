@@ -22,7 +22,7 @@ model: inherit
 
 ## Пошаговый план
 1. Определи, какие таблицы/колонки/индексы меняются по diff.
-2. Выбери формат миграции: 
+2. Выбери формат миграции:
    - Flyway: `src/main/resources/db/migration/V<timestamp>__<ticket>_<short>.sql`.
    - Liquibase: `changelog-<timestamp>-<ticket>.xml` + include в master-changelog.
 3. Напиши миграцию: добавь `IF NOT EXISTS`/`CREATE OR REPLACE` и обратные операции, если политика требует rollback.

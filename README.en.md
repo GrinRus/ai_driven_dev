@@ -272,15 +272,15 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
 ## Slash commands
 
-| Command | Purpose | Example |
-|---|---|---|
-| `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
-| `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
-| `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
-| `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |
-| `/implement` | Execute the plan with auto tests | `checkout-discounts` |
-| `/review` | Final code review and status sync | `checkout-discounts` |
-| `claude-workflow progress` | Ensure new completed checkboxes exist before closing a step | `--source implement --ticket checkout-discounts` |
+| Command                    | Purpose                                                        | Example                                       |
+|----------------------------|----------------------------------------------------------------|-----------------------------------------------|
+| `/idea-new`                | Gather inputs and scaffold PRD (Status: draft → READY)         | `STORE-123 checkout-discounts`                |
+| `/plan-new`                | Prepare plan and validation pass                               | `checkout-discounts`                          |
+| `/review-prd`              | Run structured PRD review and log status                       | `checkout-discounts`                          |
+| `/tasks-new`               | Refresh `docs/tasklist/<ticket>.md` from the plan              | `checkout-discounts`                          |
+| `/implement`               | Execute the plan with auto tests                               | `checkout-discounts`                          |
+| `/review`                  | Final code review and status sync                              | `checkout-discounts`                          |
+| `claude-workflow progress` | Ensure new completed checkboxes exist before closing a step   | `--source implement --ticket checkout-discounts` |
 
 ## Branch & commit modes
 

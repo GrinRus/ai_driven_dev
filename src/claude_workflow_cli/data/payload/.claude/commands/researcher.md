@@ -1,19 +1,52 @@
 ---
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента."
-argument-hint: "<TICKET> [--paths path1,path2] [--no-agent]"
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(*)
+argument-hint: "<TICKET> [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
+lang: ru
+prompt_version: 1.0.0
+source_version: 1.0.0
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(claude-workflow research:*),Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow preset:*)
+model: inherit
 ---
-1) Убедись, что активная фича совпадает с `ticket`: файл `docs/.active_ticket` должен содержать `$1`. Если нет — запусти `/idea-new $1` и синхронизируй slug-хинт при необходимости.
-2) Собери контекст автоматически:
-!bash -lc 'claude-workflow research --ticket "$1" --auto'
-   - `--paths "pathA:pathB"` и `--keywords "foo,bar"` расширяют охват, `--note "ручные наблюдения"`/`--note @memo.md` добавят свободный ввод в контекст;
-   - `--dry-run` сохранит только JSON, `--targets-only` пригодится, когда нужно обновить пути без сканирования.
-3) Если отчёт ещё не создан, распакуй шаблон `docs/templates/research-summary.md` в `docs/research/$1.md` и заполни блоки:
-   - `## Паттерны/анти-паттерны` — перечисли, что можно переиспользовать и чего стоит избегать;
-   - `## Отсутствие паттернов` — отметь «Контекст пуст, требуется baseline», если CLI сообщил `0 matches`, добавь рекомендации;
-   - `## Дополнительные заметки` — перенеси свободный ввод (`--note`) и ручные наблюдения.
-4) Запусти агента **researcher** через палитру (`Claude: Run agent → researcher`), передай ему JSON из `reports/research/$1-context.json` и обнови отчёт: статус `pending` допустим только в новых проектах; по завершении согласования проставь `Status: reviewed`.
-5) Зафиксируй решения:
-   - ссылка на `docs/research/$1.md` обязательна в PRD (`## Диалог analyst`) и `docs/tasklist/$1.md`;
-   - action items перенеси в `docs/plan/$1.md`/`docs/tasklist/$1.md`;
-   - если статус остаётся `pending`, обязательно пропиши baseline и TODO для перехода к reviewed.
+
+## Контекст
+Команда `/researcher` собирает кодовый контекст для новой фичи: запускает автоматический анализ, обновляет `docs/research/<ticket>.md` по шаблону и связывает результаты с PRD/plan/tasklist. Это обязательный шаг перед планированием и реализацией.
+
+## Входные артефакты
+- `docs/.active_ticket` и `.active_feature` — активный тикет/slug.
+- `docs/prd/<ticket>.prd.md` — для понимания целей.
+- `docs/templates/research-summary.md` — шаблон отчёта (если файл ещё не создан).
+- `reports/research/<ticket>-context.json` — формируется `claude-workflow research`.
+
+## Когда запускать
+- После `/idea-new`, до `/plan-new`.
+- Повторно — при появлении новых модулей/рисков или после значительного рефакторинга.
+
+## Автоматические хуки и переменные
+- `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ... --note ...]` сканирует кодовую базу и обновляет JSON.
+- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--no-agent` (пропустить запуск саб-агента).
+
+## Что редактируется
+- `docs/research/<ticket>.md` — отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус `pending`/`reviewed`).
+- PRD и tasklist получают ссылки на отчёт (если отсутствуют).
+
+## Пошаговый план
+1. Убедись, что активный ticket = `$1`. Если нет — запусти `/idea-new $1` или `python3 tools/set_active_feature.py $1`.
+2. Выполни `claude-workflow research --ticket "$1" --auto [доп. опции]`.
+3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
+4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, обнови отчёт, перенеси рекомендации.
+5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).
+6. Убедись, что ссылки на отчет добавлены в PRD (`## Диалог analyst`) и tasklist.
+
+## Fail-fast и вопросы
+- Нет активного тикета или PRD — остановись и попроси пользователя завершить `/idea-new`.
+- Пользователь не указал каталоги → попроси `--paths`/`--keywords` для более точного поиска.
+- Если отчёт остаётся `pending`, перечисли действия для перехода к `reviewed`.
+
+## Ожидаемый вывод
+- Обновлённый `docs/research/<ticket>.md` (статус `pending|reviewed`).
+- `reports/research/<ticket>-context.json` актуализирован.
+- PRD/tasklist содержат ссылку на отчёт.
+
+## Примеры CLI
+- `/researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout"`
+- `!bash -lc 'claude-workflow research --ticket "ABC-123" --auto --note "reuse payment gateway"'`

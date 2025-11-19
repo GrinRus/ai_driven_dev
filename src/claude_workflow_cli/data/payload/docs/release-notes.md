@@ -35,6 +35,7 @@
 - [ ] Обновить демо (`examples/gradle-demo/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить `scripts/ci-lint.sh` локально.
+- [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --kind agent --name <name>` точечно.
 - [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
 - [ ] Зафиксировать изменения в `docs/release-notes.md`.
 
@@ -59,10 +60,13 @@
 ### Added
 - `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`docs/.active_ticket`, обновлённый front-matter tasklist).
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
+- Двуязычные промпты: EN-варианты в `prompts/en/**`, линтер синхронизирует RU/EN, добавлены `docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
+- Добавлен флаг `--prompt-locale en` для `init-claude-workflow.sh`/`claude-workflow init`, который устанавливает EN-вариант `.claude/agents|commands`, а в проект копируется каталог `prompts/en/**` для дальнейшей синхронизации.
 
 ### Changed
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
 - `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не утверждён; smoke и unit-тесты обновлены под новый сценарий.
+- `scripts/ci-lint.sh` запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 
 ### Migration
 - Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `docs/.active_ticket` (если отсутствует) и дополнить `docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
