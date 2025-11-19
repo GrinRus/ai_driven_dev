@@ -33,7 +33,6 @@ context:
       ответа нужен.
     - docs/tasklist/{{feature}}.md
     - docs/customization.md
-  instructions:
     - >-
       Сверь текущий статус фичи {{feature}} с планом и tasklist
       (docs/tasklist/{{feature}}.md).

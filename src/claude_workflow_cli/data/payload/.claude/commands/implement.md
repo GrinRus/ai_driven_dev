@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET>"
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.1.0
+source_version: 1.1.0
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Read,Edit,Write,Grep,Glob
 model: inherit
 ---

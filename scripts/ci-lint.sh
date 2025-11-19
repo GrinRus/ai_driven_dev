@@ -143,8 +143,10 @@ run_answer_pattern_check() {
     warn "ripgrep not found; skipping Answer-pattern check"
     return
   fi
-  if rg -n --no-ignore --hidden --fixed-strings "Answer 1" . >/dev/null 2>&1; then
-    err "found forbidden literal 'Answer 1' (legacy manual Q&A instruction)"
+  local answer_literal="Answer "
+  answer_literal+="1"
+  if rg -n --no-ignore --hidden --fixed-strings "$answer_literal" . >/dev/null 2>&1; then
+    err "found forbidden literal '${answer_literal}' (legacy manual Q&A instruction)"
     STATUS=1
     return
   fi

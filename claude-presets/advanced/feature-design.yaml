@@ -30,7 +30,6 @@ context:
       `./gradlew :service-checkout:test`, `rg "{{feature}}" src/`), чтобы
       downstream-агенты могли воспроизвести решения.
     - docs/research/{{feature}}.md
-  instructions:
     - >-
       Сформируй архитектурный документ для фичи {{feature}}.
     - >-

@@ -30,7 +30,6 @@ context:
       на tasklist/PRD, чтобы обновлённый agent-first процесс был
       воспроизводим.
     - "{{release_notes_path}}"
-  instructions:
     - >-
       Проверь, что все чекбоксы по фиче {{feature}} закрыты.
     - >-

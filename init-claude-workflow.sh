@@ -430,7 +430,8 @@ apply_preset() {
   fi
 
   local slug="${PRESET_TICKET:-demo-agent-first}"
-  local title="$(slug_to_title "$slug")"
+  local title
+  title="$(slug_to_title "$slug")"
   local goals_block
   goals_block="$(preset_default_goals | format_bullets)"
   local tasks_block

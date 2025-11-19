@@ -79,7 +79,7 @@ echo
 echo "[NEXT STEPS]"
 echo "  1. Используйте slug-hint при '/idea-new DEMO-1 demo-agent-first' и зафиксируйте все вводные в PRD."
 echo "  2. Запустите 'claude-workflow research --ticket DEMO-1 --auto', чтобы собрать отчёты."
-echo "  3. Продолжайте цикл `/plan-new → /tasks-new → /implement`, опираясь на агент-first правила."
+echo "  3. Продолжайте цикл '/plan-new → /tasks-new → /implement', опираясь на агент-first правила."
 
 popd >/dev/null
 

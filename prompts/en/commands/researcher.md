@@ -2,8 +2,8 @@
 description: "Research report prep: collect context + run agent"
 argument-hint: "<TICKET> [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: en
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.1.0
+source_version: 1.1.0
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(claude-workflow research:*),Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow preset:*)
 model: inherit
 ---
