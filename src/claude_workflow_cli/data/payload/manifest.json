@@ -211,12 +211,6 @@
       "type": "file"
     },
     {
-      "path": ".github/workflows/gradle.yml",
-      "size": 811,
-      "sha256": "61e73d170886fe69548d60c7b33e3ba190f461d959f5cdfc9745c8562439b681",
-      "type": "file"
-    },
-    {
       "path": ".pre-commit-config.yaml",
       "size": 207,
       "sha256": "12fe54ab2b4e85770020c1e2dd3c8759a09ca88352cea4088b8ac7b1084f32c4",

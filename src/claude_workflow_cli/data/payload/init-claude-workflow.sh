@@ -745,7 +745,7 @@ PY
 
 generate_ci_workflow() {
   if [[ "$ENABLE_CI" -eq 1 ]]; then
-    copy_template ".github/workflows/gradle.yml" ".github/workflows/gradle.yml"
+    log_info "CI workflow templates больше не поставляются автоматически — загляните в docs/customization.md для примера GitHub Actions."
   fi
 }
 
