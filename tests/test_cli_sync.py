@@ -9,10 +9,24 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 from claude_workflow_cli import cli
 
 
+PAYLOAD_ROOT = Path(__file__).resolve().parents[1] / "src" / "claude_workflow_cli" / "data" / "payload"
+
+
+def _clean_payload_pycache() -> None:
+    if not PAYLOAD_ROOT.exists():
+        return
+    for pycache in PAYLOAD_ROOT.rglob("__pycache__"):
+        if pycache.is_dir():
+            for child in pycache.iterdir():
+                child.unlink()
+            pycache.rmdir()
+
+
 def test_sync_materialises_claude(tmp_path):
     target = tmp_path / "workspace"
     target.mkdir()
 
+    _clean_payload_pycache()
     args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=False, release=None, cache_dir=None)
     cli._sync_command(args)
 
@@ -28,6 +42,7 @@ def test_sync_dry_run_does_not_touch_files(tmp_path, capsys):
     target = tmp_path / "workspace"
     target.mkdir()
 
+    _clean_payload_pycache()
     args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=True, release=None, cache_dir=None)
     cli._sync_command(args)
 
@@ -40,6 +55,7 @@ def test_sync_custom_include(tmp_path):
     target = tmp_path / "workspace"
     target.mkdir()
 
+    _clean_payload_pycache()
     args = SimpleNamespace(
         target=str(target),
         include=["claude-presets"],

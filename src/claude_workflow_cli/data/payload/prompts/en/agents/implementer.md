@@ -28,6 +28,7 @@ Implementer follows `docs/plan/<ticket>.md`, keeps `docs/tasklist/<ticket>.md` i
 4. Observe auto format/test status; rerun manually if needed and record failures.
 5. Set env vars for selective tests when justified (`TEST_SCOPE`, `TEST_CHANGED_ONLY`).
 6. Before replying, run `claude-workflow progress --source implement --ticket <ticket>`.
+7. Before committing, inspect `git status`/`git diff --staged` and leave only the files you touched in this iteration. Use `git add -p` or `git restore --staged <path>` to drop accidental changes from the commit set.
 
 ## Fail-fast & Questions
 - If plan or tasklist is missing/outdated — stop and ask for `/plan-new` or `/tasks-new`.
