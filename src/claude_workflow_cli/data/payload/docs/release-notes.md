@@ -62,11 +62,16 @@
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
 - Двуязычные промпты: EN-варианты в `prompts/en/**`, линтер синхронизирует RU/EN, добавлены `docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
 - Добавлен флаг `--prompt-locale en` для `init-claude-workflow.sh`/`claude-workflow init`, который устанавливает EN-вариант `.claude/agents|commands`, а в проект копируется каталог `prompts/en/**` для дальнейшей синхронизации.
+- Agent-first шаблоны и команды: обновлены `docs/prd.template.md`, `docs/tasklist.template.md`, `docs/templates/research-summary.md`, `/idea-new`, `templates/prompt-agent.md` и `templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `workflow.md`, `docs/agents-playbook.md`, `docs/feature-cookbook.md`, `docs/customization.md` описывают новые правила.
 
 ### Changed
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
 - `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не утверждён; smoke и unit-тесты обновлены под новый сценарий.
 - `scripts/ci-lint.sh` запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
+- Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 
 ### Migration
 - Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `docs/.active_ticket` (если отсутствует) и дополнить `docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
+- Обновите payload/шаблоны: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, затем скопируйте свежие `.claude/agents|commands` и `prompts/en/**`.
+- Для активных тикетов перезапустите `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
+- Запустите `scripts/ci-lint.sh` и smoke-тесты, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.

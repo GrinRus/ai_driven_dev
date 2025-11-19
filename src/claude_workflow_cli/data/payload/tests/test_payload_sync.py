@@ -60,3 +60,9 @@ def test_parse_paths_splits_commas() -> None:
 def test_repo_and_payload_default_paths_in_sync() -> None:
     mismatches = compare_paths(REPO_ROOT, PAYLOAD_ROOT, DEFAULT_PATHS)
     assert mismatches == []
+
+
+def test_default_paths_cover_agent_first_artifacts() -> None:
+    required = {"README.md", "README.en.md", "CHANGELOG.md"}
+    for path in required:
+        assert path in DEFAULT_PATHS

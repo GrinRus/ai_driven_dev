@@ -75,6 +75,14 @@ else
   echo "[INFO] Gradle wrapper not bundled with demo. Install Gradle or run 'gradle wrapper' to execute tests."
 fi
 
+if [[ -f "doc/backlog.md" ]]; then
+  echo
+  echo "[NEXT STEPS]"
+  echo "  1. Open doc/backlog.md — ticket DEMO-1 описывает agent-first сценарий."
+  echo "  2. В IDE запустите '/idea-new DEMO-1', затем 'claude-workflow research --ticket DEMO-1 --auto'."
+  echo "  3. PRD и research будут заполнены автоматически; задавайте вопросы пользователю только при реальных пробелах."
+fi
+
 popd >/dev/null
 
 if [[ "$CLEANUP" -eq 1 ]]; then

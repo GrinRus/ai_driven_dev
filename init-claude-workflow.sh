@@ -616,6 +616,7 @@ generate_directories() {
   local dirs=(
     ".claude"
     ".claude/cache"
+    "doc"
     "config"
     "docs"
     "reports"
@@ -631,6 +632,34 @@ generate_core_docs() {
   copy_template "CLAUDE.md" "CLAUDE.md" "append"
   copy_template "conventions.md" "conventions.md"
   copy_template "workflow.md" "workflow.md"
+}
+
+generate_backlog_stub() {
+  local backlog_path="doc/backlog.md"
+  if [[ -f "$backlog_path" && "$FORCE" -ne 1 ]]; then
+    log_info "backlog exists: ${backlog_path}"
+    return
+  fi
+  local content
+  content="$(cat <<'EOF'
+# Feature Backlog
+
+## SAMPLE-1 — Demo agent-first ticket
+- **Контекст:** используйте `/idea-new SAMPLE-1`, затем сразу `claude-workflow research --ticket SAMPLE-1 --auto`, чтобы получить `reports/research/SAMPLE-1-(context|targets).json`.
+- **Источники:** `doc/backlog.md`, `docs/prd.template.md`, `docs/templates/research-summary.md`, `docs/tasklist.template.md`.
+- **Ожидания:**
+  - Аналитик читает backlog + research + reports, заполняет PRD и задаёт вопросы пользователю только если репозиторий не содержит ответа.
+  - Researcher перечисляет команды (`rg "sample" src/`, `python tools/list_modules.py`) и ссылки на файлы в `docs/research/SAMPLE-1.md`.
+  - Implementer запускает `claude-workflow progress --source implement --ticket SAMPLE-1` после каждой итерации и прикладывает логи `.claude/hooks/format-and-test.sh` / `./gradlew test` в tasklist.
+EOF
+)"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] write ${backlog_path}"
+    return
+  fi
+  mkdir -p "$(dirname "$backlog_path")"
+  printf '%s\n' "$content" >"$backlog_path"
+  log_info "written: ${backlog_path}"
 }
 
 generate_templates() {
@@ -775,6 +804,7 @@ main() {
   check_dependencies
   generate_directories
   generate_core_docs
+  generate_backlog_stub
   generate_templates
   generate_prompt_references
   copy_presets

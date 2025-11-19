@@ -18,6 +18,20 @@ context:
     - docs/design/{{feature}}.md
     - docs/plan/{{feature}}.md
     - docs/research/{{feature}}.md
+    - doc/backlog.md
+    - reports/research/{{feature}}-context.json
+    - reports/research/{{feature}}-targets.json
+  instructions:
+    - >-
+      Работай итерациями: перед описанием шага перечитай план, tasklist,
+      research и отчёты, перечисли затронутые файлы и команды (`./gradlew …`,
+      `.claude/hooks/format-and-test.sh`, `claude-workflow progress --source
+      implement --ticket {{feature}}`).
+    - >-
+      Обновляй docs/tasklist/{{feature}}.md после каждой итерации, указывая
+      ссылки на diff/логи и фиксируя команды, которые запускал. Если
+      требуются ответы пользователя, перечисли что проверено и какой формат
+      ответа нужен.
     - docs/tasklist/{{feature}}.md
     - docs/customization.md
   instructions:

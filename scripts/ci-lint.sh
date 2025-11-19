@@ -138,6 +138,24 @@ run_payload_sync_check() {
   fi
 }
 
+run_answer_pattern_check() {
+  if ! command -v rg >/dev/null 2>&1; then
+    warn "ripgrep not found; skipping Answer-pattern check"
+    return
+  fi
+  if rg -n --no-ignore --hidden --fixed-strings "Answer 1" . >/dev/null 2>&1; then
+    err "found forbidden literal 'Answer 1' (legacy manual Q&A instruction)"
+    STATUS=1
+    return
+  fi
+  if rg -n --no-ignore --hidden "Answer [0-9]" . >/dev/null 2>&1; then
+    err "found forbidden pattern 'Answer [0-9]' (legacy manual Q&A instruction)"
+    STATUS=1
+    return
+  fi
+  log "no forbidden Answer-pattern strings detected"
+}
+
 run_python_tests() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping tests"
@@ -160,6 +178,7 @@ run_yamllint
 run_prompt_lint
 run_prompt_version_check
 run_payload_sync_check
+run_answer_pattern_check
 run_python_tests
 
 exit "$STATUS"

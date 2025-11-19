@@ -451,6 +451,42 @@
 
 ### Zero-touch запуск CLI после установки
 - [ ] `tools/run_cli.py` (новый), `tools/set_active_feature.py`, `.claude/hooks/gate-workflow.sh`, `.claude/hooks/format-and-test.sh`, `scripts/smoke-workflow.sh`, `scripts/qa-agent.py`: внедрить helper `run_cli(command: list[str])`, который ищет бинарь `claude-workflow` в PATH (поддержка uv/pipx шима), умеет читать `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`, а при отсутствии печатает инструкцию «установите CLI командой …»; все скрипты должны использовать helper вместо прямого `python3 -m claude_workflow_cli`, чтобы пользователю хватало шагов установки из README.
+  - добавляем в `.claude/hooks/lib_cli.sh` функции `require_cli` и `run_cli_or_hint`, которые:
+    1. подключают `tools/run_cli.py` через `python3` и автоматически наследуют `.claude/hooks/_vendor` в `PYTHONPATH`, если helper переключается в режим `python -m`;
+    2. умеют печатать INSTALL_HINT и возвращать код 127, если CLI не найден (тот же текст, что в helper);
+    3. предоставляют единый API для `gate-workflow.sh`, `gate-qa.sh`, `gate-tests.sh`, `format-and-test.sh`, `gate-db-migration.sh` и всех будущих хуков (все вызовы CLI заменяются на `run_cli_or_hint claude-workflow <command>`).
+  - `scripts/qa-agent.py` переносим в CLI как `claude-workflow qa-agent`: логика агента живёт в модуле `claude_workflow_cli.commands.qa_agent`, а скрипт в `scripts/` становится тонким шорткатом (или удаляется). `gate-qa.sh` и документация (playbook/QA) вызывают только CLI-команду, без `sys.path` и `python3 scripts/*.py`.
+  - `tools/set_active_feature.py`, smoke-скрипт и тестовые helper'ы полностью отказываются от ручных манипуляций с `sys.path`, используют только `run_cli`/`CLAUDE_WORKFLOW_BIN|CLAUDE_WORKFLOW_PYTHON`. В payload добавляем те же `lib_cli.sh`/`tools/run_cli.py` (и, при необходимости, `scripts/run-cli.sh`), чтобы проекты из `claude-workflow init` сразу получали zero-touch UX.
 - [ ] `src/claude_workflow_cli/data/payload/scripts/*.sh`, `src/claude_workflow_cli/data/payload/tools/*.py`, `.claude/hooks/*.sh`: зеркалировать helper в payload (например, через `scripts/run-cli.sh`), чтобы артефакты, которые копирует `claude-workflow init`, автоматически вызывают CLI из установленного пакета без ручного PYTHONPATH.
+  - payload получает те же `lib_cli.sh`/`run_cli.py`; `manifest.json`, `scripts/sync-payload.sh` и `tools/check_payload_sync.py` обновляются, чтобы helper не выпадал из релиза;
+  - smoke-тест из payload и preset'ы прогоняют сценарий без dev-src, подтверждая, что init-проект сразу вызывает CLI через shim.
 - [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/agents-playbook.md`: обновить инструкции по установке/требованиям окружения — явно указать, что `claude-workflow` попадает в PATH после `uv tool install`/`pipx install`, удалить рекомендации импортировать модуль напрямую и добавить troubleshooting-блок «CLI не найден» с подсказками `uv tool install …`/`pipx install …`.
+  - добавляем раздел «CLI не найден»: `uv tool install …`, `pipx install …`, проверка `which claude-workflow`, использование `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`;
+  - подчёркиваем в workflow/playbook'ах, что все агенты и хуки запускают CLI через helper, поэтому отдельный `pip install` или `PYTHONPATH=src` больше не требуется.
 - [ ] `tests/test_cli_entrypoint.py` (новый), `scripts/smoke-workflow.sh`, `scripts/ci-lint.sh`: добавить проверки, эмулирующие чистую систему (`PYTHONPATH` без `src`, только бинарь `claude-workflow`), и убедиться, что helper корректно находит CLI; при отсутствии бинаря тесты должны давать понятное сообщение и ссылку на команды установки.
+  - новый тест мокаeт `shutil.which`/`subprocess.run`, проверяет порядок fallback'ов (`CLAUDE_WORKFLOW_BIN → shim claude-workflow → sys.executable -m`), очищает `PYTHONPATH`, и убеждается, что при отсутствии CLI helper печатает INSTALL_HINT и возвращает 127;
+  - `scripts/smoke-workflow.sh` перед вызовом helper сбрасывает `PYTHONPATH`, временно скрывает `src` (например, запускается в подпапке без dev-src) и использует `run_cli` для всех команд, чтобы подтвердить zero-touch E2E;
+  - `scripts/ci-lint.sh` явно добавляет `python3 -m unittest tests.test_cli_entrypoint.py` (помимо общего `unittest` прогона), чтобы регрессии shim падали до merge.
+## Wave 34
+### Agent-first промпты и гайды
+- [x] `docs/prompt-playbook.md`, `docs/agents-playbook.md`, `workflow.md`, `doc/backlog.md`: переписать правила с упором на «agent-first» модель (агент сам читает файлы и запускает скрипты, вопросы пользователю — крайняя мера), убрать упоминания человеческих ресурсных ограничений и добавить примеры автоматических источников данных.
+- [x] `README.md`, `README.en.md`, `docs/release-notes.md`, `CHANGELOG.md`: задокументировать переход на «agent-first» (новый раздел в README, запись в релизных заметках, чеклист миграции существующих проектов).
+
+### Обновление шаблонов документов
+- [x] `docs/prd.template.md`, `src/claude_workflow_cli/data/payload/docs/prd.template.md`: заменить поля «Владелец/Команда/Оценка ресурсов» на разделы «Автоматизация/Системные интеграции», добавить подсказки по фиксации CLI/скриптов, которые должен запускать агент.
+- [x] `docs/tasklist.template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist.template.md`: переписать чеклисты так, чтобы пункты ссылались на артефакты (диффы, логи тестов, отчёты), а не на коммуникацию со стейкхолдерами; уточнить формат отметок (`путь → дата → ссылка`).
+- [x] `docs/templates/research-summary.md`, `src/claude_workflow_cli/data/payload/docs/templates/research-summary.md`: убрать поля `Prepared by`/«Связанные команды», добавить секции «Как запускать окружение», «Обязательные проверки», «Точки вставки кода» с примерами CLI-команд.
+
+### Перепаковка агентов и команд
+- [x] `.claude/agents/{analyst,researcher,implementer}.md`, `prompts/en/agents/{analyst,researcher,implementer}.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/agents/{analyst,researcher,implementer}.md`: переписать контекст и план действий так, чтобы агенты собирали данные из репозитория (backlog, tests, reports) и записывали результаты напрямую. Q&A с пользователем оставляем только у аналитика для заполнения PRD, когда автоматический разбор не отвечает на все вопросы. Обязательно подсветить, какие команды запускать (`rg`, `pytest`, `claude-workflow progress`), какие права/инструменты есть у агента (чтение, запись, доступные Bash-команды) и как фиксировать результаты в артефактах.
+- [x] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/commands/idea-new.md`: синхронизировать с новой ролью аналитика (автоматическое заполнение PRD, fallback без пользователя), убрать требования ручного подтверждения `--paths/--keywords`.
+- [x] `templates/prompt-agent.md`, `templates/prompt-command.md`, `src/claude_workflow_cli/data/payload/templates/{prompt-agent.md,prompt-command.md}`: обновить подсказки — вместо «задавайте вопросы» прописать обязательные блоки по чтению артефактов, запуску утилит и фиксации артефактов в ответе.
+
+### Синхронизация payload и тесты
+- [x] `scripts/sync-payload.sh`, `tools/check_payload_sync.py`: убедиться, что новые промпты/шаблоны корректно копируются между корнем и payload, добавить smoke-проверки для agent-first разделов.
+- [x] `tests/test_cli_sync.py`, `src/claude_workflow_cli/data/payload/tests/test_payload_sync.py`: расширить тесты синхронизации на новые файлы (обновлённые шаблоны и промпты), чтобы не потерять «agent-first» инструкции в дистрибутиве.
+- [x] `scripts/ci-lint.sh`, `.github/workflows/ci.yml`: подключить новые проверки (например, `rg 'Answer [0-9]'` → провал, если в промпте остались упоминания ручного Q&A), прогонять их в CI.
+
+### Коммуникация и миграция
+- [x] `docs/feature-cookbook.md`, `docs/customization.md`, `workflow.md`: добавить раздел «Как мигрировать существующие проекты на agent-first» (шаги обновления шаблонов, прогон sync+tests, чеклист по обновлению `.claude/agents`).
+- [x] `examples/` (demo проект), `init-claude-workflow.sh`, `claude-presets/**`: обновить демонстрационные артефакты и preset'ы, чтобы они разворачивали уже «agent-first» версии промптов и документов.

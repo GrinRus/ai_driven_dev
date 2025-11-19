@@ -90,6 +90,9 @@ default_paths=(
   "config"
   "doc"
   "docs"
+  "README.md"
+  "README.en.md"
+  "CHANGELOG.md"
   "templates"
   "tools"
   "workflow.md"
@@ -102,7 +105,6 @@ default_paths=(
   "scripts/prd_review_gate.py"
   "scripts/qa-agent.py"
   "scripts/smoke-workflow.sh"
-  "scripts/sync-payload.sh"
 )
 
 if [[ ${#custom_paths[@]} -gt 0 ]]; then

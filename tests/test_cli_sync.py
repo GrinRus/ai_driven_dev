@@ -70,3 +70,22 @@ def test_sync_custom_include(tmp_path):
     assert preset.exists(), "sync should copy requested payload fragments"
     template_version = target / ".claude" / ".template_version"
     assert not template_version.exists(), "template version should not update when .claude not synced"
+
+
+def test_sync_supports_readme_include(tmp_path):
+    target = tmp_path / "workspace"
+    target.mkdir()
+
+    _clean_payload_pycache()
+    args = SimpleNamespace(
+        target=str(target),
+        include=["README.md"],
+        force=False,
+        dry_run=False,
+        release=None,
+        cache_dir=None,
+    )
+    cli._sync_command(args)
+
+    readme = target / "README.md"
+    assert readme.exists(), "sync should copy README.md when explicitly requested"
