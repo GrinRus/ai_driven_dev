@@ -451,9 +451,12 @@
 
 ### Zero-touch запуск CLI после установки
 - [ ] `tools/run_cli.py` (новый), `tools/set_active_feature.py`, `.claude/hooks/gate-workflow.sh`, `.claude/hooks/format-and-test.sh`, `scripts/smoke-workflow.sh`, `scripts/qa-agent.py`: внедрить helper `run_cli(command: list[str])`, который ищет бинарь `claude-workflow` в PATH (поддержка uv/pipx шима), умеет читать `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`, а при отсутствии печатает инструкцию «установите CLI командой …»; все скрипты должны использовать helper вместо прямого `python3 -m claude_workflow_cli`, чтобы пользователю хватало шагов установки из README.
-  - добавляем в `.claude/hooks/lib_cli.sh` функции `require_cli` и `run_cli_or_hint`, которые подключают `tools/run_cli.py`, наследуют `.claude/hooks/_vendor` в `PYTHONPATH` и печатают INSTALL_HINT, поэтому `gate-workflow.sh`, `gate-qa.sh`, `format-and-test.sh` и любые будущие хуки обращаются к CLI одной строкой;
-  - `scripts/qa-agent.py` становится CLI-командой `claude-workflow qa-agent`, а `gate-qa.sh` вызывает её через helper (без попыток импортировать пакет из src);
-  - `tools/set_active_feature.py`, smoke-скрипт и вспомогательные тесты полностью отказались от ручных манипуляций с `sys.path`, используют только helper и переменные `CLAUDE_WORKFLOW_BIN/CLAUDE_WORKFLOW_PYTHON`.
+  - добавляем в `.claude/hooks/lib_cli.sh` функции `require_cli` и `run_cli_or_hint`, которые:
+    1. подключают `tools/run_cli.py` через `python3` и автоматически наследуют `.claude/hooks/_vendor` в `PYTHONPATH`, если helper переключается в режим `python -m`;
+    2. умеют печатать INSTALL_HINT и возвращать код 127, если CLI не найден (тот же текст, что в helper);
+    3. предоставляют единый API для `gate-workflow.sh`, `gate-qa.sh`, `gate-tests.sh`, `format-and-test.sh`, `gate-db-migration.sh` и всех будущих хуков (все вызовы CLI заменяются на `run_cli_or_hint claude-workflow <command>`).
+  - `scripts/qa-agent.py` переносим в CLI как `claude-workflow qa-agent`: логика агента живёт в модуле `claude_workflow_cli.commands.qa_agent`, а скрипт в `scripts/` становится тонким шорткатом (или удаляется). `gate-qa.sh` и документация (playbook/QA) вызывают только CLI-команду, без `sys.path` и `python3 scripts/*.py`.
+  - `tools/set_active_feature.py`, smoke-скрипт и тестовые helper'ы полностью отказываются от ручных манипуляций с `sys.path`, используют только `run_cli`/`CLAUDE_WORKFLOW_BIN|CLAUDE_WORKFLOW_PYTHON`. В payload добавляем те же `lib_cli.sh`/`tools/run_cli.py` (и, при необходимости, `scripts/run-cli.sh`), чтобы проекты из `claude-workflow init` сразу получали zero-touch UX.
 - [ ] `src/claude_workflow_cli/data/payload/scripts/*.sh`, `src/claude_workflow_cli/data/payload/tools/*.py`, `.claude/hooks/*.sh`: зеркалировать helper в payload (например, через `scripts/run-cli.sh`), чтобы артефакты, которые копирует `claude-workflow init`, автоматически вызывают CLI из установленного пакета без ручного PYTHONPATH.
   - payload получает те же `lib_cli.sh`/`run_cli.py`; `manifest.json`, `scripts/sync-payload.sh` и `tools/check_payload_sync.py` обновляются, чтобы helper не выпадал из релиза;
   - smoke-тест из payload и preset'ы прогоняют сценарий без dev-src, подтверждая, что init-проект сразу вызывает CLI через shim.
@@ -461,9 +464,9 @@
   - добавляем раздел «CLI не найден»: `uv tool install …`, `pipx install …`, проверка `which claude-workflow`, использование `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`;
   - подчёркиваем в workflow/playbook'ах, что все агенты и хуки запускают CLI через helper, поэтому отдельный `pip install` или `PYTHONPATH=src` больше не требуется.
 - [ ] `tests/test_cli_entrypoint.py` (новый), `scripts/smoke-workflow.sh`, `scripts/ci-lint.sh`: добавить проверки, эмулирующие чистую систему (`PYTHONPATH` без `src`, только бинарь `claude-workflow`), и убедиться, что helper корректно находит CLI; при отсутствии бинаря тесты должны давать понятное сообщение и ссылку на команды установки.
-  - новый тест сбрасывает `PYTHONPATH`, мокаeт `shutil.which`/`subprocess.run` и проверяет, что helper сначала запускает найденный бинарь, а при отсутствии печатает INSTALL_HINT и возвращает код 127;
-  - `scripts/smoke-workflow.sh` использует helper на всех шагах (research/analyst/progress), что гарантирует zero-touch в E2E;
-  - `scripts/ci-lint.sh` дополняется таргетом `python3 -m unittest tests/test_cli_entrypoint.py`, чтобы регрессия shim сразу падала в CI.
+  - новый тест мокаeт `shutil.which`/`subprocess.run`, проверяет порядок fallback'ов (`CLAUDE_WORKFLOW_BIN → shim claude-workflow → sys.executable -m`), очищает `PYTHONPATH`, и убеждается, что при отсутствии CLI helper печатает INSTALL_HINT и возвращает 127;
+  - `scripts/smoke-workflow.sh` перед вызовом helper сбрасывает `PYTHONPATH`, временно скрывает `src` (например, запускается в подпапке без dev-src) и использует `run_cli` для всех команд, чтобы подтвердить zero-touch E2E;
+  - `scripts/ci-lint.sh` явно добавляет `python3 -m unittest tests.test_cli_entrypoint.py` (помимо общего `unittest` прогона), чтобы регрессии shim падали до merge.
 ## Wave 34
 ### Agent-first промпты и гайды
 - [ ] `docs/prompt-playbook.md`, `docs/agents-playbook.md`, `workflow.md`, `doc/backlog.md`: переписать правила с упором на «agent-first» модель (агент сам читает файлы и запускает скрипты, вопросы пользователю — крайняя мера), убрать упоминания человеческих ресурсных ограничений и добавить примеры автоматических источников данных.
