@@ -36,6 +36,8 @@ class Runner:
 
 
 def _module_available() -> bool:
+    if DEV_SRC.exists():
+        return True
     try:
         import importlib.util
 
@@ -86,7 +88,7 @@ def run_cli(
     if env:
         run_env.update(env)
     run_env = _enhance_env(run_env, runner)
-    if runner.uses_python and runner.argv[0] == sys.executable and not _module_available():
+    if runner.uses_python and not _module_available():
         raise CliNotFoundError(INSTALL_HINT)
     cmd = runner.argv + list(args)
     try:
