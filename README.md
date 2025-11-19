@@ -304,15 +304,15 @@ claude-workflow research --ticket STORE-123 --auto
 
 ## Слэш-команды
 
-| Команда                    | Назначение                                               | Аргументы (пример)                        |
-|----------------------------|----------------------------------------------------------|-------------------------------------------|
-| `/idea-new`                | Собрать вводные и автосоздать PRD (Status: draft → READY) | `STORE-123 checkout-discounts`            |
-| `/plan-new`                | Подготовить план + валидацию                             | `checkout-discounts`                      |
-| `/review-prd`              | Провести ревью PRD и зафиксировать статус                | `checkout-discounts`                      |
-| `/tasks-new`               | Обновить `docs/tasklist/<ticket>.md` по плану            | `checkout-discounts`                      |
-| `/implement`               | Реализация по плану с автотестами                        | `checkout-discounts`                      |
-| `/review`                  | Финальное ревью и фиксация статуса                       | `checkout-discounts`                      |
-| `claude-workflow progress` | Проверить наличие новых `- [x]` перед завершением шага  | `--source implement --ticket checkout-discounts` |
+| Команда                    | Назначение                                                | Аргументы (пример)                              |
+| -------------------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| `/idea-new`                | Собрать вводные и автосоздать PRD (Status: draft → READY) | `STORE-123 checkout-discounts`                  |
+| `/plan-new`                | Подготовить план + валидацию                              | `checkout-discounts`                            |
+| `/review-prd`              | Провести ревью PRD и зафиксировать статус                 | `checkout-discounts`                            |
+| `/tasks-new`               | Обновить `docs/tasklist/<ticket>.md` по плану             | `checkout-discounts`                            |
+| `/implement`               | Реализация по плану с автотестами                         | `checkout-discounts`                            |
+| `/review`                  | Финальное ревью и фиксация статуса                        | `checkout-discounts`                            |
+| `claude-workflow progress` | Проверить наличие новых `- [x]` перед завершением шага   | `--source implement --ticket checkout-discounts` |
 
 ## Режимы веток и коммитов
 
