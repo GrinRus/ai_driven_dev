@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import REPO_ROOT, ensure_gates_config, git_config_user, git_init, write_active_feature, write_file
+from .helpers import REPO_ROOT, cli_cmd, ensure_gates_config, git_config_user, git_init, write_active_feature, write_file
 
 QA_AGENT = REPO_ROOT / "scripts" / "qa-agent.py"
 
@@ -120,15 +120,8 @@ Updated: 2024-01-01
 
         write_file(self.root, "src/main/App.kt", "class App { fun run() = \"updated\" }\n")
 
-        env = os.environ.copy()
-        python_path = str(REPO_ROOT / "src")
-        existing = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
         result = subprocess.run(
-            [
-                "python3",
-                "-m",
-                "claude_workflow_cli.cli",
+            cli_cmd(
                 "progress",
                 "--target",
                 ".",
@@ -136,11 +129,10 @@ Updated: 2024-01-01
                 slug,
                 "--source",
                 "qa",
-            ],
+            ),
             cwd=self.root,
             text=True,
             capture_output=True,
-            env=env,
         )
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 1, msg=output)
@@ -162,10 +154,7 @@ Updated: 2024-01-02
         )
 
         result_ok = subprocess.run(
-            [
-                "python3",
-                "-m",
-                "claude_workflow_cli.cli",
+            cli_cmd(
                 "progress",
                 "--target",
                 ".",
@@ -173,11 +162,10 @@ Updated: 2024-01-02
                 slug,
                 "--source",
                 "qa",
-            ],
+            ),
             cwd=self.root,
             text=True,
             capture_output=True,
-            env=env,
         )
         self.assertEqual(result_ok.returncode, 0, msg=result_ok.stderr)
         self.assertIn("Прогресс tasklist", result_ok.stdout)

@@ -31,8 +31,7 @@ class ResearchCommandTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    "-m",
-                    "claude_workflow_cli.cli",
+                    str(REPO_ROOT / "tools" / "run_cli.py"),
                     "research",
                     "--target",
                     tmpdir,

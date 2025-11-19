@@ -2,6 +2,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 from typing import Any, Dict, Optional
 
 
@@ -149,3 +150,8 @@ def git_config_user(path: pathlib.Path) -> None:
         check=True,
         capture_output=True,
     )
+
+
+def cli_cmd(*args: str) -> list[str]:
+    """Build a command that invokes the installed claude-workflow CLI via helper."""
+    return [sys.executable, str(REPO_ROOT / "tools" / "run_cli.py"), *args]

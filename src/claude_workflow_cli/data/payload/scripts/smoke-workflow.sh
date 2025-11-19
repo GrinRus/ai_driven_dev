@@ -9,10 +9,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-PYTHONPATH_CLI="${ROOT_DIR}/src"
-if [[ -n "${PYTHONPATH:-}" ]]; then
-  PYTHONPATH_CLI="${PYTHONPATH_CLI}:${PYTHONPATH}"
-fi
+CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
+
+run_cli() {
+  python3 "$CLI_HELPER" "$@"
+}
 
 [[ -x "$INIT_SCRIPT" ]] || {
   echo "[smoke] missing init script at $INIT_SCRIPT" >&2
@@ -72,7 +73,7 @@ log "activate feature ticket"
 python3 tools/set_active_feature.py "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
-python3 -m claude_workflow_cli.cli research --ticket "$TICKET" --target . --auto >/dev/null
+run_cli research --ticket "$TICKET" --target . --auto >/dev/null
 
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
@@ -108,7 +109,7 @@ path.write_text(text, encoding="utf-8")
 PY
 
 log "analyst-check must pass"
-python3 -m claude_workflow_cli.cli analyst-check --ticket "$TICKET" --target . >/dev/null
+run_cli analyst-check --ticket "$TICKET" --target . >/dev/null
 
 log "expect block until PRD review approved"
 assert_gate_exit 2 "pending PRD review"
@@ -178,7 +179,7 @@ log "gate blocks when checkbox is missing"
 assert_gate_exit 2 "missing progress checkbox"
 
 log "progress CLI reports missing checkbox"
-if progress_output="$(PYTHONPATH="$PYTHONPATH_CLI" python3 -m claude_workflow_cli.cli progress --target . --ticket "$TICKET" --source implement 2>&1)"; then
+if progress_output="$(run_cli progress --target . --ticket "$TICKET" --source implement 2>&1)"; then
   printf '[smoke] expected progress CLI to fail but it succeeded:\n%s\n' "$progress_output" >&2
   exit 1
 fi
@@ -192,7 +193,7 @@ today="$(date +%Y-%m-%d)"
 printf '\n- [x] Smoke iteration — %s • итерация 1\n' "$today" >> "docs/tasklist/${TICKET}.md"
 
 log "progress CLI passes after checkbox update"
-if ! progress_ok="$(PYTHONPATH="$PYTHONPATH_CLI" python3 -m claude_workflow_cli.cli progress --target . --ticket "$TICKET" --source implement --verbose 2>&1)"; then
+if ! progress_ok="$(run_cli progress --target . --ticket "$TICKET" --source implement --verbose 2>&1)"; then
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
@@ -245,14 +246,14 @@ log "verify generated artifacts"
 grep -q "Claude Code" "docs/prd/${TICKET}.prd.md"
 
 log "reviewer requests automated tests"
-python3 -m claude_workflow_cli.cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
+run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
 [[ -f "reports/reviewer/${TICKET}.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }
 
 log "reviewer clears test requirement"
-python3 -m claude_workflow_cli.cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
+run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 grep -q "Status: approved" "docs/prd/${TICKET}.prd.md"
 grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
 
