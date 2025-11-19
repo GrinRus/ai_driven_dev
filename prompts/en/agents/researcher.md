@@ -4,7 +4,7 @@ description: Explores the codebase before implementation: reuse, integration poi
 lang: en
 prompt_version: 1.0.0
 source_version: 1.0.0
-tools: Read, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
+tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
 model: inherit
 ---
 

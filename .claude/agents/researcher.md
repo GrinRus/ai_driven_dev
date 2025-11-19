@@ -4,7 +4,7 @@ description: Исследует кодовую базу перед внедре�
 lang: ru
 prompt_version: 1.0.0
 source_version: 1.0.0
-tools: Read, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
+tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
 model: inherit
 ---
 

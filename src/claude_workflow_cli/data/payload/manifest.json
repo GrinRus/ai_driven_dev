@@ -44,8 +44,8 @@
     },
     {
       "path": ".claude/agents/researcher.md",
-      "size": 4060,
-      "sha256": "8527cbe1347a67f3de7dc6f2b92ac3529e54ae247fc833a78090c3fc5790dc07",
+      "size": 4073,
+      "sha256": "3c3696a12849e690c426ab633804e0ca27b63543bef74b09e3309ddda1e4fcfb",
       "type": "file"
     },
     {
@@ -446,8 +446,8 @@
     },
     {
       "path": "prompts/en/agents/researcher.md",
-      "size": 2126,
-      "sha256": "abbf83c126bb170de4582089a4d87d6689078c5d96e5656d55c7b55edf4ff5fd",
+      "size": 2139,
+      "sha256": "9734c7baad5a7dfa8e01ac48a8c2d3cef35f2ebf3f227146243948ba1e02b3fa",
       "type": "file"
     },
     {
