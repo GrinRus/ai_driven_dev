@@ -126,11 +126,11 @@ run_payload_sync_check() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping payload sync check"
     return
-  }
+  fi
   if [[ ! -f "tools/check_payload_sync.py" ]]; then
     warn "tools/check_payload_sync.py missing; skipping payload sync check"
     return
-  }
+  fi
   log "validating payload vs repository snapshots"
   if ! python3 tools/check_payload_sync.py; then
     err "payload sync check failed"
