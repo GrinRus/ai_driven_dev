@@ -2,663 +2,663 @@
   "files": [
     {
       "path": ".claude/agents/analyst.md",
-      "size": 6754,
-      "sha256": "36d02c4c0881e666b10d7287d93659d7d1f700560bfe90120171727b1acd9b39",
-      "type": "file"
+      "type": "file",
+      "size": 7802,
+      "sha256": "674ab5a7fc978cdfb24d534e26f100196912aefda62d3aeb72e510c55a550492"
     },
     {
       "path": ".claude/agents/contract-checker.md",
+      "type": "file",
       "size": 3077,
-      "sha256": "d3b8f103a80e582c75b38a510d3c46fd3fae061d58a5cfa29a44a61db3e64d2d",
-      "type": "file"
+      "sha256": "d3b8f103a80e582c75b38a510d3c46fd3fae061d58a5cfa29a44a61db3e64d2d"
     },
     {
       "path": ".claude/agents/db-migrator.md",
+      "type": "file",
       "size": 3441,
-      "sha256": "9974aca14475e06114832f1bb89ec42da38f869baad8804a7f00c1a57dcafc6b",
-      "type": "file"
+      "sha256": "9974aca14475e06114832f1bb89ec42da38f869baad8804a7f00c1a57dcafc6b"
     },
     {
       "path": ".claude/agents/implementer.md",
+      "type": "file",
       "size": 6440,
-      "sha256": "17355056cc93de4793dc6919c3b8e870925c88a050e61db9635fdc872ae8f4b7",
-      "type": "file"
+      "sha256": "17355056cc93de4793dc6919c3b8e870925c88a050e61db9635fdc872ae8f4b7"
     },
     {
       "path": ".claude/agents/planner.md",
+      "type": "file",
       "size": 4056,
-      "sha256": "664182b9ffa693b7582a9d3c2326e691b674a8e0f95a4448016a6de93a1297ce",
-      "type": "file"
+      "sha256": "664182b9ffa693b7582a9d3c2326e691b674a8e0f95a4448016a6de93a1297ce"
     },
     {
       "path": ".claude/agents/prd-reviewer.md",
+      "type": "file",
       "size": 3252,
-      "sha256": "ebaa0f6c66b44bfe4fed84887cd71fa502f337ad01754c0b9b1ed9d1f50edc09",
-      "type": "file"
+      "sha256": "ebaa0f6c66b44bfe4fed84887cd71fa502f337ad01754c0b9b1ed9d1f50edc09"
     },
     {
       "path": ".claude/agents/qa.md",
+      "type": "file",
       "size": 4220,
-      "sha256": "000e42183a26cf7e20015fb8ced02176921d4af2baa6b671109c986aaa332483",
-      "type": "file"
+      "sha256": "000e42183a26cf7e20015fb8ced02176921d4af2baa6b671109c986aaa332483"
     },
     {
       "path": ".claude/agents/researcher.md",
+      "type": "file",
       "size": 6665,
-      "sha256": "4f50167b5fb2325eccb9369a07dc8ebb01054fe9e5cd7771335c53235fd0823c",
-      "type": "file"
+      "sha256": "4f50167b5fb2325eccb9369a07dc8ebb01054fe9e5cd7771335c53235fd0823c"
     },
     {
       "path": ".claude/agents/reviewer.md",
+      "type": "file",
       "size": 4043,
-      "sha256": "dcee87fecc575e096de771d1f5c9ca58036fe62daab1460c2662160c06d43df3",
-      "type": "file"
+      "sha256": "dcee87fecc575e096de771d1f5c9ca58036fe62daab1460c2662160c06d43df3"
     },
     {
       "path": ".claude/agents/validator.md",
+      "type": "file",
       "size": 2841,
-      "sha256": "bd7b47f7613ac91e9947fe5337ca564c83b2e42280f219c0cb4720cda45ee939",
-      "type": "file"
+      "sha256": "bd7b47f7613ac91e9947fe5337ca564c83b2e42280f219c0cb4720cda45ee939"
     },
     {
       "path": ".claude/cache/.gitkeep",
+      "type": "file",
       "size": 1,
-      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "type": "file"
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
     },
     {
       "path": ".claude/commands/idea-new.md",
-      "size": 8389,
-      "sha256": "83baace8094a7d647b67653d5047bcad055cb18741e5a2591284a67da1658925",
-      "type": "file"
+      "type": "file",
+      "size": 8775,
+      "sha256": "8cd7c9525d57ec4a7b6d9f2efc7692220366c449ebdb78125291f076e7ed8160"
     },
     {
       "path": ".claude/commands/implement.md",
+      "type": "file",
       "size": 4296,
-      "sha256": "61e94f626c8651f87cb669fe27fdc347492a0713bd0b19510310220754439996",
-      "type": "file"
+      "sha256": "27238b3a1d8ceec5eae1827927e4c6b0739fdcd49b8721d2c664db3a1d5e9317"
     },
     {
       "path": ".claude/commands/plan-new.md",
+      "type": "file",
       "size": 4211,
-      "sha256": "6a536806068d08a0cb75a873b1cee17de53267801385d6a95ff2f706c34639c2",
-      "type": "file"
+      "sha256": "6a536806068d08a0cb75a873b1cee17de53267801385d6a95ff2f706c34639c2"
     },
     {
       "path": ".claude/commands/researcher.md",
+      "type": "file",
       "size": 4187,
-      "sha256": "9625db20987fdf6d1a165d15e9c97d47d407aad09c4ea63b5035d45dc9035196",
-      "type": "file"
+      "sha256": "d2686f59554a4cc16045bb9adae1cf9564332b717651d30f281d16d72ef57d4a"
     },
     {
       "path": ".claude/commands/review-prd.md",
+      "type": "file",
       "size": 3498,
-      "sha256": "d8466e0c7079fc3fbd32042579d0d6ac47776bea0840ca07cb91cdc06caa3623",
-      "type": "file"
+      "sha256": "d8466e0c7079fc3fbd32042579d0d6ac47776bea0840ca07cb91cdc06caa3623"
     },
     {
       "path": ".claude/commands/review.md",
+      "type": "file",
       "size": 3696,
-      "sha256": "1042762d0830d19107d55783e21cac7bfa03439244426de04836404844aa45be",
-      "type": "file"
+      "sha256": "1042762d0830d19107d55783e21cac7bfa03439244426de04836404844aa45be"
     },
     {
       "path": ".claude/commands/reviewer.md",
+      "type": "file",
       "size": 2671,
-      "sha256": "43b13d42dd5c6025a39af4fc2f9fe68311c7a54e400a8febfdc2625eee587e50",
-      "type": "file"
+      "sha256": "43b13d42dd5c6025a39af4fc2f9fe68311c7a54e400a8febfdc2625eee587e50"
     },
     {
       "path": ".claude/commands/tasks-new.md",
+      "type": "file",
       "size": 3711,
-      "sha256": "5ffc5ae9885706401ce03d691a71868a28c42d14706e038612e50c04aaf29136",
-      "type": "file"
+      "sha256": "5ffc5ae9885706401ce03d691a71868a28c42d14706e038612e50c04aaf29136"
     },
     {
       "path": ".claude/gradle/init-print-projects.gradle",
+      "type": "file",
       "size": 643,
-      "sha256": "d568e2bb2196747bb67f760fd5db4ba28459586b381ec92a8c8e150b2605553b",
-      "type": "file"
+      "sha256": "d568e2bb2196747bb67f760fd5db4ba28459586b381ec92a8c8e150b2605553b"
     },
     {
       "path": ".claude/hooks/_vendor/claude_workflow_cli/__init__.py",
+      "type": "file",
       "size": 81,
-      "sha256": "c120060ac8e673499deb323bbdcee0e93ffc33ae6de087c8c19a92883e3d66d4",
-      "type": "file"
+      "sha256": "c120060ac8e673499deb323bbdcee0e93ffc33ae6de087c8c19a92883e3d66d4"
     },
     {
       "path": ".claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
+      "type": "file",
       "size": 3567,
-      "sha256": "9a4f8a7114382026115d10c9502d3b366672fbccc3f4dfc81b6585f5a12801c9",
-      "type": "file"
+      "sha256": "9a4f8a7114382026115d10c9502d3b366672fbccc3f4dfc81b6585f5a12801c9"
     },
     {
       "path": ".claude/hooks/_vendor/claude_workflow_cli/progress.py",
+      "type": "file",
       "size": 19887,
-      "sha256": "cfde71bf371cd2a08aa7028aa6d3118acc16bae95b0c33cfeed85bebf77a86e2",
-      "type": "file"
+      "sha256": "cfde71bf371cd2a08aa7028aa6d3118acc16bae95b0c33cfeed85bebf77a86e2"
     },
     {
       "path": ".claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
+      "type": "file",
       "size": 55,
-      "sha256": "875028fe3ae24587ee49a27fa177668b3975bcf27b30d6be19c49419a5dbc4dd",
-      "type": "file"
+      "sha256": "875028fe3ae24587ee49a27fa177668b3975bcf27b30d6be19c49419a5dbc4dd"
     },
     {
       "path": ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+      "type": "file",
       "size": 13967,
-      "sha256": "f0176ef92e5e74ca33a32730daff9bb145d53b85604f75dddc844872df5bd17b",
-      "type": "file"
+      "sha256": "f0176ef92e5e74ca33a32730daff9bb145d53b85604f75dddc844872df5bd17b"
     },
     {
       "path": ".claude/hooks/format-and-test.sh",
+      "type": "file",
       "size": 19640,
-      "sha256": "8bc4b011e15445316b84dfe7d635b4d319f4985e4684bb319c848da5b67e3571",
-      "type": "file"
+      "sha256": "8bc4b011e15445316b84dfe7d635b4d319f4985e4684bb319c848da5b67e3571"
     },
     {
       "path": ".claude/hooks/gate-api-contract.sh",
+      "type": "file",
       "size": 1864,
-      "sha256": "5e01a03869acb278ba76a731469af5a45c63f344938abd500621baa1aa62dc2f",
-      "type": "file"
+      "sha256": "5e01a03869acb278ba76a731469af5a45c63f344938abd500621baa1aa62dc2f"
     },
     {
       "path": ".claude/hooks/gate-db-migration.sh",
+      "type": "file",
       "size": 1637,
-      "sha256": "4a616b9b8d2937cc52737789d061780b8c825a2ba026cae5a4f0407f49688926",
-      "type": "file"
+      "sha256": "4a616b9b8d2937cc52737789d061780b8c825a2ba026cae5a4f0407f49688926"
     },
     {
       "path": ".claude/hooks/gate-prd-review.sh",
+      "type": "file",
       "size": 1066,
-      "sha256": "9e26d2806e314cfc0709c27625c3c83405a8a37556c250c7f309d755489bc661",
-      "type": "file"
+      "sha256": "9e26d2806e314cfc0709c27625c3c83405a8a37556c250c7f309d755489bc661"
     },
     {
       "path": ".claude/hooks/gate-qa.sh",
+      "type": "file",
       "size": 10205,
-      "sha256": "fd67dc7190f8ec375b08da607e886dd346d82e0105d72fafbbd710a9fdaf42ae",
-      "type": "file"
+      "sha256": "fd67dc7190f8ec375b08da607e886dd346d82e0105d72fafbbd710a9fdaf42ae"
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
+      "type": "file",
       "size": 5322,
-      "sha256": "545de319d2b56e64c4c07dae8a33a677005b79d2b5263c26b596003b10310895",
-      "type": "file"
+      "sha256": "545de319d2b56e64c4c07dae8a33a677005b79d2b5263c26b596003b10310895"
     },
     {
       "path": ".claude/hooks/gate-workflow.sh",
+      "type": "file",
       "size": 12483,
-      "sha256": "23b8c417502ab54ba9bb75a8983dded28bbb6a24ec1c514f901d02e221e6ac8e",
-      "type": "file"
+      "sha256": "23b8c417502ab54ba9bb75a8983dded28bbb6a24ec1c514f901d02e221e6ac8e"
     },
     {
       "path": ".claude/hooks/lib.sh",
+      "type": "file",
       "size": 3104,
-      "sha256": "9dc76fddba037c726d78a1c37a15d78e347b36264dc807672bf3f46bb4febc61",
-      "type": "file"
+      "sha256": "9dc76fddba037c726d78a1c37a15d78e347b36264dc807672bf3f46bb4febc61"
     },
     {
       "path": ".claude/hooks/lint-deps.sh",
+      "type": "file",
       "size": 1265,
-      "sha256": "d9d37931c452e3332a75826422d2e1df7b6db69dfbf7ef3ce7cb91e36d872fd9",
-      "type": "file"
+      "sha256": "d9d37931c452e3332a75826422d2e1df7b6db69dfbf7ef3ce7cb91e36d872fd9"
     },
     {
       "path": ".claude/settings.json",
+      "type": "file",
       "size": 7895,
-      "sha256": "5ceecb18c9e9cc6a96212082659d4ccf844e5c11cdae542782ca78ac985daace",
-      "type": "file"
+      "sha256": "5ceecb18c9e9cc6a96212082659d4ccf844e5c11cdae542782ca78ac985daace"
     },
     {
       "path": ".pre-commit-config.yaml",
+      "type": "file",
       "size": 211,
-      "sha256": "dd729278cda093e4c4542d9047b64f4068d8abcb4625336bb07e14086e2357b1",
-      "type": "file"
+      "sha256": "dd729278cda093e4c4542d9047b64f4068d8abcb4625336bb07e14086e2357b1"
     },
     {
       "path": "CHANGELOG.md",
+      "type": "file",
       "size": 4713,
-      "sha256": "4b8b17ef8200728b3e10e7a50a63be4a5f8958612d5a49dbc35a4ce6a823adfb",
-      "type": "file"
+      "sha256": "4b8b17ef8200728b3e10e7a50a63be4a5f8958612d5a49dbc35a4ce6a823adfb"
     },
     {
       "path": "CLAUDE.md",
+      "type": "file",
       "size": 2352,
-      "sha256": "55c21bb60166ff881aaadc9fcf76b0aaac8c9315055bd308234c91fbb1a42346",
-      "type": "file"
+      "sha256": "55c21bb60166ff881aaadc9fcf76b0aaac8c9315055bd308234c91fbb1a42346"
     },
     {
       "path": "CONTRIBUTING.md",
+      "type": "file",
       "size": 4976,
-      "sha256": "51c45d80f3855a69b00cd9bd3a2f47fe8eac77d56aa4161578696c24f86a8754",
-      "type": "file"
+      "sha256": "51c45d80f3855a69b00cd9bd3a2f47fe8eac77d56aa4161578696c24f86a8754"
     },
     {
       "path": "README.en.md",
+      "type": "file",
       "size": 30948,
-      "sha256": "6753618bf4bc45b9628c123ba97cb4cd2ec771bb1eb0ae0d6820f54706fe049d",
-      "type": "file"
+      "sha256": "6753618bf4bc45b9628c123ba97cb4cd2ec771bb1eb0ae0d6820f54706fe049d"
     },
     {
       "path": "README.md",
+      "type": "file",
       "size": 51388,
-      "sha256": "2c38eb4c974170042d63f0e9651bf2f4eb22d27f8a8b2a06cbaac31577a9e0e2",
-      "type": "file"
+      "sha256": "2c38eb4c974170042d63f0e9651bf2f4eb22d27f8a8b2a06cbaac31577a9e0e2"
     },
     {
       "path": "claude-presets/advanced/feature-design.yaml",
-      "size": 2306,
-      "sha256": "0910335b700c204c20e8c8f5453d8c6eab0b1419b42b2ac5ae5ad9328010392d",
-      "type": "file"
+      "type": "file",
+      "size": 2290,
+      "sha256": "688212d9b56a863effa17956b9892c008128dfbf519bc490b5d4415e7351b36e"
     },
     {
       "path": "claude-presets/advanced/feature-release.yaml",
-      "size": 2395,
-      "sha256": "65099fe338b7ba90d5efe2b635792908440cdfd681913659fa2b76e53503b87e",
-      "type": "file"
+      "type": "file",
+      "size": 2379,
+      "sha256": "185da227f6098c84c148c62a7ab56f18521f846deccab2d09f50c201df1284ea"
     },
     {
       "path": "claude-presets/advanced/prompt-governance.yaml",
+      "type": "file",
       "size": 2068,
-      "sha256": "08929f67a4a0828cc5fb091b941ac674de8f5dabb8d6e6a90a96d4d90a2f26ab",
-      "type": "file"
+      "sha256": "08929f67a4a0828cc5fb091b941ac674de8f5dabb8d6e6a90a96d4d90a2f26ab"
     },
     {
       "path": "claude-presets/feature-impl.yaml",
-      "size": 2723,
-      "sha256": "dc9288be419e079a3f14140648acbb771fb194a027ef8e62a2e777b0acf100fd",
-      "type": "file"
+      "type": "file",
+      "size": 2707,
+      "sha256": "08e4159b3b7d7f08408f4bdacfe6403013dfc4749c6238258ab378b64070647e"
     },
     {
       "path": "claude-presets/feature-plan.yaml",
-      "size": 2330,
-      "sha256": "94c6720917a8f2cd2dcbfdcfa2f02691ba68970aa35aaf83979b914c31d5b914",
-      "type": "file"
+      "type": "file",
+      "size": 2357,
+      "sha256": "5a919b517b140f86acf8f3ce52616fb6d8cbdaf2fc40520a6b6b82762296c237"
     },
     {
       "path": "claude-presets/feature-prd.yaml",
-      "size": 2185,
-      "sha256": "80fb39d813d2f1289902b3d4ae8a4c757949292f82ad078da9c0b8e62f0b5848",
-      "type": "file"
+      "type": "file",
+      "size": 2247,
+      "sha256": "bf454cbef6450c70bc52511a06c87bdff50de0fcd532a6a2112d14291865d999"
     },
     {
       "path": "config/allowed-deps.txt",
+      "type": "file",
       "size": 522,
-      "sha256": "23848d481be24e503c9ef899947cf6d51e1f7027111fb8164510ad3377df9bc7",
-      "type": "file"
+      "sha256": "23848d481be24e503c9ef899947cf6d51e1f7027111fb8164510ad3377df9bc7"
     },
     {
       "path": "config/conventions.json",
+      "type": "file",
       "size": 4119,
-      "sha256": "76aebfc3c3305809b28a9cd9709fac7cfcd701343d90ca942d790d4b1e788d27",
-      "type": "file"
+      "sha256": "76aebfc3c3305809b28a9cd9709fac7cfcd701343d90ca942d790d4b1e788d27"
     },
     {
       "path": "config/gates.json",
+      "type": "file",
       "size": 2714,
-      "sha256": "9573db612a3cfcd896f8b0f07448ceaa8cdf48e1a44b7a7dcab0b50359853569",
-      "type": "file"
+      "sha256": "9573db612a3cfcd896f8b0f07448ceaa8cdf48e1a44b7a7dcab0b50359853569"
     },
     {
       "path": "conventions.md",
+      "type": "file",
       "size": 1301,
-      "sha256": "df9061133ea921a6d09a0857a5d9ddc1d97888b9ca75b8d128feee6fd5dbc6cf",
-      "type": "file"
+      "sha256": "df9061133ea921a6d09a0857a5d9ddc1d97888b9ca75b8d128feee6fd5dbc6cf"
     },
     {
       "path": "doc/backlog.md",
-      "size": 94285,
-      "sha256": "33760c2f08aae272fcfd1fe54f992dae4bd2451c7e52e063b082fb617d98a9af",
-      "type": "file"
+      "type": "file",
+      "size": 96811,
+      "sha256": "f9338d0b89f84f64c15ded7b41b19bdf64e7e7eed5bd88748cc9b7fec5af942d"
     },
     {
       "path": "docs/adr/.gitkeep",
+      "type": "file",
       "size": 1,
-      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "type": "file"
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
     },
     {
       "path": "docs/adr.template.md",
+      "type": "file",
       "size": 3344,
-      "sha256": "76f9a8b34ab4aa701b3a3ac12a64ea7cf4bf3c701c83eb606b5eba6c8f91c43f",
-      "type": "file"
+      "sha256": "76f9a8b34ab4aa701b3a3ac12a64ea7cf4bf3c701c83eb606b5eba6c8f91c43f"
     },
     {
       "path": "docs/agents-playbook.md",
+      "type": "file",
       "size": 20574,
-      "sha256": "6cf9e3a762c68a9578833176726fcb1e23cf5cc5880efb3e319bc29c3002d67a",
-      "type": "file"
+      "sha256": "6cf9e3a762c68a9578833176726fcb1e23cf5cc5880efb3e319bc29c3002d67a"
     },
     {
       "path": "docs/customization.md",
+      "type": "file",
       "size": 16378,
-      "sha256": "f83824813619ef3686c080f9c5b945e21db66e2642c022def539697f7742104f",
-      "type": "file"
+      "sha256": "f83824813619ef3686c080f9c5b945e21db66e2642c022def539697f7742104f"
     },
     {
       "path": "docs/design/feature-presets.md",
+      "type": "file",
       "size": 6719,
-      "sha256": "f674786485ea6760cf96126f30608f160ec87bac8a792e253a590d8fa87b9cc9",
-      "type": "file"
+      "sha256": "f674786485ea6760cf96126f30608f160ec87bac8a792e253a590d8fa87b9cc9"
     },
     {
       "path": "docs/feature-cookbook.md",
+      "type": "file",
       "size": 4415,
-      "sha256": "021d0637c3fc4de8c6741e6ea1dae677d317c3bf404dc7a2235e099677bb9306",
-      "type": "file"
+      "sha256": "021d0637c3fc4de8c6741e6ea1dae677d317c3bf404dc7a2235e099677bb9306"
     },
     {
       "path": "docs/plan/.gitkeep",
+      "type": "file",
       "size": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "type": "file"
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "docs/prd/.gitkeep",
+      "type": "file",
       "size": 1,
-      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "type": "file"
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
     },
     {
       "path": "docs/prd.template.md",
+      "type": "file",
       "size": 6089,
-      "sha256": "421bebb429ac8cd18aeb9dce9599416dc83f27d144ed2dba022e5b862e60555f",
-      "type": "file"
+      "sha256": "421bebb429ac8cd18aeb9dce9599416dc83f27d144ed2dba022e5b862e60555f"
     },
     {
       "path": "docs/prompt-playbook.md",
+      "type": "file",
       "size": 13763,
-      "sha256": "47de345503f9a8a5c100eff4afb2b728f638b6cfb8e0975663604c9b97c89a00",
-      "type": "file"
+      "sha256": "47de345503f9a8a5c100eff4afb2b728f638b6cfb8e0975663604c9b97c89a00"
     },
     {
       "path": "docs/prompt-versioning.md",
+      "type": "file",
       "size": 5312,
-      "sha256": "f679c322cb39b694c790d1155f1ea221001713d940808c9b67be79c973e05cc0",
-      "type": "file"
+      "sha256": "f679c322cb39b694c790d1155f1ea221001713d940808c9b67be79c973e05cc0"
     },
     {
       "path": "docs/qa-playbook.md",
+      "type": "file",
       "size": 5807,
-      "sha256": "8fef87f372e518fa3d3db873165418ca14bdf2b49f360165da65f21d262845c5",
-      "type": "file"
+      "sha256": "8fef87f372e518fa3d3db873165418ca14bdf2b49f360165da65f21d262845c5"
     },
     {
       "path": "docs/release-notes.md",
+      "type": "file",
       "size": 8416,
-      "sha256": "8402b7f6adf4381daf7dd215c5d9ea9c80a1166ad150bd4955f18fdbcb6bfbf1",
-      "type": "file"
+      "sha256": "8402b7f6adf4381daf7dd215c5d9ea9c80a1166ad150bd4955f18fdbcb6bfbf1"
     },
     {
       "path": "docs/research/.gitkeep",
+      "type": "file",
       "size": 1,
-      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "type": "file"
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
     },
     {
       "path": "docs/tasklist/.gitkeep",
+      "type": "file",
       "size": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "type": "file"
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "docs/tasklist.template.md",
+      "type": "file",
       "size": 5630,
-      "sha256": "7f7a97cc2e5d44f22004620c84def6c7113df6f0250885d322557df1d82c7a19",
-      "type": "file"
+      "sha256": "7f7a97cc2e5d44f22004620c84def6c7113df6f0250885d322557df1d82c7a19"
     },
     {
       "path": "docs/templates/research-summary.md",
+      "type": "file",
       "size": 1701,
-      "sha256": "bbe3149744239f32b9d5017176f96ed93893e5b300b4acb00d744588a151dcff",
-      "type": "file"
+      "sha256": "bbe3149744239f32b9d5017176f96ed93893e5b300b4acb00d744588a151dcff"
     },
     {
       "path": "init-claude-workflow.sh",
-      "size": 20188,
-      "sha256": "d3cfa2cecda921fd3ecfed947998a07771bc553ee37af93c7e0c9395b443342f",
-      "type": "file"
+      "type": "file",
+      "size": 20196,
+      "sha256": "6fe0307a9ddab442983ef6b9341868d36d1766c2ced6c5e2b70df35dffc1217c"
     },
     {
       "path": "prompts/en/agents/analyst.md",
-      "size": 4463,
-      "sha256": "1d59f9b3fa2b531952328373d35ea3ded1a066efad48f67c3cfa1bd91d2cc17e",
-      "type": "file"
+      "type": "file",
+      "size": 5235,
+      "sha256": "bb0f850dfceee0d13e7056ac92964d6e266916a980031cfcc5037959e9c43c5c"
     },
     {
       "path": "prompts/en/agents/contract-checker.md",
+      "type": "file",
       "size": 1623,
-      "sha256": "99a7d45d4d170f8476001f1e8d8f84697d711c67f67615cbdc86194a33caebe8",
-      "type": "file"
+      "sha256": "99a7d45d4d170f8476001f1e8d8f84697d711c67f67615cbdc86194a33caebe8"
     },
     {
       "path": "prompts/en/agents/db-migrator.md",
+      "type": "file",
       "size": 1766,
-      "sha256": "d4e888978f9f47a9a252b6d8a39b64283bb07a528ce3d2debd342f748f1b1b50",
-      "type": "file"
+      "sha256": "d4e888978f9f47a9a252b6d8a39b64283bb07a528ce3d2debd342f748f1b1b50"
     },
     {
       "path": "prompts/en/agents/implementer.md",
+      "type": "file",
       "size": 3665,
-      "sha256": "9af22362174e25f4dacd8ef6ecad186e7f9e4d79cdb4dfa7c3e85baf2dca943b",
-      "type": "file"
+      "sha256": "9af22362174e25f4dacd8ef6ecad186e7f9e4d79cdb4dfa7c3e85baf2dca943b"
     },
     {
       "path": "prompts/en/agents/planner.md",
+      "type": "file",
       "size": 1991,
-      "sha256": "7afda8792c04baf55bc1efaf7b73ef0b05c254d26b3401486bb3f8e95ee05eac",
-      "type": "file"
+      "sha256": "7afda8792c04baf55bc1efaf7b73ef0b05c254d26b3401486bb3f8e95ee05eac"
     },
     {
       "path": "prompts/en/agents/prd-reviewer.md",
+      "type": "file",
       "size": 1724,
-      "sha256": "e4a77f52a008f771c583a13392115c1b56011c321bb8d875e7b5d19ca56a7ff4",
-      "type": "file"
+      "sha256": "e4a77f52a008f771c583a13392115c1b56011c321bb8d875e7b5d19ca56a7ff4"
     },
     {
       "path": "prompts/en/agents/qa.md",
+      "type": "file",
       "size": 2487,
-      "sha256": "258b8fdc2464083e34d555d9caae052494b87379bd33f195da93f04e0f0f6b63",
-      "type": "file"
+      "sha256": "258b8fdc2464083e34d555d9caae052494b87379bd33f195da93f04e0f0f6b63"
     },
     {
       "path": "prompts/en/agents/researcher.md",
+      "type": "file",
       "size": 3419,
-      "sha256": "ad6e80c491a034bfbeba704f39b7197d45048e6dc5c2fc2a1981af20fdf8da12",
-      "type": "file"
+      "sha256": "ad6e80c491a034bfbeba704f39b7197d45048e6dc5c2fc2a1981af20fdf8da12"
     },
     {
       "path": "prompts/en/agents/reviewer.md",
+      "type": "file",
       "size": 2126,
-      "sha256": "87352d94ce2eebd87456ce93d582e720808d6de6db7a31a5a4692216d25c10ef",
-      "type": "file"
+      "sha256": "87352d94ce2eebd87456ce93d582e720808d6de6db7a31a5a4692216d25c10ef"
     },
     {
       "path": "prompts/en/agents/validator.md",
+      "type": "file",
       "size": 1437,
-      "sha256": "002b16d4e3af0f23c17251c2bde3bf78579da3b75cab2ac60556e998e0697c3c",
-      "type": "file"
+      "sha256": "002b16d4e3af0f23c17251c2bde3bf78579da3b75cab2ac60556e998e0697c3c"
     },
     {
       "path": "prompts/en/commands/idea-new.md",
-      "size": 4357,
-      "sha256": "5f1542abdf5ce4a3abe960c978dd6cef7016f0e0044e9f6421435484b36c67d5",
-      "type": "file"
+      "type": "file",
+      "size": 4970,
+      "sha256": "cfd50d43a314ec87684961cc4c2fff32848ad8c16055a2682da2524bf084b430"
     },
     {
       "path": "prompts/en/commands/implement.md",
+      "type": "file",
       "size": 2073,
-      "sha256": "0e786a9af3f7e620f1fd6160dfebba6be65a382851d704afce947c051f98ffa4",
-      "type": "file"
+      "sha256": "328e11970bac6d24fac04c57089c977888224b0dfaa24a80808b5cbd8989f6da"
     },
     {
       "path": "prompts/en/commands/plan-new.md",
+      "type": "file",
       "size": 1874,
-      "sha256": "c1c4fbc1b9461d0913c603844393c855407abba9bf09021c1516638b7355a46b",
-      "type": "file"
+      "sha256": "c1c4fbc1b9461d0913c603844393c855407abba9bf09021c1516638b7355a46b"
     },
     {
       "path": "prompts/en/commands/researcher.md",
+      "type": "file",
       "size": 2314,
-      "sha256": "923d31abfabaf7b4c8b103b287f02b29195f3dd9fc1bb97a730613f62e2fe8f4",
-      "type": "file"
+      "sha256": "e1f47e1543e4eea11aa30b00c280edbe77efa306e9f349eac8a60bb957673a9b"
     },
     {
       "path": "prompts/en/commands/review-prd.md",
+      "type": "file",
       "size": 1890,
-      "sha256": "8e4c9c1c6f39d5ebfef3e45223cdcb10befe20d8e212b7f336b2f396feae1db9",
-      "type": "file"
+      "sha256": "8e4c9c1c6f39d5ebfef3e45223cdcb10befe20d8e212b7f336b2f396feae1db9"
     },
     {
       "path": "prompts/en/commands/review.md",
+      "type": "file",
       "size": 1827,
-      "sha256": "2285de165db2b7bd71c58b1bfcd7cf62bcae5a7b5d98a1d3a883693d120bcec9",
-      "type": "file"
+      "sha256": "2285de165db2b7bd71c58b1bfcd7cf62bcae5a7b5d98a1d3a883693d120bcec9"
     },
     {
       "path": "prompts/en/commands/reviewer.md",
+      "type": "file",
       "size": 1606,
-      "sha256": "e76deb533c672f4b2816f48ed3786d94edf4bee514415ece2821386669cdd800",
-      "type": "file"
+      "sha256": "e76deb533c672f4b2816f48ed3786d94edf4bee514415ece2821386669cdd800"
     },
     {
       "path": "prompts/en/commands/tasks-new.md",
+      "type": "file",
       "size": 2128,
-      "sha256": "2db1a39fac58e5baecf1f84fdb50c6c76dd4b383038d4ba96a12505d4434c33f",
-      "type": "file"
+      "sha256": "2db1a39fac58e5baecf1f84fdb50c6c76dd4b383038d4ba96a12505d4434c33f"
     },
     {
       "path": "scripts/ci-lint.sh",
-      "size": 4789,
-      "sha256": "b01410a3b9918fc028283dfc64d38f38d2516bbc18e064142329d8955c4b0567",
-      "type": "file"
+      "type": "file",
+      "size": 4860,
+      "sha256": "dcc8237f1d4c228f906d3e19b06c8b99245b4b4772a38e6b3f3bac4387b99ebe"
     },
     {
       "path": "scripts/migrate-tasklist.py",
+      "type": "file",
       "size": 3883,
-      "sha256": "44c082d55e0dadcd83e7224e4c3c644759f940c1813e550942aeb81c987526b5",
-      "type": "file"
+      "sha256": "44c082d55e0dadcd83e7224e4c3c644759f940c1813e550942aeb81c987526b5"
     },
     {
       "path": "scripts/prd-review-agent.py",
+      "type": "file",
       "size": 9082,
-      "sha256": "885c3fa02df1dd14907daa07dfff5e4e5f6f85c657567311cde745b7769572fb",
-      "type": "file"
+      "sha256": "885c3fa02df1dd14907daa07dfff5e4e5f6f85c657567311cde745b7769572fb"
     },
     {
       "path": "scripts/prd_review_gate.py",
+      "type": "file",
       "size": 12216,
-      "sha256": "02e8f4cf3a76c4565426657625e517e4ef10dab5891b1740a2ec5f8ed0a13c3e",
-      "type": "file"
+      "sha256": "02e8f4cf3a76c4565426657625e517e4ef10dab5891b1740a2ec5f8ed0a13c3e"
     },
     {
       "path": "scripts/qa-agent.py",
+      "type": "file",
       "size": 13298,
-      "sha256": "990b8b7d47bc86b601e81cb28a665e10c55af270fc34ab0d8813fcf9624ad5de",
-      "type": "file"
+      "sha256": "990b8b7d47bc86b601e81cb28a665e10c55af270fc34ab0d8813fcf9624ad5de"
     },
     {
       "path": "scripts/smoke-workflow.sh",
+      "type": "file",
       "size": 10311,
-      "sha256": "bd153ada40437f63e72c83f9f343442ae5df218dd9c29b3193fda7a0572713fd",
-      "type": "file"
+      "sha256": "bd153ada40437f63e72c83f9f343442ae5df218dd9c29b3193fda7a0572713fd"
     },
     {
       "path": "scripts/sync-payload.sh",
+      "type": "file",
       "size": 3398,
-      "sha256": "c83c2b5803d8cbdb04577b20f05711a9249c6edc83a512d08e3892829bff552e",
-      "type": "file"
+      "sha256": "c83c2b5803d8cbdb04577b20f05711a9249c6edc83a512d08e3892829bff552e"
     },
     {
       "path": "templates/git-hooks/README.md",
+      "type": "file",
       "size": 1491,
-      "sha256": "f4009ba7c8e51d6c8a7370fbce15632f1228bccd60752a27ef6e13ce23b09092",
-      "type": "file"
+      "sha256": "f4009ba7c8e51d6c8a7370fbce15632f1228bccd60752a27ef6e13ce23b09092"
     },
     {
       "path": "templates/git-hooks/commit-msg.sample",
+      "type": "file",
       "size": 1720,
-      "sha256": "1ae7824539cec08237fbde11aa2db8aac28aa8424acd66ec93d818ecc436f0a9",
-      "type": "file"
+      "sha256": "1ae7824539cec08237fbde11aa2db8aac28aa8424acd66ec93d818ecc436f0a9"
     },
     {
       "path": "templates/git-hooks/pre-push.sample",
+      "type": "file",
       "size": 539,
-      "sha256": "29bb598a66fb0e1eb41b60201f3e14bbadbb94c764aeb8bfc1b846dd41929d24",
-      "type": "file"
+      "sha256": "29bb598a66fb0e1eb41b60201f3e14bbadbb94c764aeb8bfc1b846dd41929d24"
     },
     {
       "path": "templates/git-hooks/prepare-commit-msg.sample",
+      "type": "file",
       "size": 1652,
-      "sha256": "797a2eb54192f1a4d3ec4899cdc84299f7261d3ae2d0ca91042ef9ce4276a4ef",
-      "type": "file"
+      "sha256": "797a2eb54192f1a4d3ec4899cdc84299f7261d3ae2d0ca91042ef9ce4276a4ef"
     },
     {
       "path": "templates/prompt-agent.md",
+      "type": "file",
       "size": 3494,
-      "sha256": "ff8ffc68c47b10466b3679a84f5457374cb2e0fb63f83224b0fb27334f1c4654",
-      "type": "file"
+      "sha256": "ff8ffc68c47b10466b3679a84f5457374cb2e0fb63f83224b0fb27334f1c4654"
     },
     {
       "path": "templates/prompt-command.md",
-      "size": 4290,
-      "sha256": "3e503f729b9fdbeb273fbef81e630cea57c9577037b1290a7c891d515d508faf",
-      "type": "file"
+      "type": "file",
+      "size": 4289,
+      "sha256": "c3b96283b6b7e519698cc29e14be63c071be1506aad7ba903fa5ee1ccf7a7769"
     },
     {
       "path": "templates/tasklist.md",
+      "type": "file",
       "size": 3060,
-      "sha256": "e6e6d308ecf8a6e98ee600d4f7db326cde4418568738cbb80d4c73fafdb28f53",
-      "type": "file"
+      "sha256": "e6e6d308ecf8a6e98ee600d4f7db326cde4418568738cbb80d4c73fafdb28f53"
     },
     {
       "path": "tests/test_payload_sync.py",
+      "type": "file",
       "size": 2308,
-      "sha256": "c216a64aef94dfb298b005bdf30f18b76852924c8ea3bbf2fa8e3840bb184913",
-      "type": "file"
+      "sha256": "c216a64aef94dfb298b005bdf30f18b76852924c8ea3bbf2fa8e3840bb184913"
     },
     {
       "path": "tools/check_payload_sync.py",
+      "type": "file",
       "size": 5213,
-      "sha256": "524c2e0670accd0c6db2d63ddd3b3fd4b68d578dea235d708228cb5f70c6d344",
-      "type": "file"
+      "sha256": "524c2e0670accd0c6db2d63ddd3b3fd4b68d578dea235d708228cb5f70c6d344"
     },
     {
       "path": "tools/migrate_ticket.py",
+      "type": "file",
       "size": 5767,
-      "sha256": "8087719ce30150ad14adaa24f8eaabb641e2902c1e36530f4ec13cd1d8a4cf23",
-      "type": "file"
+      "sha256": "8087719ce30150ad14adaa24f8eaabb641e2902c1e36530f4ec13cd1d8a4cf23"
     },
     {
       "path": "tools/prompt_diff.py",
+      "type": "file",
       "size": 2000,
-      "sha256": "4335f0d973ef9d450efcd861367805d32a05535b7dd089a2963caf2e20bc23b8",
-      "type": "file"
+      "sha256": "4335f0d973ef9d450efcd861367805d32a05535b7dd089a2963caf2e20bc23b8"
     },
     {
       "path": "tools/researcher_context.py",
+      "type": "file",
       "size": 25654,
-      "sha256": "857ac1664670b1a563653c54dd342ef1a47e5807941fee72678d4843fae9a84f",
-      "type": "file"
+      "sha256": "857ac1664670b1a563653c54dd342ef1a47e5807941fee72678d4843fae9a84f"
     },
     {
       "path": "tools/run_cli.py",
+      "type": "file",
       "size": 3487,
-      "sha256": "d3b80eaeb0ba436b093ab50f41c843d23372c313bc5ea3757b14556587fb2735",
-      "type": "file"
+      "sha256": "d3b80eaeb0ba436b093ab50f41c843d23372c313bc5ea3757b14556587fb2735"
     },
     {
       "path": "tools/set_active_feature.py",
+      "type": "file",
       "size": 8460,
-      "sha256": "80b10aca66680237422d269a8acfd1fca9657d70b9b531fcce2800349e9616cc",
-      "type": "file"
+      "sha256": "80b10aca66680237422d269a8acfd1fca9657d70b9b531fcce2800349e9616cc"
     },
     {
       "path": "workflow.md",
+      "type": "file",
       "size": 14990,
-      "sha256": "72bbdadf57935cd43cb01eb3c6b8429711ce67fa5d58a77e1c48dbb7515b82f7",
-      "type": "file"
+      "sha256": "72bbdadf57935cd43cb01eb3c6b8429711ce67fa5d58a77e1c48dbb7515b82f7"
     }
   ]
 }
