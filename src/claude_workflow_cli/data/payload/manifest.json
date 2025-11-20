@@ -21,8 +21,8 @@
     {
       "path": ".claude/agents/implementer.md",
       "type": "file",
-      "size": 6440,
-      "sha256": "17355056cc93de4793dc6919c3b8e870925c88a050e61db9635fdc872ae8f4b7"
+      "size": 6910,
+      "sha256": "3ea8ada2d2ac176c3ce3edebd580e58cb7027b37da03e8a75f723b5dc2d412d8"
     },
     {
       "path": ".claude/agents/planner.md",
@@ -75,8 +75,8 @@
     {
       "path": ".claude/commands/implement.md",
       "type": "file",
-      "size": 4296,
-      "sha256": "27238b3a1d8ceec5eae1827927e4c6b0739fdcd49b8721d2c664db3a1d5e9317"
+      "size": 4535,
+      "sha256": "79bd24b514f417e8a53d95e5844a4aaca6aede4a5ed6a51b8e7a68193d73e584"
     },
     {
       "path": ".claude/commands/plan-new.md",
@@ -309,8 +309,8 @@
     {
       "path": "doc/backlog.md",
       "type": "file",
-      "size": 96811,
-      "sha256": "f9338d0b89f84f64c15ded7b41b19bdf64e7e7eed5bd88748cc9b7fec5af942d"
+      "size": 98265,
+      "sha256": "6a23c9af76df3178eec8cc88b351ca4eb1395b29da846fefbb1a5acfd0340f1f"
     },
     {
       "path": "docs/adr/.gitkeep",
@@ -441,8 +441,8 @@
     {
       "path": "prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 3665,
-      "sha256": "9af22362174e25f4dacd8ef6ecad186e7f9e4d79cdb4dfa7c3e85baf2dca943b"
+      "size": 3877,
+      "sha256": "3567693b92db5d6ed7f9069e865dd40fd3bbefd9ffe51b6190af4a3eb6ecb8e9"
     },
     {
       "path": "prompts/en/agents/planner.md",
@@ -489,8 +489,8 @@
     {
       "path": "prompts/en/commands/implement.md",
       "type": "file",
-      "size": 2073,
-      "sha256": "328e11970bac6d24fac04c57089c977888224b0dfaa24a80808b5cbd8989f6da"
+      "size": 2217,
+      "sha256": "0ce55fae5e71fe2a7dee793511f10fe6f4767a46f6b8ff6d6af98ad7fef0c350"
     },
     {
       "path": "prompts/en/commands/plan-new.md",

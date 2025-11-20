@@ -508,3 +508,12 @@
 ### Тесты и payload
 - [ ] `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`: добавить сценарии готовности (READY/WARN/BLOCKED), отсутствие отчёта, работа `--only qa`, режим dry-run и обновление tasklist; включить в CI.
 - [ ] `src/claude_workflow_cli/data/payload/**`: отзеркалить новую команду, обновлённые гайды, гейт и smoke-сценарии; обновить `manifest.json` и проверить `tools/check_payload_sync.py`.
+
+## Wave 36
+
+### Усиление agent-first для `/idea-new` и аналитика
+- [ ] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: добавить жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` после `research --auto` (graceful fallback с подсказкой, если CLI не найден); обновить smoke/tests.
+- [ ] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: требовать логировать повторные запуски research (paths/keywords) и явно запускать `analyst-check` при смене статуса READY; уточнить fail-fast при отсутствии `.active_ticket`/PRD.
+- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизировать описание с автозапуском аналитика и правилами повторного research; обновить payload-копии.
+- [ ] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты.
+- [ ] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY.

@@ -2,19 +2,19 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET>"
 lang: ru
-prompt_version: 1.1.0
-source_version: 1.1.0
+prompt_version: 1.1.1
+source_version: 1.1.1
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Read,Edit,Write,Grep,Glob
 model: inherit
 ---
 
 ## Контекст
-Команда `/implement` запускает саб-агента **implementer**, который выполняет работу по `docs/plan/<ticket>.md`, обновляет `docs/tasklist/<ticket>.md` и следит за автозапуском `.claude/hooks/format-and-test.sh`. Используется в основной разработке.
+Команда `/implement` запускает саб-агента **implementer**, который работает по `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`, при необходимости сверяется с PRD/research для уточнений, обновляет tasklist и следит за запуском `.claude/hooks/format-and-test.sh` перед итоговым ответом. Используется в основной разработке.
 
 ## Входные артефакты
 - `docs/plan/<ticket>.md` — итерации и DoD.
 - `docs/tasklist/<ticket>.md` — чеклист прогресса.
-- `docs/research/<ticket>.md`, `docs/prd/<ticket>.prd.md` — контекст и ограничения.
+- `docs/research/<ticket>.md`, `docs/prd/<ticket>.prd.md` — доп. контекст и ограничения (используются, если не хватает деталей в плане/чеклисте).
 
 ## Когда запускать
 - После `/tasks-new`, когда план и tasklist готовы.
