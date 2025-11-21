@@ -272,7 +272,8 @@ You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `docs/task
 2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --ticket <ticket>` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the ticket is already in place after step 1 and verified via `analyst-check`).
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
-5. Request `/review` once `docs/tasklist/<ticket>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review|qa --ticket <ticket>` before closing the loop.
+5. Request `/review` once `docs/tasklist/<ticket>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review --ticket <ticket>` before closing the loop.
+6. Before release, run `/qa <ticket>` or `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, update the QA section in the tasklist, and confirm progress via `claude-workflow progress --source qa --ticket <ticket>`.
 
 A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
@@ -286,6 +287,7 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 | `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |
 | `/implement` | Execute the plan with auto tests | `checkout-discounts` |
 | `/review` | Final code review and status sync | `checkout-discounts` |
+| `/qa` | Final QA gate, writes `reports/qa/<ticket>.json` | `checkout-discounts` |
 | `claude-workflow progress` | Ensure new completed checkboxes exist before closing a step | `--source implement --ticket checkout-discounts` |
 
 ## Branch & commit modes

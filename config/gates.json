@@ -46,7 +46,7 @@
     "allow_missing": false,
     "minimum_paths": 1,
     "allow_pending_baseline": true,
-    "baseline_phrase": "контекст пуст"
+    "baseline_phrase": "\u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u0443\u0441\u0442"
   },
   "analyst": {
     "enabled": true,
@@ -79,8 +79,9 @@
       "gate-api-contract"
     ],
     "command": [
-      "python3",
-      "scripts/qa-agent.py"
+      "claude-workflow",
+      "qa",
+      "--gate"
     ],
     "timeout": 600,
     "report": "reports/qa/{ticket}.json",

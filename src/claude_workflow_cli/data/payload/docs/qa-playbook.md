@@ -26,8 +26,8 @@
 ### Локально
 
 ```bash
-# короткий отчёт + запись JSON в reports/qa/<ticket>.json
-python3 scripts/qa-agent.py --gate --report "reports/qa/{ticket}.json"
+# обязательный запуск агента QA + запись JSON в reports/qa/<ticket>.json
+claude-workflow qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate
 
 # dry-run (не проваливать выполнение при блокерах)
 CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
@@ -42,7 +42,7 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 2. Перед шагом QA установите
    `QA_AGENT_DIFF_BASE=origin/${{ github.event.pull_request.base.ref }}`.
 3. Запустите `./.claude/hooks/gate-qa.sh --payload '{}'`. Скрипт вызовет
-   `scripts/qa-agent.py` и провалит job при блокерах.
+   `claude-workflow qa --gate` и провалит job при блокерах.
 
 ## Severity и статус гейта
 
@@ -74,6 +74,6 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 - [ ] Тестовое окружение задокументировано (URL, пользователи, токены).
 - [ ] Автоматические гейты (`gate-tests`, `gate-api-contract`, `gate-db-migration`) прошли.
 - [ ] `gate-workflow` подтвердил актуальность отчёта Researcher (`Status: reviewed`, свежий контекст).
-- [ ] Результаты `scripts/qa-agent.py` приложены к описанию PR или загружены в CI артефакты.
+- [ ] Результаты `claude-workflow qa --gate` приложены к описанию PR или загружены в CI артефакты.
 - [ ] В `CHANGELOG.md`/release notes отмечены найденные и устранённые дефекты.
 - [ ] Строка `Checkbox updated: …` отражает прогресс QA, а `claude-workflow progress --source qa --ticket <ticket>` возвращает успех.

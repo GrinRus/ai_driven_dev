@@ -84,7 +84,7 @@
 - **Прогресс:** убедитесь, что отмечены выполненные пункты `- [x]`, добавьте строку `Checkbox updated: …` с перечислением закрытых чекбоксов и при необходимости выполните `claude-workflow progress --source review --ticket <ticket>`.
 
 ### qa — финальная проверка качества
-- **Вызов:** `Claude: Run agent → qa`, либо `python3 scripts/qa-agent.py --gate` / `./.claude/hooks/gate-qa.sh`.
+- **Вызов:** `/qa <ticket>` (обязательная стадия после `/review`), либо `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` / `./.claude/hooks/gate-qa.sh`.
 - **Вход:** активная фича, diff, результаты гейтов, раздел QA в `docs/tasklist/<ticket>.md`.
 - **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<ticket>.json`, обновлённый чеклист.
 - **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `docs/qa-playbook.md` для чеклистов и переменных окружения.

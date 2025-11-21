@@ -17,6 +17,7 @@
 | Тасклист | `/tasks-new <ticket>` | — | `docs/tasklist/<ticket>.md` (обновлённые чеклисты) |
 | Реализация | `/implement <ticket>` | `implementer` | кодовые изменения, актуальные тесты |
 | Ревью | `/review <ticket>` | `reviewer` | замечания в `docs/tasklist/<ticket>.md`, итоговый статус |
+| QA | `/qa <ticket>` | `qa` | `docs/tasklist/<ticket>.md` (QA блок), `reports/qa/<ticket>.json` |
 
 На каждом шаге действует правило **agent-first**: агент обязан собрать максимум информации из репозитория (PRD, research, backlog, reports, тесты) и запустить разрешённые команды (`rg`, `claude-workflow progress`, `./gradlew test`, etc.) прежде чем обращаться к пользователю. Любой вопрос сопровождается перечислением изученных артефактов и форматом ответа.
 
@@ -62,6 +63,11 @@
 - Reviewer сверяет, что выполненные пункты отмечены `- [x]`, обновляет строку `Checkbox updated: …` и при необходимости запускает `claude-workflow progress --source review --ticket <ticket>`, чтобы убедиться, что прогресс зафиксирован.
 - Для запуска автотестов reviewer помечает маркер `reports/reviewer/<ticket>.json` командой `claude-workflow reviewer-tests --status required` (slug берётся из `docs/.active_ticket`). После успешного прогона обновите статус на `optional`, чтобы отключить авто‑запуск.
 - При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
+
+### 8. QA (`/qa`)
+- Обязательная стадия перед релизом: запустите `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, чтобы сформировать отчёт и статус READY/WARN/BLOCKED.
+- Саб-агент **qa** сопоставляет diff с чеклистом `docs/tasklist/<ticket>.md`, фиксирует найденные проблемы и рекомендации; гейт `gate-qa.sh` блокирует merge при blocker/critical или отсутствии отчёта.
+- Обновите QA-раздел tasklist (новые `- [x]`, дата/итерация, ссылки на логи) и выполните `claude-workflow progress --source qa --ticket <ticket>`.
 
 ## Автоматизация и гейты
 

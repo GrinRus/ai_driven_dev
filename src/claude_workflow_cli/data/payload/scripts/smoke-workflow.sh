@@ -199,6 +199,16 @@ if ! progress_ok="$(run_cli progress --target . --ticket "$TICKET" --source impl
 fi
 assert_gate_exit 0 "progress checkbox added"
 
+log "run QA command and ensure report created"
+if ! run_cli qa --ticket "$TICKET" --target . --report "reports/qa/${TICKET}.json" --gate --emit-json >/dev/null; then
+  echo "[smoke] qa command failed" >&2
+  exit 1
+fi
+[[ -f "reports/qa/${TICKET}.json" ]] || {
+  echo "[smoke] qa report not generated" >&2
+  exit 1
+}
+
 log "gate blocks, если изменена только RU-версия промпта"
 python3 - <<'PY'
 from pathlib import Path
