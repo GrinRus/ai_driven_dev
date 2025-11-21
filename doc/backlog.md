@@ -517,3 +517,12 @@
 - [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизировать описание с автозапуском аналитика и правилами повторного research; обновить payload-копии.
 - [ ] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты.
 - [ ] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY.
+
+## Wave 37
+
+### Удаление внутреннего backlog из дистрибутива
+- [ ] `doc/backlog.md`: оставить файл только для разработки (dev-only), исключив его из устанавливаемого payload; при необходимости перенести в `docs/dev-backlog.md` или пометить как ignore для sync.
+- [ ] `src/claude_workflow_cli/data/payload/manifest.json`, `tools/check_payload_sync.py`, `tests/test_payload_manifest.py`, `tests/test_package_payload.py`: удалить запись о `doc/backlog.md`, обновить проверку состава payload и убедиться, что сборка wheel/zip не тянет файл.
+- [ ] `scripts/sync-payload.sh`, `src/claude_workflow_cli/data/payload/tests/test_payload_sync.py`: скорректировать списки путей, чтобы sync не требовал `doc/backlog.md`; добавить тест, который гарантирует отсутствие dev-only файлов в payload.
+- [ ] Документация (`docs/prompt-playbook.md`, `docs/release-notes.md`, `CHANGELOG.md`): отметить, что backlog не поставляется конечным пользователям, добавить запись в release checklist и guidance по ведению roadmap в репо без включения в payload.
+- [ ] Проверка и smoke: прогнать `scripts/ci-lint.sh`, `tools/check_payload_sync.py`, smoke-сценарии сборки дистрибутива, удостовериться в корректной установке через `uv/pipx` без `doc/backlog.md` в артефактах.
