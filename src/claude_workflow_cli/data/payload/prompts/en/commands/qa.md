@@ -11,21 +11,25 @@ model: inherit
 ## Context
 `/qa` runs the mandatory QA stage after `/review`: it invokes the **qa** sub-agent via `claude-workflow qa --gate`, produces `reports/qa/<ticket>.json`, updates the QA section in `docs/tasklist/<ticket>.md`, and records progress before release.
 
-## Inputs
+## Input Artifacts
 - Active ticket (`docs/.active_ticket`), slug hint (`docs/.active_feature`).
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA section), logs from previous gates (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
 - Diff/logs (`git diff`, `reports/reviewer/<ticket>.json`, test outputs, demo/staging info).
 
-## Automation
+## When to Run
+- After `/review`, before release/merge.
+- Re-run whenever new commits land or QA checks change.
+
+## Automation & Hooks
 - Required call: `!("claude-workflow" qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json)`.
 - Gate `.claude/hooks/gate-qa.sh` uses `config/gates.json: qa.command` (default `claude-workflow qa --gate`), blocks merge on `blocker/critical` or missing `reports/qa/<ticket>.json`.
 - Record progress: `!("claude-workflow" progress --source qa --ticket "<ticket>")`.
 
-## What to edit
+## What is Edited
 - `docs/tasklist/<ticket>.md` — QA checkboxes, run dates, links to logs/report.
 - `reports/qa/<ticket>.json` — fresh QA report.
 
-## Step-by-step
+## Step-by-step Plan
 1. Run **qa** sub-agent via CLI (see command above); ensure `reports/qa/<ticket>.json` is written with READY/WARN/BLOCKED.
 2. Map diff to the QA checklist; capture findings with severity and recommendations.
 3. Update `docs/tasklist/<ticket>.md`: switch relevant items `- [ ] → - [x]`, add date/iteration, link to report and command logs.
@@ -37,10 +41,10 @@ model: inherit
 - Report missing? Rerun the CLI and include stderr; gate requires the report.
 - Missing tests/env logs — request them or document uncovered scope explicitly.
 
-## Expected output
+## Expected Output
 - `Checkbox updated: <QA items>` and `Status: READY|WARN|BLOCKED`.
 - Link to `reports/qa/<ticket>.json`, summary of findings, next actions.
 
-## CLI examples
+## CLI Examples
 - `/qa ABC-123`
 - `!bash -lc 'claude-workflow qa --ticket "ABC-123" --branch "$(git rev-parse --abbrev-ref HEAD)" --report "reports/qa/ABC-123.json" --gate'`

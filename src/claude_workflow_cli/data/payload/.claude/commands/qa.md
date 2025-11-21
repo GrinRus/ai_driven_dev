@@ -16,7 +16,11 @@ model: inherit
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA секция), логи предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
 - Diff/логи выполнения (`git diff`, `reports/reviewer/<ticket>.json`, тесты, демо окружение).
 
-## Автоматизация
+## Когда запускать
+- После `/review`, перед релизом и мёржем в основную ветку.
+- Повторяй при новых коммитах или изменении QA чеков.
+
+## Автоматические хуки и переменные
 - Обязательный вызов: `!("claude-workflow" qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json)`.
 - Гейт `.claude/hooks/gate-qa.sh` использует `config/gates.json: qa.command` (по умолчанию `claude-workflow qa --gate`), блокирует merge при `blocker/critical` и отсутствии отчёта `reports/qa/<ticket>.json`.
 - Зафиксируй прогресс: `!("claude-workflow" progress --source qa --ticket "<ticket>")`.
