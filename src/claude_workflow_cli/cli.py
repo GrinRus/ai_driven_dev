@@ -627,6 +627,66 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
         print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
 
 
+def _qa_command(args: argparse.Namespace) -> int:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    context = _resolve_feature_context(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    ticket = (context.resolved_ticket or "").strip()
+    slug_hint = (context.slug_hint or ticket or "").strip()
+    if not ticket:
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new.")
+
+    branch = args.branch or _detect_branch(target)
+
+    def _fmt(text: str) -> str:
+        return (
+            text.replace("{ticket}", ticket)
+            .replace("{slug}", slug_hint or ticket)
+            .replace("{branch}", branch or "")
+        )
+
+    report = args.report or "reports/qa/{ticket}.json"
+    report = _fmt(report)
+
+    agent_script = target / "scripts" / "qa-agent.py"
+    if not agent_script.is_file():
+        raise FileNotFoundError(f"QA agent script not found at {agent_script}")
+
+    cmd = ["python3", str(agent_script)]
+    if args.gate:
+        cmd.append("--gate")
+    if args.dry_run:
+        cmd.append("--dry-run")
+    if args.emit_json:
+        cmd.append("--emit-json")
+    if args.format:
+        cmd.extend(["--format", args.format])
+    if args.block_on:
+        cmd.extend(["--block-on", args.block_on])
+    if args.warn_on:
+        cmd.extend(["--warn-on", args.warn_on])
+    if args.scope:
+        for scope in args.scope:
+            cmd.extend(["--scope", scope])
+
+    cmd.extend(["--ticket", ticket])
+    if slug_hint and slug_hint != ticket:
+        cmd.extend(["--slug-hint", slug_hint])
+    if branch:
+        cmd.extend(["--branch", branch])
+    if report:
+        cmd.extend(["--report", report])
+
+    proc = subprocess.run(cmd, cwd=target)
+    return proc.returncode
+
+
 def _progress_command(args: argparse.Namespace) -> int:
     target = Path(args.target).resolve()
     if not target.exists():
@@ -1301,6 +1361,70 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove the marker instead of updating it.",
     )
     reviewer_tests_parser.set_defaults(func=_reviewer_tests_command)
+
+    qa_parser = subparsers.add_parser(
+        "qa",
+        help="Run QA agent and generate reports/qa/<ticket>.json.",
+    )
+    qa_parser.add_argument(
+        "--ticket",
+        "--feature",
+        dest="ticket",
+        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+    )
+    qa_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override used for messaging.",
+    )
+    qa_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    qa_parser.add_argument(
+        "--branch",
+        help="Git branch name for logging (autodetected by default).",
+    )
+    qa_parser.add_argument(
+        "--report",
+        help="Path to JSON report (default: reports/qa/<ticket>.json).",
+    )
+    qa_parser.add_argument(
+        "--block-on",
+        help="Comma-separated severities treated as blockers (pass-through to qa-agent).",
+    )
+    qa_parser.add_argument(
+        "--warn-on",
+        help="Comma-separated severities treated as warnings (pass-through to qa-agent).",
+    )
+    qa_parser.add_argument(
+        "--scope",
+        action="append",
+        help="Optional scope filters (pass-through to qa-agent).",
+    )
+    qa_parser.add_argument(
+        "--format",
+        choices=("json", "text"),
+        default="json",
+        help="qa-agent output format (default: json).",
+    )
+    qa_parser.add_argument(
+        "--emit-json",
+        action="store_true",
+        help="Emit JSON to stdout even in gate mode.",
+    )
+    qa_parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="Gate mode: non-zero exit code on blocker severities.",
+    )
+    qa_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Gate mode without failing on blockers.",
+    )
+    qa_parser.set_defaults(func=_qa_command)
 
     progress_parser = subparsers.add_parser(
         "progress",

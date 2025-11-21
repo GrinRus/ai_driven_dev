@@ -303,7 +303,8 @@ claude-workflow research --ticket STORE-123 --auto
 2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
-5. Запросите `/review`, когда чеклисты в `docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review|qa --ticket <ticket>`.
+5. Запросите `/review`, когда чеклисты в `docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.
+6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
 
 Детальный playbook агентов и барьеров описан в `docs/agents-playbook.md`.
 
@@ -317,6 +318,7 @@ claude-workflow research --ticket STORE-123 --auto
 | `/tasks-new` | Обновить `docs/tasklist/<ticket>.md` по плану | `checkout-discounts` |
 | `/implement` | Реализация по плану с автотестами | `checkout-discounts` |
 | `/review` | Финальное ревью и фиксация статуса | `checkout-discounts` |
+| `/qa` | Финальная QA-проверка, отчёт `reports/qa/<ticket>.json` | `checkout-discounts` |
 | `claude-workflow progress` | Проверить наличие новых `- [x]` перед завершением шага | `--source implement --ticket checkout-discounts` |
 
 ## Режимы веток и коммитов

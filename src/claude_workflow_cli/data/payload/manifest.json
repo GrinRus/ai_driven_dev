@@ -39,8 +39,8 @@
     {
       "path": ".claude/agents/qa.md",
       "type": "file",
-      "size": 4220,
-      "sha256": "000e42183a26cf7e20015fb8ced02176921d4af2baa6b671109c986aaa332483"
+      "size": 4682,
+      "sha256": "dc6d168337596d364080d75ccee1030c34e23da3d353242879ae05ec51251dca"
     },
     {
       "path": ".claude/agents/researcher.md",
@@ -83,6 +83,12 @@
       "type": "file",
       "size": 4211,
       "sha256": "6a536806068d08a0cb75a873b1cee17de53267801385d6a95ff2f706c34639c2"
+    },
+    {
+      "path": ".claude/commands/qa.md",
+      "type": "file",
+      "size": 3989,
+      "sha256": "92f3825d989cb50cf2a946b5a3dbdb97582377847bcd7e0d046f18d43bf823ce"
     },
     {
       "path": ".claude/commands/researcher.md",
@@ -177,8 +183,8 @@
     {
       "path": ".claude/hooks/gate-qa.sh",
       "type": "file",
-      "size": 10205,
-      "sha256": "fd67dc7190f8ec375b08da607e886dd346d82e0105d72fafbbd710a9fdaf42ae"
+      "size": 10675,
+      "sha256": "94c527f0e8c3b83b3da35d36582e43a3bda1a65127b01010b1289ea3e6122237"
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
@@ -237,14 +243,14 @@
     {
       "path": "README.en.md",
       "type": "file",
-      "size": 30948,
-      "sha256": "6753618bf4bc45b9628c123ba97cb4cd2ec771bb1eb0ae0d6820f54706fe049d"
+      "size": 31273,
+      "sha256": "571d77bc361aa55d633124f23aed16ba40140360b3b56c0495b8435f1ecdd96f"
     },
     {
       "path": "README.md",
       "type": "file",
-      "size": 51388,
-      "sha256": "2c38eb4c974170042d63f0e9651bf2f4eb22d27f8a8b2a06cbaac31577a9e0e2"
+      "size": 51815,
+      "sha256": "074e8b56af231c0aae3e2f18fb99fb928567da6384f404881f0ac271895eca88"
     },
     {
       "path": "claude-presets/advanced/feature-design.yaml",
@@ -297,8 +303,8 @@
     {
       "path": "config/gates.json",
       "type": "file",
-      "size": 2714,
-      "sha256": "9573db612a3cfcd896f8b0f07448ceaa8cdf48e1a44b7a7dcab0b50359853569"
+      "size": 2769,
+      "sha256": "4864e5a09d971741aa874002fec50f81847b681e500b6749631cf72d2c23b932"
     },
     {
       "path": "conventions.md",
@@ -309,8 +315,8 @@
     {
       "path": "doc/backlog.md",
       "type": "file",
-      "size": 98265,
-      "sha256": "6a23c9af76df3178eec8cc88b351ca4eb1395b29da846fefbb1a5acfd0340f1f"
+      "size": 98943,
+      "sha256": "fff7589e5d0363fd34a2afea33db434ab2ba1b3802c66eca1e4cd6bda54f025b"
     },
     {
       "path": "docs/adr/.gitkeep",
@@ -327,8 +333,8 @@
     {
       "path": "docs/agents-playbook.md",
       "type": "file",
-      "size": 20574,
-      "sha256": "6cf9e3a762c68a9578833176726fcb1e23cf5cc5880efb3e319bc29c3002d67a"
+      "size": 20666,
+      "sha256": "58e37961441818f19910fd7549600b63486be05381247ee5ffa82718b2e70712"
     },
     {
       "path": "docs/customization.md",
@@ -381,8 +387,8 @@
     {
       "path": "docs/qa-playbook.md",
       "type": "file",
-      "size": 5807,
-      "sha256": "8fef87f372e518fa3d3db873165418ca14bdf2b49f360165da65f21d262845c5"
+      "size": 5856,
+      "sha256": "347bd17e2cde41e57cf98294cd0c8b93a7c692a917aa7f3d9b27f1e1499a964a"
     },
     {
       "path": "docs/release-notes.md",
@@ -405,8 +411,8 @@
     {
       "path": "docs/tasklist.template.md",
       "type": "file",
-      "size": 5630,
-      "sha256": "7f7a97cc2e5d44f22004620c84def6c7113df6f0250885d322557df1d82c7a19"
+      "size": 5695,
+      "sha256": "f5481d7047c75f742dd25d25ff3b48c63aad417ea20215a37ce3a2187681136c"
     },
     {
       "path": "docs/templates/research-summary.md",
@@ -419,6 +425,12 @@
       "type": "file",
       "size": 20196,
       "sha256": "6fe0307a9ddab442983ef6b9341868d36d1766c2ced6c5e2b70df35dffc1217c"
+    },
+    {
+      "path": "manifest.json",
+      "type": "file",
+      "size": 20748,
+      "sha256": "e65c48e6c031566d22d418da5481c373dd0fab0eeb808642b4648a7e5e1088e3"
     },
     {
       "path": "prompts/en/agents/analyst.md",
@@ -459,8 +471,8 @@
     {
       "path": "prompts/en/agents/qa.md",
       "type": "file",
-      "size": 2487,
-      "sha256": "258b8fdc2464083e34d555d9caae052494b87379bd33f195da93f04e0f0f6b63"
+      "size": 2863,
+      "sha256": "5c5462e92485caf17d023239e6c08683bf2c4dac2c0b66f1fe0c748772b46836"
     },
     {
       "path": "prompts/en/agents/researcher.md",
@@ -497,6 +509,12 @@
       "type": "file",
       "size": 1874,
       "sha256": "c1c4fbc1b9461d0913c603844393c855407abba9bf09021c1516638b7355a46b"
+    },
+    {
+      "path": "prompts/en/commands/qa.md",
+      "type": "file",
+      "size": 2626,
+      "sha256": "2ee9deecf88de8c21b83aea65ecd071d9afaa8a9f791be9b780ba4e5fa698fef"
     },
     {
       "path": "prompts/en/commands/researcher.md",
@@ -561,8 +579,8 @@
     {
       "path": "scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 10311,
-      "sha256": "bd153ada40437f63e72c83f9f343442ae5df218dd9c29b3193fda7a0572713fd"
+      "size": 10627,
+      "sha256": "34027dc36b7766f2c6cf521d8eea743f68a781a70455ba70315bf13f91210e71"
     },
     {
       "path": "scripts/sync-payload.sh",
@@ -657,8 +675,8 @@
     {
       "path": "workflow.md",
       "type": "file",
-      "size": 14990,
-      "sha256": "72bbdadf57935cd43cb01eb3c6b8429711ce67fa5d58a77e1c48dbb7515b82f7"
+      "size": 15889,
+      "sha256": "97046576616697295891b8f33acdc6fa63abfa363f80c486fee9d93f08543a00"
     }
   ]
 }

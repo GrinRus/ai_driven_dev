@@ -46,6 +46,16 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "check_open_questions": True,
         "require_dialog_section": True,
     },
+    "qa": {
+        "enabled": True,
+        "branches": ["feature/*", "release/*", "hotfix/*"],
+        "skip_branches": ["docs/*"],
+        "command": ["claude-workflow", "qa", "--gate"],
+        "report": "reports/qa/{ticket}.json",
+        "allow_missing_report": False,
+        "block_on": ["blocker", "critical"],
+        "warn_on": ["major", "minor"],
+    },
     "reviewer": {
         "enabled": True,
         "tests_marker": "reports/reviewer/{ticket}.json",

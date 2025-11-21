@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
@@ -94,7 +94,10 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
   exit 0
 fi
 
-mapfile -t QA_CFG < <(
+QA_CFG=()
+while IFS= read -r line; do
+  QA_CFG+=("$line")
+done < <(
   python3 - "$CONFIG_PATH" <<'PY'
 import json
 import sys
@@ -287,7 +290,7 @@ if ((${#qa_requires[@]} > 0)); then
 fi
 
 if ((${#qa_command[@]} == 0)); then
-  qa_command=("python3" "scripts/qa-agent.py")
+  qa_command=("claude-workflow" "qa" "--gate")
 fi
 
 if [[ -n "${CLAUDE_QA_COMMAND:-}" ]]; then
@@ -313,6 +316,14 @@ for part in "${qa_command[@]}"; do
   [[ -z "$part" ]] && continue
   cmd+=("$(replace_placeholders "$part")")
 done
+
+# Если команда ожидает установленный CLI, используем helper run_cli для подсказки установки.
+if [[ "${cmd[0]}" == "claude-workflow" ]]; then
+  helper_path="$ROOT_DIR/tools/run_cli.py"
+  if [[ -f "$helper_path" ]]; then
+    cmd=("python3" "$helper_path" "${cmd[@]:1}")
+  fi
+fi
 
 if ((${#qa_block[@]} == 0)); then
   qa_block=("blocker" "critical")
@@ -362,7 +373,11 @@ fi
 ((dry_run == 1)) && echo "[gate-qa] dry-run режим: блокеры не провалят команду." >&2
 
 set +e
-"${timeout_cmd[@]}" "${runner[@]}"
+if ((${#timeout_cmd[@]} > 0)); then
+  "${timeout_cmd[@]}" "${runner[@]}"
+else
+  "${runner[@]}"
+fi
 status=$?
 set -e
 

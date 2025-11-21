@@ -40,8 +40,8 @@ Updated: YYYY-MM-DD
 
 ## 3. QA / Проверки
 - [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
-- [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи `./gradlew test`, `pytest`, `scripts/qa-agent.py`).
-- [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте).
+- [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи `./gradlew test`, `pytest`, `claude-workflow qa --gate`).
+- [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
 
 ## 4. Интеграция с гейтами
 - [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.
