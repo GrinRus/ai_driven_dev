@@ -2,48 +2,52 @@
 description: "Инициация фичи: сбор идеи → уточнения → PRD"
 argument-hint: "<TICKET> [slug-hint]"
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow research:*),Bash(claude-workflow analyst-check:*)
+prompt_version: 1.1.1
+source_version: 1.1.1
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow research:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*)
 model: inherit
 ---
 
 ## Контекст
-Команда `/idea-new` заводит новую фичу: фиксирует активный ticket, подготавливает шаблон PRD и запускает аналитика. Команда открывает Wave 32 цикл («идея → research → PRD») и задаёт основу для всех следующих агентов.
+Команда `/idea-new` заводит новую фичу: фиксирует активный ticket, подготавливает шаблон PRD, запускает автоматический research и отдаёт управление аналитику. Цикл «идея → research → PRD» следует agent-first принципу: аналитик/ресерчер сами собирают данные из репозитория (slug-hint, reports, rg), запускают CLI (`claude-workflow research`, `claude-workflow analyst`) и задают вопросы пользователю только если артефактов недостаточно.
 
 ## Входные артефакты
-- `doc/backlog.md`, заметки пользователя — исходное описание идеи.
+- Slug-hint пользователя (аргумент `[slug-hint]` у `/idea-new`) и любые найденные ссылки на тикет (`rg <ticket> docs/**`) — исходное описание.
 - `docs/prd.template.md` — шаблон PRD для автосборки.
-- `docs/research/<ticket>.md` — создаётся/обновляется в рамках шага (если отсутствует, используется шаблон `docs/templates/research-summary.md`).
+- `docs/research/<ticket>.md`, `reports/research/<ticket>-context.json`, `reports/research/<ticket>-targets.json` — создаются/обновляются автоматически (если отчёта нет, разворачивается `docs/templates/research-summary.md` с baseline).
+- Пользовательский `slug-hint` из команды `/idea-new <ticket> [slug-hint]` — первичный текст запроса; зафиксируй его в PRD (обзор, контекст) и, при необходимости, импортируй в backlog/заметки.
 
 ## Когда запускать
 - В самом начале работы над фичей, до любого планирования/кодовых правок.
 - Повторный запуск допустим только если нужно пересоздать активный ticket (используй флаг `--force` и убедись, что не перетираешь заполненный PRD).
 
 ## Автоматические хуки и переменные
-- `python3 tools/set_active_feature.py` синхронизирует `docs/.active_ticket`, `.active_feature` и scaffold'ит PRD.
-- `claude-workflow research --auto` собирает кодовый контекст и создаёт `reports/research/<ticket>-context.json`.
-- `claude-workflow analyst-check` валидирует, что блок `## Диалог analyst` заполнен и статус PRD не `draft`.
+- `python3 tools/set_active_feature.py` синхронизирует `docs/.active_ticket`, `.active_feature` и scaffold'ит PRD (может читать slug/alias из аргументов).
+- `claude-workflow research --ticket <ticket> --auto` собирает кодовый контекст и обновляет `reports/research/<ticket>-context.json`/`-targets.json`; параметры `--paths/--keywords/--note` указываем только при реальной необходимости уточнить область поиска.
+- `claude-workflow analyst --ticket <ticket> --auto` запускает агента-аналитика, который сам перечитывает research, slug-hint и применяет rg; при нехватке данных он может инициировать повторный research с уточнёнными путями/ключевыми словами.
+- `claude-workflow analyst-check --ticket <ticket>` валидирует, что блок `## Диалог analyst` заполнен и статус PRD не `draft`.
 
 ## Что редактируется
 - `docs/.active_ticket`, `docs/.active_feature` — текущее состояние фичи.
 - `docs/prd/<ticket>.prd.md` — основной документ; после запуска всегда существует хотя бы с `Status: draft`.
 - `docs/research/<ticket>.md` — отчёт Researcher (при отсутствии разворачивается из шаблона).
+- Автогенерируемые отчёты в `reports/research/*.json` (при необходимости CLI обновляет их повторно).
 - Дополнительные заметки/файлы, которые пользователь указал в аргументах (`--note`).
 
 ## Пошаговый план
-1. Запусти `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` (при необходимости добавь `--skip-prd-scaffold`, но по умолчанию scaffold обязателен).
-2. Сразу после фиксации тикета выполни `claude-workflow research --ticket "$1" --auto` (при необходимости дополни `--paths`, `--keywords`, `--note`).
-3. Если CLI сообщает `0 matches`, создавай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline» в разделы `## Отсутствие паттернов` / `## Дополнительные заметки`.
-4. Запусти саб-агента **analyst** (палитра `/analyst` или выбор агента вручную) и веди диалог согласно инструкциям, сразу напоминая пользователю отвечать в формате `Ответ N: …`.
-5. Допиши `docs/prd/$1.prd.md` по шаблону: заполни раздел `## Диалог analyst`, ссылку на research, цели, сценарии, риски; переведи статус из `draft` в READY только после полного диалога.
-6. После завершения диалога запусти `claude-workflow analyst-check --ticket "$1"`. Если есть замечания — вернись к PRD и дополни.
-7. По желанию используй пресет `feature-prd` (`bash init-claude-workflow.sh --preset feature-prd --ticket "$1"`) для быстрого наполнения целей.
+1. Запусти `python3 tools/set_active_feature.py "$1" [--slug-note "$2"]` — команда обновит `docs/.active_ticket`, `.active_feature` (сохраняет slug-hint как сырой запрос пользователя) и создаст PRD (`Status: draft`). Аргумент `--force` используем только если подтверждено перезаписывание существующей фичи.
+2. Сразу после фиксации тикета выполни `claude-workflow research --ticket "$1" --auto` — это соберёт пути/ключевые слова/experts и создаст `reports/research/<ticket>-context.json`. Дополнительные `--paths`/`--keywords` указываем только при явном ограничении области поиска; по умолчанию агент сам сканирует репозиторий.
+3. Если CLI сообщает `0 matches`, развёрни `docs/templates/research-summary.md` в `docs/research/$1.md`, добавь baseline «Контекст пуст, требуется baseline» и перечисли команды/пути, которые ничего не нашли.
+4. Запусти саб-агента **analyst** автомодно: `claude-workflow analyst --ticket "$1" --auto`. Агент читает slug-hint (`docs/.active_feature`), `docs/research/<ticket>.md`, `reports/research/*.json`, применяет `rg` и при нехватке данных сам инициирует дополнительный `claude-workflow research --ticket "$1" --auto --paths ... --keywords ...`.
+5. После автосбора аналитик заполняет `docs/prd/$1.prd.md` (включая `## Диалог analyst`, цели, сценарии, риски) и меняет статус на READY, когда репозитория достаточно либо получены ответы.
+6. Запусти `claude-workflow analyst-check --ticket "$1"` — убедись, что структура вопросов/ответов корректна и статус не `draft`. При замечаниях вернись к PRD и дополни.
+7. При необходимости воспользуйся пресетом `feature-prd` (`bash init-claude-workflow.sh --preset feature-prd --ticket "$1"`) или добавь `--note @file.md`, чтобы приложить дополнительные наблюдения в отчет research.
 
 ## Fail-fast и вопросы
 - Если ticket не указан — остановись и попроси пользователя назвать ID (и при необходимости slug-hint).
 - Не перезаписывай заполненный PRD без явного подтверждения: предупреди, что потребуется `--force`.
-- При отсутствии контекста (нет путей/ключевых слов) попроси пользователя указать каталоги через `--paths` или заметки через `--note`.
+- При отсутствии ticket или slug-hint остановись и запроси корректные аргументы.
+- Если после запуска `claude-workflow research --auto` нет данных, задокументируй baseline и попроси пользователя уточнить каталоги/фичи только после перечисления того, что уже проверено. При нехватке контекста аналитик может инициировать повторный research с уточнением путей/ключевых слов.
 
 ## Ожидаемый вывод
 - Активный ticket и slug зафиксированы в `docs/.active_ticket`, `.active_feature`.

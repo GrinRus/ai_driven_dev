@@ -18,8 +18,20 @@ context:
     - docs/prd/{{feature}}.prd.md
     - docs/research/{{feature}}.md
     - docs/tasklist.template.md
-    - docs/customization.md
+    - reports/research/{{feature}}-context.json
+    - reports/research/{{feature}}-targets.json
   instructions:
+    - >-
+      Используй repo-first данные: прочитай PRD, research, backlog и отчёты
+      `reports/research/{{feature}}-context.json` и
+      `reports/research/{{feature}}-targets.json`; перечисли затронутые модули
+      и существующие точки интеграции.
+    - >-
+      Сформируй план итерациями, ссылаясь на файлы/команды (например,
+      `.claude/hooks/format-and-test.sh`, `./gradlew :service:test`). План
+      должен указывать, какие шаги уже покрыты шаблонами и что нужно открыть
+      в tasklist.
+    - docs/customization.md
     - >-
       Составь пошаговый план реализации фичи {{feature}}.
     - >-

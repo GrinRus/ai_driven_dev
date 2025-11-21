@@ -469,25 +469,51 @@
   - `scripts/ci-lint.sh` явно добавляет `python3 -m unittest tests.test_cli_entrypoint.py` (помимо общего `unittest` прогона), чтобы регрессии shim падали до merge.
 ## Wave 34
 ### Agent-first промпты и гайды
-- [ ] `docs/prompt-playbook.md`, `docs/agents-playbook.md`, `workflow.md`, `doc/backlog.md`: переписать правила с упором на «agent-first» модель (агент сам читает файлы и запускает скрипты, вопросы пользователю — крайняя мера), убрать упоминания человеческих ресурсных ограничений и добавить примеры автоматических источников данных.
-- [ ] `README.md`, `README.en.md`, `docs/release-notes.md`, `CHANGELOG.md`: задокументировать переход на «agent-first» (новый раздел в README, запись в релизных заметках, чеклист миграции существующих проектов).
+- [x] `docs/prompt-playbook.md`, `docs/agents-playbook.md`, `workflow.md`, `doc/backlog.md`: переписать правила с упором на «agent-first» модель (агент сам читает файлы и запускает скрипты, вопросы пользователю — крайняя мера), убрать упоминания человеческих ресурсных ограничений и добавить примеры автоматических источников данных.
+- [x] `README.md`, `README.en.md`, `docs/release-notes.md`, `CHANGELOG.md`: задокументировать переход на «agent-first» (новый раздел в README, запись в релизных заметках, чеклист миграции существующих проектов).
 
 ### Обновление шаблонов документов
-- [ ] `docs/prd.template.md`, `src/claude_workflow_cli/data/payload/docs/prd.template.md`: заменить поля «Владелец/Команда/Оценка ресурсов» на разделы «Автоматизация/Системные интеграции», добавить подсказки по фиксации CLI/скриптов, которые должен запускать агент.
-- [ ] `docs/tasklist.template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist.template.md`: переписать чеклисты так, чтобы пункты ссылались на артефакты (диффы, логи тестов, отчёты), а не на коммуникацию со стейкхолдерами; уточнить формат отметок (`путь → дата → ссылка`).
-- [ ] `docs/templates/research-summary.md`, `src/claude_workflow_cli/data/payload/docs/templates/research-summary.md`: убрать поля `Prepared by`/«Связанные команды», добавить секции «Как запускать окружение», «Обязательные проверки», «Точки вставки кода» с примерами CLI-команд.
+- [x] `docs/prd.template.md`, `src/claude_workflow_cli/data/payload/docs/prd.template.md`: заменить поля «Владелец/Команда/Оценка ресурсов» на разделы «Автоматизация/Системные интеграции», добавить подсказки по фиксации CLI/скриптов, которые должен запускать агент.
+- [x] `docs/tasklist.template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist.template.md`: переписать чеклисты так, чтобы пункты ссылались на артефакты (диффы, логи тестов, отчёты), а не на коммуникацию со стейкхолдерами; уточнить формат отметок (`путь → дата → ссылка`).
+- [x] `docs/templates/research-summary.md`, `src/claude_workflow_cli/data/payload/docs/templates/research-summary.md`: убрать поля `Prepared by`/«Связанные команды», добавить секции «Как запускать окружение», «Обязательные проверки», «Точки вставки кода» с примерами CLI-команд.
 
 ### Перепаковка агентов и команд
-- [ ] `.claude/agents/{analyst,researcher,implementer}.md`, `prompts/en/agents/{analyst,researcher,implementer}.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/agents/{analyst,researcher,implementer}.md`: переписать контекст и план действий так, чтобы агенты собирали данные из репозитория (backlog, tests, reports) и записывали результаты напрямую. Q&A с пользователем оставляем только у аналитика для заполнения PRD, когда автоматический разбор не отвечает на все вопросы. Обязательно подсветить, какие команды запускать (`rg`, `pytest`, `claude-workflow progress`), какие права/инструменты есть у агента (чтение, запись, доступные Bash-команды) и как фиксировать результаты в артефактах.
-- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/commands/idea-new.md`: синхронизировать с новой ролью аналитика (автоматическое заполнение PRD, fallback без пользователя), убрать требования ручного подтверждения `--paths/--keywords`.
-- [ ] `templates/prompt-agent.md`, `templates/prompt-command.md`, `src/claude_workflow_cli/data/payload/templates/{prompt-agent.md,prompt-command.md}`: обновить подсказки — вместо «задавайте вопросы» прописать обязательные блоки по чтению артефактов, запуску утилит и фиксации артефактов в ответе.
+- [x] `.claude/agents/{analyst,researcher,implementer}.md`, `prompts/en/agents/{analyst,researcher,implementer}.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/agents/{analyst,researcher,implementer}.md`: переписать контекст и план действий так, чтобы агенты собирали данные из репозитория (backlog, tests, reports) и записывали результаты напрямую. Q&A с пользователем оставляем только у аналитика для заполнения PRD, когда автоматический разбор не отвечает на все вопросы. Обязательно подсветить, какие команды запускать (`rg`, `pytest`, `claude-workflow progress`), какие права/инструменты есть у агента (чтение, запись, доступные Bash-команды) и как фиксировать результаты в артефактах.
+- [x] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`, `src/claude_workflow_cli/data/payload/{.claude,prompts/en}/commands/idea-new.md`: синхронизировать с новой ролью аналитика (автоматическое заполнение PRD, fallback без пользователя), убрать требования ручного подтверждения `--paths/--keywords`.
+- [x] `templates/prompt-agent.md`, `templates/prompt-command.md`, `src/claude_workflow_cli/data/payload/templates/{prompt-agent.md,prompt-command.md}`: обновить подсказки — вместо «задавайте вопросы» прописать обязательные блоки по чтению артефактов, запуску утилит и фиксации артефактов в ответе.
 
 ### Синхронизация payload и тесты
-- [ ] `scripts/sync-payload.sh`, `tools/check_payload_sync.py`: убедиться, что новые промпты/шаблоны корректно копируются между корнем и payload, добавить smoke-проверки для agent-first разделов.
-- [ ] `tests/test_cli_sync.py`, `src/claude_workflow_cli/data/payload/tests/test_payload_sync.py`: расширить тесты синхронизации на новые файлы (обновлённые шаблоны и промпты), чтобы не потерять «agent-first» инструкции в дистрибутиве.
-- [ ] `scripts/ci-lint.sh`, `.github/workflows/ci.yml`: подключить новые проверки (например, `rg 'Answer [0-9]'` → провал, если в промпте остались упоминания ручного Q&A), прогонять их в CI.
+- [x] `scripts/sync-payload.sh`, `tools/check_payload_sync.py`: убедиться, что новые промпты/шаблоны корректно копируются между корнем и payload, добавить smoke-проверки для agent-first разделов.
+- [x] `tests/test_cli_sync.py`, `src/claude_workflow_cli/data/payload/tests/test_payload_sync.py`: расширить тесты синхронизации на новые файлы (обновлённые шаблоны и промпты), чтобы не потерять «agent-first» инструкции в дистрибутиве.
+- [x] `scripts/ci-lint.sh`, `.github/workflows/ci.yml`: подключить новые проверки (например, `rg 'Answer [0-9]'` → провал, если в промпте остались упоминания ручного Q&A), прогонять их в CI.
 
 ### Коммуникация и миграция
-- [ ] `docs/feature-cookbook.md`, `docs/customization.md`, `workflow.md`: добавить раздел «Как мигрировать существующие проекты на agent-first» (шаги обновления шаблонов, прогон sync+tests, чеклист по обновлению `.claude/agents`).
-- [ ] `examples/` (demo проект), `init-claude-workflow.sh`, `claude-presets/**`: обновить демонстрационные артефакты и preset'ы, чтобы они разворачивали уже «agent-first» версии промптов и документов.
->>>>>>> 074441e (docs: detail zero-touch cli tasks)
+- [x] `docs/feature-cookbook.md`, `docs/customization.md`, `workflow.md`: добавить раздел «Как мигрировать существующие проекты на agent-first» (шаги обновления шаблонов, прогон sync+tests, чеклист по обновлению `.claude/agents`).
+- [x] `examples/` (demo проект), `init-claude-workflow.sh`, `claude-presets/**`: обновить демонстрационные артефакты и preset'ы, чтобы они разворачивали уже «agent-first» версии промптов и документов.
+
+## Wave 35
+
+### Команда /qa и UX
+- [ ] `.claude/commands/qa.md`, `prompts/en/commands/qa.md` (новые): описать запуск QA после `/review`, входы (diff, tasklist, логи гейтов), автоматизацию (`gate-qa.sh`, `claude-workflow progress --source qa`), ожидаемый вывод и примеры CLI/палитры.
+- [ ] `.claude/agents/qa.md`, `prompts/en/agents/qa.md`: синхронизировать с новой командой; уточнить, что агент обязателен перед релизом, фиксирует `Checkbox updated` и пишет `reports/qa/<ticket>.json`.
+
+### Встраивание в процесс
+- [ ] `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`, `README.md`, `README.en.md`: обновить walkthrough и quick-start — добавить явный шаг `/qa` после `/review`, чеклист входных артефактов, параметры гейта (`CLAUDE_SKIP_QA`, `--only qa`), формат отчёта и прогресс-маркеры.
+- [ ] `docs/tasklist.template.md`: выделить QA-блок (что проверяется, куда писать лог/отчёт), добавить примеры отметок `Checkbox updated` для регрессий/UX/перф.
+
+### Гейты и конфигурация
+- [ ] `.claude/hooks/gate-qa.sh`, `config/gates.json`: убедиться, что гейт использует новую команду/CLI, корректно читает `reports/qa/{ticket}.json`, уважает `skip_branches`/`CLAUDE_SKIP_QA`, поддерживает dry-run и выводит подсказку по запуску `/qa`.
+- [ ] `scripts/qa-agent.py`: синхронизировать вызовы, опции и формат JSON с новым гейтом; описать режим `--gate` и интерактивный запуск в `docs/qa-playbook.md`.
+
+### Тесты и payload
+- [ ] `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`: добавить сценарии готовности (READY/WARN/BLOCKED), отсутствие отчёта, работа `--only qa`, режим dry-run и обновление tasklist; включить в CI.
+- [ ] `src/claude_workflow_cli/data/payload/**`: отзеркалить новую команду, обновлённые гайды, гейт и smoke-сценарии; обновить `manifest.json` и проверить `tools/check_payload_sync.py`.
+
+## Wave 36
+
+### Усиление agent-first для `/idea-new` и аналитика
+- [ ] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: добавить жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` после `research --auto` (graceful fallback с подсказкой, если CLI не найден); обновить smoke/tests.
+- [ ] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: требовать логировать повторные запуски research (paths/keywords) и явно запускать `analyst-check` при смене статуса READY; уточнить fail-fast при отсутствии `.active_ticket`/PRD.
+- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизировать описание с автозапуском аналитика и правилами повторного research; обновить payload-копии.
+- [ ] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты.
+- [ ] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY.

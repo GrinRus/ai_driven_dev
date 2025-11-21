@@ -14,7 +14,7 @@ model: inherit
 ## Входные артефакты
 - `docs/prd/<ticket>.prd.md` — должен содержать `Status: READY` и заполненный `## PRD Review`. Если статус draft/blocked, остановись.
 - `docs/research/<ticket>.md` — список модулей/паттернов для reuse.
-- `doc/backlog.md`, `docs/tasklist/<ticket>.md` (если уже создан) — чтобы сопоставить цели и чеклисты.
+- `docs/tasklist/<ticket>.md` (если уже создан), а также slug-hint (`docs/.active_feature`) — чтобы сопоставить цели и чеклисты.
 - ADR/архитектурные заметки, на которые ссылается PRD.
 
 ## Автоматизация

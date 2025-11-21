@@ -18,8 +18,18 @@ context:
     - docs/plan/{{feature}}.md
     - docs/tasklist/{{feature}}.md
     - docs/research/{{feature}}.md
-    - "{{release_notes_path}}"
+    - reports/research/{{feature}}-context.json
+    - reports/qa/{{feature}}.json
   instructions:
+    - >-
+      Собери текущее состояние из PRD/plan/tasklist/research и отчётов
+      `reports/research/*.json`, `reports/qa/{{feature}}.json`. Укажи, какие
+      гейты запущены и какие команды нужно выполнить перед релизом.
+    - >-
+      В релизных заметках перечисли изменения, команды выката/отката и ссылки
+      на tasklist/PRD, чтобы обновлённый agent-first процесс был
+      воспроизводим.
+    - "{{release_notes_path}}"
     - >-
       Проверь, что все чекбоксы по фиче {{feature}} закрыты.
     - >-

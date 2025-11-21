@@ -2,18 +2,18 @@
 description: "Feature implementation + selective tests"
 argument-hint: "<TICKET>"
 lang: en
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.1.1
+source_version: 1.1.1
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Read,Edit,Write,Grep,Glob
 model: inherit
 ---
 
 ## Context
-`/implement` drives development by delegating to the implementer agent, running format/tests, and keeping the tasklist updated.
+`/implement` drives development by delegating to the implementer agent, keeping tasklist aligned with the plan, consulting PRD/research only when plan/tasklist lack detail, and running format/tests before handing results back.
 
 ## Input Artifacts
 - `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md`.
-- Research/PRD for context.
+- Research/PRD for supplemental context when plan/tasklist miss details.
 - Current git diff/config.
 
 ## When to Run

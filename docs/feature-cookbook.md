@@ -5,21 +5,14 @@
 исследование завершено и рекомендации приняты командой.
 
 ## Idea → Research
-- Запустите `/idea-new <ticket> [slug-hint]` и сразу отвечайте на вопросы аналитика форматом `Ответ N: …`. Команда автоматически создаёт `docs/prd/<ticket>.prd.md` со статусом `Status: draft`, поэтому обновите ссылку на `docs/research/<ticket>.md` и снимайте draft только после полного комплекта ответов. Агент ведёт журнал в `## Диалог analyst`, поэтому не переходите дальше, пока каждый `Вопрос N` не получил ответ.
-- Обновляйте `Status:` (`READY`/`BLOCKED`) и очищайте `## 10. Открытые вопросы` по мере закрытия блокеров.
-- После каждой итерации проверяйте результат `claude-workflow analyst-check --ticket <ticket>` — команда укажет на пропущенные ответы или неверную нумерацию. Если проверка падает, вернитесь к аналитическому диалогу.
+- Запустите `/idea-new <ticket> [slug-hint]`: команда фиксирует активный тикет, сохраняет slug-hint пользователя в `docs/.active_feature`, автогенерирует `docs/prd/<ticket>.prd.md` и вызывает `claude-workflow research --ticket <ticket> --auto`. Аналитик начинает со slug-hint, затем читает `docs/research/<ticket>.md`, `reports/research/*.json`, фиксирует источники в PRD и только при нехватке данных запускает Q&A.
+- Поддерживайте `Status: READY/BLOCKED` и `## 10. Открытые вопросы`, указывая, какие данные нужны (ссылки на файлы/команды). После каждого обновления запускайте `claude-workflow analyst-check --ticket <ticket>` — он подтвердит, что диалог заполнен и PRD не остался в `draft`.
+- Если `claude-workflow research --auto` не находит контекст, Researcher разворачивает `docs/templates/research-summary.md`, добавляет baseline «Контекст пуст...» и перечисляет команды/пути, которые уже проверены; только после этого просите команду уточнить `--paths/--keywords`.
 
 ## Research → Plan
-- Запустите `claude-workflow research --ticket <ticket>` и уточните области
-  анализа (`--paths`, `--keywords`). CLI сформирует `reports/research/<ticket>-targets.json`
-  и `<ticket>-context.json`.
-- Через `/researcher <ticket>` оформите `docs/research/<ticket>.md` по шаблону
-  `docs/templates/research-summary.md`; зафиксируйте точки интеграции,
-  reuse-компоненты и риски.
-- Вставьте ссылку на `docs/research/<ticket>.md` в раздел артефактов PRD и
-  чеклист `docs/tasklist/<ticket>.md`, чтобы команда видела результаты исследования.
-- Проставьте `Status: reviewed`, как только вывод согласован, и перенесите
-  блокирующие действия в `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`.
+- Запускайте `claude-workflow research --ticket <ticket>` столько раз, сколько требуется, чтобы `reports/research/<ticket>-targets.json` и `<ticket>-context.json` отражали актуальные каталоги/ключевые слова. Приложите список команд (`rg`, `find`, `python`) в `docs/research/<ticket>.md`.
+- Через `/researcher <ticket>` заполните `docs/research/<ticket>.md` (шаблон `docs/templates/research-summary.md`): точки интеграции, что переиспользуем, какие тесты обязательны. Секции «Commands/Artifacts» помогают downstream-команде повторить шаги.
+- Обновите PRD/tasklist ссылками на research и пометьте `Status: reviewed`, когда команды согласованы; блокирующие действия перенесите в `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`.
 
 ## Plan → Implementation
 - Проверяйте, что план покрывает все директории из `reports/research/<ticket>-targets.json`.
@@ -27,3 +20,8 @@
   состоянии (`claude-workflow research --ticket <ticket>` без `--dry-run`). Это
   обеспечит прохождение `gate-workflow` и напомнит команде о согласованных
   точках интеграции.
+
+## Миграция на agent-first
+1. Выполните `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, чтобы новые шаблоны PRD/tasklist/research и команда `/idea-new` попали в рабочее дерево и в payload CLI.
+2. Скопируйте обновлённые `.claude/agents|commands` и `prompts/en/**`, затем прогоните `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>` для каждой активной фичи — это подтянет baseline, отчёты и PRD к новым секциям «Commands/Reports».
+3. Tasklist должен содержать поля `Reports/Commands`, а в ответах агентов перечисляются запущенные CLI. Smoke-тест `scripts/smoke-workflow.sh` и `scripts/ci-lint.sh` помогут убедиться, что миграция завершена.
