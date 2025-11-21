@@ -494,20 +494,20 @@
 ## Wave 35
 
 ### Команда /qa и UX
-- [ ] `.claude/commands/qa.md`, `prompts/en/commands/qa.md` (новые): описать запуск QA после `/review`, входы (diff, tasklist, логи гейтов), автоматизацию (`gate-qa.sh`, `claude-workflow progress --source qa`), ожидаемый вывод и примеры CLI/палитры.
-- [ ] `.claude/agents/qa.md`, `prompts/en/agents/qa.md`: синхронизировать с новой командой; уточнить, что агент обязателен перед релизом, фиксирует `Checkbox updated` и пишет `reports/qa/<ticket>.json`.
+- [ ] `.claude/commands/qa.md`, `prompts/en/commands/qa.md` (новые): оформить `/qa` как отдельную стадию после `/review`; входы — активный ticket/slug-hint, diff, QA‑раздел tasklist, логи гейтов; автоматизация — обязательный вызов агента `qa` + `gate-qa.sh`, `claude-workflow qa --gate` и `claude-workflow progress --source qa`; формат ответа — `Checkbox updated`, статус READY/WARN/BLOCKED + ссылки на `reports/qa/<ticket>.json`; примеры запуска (CLI/палитра).
+- [ ] `.claude/agents/qa.md`, `prompts/en/agents/qa.md`: обновить под новую команду и agent-first: обязательность перед релизом, фиксация `Checkbox updated`, создание/обновление `reports/qa/<ticket>.json`, ссылки на логи и tasklist.
 
 ### Встраивание в процесс
-- [ ] `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`, `README.md`, `README.en.md`: обновить walkthrough и quick-start — добавить явный шаг `/qa` после `/review`, чеклист входных артефактов, параметры гейта (`CLAUDE_SKIP_QA`, `--only qa`), формат отчёта и прогресс-маркеры.
-- [ ] `docs/tasklist.template.md`: выделить QA-блок (что проверяется, куда писать лог/отчёт), добавить примеры отметок `Checkbox updated` для регрессий/UX/перф.
+- [ ] `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`, `README.md`, `README.en.md`: включить `/qa` в walkthrough/quick-start (после `/review`), перечислить входы (diff, tasklist QA, логи гейтов), параметры гейта (`CLAUDE_SKIP_QA`, `--only qa`, dry-run), формат отчёта и прогресс-маркеры.
+- [ ] `docs/tasklist.template.md`: усилить QA-блок — что проверяется, куда писать лог/отчёт, примеры `Checkbox updated` для регрессий/UX/перф с ссылками на `reports/qa/<ticket>.json`.
 
 ### Гейты и конфигурация
-- [ ] `.claude/hooks/gate-qa.sh`, `config/gates.json`: убедиться, что гейт использует новую команду/CLI, корректно читает `reports/qa/{ticket}.json`, уважает `skip_branches`/`CLAUDE_SKIP_QA`, поддерживает dry-run и выводит подсказку по запуску `/qa`.
-- [ ] `scripts/qa-agent.py`: синхронизировать вызовы, опции и формат JSON с новым гейтом; описать режим `--gate` и интерактивный запуск в `docs/qa-playbook.md`.
+- [ ] `.claude/hooks/gate-qa.sh`, `config/gates.json`: переключить дефолтную команду на `claude-workflow qa --gate` (через helper `run_cli_or_hint`), читать `reports/qa/{ticket}.json`, уважать `skip_branches`/`CLAUDE_SKIP_QA`, поддерживать dry-run/`--only qa`, печатать подсказку «запустите /qa».
+- [ ] `scripts/qa-agent.py`: синхронизировать опции/формат JSON с CLI (`--ticket/--slug-hint/--branch/--report/--block-on/--warn-on/--dry-run`), описать режимы `--gate` и интерактив в `docs/qa-playbook.md`.
 
 ### Тесты и payload
-- [ ] `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`: добавить сценарии готовности (READY/WARN/BLOCKED), отсутствие отчёта, работа `--only qa`, режим dry-run и обновление tasklist; включить в CI.
-- [ ] `src/claude_workflow_cli/data/payload/**`: отзеркалить новую команду, обновлённые гайды, гейт и smoke-сценарии; обновить `manifest.json` и проверить `tools/check_payload_sync.py`.
+- [ ] `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`: покрыть READY/WARN/BLOCKED, отсутствие отчёта (должно падать), `--only qa`, dry-run (не падает на блокерах), обновление tasklist/`Checkbox updated`; включить в CI.
+- [ ] `src/claude_workflow_cli/data/payload/**`: отзеркалить новую команду/агента, обновлённые гайды, гейт и smoke-сценарии; обновить `manifest.json` и проверить `tools/check_payload_sync.py`.
 
 ## Wave 36
 
