@@ -10,6 +10,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Payload manifest (`manifest.json`) with per-file checksums enforced at runtime.
 - `claude-workflow sync/upgrade --release` for fetching payloads from GitHub Releases with caching and bundled fallback.
 - Release packaging script (`scripts/package_payload_archive.py`) that produces versioned payload zip, manifest copy and checksum files for publication.
+- Release automation: Auto Tag now issues annotated `v*` tags from `pyproject.toml` with semver guard and summary output; the Release workflow builds via `uv build`, uploads wheel+sdist plus payload zip/manifest+checksums, and pulls the top section of `docs/release-notes.md` into the GitHub Release body.
 - QA gate: `.claude/hooks/gate-qa.sh`, heuristic agent `scripts/qa-agent.py`, `docs/qa-playbook.md`, and `/.claude/agents/qa.md` with severity guidance.
 - CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `/.claude/agents/analyst.md`, PRD template with `## Диалог analyst`, new CLI command `claude-workflow analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.

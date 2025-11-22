@@ -29,6 +29,29 @@
 
 Секции «Migration» и «Breaking changes» заполняются только при необходимости.
 
+## Автоматизация
+- Версия берётся из `pyproject.toml`. Пуш в `main` запускает job Auto Tag: если версия больше последнего `v*`, создаётся аннотированный тег `vX.Y.Z`; даунгрейд блокируется; итоги пишутся в `GITHUB_STEP_SUMMARY`.
+- Тег `v*` запускает workflow Release: `uv build` собирает wheel+sdist, `scripts/package_payload_archive.py` добавляет payload zip и manifest с checksum; артефакты уходят в GitHub Release и как CI artefact. Тело релиза берётся из верхней секции `## v…` этого файла.
+- Если верхний блок не обновлён под целевую версию (или отсутствует), Release упадёт на шаге извлечения заметок — поправьте файл и перезапустите workflow.
+
+## Шаблон раздела (используется в Release)
+Удерживайте верхний блок актуальным — он попадёт в GitHub Release.
+
+```
+## vX.Y.Z — YYYY-MM-DD
+### Added
+- ...
+
+### Changed
+- ...
+
+### Fixed
+- ...
+
+### Migration
+- ...
+```
+
 ## Подготовка релиза
 - [ ] Обновить `README.md` и `README.en.md` (TL;DR, список фич, ссылки на новые документы).
 - [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
@@ -41,9 +64,8 @@
 - [ ] Зафиксировать изменения в `docs/release-notes.md`.
 
 ## Публикация релиза
-- [ ] Проставить тег `vX.Y.Z` (annotated tag).
-- [ ] Создать GitHub Release и вложить основные тезисы из release notes.
-- [ ] Загрузить артефакты из `dist/`: wheel/tarball, `claude-workflow-payload-<tag>.zip`, `claude-workflow-manifest-<tag>.json` и соответствующие `.sha256`.
+- [ ] Убедиться, что Auto Tag в Actions проставил аннотированный тег `vX.Y.Z` (при необходимости перезапустить job после обновления версии в `pyproject.toml`).
+- [ ] Подождать workflow Release: он сам создаст GitHub Release, подтянет верхний блок этого файла в тело и загрузит артефакты (`*.whl`, `*.tar.gz`, `claude-workflow-payload-<tag>.zip`, `claude-workflow-manifest-<tag>.json` + `.sha256`).
 - [ ] Приложить ссылки на новые/обновлённые документы (usage/customization/command reference).
 - [ ] Обновить `workflow.md` (и при необходимости `docs/customization.md`), если поведение установки изменилось.
 - [ ] Сообщить в выбранных каналах (Slack, email, команда).
@@ -53,6 +75,12 @@
 - [ ] Собрать обратную связь от пользователей (issues, комментарии).
 - [ ] Проверить, что `.claude/settings.json` соответствует политике доступа.
 - [ ] Обновить Wave backlog: перенести оставшиеся задачи в следующую волну.
+
+## E2E проверка цепочки
+- Bump версии в `pyproject.toml` и верхнем блоке `docs/release-notes.md`; синхронизировать `CHANGELOG.md`.
+- Запушить в `main`, дождаться успешного Auto Tag (при ошибке — читать summary о причине пропуска).
+- Дождаться workflow Release: проверить, что в GitHub Release появились wheel/tarball, payload zip, manifest и соответствующие checksum, а тело совпадает с верхним блоком.
+- Поставить релиз на чистый каталог: `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z` (или `pipx install ...@vX.Y.Z`) и прогнать `scripts/smoke-workflow.sh`.
 
 Храните заметки в одном файле (`docs/release-notes.md`), добавляя записи в обратном хронологическом порядке.
 

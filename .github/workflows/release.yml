@@ -19,34 +19,73 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install build backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
-
       - name: Build distributions
-        run: |
-          python -m build
+        run: uv build
 
       - name: Package payload archive
         run: |
           python scripts/package_payload_archive.py
 
+      - name: Extract latest release notes section
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("docs/release-notes.md")
+          lines = source.read_text(encoding="utf-8").splitlines()
+
+          section: list[str] = []
+          capture = False
+          in_code = False
+          for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("```"):
+              in_code = not in_code
+              continue
+            if in_code:
+              continue
+            if line.startswith("## v"):
+              if capture:
+                break
+              capture = True
+            if capture:
+              section.append(line)
+
+          text = "\n".join(section).strip()
+          if not text:
+            raise SystemExit("no release section found in docs/release-notes.md")
+
+          out_path = Path("dist/release-notes-latest.md")
+          out_path.write_text(text + "\n", encoding="utf-8")
+          print(f"Wrote {out_path.relative_to(Path.cwd())}")
+          PY
+
       - name: Upload build artefacts
         uses: actions/upload-artifact@v4
         with:
           name: claude-workflow-cli-dist
-          path: dist/*
+          path: dist
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/claude-workflow-payload-*.zip
+            dist/claude-workflow-payload-*.zip.sha256
+            dist/claude-workflow-manifest-*.json
+            dist/claude-workflow-manifest-*.json.sha256
+            dist/release-notes-latest.md
           generate_release_notes: true
+          body_path: dist/release-notes-latest.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

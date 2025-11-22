@@ -28,11 +28,26 @@ jobs:
 
       - name: Extract version
         id: version
-        run: |2
-          VERSION=$(grep -E '^version = "' pyproject.toml |
-            head -n 1 |
-            sed -E 's/^version = "([^"]+)"/\1/')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          try:
+            import tomllib
+          except ModuleNotFoundError:
+            import tomli as tomllib  # type: ignore[import-not-found]
+
+          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          version = data["project"]["version"]
+          print(f"version={version}")
+          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as fh:
+            fh.write(f"version={version}\n")
+          PY
+
+      - name: Determine latest tag
+        id: latest
+        run: |
+          latest_tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
+          echo "latest=${latest_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Check tag existence
         id: check_tag
@@ -44,21 +59,101 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tag already exists
-        if: steps.check_tag.outputs.exists == 'true'
-        run: echo "Tag already exists; skipping."
+      - name: Validate version bump
+        id: validate
+        env:
+          TARGET_VERSION: ${{ steps.version.outputs.version }}
+          LATEST_TAG: ${{ steps.latest.outputs.latest }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from itertools import zip_longest
+          from pathlib import Path
+
+
+          def parse(version: str) -> list[int]:
+            parts = version.split(".")
+            try:
+              return [int(p) for p in parts]
+            except ValueError:
+              sys.exit(f"version must be numeric semver, got {version}")
+
+
+          target = os.environ["TARGET_VERSION"]
+          latest_tag = os.environ.get("LATEST_TAG", "").strip()
+          output = Path(os.environ["GITHUB_OUTPUT"])
+
+          def write(key: str, value: str) -> None:
+            with output.open("a", encoding="utf-8") as fh:
+              fh.write(f"{key}={value}\n")
+
+          target_parts = parse(target)
+
+          if not latest_tag:
+            write("should_tag", "true")
+            write("status", "ahead")
+            write("reason", "no existing tags")
+             write("latest", "")
+             sys.exit(0)
+
+          latest = latest_tag.lstrip("v")
+          latest_parts = parse(latest)
+
+          comparison = 0
+          for t, l in zip_longest(target_parts, latest_parts, fillvalue=0):
+            if t > l:
+              comparison = 1
+              break
+            if t < l:
+              comparison = -1
+              break
+
+          write("latest", latest_tag)
+
+          if comparison < 0:
+            raise SystemExit(f"version {target} is behind latest tag {latest_tag}")
+
+          if comparison == 0:
+            write("should_tag", "false")
+            write("status", "equal")
+            write("reason", "matches latest tag")
+            raise SystemExit(0)
+
+          write("should_tag", "true")
+          write("status", "ahead")
+          write("reason", f"ahead of {latest_tag}")
+          PY
 
       - name: Create tag
-        if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const version = `${{ steps.version.outputs.version }}`;
-            const tag = `v${version}`;
-            core.info(`Creating tag ${tag} at ${context.sha}`);
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${tag}`,
-              sha: context.sha
-            });
+        if: steps.validate.outputs.should_tag == 'true' && steps.check_tag.outputs.exists == 'false'
+        env:
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Summary
+        if: ${{ always() }}
+        run: |
+          STATUS="${{ steps.validate.outputs.status || 'n/a' }}"
+          LATEST="${{ steps.latest.outputs.latest || 'none' }}"
+          EXISTS="${{ steps.check_tag.outputs.exists || 'false' }}"
+          SHOULD="${{ steps.validate.outputs.should_tag || 'false' }}"
+          REASON="${{ steps.validate.outputs.reason || 'n/a' }}"
+          ACTION="created"
+          if [[ "$SHOULD" != "true" ]]; then
+            ACTION="skipped"
+          elif [[ "$EXISTS" == "true" ]]; then
+            ACTION="skipped (already exists)"
+          fi
+          {
+            echo "## Auto tag"
+            echo "- requested: v${{ steps.version.outputs.version }}"
+            echo "- latest: ${LATEST}"
+            echo "- status: ${STATUS}"
+            echo "- action: ${ACTION}"
+            echo "- reason: ${REASON}"
+          } >> "$GITHUB_STEP_SUMMARY"
