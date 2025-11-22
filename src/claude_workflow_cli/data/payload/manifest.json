@@ -87,8 +87,8 @@
     {
       "path": ".claude/commands/qa.md",
       "type": "file",
-      "size": 3989,
-      "sha256": "92f3825d989cb50cf2a946b5a3dbdb97582377847bcd7e0d046f18d43bf823ce"
+      "size": 4251,
+      "sha256": "bff2fdae8efa252712eeeb5672b04b9b41f6faaafee0ed1cd816f24c5e7ab949"
     },
     {
       "path": ".claude/commands/researcher.md",
@@ -225,8 +225,8 @@
     {
       "path": "CHANGELOG.md",
       "type": "file",
-      "size": 4713,
-      "sha256": "4b8b17ef8200728b3e10e7a50a63be4a5f8958612d5a49dbc35a4ce6a823adfb"
+      "size": 4988,
+      "sha256": "d5cc01ff7b9b9efd7137162cf640ffa8d88eb958ee62ded1510b6e3f954bb8b7"
     },
     {
       "path": "CLAUDE.md",
@@ -313,12 +313,6 @@
       "sha256": "df9061133ea921a6d09a0857a5d9ddc1d97888b9ca75b8d128feee6fd5dbc6cf"
     },
     {
-      "path": "doc/backlog.md",
-      "type": "file",
-      "size": 98943,
-      "sha256": "fff7589e5d0363fd34a2afea33db434ab2ba1b3802c66eca1e4cd6bda54f025b"
-    },
-    {
       "path": "docs/adr/.gitkeep",
       "type": "file",
       "size": 1,
@@ -375,8 +369,8 @@
     {
       "path": "docs/prompt-playbook.md",
       "type": "file",
-      "size": 13763,
-      "sha256": "47de345503f9a8a5c100eff4afb2b728f638b6cfb8e0975663604c9b97c89a00"
+      "size": 13758,
+      "sha256": "e434bdbabf882d5e5bc0e3f56268dc9ce5f0c6195db4ebb43a5dbfe7c3cedb6c"
     },
     {
       "path": "docs/prompt-versioning.md",
@@ -393,8 +387,8 @@
     {
       "path": "docs/release-notes.md",
       "type": "file",
-      "size": 8416,
-      "sha256": "8402b7f6adf4381daf7dd215c5d9ea9c80a1166ad150bd4955f18fdbcb6bfbf1"
+      "size": 8857,
+      "sha256": "e8f4e0e463ada6cf9d468930b93f541feddd2f73a426625b82b55283ad125f57"
     },
     {
       "path": "docs/research/.gitkeep",
@@ -425,12 +419,6 @@
       "type": "file",
       "size": 20196,
       "sha256": "6fe0307a9ddab442983ef6b9341868d36d1766c2ced6c5e2b70df35dffc1217c"
-    },
-    {
-      "path": "manifest.json",
-      "type": "file",
-      "size": 20748,
-      "sha256": "e65c48e6c031566d22d418da5481c373dd0fab0eeb808642b4648a7e5e1088e3"
     },
     {
       "path": "prompts/en/agents/analyst.md",
@@ -513,8 +501,8 @@
     {
       "path": "prompts/en/commands/qa.md",
       "type": "file",
-      "size": 2626,
-      "sha256": "2ee9deecf88de8c21b83aea65ecd071d9afaa8a9f791be9b780ba4e5fa698fef"
+      "size": 2763,
+      "sha256": "8ae451d591beaa8ae81d467328f4cdfa9aaaf14798dcd525e36e59fdc74b799d"
     },
     {
       "path": "prompts/en/commands/researcher.md",
@@ -585,8 +573,8 @@
     {
       "path": "scripts/sync-payload.sh",
       "type": "file",
-      "size": 3398,
-      "sha256": "c83c2b5803d8cbdb04577b20f05711a9249c6edc83a512d08e3892829bff552e"
+      "size": 3390,
+      "sha256": "74998daec73d458f86cf6d9de1ed91c674ce74bef809c1d8edf6892d79336048"
     },
     {
       "path": "templates/git-hooks/README.md",
@@ -633,14 +621,14 @@
     {
       "path": "tests/test_payload_sync.py",
       "type": "file",
-      "size": 2308,
-      "sha256": "c216a64aef94dfb298b005bdf30f18b76852924c8ea3bbf2fa8e3840bb184913"
+      "size": 2414,
+      "sha256": "3dd133d260375b12cf8dc462bf1533af23143dc782c8b214f71f83c5d6ecf5db"
     },
     {
       "path": "tools/check_payload_sync.py",
       "type": "file",
-      "size": 5213,
-      "sha256": "524c2e0670accd0c6db2d63ddd3b3fd4b68d578dea235d708228cb5f70c6d344"
+      "size": 5202,
+      "sha256": "b4abeab03941104c2dfe201a781f6292a073cb2aa5934292292855576b80bfb5"
     },
     {
       "path": "tools/migrate_ticket.py",

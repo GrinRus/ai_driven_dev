@@ -88,7 +88,6 @@ default_paths=(
   ".claude"
   "claude-presets"
   "config"
-  "doc"
   "docs"
   "README.md"
   "README.en.md"
