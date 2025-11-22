@@ -154,12 +154,14 @@
 
 ## Wave 14
 
+_Статус: активный, приоритет 1. Цель — предсказуемые релизы CLI/payload._
+
 ### Автоматизация релизов CLI
-- [ ] Создать workflow `.github/workflows/release.yml`, который реагирует на тег `v*`, собирает пакет (`python -m build` или `uv build`), прикрепляет `wheel` и `sdist` к GitHub Release через `softprops/action-gh-release`, а также сохраняет артефакты в CI.
-- [ ] Продумать авто-тегирование: job на `push` в `main`, который считывает версию из `pyproject.toml`, сверяет с последним релизом и при изменении создаёт аннотированный тег (через `actions/create-release` или `git tag` + `gh`), с защитой от повторов и уведомлением при сбое.
-- [ ] Обновить `README.md`, `README.en.md`, `workflow.md` с описанием релизной цепочки (build → release → установка через `uv`/`pipx`), добавить раздел troubleshooting.
-- [ ] Завести `CHANGELOG.md` или шаблон релизных заметок; интегрировать с релизным workflow (автоподхват последнего раздела или использование Release Drafter).
-- [ ] Протестировать полный путь: инкремент версии → push → авто-тег → CI сборка → GitHub Release; зафиксировать результаты и при необходимости обновить smoke/CI инструкции.
+- [ ] `.github/workflows/release.yml`: триггер на теги `v*`; шаги — `uv build`/`python -m build`, публикация wheel+sdist в GitHub Release через `softprops/action-gh-release`, загрузка payload zip и manifest checksum; складывать артефакты и в CI.
+- [ ] Автотегирование: job на `push` в `main`, читает версию из `pyproject.toml`, сверяет с последним релизом и создаёт аннотированный тег (через `actions/create-release` или `git tag`+`gh`), с защитой от повторов и уведомлением при сбое.
+- [ ] Документация (`README.md`, `README.en.md`, `workflow.md`): описать цепочку build → release → установка через `uv`/`pipx`, переменные/токены, troubleshooting для неудачных релизов.
+- [ ] `CHANGELOG.md` / `docs/release-notes.md`: добавить шаблон/секцию, которую release workflow подтягивает автоматически (последний раздел или Release Drafter); зафиксировать порядок обновления changelog перед тегом.
+- [ ] E2E проверка: прогнать сценарий bump версии → push → автотег → CI build → GitHub Release; задокументировать результат и обновить smoke/CI инструкции.
 
 ## Wave 15
 
@@ -325,19 +327,21 @@
 
 ## Wave 27
 
+_Статус: активный, приоритет 2. Новая структура установки `claude-workflow/` после готового релизного контура._
+
 ### Дизайн новой структуры установки
-- [ ] `docs/design/install-subdir.md` (новый): зафиксировать требования к переносу сгенерированного workflow в отдельную директорию при установке через `uv tool install` + `claude-workflow init`, описать сценарии (жёсткий дефолт `./claude-workflow/`, интерактивный выбор каталога, флаг `--workspace-root`) и оценить влияние на DX/совместимость.
-- [ ] `docs/adr/install-subdir-decision.md` (новый): сравнить минимум три варианта реализации (авто-перенос, генерация поверх `--target`, создание шаблонного репозитория) и выбрать целевой подход, определив миграционные требования и fallback для существующих проектов.
+- [ ] `docs/design/install-subdir.md`: требования к установке в поддиректорию `./claude-workflow/` (дефолт), сценарии интерактивного выбора каталога/флага `--workspace-root`, влияние на DX/совместимость.
+- [ ] `docs/adr/install-subdir-decision.md`: сравнить минимум три варианта (авто-перенос, генерация поверх `--target`, шаблонный репозиторий), выбрать целевой подход и описать миграционные требования/fallback для существующих проектов.
 
 ### Реализация CLI и payload
-- [ ] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/init.py`, `src/claude_workflow_cli/data/payload/**`: добавить поддержку нового каталога установки (например, `claude-workflow/`), автоматический перенос шаблонов и конфигов при запуске `claude-workflow init --target .`, флаг/настройку для переопределения пути и защиту от конфликтов с существующими файлами.
-- [ ] `init-claude-workflow.sh`, `scripts/smoke-workflow.sh`: синхронизировать bash-обёртку и smoke-сценарий с новой структурой, гарантировать, что shell-скрипт повторяет логику CLI и корректно обрабатывает пустые/существующие директории.
-- [ ] `src/claude_workflow_cli/resources.py` (новый) или аналог: вынести слой, который умеет копировать payload в произвольный корень, чтобы обеспечить переиспользование между CLI и будущими командами миграции.
+- [ ] `src/claude_workflow_cli/cli.py` / `init.py`: поддержка установки в поддиректорию (дефолт `claude-workflow/`), автоматический перенос payload при `claude-workflow init --target .`, флаг/конфиг для переопределения пути, защита от конфликтов существующих файлов.
+- [ ] `src/claude_workflow_cli/resources.py` (новый): единый слой копирования payload в произвольный корень для CLI и миграционных утилит; учёт manifest и сохранение прав/дотфайлов.
+- [ ] `init-claude-workflow.sh`, `scripts/smoke-workflow.sh`: синхронизировать bash-обёртку с новой структурой, покрыть пустую/существующую директорию, гарантировать идентичную логику с CLI.
 
 ### Документация, миграция и тесты
-- [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`: обновить инструкции по установке (`uv tool install` → `claude-workflow init`) с описанием новой директории, пошаговыми примерами и примечаниями об обратной совместимости.
-- [ ] `tools/migrate_install_root.py` (новый), `tests/test_migrate_install_root.py` (новый): подготовить утилиту и автотесты, которые переносят существующий проект в новую структуру, гарантируя, что `.claude/`, `config/`, `docs/`, `scripts/` переезжают корректно и сохраняются ссылки в `.active_ticket`.
-- [ ] `tests/test_cli_init.py`, `tests/test_researcher_context.py`, `tests/test_migrate_ticket.py`: обновить и расширить покрытия, чтобы проверять генерацию в новой директории и сохранение ссылок в payload.
+- [ ] `tools/migrate_install_root.py` + `tests/test_migrate_install_root.py`: миграция существующего проекта в новую структуру (перенос `.claude/`, `config/`, `docs/`, `scripts/`, обновление `.active_ticket`), автотесты на happy/edge кейсы.
+- [ ] Обновить `tests/test_cli_init.py`, `tests/test_researcher_context.py`, `tests/test_migrate_ticket.py` под новую директорию генерации и сохранение ссылок в payload.
+- [ ] Документация (`README*`, `workflow.md`, `docs/agents-playbook.md`): пошаговые примеры установки (`uv tool install` → `claude-workflow init`), примечания об обратной совместимости и миграции.
 
 ## Wave 28
 
@@ -359,37 +363,6 @@
 - [x] `docs/agents-playbook.md`, `workflow.md`, `README.md`: описать обновлённый порядок `/idea-new → claude-workflow research → analyst`, правила для пустых репозиториев и требования к паттернам.
 - [x] `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`: добавить сценарии для «project new» (нулевые совпадения) и для кейса с найденными паттернами, проверять, что гейт отрабатывает предупреждение.
 - [x] `scripts/smoke-workflow.sh`, `examples/gradle-demo/`: показать новую последовательность и пример отчёта Researcher с перечислением найденных паттернов.
-
-## Wave 29
-
-### Архитектура и решение
-- [ ] `docs/adr/claude-standard-tools.md` (новый): зафиксировать стратегию перехода на стандартные инструменты Claude (Read/Write/Bash) без `claude-workflow` CLI, описать риски и критерии завершения миграции.
-- [ ] `docs/design/standard-tools-rollout.md` (новый): расписать поэтапный план отключения CLI/хуков, определить миграционные сценарии и fallback для существующих проектов.
-
-### Команды и пресеты
-- [ ] `.claude/commands/*.md`: удалить вызовы `claude-workflow ...`, заменить их пошаговыми инструкциями с использованием стандартных инструментов, обновить описания прогресса.
-- [ ] `.claude/agents/*.md`, `claude-presets/*.yaml`: синхронизировать подсказки и guardrails с новой моделью работы, исключив ссылки на кастомные скрипты.
-
-### Настройки и хуки
-- [ ] `.claude/settings.json`: переработать блоки `PreToolUse`/`PostToolUse`, отключив `gate-*`/`format-and-test.sh`; описать, какие проверки выполняются вручную или через CI.
-- [ ] `.claude/hooks/`: заменить bash-скрипты на Python entrypoint'ы (`.py`), адаптировать вызовы в настройках на `python3 -m ...`, гарантировать отсутствие зависимостей от shell.
-- [ ] `config/gates.json`: удалить секции, требующие CLI (`prd_review`, `researcher`, `qa`, `tasklist_progress`), зафиксировать минимальный набор настроек для стандартных инструментов.
-
-### CLI и Python-утилиты
-- [ ] `src/claude_workflow_cli/**`, `scripts/*.py`, `tools/*.py`: демонтировать функциональность workflow (progress, researcher_context, qa-agent), оставить только части, нужные для установки payload и релизов.
-- [ ] `init-claude-workflow.sh`, `scripts/bootstrap-local.sh`: переписать на Python (`init_claude_workflow.py`, `scripts/bootstrap_local.py`), сохранив функциональность развертывания статического payload.
-
-### Документация и обучение
-- [ ] `README.md`, `README.en.md`, `workflow.md`, `docs/agents-playbook.md`, `docs/customization.md`: переписать инструкции под стандартные инструменты, подчеркнуть ручные проверки и обновлённый цикл.
-- [ ] `doc/backlog.md`, `docs/release-notes.md`: задокументировать завершение миграции и действия, необходимые командам при обновлении.
-
-### Тесты и CI
-- [ ] `tests/test_gate_*.py`, `tests/test_cli_*.py`, `tests/test_progress.py`: удалить или переписать под новый стек, добавить smoke-тесты, проверяющие базовую работоспособность `.claude/` без CLI.
-- [ ] `.github/workflows/ci.yml`: пересобрать pipeline, убрав вызовы CLI и bash, закрепить использование Python-скриптов для lint/test шагов.
-- [ ] `scripts/ci-lint.sh`: заменить на Python эквивалент (`scripts/ci_lint.py`), объединяющий линтеры без shell-обёрток.
-
-### Миграция действующих проектов
-- [ ] `docs/migration/wave29-standard-tools.md` (новый): подготовить гайд по обновлению существующих репозиториев (удаление CLI, пересоздание `.claude/`, smoke-проверки).
 
 ## Wave 30
 
@@ -448,6 +421,8 @@
 - [x] `scripts/prompt-version`, `tools/prompt_diff.py`, release pipeline: автоматизировать шаг «обновить payload → bump версию → проверить lint» (например, make-таргет или GitHub Actions job, который запускает `scripts/prompt-version bump --prompts all --lang ru,en`, lint и проверку gate).
 
 ## Wave 33
+
+_Статус: активный, приоритет 3. Цель — zero-touch вызов CLI через shim/helper._
 
 ### Zero-touch запуск CLI после установки
 - [ ] `tools/run_cli.py` (новый), `tools/set_active_feature.py`, `.claude/hooks/gate-workflow.sh`, `.claude/hooks/format-and-test.sh`, `scripts/smoke-workflow.sh`, `scripts/qa-agent.py`: внедрить helper `run_cli(command: list[str])`, который ищет бинарь `claude-workflow` в PATH (поддержка uv/pipx шима), умеет читать `CLAUDE_WORKFLOW_BIN`/`CLAUDE_WORKFLOW_PYTHON`, а при отсутствии печатает инструкцию «установите CLI командой …»; все скрипты должны использовать helper вместо прямого `python3 -m claude_workflow_cli`, чтобы пользователю хватало шагов установки из README.
@@ -511,10 +486,12 @@
 
 ## Wave 36
 
+_Статус: активный, приоритет 4. Автоаналитика в `/idea-new` поверх zero-touch CLI._
+
 ### Усиление agent-first для `/idea-new` и аналитика
-- [ ] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: добавить жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` после `research --auto` (graceful fallback с подсказкой, если CLI не найден); обновить smoke/tests.
-- [ ] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: требовать логировать повторные запуски research (paths/keywords) и явно запускать `analyst-check` при смене статуса READY; уточнить fail-fast при отсутствии `.active_ticket`/PRD.
-- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизировать описание с автозапуском аналитика и правилами повторного research; обновить payload-копии.
+- [ ] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` сразу после `research --auto`, graceful fallback с INSTALL_HINT, обновлённые smoke/tests.
+- [ ] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: логирование повторных research (paths/keywords), обязательный `analyst-check` при смене статуса READY, fail-fast при отсутствии `.active_ticket`/PRD.
+- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизация с автозапуском аналитика и правилами повторного research; обновить payload-копии и примеры.
 - [ ] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты.
 - [ ] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY.
 
