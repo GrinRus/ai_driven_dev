@@ -97,3 +97,10 @@
 - **Reviewer** — финализирует фичу, проверяет, что все чеклисты в `docs/tasklist/<ticket>.md` закрыты.
 
 Следуйте этому циклу, чтобы команда оставалась синхронизированной, а артефакты — актуальными.
+
+## Релизы CLI
+- Версия берётся из `pyproject.toml`; перед релизом обновите верхний блок `docs/release-notes.md` (он попадёт в тело GitHub Release) и `CHANGELOG.md`.
+- Пуш в `main` запускает job **Auto Tag**: она сравнивает версию с последним `v*`, запрещает даунгрейд, создаёт аннотированный тег `vX.Y.Z` (если версии хватило) и пишет итог в summary. При равенстве версий теги не создаются.
+- Тег `v*` запускает workflow **Release**: `uv build` собирает wheel+sdist, `scripts/package_payload_archive.py` добавляет payload zip и manifest с checksum; все файлы загружаются и в GitHub Release, и как CI artefact. Если в `docs/release-notes.md` нет секции `## v…`, сборка падает с понятной ошибкой.
+- Установка конкретного релиза: `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z` (или `pipx install git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z`); без `@tag` используется `main`.
+- E2E сценарий: bump версии в `pyproject.toml` → обновить верхний блок `docs/release-notes.md`/`CHANGELOG.md` → пуш в `main` → проверить summary Auto Tag → убедиться, что релиз workflow загрузил wheel+sdist+payload zip/manifest → установить релиз через `uv tool install ...@vX.Y.Z` и прогнать `scripts/smoke-workflow.sh` на чистом каталоге.

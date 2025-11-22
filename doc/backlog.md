@@ -154,14 +154,14 @@
 
 ## Wave 14
 
-_Статус: активный, приоритет 1. Цель — предсказуемые релизы CLI/payload._
+_Статус: завершен, приоритет 1. Цель — предсказуемые релизы CLI/payload._
 
 ### Автоматизация релизов CLI
-- [ ] `.github/workflows/release.yml`: триггер на теги `v*`; шаги — `uv build`/`python -m build`, публикация wheel+sdist в GitHub Release через `softprops/action-gh-release`, загрузка payload zip и manifest checksum; складывать артефакты и в CI.
-- [ ] Автотегирование: job на `push` в `main`, читает версию из `pyproject.toml`, сверяет с последним релизом и создаёт аннотированный тег (через `actions/create-release` или `git tag`+`gh`), с защитой от повторов и уведомлением при сбое.
-- [ ] Документация (`README.md`, `README.en.md`, `workflow.md`): описать цепочку build → release → установка через `uv`/`pipx`, переменные/токены, troubleshooting для неудачных релизов.
-- [ ] `CHANGELOG.md` / `docs/release-notes.md`: добавить шаблон/секцию, которую release workflow подтягивает автоматически (последний раздел или Release Drafter); зафиксировать порядок обновления changelog перед тегом.
-- [ ] E2E проверка: прогнать сценарий bump версии → push → автотег → CI build → GitHub Release; задокументировать результат и обновить smoke/CI инструкции.
+- [x] `.github/workflows/release.yml`: триггер на теги `v*`; шаги — `uv build`/`python -m build`, публикация wheel+sdist в GitHub Release через `softprops/action-gh-release`, загрузка payload zip и manifest checksum; складывать артефакты и в CI.
+- [x] Автотегирование: job на `push` в `main`, читает версию из `pyproject.toml`, сверяет с последним релизом и создаёт аннотированный тег (через `actions/create-release` или `git tag`+`gh`), с защитой от повторов и уведомлением при сбое.
+- [x] Документация (`README.md`, `README.en.md`, `workflow.md`): описать цепочку build → release → установка через `uv`/`pipx`, переменные/токены, troubleshooting для неудачных релизов.
+- [x] `CHANGELOG.md` / `docs/release-notes.md`: добавить шаблон/секцию, которую release workflow подтягивает автоматически (последний раздел или Release Drafter); зафиксировать порядок обновления changelog перед тегом.
+- [x] E2E проверка: прогнать сценарий bump версии → push → автотег → CI build → GitHub Release; задокументировать результат и обновить smoke/CI инструкции.
 
 ## Wave 15
 

@@ -203,6 +203,13 @@
 - `examples/apply-demo.sh` — пошаговый сценарий применения bootstrap к демо-проекту, полезен для воркшопов и презентаций.
 - `scripts/smoke-workflow.sh` + `workflow.md` — живой пример: скрипт автоматизирует установку и прохождение гейтов, документация описывает ожидаемые результаты и советы по отладке.
 
+## Релизы и установка по тегам
+- Версия берётся из `pyproject.toml`. При пуше в `main` job **Auto Tag** создаёт аннотированный тег `vX.Y.Z`, если версия больше последнего релиза (блокирует даунгрейд, пропускает дубликаты и пишет итог в summary).
+- Тег запускает workflow **Release**: `uv build` собирает wheel+sdist, `scripts/package_payload_archive.py` добавляет payload zip и manifest c checksum, артефакты складываются в GitHub Release и как CI artefact. Тело релиза берётся из верхнего блока `## v…` в `docs/release-notes.md`.
+- Установка из конкретного релиза: `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z` (или `pipx install git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z`). Без `@tag` берётся `main`.
+- Требования к токенам: публичный репозиторий работает с дефолтным `GITHUB_TOKEN`; для приватных установок/скачиваний через `uv` укажите `UV_GITHUB_TOKEN` или `GITHUB_TOKEN`.
+- Troubleshooting: если автотег упал — проверьте версию в `pyproject.toml` (она должна быть выше последнего `v*`); если release job не нашёл заметки — обновите верхний блок `docs/release-notes.md` и перезапустите workflow.
+
 ## Незакрытые задачи и наблюдения
 - `claude-workflow-extensions.patch` расширяет агентов/команды; применяйте его вручную и фиксируйте конфликты, если используете дополнительные гейты.
 - Собирая новый монорепо, переносите `.claude/` (команды, гейты, Gradle-хелпер) под контроль версий — smoke/CI тесты ожидают их наличия.
@@ -224,7 +231,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 - для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/`, добавьте `--include claude-presets` или иные каталоги; чтобы подтянуть свежий payload из GitHub Releases, укажите `--release latest` или конкретный тег);
 - для быстрого демо воспользуйтесь `claude-workflow preset feature-prd --ticket demo-checkout`.
 - если инициализируете повторно, запустите команду в каталоге без старого `.claude/` или добавьте `--force`, чтобы перезаписать артефакты.
-- для обновления CLI используйте `uv tool upgrade claude-workflow-cli`.
+- для обновления CLI используйте `uv tool upgrade claude-workflow-cli`; чтобы зафиксировать версию, добавьте `@vX.Y.Z` к источнику (`uv tool install --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z`).
 
 ### Вариант B — `pipx`
 
@@ -237,6 +244,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 
 `pipx` добавит CLI в PATH и обеспечит автоматические обновления через `pipx upgrade claude-workflow-cli`.
 Повторная инициализация также требует чистого каталога (удалите `.claude/` или добавьте `--force` к `claude-workflow init`).
+Чтобы установить конкретный релиз, добавьте `@vX.Y.Z` к источнику.
 
 ### Вариант C — локально (bash-скрипт)
 
