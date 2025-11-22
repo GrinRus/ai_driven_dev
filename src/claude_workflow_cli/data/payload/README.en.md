@@ -189,6 +189,13 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `examples/apply-demo.sh` applies the bootstrap to a Gradle workspace step by step, handy for workshops and demos.
 - `scripts/smoke-workflow.sh` plus `workflow.md` provide a living example: the script automates the flow, the doc explains expected outcomes and troubleshooting tips.
 
+## Releases and tagged installs
+- Version comes from `pyproject.toml`. On pushes to `main`, the **Auto Tag** job creates an annotated `vX.Y.Z` when the version is ahead of the latest release (it blocks downgrades, skips duplicates, and writes a summary).
+- The tag triggers the **Release** workflow: `uv build` produces wheel+sdist, `scripts/package_payload_archive.py` adds a payload zip and manifest with checksums, and artifacts are uploaded both to the GitHub Release and as a CI artefact. The release body is taken from the top `## v…` block in `docs/release-notes.md`.
+- Installing a specific release: `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z` (or `pipx install git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z`). Without `@tag` you install `main`.
+- Tokens: public installs work with the default `GITHUB_TOKEN`; for private repos/releases set `UV_GITHUB_TOKEN` or `GITHUB_TOKEN` so `uv`/`pipx` can fetch the archive.
+- Troubleshooting: if autotag fails, ensure `pyproject.toml` version is higher than the latest `v*`; if the release job cannot find notes, update the top block in `docs/release-notes.md` and rerun the workflow.
+
 ## Installation
 
 ### Option A — `uv tool install` (recommended)
@@ -202,6 +209,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 - `claude-workflow init` mirrors the behaviour of `init-claude-workflow.sh`, copying presets, hooks, and docs into the current project;
 - the CLI now vendors the required Python modules into `.claude/hooks/_vendor`, so hooks that invoke `python3 -m claude_workflow_cli ...` run immediately with no extra `pip install`;
 - need demo data? run `claude-workflow preset feature-prd --ticket demo-checkout`.
+- to pin a release add `@vX.Y.Z` to the source (`uv tool install --from git+https://github.com/GrinRus/ai_driven_dev.git@vX.Y.Z`); upgrade in place via `uv tool upgrade claude-workflow-cli`.
 
 ### Option B — `pipx`
 
@@ -213,6 +221,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 ```
 
 `pipx` keeps the CLI isolated and upgradeable (`pipx upgrade claude-workflow-cli`).
+To install a pinned release, append `@vX.Y.Z` to the source.
 
 ### Option C — local script
 

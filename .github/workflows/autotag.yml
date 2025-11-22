@@ -36,7 +36,9 @@ jobs:
           except ModuleNotFoundError:
             import tomli as tomllib  # type: ignore[import-not-found]
 
-          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          data = tomllib.loads(
+            Path("pyproject.toml").read_text(encoding="utf-8")
+          )
           version = data["project"]["version"]
           print(f"version={version}")
           with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as fh:
@@ -46,7 +48,9 @@ jobs:
       - name: Determine latest tag
         id: latest
         run: |
-          latest_tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
+          latest_tag=$(
+            git tag --list 'v*' --sort=-v:refname | head -n 1 || true
+          )
           echo "latest=${latest_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Check tag existence
@@ -94,8 +98,8 @@ jobs:
             write("should_tag", "true")
             write("status", "ahead")
             write("reason", "no existing tags")
-             write("latest", "")
-             sys.exit(0)
+            write("latest", "")
+            sys.exit(0)
 
           latest = latest_tag.lstrip("v")
           latest_parts = parse(latest)
@@ -112,7 +116,7 @@ jobs:
           write("latest", latest_tag)
 
           if comparison < 0:
-            raise SystemExit(f"version {target} is behind latest tag {latest_tag}")
+            raise SystemExit(f"version {target} < latest tag {latest_tag}")
 
           if comparison == 0:
             write("should_tag", "false")
@@ -126,7 +130,11 @@ jobs:
           PY
 
       - name: Create tag
-        if: steps.validate.outputs.should_tag == 'true' && steps.check_tag.outputs.exists == 'false'
+        if: >-
+          ${{
+            steps.validate.outputs.should_tag == 'true' &&
+            steps.check_tag.outputs.exists == 'false'
+          }}
         env:
           TAG: v${{ steps.version.outputs.version }}
         run: |

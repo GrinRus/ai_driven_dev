@@ -61,7 +61,7 @@ jobs:
 
           text = "\n".join(section).strip()
           if not text:
-            raise SystemExit("no release section found in docs/release-notes.md")
+            raise SystemExit("missing release section in docs/release-notes.md")
 
           out_path = Path("dist/release-notes-latest.md")
           out_path.write_text(text + "\n", encoding="utf-8")
