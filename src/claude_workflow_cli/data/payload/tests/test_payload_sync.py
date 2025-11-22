@@ -66,3 +66,7 @@ def test_default_paths_cover_agent_first_artifacts() -> None:
     required = {"README.md", "README.en.md", "CHANGELOG.md"}
     for path in required:
         assert path in DEFAULT_PATHS
+
+
+def test_default_paths_do_not_include_dev_only_content() -> None:
+    assert "doc" not in DEFAULT_PATHS

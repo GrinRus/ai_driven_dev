@@ -45,6 +45,10 @@ def test_payload_includes_dotfiles(tmp_path):
             "claude_workflow_cli/data/payload/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"
+        for dev_only in [
+            "claude_workflow_cli/data/payload/doc/backlog.md",
+        ]:
+            assert dev_only not in names, f"dev-only file should not be packaged: {dev_only}"
 
     shutil.rmtree(dist_dir)
 
