@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import datetime as _dt
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +32,13 @@ _ALLOWED_SUFFIXES = {
 }
 _MAX_MATCHES = 24
 _MAX_FILE_BYTES = 512 * 1024
+_LANG_SUFFIXES: Dict[str, Tuple[str, ...]] = {
+    "py": (".py",),
+    "kt": (".kt",),
+    "kts": (".kts",),
+    "java": (".java",),
+}
+_DEFAULT_LANGS: Tuple[str, ...] = ("py", "kt", "kts", "java")
 
 
 def _utc_timestamp() -> str:
@@ -201,6 +210,22 @@ class ResearcherContextBuilder:
             scope.manual_notes = _unique(scope.manual_notes + [note for note in extra_notes if note])
         return scope
 
+    def describe_targets(self, scope: Scope) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Path]]:
+        return self._resolve_search_roots(scope)
+
+    def _resolve_search_roots(self, scope: Scope) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Path]]:
+        search_roots: List[Path] = []
+        path_infos: List[Dict[str, Any]] = []
+        for rel in scope.paths:
+            info, path_obj = self._describe_path(rel)
+            path_infos.append(info)
+            if path_obj is not None:
+                search_roots.append(path_obj)
+
+        doc_infos, doc_roots = self._describe_docs(scope.docs)
+        search_roots.extend(doc_roots)
+        return path_infos, doc_infos, search_roots
+
     def write_targets(self, scope: Scope) -> Path:
         report_dir = self.root / _REPORT_DIR
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -220,18 +245,10 @@ class ResearcherContextBuilder:
         return target_path
 
     def collect_context(self, scope: Scope, *, limit: int = _MAX_MATCHES) -> Dict[str, Any]:
-        search_roots: List[Path] = []
-        path_infos: List[Dict[str, Any]] = []
-        for rel in scope.paths:
-            info, path_obj = self._describe_path(rel)
-            path_infos.append(info)
-            if path_obj is not None:
-                search_roots.append(path_obj)
-
-        doc_infos, doc_roots = self._describe_docs(scope.docs)
-        search_roots.extend(doc_roots)
-
+        path_infos, doc_infos, search_roots = self._resolve_search_roots(scope)
         matches = self._scan_matches(search_roots, scope.keywords, limit=limit)
+        code_index: List[Dict[str, Any]] = []
+        reuse_candidates: List[Dict[str, Any]] = []
         profile = self._build_project_profile(scope, matches)
 
         return {
@@ -245,6 +262,8 @@ class ResearcherContextBuilder:
             "paths": path_infos,
             "docs": doc_infos,
             "matches": matches,
+            "code_index": code_index,
+            "reuse_candidates": reuse_candidates,
             "profile": profile,
             "manual_notes": scope.manual_notes,
         }
@@ -534,6 +553,120 @@ class ResearcherContextBuilder:
         except OSError:
             return iter(())
 
+    def collect_deep_context(
+        self,
+        scope: Scope,
+        *,
+        roots: Sequence[Path],
+        keywords: Sequence[str],
+        languages: Sequence[str],
+        reuse_only: bool = False,
+        limit: int = _MAX_MATCHES,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        allowed_langs = {lang.lower() for lang in (languages or _DEFAULT_LANGS)}
+        code_index = self._collect_code_index(roots, allowed_langs)
+        reuse_candidates = self._score_reuse_candidates(code_index, keywords, limit=limit)
+        if reuse_only:
+            return [], reuse_candidates
+        return code_index, reuse_candidates
+
+    def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
+        index: List[Dict[str, Any]] = []
+        for root in roots:
+            iterator: Iterable[Path]
+            if root.is_dir():
+                iterator = self._iter_code_files(root, allowed_langs)
+            else:
+                iterator = [root]
+            for path in iterator:
+                lang = _language_for_path(path)
+                if not lang or lang not in allowed_langs:
+                    continue
+                summary = self._summarise_code_file(path, lang)
+                if summary:
+                    index.append(summary)
+        return index
+
+    def _iter_code_files(self, root: Path, allowed_langs: set[str]) -> Iterator[Path]:
+        try:
+            for path in root.rglob("*"):
+                if not path.is_file():
+                    continue
+                lang = _language_for_path(path)
+                if not lang or lang not in allowed_langs:
+                    continue
+                yield path
+        except OSError:
+            return iter(())
+
+    def _summarise_code_file(self, path: Path, lang: str) -> Optional[Dict[str, Any]]:
+        try:
+            data = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None
+        if len(data.encode("utf-8")) > _MAX_FILE_BYTES:
+            return None
+
+        imports: List[str] = []
+        symbols: List[Dict[str, Any]] = []
+        if lang == "py":
+            imports, symbols = _extract_python_summary(data)
+        else:
+            imports, symbols = _extract_generic_summary(data, lang)
+
+        has_tests = _is_test_path(path)
+        try:
+            rel_path = path.relative_to(self.root).as_posix()
+        except ValueError:
+            rel_path = path.as_posix()
+        return {
+            "path": rel_path,
+            "language": lang,
+            "imports": imports,
+            "symbols": symbols,
+            "has_tests": has_tests,
+        }
+
+    def _score_reuse_candidates(
+        self, code_index: Sequence[Dict[str, Any]], keywords: Sequence[str], *, limit: int = _MAX_MATCHES
+    ) -> List[Dict[str, Any]]:
+        tokens = [kw.strip().lower() for kw in keywords if kw]
+        if not tokens:
+            tokens = []
+        candidates: List[Dict[str, Any]] = []
+        for entry in code_index:
+            path = entry.get("path", "")
+            language = entry.get("language", "")
+            has_tests = bool(entry.get("has_tests"))
+            symbols = entry.get("symbols") or []
+            imports = entry.get("imports") or []
+            symbol_tokens = [s.get("name", "") for s in symbols]
+            score = 0
+            lower_path = path.lower()
+            for token in tokens:
+                if token in lower_path:
+                    score += 2
+                if any(token in (sym or "").lower() for sym in symbol_tokens):
+                    score += 3
+                if any(token in (imp or "").lower() for imp in imports):
+                    score += 1
+            if has_tests:
+                score += 1
+            if score == 0 and tokens:
+                continue
+            candidates.append(
+                {
+                    "path": path,
+                    "language": language,
+                    "score": score,
+                    "has_tests": has_tests,
+                    "top_symbols": symbol_tokens[:3],
+                    "imports": imports[:5],
+                }
+            )
+        candidates.sort(key=lambda item: item.get("score", 0), reverse=True)
+        return candidates[:limit]
+
 
 def _parse_paths(value: Optional[str]) -> List[str]:
     if not value:
@@ -589,6 +722,90 @@ def _parse_notes(values: Optional[Iterable[str]], root: Path) -> List[str]:
     return notes
 
 
+def _language_for_path(path: Path) -> Optional[str]:
+    suffix = path.suffix.lower()
+    for lang, suffixes in _LANG_SUFFIXES.items():
+        if suffix in suffixes:
+            return lang
+    return None
+
+
+def _parse_langs(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    langs: List[str] = []
+    for chunk in value.split(","):
+        token = chunk.strip().lower()
+        if token and token not in langs:
+            langs.append(token)
+    return langs
+
+
+def _is_test_path(path: Path) -> bool:
+    lowered = [part.lower() for part in path.parts]
+    return any("test" in part for part in lowered)
+
+
+def _extract_python_summary(data: str) -> Tuple[List[str], List[Dict[str, Any]]]:
+    imports: List[str] = []
+    symbols: List[Dict[str, Any]] = []
+    try:
+        tree = ast.parse(data)
+    except SyntaxError:
+        return imports, symbols
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            name = ""
+            if isinstance(node, ast.Import):
+                name = ", ".join(alias.name for alias in node.names)
+            else:
+                module = node.module or ""
+                name = module if not node.names else f"{module}: " + ", ".join(alias.name for alias in node.names)
+            if name:
+                imports.append(name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            signature_parts = [arg.arg for arg in node.args.args]
+            signature = f"({', '.join(signature_parts)})"
+            symbols.append({"name": node.name, "kind": "function", "line": node.lineno, "signature": signature})
+        elif isinstance(node, ast.ClassDef):
+            bases = [getattr(base, "id", "") or getattr(base, "attr", "") for base in node.bases]
+            base_sig = f" extends {', '.join([b for b in bases if b])}" if bases else ""
+            symbols.append({"name": node.name, "kind": "class", "line": node.lineno, "signature": base_sig})
+    return imports[:20], symbols[:30]
+
+
+_GENERIC_CLASS_RE = re.compile(r"\b(class|interface|object)\s+([A-Za-z_][\w<>]*)")
+_GENERIC_FUNC_RE = re.compile(r"\bfun\s+([A-Za-z_][\w<>]*)\s*\(([^)]*)\)|\b(?:public|protected|private)?\s*(?:static\s+)?(?:[\w<>]+)\s+([A-Za-z_]\w*)\s*\(([^)]*)\)")
+
+
+def _extract_generic_summary(data: str, lang: str) -> Tuple[List[str], List[Dict[str, Any]]]:
+    imports: List[str] = []
+    symbols: List[Dict[str, Any]] = []
+    for line in data.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("import "):
+            imports.append(stripped.replace("import ", "").strip())
+    for match in _GENERIC_CLASS_RE.finditer(data):
+        name = match.group(2)
+        symbols.append({"name": name, "kind": "class", "line": _line_for_index(data, match.start())})
+    for match in _GENERIC_FUNC_RE.finditer(data):
+        func_name = match.group(1) or match.group(3)
+        params = match.group(2) or match.group(4) or ""
+        symbols.append(
+            {
+                "name": func_name,
+                "kind": "function",
+                "line": _line_for_index(data, match.start()),
+                "signature": f"({params})",
+            }
+        )
+    return imports[:20], symbols[:30]
+
+
+def _line_for_index(data: str, index: int) -> int:
+    return data.count("\n", 0, index) + 1
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Prepare context for the Researcher agent.")
     parser.add_argument("--target", default=".", help="Project root (default: current directory).")
@@ -617,6 +834,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<ticket>-context.json).")
     parser.add_argument("--targets-only", action="store_true", help="Only refresh targets JSON, skip scanning sources.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing files; prints context JSON to stdout.")
+    parser.add_argument("--deep-code", action="store_true", help="Collect code symbols/imports/tests alongside keyword matches.")
+    parser.add_argument("--reuse-only", action="store_true", help="Skip keyword matches and focus on reuse candidates.")
+    parser.add_argument("--langs", help="Comma-separated list of languages to scan (py,kt,kts,java).")
     parser.add_argument(
         "--auto",
         action="store_true",
@@ -647,6 +867,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         extra_keywords=_parse_keywords(args.keywords),
         extra_notes=_parse_notes(args.notes, root),
     )
+    _, _, search_roots = builder.describe_targets(scope)
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(root).as_posix()
@@ -655,7 +876,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.targets_only:
         return 0
 
+    languages = _parse_langs(args.langs)
     context = builder.collect_context(scope, limit=args.limit)
+    if args.deep_code:
+        code_index, reuse_candidates = builder.collect_deep_context(
+            scope,
+            roots=search_roots,
+            keywords=scope.keywords,
+            languages=languages or _DEFAULT_LANGS,
+            reuse_only=args.reuse_only,
+            limit=args.limit,
+        )
+        context["code_index"] = code_index
+        context["reuse_candidates"] = reuse_candidates
+        context["deep_mode"] = True
+    else:
+        context["deep_mode"] = False
     context["auto_mode"] = bool(args.auto)
     match_count = len(context["matches"])
     if match_count == 0:
@@ -669,7 +905,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     output_override = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, context, output=output_override)
     rel_output = output_path.relative_to(root).as_posix()
-    print(f"[researcher] context saved to {rel_output} ({match_count} matches).")
+    message = f"[researcher] context saved to {rel_output} ({match_count} matches"
+    if args.deep_code:
+        reuse_count = len(context.get("reuse_candidates") or [])
+        message += f", {reuse_count} reuse candidates"
+    message += ")."
+    print(message)
     return 0
 
 

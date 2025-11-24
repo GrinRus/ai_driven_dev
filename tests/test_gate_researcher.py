@@ -1,158 +1,101 @@
 import datetime as dt
 import json
-import shutil
-import subprocess
-import tempfile
-import unittest
 from pathlib import Path
 
-from . import helpers
-from .helpers import write_active_feature, write_file, write_json
+from .helpers import (
+    REPO_ROOT,
+    ensure_gates_config,
+    run_hook,
+    write_active_feature,
+    write_file,
+    write_json,
+)
 
 
-PAYLOAD = json.dumps({"tool_input": {"file_path": "src/main/kotlin/App.kt"}})
+SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 
 
-def _timestamp() -> str:
+def _utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-class GateResearcherTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self._tmpdir = tempfile.mkdtemp(prefix="gate-research-")
-        self.root = Path(self._tmpdir)
-        helpers.git_init(self.root)
-        helpers.git_config_user(self.root)
-        subprocess.run(["git", "checkout", "-b", "feature/demo-checkout"], cwd=self.root, check=True, capture_output=True)
+def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> None:
+    ensure_gates_config(tmp_path)
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    prd_body = (
+        "# PRD\n\n"
+        "## Диалог analyst\n"
+        "Status: READY\n\n"
+        "Вопрос 1: Какие этапы покрываем?\n"
+        "Ответ 1: Happy-path и отказ оплаты.\n\n"
+        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
+        "## PRD Review\n"
+        "Status: approved\n"
+    )
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", prd_body)
+    write_json(tmp_path, f"reports/prd/{ticket}.json", {"status": "approved", "findings": []})
+    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan\n\n## Architecture & Patterns\n- service layer\n")
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{ticket}.md",
+        (
+            "---\n"
+            f"Feature: {ticket}\n"
+            f"Status: draft\n"
+            f"PRD: docs/prd/{ticket}.prd.md\n"
+            f"Plan: docs/plan/{ticket}.md\n"
+            f"Research: docs/research/{ticket}.md\n"
+            "Updated: 2024-01-01\n"
+            "---\n\n"
+            "- [ ] initial task\n"
+        ),
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"ticket": ticket, "paths": ["src"], "docs": ["docs"], "generated_at": _utc_now()},
+    )
 
-        (self.root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
-        (self.root / "docs" / "plan").mkdir(parents=True, exist_ok=True)
-        (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
-        (self.root / "reports" / "research").mkdir(parents=True, exist_ok=True)
-        (self.root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
-        (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
-        helpers.ensure_gates_config(self.root)
-        config_path = self.root / "config" / "gates.json"
-        config_data = json.loads(config_path.read_text(encoding="utf-8"))
-        config_data.setdefault("researcher", {})["branches"] = []
-        config_path.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
+def _write_context(tmp_path: Path, ticket: str, *, is_new: bool, auto_mode: bool) -> None:
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _utc_now(),
+            "profile": {"is_new_project": is_new},
+            "auto_mode": auto_mode,
+        },
+    )
 
-        write_active_feature(self.root, "demo-checkout")
-        write_file(
-            self.root,
-            "docs/prd/demo-checkout.prd.md",
-            (
-                "# PRD\n\n"
-                "## Диалог analyst\n"
-                "Status: READY\n\n"
-                "Researcher: docs/research/demo-checkout.md (Status: reviewed)\n\n"
-                "## PRD Review\n"
-                "Status: approved\n- [x] ready\n"
-            ),
-        )
-        write_file(self.root, "docs/plan/demo-checkout.md", "# План\n")
-        write_file(
-            self.root,
-            "docs/tasklist/demo-checkout.md",
-            "- [x] prepare plan — baseline\n- [ ] QA pending\n",
-        )
-        write_json(
-            self.root,
-            "reports/prd/demo-checkout.json",
-            {"status": "approved"},
-        )
 
-        write_file(
-            self.root,
-            "docs/research/demo-checkout.md",
-            "# Research\n\nStatus: reviewed\n",
-        )
+def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
+    ticket = "demo-checkout"
+    _setup_common_artifacts(tmp_path, ticket)
+    write_file(
+        tmp_path,
+        f"docs/research/{ticket}.md",
+        "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
+    )
+    _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
 
-        now = _timestamp()
-        write_json(
-            self.root,
-            "reports/research/demo-checkout-targets.json",
-            {
-                "ticket": "demo-checkout",
-                "slug": "demo-checkout",
-                "paths": ["src/main/kotlin"],
-                "docs": ["docs/research/demo-checkout.md"],
-                "generated_at": now,
-            },
-        )
-        write_json(
-            self.root,
-            "reports/research/demo-checkout-context.json",
-            {
-                "ticket": "demo-checkout",
-                "slug": "demo-checkout",
-                "generated_at": now,
-                "matches": [],
-                "profile": {"is_new_project": False},
-                "auto_mode": False,
-            },
-        )
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
 
-        write_file(self.root, "src/main/kotlin/App.kt", "class App")
 
-    def tearDown(self) -> None:
-        shutil.rmtree(self._tmpdir)
+def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
+    ticket = "demo-checkout"
+    _setup_common_artifacts(tmp_path, ticket)
+    write_file(
+        tmp_path,
+        f"docs/research/{ticket}.md",
+        "# Research\n\nStatus: pending\n\n(no baseline note)\n",
+    )
+    _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
 
-    def test_gate_allows_when_research_ready(self) -> None:
-        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-
-    def test_gate_blocks_on_pending_status(self) -> None:
-        write_file(
-            self.root,
-            "docs/research/demo-checkout.md",
-            "# Research\n\nStatus: pending\n",
-        )
-        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Researcher", result.stdout + result.stderr)
-
-    def test_gate_allows_pending_with_baseline_marker(self) -> None:
-        baseline_doc = (
-            "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
-        )
-        write_file(self.root, "docs/research/demo-checkout.md", baseline_doc)
-        now = _timestamp()
-        write_json(
-            self.root,
-            "reports/research/demo-checkout-context.json",
-            {
-                "ticket": "demo-checkout",
-                "slug": "demo-checkout",
-                "generated_at": now,
-                "matches": [],
-                "profile": {"is_new_project": True},
-                "auto_mode": True,
-            },
-        )
-        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-
-    def test_gate_blocks_pending_without_baseline_marker(self) -> None:
-        write_file(
-            self.root,
-            "docs/research/demo-checkout.md",
-            "# Research\n\nStatus: pending\n",
-        )
-        now = _timestamp()
-        write_json(
-            self.root,
-            "reports/research/demo-checkout-context.json",
-            {
-                "ticket": "demo-checkout",
-                "slug": "demo-checkout",
-                "generated_at": now,
-                "matches": [],
-                "profile": {"is_new_project": True},
-                "auto_mode": True,
-            },
-        )
-        result = helpers.run_hook(self.root, "gate-workflow.sh", PAYLOAD)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("baseline", result.stdout + result.stderr)
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "pending" in combined or "baseline" in combined

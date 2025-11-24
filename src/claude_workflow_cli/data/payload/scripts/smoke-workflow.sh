@@ -73,7 +73,7 @@ log "activate feature ticket"
 python3 tools/set_active_feature.py "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
-run_cli research --ticket "$TICKET" --target . --auto >/dev/null
+run_cli research --ticket "$TICKET" --target . --auto --deep-code >/dev/null
 
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
@@ -150,6 +150,25 @@ assert_gate_exit 2 "missing plan"
 
 log "apply preset feature-plan"
 bash "$INIT_SCRIPT" --preset feature-plan --ticket "$TICKET" >/dev/null
+log "ensure plan содержит Architecture & Patterns и reuse"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/plan") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+if "Architecture & Patterns" not in text:
+    text += (
+        "\n## Architecture & Patterns\n"
+        "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
+        f"- Reuse: docs/research/{ticket}.md\n"
+        "- Scope: domain/application/infra boundaries fixed; avoid over-engineering.\n"
+    )
+elif "service layer" not in text.lower():
+    text += "\n- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
+path.write_text(text, encoding="utf-8")
+PY
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"

@@ -33,6 +33,7 @@ from claude_workflow_cli.tools.analyst_guard import (
 from claude_workflow_cli.tools.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,
+    _parse_langs as _research_parse_langs,
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
@@ -480,6 +481,7 @@ def _research_command(args: argparse.Namespace) -> None:
         extra_keywords=_research_parse_keywords(args.keywords),
         extra_notes=_research_parse_notes(getattr(args, "notes", None), target),
     )
+    _, _, search_roots = builder.describe_targets(scope)
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
@@ -491,7 +493,23 @@ def _research_command(args: argparse.Namespace) -> None:
     if args.targets_only:
         return
 
+    languages = _research_parse_langs(getattr(args, "langs", None))
+
     collected_context = builder.collect_context(scope, limit=args.limit)
+    if args.deep_code:
+        code_index, reuse_candidates = builder.collect_deep_context(
+            scope,
+            roots=search_roots,
+            keywords=scope.keywords,
+            languages=languages,
+            reuse_only=args.reuse_only,
+            limit=args.limit,
+        )
+        collected_context["code_index"] = code_index
+        collected_context["reuse_candidates"] = reuse_candidates
+        collected_context["deep_mode"] = True
+    else:
+        collected_context["deep_mode"] = False
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     match_count = len(collected_context["matches"])
     if match_count == 0:
@@ -505,10 +523,12 @@ def _research_command(args: argparse.Namespace) -> None:
     output = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, collected_context, output=output)
     rel_output = output_path.relative_to(target).as_posix()
-    print(
-        f"[claude-workflow] researcher context saved to {rel_output} "
-        f"({match_count} matches)."
-    )
+    reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
+    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches"
+    if args.deep_code:
+        message += f", {reuse_count} reuse candidates"
+    message += ")."
+    print(message)
 
     if args.no_template:
         return
@@ -1309,6 +1329,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Print context JSON to stdout without writing files (targets are still refreshed).",
+    )
+    research_parser.add_argument(
+        "--deep-code",
+        action="store_true",
+        help="Collect code symbols/imports/tests for reuse candidates (without building call graph).",
+    )
+    research_parser.add_argument(
+        "--reuse-only",
+        action="store_true",
+        help="Skip keyword matches and focus on reuse candidates in the output.",
+    )
+    research_parser.add_argument(
+        "--langs",
+        help="Comma-separated list of languages to scan for deep analysis (py,kt,kts,java).",
     )
     research_parser.add_argument(
         "--no-template",

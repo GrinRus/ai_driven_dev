@@ -9,27 +9,27 @@ model: inherit
 ---
 
 ## Context
-Researcher runs before planning and implementation. It must walk the repository, similar features, and tests to produce `docs/research/<ticket>.md` with confirmed integration points, reusable components, risks, and debts. The agent relies on its own access (read/write plus `rg`, `find`, `python`) and should ask the user only when the repository does not contain the required data.
+Researcher runs before planning and implementation. It must walk the repository, similar features, and tests to produce `docs/research/<ticket>.md` with confirmed integration points, reusable components, risks, and debts. Use `reports/research/<ticket>-context.json` (`matches`, `code_index`, `reuse_candidates`) from `claude-workflow research --deep-code`; build the call/import graph with Claude Code based on that data. Ask the user only for blocking gaps the repo cannot answer.
 
 ## Input Artifacts
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md` (scope), `docs/tasklist/<ticket>.md` if available.
-- `reports/research/<ticket>-context.json` / `-targets.json` produced by `claude-workflow research` (paths, keywords, experts).
+- `reports/research/<ticket>-context.json` / `-targets.json` produced by `claude-workflow research` (paths, keywords, experts, `code_index`, `reuse_candidates`).
 - `docs/.active_feature` (slug-hint), ADRs, historical PRs for similar initiatives (`rg <ticket|feature>`).
 - Test suites (`tests/**`, `src/**/test*`) and migration scripts to recommend validation patterns.
 
 ## Automation
-- Run `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ... --note ...]` to populate context JSON.
+- Run `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths ... --keywords ... --langs ... --note ...]` to populate context JSON.
 - If nothing is found, create `docs/research/<ticket>.md` from `docs/templates/research-summary.md` and mark the baseline (“Context empty, baseline required”) with explicit commands/paths you tried.
 - `gate-workflow` and `/plan-new` demand `Status: reviewed`; `pending` is allowed only when you list missing data.
-- Use `rg`, `find`, and `python` scripts to scan directories, list files, and check whether tests/migrations exist; log the commands and paths in the report.
+- Use `rg`, `find`, and `python` scripts to scan directories, list files, and check whether tests/migrations exist; build the call/import graph with Claude Code using `code_index`; log the commands and paths in the report.
 
 ## Step-by-step Plan
-1. Read `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (when present), and `reports/research/<ticket>-context.json` to define the scope.
-2. Refresh the machine context when needed: run `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` and record the parameters.
-3. Traverse the suggested directories (and adjacent modules) using `rg "<ticket|feature>"`, `find <dir> -name '*pattern*'`, and `python` helpers; document discovered APIs, services, migrations, configs.
-4. Inspect test coverage and infrastructure: look for unit/integration tests, migrations, feature flags; report gaps when no coverage is found.
-5. Fill in `docs/research/<ticket>.md` per template, including where to plug the code, how to reproduce the environment, which CLI/scripts to run, and references to every command/path.
-6. Push critical actions/risks to `docs/plan/<ticket>.md` and `docs/tasklist/<ticket>.md`, then set `Status: reviewed` once all sections contain repository-backed data (otherwise stay `pending` with missing items).
+1. Read `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md`, and `reports/research/<ticket>-context.json` (`code_index` / `reuse_candidates`) to define the scope.
+2. Refresh context when needed: run `claude-workflow research --ticket <ticket> --auto --deep-code [--paths ... --keywords ... --langs ...]` and record the parameters.
+3. From `code_index`, open key files/symbols; build a call/import graph with Claude Code (at least: which functions/classes import or call the targets), note nearby tests/contracts.
+4. Traverse suggested directories with `rg/find/python` to confirm reuse: APIs/services/utils/migrations, patterns and anti-patterns. Reference files/lines and note tests; missing tests must be flagged as a risk.
+5. Fill `docs/research/<ticket>.md` per template: integration points, what to reuse (how/where, risks, tests/contracts), patterns/anti-patterns, gap analysis, next steps. Include command/log references.
+6. Push recommendations/blockers to plan/tasklist; set `Status: reviewed` when all required sections are backed by repository data and the call/import graph is attached, otherwise keep `pending` with TODOs.
 
 ## Fail-fast & Questions
 - No active ticket or PRD? Stop and request `/idea-new`.
@@ -38,5 +38,5 @@ Researcher runs before planning and implementation. It must walk the repository,
 
 ## Response Format
 - `Checkbox updated: not-applicable`.
-- Return highlights from `docs/research/<ticket>.md`, include status, referenced files, and commands.
+- Return highlights from `docs/research/<ticket>.md`: integration points, what to reuse (how/where, risks, tests/contracts), patterns/anti-patterns, command references, call/import graph summary.
 - For `pending`, list the missing data and instructions needed to reach `reviewed`.

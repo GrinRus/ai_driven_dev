@@ -3,7 +3,7 @@
 > Готовый GitHub-шаблон и инсталлятор, который подключает Claude Code к вашему Java/Kotlin монорепозиторию, добавляет слэш-команды, безопасные хуки и выборочный запуск Gradle-тестов.
 
 ## TL;DR
-- `/init-claude-workflow.sh` разворачивает цикл `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
+- `/init-claude-workflow.sh` разворачивает цикл `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
 - Автоформат и выборочные Gradle-тесты запускаются после каждой правки (можно отключить `SKIP_AUTO_TESTS=1`), артефакты защищены хуками `gate-*`.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
@@ -54,7 +54,7 @@
 Детали настройки и расширения описаны в `workflow.md` и `docs/customization.md`.
 
 ## Agent-first принципы
-- **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `docs/.active_feature` (пользовательский slug-hint), затем читает `docs/research/<ticket>.md`, `reports/research/*.json`, существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto`, `rg "<ticket>" src/**`, `find`, `python`), а implementer обновляет tasklist и перечисляет запущенные `./gradlew`/`claude-workflow progress` перед тем как обращаться к пользователю.
+- **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `docs/.active_feature` (пользовательский slug-hint), затем читает `docs/research/<ticket>.md`, `reports/research/*.json` (включая `code_index`/`reuse_candidates`), существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) и строит call/import graph Claude Code'ом, а implementer обновляет tasklist и перечисляет запущенные `./gradlew`/`claude-workflow progress` перед тем как обращаться к пользователю.
 - **Команды и логи — часть ответа.** Все промпты и шаблоны требуют указывать разрешённые CLI (Gradle, `rg`, `claude-workflow`) и прикладывать вывод/пути, чтобы downstream-агенты могли воспроизвести шаги. Tasklist и research-шаблон теперь содержат разделы «Commands/Reports».
 - **Автогенерация артефактов.** `/idea-new` автоматически создаёт PRD, обновляет отчёты Researcher и инструктирует аналитика собирать данные из репозитория. Пресеты `templates/prompt-agent.md` и `templates/prompt-command.md` подсказывают, как описывать входы, гейты, команды и fail-fast блоки в стиле agent-first.
 
@@ -280,7 +280,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 ```
 git checkout -b feature/STORE-123
 /idea-new STORE-123 checkout-discounts
-claude-workflow research --ticket STORE-123 --auto
+claude-workflow research --ticket STORE-123 --auto --deep-code
 /plan-new checkout-discounts
 /review-prd checkout-discounts
 /tasks-new checkout-discounts
@@ -292,15 +292,15 @@ claude-workflow research --ticket STORE-123 --auto
 
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist `docs/tasklist/<ticket>.md`): `/idea-new` сразу сохраняет черновик PRD со статусом `Status: draft`, аналитик фиксирует диалог в `## Диалог analyst`, а ответы даются в формате `Ответ N: …`;
-- `claude-workflow research --auto` сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `docs/research/<ticket>.md`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline».
+- `claude-workflow research --auto --deep-code` сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline».
 - при правках автоматически запускается `.claude/hooks/format-and-test.sh`, гейты блокируют изменения в соответствии с `config/gates.json`;
 - `git commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
 - прогресс каждой итерации фиксируется в `docs/tasklist/<ticket>.md`: переводите `- [ ] → - [x]`, обновляйте строку `Checkbox updated: …` и запускайте `claude-workflow progress --source <этап> --ticket <ticket>`.
 
 ## Чеклист запуска фичи
 
-1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Сразу после этого выполните `claude-workflow research --ticket <ticket> --auto`, чтобы зафиксировать цели/контекст (добавьте `--note` для свободного ввода); отвечайте на вопросы аналитика в формате `Ответ N: …`, пока не обновите `Status: READY` и не пройдёте `claude-workflow analyst-check --ticket <ticket>`.
-2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
+1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Сразу после этого выполните `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only]`, чтобы зафиксировать цели/контекст (добавьте `--note` для свободного ввода); отвечайте на вопросы аналитика в формате `Ответ N: …`, пока не обновите `Status: READY` и не пройдёте `claude-workflow analyst-check --ticket <ticket>`.
+2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto --deep-code`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
 5. Запросите `/review`, когда чеклисты в `docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.
