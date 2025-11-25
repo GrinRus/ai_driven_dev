@@ -21,8 +21,8 @@ model: inherit
 - Re-run when architecture changes or codebase diverges significantly.
 
 ## Automation & Hooks
-- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--note]` populates `reports/research/<ticket>-context.json` with `code_index`, `reuse_candidates`, and `call_graph`/`import_graph` (Java/Kotlin only, tree-sitter when available).
-- `--dry-run` writes only JSON; `--targets-only` refreshes target paths without scanning; `--reuse-only` focuses on reuse candidates; `--langs` filters deep-code languages; `--graph-langs` narrows call graph to kt/kts/java; `--no-agent` skips launching the Claude agent.
+- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]` populates `reports/research/<ticket>-context.json` with `code_index`, `reuse_candidates`, and a focused `call_graph`/`import_graph` (Java/Kotlin only, tree-sitter when available). The full graph is saved to `reports/research/<ticket>-call-graph-full.json`; defaults: filter = `<ticket>|<keywords>`, limit = 300 edges.
+- `--dry-run` writes only JSON; `--targets-only` refreshes target paths without scanning; `--reuse-only` focuses on reuse candidates; `--langs` filters deep-code languages; `--graph-langs` narrows call graph to kt/kts/java; `--graph-filter/--graph-limit` tune focus graph; `--no-agent` skips launching the Claude agent.
 
 ## What is Edited
 - `docs/research/<ticket>.md` (per template) and references in PRD/tasklist.

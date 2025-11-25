@@ -93,8 +93,8 @@
     {
       "path": ".claude/commands/researcher.md",
       "type": "file",
-      "size": 4857,
-      "sha256": "08f60b4580045e190c2ff76dd8fb855ddb4720411cd3e84dc7bd2ea73b9146ac"
+      "size": 5236,
+      "sha256": "80c7b714f97118194b5896dede1b8143887ab10567730cd83ffeae64c66613a2"
     },
     {
       "path": ".claude/commands/review-prd.md",
@@ -243,14 +243,14 @@
     {
       "path": "README.en.md",
       "type": "file",
-      "size": 31500,
-      "sha256": "8b44795a869edd74a482aa531822c8b63c6a102473705ab4c9026321be7dd52a"
+      "size": 31767,
+      "sha256": "6b4f068cac6dc31fe8d6dc29ff54fcc331177aa76a5341e0999d913cfb025d7f"
     },
     {
       "path": "README.md",
       "type": "file",
-      "size": 52093,
-      "sha256": "5eef66fcf60085c0a48da8f36dddba6f0c1a3afd19d8d4d98232717031477fa4"
+      "size": 52481,
+      "sha256": "ac080bb7897fddc6df875f366d723a1979f96e35905bc8439c2c7a36726e9037"
     },
     {
       "path": "claude-presets/advanced/feature-design.yaml",
@@ -327,8 +327,8 @@
     {
       "path": "docs/agents-playbook.md",
       "type": "file",
-      "size": 20914,
-      "sha256": "24ecf6520b1e92a6d1a4cabf2a27f77c08182a49c2307d615aefef5ed0693634"
+      "size": 21161,
+      "sha256": "0fe27deefed25d1a5fc559120b4efc890d940917a14d392cc9f798e2fb3803e2"
     },
     {
       "path": "docs/customization.md",
@@ -507,8 +507,8 @@
     {
       "path": "prompts/en/commands/researcher.md",
       "type": "file",
-      "size": 2802,
-      "sha256": "df66aa48b2a30fcf5053139b3a91fad80a1bcfe4a93a5cb8c04f95d394161ced"
+      "size": 3040,
+      "sha256": "e92170335612864abf47c9a77e4afb4d2858a97a89a0c349fbd6d6abf5f66990"
     },
     {
       "path": "prompts/en/commands/review-prd.md",
@@ -663,8 +663,8 @@
     {
       "path": "workflow.md",
       "type": "file",
-      "size": 16439,
-      "sha256": "1724b6c9583bb34857309b94f8b63c2d8abf6588b260532dd6f1d1143e9fc08e"
+      "size": 16672,
+      "sha256": "9398d9c35dc75c579c745434509adba4b4e766df3329bbb43c0ceaa0d88a9061"
     }
   ]
 }

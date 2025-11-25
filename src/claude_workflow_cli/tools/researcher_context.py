@@ -40,6 +40,7 @@ _LANG_SUFFIXES: Dict[str, Tuple[str, ...]] = {
 }
 _DEFAULT_LANGS: Tuple[str, ...] = ("py", "kt", "kts", "java")
 _CALLGRAPH_LANGS = {"kt", "kts", "java"}
+_DEFAULT_GRAPH_LIMIT = 300
 
 
 def _utc_timestamp() -> str:
@@ -598,6 +599,8 @@ class ResearcherContextBuilder:
         languages: Sequence[str],
         engine_name: str = "auto",
         engine: Optional["_CallGraphEngine"] = None,
+        graph_filter: Optional[str] = None,
+        graph_limit: int = _DEFAULT_GRAPH_LIMIT,
     ) -> Dict[str, Any]:
         callgraph_langs = [lang for lang in languages if lang in _CALLGRAPH_LANGS]
         files = self._iter_callgraph_files(roots, callgraph_langs)
@@ -622,6 +625,33 @@ class ResearcherContextBuilder:
         result = selected_engine.build(files)
         result.setdefault("engine", selected_engine.name)
         result.setdefault("supported_languages", list(selected_engine.supported_languages))
+        edges = result.get("edges") or []
+        imports = result.get("imports") or []
+
+        focus_filter = graph_filter or ""
+        trimmed_edges = edges
+        trimmed = False
+        if focus_filter:
+            try:
+                regex = re.compile(focus_filter, re.IGNORECASE)
+                trimmed_edges = [
+                    edge
+                    for edge in edges
+                    if regex.search(edge.get("file", ""))
+                    or regex.search(str(edge.get("caller", "")))
+                    or regex.search(str(edge.get("callee", "")))
+                ]
+            except re.error:
+                trimmed_edges = edges
+        if graph_limit and len(trimmed_edges) > graph_limit:
+            trimmed_edges = trimmed_edges[:graph_limit]
+            trimmed = True
+
+        result["edges_full"] = edges
+        result["edges"] = trimmed_edges
+        result["imports"] = imports
+        if trimmed:
+            result["warning"] = (result.get("warning") or "") + f" call graph trimmed to {graph_limit} edges."
         return result
 
     def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
@@ -793,6 +823,12 @@ def _parse_langs(value: Optional[str]) -> List[str]:
         if token and token not in langs:
             langs.append(token)
     return langs
+
+
+def _parse_graph_filter(value: Optional[str], fallback: str) -> str:
+    if value is None or not value.strip():
+        return fallback
+    return value.strip()
 
 
 def _parse_graph_engine(value: Optional[str]) -> str:
@@ -1066,6 +1102,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Comma-separated list of languages for call graph (supports kt,kts,java; others ignored).",
     )
     parser.add_argument(
+        "--graph-filter",
+        help="Regex to keep only matching call graph edges (matches file/caller/callee). Defaults to ticket/keywords.",
+    )
+    parser.add_argument(
+        "--graph-limit",
+        type=int,
+        default=_DEFAULT_GRAPH_LIMIT,
+        help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+    )
+    parser.add_argument(
         "--auto",
         action="store_true",
         help="Automation-friendly mode for /idea-new integrations (prints warnings on empty matches).",
@@ -1107,6 +1153,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     languages = _parse_langs(args.langs)
     graph_languages = _parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _parse_graph_engine(getattr(args, "graph_engine", None))
+    auto_filter = "|".join(_unique(scope.keywords + [scope.ticket]))
+    graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
+    raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
+    try:
+        graph_limit = int(raw_limit)
+    except (TypeError, ValueError):
+        graph_limit = _DEFAULT_GRAPH_LIMIT
+    if graph_limit <= 0:
+        graph_limit = _DEFAULT_GRAPH_LIMIT
 
     context = builder.collect_context(scope, limit=args.limit)
     if args.deep_code:
@@ -1124,16 +1179,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         context["deep_mode"] = False
     if getattr(args, "call_graph", False):
+        graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
+        graph_limit = int(getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT) or _DEFAULT_GRAPH_LIMIT)
         graph = builder.collect_call_graph(
             scope,
             roots=search_roots,
             languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
             engine_name=graph_engine,
+            graph_filter=graph_filter,
+            graph_limit=graph_limit,
         )
         context["call_graph"] = graph.get("edges", [])
         context["import_graph"] = graph.get("imports", [])
         context["call_graph_engine"] = graph.get("engine", graph_engine)
         context["call_graph_supported_languages"] = graph.get("supported_languages", [])
+        if graph.get("edges_full") is not None:
+            full_path = Path(args.output or f"reports/research/{ticket}-call-graph-full.json")
+            if not full_path.is_absolute():
+                full_path = root / full_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
+            full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
+            context["call_graph_full_path"] = os.path.relpath(full_path, root)
+        context["call_graph_filter"] = graph_filter
+        context["call_graph_limit"] = graph_limit
         if graph.get("warning"):
             context["call_graph_warning"] = graph.get("warning")
     else:
@@ -1154,13 +1223,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     output_override = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, context, output=output_override)
     rel_output = output_path.relative_to(root).as_posix()
+    full_edges_count = 0
+    if context.get("call_graph_full_path"):
+        try:
+            full_payload = json.loads((root / context["call_graph_full_path"]).read_text(encoding="utf-8"))
+            full_edges_count = len(full_payload.get("edges") or [])
+        except Exception:
+            full_edges_count = 0
     message = f"[researcher] context saved to {rel_output} ({match_count} matches"
     if args.deep_code:
         reuse_count = len(context.get("reuse_candidates") or [])
         message += f", {reuse_count} reuse candidates"
     if getattr(args, "call_graph", False):
         graph_edges = len(context.get("call_graph") or [])
-        message += f", {graph_edges} call edges"
+        message += f", {graph_edges} call edges (full: {full_edges_count})"
     message += ")."
     print(message)
     return 0

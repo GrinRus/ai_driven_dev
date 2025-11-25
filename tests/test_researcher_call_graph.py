@@ -18,7 +18,8 @@ class FakeEngine:
     def build(self, files):
         return {
             "edges": [
-                {"caller": "Caller", "callee": "Callee", "file": str(files[0]), "line": 1, "language": "kotlin"}
+                {"caller": "Caller", "callee": "Callee", "file": str(files[0]), "line": 1, "language": "kotlin"},
+                {"caller": "Other", "callee": "OtherCallee", "file": str(files[0]), "line": 2, "language": "kotlin"},
             ],
             "imports": [{"file": str(files[0]), "imports": ["demo.Foo"]}],
         }
@@ -44,6 +45,7 @@ class ResearcherCallGraphTests(unittest.TestCase):
             languages=["kt", "java"],
             engine_name="ts",
             engine=FakeEngine(),
+            graph_filter="Caller",
         )
         self.assertEqual(graph.get("engine"), "fake")
         self.assertEqual(len(graph.get("edges") or []), 1)
@@ -68,6 +70,22 @@ class ResearcherCallGraphTests(unittest.TestCase):
             # engine доступен (tree-sitter установлен) — должен вернуть имя движка и какой-то результат/пустой список без warn
             self.assertIn(engine_name, ("tree-sitter", "ts"))
             self.assertIn("edges", graph)
+
+    def test_collect_call_graph_trimmed_and_full(self) -> None:
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-ticket", slug_hint="demo-ticket")
+        _, _, roots = builder.describe_targets(scope)
+        graph = builder.collect_call_graph(
+            scope,
+            roots=roots,
+            languages=["kt"],
+            engine_name="ts",
+            engine=FakeEngine(),
+            graph_limit=1,
+        )
+        self.assertEqual(len(graph.get("edges") or []), 1)
+        self.assertEqual(len(graph.get("edges_full") or []), 2)
+        self.assertTrue(graph.get("warning"))
 
 
 if __name__ == "__main__":  # pragma: no cover

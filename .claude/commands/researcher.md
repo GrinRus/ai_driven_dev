@@ -22,8 +22,9 @@ model: inherit
 - Повторно — при появлении новых модулей/рисков или после значительного рефакторинга.
 
 ## Автоматические хуки и переменные
-- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ... --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и `call_graph`/`import_graph` (только Java/Kotlin, tree-sitter при наличии) и обновляет JSON.
-- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков для deep-code), `--graph-langs` (kt/kts/java), `--no-agent` (пропустить запуск саб-агента).
+- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ... --graph-filter <regex> --graph-limit <N> --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и `call_graph`/`import_graph` (только Java/Kotlin, tree-sitter при наличии) и обновляет JSON.
+- По умолчанию call graph фильтруется по `<ticket>|<keywords>` и ограничивается N=300 рёбер; полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`, а в context попадает focus-версия.
+- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков для deep-code), `--graph-langs` (kt/kts/java), `--graph-filter`, `--graph-limit`, `--no-agent` (пропустить запуск саб-агента).
 
 ## Что редактируется
 - `docs/research/<ticket>.md` — отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус `pending`/`reviewed`).
