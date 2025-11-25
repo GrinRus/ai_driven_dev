@@ -33,7 +33,7 @@ model: inherit
 1. Убедись, что активный ticket = `$1`. Если нет — запусти `/idea-new $1` или `python3 tools/set_active_feature.py $1`.
 2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]` (при необходимости `--reuse-only`, `--langs`, `--graph-langs`).
 3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
-4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
+4. Запусти саб-агента **researcher** (через палитру/IDE) с JSON из `reports/research/$1-context.json` сразу после сборки контекста; используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации. Если палитра не запустила агента автоматически — запусти его вручную.
 5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).
 6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist.
 

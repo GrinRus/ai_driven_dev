@@ -31,7 +31,7 @@ model: inherit
 1. Ensure active ticket matches `$1`; run `/idea-new` or `python3 tools/set_active_feature.py` if needed.
 2. Execute `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [extra options like --langs/--graph-langs/--reuse-only]`.
 3. If no matches are found, scaffold `docs/research/$1.md` and mark the baseline.
-4. Launch **researcher** with the generated JSON, use the `call_graph`/`import_graph` (Java/Kotlin) and refine in Claude Code, then fill reuse/patterns/anti-patterns, gaps, notes.
+4. Launch **researcher** via palette/IDE with the generated JSON right after context collection; use the `call_graph`/`import_graph` (Java/Kotlin) and refine in Claude Code, then fill reuse/patterns/anti-patterns, gaps, notes. If the palette does not auto-run the agent, trigger it manually.
 5. Set status to `reviewed` once the team approved recommendations; otherwise `pending` with TODOs.
 6. Verify PRD (`## Analyst dialog`) and tasklist reference the report.
 
