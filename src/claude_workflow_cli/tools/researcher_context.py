@@ -979,6 +979,12 @@ class _TreeSitterEngine(_CallGraphEngine):
     def _ts_edges(self, path: Path, source: bytes, tree: Any) -> List[Dict[str, Any]]:
         text = source.decode("utf-8", errors="ignore")
         edges: List[Dict[str, Any]] = []
+        package = ""
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("package "):
+                package = stripped.replace("package", "", 1).strip().strip(";")
+                break
 
         def node_text(node: Any) -> str:
             return text[node.start_byte : node.end_byte]
@@ -994,7 +1000,8 @@ class _TreeSitterEngine(_CallGraphEngine):
                     if child.type in {"identifier", "type_identifier", "simple_identifier"}:
                         name = node_text(child).strip()
                         break
-                callers.append({"container": name})
+                container_fqn = ".".join(filter(None, [package, name])) if name else package
+                callers.append({"container": name, "fqn": container_fqn})
             if node_type in {
                 "method_declaration",
                 "constructor_declaration",
@@ -1006,7 +1013,13 @@ class _TreeSitterEngine(_CallGraphEngine):
                         name = node_text(child).strip()
                         break
                 caller_id = name or "<anonymous>"
-                callers.append({"id": caller_id, "name": caller_id})
+                container_fqn = None
+                for parent in reversed(callers):
+                    if "fqn" in parent and parent["fqn"]:
+                        container_fqn = parent["fqn"]
+                        break
+                caller_fqn = ".".join(filter(None, [container_fqn or package, caller_id]))
+                callers.append({"id": caller_id, "name": caller_id, "fqn": caller_fqn})
             if node_type in {"method_invocation", "call_expression"}:
                 callee = ""
                 for child in node.children:
@@ -1020,7 +1033,8 @@ class _TreeSitterEngine(_CallGraphEngine):
                         break
                 edges.append(
                     {
-                        "caller": caller["id"] if caller else None,
+                        "caller": (caller.get("fqn") or caller.get("id")) if caller else None,
+                        "caller_raw": caller.get("id") if caller else None,
                         "callee": callee or None,
                         "file": path.as_posix(),
                         "line": getattr(node, "start_point", (0, 0))[0] + 1,

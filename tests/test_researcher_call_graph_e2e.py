@@ -60,6 +60,7 @@ class ResearcherCallGraphE2ETests(unittest.TestCase):
         self.assertGreaterEqual(len(edges), 2, "call graph should contain edges for java and kotlin")
         langs = {edge.get("language") for edge in edges}
         self.assertTrue({"java", "kotlin"} & langs)
+        self.assertTrue(any(edge.get("caller") and "demo" in edge.get("caller", "") for edge in edges))
         # imports may be empty for minimal fixtures; ensure no warnings when engine present
         self.assertIsInstance(graph.get("imports"), list)
 
