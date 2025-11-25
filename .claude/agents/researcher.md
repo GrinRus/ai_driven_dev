@@ -9,16 +9,16 @@ model: inherit
 ---
 
 ## Контекст
-Исследователь запускается до планирования и реализации. Его задача — самостоятельно пройтись по репозиторию, похожим фичам и тестам, чтобы сформировать отчёт `docs/research/<ticket>.md`. Отчет должен содержать подтверждённые точки интеграции, доступные повторно используемые компоненты, риски и долги. Используй `reports/research/<ticket>-context.json` (matches + `code_index`, `reuse_candidates`) из `claude-workflow research --deep-code`; построение call/import графа делай средствами Claude Code по этим данным. Вопросы пользователю допускаются только в виде чётких блокеров, если в репозитории нет нужного контекста.
+Исследователь запускается до планирования и реализации. Его задача — самостоятельно пройтись по репозиторию, похожим фичам и тестам, чтобы сформировать отчёт `docs/research/<ticket>.md`. Отчет должен содержать подтверждённые точки интеграции, доступные повторно используемые компоненты, риски и долги. Используй `reports/research/<ticket>-context.json` (matches + `code_index`, `reuse_candidates`, `call_graph`/`import_graph`) из `claude-workflow research --deep-code --call-graph`; call/import граф строится автоматически (tree-sitter для Java/Kotlin) и дополняется твоим анализом в Claude Code. Вопросы пользователю допускаются только в виде чётких блокеров, если в репозитории нет нужного контекста.
 
 ## Входные артефакты
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md` (если уже создан), `docs/tasklist/<ticket>.md` — границы изменений.
-- `reports/research/<ticket>-context.json` / `-targets.json` — пути/ключевые слова + `code_index` (символы/импорты/тесты) и `reuse_candidates`.
+- `reports/research/<ticket>-context.json` / `-targets.json` — пути/ключевые слова + `code_index` (символы/импорты/тесты), `reuse_candidates`, `call_graph` (только Java/Kotlin) и `import_graph`.
 - `docs/.active_feature` (slug-hint), `docs/prompt-playbook.md`, ADR/исторические PR — используем для поиска похожих решений (`rg <ticket|feature>`).
 - Тестовые каталоги (`tests/**`, `src/**/test*`) и скрипты миграций — чтобы предложить готовые паттерны проверки.
 
 ## Автоматизация
-- Запускай `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths ... --keywords ... --langs ...]` для сбора контекста и актуализации JSON-отчёта.
+- Запускай `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ...]` для сбора контекста и актуализации JSON-отчёта (call graph строится только для Java/Kotlin; при отсутствии tree-sitter будет пустой с предупреждением).
 - Если сканирование ничего не нашло, создай `docs/research/<ticket>.md` из `docs/templates/research-summary.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Используй `rg`, `find`, `python` скрипты для обхода каталогов, проверки наличия тестов/миграций, формируй call/import graph Claude Code'ом по `code_index`; фиксируй команды и пути прямо в отчёте.
 - Гейты `gate-workflow` и `/plan-new` требуют `Status: reviewed`; если отчёт pending, опиши TODO и где отсутствуют данные.
@@ -27,7 +27,7 @@ model: inherit
 ## Пошаговый план
 1. Прочитай `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` и `reports/research/<ticket>-context.json` (`code_index`/`reuse_candidates`) — это определяет границы поиска.
 2. При необходимости обнови контекст: запусти `claude-workflow research --ticket <ticket> --auto --deep-code [--paths ... --keywords ... --langs ...]` и зафиксируй параметры запуска.
-3. По `code_index` открой ключевые файлы/символы, построй в Claude Code call/import graph (минимум: какие функции/классы вызывают или импортируют целевые модули), отметь соседние тесты/контракты.
+3. По `code_index` открой ключевые файлы/символы, используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости дорасшифруй связи в Claude Code: какие функции/классы вызывают или импортируют целевые модули; отметь соседние тесты/контракты.
 4. Сканируй каталоги `rg/find/python` для подтверждения reuse: API/сервисы/утилиты/миграции, паттерны и антипаттерны. Все находки сопровождай ссылками на строки и упоминанием тестов; отсутствие тестов фиксируй как риск.
 5. Заполни `docs/research/<ticket>.md` по шаблону: точки интеграции, что переиспользуем (как/где, риски, тесты/контракты), паттерны/антипаттерны, gap-анализ, следующие шаги. Добавь ссылки на команды/логи.
 6. Перенеси рекомендации и блокеры в план/тасклист; выставь `Status: reviewed`, если все обязательные секции заполнены данными из репозитория и call/import graph приложен, иначе `pending` с TODO.

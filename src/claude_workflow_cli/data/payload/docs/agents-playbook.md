@@ -39,9 +39,9 @@
 - **Готовность:** `Status: READY`, `## 10. Открытые вопросы` пуст или содержит только ссылки на план/тасклист, `claude-workflow analyst-check --ticket <ticket>` проходит без ошибок. Если хотя бы один ответ отсутствует, PRD остаётся `Status: BLOCKED`.
 
 ### researcher — исследование кодовой базы
-- **Вызов:** `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths/--keywords/--langs/--note]`, затем агент `/researcher <ticket>`.
-- **Вход:** PRD, slug-hint, `reports/research/<ticket>-targets.json`, `reports/research/<ticket>-context.json` (`code_index`, `reuse_candidates`), связанные ADR/PR, тестовые каталоги.
-- **Процесс:** исследователь обновляет JSON-контекст, открывает `code_index` и строит call/import graph в Claude Code, обходит каталоги с помощью `rg/find/python`, фиксирует сервисы, API, тесты, миграции. Все находки сопровождаются ссылками на строки/команды; отсутствие тестов — отдельный риск. Вопросы пользователю формулируются только после перечисления просмотренных артефактов.
+- **Вызов:** `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--note]`, затем агент `/researcher <ticket>`.
+- **Вход:** PRD, slug-hint, `reports/research/<ticket>-targets.json`, `reports/research/<ticket>-context.json` (`code_index`, `reuse_candidates`, `call_graph` только для Java/Kotlin, `import_graph`), связанные ADR/PR, тестовые каталоги.
+- **Процесс:** исследователь обновляет JSON-контекст, использует `code_index` и `call_graph`/`import_graph` (tree-sitter для Java/Kotlin; при отсутствии движка граф пуст с предупреждением), при необходимости дорасшифровывает связи в Claude Code, обходит каталоги с помощью `rg/find/python`, фиксирует сервисы, API, тесты, миграции. Все находки сопровождаются ссылками на строки/команды; отсутствие тестов — отдельный риск. Вопросы пользователю формулируются только после перечисления просмотренных артефактов.
 - **Выход:** `docs/research/<ticket>.md` со статусом `Status: reviewed` (или `pending` с baseline), заполненными секциями «где встроить», «что переиспользуем» (как/риски/тесты/контракты), «паттерны/анти-паттерны», графом вызовов/импортов (если применимо) и рекомендациями, импортированными в план/тасклист.
 - **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист; `reports/research/<ticket>-context.json` свежий, baseline помечен текстом «Контекст пуст, требуется baseline» и список недостающих данных понятен.
 

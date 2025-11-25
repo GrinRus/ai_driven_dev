@@ -280,7 +280,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 ```
 git checkout -b feature/STORE-123
 /idea-new STORE-123 checkout-discounts
-claude-workflow research --ticket STORE-123 --auto --deep-code
+claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 /plan-new checkout-discounts
 /review-prd checkout-discounts
 /tasks-new checkout-discounts
@@ -299,8 +299,8 @@ claude-workflow research --ticket STORE-123 --auto --deep-code
 
 ## Чеклист запуска фичи
 
-1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Сразу после этого выполните `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only]`, чтобы зафиксировать цели/контекст (добавьте `--note` для свободного ввода); отвечайте на вопросы аналитика в формате `Ответ N: …`, пока не обновите `Status: READY` и не пройдёте `claude-workflow analyst-check --ticket <ticket>`.
-2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto --deep-code`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
+1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Сразу после этого выполните `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`, чтобы зафиксировать цели/контекст (добавьте `--note` для свободного ввода); отвечайте на вопросы аналитика в формате `Ответ N: …`, пока не обновите `Status: READY` и не пройдёте `claude-workflow analyst-check --ticket <ticket>`.
+2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
 5. Запросите `/review`, когда чеклисты в `docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.

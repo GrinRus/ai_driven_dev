@@ -21,6 +21,12 @@ classifiers = [
 [project.scripts]
 claude-workflow = "claude_workflow_cli.cli:main"
 
+[project.optional-dependencies]
+call-graph = [
+  "tree-sitter>=0.23.0",
+  "tree-sitter-language-pack>=0.3.0",
+]
+
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}

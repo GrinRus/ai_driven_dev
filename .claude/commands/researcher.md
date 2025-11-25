@@ -22,8 +22,8 @@ model: inherit
 - Повторно — при появлении новых модулей/рисков или после значительного рефакторинга.
 
 ## Автоматические хуки и переменные
-- `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths ... --keywords ... --langs ... --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и обновляет JSON.
-- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков), `--no-agent` (пропустить запуск саб-агента).
+- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ... --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и `call_graph`/`import_graph` (только Java/Kotlin, tree-sitter при наличии) и обновляет JSON.
+- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков для deep-code), `--graph-langs` (kt/kts/java), `--no-agent` (пропустить запуск саб-агента).
 
 ## Что редактируется
 - `docs/research/<ticket>.md` — отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус `pending`/`reviewed`).
@@ -31,9 +31,9 @@ model: inherit
 
 ## Пошаговый план
 1. Убедись, что активный ticket = `$1`. Если нет — запусти `/idea-new $1` или `python3 tools/set_active_feature.py $1`.
-2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code [доп. опции]` (при необходимости `--reuse-only`, `--langs`).
+2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]` (при необходимости `--reuse-only`, `--langs`, `--graph-langs`).
 3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
-4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, построй call/import graph в Claude Code по `code_index`, обнови отчёт и перенеси рекомендации.
+4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
 5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).
 6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist.
 
