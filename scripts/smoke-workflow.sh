@@ -73,7 +73,11 @@ log "activate feature ticket"
 python3 tools/set_active_feature.py "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
-run_cli research --ticket "$TICKET" --target . --auto --deep-code >/dev/null
+run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
+if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
+  echo "[smoke] expected call_graph in research context" >&2
+  exit 1
+fi
 
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"

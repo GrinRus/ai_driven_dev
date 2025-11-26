@@ -39,6 +39,7 @@ _LANG_SUFFIXES: Dict[str, Tuple[str, ...]] = {
     "java": (".java",),
 }
 _DEFAULT_LANGS: Tuple[str, ...] = ("py", "kt", "kts", "java")
+_CALLGRAPH_LANGS = {"kt", "kts", "java"}
 
 
 def _utc_timestamp() -> str:
@@ -553,6 +554,25 @@ class ResearcherContextBuilder:
         except OSError:
             return iter(())
 
+    def _iter_callgraph_files(self, roots: Sequence[Path], languages: Sequence[str]) -> List[Path]:
+        exts: set[str] = set()
+        for lang in languages:
+            exts.update(_LANG_SUFFIXES.get(lang, ()))
+        files: List[Path] = []
+        for root in roots:
+            iterator: Iterable[Path]
+            if root.is_dir():
+                iterator = root.rglob("*")
+            else:
+                iterator = [root]
+            for path in iterator:
+                if not path.is_file():
+                    continue
+                if path.suffix.lower() not in exts:
+                    continue
+                files.append(path)
+        return files
+
     def collect_deep_context(
         self,
         scope: Scope,
@@ -569,6 +589,40 @@ class ResearcherContextBuilder:
         if reuse_only:
             return [], reuse_candidates
         return code_index, reuse_candidates
+
+    def collect_call_graph(
+        self,
+        scope: Scope,
+        *,
+        roots: Sequence[Path],
+        languages: Sequence[str],
+        engine_name: str = "auto",
+        engine: Optional["_CallGraphEngine"] = None,
+    ) -> Dict[str, Any]:
+        callgraph_langs = [lang for lang in languages if lang in _CALLGRAPH_LANGS]
+        files = self._iter_callgraph_files(roots, callgraph_langs)
+        if not files or not callgraph_langs:
+            return {
+                "engine": engine_name,
+                "supported_languages": [],
+                "edges": [],
+                "imports": [],
+                "warning": "call graph disabled or no supported files",
+            }
+
+        selected_engine = engine or _load_callgraph_engine(engine_name)
+        if selected_engine is None:
+            return {
+                "engine": engine_name,
+                "supported_languages": [],
+                "edges": [],
+                "imports": [],
+                "warning": "call graph engine not available",
+            }
+        result = selected_engine.build(files)
+        result.setdefault("engine", selected_engine.name)
+        result.setdefault("supported_languages", list(selected_engine.supported_languages))
+        return result
 
     def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
         index: List[Dict[str, Any]] = []
@@ -741,6 +795,15 @@ def _parse_langs(value: Optional[str]) -> List[str]:
     return langs
 
 
+def _parse_graph_engine(value: Optional[str]) -> str:
+    if not value:
+        return "auto"
+    normalized = value.strip().lower()
+    if normalized not in {"auto", "none", "ts"}:
+        return "auto"
+    return normalized
+
+
 def _is_test_path(path: Path) -> bool:
     lowered = [part.lower() for part in path.parts]
     return any("test" in part for part in lowered)
@@ -806,6 +869,160 @@ def _line_for_index(data: str, index: int) -> int:
     return data.count("\n", 0, index) + 1
 
 
+class _CallGraphEngine:
+    name: str
+    supported_languages: set[str]
+    supported_extensions: set[str]
+
+    def build(self, files: Sequence[Path]) -> Dict[str, Any]:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class _TreeSitterEngine(_CallGraphEngine):
+    def __init__(self) -> None:
+        self.name = "tree-sitter"
+        self.supported_languages = {"java", "kt", "kts"}
+        self.supported_extensions = {".java", ".kt", ".kts"}
+        self._parser_loader = None
+        self._load_error: Optional[str] = None
+        try:
+            from tree_sitter_language_pack import get_parser  # type: ignore
+
+            self._parser_loader = get_parser
+        except Exception as exc:  # pragma: no cover - optional dependency
+            self._load_error = f"tree-sitter not available: {exc}"
+
+    def _parser_for_suffix(self, suffix: str):
+        if not self._parser_loader:
+            return None
+        if suffix == ".java":
+            return self._parser_loader("java")
+        if suffix in {".kt", ".kts"}:
+            try:
+                return self._parser_loader("kotlin")
+            except Exception:
+                return None
+        return None
+
+    def build(self, files: Sequence[Path]) -> Dict[str, Any]:
+        if self._load_error or not self._parser_loader:
+            return {"edges": [], "imports": [], "warning": self._load_error or "tree-sitter unavailable"}
+
+        edges: List[Dict[str, Any]] = []
+        imports: List[Dict[str, Any]] = []
+        for path in files:
+            suffix = path.suffix.lower()
+            parser = self._parser_for_suffix(suffix)
+            if parser is None:
+                continue
+            try:
+                source = path.read_bytes()
+            except OSError:
+                continue
+            try:
+                tree = parser.parse(source)
+            except Exception:
+                continue
+            imports.extend(self._ts_imports(path, source))
+            edges.extend(self._ts_edges(path, source, tree))
+        return {"edges": edges, "imports": imports}
+
+    def _ts_imports(self, path: Path, source: bytes) -> List[Dict[str, Any]]:
+        # simple text-based import extraction to avoid grammar coupling
+        lines = source.decode("utf-8", errors="ignore").splitlines()
+        collected: List[Dict[str, Any]] = []
+        imports: List[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("import "):
+                imports.append(stripped.replace("import ", "", 1).strip("; ").strip())
+        if imports:
+            collected.append({"file": path.as_posix(), "imports": imports})
+        return collected
+
+    def _ts_edges(self, path: Path, source: bytes, tree: Any) -> List[Dict[str, Any]]:
+        text = source.decode("utf-8", errors="ignore")
+        edges: List[Dict[str, Any]] = []
+
+        def node_text(node: Any) -> str:
+            return text[node.start_byte : node.end_byte]
+
+        callers: List[Dict[str, Any]] = []
+
+        def walk(node: Any, parents: List[Any]) -> None:
+            node_type = getattr(node, "type", "")
+            if node_type in {"class_declaration", "object_declaration", "class_body", "interface_declaration"}:
+                # record container scope
+                name = ""
+                for child in node.children:
+                    if child.type in {"identifier", "type_identifier", "simple_identifier"}:
+                        name = node_text(child).strip()
+                        break
+                callers.append({"container": name})
+            if node_type in {
+                "method_declaration",
+                "constructor_declaration",
+                "function_declaration",
+            }:
+                name = ""
+                for child in node.children:
+                    if child.type in {"identifier", "simple_identifier"}:
+                        name = node_text(child).strip()
+                        break
+                caller_id = name or "<anonymous>"
+                callers.append({"id": caller_id, "name": caller_id})
+            if node_type in {"method_invocation", "call_expression"}:
+                callee = ""
+                for child in node.children:
+                    if child.type in {"identifier", "simple_identifier"}:
+                        callee = node_text(child).strip()
+                        break
+                caller = None
+                for parent in reversed(callers):
+                    if "id" in parent:
+                        caller = parent
+                        break
+                edges.append(
+                    {
+                        "caller": caller["id"] if caller else None,
+                        "callee": callee or None,
+                        "file": path.as_posix(),
+                        "line": getattr(node, "start_point", (0, 0))[0] + 1,
+                        "language": "java" if path.suffix.lower() == ".java" else "kotlin",
+                    }
+                )
+            for child in getattr(node, "children", []):
+                walk(child, parents + [node])
+            # pop scopes when leaving node
+            if node_type in {
+                "method_declaration",
+                "constructor_declaration",
+                "function_declaration",
+                "class_declaration",
+                "object_declaration",
+                "interface_declaration",
+                "class_body",
+            }:
+                if callers:
+                    callers.pop()
+
+        walk(tree.root_node, [])
+        return edges
+
+
+def _load_callgraph_engine(engine_name: str) -> Optional[_CallGraphEngine]:
+    if engine_name == "none":
+        return None
+    if engine_name in {"auto", "ts"}:
+        engine = _TreeSitterEngine()
+        if engine._parser_loader is None:
+            if engine_name == "ts":
+                return None
+            return None
+        return engine
+    return None
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Prepare context for the Researcher agent.")
     parser.add_argument("--target", default=".", help="Project root (default: current directory).")
@@ -837,6 +1054,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deep-code", action="store_true", help="Collect code symbols/imports/tests alongside keyword matches.")
     parser.add_argument("--reuse-only", action="store_true", help="Skip keyword matches and focus on reuse candidates.")
     parser.add_argument("--langs", help="Comma-separated list of languages to scan (py,kt,kts,java).")
+    parser.add_argument("--call-graph", action="store_true", help="Build call/import graph for supported languages.")
+    parser.add_argument(
+        "--graph-engine",
+        choices=["auto", "none", "ts"],
+        default="auto",
+        help="Engine for call graph: auto (tree-sitter when available), none (disable), ts (force tree-sitter).",
+    )
+    parser.add_argument(
+        "--graph-langs",
+        help="Comma-separated list of languages for call graph (supports kt,kts,java; others ignored).",
+    )
     parser.add_argument(
         "--auto",
         action="store_true",
@@ -877,6 +1105,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     languages = _parse_langs(args.langs)
+    graph_languages = _parse_langs(getattr(args, "graph_langs", None))
+    graph_engine = _parse_graph_engine(getattr(args, "graph_engine", None))
+
     context = builder.collect_context(scope, limit=args.limit)
     if args.deep_code:
         code_index, reuse_candidates = builder.collect_deep_context(
@@ -892,6 +1123,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context["deep_mode"] = True
     else:
         context["deep_mode"] = False
+    if getattr(args, "call_graph", False):
+        graph = builder.collect_call_graph(
+            scope,
+            roots=search_roots,
+            languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
+            engine_name=graph_engine,
+        )
+        context["call_graph"] = graph.get("edges", [])
+        context["import_graph"] = graph.get("imports", [])
+        context["call_graph_engine"] = graph.get("engine", graph_engine)
+        context["call_graph_supported_languages"] = graph.get("supported_languages", [])
+        if graph.get("warning"):
+            context["call_graph_warning"] = graph.get("warning")
+    else:
+        context["call_graph"] = []
+        context["import_graph"] = []
+        context["call_graph_engine"] = graph_engine
+        context["call_graph_supported_languages"] = []
     context["auto_mode"] = bool(args.auto)
     match_count = len(context["matches"])
     if match_count == 0:
@@ -909,6 +1158,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.deep_code:
         reuse_count = len(context.get("reuse_candidates") or [])
         message += f", {reuse_count} reuse candidates"
+    if getattr(args, "call_graph", False):
+        graph_edges = len(context.get("call_graph") or [])
+        message += f", {graph_edges} call edges"
     message += ")."
     print(message)
     return 0

@@ -32,8 +32,11 @@ from claude_workflow_cli.tools.analyst_guard import (
 )
 from claude_workflow_cli.tools.researcher_context import (
     ResearcherContextBuilder,
+    _DEFAULT_GRAPH_LIMIT,
     _parse_keywords as _research_parse_keywords,
     _parse_langs as _research_parse_langs,
+    _parse_graph_engine as _research_parse_graph_engine,
+    _parse_graph_filter as _research_parse_graph_filter,
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
@@ -494,6 +497,17 @@ def _research_command(args: argparse.Namespace) -> None:
         return
 
     languages = _research_parse_langs(getattr(args, "langs", None))
+    graph_languages = _research_parse_langs(getattr(args, "graph_langs", None))
+    graph_engine = _research_parse_graph_engine(getattr(args, "graph_engine", None))
+    auto_filter = "|".join(scope.keywords + [scope.ticket])
+    graph_filter = _research_parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
+    raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
+    try:
+        graph_limit = int(raw_limit)
+    except (TypeError, ValueError):
+        graph_limit = _DEFAULT_GRAPH_LIMIT
+    if graph_limit <= 0:
+        graph_limit = _DEFAULT_GRAPH_LIMIT
 
     collected_context = builder.collect_context(scope, limit=args.limit)
     if args.deep_code:
@@ -510,6 +524,36 @@ def _research_command(args: argparse.Namespace) -> None:
         collected_context["deep_mode"] = True
     else:
         collected_context["deep_mode"] = False
+    if args.call_graph:
+        graph = builder.collect_call_graph(
+            scope,
+            roots=search_roots,
+            languages=graph_languages or languages or ["kt", "kts", "java"],
+            engine_name=graph_engine,
+            graph_filter=graph_filter,
+            graph_limit=graph_limit,
+        )
+        collected_context["call_graph"] = graph.get("edges", [])
+        collected_context["import_graph"] = graph.get("imports", [])
+        collected_context["call_graph_engine"] = graph.get("engine", graph_engine)
+        collected_context["call_graph_supported_languages"] = graph.get("supported_languages", [])
+        if graph.get("edges_full") is not None:
+            full_path = Path(args.output or f"reports/research/{ticket}-call-graph-full.json")
+            if not full_path.is_absolute():
+                full_path = target / full_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
+            full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
+            collected_context["call_graph_full_path"] = os.path.relpath(full_path, target)
+        collected_context["call_graph_filter"] = graph_filter
+        collected_context["call_graph_limit"] = graph_limit
+        if graph.get("warning"):
+            collected_context["call_graph_warning"] = graph.get("warning")
+    else:
+        collected_context["call_graph"] = []
+        collected_context["import_graph"] = []
+        collected_context["call_graph_engine"] = graph_engine
+        collected_context["call_graph_supported_languages"] = []
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     match_count = len(collected_context["matches"])
     if match_count == 0:
@@ -524,9 +568,12 @@ def _research_command(args: argparse.Namespace) -> None:
     output_path = builder.write_context(scope, collected_context, output=output)
     rel_output = output_path.relative_to(target).as_posix()
     reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
+    call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
     message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches"
     if args.deep_code:
         message += f", {reuse_count} reuse candidates"
+    if args.call_graph:
+        message += f", {call_edges} call edges"
     message += ")."
     print(message)
 
@@ -1343,6 +1390,31 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--langs",
         help="Comma-separated list of languages to scan for deep analysis (py,kt,kts,java).",
+    )
+    research_parser.add_argument(
+        "--call-graph",
+        action="store_true",
+        help="Build call/import graph (Java/Kotlin via tree-sitter if available).",
+    )
+    research_parser.add_argument(
+        "--graph-engine",
+        choices=["auto", "none", "ts"],
+        default="auto",
+        help="Engine for call graph: auto (tree-sitter when available), none (disable), ts (force tree-sitter).",
+    )
+    research_parser.add_argument(
+        "--graph-langs",
+        help="Comma-separated list of languages for call graph (kt,kts,java; others ignored).",
+    )
+    research_parser.add_argument(
+        "--graph-filter",
+        help="Regex to keep only matching call graph edges (matches file/caller/callee). Defaults to ticket/keywords.",
+    )
+    research_parser.add_argument(
+        "--graph-limit",
+        type=int,
+        default=_DEFAULT_GRAPH_LIMIT,
+        help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
     )
     research_parser.add_argument(
         "--no-template",
