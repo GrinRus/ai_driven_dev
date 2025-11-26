@@ -115,3 +115,23 @@ hook_read_ticket() {
   fi
   HOOK_TICKET_PATH="$ticket_env" HOOK_SLUG_PATH="$slug_env" _hook_python read_ticket
 }
+
+run_cli_or_hint() {
+  local helper=""
+  if [[ -n "${ROOT_DIR:-}" ]]; then
+    helper="$ROOT_DIR/tools/run_cli.py"
+  fi
+  if command -v claude-workflow >/dev/null 2>&1; then
+    claude-workflow "$@"
+    return $?
+  fi
+  if [[ -n "$helper" && -f "$helper" ]]; then
+    python3 "$helper" "$@"
+    return $?
+  fi
+  echo "[claude-workflow] CLI 'claude-workflow' не найден. Установите его командой" >&2
+  echo "  uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git" >&2
+  echo "или" >&2
+  echo "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git" >&2
+  return 127
+}

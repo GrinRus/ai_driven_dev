@@ -25,6 +25,7 @@ model: inherit
 - `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ... --graph-filter <regex> --graph-limit <N> --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и `call_graph`/`import_graph` (только Java/Kotlin, tree-sitter при наличии) и обновляет JSON.
 - По умолчанию call graph фильтруется по `<ticket>|<keywords>` и ограничивается N=300 рёбер; полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`, а в context попадает focus-версия.
 - Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков для deep-code), `--graph-langs` (kt/kts/java), `--graph-filter`, `--graph-limit`, `--no-agent` (пропустить запуск саб-агента).
+- После формирования отчёта подготовь handoff для исполнителя: перечисли доработки/reuse/риски и запусти `claude-workflow tasks-derive --source research --append --ticket <ticket>` (новые `- [ ]` ссылаются на `reports/research/<ticket>-context.json`).
 
 ## Что редактируется
 - `docs/research/<ticket>.md` — отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус `pending`/`reviewed`).
@@ -36,7 +37,7 @@ model: inherit
 3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
 4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
 5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).
-6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist.
+6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist; добавь handoff-пункты (`- [ ] Research: ... (source: reports/research/$1-context.json)`) или выполни `claude-workflow tasks-derive --source research --append --ticket "$1"`.
 
 ## Fail-fast и вопросы
 - Нет активного тикета или PRD — остановись и попроси пользователя завершить `/idea-new`.

@@ -142,6 +142,8 @@ timeout = int(qa.get("timeout", 600) or 0)
 print(f"TIMEOUT={timeout}")
 allow_missing = bool(qa.get("allow_missing_report", False))
 print(f"ALLOW_MISSING={'1' if allow_missing else '0'}")
+handoff = bool(qa.get("handoff", False))
+print(f"HANDOFF={'1' if handoff else '0'}")
 PY
 ) || {
   echo "[gate-qa] WARN: не удалось прочитать секцию qa из config/gates.json." >&2
@@ -158,6 +160,7 @@ qa_command=()
 qa_block=()
 qa_warn=()
 qa_requires=()
+qa_handoff=0
 
 for line in "${QA_CFG[@]}"; do
   case "$line" in
@@ -176,6 +179,9 @@ for line in "${QA_CFG[@]}"; do
       ;;
     ALLOW_MISSING=*)
       qa_allow_missing="${line#ALLOW_MISSING=}"
+      ;;
+    HANDOFF=*)
+      qa_handoff="${line#HANDOFF=}"
       ;;
     BRANCHES=*)
       raw="${line#BRANCHES=}"
@@ -389,6 +395,28 @@ if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
   if [[ ! -f "$report_path" ]]; then
     echo "[gate-qa] ERROR: отчёт QA не создан: $report_path" >&2
     (( status == 0 )) && status=1
+  fi
+fi
+
+if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]]; then
+  if [[ -n "$ticket" ]]; then
+    echo "[gate-qa] handoff: формируем задачи из отчёта QA" >&2
+    handoff_cmd=(tasks-derive --source qa --append --ticket "$ticket" --target "$ROOT_DIR")
+    if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+      handoff_cmd+=(--slug-hint "$slug_hint")
+    fi
+    if [[ -n "$report_path" ]]; then
+      handoff_cmd+=(--report "$report_path")
+    fi
+    set +e
+    run_cli_or_hint "${handoff_cmd[@]}"
+    handoff_status=$?
+    set -e
+    if (( handoff_status != 0 )); then
+      echo "[gate-qa] WARN: tasks-derive завершился с кодом $handoff_status (handoff пропущен)." >&2
+    fi
+  else
+    echo "[gate-qa] WARN: ticket не определён — handoff пропущен." >&2
   fi
 fi
 

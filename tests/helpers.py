@@ -55,6 +55,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_missing_report": False,
         "block_on": ["blocker", "critical"],
         "warn_on": ["major", "minor"],
+        "handoff": False,
     },
     "reviewer": {
         "enabled": True,
@@ -83,7 +84,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "skip_branches": ["docs/*", "chore/*"],
         "allow_missing_tasklist": False,
         "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
-        "sources": ["implement", "qa", "review", "gate"],
+        "sources": ["implement", "qa", "review", "gate", "handoff"],
     },
 }
 

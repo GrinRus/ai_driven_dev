@@ -67,12 +67,14 @@ def _resolve_runner() -> Runner:
         candidate = Path(override_bin)
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return Runner([str(candidate)], False)
-    discovered = shutil.which("claude-workflow")
-    if discovered:
-        return Runner([discovered], False)
     override_python = os.environ.get("CLAUDE_WORKFLOW_PYTHON")
     if override_python:
         return Runner([override_python, "-m", "claude_workflow_cli.cli"], True)
+    if DEV_SRC.exists() or _module_available():
+        return Runner([sys.executable, "-m", "claude_workflow_cli.cli"], True)
+    discovered = shutil.which("claude-workflow")
+    if discovered:
+        return Runner([discovered], False)
     return Runner([sys.executable, "-m", "claude_workflow_cli.cli"], True)
 
 

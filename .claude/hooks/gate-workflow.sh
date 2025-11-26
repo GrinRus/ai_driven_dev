@@ -290,6 +290,44 @@ PY
   fi
 fi
 
+if [[ -n "$ticket" ]]; then
+  handoff_block="$(python3 - "$ticket" "$slug_hint" <<'PY'
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
+tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
+if not tasklist_path.exists():
+    raise SystemExit(0)
+reports = [
+    ("qa", Path("reports/qa") / f"{ticket}.json", "reports/qa/"),
+    ("review", Path("reports/review") / f"{ticket}.json", "reports/review/"),
+    ("research", Path("reports/research") / f"{ticket}-context.json", "reports/research/"),
+]
+try:
+    lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+except Exception:
+    raise SystemExit(0)
+text = "\n".join(lines).lower()
+missing = []
+for name, report_path, marker in reports:
+    if not report_path.exists():
+        continue
+    if marker not in text:
+        missing.append((name, report_path))
+if missing:
+    items = ", ".join(f"{name}: {path}" for name, path in missing)
+    print(f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). Запустите `claude-workflow tasks-derive --source <qa|review|research> --append --ticket {ticket}`.")
+    raise SystemExit(1)
+PY
+)"
+  if [[ -n "$handoff_block" ]]; then
+    echo "$handoff_block"
+    exit 2
+  fi
+fi
+
 progress_args=("--root" "$PWD" "--ticket" "$ticket" "--source" "gate" "--quiet-ok")
 if [[ -n "$slug_hint" ]]; then
   progress_args+=("--slug-hint" "$slug_hint")
