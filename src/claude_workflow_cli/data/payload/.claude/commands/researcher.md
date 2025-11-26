@@ -22,8 +22,8 @@ model: inherit
 - Повторно — при появлении новых модулей/рисков или после значительного рефакторинга.
 
 ## Автоматические хуки и переменные
-- `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ... --note ...]` сканирует кодовую базу и обновляет JSON.
-- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--no-agent` (пропустить запуск саб-агента).
+- `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths ... --keywords ... --langs ... --note ...]` сканирует кодовую базу, собирает `code_index`/`reuse_candidates` и обновляет JSON.
+- Опции: `--dry-run` (только JSON), `--targets-only` (обновить пути без сканирования), `--reuse-only` (показать только reuse-кандидаты), `--langs` (фильтр языков), `--no-agent` (пропустить запуск саб-агента).
 
 ## Что редактируется
 - `docs/research/<ticket>.md` — отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус `pending`/`reviewed`).
@@ -31,11 +31,11 @@ model: inherit
 
 ## Пошаговый план
 1. Убедись, что активный ticket = `$1`. Если нет — запусти `/idea-new $1` или `python3 tools/set_active_feature.py $1`.
-2. Выполни `claude-workflow research --ticket "$1" --auto [доп. опции]`.
+2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code [доп. опции]` (при необходимости `--reuse-only`, `--langs`).
 3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
-4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, обнови отчёт, перенеси рекомендации.
+4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, построй call/import graph в Claude Code по `code_index`, обнови отчёт и перенеси рекомендации.
 5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).
-6. Убедись, что ссылки на отчет добавлены в PRD (`## Диалог analyst`) и tasklist.
+6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist.
 
 ## Fail-fast и вопросы
 - Нет активного тикета или PRD — остановись и попроси пользователя завершить `/idea-new`.
@@ -48,5 +48,5 @@ model: inherit
 - PRD/tasklist содержат ссылку на отчёт.
 
 ## Примеры CLI
-- `/researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout"`
-- `!bash -lc 'claude-workflow research --ticket "ABC-123" --auto --note "reuse payment gateway"'`
+- `/researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --deep-code --langs py,kt`
+- `!bash -lc 'claude-workflow research --ticket "ABC-123" --auto --deep-code --note "reuse payment gateway" --reuse-only'`

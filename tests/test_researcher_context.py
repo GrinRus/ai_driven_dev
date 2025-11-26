@@ -133,6 +133,23 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("recommendations", profile)
         self.assertIn("is_new_project", profile)
 
+    def test_deep_mode_collects_code_index_and_reuse(self) -> None:
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
+        _, _, roots = builder.describe_targets(scope)
+        code_index, reuse_candidates = builder.collect_deep_context(
+            scope,
+            roots=roots,
+            keywords=scope.keywords,
+            languages=["kt", "py"],
+            limit=5,
+        )
+        self.assertGreaterEqual(len(code_index), 1, "code_index should contain parsed symbols")
+        self.assertIn("path", code_index[0])
+        self.assertIn("symbols", code_index[0])
+        self.assertGreaterEqual(len(reuse_candidates), 1, "reuse candidates should be suggested")
+        self.assertIn("score", reuse_candidates[0])
+
     def test_set_active_feature_refreshes_targets(self) -> None:
         script = REPO_ROOT / "tools" / "set_active_feature.py"
         env = os.environ.copy()

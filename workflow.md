@@ -32,13 +32,13 @@
 - После диалога запускайте `claude-workflow analyst-check --ticket <ticket>` — команда проверит структуру вопросов/ответов и статус. При ошибке вернитесь к агенту и дополните информацию.
 
 ### 2. Research (`claude-workflow research` + `/researcher`)
-- CLI-команда `claude-workflow research --ticket <ticket>` собирает контекст: пути из `config/conventions.json`, существующие модули и документацию. Результат сохраняется в `reports/research/<ticket>-targets.json` и `<ticket>-context.json`.
-- Саб-агент **researcher** использует `rg "<ticket|feature>"`, `find`, `python`-скрипты и результаты JSON, чтобы выявить интеграционные точки, тесты, миграции и долги. Все выводы оформляются в `docs/research/<ticket>.md` со ссылками на файлы и командами, проверенными в ходе анализа; при отсутствии данных фиксируется baseline «Контекст пуст, требуется baseline» с перечислением уже просмотренных путей.
+- CLI-команда `claude-workflow research --ticket <ticket> --auto --deep-code [--reuse-only] [--paths/--keywords/--langs/--note]` собирает контекст: пути из `config/conventions.json`, `code_index` (символы/импорты/тесты) и `reuse_candidates`. Результат сохраняется в `reports/research/<ticket>-targets.json` и `<ticket>-context.json`.
+- Саб-агент **researcher** использует `code_index`/`reuse_candidates`, строит call/import graph в Claude Code, дополняет `rg "<ticket|feature>"`, `find`, `python`-скриптами, чтобы выявить интеграционные точки, тесты, миграции и долги. Все выводы оформляются в `docs/research/<ticket>.md` со ссылками на файлы/строки, команды и call graph; при отсутствии данных фиксируется baseline «Контекст пуст, требуется baseline» с перечислением уже просмотренных путей.
 - Статус в отчёте должен стать `Status: reviewed`, критичные действия переносятся в план и `docs/tasklist/<ticket>.md`.
 - При запуске с `--auto` Researcher отмечает нулевые совпадения (новые проекты), добавляет в шаблон блок «Контекст пуст, требуется baseline» и предлагает рекомендации (`profile.recommendations`) на основе `config/conventions.json`; такие отчёты можно временно оставлять в `Status: pending`, baseline фиксируется в `docs/research/<ticket>.md`.
 
 ### 3. План (`/plan-new`)
-- Саб-агент **planner** формирует пошаговый план реализации по PRD.
+- Саб-агент **planner** формирует пошаговый план реализации по PRD: секция «Architecture & Patterns» (границы/паттерны KISS/YAGNI/DRY/SOLID, по умолчанию service layer + adapters/ports), reuse-точки из Researcher, итерации/DoD/риски.
 - Саб-агент **validator** проверяет полноту; найденные вопросы возвращаются продукту.
 - Все открытые вопросы синхронизируются между PRD и планом.
 

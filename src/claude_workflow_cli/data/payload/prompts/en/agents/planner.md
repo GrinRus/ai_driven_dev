@@ -9,7 +9,7 @@ model: inherit
 ---
 
 ## Context
-The planner converts an approved PRD into `docs/plan/<ticket>.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules. `/plan-new` invokes this agent before validation.
+The planner converts an approved PRD into `docs/plan/<ticket>.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules. `/plan-new` invokes this agent before validation. The plan must respect existing architecture boundaries, follow KISS/YAGNI/DRY/SOLID, explicitly list chosen patterns (default: service layer + ports/adapters), reuse points from Researcher, and avoid over-engineering.
 
 ## Input Artifacts
 - `docs/prd/<ticket>.prd.md` — must be READY with a completed `## PRD Review`.
@@ -23,9 +23,9 @@ The planner converts an approved PRD into `docs/plan/<ticket>.md`: architectural
 
 ## Step-by-step Plan
 1. Study PRD goals, scenarios, risks, metrics.
-2. Cross-check research to understand existing modules/patterns and red zones.
-3. Describe architecture boundaries, MVP scope, new modules, dependencies, integrations.
-4. Split work into iterations: for each list tasks, DoD, validation metrics, required artifacts.
+2. Cross-check research to understand existing modules/patterns, reuse points, and red zones.
+3. Describe architecture decisions (minimal viable): layers/boundaries (domain/application/infra), chosen patterns (service layer + adapters/ports by default; CQRS/ES only if justified), dependencies, and extension points. Explicitly list reuse points and ban duplication/over-engineering.
+4. Split work into iterations: for each list tasks, DoD, validation metrics, required artifacts, and test strategy (unit/integration/e2e) plus feature-flag/migration needs.
 5. Reference concrete files/directories to be changed.
 6. Document risks, feature flags, rollout/testing strategy.
 7. List open questions; if blockers remain, keep plan BLOCKED.
@@ -37,5 +37,5 @@ The planner converts an approved PRD into `docs/plan/<ticket>.md`: architectural
 
 ## Response Format
 - `Checkbox updated: not-applicable` (planner does not change tasklists directly).
-- Output the complete plan and list open questions with READY/BLOCKED status.
+- Output the complete plan and list open questions with READY/BLOCKED status. The plan must include an “Architecture & Patterns” section: chosen patterns (default service layer + adapters/ports), module boundaries, reuse points, over-engineering risks, and links to Researcher artifacts.
 - When BLOCKED, enumerate missing inputs and files to update.
