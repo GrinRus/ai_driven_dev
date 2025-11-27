@@ -88,6 +88,7 @@
 - **Вход:** активная фича, diff, результаты гейтов, раздел QA в `docs/tasklist/<ticket>.md`.
 - **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<ticket>.json`, обновлённый чеклист.
 - **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `docs/qa-playbook.md` для чеклистов и переменных окружения.
+- **Handoff:** после статуса READY/WARN вызовите `claude-workflow tasks-derive --source qa --append --ticket <ticket>` — новые `- [ ]` в tasklist должны содержать ссылку на `reports/qa/<ticket>.json`.
 - **Прогресс:** после каждой регрессии фиксируйте, какие чекбоксы закрыты (`Checkbox updated: …`), и запускайте `claude-workflow progress --source qa --ticket <ticket>`, чтобы хук `gate-workflow.sh` не блокировал правки.
 
 ### db-migrator — миграции БД *(опционально)*
@@ -102,7 +103,7 @@
 
 ## Работа с барьерами
 
-- `gate-workflow.sh` активен всегда и блокирует `src/**`, пока не готовы PRD, план и `docs/tasklist/<ticket>.md`. Он также проверяет, что после изменений появились новые `- [x]` (гейт `tasklist_progress`).
+- `gate-workflow.sh` активен всегда и блокирует `src/**`, пока не готовы PRD, план и `docs/tasklist/<ticket>.md`. Он также проверяет, что после изменений появились новые `- [x]` (гейт `tasklist_progress`); для handoff допускаются новые `- [ ]` с ссылкой на отчёт при вызове `claude-workflow progress --source handoff`.
 - Дополнительные проверки настраиваются в `config/gates.json`:
   - `api_contract=true` — требует `docs/api/<ticket>.yaml` для правок контроллеров.
   - `db_migration=true` — ищет новые файлы в `src/main/resources/**/db/migration/`.

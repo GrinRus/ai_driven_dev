@@ -325,21 +325,30 @@ def _normalize_checkbox_line(line: str) -> str:
     return normalized.lower().replace("[x]", "[x]")
 
 
-def _ordered_checked_lines(content: str) -> List[Tuple[str, str]]:
+def _ordered_task_lines(content: str, *, checked: bool) -> List[Tuple[str, str]]:
+    marker = "- [x]" if checked else "- [ ]"
     result: List[Tuple[str, str]] = []
     seen: set[str] = set()
     for raw in content.splitlines():
         stripped = raw.strip()
         if not stripped:
             continue
-        if not stripped.lower().startswith("- [x]"):
+        if not stripped.lower().startswith(marker):
             continue
-        normalized = _normalize_checkbox_line(stripped)
+        normalized = _normalize_checkbox_line(stripped) if checked else " ".join(stripped.split()).lower()
         if normalized in seen:
             continue
         seen.add(normalized)
         result.append((normalized, stripped))
     return result
+
+
+def _ordered_checked_lines(content: str) -> List[Tuple[str, str]]:
+    return _ordered_task_lines(content, checked=True)
+
+
+def _ordered_open_lines(content: str) -> List[Tuple[str, str]]:
+    return _ordered_task_lines(content, checked=False)
 
 
 def _diff_checked(old_text: str, new_text: str) -> List[str]:
@@ -348,6 +357,18 @@ def _diff_checked(old_text: str, new_text: str) -> List[str]:
     for key, original in _ordered_checked_lines(new_text):
         if key not in old_map:
             additions.append(original)
+    return additions
+
+
+def _diff_open_tasks(old_text: str, new_text: str, *, require_reference: bool = False) -> List[str]:
+    old_map = dict(_ordered_open_lines(old_text))
+    additions: List[str] = []
+    for key, original in _ordered_open_lines(new_text):
+        if key in old_map:
+            continue
+        if require_reference and "reports/" not in original:
+            continue
+        additions.append(original)
     return additions
 
 
@@ -500,6 +521,19 @@ def check_progress(
             message="",
         )
 
+    if context == "handoff":
+        open_items = _diff_open_tasks(old_text, new_text, require_reference=True)
+        if open_items:
+            return ProgressCheckResult(
+                status="ok",
+                ticket=ticket,
+                slug_hint=slug_hint,
+                tasklist_path=tasklist_path,
+                code_files=code_files,
+                new_items=open_items,
+                message="",
+            )
+
     summary = _summarise_paths(code_files)
     guidance = (
         f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
@@ -557,7 +591,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--source",
-        choices=("manual", "implement", "qa", "review", "gate"),
+        choices=("manual", "implement", "qa", "review", "gate", "handoff"),
         default="manual",
         help="Контекст вызова — влияет на сообщения и skip правила.",
     )

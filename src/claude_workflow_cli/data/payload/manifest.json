@@ -21,8 +21,8 @@
     {
       "path": ".claude/agents/implementer.md",
       "type": "file",
-      "size": 6910,
-      "sha256": "3ea8ada2d2ac176c3ce3edebd580e58cb7027b37da03e8a75f723b5dc2d412d8"
+      "size": 8001,
+      "sha256": "028d872172d3394e16500045001734fd194123c8aaf11bc09f958b149279a84f"
     },
     {
       "path": ".claude/agents/planner.md",
@@ -39,14 +39,14 @@
     {
       "path": ".claude/agents/qa.md",
       "type": "file",
-      "size": 4682,
-      "sha256": "dc6d168337596d364080d75ccee1030c34e23da3d353242879ae05ec51251dca"
+      "size": 5752,
+      "sha256": "ed9b377ef02e4b7fa3dcd436c3fb921dd70b4d2b76d569d16e6c5843ab22e1fe"
     },
     {
       "path": ".claude/agents/researcher.md",
       "type": "file",
-      "size": 7338,
-      "sha256": "babd8b042116451e042de7f68ceecf4f6075c0029ea3a2c9b992681aa2325d4d"
+      "size": 8729,
+      "sha256": "49d17ea5cb346ec6841042d9cf2b4a553a6949930de974a1468e9f3c47659239"
     },
     {
       "path": ".claude/agents/reviewer.md",
@@ -93,8 +93,8 @@
     {
       "path": ".claude/commands/researcher.md",
       "type": "file",
-      "size": 5236,
-      "sha256": "80c7b714f97118194b5896dede1b8143887ab10567730cd83ffeae64c66613a2"
+      "size": 5777,
+      "sha256": "3f7667c5af099041ffcf7227f9b36c9b4c3bc8c78836063631e523e31e9823f6"
     },
     {
       "path": ".claude/commands/review-prd.md",
@@ -183,8 +183,8 @@
     {
       "path": ".claude/hooks/gate-qa.sh",
       "type": "file",
-      "size": 10675,
-      "sha256": "94c527f0e8c3b83b3da35d36582e43a3bda1a65127b01010b1289ea3e6122237"
+      "size": 11715,
+      "sha256": "ff54e934087db56dacfa6186b1acd1edd5fcec026f127d5dc344482757dda6ea"
     },
     {
       "path": ".claude/hooks/gate-tests.sh",
@@ -195,14 +195,14 @@
     {
       "path": ".claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 12483,
-      "sha256": "23b8c417502ab54ba9bb75a8983dded28bbb6a24ec1c514f901d02e221e6ac8e"
+      "size": 13752,
+      "sha256": "366bc48fc18afa8194ffe86e549c6d4c434f9b620d7222ff501d1671ff893303"
     },
     {
       "path": ".claude/hooks/lib.sh",
       "type": "file",
-      "size": 3104,
-      "sha256": "9dc76fddba037c726d78a1c37a15d78e347b36264dc807672bf3f46bb4febc61"
+      "size": 3750,
+      "sha256": "26fa3868095b2de629e7ca60504b88ed5c77899499f5697d6eaa9bf7f26c1bb0"
     },
     {
       "path": ".claude/hooks/lint-deps.sh",
@@ -243,14 +243,14 @@
     {
       "path": "README.en.md",
       "type": "file",
-      "size": 31767,
-      "sha256": "6b4f068cac6dc31fe8d6dc29ff54fcc331177aa76a5341e0999d913cfb025d7f"
+      "size": 32079,
+      "sha256": "cc884c7993f66c350c5e066aa3aa360b19d723173d528e97966bc2abcb411598"
     },
     {
       "path": "README.md",
       "type": "file",
-      "size": 52481,
-      "sha256": "ac080bb7897fddc6df875f366d723a1979f96e35905bc8439c2c7a36726e9037"
+      "size": 52925,
+      "sha256": "1fc7b51ab9f6adf709ca2eb78b35b696d2940c669588d5290ff4c16199a5a320"
     },
     {
       "path": "claude-presets/advanced/feature-design.yaml",
@@ -303,8 +303,8 @@
     {
       "path": "config/gates.json",
       "type": "file",
-      "size": 2769,
-      "sha256": "4864e5a09d971741aa874002fec50f81847b681e500b6749631cf72d2c23b932"
+      "size": 2808,
+      "sha256": "f3d9a18c2c48941c3e428075b4840bb8994c6df8de5647933aae1a141a76f596"
     },
     {
       "path": "conventions.md",
@@ -327,8 +327,8 @@
     {
       "path": "docs/agents-playbook.md",
       "type": "file",
-      "size": 21161,
-      "sha256": "0fe27deefed25d1a5fc559120b4efc890d940917a14d392cc9f798e2fb3803e2"
+      "size": 21569,
+      "sha256": "4b2d08c7c6cac966724554255b6fcf0621e7f6a65c22f8fc305984deccb86163"
     },
     {
       "path": "docs/customization.md",
@@ -405,8 +405,8 @@
     {
       "path": "docs/tasklist.template.md",
       "type": "file",
-      "size": 5695,
-      "sha256": "f5481d7047c75f742dd25d25ff3b48c63aad417ea20215a37ce3a2187681136c"
+      "size": 6003,
+      "sha256": "cfdc4149ee1176beb4fb7d14735610a76be4b9ec8a36a46fc2772f3d799a1602"
     },
     {
       "path": "docs/templates/research-summary.md",
@@ -441,8 +441,8 @@
     {
       "path": "prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 3877,
-      "sha256": "3567693b92db5d6ed7f9069e865dd40fd3bbefd9ffe51b6190af4a3eb6ecb8e9"
+      "size": 4144,
+      "sha256": "abbdbfe1fcbe6999dd9ab7dd89f527069c97a828aea80c5ea5bed697994f7b1b"
     },
     {
       "path": "prompts/en/agents/planner.md",
@@ -459,14 +459,14 @@
     {
       "path": "prompts/en/agents/qa.md",
       "type": "file",
-      "size": 2863,
-      "sha256": "5c5462e92485caf17d023239e6c08683bf2c4dac2c0b66f1fe0c748772b46836"
+      "size": 3650,
+      "sha256": "bb31301d6d165db85d5330bc1c657df7e24409ed47b8dd834d3ebdec951350f7"
     },
     {
       "path": "prompts/en/agents/researcher.md",
       "type": "file",
-      "size": 4121,
-      "sha256": "53f12597a313962c4e3f939452441b3d716718949699a1cd2d9c5c03f69bee4f"
+      "size": 5094,
+      "sha256": "bc0e94e3c97023956746831a112e8509a15554fb4ee01e3afbff1da997d08867"
     },
     {
       "path": "prompts/en/agents/reviewer.md",
@@ -507,8 +507,8 @@
     {
       "path": "prompts/en/commands/researcher.md",
       "type": "file",
-      "size": 3040,
-      "sha256": "e92170335612864abf47c9a77e4afb4d2858a97a89a0c349fbd6d6abf5f66990"
+      "size": 3457,
+      "sha256": "510e02399c4f8833a6376c4d8759a758b8d727d7ec8ca06b463b00b159e9f5bf"
     },
     {
       "path": "prompts/en/commands/review-prd.md",
@@ -567,8 +567,8 @@
     {
       "path": "scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 11522,
-      "sha256": "bc312f5b326f773288cc24735234f0e63d9e80193ea15c5b09e9163da7e93137"
+      "size": 11997,
+      "sha256": "83ebf6672576847095688bb2c7072f3dfcc50ad178a39899d4b1724ee0039234"
     },
     {
       "path": "scripts/sync-payload.sh",
@@ -651,8 +651,8 @@
     {
       "path": "tools/run_cli.py",
       "type": "file",
-      "size": 3487,
-      "sha256": "d3b80eaeb0ba436b093ab50f41c843d23372c313bc5ea3757b14556587fb2735"
+      "size": 3614,
+      "sha256": "03748477c3bc8f039dd7239279abb3bad4098ef5556323c34f698a4cc4460bab"
     },
     {
       "path": "tools/set_active_feature.py",
@@ -663,8 +663,8 @@
     {
       "path": "workflow.md",
       "type": "file",
-      "size": 16672,
-      "sha256": "9398d9c35dc75c579c745434509adba4b4e766df3329bbb43c0ceaa0d88a9061"
+      "size": 17344,
+      "sha256": "deac7293ae2f38bd4d99b1e73fcdfe98467de81e67fcd36ca5771dfc22070de1"
     }
   ]
 }

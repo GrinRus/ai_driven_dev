@@ -93,7 +93,8 @@
       "major",
       "minor"
     ],
-    "allow_missing_report": false
+    "allow_missing_report": false,
+    "handoff": false
   },
   "reviewer": {
     "enabled": true,
@@ -136,7 +137,8 @@
       "implement",
       "qa",
       "review",
-      "gate"
+      "gate",
+      "handoff"
     ]
   }
 }

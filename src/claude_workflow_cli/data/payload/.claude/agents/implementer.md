@@ -4,7 +4,7 @@ description: Реализация задачи. Основан на данных
 lang: ru
 prompt_version: 1.1.1
 source_version: 1.1.1
-tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow progress:*), Bash(git:*)
+tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(git add:*)
 model: inherit
 ---
 
@@ -20,13 +20,15 @@ model: inherit
 ## Автоматизация
 - Перед отдачей ответа на итерацию запускай `.claude/hooks/format-and-test.sh`; при необходимости используй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS` и обязательно фиксируй override в ответе.
 - `gate-tests`, `gate-db-migration`, `gate-workflow` проверяют наличие tasklist, миграций и тестов перед пушем; перечисли, какие проверки проходил и какие команды запускал (`./gradlew test`, `gradle lint`, т.д.).
+- После изменений перечисли затронутые файлы/модули и выполни точечный `git add <file|dir>` для каждого изменённого артефакта (добавь в ответ список проиндексированных путей).
 - Заверши каждую итерацию командой `claude-workflow progress --source implement --ticket <ticket>` — укажи вывод или резюме изменений tasklist.
 - Если требуется поиск по репозиторию, используй `Grep`/`rg` в режиме чтения (у тебя нет Bash-доступа к `rg`, поэтому опирайся на встроенный инструментарий редактора).
+- При наличии новых `- [ ]` с `source: reports/qa|review|research/<ticket>.json` закрывай их в первую очередь и фиксируй обновления в `Checkbox updated: …`.
 
 ## Пошаговый план
-1. Изучи `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`: выбери ближайший пункт, опираясь на статусы READY/BLOCKED.
+1. Изучи `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md` (handoff-пункты `- [ ] ... (source: reports/qa|review|research/<ticket>.json)` обязательны к учёту): выбери ближайший пункт, опираясь на статусы READY/BLOCKED, и фиксируй, какие handoff-задачи закрыл.
 2. При необходимости сверься с `docs/research/<ticket>.md` и PRD, если в плане/чеклисте не хватает деталей (архитектура, ограничения, тестовые требования); фиксируй, какие выводы взял оттуда.
-3. Внеси минимальные изменения в код/конфигурацию. Сразу укажи, какие файлы/модули затронуты и какие команды запускаешь (`./gradlew test`, `gradle spotlessApply`, и т.д.).
+3. Внеси минимальные изменения в код/конфигурацию. Сразу укажи, какие файлы/модули затронуты, какие команды запускаешь (`./gradlew test`, `gradle spotlessApply`, и т.д.), и проиндексируй изменения `git add <файл|каталог>` (перечисли, что добавил в индекс).
 4. Обнови `docs/tasklist/<ticket>.md`: переведи соответствующие пункты `- [ ] → - [x]`, добавь дату, итерацию, краткое описание и ссылку на diff/команду.
 5. Запусти `.claude/hooks/format-and-test.sh` перед ответом (или эквивалентные команды вручную); если хук упал, почини причину или объясни обход и когда вернёшься к тестам.
 6. Выполни `claude-workflow progress --source implement --ticket <ticket>` и приложи вывод/резюме.
@@ -41,5 +43,5 @@ model: inherit
 
 ## Формат ответа
 - Всегда начинай со строки `Checkbox updated: <перечень пунктов>` (см. `docs/prompt-playbook.md`).
-- Кратко перечисли, что изменено (файлы/модули), какие команды выполнены (`./gradlew …`, `.claude/hooks/format-and-test.sh`, `claude-workflow progress …`), статусы тестов и автотестов; отметь, если использовал `SKIP_AUTO_TESTS` / `TEST_SCOPE` / `FORMAT_ONLY`.
+- Кратко перечисли, что изменено (файлы/модули), какие команды выполнены (`./gradlew …`, `.claude/hooks/format-and-test.sh`, `claude-workflow progress …`), статусы тестов и автотестов; отметь, если использовал `SKIP_AUTO_TESTS` / `TEST_SCOPE` / `FORMAT_ONLY`. Укажи, какие handoff-пункты из `reports/qa|review|research/<ticket>.json` закрыты или перенесены, и какие пути были добавлены в индекс `git add`.
 - Опиши оставшуюся работу и текущий статус READY/BLOCKED; при BLOCKED перечисли конкретные вопросы с указанием, что уже проверено.
