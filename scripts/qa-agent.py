@@ -266,11 +266,68 @@ def analyse_tests_coverage(files: Sequence[str]) -> List[Finding]:
     ]
 
 
-def aggregate_findings(files: Sequence[str], ticket: Optional[str], slug_hint: Optional[str]) -> List[Finding]:
+def load_tests_metadata() -> tuple[str, List[dict], bool]:
+    summary = (os.environ.get("QA_TESTS_SUMMARY") or "").strip().lower() or "not-run"
+    allow_no_tests = (os.environ.get("QA_ALLOW_NO_TESTS") or "").strip() == "1"
+    executed_raw = os.environ.get("QA_TESTS_EXECUTED") or ""
+    executed: List[dict] = []
+    if executed_raw:
+        try:
+            parsed = json.loads(executed_raw)
+            if isinstance(parsed, list):
+                executed = parsed
+        except json.JSONDecodeError:
+            executed = []
+    return summary, executed, allow_no_tests
+
+
+def analyse_tests_run(summary: str, executed: List[dict], allow_missing: bool) -> List[Finding]:
+    findings: List[Finding] = []
+    summary = summary.strip().lower() if summary else "not-run"
+    if summary == "fail":
+        log_hint = ""
+        for entry in executed:
+            if str(entry.get("status")).lower() == "fail":
+                log_hint = entry.get("log") or entry.get("log_path") or ""
+                break
+        details = f"Лог: {log_hint}" if log_hint else ""
+        findings.append(
+            Finding(
+                severity="blocker",
+                scope="tests",
+                title="Автотесты завершились с ошибкой",
+                details=details,
+                recommendation="Исправьте упавшие тесты и повторите запуск.",
+            )
+        )
+    elif summary in {"not-run", "skipped"}:
+        severity = "major" if allow_missing else "blocker"
+        findings.append(
+            Finding(
+                severity=severity,
+                scope="tests",
+                title="Тесты не запускались",
+                details="Автотесты не были выполнены на стадии QA.",
+                recommendation="Запустите автотесты (например, claude-workflow qa --run-tests) или укажите причину пропуска.",
+            )
+        )
+    return findings
+
+
+def aggregate_findings(
+    files: Sequence[str],
+    ticket: Optional[str],
+    slug_hint: Optional[str],
+    *,
+    tests_summary: str,
+    tests_executed: List[dict],
+    allow_missing_tests: bool,
+) -> List[Finding]:
     findings: List[Finding] = []
     findings.extend(analyse_code_tokens(files))
     findings.extend(analyse_tasklist(ticket, slug_hint))
     findings.extend(analyse_tests_coverage(files))
+    findings.extend(analyse_tests_run(tests_summary, tests_executed, allow_missing_tests))
     return findings
 
 
@@ -313,7 +370,15 @@ def main() -> int:
     ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
     branch = detect_branch(args.branch)
     files = collect_changed_files()
-    findings = aggregate_findings(files, ticket, slug_hint)
+    tests_summary, tests_executed, allow_missing_tests = load_tests_metadata()
+    findings = aggregate_findings(
+        files,
+        ticket,
+        slug_hint,
+        tests_summary=tests_summary,
+        tests_executed=tests_executed,
+        allow_missing_tests=allow_missing_tests,
+    )
 
     summary, counts, blockers, warnings = summarise(findings)
     label = feature_label(ticket, slug_hint)
@@ -331,6 +396,8 @@ def main() -> int:
         "counts": counts,
         "files_considered": files,
         "findings": [finding.to_dict() for finding in findings],
+        "tests_summary": tests_summary,
+        "tests_executed": tests_executed,
         "inputs": {
             "diff_base": os.environ.get("QA_AGENT_DIFF_BASE") or None,
         },

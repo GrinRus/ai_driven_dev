@@ -13,6 +13,7 @@
 - **Чеклисты** — раздел `QA` в `docs/tasklist/<ticket>.md` заполнен, новые сценарии добавлены.
 - **Артефакты** — релевантные логи, отчёты нагрузочного тестирования, ссылки на
   демо или тестовые окружения.
+- **Тесты** — готовность запустить автотесты (по умолчанию `.claude/hooks/format-and-test.sh` из `config/gates.json: qa.tests`), свободное место для логов `reports/qa/<ticket>-tests*.log`; если тесты пропускаются, нужен `CLAUDE_QA_ALLOW_NO_TESTS=1`.
 - **Research** — `docs/research/<ticket>.md` со статусом `Status: reviewed`, актуальный
   `reports/research/<ticket>-context.json` (не старше установленного порога), ссылка
   на отчёт проставлена в PRD и `docs/tasklist/<ticket>.md`.
@@ -31,6 +32,9 @@ claude-workflow qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gat
 
 # dry-run (не проваливать выполнение при блокерах)
 CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
+
+# пропустить тесты/разрешить отсутствие логов (не рекомендуется)
+CLAUDE_QA_ALLOW_NO_TESTS=1 claude-workflow qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json
 ```
 
 Перед завершением каждой сессии QA обновите чеклист, сформируйте строку `Checkbox updated: …` и выполните `claude-workflow progress --source qa --ticket <ticket>` — гейт `gate-workflow.sh` блокирует правки без новых `- [x]`.
@@ -70,6 +74,7 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 ## Чеклист QA-подготовки
 
 - [ ] Все шаги раздела `QA` в `docs/tasklist/<ticket>.md` закрыты/перенесены.
+- [ ] Тесты прогнаны, логи сохранены (`reports/qa/<ticket>-tests*.log`), поля `tests_summary`/`tests_executed` есть в `reports/qa/<ticket>.json`.
 - [ ] В PR добавлены шаги воспроизведения, метрики и снапшоты, если есть UX/визуальные изменения.
 - [ ] Тестовое окружение задокументировано (URL, пользователи, токены).
 - [ ] Автоматические гейты (`gate-tests`, `gate-api-contract`, `gate-db-migration`) прошли.

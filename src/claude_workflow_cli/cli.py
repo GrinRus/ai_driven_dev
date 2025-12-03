@@ -6,6 +6,7 @@ import filecmp
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,7 @@ DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
+DEFAULT_QA_TEST_COMMAND = [["bash", ".claude/hooks/format-and-test.sh"]]
 
 
 class PayloadError(RuntimeError):
@@ -694,6 +696,103 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
         print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
 
 
+def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
+    config_path = root / "config" / "gates.json"
+    commands: list[list[str]] = []
+    allow_skip = True
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return list(DEFAULT_QA_TEST_COMMAND), allow_skip
+
+    qa_cfg = data.get("qa") or {}
+    tests_cfg = qa_cfg.get("tests") or {}
+    allow_skip = bool(tests_cfg.get("allow_skip", True))
+    raw_commands = tests_cfg.get("commands", DEFAULT_QA_TEST_COMMAND)
+    if isinstance(raw_commands, str):
+        raw_commands = [raw_commands]
+    if isinstance(raw_commands, list):
+        for entry in raw_commands:
+            parts: list[str] = []
+            if isinstance(entry, list):
+                parts = [str(item) for item in entry if str(item)]
+            elif isinstance(entry, str):
+                try:
+                    parts = [token for token in shlex.split(entry) if token]
+                except ValueError:
+                    continue
+            if parts:
+                commands.append(parts)
+
+    if not commands:
+        commands = list(DEFAULT_QA_TEST_COMMAND)
+    return commands, allow_skip
+
+
+def _run_qa_tests(
+    target: Path,
+    *,
+    ticket: str,
+    slug_hint: str | None,
+    branch: str | None,
+    report_path: Path,
+    allow_missing: bool,
+) -> tuple[list[dict], str]:
+    commands, allow_skip_cfg = _load_qa_tests_config(target)
+    allow_skip = allow_missing or allow_skip_cfg
+
+    tests_executed: list[dict] = []
+    if not commands:
+        summary = "skipped"
+        return tests_executed, summary
+
+    logs_dir = report_path.parent
+    base_name = report_path.stem
+    summary = "not-run"
+
+    for index, cmd in enumerate(commands, start=1):
+        log_path = logs_dir / f"{base_name}-tests{'' if len(commands) == 1 else f'-{index}'}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        status = "fail"
+        exit_code: Optional[int] = None
+        output = ""
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=target,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            output = proc.stdout or ""
+            exit_code = proc.returncode
+            status = "pass" if proc.returncode == 0 else "fail"
+        except FileNotFoundError as exc:
+            status = "fail"
+            output = f"command not found: {cmd[0]} ({exc})"
+        log_path.write_text(output, encoding="utf-8")
+
+        tests_executed.append(
+            {
+                "command": " ".join(cmd),
+                "status": status,
+                "log": _rel_path(log_path, target),
+                "exit_code": exit_code,
+            }
+        )
+
+    if any(entry.get("status") == "fail" for entry in tests_executed):
+        summary = "fail"
+    else:
+        summary = "pass" if tests_executed else "not-run"
+
+    if summary in {"not-run", "skipped"} and allow_skip:
+        summary = "skipped"
+
+    return tests_executed, summary
+
+
 def _qa_command(args: argparse.Namespace) -> int:
     target = Path(args.target).resolve()
     if not target.exists():
@@ -725,6 +824,31 @@ def _qa_command(args: argparse.Namespace) -> int:
     if not agent_script.is_file():
         raise FileNotFoundError(f"QA agent script not found at {agent_script}")
 
+    allow_no_tests = bool(
+        getattr(args, "allow_no_tests", False)
+        or os.getenv("CLAUDE_QA_ALLOW_NO_TESTS", "").strip() == "1"
+    )
+    skip_tests = bool(getattr(args, "skip_tests", False) or os.getenv("CLAUDE_QA_SKIP_TESTS", "").strip() == "1")
+
+    tests_executed: list[dict] = []
+    tests_summary = "skipped" if skip_tests else "not-run"
+
+    if not skip_tests:
+        tests_executed, tests_summary = _run_qa_tests(
+            target,
+            ticket=ticket,
+            slug_hint=slug_hint or None,
+            branch=branch,
+            report_path=target / report,
+            allow_missing=allow_no_tests,
+        )
+        if tests_summary == "fail":
+            print("[claude-workflow] QA tests failed; see reports/qa/*-tests.log.")
+        elif tests_summary == "skipped":
+            print("[claude-workflow] QA tests skipped (allow_no_tests enabled or no commands configured).")
+        else:
+            print("[claude-workflow] QA tests completed.")
+
     cmd = ["python3", str(agent_script)]
     if args.gate:
         cmd.append("--gate")
@@ -750,8 +874,23 @@ def _qa_command(args: argparse.Namespace) -> int:
     if report:
         cmd.extend(["--report", report])
 
-    proc = subprocess.run(cmd, cwd=target)
-    return proc.returncode
+    _, allow_skip_cfg = _load_qa_tests_config(target)
+    allow_no_tests_env = allow_no_tests or allow_skip_cfg
+
+    env = os.environ.copy()
+    env["QA_TESTS_SUMMARY"] = tests_summary
+    env["QA_TESTS_EXECUTED"] = json.dumps(tests_executed, ensure_ascii=False)
+    env["QA_ALLOW_NO_TESTS"] = "1" if allow_no_tests_env else "0"
+
+    proc = subprocess.run(cmd, cwd=target, env=env)
+    exit_code = proc.returncode
+
+    if tests_summary == "fail":
+        exit_code = max(exit_code, 1)
+    elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
+        exit_code = max(exit_code, 1)
+
+    return exit_code
 
 
 def _progress_command(args: argparse.Namespace) -> int:
@@ -974,6 +1113,28 @@ def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -
     return tasks
 
 
+def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
+    tasks: List[str] = []
+    summary = str(payload.get("tests_summary") or "").strip().lower() or "not-run"
+    executed = payload.get("tests_executed") or []
+    if summary in {"skipped", "not-run"}:
+        tasks.append(f"- [ ] QA tests: запустить автотесты и приложить лог (source: {report_label})")
+    for entry in executed:
+        if not isinstance(entry, dict):
+            continue
+        status = str(entry.get("status") or "").strip().lower()
+        if status == "pass":
+            continue
+        command = str(entry.get("command") or "").strip() or "tests"
+        log = str(entry.get("log") or entry.get("log_path") or "").strip()
+        details = f" (лог: {log})" if log else ""
+        status_label = status or "unknown"
+        tasks.append(f"- [ ] QA tests: {status_label} → повторить `{command}`{details} (source: {report_label})")
+    if summary == "fail" and not any(str(entry.get("status") or "").strip().lower() == "fail" for entry in executed):
+        tasks.append(f"- [ ] QA tests: исправить упавшие тесты (source: {report_label})")
+    return tasks
+
+
 def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[str]:
     tasks: List[str] = []
     profile = payload.get("profile") or {}
@@ -1160,6 +1321,7 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     payload = _load_json_file(report_path)
     if source == "qa":
         derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
+        derived_tasks.extend(_derive_tasks_from_tests(payload, report_label))
     elif source == "review":
         derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
@@ -1853,6 +2015,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit JSON to stdout even in gate mode.",
     )
     qa_parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip QA test run (not recommended; override is respected in gate mode).",
+    )
+    qa_parser.add_argument(
+        "--allow-no-tests",
+        action="store_true",
+        help="Allow QA to proceed without tests (or with skipped test commands).",
+    )
+    qa_parser.add_argument(
         "--gate",
         action="store_true",
         help="Gate mode: non-zero exit code on blocker severities.",
@@ -1890,7 +2062,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     progress_parser.add_argument(
         "--source",
-        choices=("manual", "implement", "qa", "review", "gate"),
+        choices=("manual", "implement", "qa", "review", "gate", "handoff"),
         default="manual",
         help="Context in which the check is executed (default: manual).",
     )

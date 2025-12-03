@@ -83,6 +83,12 @@
       "qa",
       "--gate"
     ],
+    "tests": {
+      "commands": [
+        ".claude/hooks/format-and-test.sh"
+      ],
+      "allow_skip": true
+    },
     "timeout": 600,
     "report": "reports/qa/{ticket}.json",
     "block_on": [
@@ -94,7 +100,7 @@
       "minor"
     ],
     "allow_missing_report": false,
-    "handoff": false
+    "handoff": true
   },
   "reviewer": {
     "enabled": true,

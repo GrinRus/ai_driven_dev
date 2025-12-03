@@ -535,13 +535,20 @@ def check_progress(
             )
 
     summary = _summarise_paths(code_files)
-    guidance = (
-        f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
-        f"но файл {tasklist_rel} не получил новых `- [x]`.\n"
-        "Переведите соответствующие пункты `- [ ] → - [x]`, добавьте отметку даты/итерации, "
-        "обновите строку `Checkbox updated: …` и повторите `claude-workflow progress --source "
-        f"{context or 'manual'} --ticket {ticket}`."
-    )
+    if context == "handoff":
+        guidance = (
+            f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
+            f"но handoff-задачи не добавлены. Добавьте новые `- [ ] ... (source: reports/qa|review|research/...)` "
+            f"в {tasklist_rel} и повторите `claude-workflow progress --source handoff --ticket {ticket}`."
+        )
+    else:
+        guidance = (
+            f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
+            f"но файл {tasklist_rel} не получил новых `- [x]`.\n"
+            "Переведите соответствующие пункты `- [ ] → - [x]`, добавьте отметку даты/итерации, "
+            "обновите строку `Checkbox updated: …` и повторите `claude-workflow progress --source "
+            f"{context or 'manual'} --ticket {ticket}`."
+        )
     return ProgressCheckResult(
         status="error:no-checkbox",
         ticket=ticket,

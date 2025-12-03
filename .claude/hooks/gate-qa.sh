@@ -398,6 +398,20 @@ if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
   fi
 fi
 
+if (( status == 0 )) && [[ -n "$ticket" ]]; then
+  progress_cmd=(progress --source qa --ticket "$ticket" --target "$ROOT_DIR")
+  if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+    progress_cmd+=(--slug-hint "$slug_hint")
+  fi
+  set +e
+  run_cli_or_hint "${progress_cmd[@]}"
+  progress_status=$?
+  set -e
+  if (( progress_status != 0 )); then
+    status=$progress_status
+  fi
+fi
+
 if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]]; then
   if [[ -n "$ticket" ]]; then
     echo "[gate-qa] handoff: формируем задачи из отчёта QA" >&2
@@ -414,6 +428,19 @@ if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDO
     set -e
     if (( handoff_status != 0 )); then
       echo "[gate-qa] WARN: tasks-derive завершился с кодом $handoff_status (handoff пропущен)." >&2
+    fi
+    if (( handoff_status == 0 )); then
+      progress_cmd=(progress --source handoff --ticket "$ticket" --target "$ROOT_DIR")
+      if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
+        progress_cmd+=(--slug-hint "$slug_hint")
+      fi
+      set +e
+      run_cli_or_hint "${progress_cmd[@]}"
+      handoff_progress_status=$?
+      set -e
+      if (( handoff_progress_status != 0 )); then
+        status=$handoff_progress_status
+      fi
     fi
   else
     echo "[gate-qa] WARN: ticket не определён — handoff пропущен." >&2

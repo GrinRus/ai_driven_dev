@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Optional, Dict
 
 from .helpers import REPO_ROOT, cli_cmd, ensure_gates_config, git_config_user, git_init, write_active_feature, write_file
 
@@ -22,15 +23,17 @@ class QaAgentTests(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def run_agent(self, *argv: str) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env.setdefault("QA_AGENT_DIFF_BASE", "")
+    def run_agent(self, *argv: str, env: Optional[Dict] = None) -> subprocess.CompletedProcess[str]:
+        run_env = os.environ.copy()
+        run_env.setdefault("QA_AGENT_DIFF_BASE", "")
+        if env:
+            run_env.update(env)
         return subprocess.run(
             ["python3", str(QA_AGENT), *argv],
             cwd=self.root,
             text=True,
             capture_output=True,
-            env=env,
+            env=run_env,
         )
 
     def test_fixme_causes_blocker(self):
@@ -72,14 +75,47 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "warn")
-        self.assertGreaterEqual(payload["counts"].get("major", 0), 1)
+        self.assertEqual(payload["status"], "fail")
+        self.assertGreaterEqual(payload["counts"].get("blocker", 0), 1)
         self.assertTrue(
             any(
-                finding["severity"] == "major" and finding["scope"] == "tests"
+                finding["severity"] == "blocker" and finding["scope"] == "tests"
                 for finding in payload["findings"]
             )
         )
+
+    def test_tests_not_run_blocks_when_not_allowed(self):
+        result = self.run_agent(
+            "--gate",
+            "--emit-json",
+            env={
+                "QA_TESTS_SUMMARY": "not-run",
+                "QA_ALLOW_NO_TESTS": "0",
+            },
+        )
+
+        self.assertEqual(result.returncode, 1, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "not-run")
+        self.assertTrue(any(f["title"] == "Тесты не запускались" for f in payload["findings"]))
+
+    def test_tests_metadata_included(self):
+        report_env = {
+            "QA_TESTS_SUMMARY": "fail",
+            "QA_TESTS_EXECUTED": json.dumps(
+                [
+                    {"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "reports/qa/demo-tests.log"}
+                ]
+            ),
+            "QA_ALLOW_NO_TESTS": "1",
+        }
+        result = self.run_agent("--format", "json", env=report_env)
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "fail")
+        self.assertEqual(len(payload["tests_executed"]), 1)
+        self.assertEqual(payload["tests_executed"][0]["status"], "fail")
 
     def test_progress_cli_requires_tasklist_update(self):
         slug = "demo-checkout"
