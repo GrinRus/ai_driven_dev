@@ -223,7 +223,7 @@ fi
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
-if ! CLAUDE_QA_ALLOW_NO_TESTS=1 run_cli qa --ticket "$TICKET" --target . --report "reports/qa/${TICKET}.json" --gate --emit-json >/dev/null; then
+if ! run_cli qa --ticket "$TICKET" --target . --report "reports/qa/${TICKET}.json" --gate --emit-json >/dev/null; then
   echo "[smoke] qa command failed" >&2
   exit 1
 fi

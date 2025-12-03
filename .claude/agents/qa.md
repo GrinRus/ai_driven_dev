@@ -19,7 +19,6 @@ QA-агент запускается обязательной командой `
 ## Автоматизация
 - Команда `/qa` вызывает `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` (через палитру/CLI). Без отчёта гейт заблокирует merge.
 - `gate-qa.sh` вызывает `claude-workflow qa --gate` (configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
-- Перед запуском агента QA автоматически прогоняются тесты (см. `config/gates.json: qa.tests`), логи пишутся в `reports/qa/<ticket>-tests*.log`, сводка в отчёт (`tests_summary`, `tests_executed`). При отсутствии тестов без `CLAUDE_QA_ALLOW_NO_TESTS=1` гейт блокирует merge.
 - Используй `scripts/ci-lint.sh` при необходимости smoke.
 - По завершении обнови tasklist и запусти `claude-workflow progress --source qa --ticket <ticket>` — гейт проверяет наличие новых `[x]`.
 
@@ -29,14 +28,14 @@ QA-агент запускается обязательной командой `
 3. Проверь побочные эффекты: миграции, фича-флаги, события аналитики, мониторинг, обратную совместимость API.
 4. Для каждой находки заполни карточку: severity (`blocker|critical|major|minor|info`), scope, details (шаги воспроизведения, логи), recommendation.
 5. Запусти `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate --emit-json` (или эквивалент палитры) и изучи вывод.
-6. Обнови `docs/tasklist/<ticket>.md`: отметь закрытые QA-пункты, дату и итерацию ручных прогонов, задокументируй known issues, добавь ссылку на логи тестов (`reports/qa/<ticket>-tests*.log`).
-7. Сформируй handoff-задачи для исполнителя: для каждого finding или failed/Skipped теста создай `- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/<ticket>.json)` или запусти `claude-workflow tasks-derive --source qa --append --ticket <ticket>`; фиксируй добавленные пункты в `Checkbox updated: …`.
+6. Обнови `docs/tasklist/<ticket>.md`: отметь закрытые QA-пункты, дату и итерацию ручных прогонов, задокументируй known issues.
+7. Сформируй handoff-задачи для исполнителя: для каждого finding создай `- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/<ticket>.json)` или запусти `claude-workflow tasks-derive --source qa --append --ticket <ticket>`; фиксируй добавленные пункты в `Checkbox updated: …`.
 8. Сформируй итоговый статус (READY — нет blocker/critical, WARN — есть major/minor, BLOCKED — найден blocker/critical) и перечисли рекомендации.
 9. Запусти `claude-workflow progress --source qa --ticket <ticket>`.
 
 ## Actionable tasks for implementer
 - Преобразуй findings в чекбоксы `- [ ] QA [severity] <title> (scope) — рекомендация (source: reports/qa/<ticket>.json)` и добавь их в раздел QA tasklist.
-- Используй `claude-workflow tasks-derive --source qa --append --ticket <ticket>` (после READY/WARN) либо перечисли добавленные пункты вручную в `Checkbox updated: …`; учти задачи из блоков `tests_executed`.
+- Используй `claude-workflow tasks-derive --source qa --append --ticket <ticket>` (после READY/WARN) либо перечисли добавленные пункты вручную в `Checkbox updated: …`.
 - При BLOCKED отметь блокеры отдельно и привяжи их к исходным логам/скринам; предложи владельцу тикета порядок разблокировки.
 
 ## Fail-fast и вопросы

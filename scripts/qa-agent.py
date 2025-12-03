@@ -18,7 +18,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_SRC = Path.cwd() / "src"
@@ -266,11 +266,11 @@ def analyse_tests_coverage(files: Sequence[str]) -> List[Finding]:
     ]
 
 
-def load_tests_metadata() -> tuple[str, List[dict], bool]:
+def load_tests_metadata() -> tuple[str, List[Dict], bool]:
     summary = (os.environ.get("QA_TESTS_SUMMARY") or "").strip().lower() or "not-run"
     allow_no_tests = (os.environ.get("QA_ALLOW_NO_TESTS") or "").strip() == "1"
     executed_raw = os.environ.get("QA_TESTS_EXECUTED") or ""
-    executed: List[dict] = []
+    executed: List[Dict] = []
     if executed_raw:
         try:
             parsed = json.loads(executed_raw)
@@ -281,7 +281,7 @@ def load_tests_metadata() -> tuple[str, List[dict], bool]:
     return summary, executed, allow_no_tests
 
 
-def analyse_tests_run(summary: str, executed: List[dict], allow_missing: bool) -> List[Finding]:
+def analyse_tests_run(summary: str, executed: List[Dict], allow_missing: bool) -> List[Finding]:
     findings: List[Finding] = []
     summary = summary.strip().lower() if summary else "not-run"
     if summary == "fail":
@@ -308,7 +308,7 @@ def analyse_tests_run(summary: str, executed: List[dict], allow_missing: bool) -
                 scope="tests",
                 title="Тесты не запускались",
                 details="Автотесты не были выполнены на стадии QA.",
-                recommendation="Запустите автотесты (например, claude-workflow qa --run-tests) или укажите причину пропуска.",
+                recommendation="Запустите автотесты или укажите причину пропуска.",
             )
         )
     return findings
@@ -320,7 +320,7 @@ def aggregate_findings(
     slug_hint: Optional[str],
     *,
     tests_summary: str,
-    tests_executed: List[dict],
+    tests_executed: List[Dict],
     allow_missing_tests: bool,
 ) -> List[Finding]:
     findings: List[Finding] = []

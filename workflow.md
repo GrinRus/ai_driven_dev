@@ -65,7 +65,7 @@
 - При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
 
 ### 8. QA (`/qa`)
-- Обязательная стадия перед релизом: запустите `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` — команда автоматически прогонит тесты (логи в `reports/qa/<ticket>-tests*.log`) и добавит сводку в отчёт перед формированием статуса READY/WARN/BLOCKED.
+- Обязательная стадия перед релизом: запустите `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, чтобы сформировать отчёт и статус READY/WARN/BLOCKED.
 - Саб-агент **qa** сопоставляет diff с чеклистом `docs/tasklist/<ticket>.md`, фиксирует найденные проблемы и рекомендации; гейт `gate-qa.sh` блокирует merge при blocker/critical или отсутствии отчёта.
 - После статуса READY/WARN добавьте handoff-задачи из `reports/qa/<ticket>.json` через `claude-workflow tasks-derive --source qa --append --ticket <ticket>`, чтобы исполнитель видел все находки.
 - Обновите QA-раздел tasklist (новые `- [x]`, дата/итерация, ссылки на логи) и выполните `claude-workflow progress --source qa --ticket <ticket>`.
