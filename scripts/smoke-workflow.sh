@@ -232,6 +232,17 @@ fi
   exit 1
 }
 
+log "derive tasklist items from QA report (handoff)"
+run_cli tasks-derive --source qa --ticket "$TICKET" --target . --append >/dev/null
+grep -q "handoff:qa" "docs/tasklist/${TICKET}.md" || {
+  echo "[smoke] tasks-derive did not update tasklist" >&2
+  exit 1
+}
+if ! progress_handoff="$(run_cli progress --target . --ticket "$TICKET" --source handoff --verbose 2>&1)"; then
+  printf '[smoke] expected progress handoff check to pass:\n%s\n' "$progress_handoff" >&2
+  exit 1
+fi
+
 log "gate blocks, если изменена только RU-версия промпта"
 python3 - <<'PY'
 from pathlib import Path

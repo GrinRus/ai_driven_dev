@@ -922,6 +922,296 @@ def _detect_branch(target: Path) -> Optional[str]:
     return branch
 
 
+_HANDOFF_SECTION_HINTS: Dict[str, Tuple[str, ...]] = {
+    "qa": (
+        "## 3. qa / проверки",
+        "## qa",
+        "## 3. qa",
+        "## 3. qa / проверки",
+    ),
+    "review": (
+        "## 2. реализация",
+        "## реализация",
+        "## implementation",
+        "## 2. implementation",
+    ),
+    "research": (
+        "## 1. аналитика и дизайн",
+        "## аналитика",
+        "## research",
+        "## 7. примечания",
+    ),
+}
+
+
+def _rel_path(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _load_json_file(path: Path) -> Dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"failed to parse {path}: {exc}") from exc
+
+
+def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -> List[str]:
+    findings = payload.get("findings") or []
+    tasks: List[str] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        severity = str(finding.get("severity") or "").strip().lower() or "info"
+        scope = str(finding.get("scope") or "").strip()
+        title = str(finding.get("title") or "").strip() or "issue"
+        details = str(finding.get("recommendation") or finding.get("details") or "").strip()
+        scope_label = f" ({scope})" if scope else ""
+        details_part = f" — {details}" if details else ""
+        tasks.append(f"- [ ] {prefix} [{severity}] {title}{scope_label}{details_part} (source: {report_label})")
+    return tasks
+
+
+def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[str]:
+    tasks: List[str] = []
+    profile = payload.get("profile") or {}
+    recommendations = profile.get("recommendations") or []
+    for rec in recommendations:
+        rec_text = str(rec).strip()
+        if not rec_text:
+            continue
+        tasks.append(f"- [ ] Research: {rec_text} (source: {report_label})")
+
+    manual_notes = payload.get("manual_notes") or []
+    for note in manual_notes:
+        note_text = str(note).strip()
+        if not note_text:
+            continue
+        tasks.append(f"- [ ] Research note: {note_text} (source: {report_label})")
+
+    reuse_candidates = payload.get("reuse_candidates") or []
+    for candidate in reuse_candidates[:reuse_limit]:
+        if not isinstance(candidate, dict):
+            continue
+        path = str(candidate.get("path") or "").strip()
+        if not path:
+            continue
+        score = candidate.get("score")
+        has_tests = candidate.get("has_tests")
+        extra_parts = []
+        if score is not None:
+            extra_parts.append(f"score={score}")
+        if has_tests:
+            extra_parts.append("tests")
+        suffix = f" ({', '.join(extra_parts)})" if extra_parts else ""
+        tasks.append(f"- [ ] Reuse candidate: {path}{suffix} (source: {report_label})")
+    return tasks
+
+
+def _dedupe_tasks(tasks: Sequence[str]) -> List[str]:
+    seen: set[str] = set()
+    deduped: List[str] = []
+    for task in tasks:
+        normalized = " ".join(task.strip().split())
+        if not normalized:
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(task.strip())
+    return deduped
+
+
+def _extract_handoff_block(lines: List[str], source: str) -> tuple[int, int, List[str]]:
+    start = -1
+    end = -1
+    marker = f"handoff:{source}"
+    for idx, line in enumerate(lines):
+        lowered = line.lower()
+        if marker in lowered and "start" in lowered:
+            start = idx
+            break
+    if start != -1:
+        for idx in range(start + 1, len(lines)):
+            lowered = lines[idx].lower()
+            if marker in lowered and "end" in lowered:
+                end = idx
+                break
+    if start != -1 and end == -1:
+        end = start
+    existing: List[str] = []
+    if start != -1 and end != -1:
+        existing = [
+            line
+            for line in lines[start + 1 : end]
+            if line.strip().startswith("- [ ]")
+        ]
+    return start, end, existing
+
+
+def _find_section(lines: List[str], candidates: Sequence[str]) -> tuple[int, Optional[str]]:
+    if not candidates:
+        return len(lines), None
+    lowered_candidates = [candidate.strip().lower() for candidate in candidates if candidate.strip()]
+    heading_idx = None
+    heading_label = None
+    for idx, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("##"):
+            for candidate in lowered_candidates:
+                if stripped.startswith(candidate):
+                    heading_idx = idx
+                    heading_label = lines[idx].strip()
+                    break
+        if heading_idx is not None:
+            break
+    if heading_idx is None:
+        return len(lines), None
+    insert_idx = len(lines)
+    for idx in range(heading_idx + 1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped.startswith("##"):
+            insert_idx = idx
+            break
+    return insert_idx, heading_label
+
+
+def _apply_handoff_tasks(
+    text: str,
+    *,
+    source: str,
+    report_label: str,
+    tasks: Sequence[str],
+    append: bool,
+    section_candidates: Sequence[str],
+) -> tuple[str, Optional[str], bool]:
+    if not tasks:
+        return text, None, False
+    lines = text.splitlines()
+    start, end, existing = _extract_handoff_block(lines, source)
+    combined = list(existing) if append else []
+    combined.extend(tasks)
+    combined = _dedupe_tasks(combined)
+    if not combined:
+        return text, None, False
+
+    if start != -1 and end != -1:
+        del lines[start : end + 1]
+
+    block_lines = [f"<!-- handoff:{source} start (source: {report_label}) -->"]
+    block_lines.extend(combined)
+    block_lines.append(f"<!-- handoff:{source} end -->")
+
+    insert_idx, heading_label = _find_section(lines, section_candidates)
+    prepend_blank = insert_idx > 0 and lines[insert_idx - 1].strip()
+    if prepend_blank:
+        block_lines.insert(0, "")
+    append_blank = insert_idx < len(lines) and lines[insert_idx : insert_idx + 1] and lines[insert_idx].strip()
+    if append_blank:
+        block_lines.append("")
+    new_lines = lines[:insert_idx] + block_lines + lines[insert_idx:]
+    new_text = "\n".join(new_lines)
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+    changed = new_text != text
+    return new_text, heading_label, changed
+
+
+def _tasks_derive_command(args: argparse.Namespace) -> int:
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"target directory {target} does not exist")
+
+    context = _resolve_feature_context(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    ticket = (context.resolved_ticket or "").strip()
+    slug_hint = (context.slug_hint or ticket or "").strip()
+    if not ticket:
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new.")
+
+    source = (args.source or "").strip().lower()
+    default_report = {
+        "qa": "reports/qa/{ticket}.json",
+        "review": "reports/review/{ticket}.json",
+        "research": "reports/research/{ticket}-context.json",
+    }.get(source)
+    report_template = args.report or default_report
+    if not report_template:
+        raise ValueError("unsupported source; expected qa|review|research")
+
+    def _fmt(text: str) -> str:
+        return (
+            text.replace("{ticket}", ticket)
+            .replace("{slug}", slug_hint or ticket)
+        )
+
+    report_path = Path(_fmt(report_template))
+    if not report_path.is_absolute():
+        report_path = target / report_path
+    report_label = _rel_path(report_path, target)
+    if not report_path.exists():
+        raise FileNotFoundError(f"{source} report not found at {report_label}")
+
+    payload = _load_json_file(report_path)
+    if source == "qa":
+        derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
+    elif source == "review":
+        derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
+    elif source == "research":
+        derived_tasks = _derive_tasks_from_research_context(payload, report_label)
+    else:
+        derived_tasks = []
+
+    derived_tasks = _dedupe_tasks(derived_tasks)
+    if not derived_tasks:
+        print(f"[claude-workflow] no tasks found in {source} report ({report_label}).")
+        return 0
+
+    tasklist_rel = Path("docs") / "tasklist" / f"{ticket}.md"
+    tasklist_path = target / tasklist_rel
+    if not tasklist_path.exists():
+        raise FileNotFoundError(
+            f"tasklist not found at {tasklist_rel}; create it via /tasks-new {ticket}."
+        )
+    tasklist_text = tasklist_path.read_text(encoding="utf-8")
+
+    updated_text, heading_label, changed = _apply_handoff_tasks(
+        tasklist_text,
+        source=source,
+        report_label=report_label,
+        tasks=derived_tasks,
+        append=bool(args.append),
+        section_candidates=_HANDOFF_SECTION_HINTS.get(source, ()),
+    )
+
+    section_display = heading_label or "end of file"
+    if args.dry_run:
+        print(
+            f"[claude-workflow] (dry-run) {len(derived_tasks)} task(s) "
+            f"from {source} → {tasklist_rel} (section: {section_display})"
+        )
+        for task in derived_tasks:
+            print(f"  {task}")
+        return 0
+
+    if not changed:
+        print(f"[claude-workflow] tasklist already up to date for {source} report ({report_label}).")
+        return 0
+
+    tasklist_path.write_text(updated_text, encoding="utf-8")
+    print(
+        f"[claude-workflow] added {len(derived_tasks)} task(s) "
+        f"from {source} report ({report_label}) to {tasklist_rel} "
+        f"(section: {section_display}; mode={'append' if args.append else 'replace'})."
+    )
+    return 0
+
+
 def _ensure_research_doc(
     target: Path,
     ticket: str,
@@ -1467,6 +1757,48 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove the marker instead of updating it.",
     )
     reviewer_tests_parser.set_defaults(func=_reviewer_tests_command)
+
+    tasks_parser = subparsers.add_parser(
+        "tasks-derive",
+        help="Generate tasklist candidates from QA/Review/Research reports.",
+    )
+    tasks_parser.add_argument(
+        "--source",
+        choices=("qa", "review", "research"),
+        required=True,
+        help="Report source to derive tasks from.",
+    )
+    tasks_parser.add_argument(
+        "--ticket",
+        "--feature",
+        dest="ticket",
+        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+    )
+    tasks_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override used for messaging.",
+    )
+    tasks_parser.add_argument(
+        "--target",
+        default=".",
+        help="Directory containing the workflow project (default: current).",
+    )
+    tasks_parser.add_argument(
+        "--report",
+        help="Optional report path override (default depends on --source).",
+    )
+    tasks_parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Preserve existing handoff block and append new items instead of replacing it.",
+    )
+    tasks_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show planned changes without modifying files.",
+    )
+    tasks_parser.set_defaults(func=_tasks_derive_command)
 
     qa_parser = subparsers.add_parser(
         "qa",
