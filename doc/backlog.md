@@ -622,3 +622,14 @@ _Статус: активный, приоритет 2. Цель — устойч
 - [ ] `tests/test_feature_ids.py`, `tests/test_format_and_test_hook.py` (или новый): кейсы с длинным/многострочным тикетом → safe slug + хэш, отсутствие OSError, корректный путь к `reports/reviewer/...`.
 - [ ] `scripts/smoke-workflow.sh`: сценарий с намеренно длинным описанием тикета → auto-sanitize, успешный запуск хуков/тестов; убедиться, что логи содержат подсказку и что отчёты создаются по safe-имени.
 - [ ] Тесты на идемпотентность sanitize и на корректный вывод маппинга raw → safe в логах/контексте агентов; e2e миграцию существующего проблемного тикета/репортов.
+
+## Wave 45
+
+_Статус: новый, приоритет 2. Цель — оптимизировать Researcher CLI/агента с явными правилами call graph и baseline-скана._
+
+- [ ] `src/claude_workflow_cli/cli.py`: пересмотреть `research --auto` — по умолчанию включать `--deep-code` и `--call-graph`, если в scope есть kt/kts/java; для остальных языков оставлять лёгкий скан. Добавить эвристику «0 совпадений → предложить graph-only/reuse-only сужение путей/keywords» и понятные WARN в выводе.
+- [ ] `src/claude_workflow_cli/tools/researcher_context.py`: разнести fast-scan и graph-scan; если tree-sitter недоступен, писать INSTALL_HINT и сохранять state в контекст. Поддержать авто-выбор фильтра (`ticket|keywords`), флаг `--graph-mode auto|focus|full`, ограничение рёбер и сохранение полного графа отдельным файлом.
+- [ ] `.claude/agents/researcher.md`, `prompts/en/agents/researcher.md`: обновить инструкции — когда агент требует call graph, когда достаточно keyword/deep-code; добавить чеклист «если 0 совпадений → baseline + перечень уже выполненных команд и какие ещё запустить».
+- [ ] `.claude/commands/researcher.md`, `prompts/en/commands/researcher.md`, `/idea-new`: синхронизировать дефолтные параметры (JVM → call graph+deep-code, non-JVM → fast scan), описать эскалацию дополнительных `--paths/--keywords` и повторный запуск с graph-focus.
+- [ ] Документация: `docs/agents-playbook.md`, `docs/feature-cookbook.md`, `workflow.md` — добавить таблицу «когда запускать graph vs обычный ресерч», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста.
+- [ ] Тесты/смоук: кейсы `claude-workflow research --auto` в JVM-репо (строится граф, сохраняется полный JSON), в non-JVM (граф не строится, WARN), и «0 matches → baseline note». Обновить `tests/test_researcher_context.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`.
