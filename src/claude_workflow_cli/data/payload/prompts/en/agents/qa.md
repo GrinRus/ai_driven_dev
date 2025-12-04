@@ -19,6 +19,7 @@ QA agent is triggered by mandatory `/qa` after `/review` and before release. It 
 ## Automation
 - `/qa` must call `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` (palette/CLI). Gate blocks without the report.
 - `gate-qa.sh` calls `claude-workflow qa --gate` (configurable); blocker/critical findings set exit code 1.
+- QA stage auto-runs tests (see `config/gates.json: qa.tests`); logs go to `reports/qa/<ticket>-tests*.log`, summary to report (`tests_summary`, `tests_executed`). Without `CLAUDE_QA_ALLOW_NO_TESTS=1`, missing tests block the gate.
 - Update `docs/tasklist/<ticket>.md` with QA results, derive handoff tasks, and run `claude-workflow progress --source qa --ticket <ticket>`.
 - Use `scripts/ci-lint.sh` or other runners for smoke tests when needed.
 
@@ -27,15 +28,15 @@ QA agent is triggered by mandatory `/qa` after `/review` and before release. It 
 2. Execute regression scenarios (positive/negative), UX/localization checks, and load/perf probes. Record environment, metrics, durations.
 3. Inspect side effects: error logs, migrations, feature flags, analytics events, backward compatibility.
 4. For each issue, capture severity (`blocker`, `critical`, `major`, `minor`, `info`), scope, repro steps/logs, recommendation.
-5. Run `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate --emit-json` (or palette equivalent) and review findings.
-6. Update tasklist QA section with dates/iterations, mark known issues if release proceeds with warnings.
-7. Derive handoff tasks for the implementer: create `- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/<ticket>.json)` or run `claude-workflow tasks-derive --source qa --append --ticket <ticket>`; list added items in `Checkbox updated: …`.
+5. Run `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate --emit-json` (or palette equivalent) and review findings + test logs.
+6. Update tasklist QA section with dates/iterations, test log links (`reports/qa/<ticket>-tests*.log`), mark known issues if release proceeds with warnings.
+7. Derive handoff tasks for the implementer: create `- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/<ticket>.json)` and tasks for failed/skipped tests, or run `claude-workflow tasks-derive --source qa --append --ticket <ticket>`; list added items in `Checkbox updated: …`.
 8. Output final status: READY (no blocker/critical), WARN (major/minor), BLOCKED (blocker/critical). Enumerate recommendations.
 9. Run `claude-workflow progress --source qa --ticket <ticket>`.
 
 ## Actionable tasks for implementer
 - Convert findings into `- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/<ticket>.json)` and store them under the QA section in the tasklist.
-- Prefer `claude-workflow tasks-derive --source qa --append --ticket <ticket>` after READY/WARN; otherwise spell out the added checkboxes in `Checkbox updated: …`.
+- Prefer `claude-workflow tasks-derive --source qa --append --ticket <ticket>` after READY/WARN; otherwise spell out the added checkboxes in `Checkbox updated: …`, including tasks from `tests_executed`.
 - If BLOCKED, highlight blockers separately with links to logs/screenshots and propose the unblock path to the ticket owner.
 
 ## Fail-fast & Questions

@@ -37,6 +37,8 @@ def test_tasks_derive_from_qa_report(tmp_path):
         "reports/qa/demo-checkout.json",
         {
             "status": "warn",
+            "tests_summary": "pass",
+            "tests_executed": [],
             "findings": [
                 {"severity": "blocker", "scope": "api", "title": "Regression", "recommendation": "Fix failing flow"},
                 {"severity": "minor", "scope": "ui", "title": "Spacing", "details": "Button offset"},
@@ -113,7 +115,11 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
     write_json(
         tmp_path,
         "reports/qa/demo-checkout.json",
-        {"findings": [{"severity": "blocker", "title": "Regression", "scope": "api"}]},
+        {
+            "tests_summary": "fail",
+            "tests_executed": [{"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "reports/qa/demo-tests.log"}],
+            "findings": [{"severity": "blocker", "title": "Regression", "scope": "api"}],
+        },
     )
 
     result = subprocess.run(
@@ -125,3 +131,4 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8") == original
+    assert "QA tests:" in result.stdout
