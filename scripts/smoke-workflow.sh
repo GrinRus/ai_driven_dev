@@ -172,6 +172,8 @@ if "Status: approved" not in content:
     content = content.replace("Status: pending", "Status: approved", 1)
 path.write_text(content, encoding="utf-8")
 PY
+mkdir -p reports/prd
+echo '{"status":"approved"}' > "reports/prd/${TICKET}.json"
 
 log "expect block until research report ready"
 assert_gate_exit 2 "missing research report"
