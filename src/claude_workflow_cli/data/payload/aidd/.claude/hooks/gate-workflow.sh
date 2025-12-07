@@ -284,7 +284,7 @@ if allowed_values and value not in allowed_values:
     label = value or "empty"
     print(f"WARN: некорректный статус reviewer marker ({label}). Используйте required|optional|skipped.")
 elif value in required_values:
-    print(f\"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов.\")
+    print(f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов.")
 PY
 )"
   if [[ -n "$reviewer_notice" ]]; then
