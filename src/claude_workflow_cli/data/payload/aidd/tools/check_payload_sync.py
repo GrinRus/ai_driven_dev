@@ -32,6 +32,8 @@ DEFAULT_PATHS = [
     "scripts/smoke-workflow.sh",
 ]
 
+DEFAULT_PAYLOAD_PREFIX = "aidd"
+
 
 def hash_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -50,11 +52,12 @@ def _should_skip(path: Path) -> bool:
     return False
 
 
-def collect_entries(base: Path, relative: str) -> Dict[str, str] | None:
-    target = (base / relative).resolve()
+def collect_entries(base: Path, relative: str, *, prefix: str = "") -> Dict[str, str] | None:
+    target_root = Path(prefix) / Path(relative)
+    target = (base / target_root).resolve()
+    rel_root = Path(relative)
     if not target.exists():
         return None
-    rel_root = Path(relative)
     entries: Dict[str, str] = {}
     if target.is_file():
         if _should_skip(target):
@@ -73,6 +76,8 @@ def compare_paths(
     repo_root: Path,
     payload_root: Path,
     paths: Sequence[str],
+    *,
+    payload_prefix: str = "",
 ) -> List[str]:
     mismatches: List[str] = []
     for relative in paths:
@@ -80,7 +85,7 @@ def compare_paths(
         if not relative:
             continue
         repo_entries = collect_entries(repo_root, relative)
-        payload_entries = collect_entries(payload_root, relative)
+        payload_entries = collect_entries(payload_root, relative, prefix=payload_prefix)
         if repo_entries is None and payload_entries is None:
             mismatches.append(f"{relative}: missing in repo and payload snapshots")
             continue
@@ -134,6 +139,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
         action="append",
         help="Comma-separated subset of paths to compare (default: predefined list).",
     )
+    parser.add_argument(
+        "--payload-prefix",
+        default=DEFAULT_PAYLOAD_PREFIX,
+        help=f"Optional prefix under payload root (default: {DEFAULT_PAYLOAD_PREFIX}).",
+    )
     return parser
 
 
@@ -148,7 +158,12 @@ def main(argv: list[str] | None = None) -> int:
     if not payload_root.is_dir():
         parser.error(f"payload directory not found: {payload_root}")
     paths = parse_paths(args.paths)
-    mismatches = compare_paths(repo_root, payload_root, paths)
+    mismatches = compare_paths(
+        repo_root,
+        payload_root,
+        paths,
+        payload_prefix=args.payload_prefix.strip("/"),
+    )
     if mismatches:
         print("[payload-sync] detected mismatches:")
         for item in mismatches:

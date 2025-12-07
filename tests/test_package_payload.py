@@ -22,26 +22,27 @@ def test_payload_includes_dotfiles(tmp_path):
     wheels = sorted(dist_dir.glob("claude_workflow_cli-*.whl"))
     assert wheels, "wheel build should produce at least one wheel"
     wheel = wheels[-1]
+    prefix = "claude_workflow_cli/data/payload/aidd"
     with zipfile.ZipFile(wheel) as z:
         names = set(z.namelist())
         for expected in [
-            "claude_workflow_cli/data/payload/CLAUDE.md",
-            "claude_workflow_cli/data/payload/conventions.md",
-            "claude_workflow_cli/data/payload/workflow.md",
-            "claude_workflow_cli/data/payload/config/conventions.json",
-            "claude_workflow_cli/data/payload/config/gates.json",
-            "claude_workflow_cli/data/payload/config/allowed-deps.txt",
-            "claude_workflow_cli/data/payload/.claude/settings.json",
-            "claude_workflow_cli/data/payload/.claude/hooks/lib.sh",
-            "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/__init__.py",
-            "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
-            "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/progress.py",
-            "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
-            "claude_workflow_cli/data/payload/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-            "claude_workflow_cli/data/payload/.claude/cache/.gitkeep",
-            "claude_workflow_cli/data/payload/docs/plan/.gitkeep",
-            "claude_workflow_cli/data/payload/docs/adr/.gitkeep",
-            "claude_workflow_cli/data/payload/docs/prd/.gitkeep",
+            f"{prefix}/CLAUDE.md",
+            f"{prefix}/conventions.md",
+            f"{prefix}/workflow.md",
+            f"{prefix}/config/conventions.json",
+            f"{prefix}/config/gates.json",
+            f"{prefix}/config/allowed-deps.txt",
+            f"{prefix}/.claude/settings.json",
+            f"{prefix}/.claude/hooks/lib.sh",
+            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/__init__.py",
+            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
+            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/progress.py",
+            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
+            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+            f"{prefix}/.claude/cache/.gitkeep",
+            f"{prefix}/docs/plan/.gitkeep",
+            f"{prefix}/docs/adr/.gitkeep",
+            f"{prefix}/docs/prd/.gitkeep",
             "claude_workflow_cli/data/payload/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"

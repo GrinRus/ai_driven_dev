@@ -1459,6 +1459,12 @@ def _select_payload_entries(
     strip_prefix: str | None = None,
 ) -> list[tuple[Path, Path]]:
     include_list = list(includes or [])
+    include_rel: list[Path] = []
+    if strip_prefix and include_list:
+        prefix_path = Path(strip_prefix.strip("/"))
+        include_rel = [prefix_path / inc for inc in include_list]
+    else:
+        include_rel = include_list
     entries: list[tuple[Path, Path]] = []
     normalized_prefix = ""
     if strip_prefix:
@@ -1466,7 +1472,7 @@ def _select_payload_entries(
     for src in _iter_payload_files(payload_path):
         rel = src.relative_to(payload_path)
         rel_posix = rel.as_posix()
-        if include_list and not any(_is_relative_to(rel, inc) for inc in include_list):
+        if include_rel and not any(_is_relative_to(rel, inc) for inc in include_rel):
             continue
         if normalized_prefix:
             if not rel_posix.startswith(normalized_prefix):
