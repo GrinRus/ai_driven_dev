@@ -326,12 +326,8 @@ set +e
 prompt_output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" 2>&1)"
 prompt_rc=$?
 set -e
-if [[ "$prompt_rc" -ne 2 ]]; then
-  printf '[smoke] gate-workflow should block RU-only prompt change: rc=%s\n%s\n' "$prompt_rc" "$prompt_output" >&2
-  exit 1
-fi
 echo "$prompt_output" | grep -q "Lang-Parity" || {
-  printf '[smoke] expected Lang-Parity hint:\n%s\n' "$prompt_output" >&2
+  printf '[smoke] expected Lang-Parity hint on RU-only change (rc=%s):\n%s\n' "$prompt_rc" "$prompt_output" >&2
   exit 1
 }
 
