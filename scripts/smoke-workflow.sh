@@ -222,7 +222,8 @@ Research: docs/research/demo-checkout.md
 EOF
 
 log "gate now allows source edits"
-CLAUDE_PROJECT_DIR="$WORKDIR" CLAUDE_SKIP_REVIEWER_GATE=1 assert_gate_exit 0 "all artifacts ready"
+run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
+CLAUDE_PROJECT_DIR="$WORKDIR" assert_gate_exit 0 "all artifacts ready"
 
 log "commit baseline state"
 git add .
