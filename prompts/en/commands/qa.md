@@ -13,7 +13,7 @@ model: inherit
 
 ## Input Artifacts
 - Active ticket (`docs/.active_ticket`), slug hint (`docs/.active_feature`).
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA section), logs from previous gates (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
+- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA section), logs from previous gates (`gate-tests`).
 - Diff/logs (`git diff`, `reports/reviewer/<ticket>.json`, test outputs, demo/staging info).
 
 ## When to Run

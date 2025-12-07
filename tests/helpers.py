@@ -11,8 +11,6 @@ HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
     "feature_slug_hint_source": "docs/.active_feature",
-    "api_contract": True,
-    "db_migration": True,
     "tests_required": "soft",
     "deps_allowlist": False,
     "prd_review": {

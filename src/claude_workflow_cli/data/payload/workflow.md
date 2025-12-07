@@ -55,7 +55,7 @@
 - Саб-агент **implementer** следует шагам плана, учитывает выводы `docs/research/<ticket>.md` и PRD и вносит изменения малыми итерациями, опираясь на данные репозитория.
 - После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`). Любые ручные команды (`./gradlew test`, `gradle lint`, `claude-workflow progress --source implement --ticket <ticket>`) нужно перечислять в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
-- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`, `gate-api-contract.sh` и `gate-db-migration.sh`.
+- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`.
 - После отчётов QA/Review/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 ### 7. Ревью (`/review`)
@@ -72,10 +72,9 @@
 
 ## Автоматизация и гейты
 
-- Пресет `strict` в `.claude/settings.json` включает pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-api-contract.sh`, `gate-db-migration.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
+- Пресет `strict` в `.claude/settings.json` включает pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
 - `config/gates.json` управляет дополнительными проверками:
-  - `api_contract` — при `true` ожидает наличие `docs/api/<ticket>.yaml` для контроллеров.
-  - `db_migration` — при `true` требует новую миграцию в `src/main/resources/**/db/migration/`.
+  - дополнительные гейты конфигурируются в `config/gates.json` (см. `tests_required`, `qa`).
   - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `reports/prd/<ticket>.json`.
   - `researcher` — проверяет наличие `docs/research/<ticket>.md`, статус `Status: reviewed`, свежесть `reports/research/<ticket>-context.json` и заполненность `reports/research/<ticket>-targets.json`.
   - `analyst` — следит за блоком `## Диалог analyst`, наличием ответов `Ответ N` и запретом статуса READY при незакрытых вопросах; используется командой `claude-workflow analyst-check` и хуком `gate-workflow.sh`.

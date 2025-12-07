@@ -13,7 +13,7 @@ QA agent is triggered by mandatory `/qa` after `/review` and before release. It 
 
 ## Input Artifacts
 - `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA sections).
-- Logs from previous gates (`gate-tests`, `gate-api-contract`, `gate-db-migration`) and results from `claude-workflow qa`/`scripts/qa-agent.py`.
+- Logs from previous gates (`gate-tests`) and results from `claude-workflow qa`/`scripts/qa-agent.py`.
 - Demo/staging environment info, `docs/qa-playbook.md` for UX/performance checklists.
 
 ## Automation
