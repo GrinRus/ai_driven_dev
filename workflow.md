@@ -1,10 +1,10 @@
 # Workflow Claude Code
 
-Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит семь этапов: **идея → research → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
+Документ описывает целевой процесс работы команды после запуска `claude-workflow init --target .` (payload раскладывается в поддиректорию `aidd/`). Цикл строится вокруг идеи и проходит семь этапов: **идея → research → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
 
 > Ticket — основной идентификатор фичи (`docs/.active_ticket`), slug-hint при необходимости сохраняется в `docs/.active_feature` и используется в шаблонах и логах.
 >
-> **Важно:** `.claude/`, `docs/`, `templates/` и скрипты в корне — это развернутый snapshot. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
+> **Важно:** теперь все служебные файлы живут в `aidd/` (`aidd/.claude`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/scripts`, `aidd/tools`). Все правки вносятся в `src/claude_workflow_cli/data/payload/aidd`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 
 ## Обзор этапов
 
