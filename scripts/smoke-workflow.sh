@@ -10,6 +10,7 @@ INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
+WORKDIR=""
 
 run_cli() {
   python3 "$CLI_HELPER" "$@"
@@ -35,7 +36,7 @@ assert_gate_exit() {
   local note="$2"
   local output rc
   set +e
-  output="$(CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$PAYLOAD" 2>&1)"
+  output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
   rc=$?
   set -e
   if [[ "$rc" -ne "$expected" ]]; then
@@ -54,11 +55,12 @@ git config user.name "Smoke Bot"
 git config user.email "smoke@example.com"
 
 log "bootstrap workflow scaffolding"
-bash "$INIT_SCRIPT" --force >/dev/null
+run_cli init --target . --force >/dev/null
+WORKDIR="${TMP_DIR}/aidd"
 
 log "create demo source file"
-mkdir -p src/main/kotlin
-cat <<'KT' >src/main/kotlin/App.kt
+mkdir -p "$WORKDIR/src/main/kotlin"
+cat <<'KT' >"$WORKDIR/src/main/kotlin/App.kt"
 package demo
 
 class App {
@@ -70,9 +72,10 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-python3 tools/set_active_feature.py "$TICKET" >/dev/null
+python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
+pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
@@ -256,7 +259,7 @@ PY
 
 PROMPT_PAYLOAD='{"tool_input":{"file_path":".claude/agents/analyst.md"}}'
 set +e
-prompt_output="$(CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$PROMPT_PAYLOAD" 2>&1)"
+prompt_output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" 2>&1)"
 prompt_rc=$?
 set -e
 if [[ "$prompt_rc" -ne 2 ]]; then
@@ -279,7 +282,7 @@ text = text.replace('source_version: 1.0.0', 'source_version: 1.0.1', 1)
 path.write_text(text, encoding='utf-8')
 PY
 
-if ! CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$PROMPT_PAYLOAD" >/dev/null; then
+if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" >/dev/null; then
   echo "[smoke] gate-workflow should pass after EN sync" >&2
   exit 1
 fi
@@ -301,7 +304,6 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/nul
 grep -q "Status: approved" "docs/prd/${TICKET}.prd.md"
 grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
 
-popd >/dev/null
 log "smoke scenario passed"
 log "аналогичная проверка для команд"
 python3 - <<'PY'
@@ -316,7 +318,7 @@ PY
 
 CMD_PAYLOAD='{"tool_input":{"file_path":".claude/commands/plan-new.md"}}'
 set +e
-cmd_output="$(CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$CMD_PAYLOAD" 2>&1)"
+cmd_output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$CMD_PAYLOAD" 2>&1)"
 cmd_rc=$?
 set -e
 if [[ "$cmd_rc" -ne 2 ]]; then
@@ -339,7 +341,7 @@ if en_path.exists():
     en_path.unlink()
 PY
 
-if ! CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$CMD_PAYLOAD" >/dev/null; then
+if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$CMD_PAYLOAD" >/dev/null; then
   echo "[smoke] gate-workflow should pass with Lang-Parity skip" >&2
   exit 1
 fi
@@ -360,7 +362,9 @@ text = text.replace('\nLang-Parity: skip', '', 1)
 ru_path.write_text(text, encoding='utf-8')
 PY
 
-if ! CLAUDE_PROJECT_DIR="$PWD" ./.claude/hooks/gate-workflow.sh <<<"$CMD_PAYLOAD" >/dev/null; then
+if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$CMD_PAYLOAD" >/dev/null; then
   echo "[smoke] gate-workflow should pass after restoring EN command" >&2
   exit 1
 fi
+popd >/dev/null
+popd >/dev/null
