@@ -19,10 +19,11 @@ INSTALL_HINT = (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEV_SRC = PROJECT_ROOT / "src"
 VENDOR_DIR = PROJECT_ROOT / ".claude" / "hooks" / "_vendor"
+HAS_VENDOR = VENDOR_DIR.exists()
 
 if DEV_SRC.exists():
     sys.path.insert(0, str(DEV_SRC))
-if VENDOR_DIR.exists():
+if HAS_VENDOR:
     sys.path.insert(0, str(VENDOR_DIR))
 
 class CliNotFoundError(RuntimeError):
@@ -36,7 +37,7 @@ class Runner:
 
 
 def _module_available() -> bool:
-    if DEV_SRC.exists():
+    if DEV_SRC.exists() or HAS_VENDOR:
         return True
     try:
         import importlib.util
@@ -70,7 +71,7 @@ def _resolve_runner() -> Runner:
     override_python = os.environ.get("CLAUDE_WORKFLOW_PYTHON")
     if override_python:
         return Runner([override_python, "-m", "claude_workflow_cli.cli"], True)
-    if DEV_SRC.exists() or _module_available():
+    if DEV_SRC.exists() or HAS_VENDOR or _module_available():
         return Runner([sys.executable, "-m", "claude_workflow_cli.cli"], True)
     discovered = shutil.which("claude-workflow")
     if discovered:
