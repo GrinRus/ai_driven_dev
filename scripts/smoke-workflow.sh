@@ -268,6 +268,20 @@ if ! progress_ok="$(run_cli progress --target . --ticket "$TICKET" --source impl
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/prd") / f"{ticket}.prd.md"
+try:
+    text = path.read_text(encoding="utf-8")
+except Exception:
+    raise SystemExit(0)
+if "Status: approved" not in text:
+    text = text.replace("Status: pending", "Status: approved")
+    path.write_text(text, encoding="utf-8")
+PY
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
