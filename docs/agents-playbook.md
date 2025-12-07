@@ -25,8 +25,6 @@
 | 7 | `/review <ticket>` | `reviewer` | Готовая ветка и артефакты | Замечания в `docs/tasklist/<ticket>.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
 | 8 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, `docs/tasklist/<ticket>.md`, результаты гейтов | JSON-отчёт `reports/qa/<ticket>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
-> Дополнительные агенты (`contract-checker`, `db-migrator`) вызываются вручную через палитру `Claude: Run agent …`, когда включены соответствующие гейты или требуется ручная проверка. Рядом с ними нет отдельных слэш-команд.
-
 ## Агенты и ожидаемые результаты
 
 ### analyst — аналитика идеи
@@ -73,7 +71,7 @@
 - **Вход:** утверждённый план, `docs/tasklist/<ticket>.md`, `docs/research/<ticket>.md`, PRD, актуальный diff.
 - **Процесс:** агент выбирает следующий пункт плана/тасклиста, читает связанные файлы и реализует минимальный diff. После каждой записи автоматически запускается `.claude/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`). Все ручные команды (`./gradlew test`, `gradle spotlessApply`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
 - **Коммуникация:** вопросы пользователю задаются только после того, как агент перечислил проверенные артефакты (план, research, код, тесты) и пояснил, какой информации не хватает.
-- **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …`, фиксируйте дату/итерацию и запускайте `claude-workflow progress --source implement --ticket <ticket>` — команда отследит, появились ли новые `- [x]`. `gate-workflow`, `gate-db-migration`, `gate-tests` отображают статусы и блокируют push при нарушениях.
+- **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …`, фиксируйте дату/итерацию и запускайте `claude-workflow progress --source implement --ticket <ticket>` — команда отследит, появились ли новые `- [x]`. `gate-workflow` и `gate-tests` отображают статусы и блокируют push при нарушениях.
 
 ### reviewer — код-ревью
 - **Вызов:** `/review <ticket>`
@@ -91,22 +89,10 @@
 - **Handoff:** после статуса READY/WARN вызовите `claude-workflow tasks-derive --source qa --append --ticket <ticket>` — новые `- [ ]` в tasklist должны содержать ссылку на `reports/qa/<ticket>.json`.
 - **Прогресс:** после каждой регрессии фиксируйте, какие чекбоксы закрыты (`Checkbox updated: …`), и запускайте `claude-workflow progress --source qa --ticket <ticket>`, чтобы хук `gate-workflow.sh` не блокировал правки.
 
-### db-migrator — миграции БД *(опционально)*
-- **Вызов:** `Claude: Run agent → db-migrator`, когда `config/gates.json: db_migration=true`.
-- **Выход:** новая миграция (`src/main/resources/**/db/migration/*.sql|*.xml|*.yaml`) и заметки о ручных шагах.
-- **Готовность:** миграция покрывает все изменения доменной модели, гейт `gate-db-migration.sh` пропускает правки.
-
-### contract-checker — сверка API *(опционально)*
-- **Вызов:** `Claude: Run agent → contract-checker`, когда `api_contract=true`.
-- **Выход:** отчёт о расхождениях между контроллерами и `docs/api/<ticket>.yaml`.
-- **Готовность:** все эндпоинты синхронизированы с контрактом или занесены в backlog.
-
 ## Работа с барьерами
 
 - `gate-workflow.sh` активен всегда и блокирует `src/**`, пока не готовы PRD, план и `docs/tasklist/<ticket>.md`. Он также проверяет, что после изменений появились новые `- [x]` (гейт `tasklist_progress`); для handoff допускаются новые `- [ ]` с ссылкой на отчёт при вызове `claude-workflow progress --source handoff`.
 - Дополнительные проверки настраиваются в `config/gates.json`:
-  - `api_contract=true` — требует `docs/api/<ticket>.yaml` для правок контроллеров.
-  - `db_migration=true` — ищет новые файлы в `src/main/resources/**/db/migration/`.
   - `tests_required`: `disabled` / `soft` / `hard` — предупреждение или блокировка при отсутствии тестов.
 - Сообщения гейтов содержат подсказки (какой файл создать, как отключить проверку).
 

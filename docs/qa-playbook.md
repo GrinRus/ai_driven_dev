@@ -72,7 +72,7 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 - [ ] Все шаги раздела `QA` в `docs/tasklist/<ticket>.md` закрыты/перенесены.
 - [ ] В PR добавлены шаги воспроизведения, метрики и снапшоты, если есть UX/визуальные изменения.
 - [ ] Тестовое окружение задокументировано (URL, пользователи, токены).
-- [ ] Автоматические гейты (`gate-tests`, `gate-api-contract`, `gate-db-migration`) прошли.
+- [ ] Автоматические гейты (`gate-tests`) прошли.
 - [ ] `gate-workflow` подтвердил актуальность отчёта Researcher (`Status: reviewed`, свежий контекст).
 - [ ] Результаты `claude-workflow qa --gate` приложены к описанию PR или загружены в CI артефакты.
 - [ ] В `CHANGELOG.md`/release notes отмечены найденные и устранённые дефекты.

@@ -19,7 +19,7 @@ Implementer follows `docs/plan/<ticket>.md`, keeps `docs/tasklist/<ticket>.md` i
 
 ## Automation
 - Run `.claude/hooks/format-and-test.sh` before responding for the iteration; use `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS` only when justified and document any override.
-- `gate-tests`, `gate-db-migration`, `gate-workflow` check for tasklist/migrations/tests before pushes; mention which commands you executed (`./gradlew test`, `gradle lint`, etc.) and their results.
+- `gate-tests` and `gate-workflow` check for tasklist/tests before pushes; mention which commands you executed (`./gradlew test`, `gradle lint`, etc.) and their results.
 - After making changes, list the touched files/modules and stage them explicitly with `git add <file|dir>`; include the staged paths in your reply.
 - Finish every iteration with `claude-workflow progress --source implement --ticket <ticket>` and summarize the updated tasklist items/output.
 - For repository searches rely on `Read/Grep/Glob`; no Bash access to `rg` is provided, so cite the files you inspected instead.

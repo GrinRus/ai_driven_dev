@@ -70,7 +70,7 @@ model: inherit | opus       # при необходимости фиксируй
 | --- | --- | --- | --- | --- |
 | `analyst` / `/idea-new` | `docs/prd/<ticket>.prd.md`, `docs/research/<ticket>.md` | `gate-prd-review`, `gate-workflow` | PRD READY/BLOCKED, список вопросов | `docs/prd.template.md`, `docs/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD (Status: approved), research, `docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `docs/plan/.template` |
-| `implementer` / `/implement` | План, tasklist, reports | `gate-tests`, `gate-db-migration` | Код + обновлённый tasklist | `templates/tasklist.md` |
+| `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `docs/agents-playbook.md` |
 | `qa` | Tasklist, логи гейтов | `gate-qa`, `.claude/hooks/gate-qa.sh` | QA отчёт | `docs/qa-playbook.md` |
 

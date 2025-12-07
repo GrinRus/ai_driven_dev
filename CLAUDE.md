@@ -9,9 +9,7 @@
 
 ## Хуки и гейты
 - `.claude/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD, план и `docs/tasklist/<ticket>.md`.
-- `.claude/hooks/gate-db-migration.sh` — опционально проверяет, что изменения домена сопровождаются миграцией (`config/gates.json: db_migration=true`).
 - `.claude/hooks/gate-tests.sh` — опционально требует наличие юнит-тестов для изменённых исходников (`tests_required=soft|hard`).
-- `.claude/hooks/gate-api-contract.sh` — опционально сверяет наличие `docs/api/$TICKET.yaml` для контроллеров (`api_contract=true`).
 - `.claude/hooks/format-and-test.sh` — форматирует код и запускает выборочные Gradle-тесты после каждой записи (отключается `SKIP_AUTO_TESTS=1`).
 - `.claude/hooks/lint-deps.sh` — напоминает про allowlist зависимостей.
 

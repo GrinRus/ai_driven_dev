@@ -1,8 +1,6 @@
 {
   "feature_ticket_source": "docs/.active_ticket",
   "feature_slug_hint_source": "docs/.active_feature",
-  "api_contract": false,
-  "db_migration": false,
   "tests_required": "soft",
   "deps_allowlist": false,
   "prd_review": {
@@ -75,8 +73,7 @@
       "docs/*"
     ],
     "requires": [
-      "gate-tests",
-      "gate-api-contract"
+      "gate-tests"
     ],
     "command": [
       "claude-workflow",

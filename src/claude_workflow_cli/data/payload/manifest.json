@@ -7,18 +7,6 @@
       "sha256": "674ab5a7fc978cdfb24d534e26f100196912aefda62d3aeb72e510c55a550492"
     },
     {
-      "path": ".claude/agents/contract-checker.md",
-      "type": "file",
-      "size": 3077,
-      "sha256": "d3b8f103a80e582c75b38a510d3c46fd3fae061d58a5cfa29a44a61db3e64d2d"
-    },
-    {
-      "path": ".claude/agents/db-migrator.md",
-      "type": "file",
-      "size": 3441,
-      "sha256": "9974aca14475e06114832f1bb89ec42da38f869baad8804a7f00c1a57dcafc6b"
-    },
-    {
       "path": ".claude/agents/implementer.md",
       "type": "file",
       "size": 8001,
@@ -109,12 +97,6 @@
       "sha256": "1042762d0830d19107d55783e21cac7bfa03439244426de04836404844aa45be"
     },
     {
-      "path": ".claude/commands/reviewer.md",
-      "type": "file",
-      "size": 2671,
-      "sha256": "43b13d42dd5c6025a39af4fc2f9fe68311c7a54e400a8febfdc2625eee587e50"
-    },
-    {
       "path": ".claude/commands/tasks-new.md",
       "type": "file",
       "size": 3711,
@@ -161,18 +143,6 @@
       "type": "file",
       "size": 19640,
       "sha256": "8bc4b011e15445316b84dfe7d635b4d319f4985e4684bb319c848da5b67e3571"
-    },
-    {
-      "path": ".claude/hooks/gate-api-contract.sh",
-      "type": "file",
-      "size": 1864,
-      "sha256": "5e01a03869acb278ba76a731469af5a45c63f344938abd500621baa1aa62dc2f"
-    },
-    {
-      "path": ".claude/hooks/gate-db-migration.sh",
-      "type": "file",
-      "size": 1637,
-      "sha256": "4a616b9b8d2937cc52737789d061780b8c825a2ba026cae5a4f0407f49688926"
     },
     {
       "path": ".claude/hooks/gate-prd-review.sh",
@@ -427,18 +397,6 @@
       "sha256": "bb0f850dfceee0d13e7056ac92964d6e266916a980031cfcc5037959e9c43c5c"
     },
     {
-      "path": "prompts/en/agents/contract-checker.md",
-      "type": "file",
-      "size": 1623,
-      "sha256": "99a7d45d4d170f8476001f1e8d8f84697d711c67f67615cbdc86194a33caebe8"
-    },
-    {
-      "path": "prompts/en/agents/db-migrator.md",
-      "type": "file",
-      "size": 1766,
-      "sha256": "d4e888978f9f47a9a252b6d8a39b64283bb07a528ce3d2debd342f748f1b1b50"
-    },
-    {
       "path": "prompts/en/agents/implementer.md",
       "type": "file",
       "size": 4144,
@@ -521,12 +479,6 @@
       "type": "file",
       "size": 1827,
       "sha256": "2285de165db2b7bd71c58b1bfcd7cf62bcae5a7b5d98a1d3a883693d120bcec9"
-    },
-    {
-      "path": "prompts/en/commands/reviewer.md",
-      "type": "file",
-      "size": 1606,
-      "sha256": "e76deb533c672f4b2816f48ed3786d94edf4bee514415ece2821386669cdd800"
     },
     {
       "path": "prompts/en/commands/tasks-new.md",
