@@ -89,7 +89,7 @@ log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
 
 log "apply preset feature-prd"
-bash "$INIT_SCRIPT" --preset feature-prd --ticket "$TICKET" >/dev/null
+run_cli preset feature-prd --target "$WORKDIR" --ticket "$TICKET" >/dev/null
 
 log "mark analyst dialog ready"
 python3 - "$TICKET" <<'PY'
@@ -159,7 +159,7 @@ log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
 log "apply preset feature-plan"
-bash "$INIT_SCRIPT" --preset feature-plan --ticket "$TICKET" >/dev/null
+run_cli preset feature-plan --target "$WORKDIR" --ticket "$TICKET" >/dev/null
 log "ensure plan содержит Architecture & Patterns и reuse"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
@@ -184,7 +184,7 @@ log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
 log "apply preset feature-impl"
-bash "$INIT_SCRIPT" --preset feature-impl --ticket "$TICKET" >/dev/null
+run_cli preset feature-impl --target "$WORKDIR" --ticket "$TICKET" >/dev/null
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 
