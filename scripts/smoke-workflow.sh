@@ -51,15 +51,16 @@ assert_gate_exit() {
 
 log "working directory: $TMP_DIR"
 pushd "$TMP_DIR" >/dev/null
-log "initialise git repository"
+log "bootstrap workflow scaffolding"
+run_cli init --target . --force >/dev/null
+WORKDIR="${TMP_DIR}/aidd"
+
+log "initialise git repository in aidd/"
+pushd "$WORKDIR" >/dev/null
 git init -q
 git config user.name "Smoke Bot"
 git config user.email "smoke@example.com"
 git checkout -b feature/smoke >/dev/null
-
-log "bootstrap workflow scaffolding"
-run_cli init --target . --force >/dev/null
-WORKDIR="${TMP_DIR}/aidd"
 
 log "create demo source file"
 mkdir -p "$WORKDIR/src/main/kotlin"
@@ -78,7 +79,6 @@ log "activate feature ticket"
 python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" --target "$WORKDIR" >/dev/null
 
 log "auto-collect research context before analyst"
-pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
