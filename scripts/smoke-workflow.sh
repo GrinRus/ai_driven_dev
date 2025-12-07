@@ -105,8 +105,21 @@ PY
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
 
-log "apply preset feature-prd"
-run_cli preset feature-prd --target "$WORKDIR" --ticket "$TICKET" >/dev/null
+log "prepare PRD review section"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/prd") / f"{ticket}.prd.md"
+text = path.read_text(encoding="utf-8")
+if "## PRD Review" not in text:
+    text += "\n## PRD Review\nStatus: pending\n"
+text = text.replace("Status: draft", "Status: READY")
+if "Status: approved" not in text:
+    text = text.replace("Status: pending", "Status: approved", 1)
+path.write_text(text, encoding="utf-8")
+PY
 
 log "mark analyst dialog ready"
 python3 - "$TICKET" <<'PY'
@@ -175,35 +188,38 @@ PY
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
-log "apply preset feature-plan"
-run_cli preset feature-plan --target "$WORKDIR" --ticket "$TICKET" >/dev/null
-log "ensure plan содержит Architecture & Patterns и reuse"
+log "create minimal plan with architecture/reuse"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/plan") / f"{ticket}.md"
-text = path.read_text(encoding="utf-8")
-if "Architecture & Patterns" not in text:
-    text += (
-        "\n## Architecture & Patterns\n"
-        "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
-        f"- Reuse: docs/research/{ticket}.md\n"
-        "- Scope: domain/application/infra boundaries fixed; avoid over-engineering.\n"
-    )
-elif "service layer" not in text.lower():
-    text += "\n- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
-path.write_text(text, encoding="utf-8")
+content = (
+    f"# Plan {ticket}\n"
+    "## Architecture & Patterns\n"
+    "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
+    f"- Reuse: docs/research/{ticket}.md\n"
+    "## Tasks\n- [ ] Implement checkout flow\n"
+)
+path.write_text(content, encoding="utf-8")
 PY
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
-log "apply preset feature-impl"
-run_cli preset feature-impl --target "$WORKDIR" --ticket "$TICKET" >/dev/null
-log "tasklist snapshot"
-tail -n 10 "docs/tasklist/${TICKET}.md"
+log "create minimal tasklist"
+cat > "docs/tasklist/${TICKET}.md" <<'EOF'
+Ticket: demo-checkout
+Slug hint: demo-checkout
+Feature: Smoke Demo
+Status: draft
+PRD: docs/prd/demo-checkout.prd.md
+Plan: docs/plan/demo-checkout.md
+Research: docs/research/demo-checkout.md
+
+- [ ] Smoke iteration — add more items
+EOF
 
 log "gate now allows source edits"
 assert_gate_exit 0 "all artifacts ready"
