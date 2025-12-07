@@ -131,6 +131,19 @@ def _split_keywords(value: Optional[str]) -> Sequence[str]:
     return [chunk.strip().lower() for chunk in value.split(",") if chunk.strip()]
 
 
+def _cli_available() -> bool:
+    if run_cli is None:
+        return False
+    try:
+        import importlib.util
+
+        if importlib.util.find_spec("claude_workflow_cli.cli"):
+            return True
+    except Exception:
+        pass
+    return bool(shutil.which("claude-workflow"))
+
+
 def _run_cli_research_targets(
     root: Path,
     ticket: str,
@@ -141,6 +154,8 @@ def _run_cli_research_targets(
     config_arg: Optional[str],
 ) -> bool:
     if run_cli is None:
+        return False
+    if not _cli_available():
         return False
     cli_args = [
         "research",
