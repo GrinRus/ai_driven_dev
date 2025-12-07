@@ -115,6 +115,12 @@
       "sha256": "c120060ac8e673499deb323bbdcee0e93ffc33ae6de087c8c19a92883e3d66d4"
     },
     {
+      "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/cli.py",
+      "type": "file",
+      "size": 80514,
+      "sha256": "cc03a4403a1d7b3081b38dce5bade31158216debab554f79a90de6c9baaa88cf"
+    },
+    {
       "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
       "type": "file",
       "size": 3567,
@@ -125,6 +131,12 @@
       "type": "file",
       "size": 19887,
       "sha256": "cfde71bf371cd2a08aa7028aa6d3118acc16bae95b0c33cfeed85bebf77a86e2"
+    },
+    {
+      "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/resources.py",
+      "type": "file",
+      "size": 944,
+      "sha256": "12a8f071821c59393a294fe0df4174b23fd51662e27478cafddee12178c17202"
     },
     {
       "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
@@ -387,8 +399,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 20196,
-      "sha256": "6fe0307a9ddab442983ef6b9341868d36d1766c2ced6c5e2b70df35dffc1217c"
+      "size": 19734,
+      "sha256": "c082f7068b57a34a227976c1785cf3769d63c698feea3379e3b73e298e124ab7"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",
@@ -609,14 +621,14 @@
     {
       "path": "aidd/tools/run_cli.py",
       "type": "file",
-      "size": 3614,
-      "sha256": "03748477c3bc8f039dd7239279abb3bad4098ef5556323c34f698a4cc4460bab"
+      "size": 3823,
+      "sha256": "3708f73bcab5f0d9be59bae4c735dce52180399f00619b80a5579015317deba5"
     },
     {
       "path": "aidd/tools/set_active_feature.py",
       "type": "file",
-      "size": 8460,
-      "sha256": "80b10aca66680237422d269a8acfd1fca9657d70b9b531fcce2800349e9616cc"
+      "size": 8865,
+      "sha256": "af032e4440b3537e8d99a62e49ff51249536f3c0933cecf656773f86beac4fbe"
     },
     {
       "path": "aidd/workflow.md",
