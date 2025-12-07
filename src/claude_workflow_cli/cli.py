@@ -41,6 +41,10 @@ from claude_workflow_cli.tools.researcher_context import (
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
+from claude_workflow_cli.resources import (
+    DEFAULT_PROJECT_SUBDIR,
+    resolve_project_root,
+)
 
 
 PAYLOAD_PACKAGE = "claude_workflow_cli.data"
@@ -59,6 +63,33 @@ DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 DEFAULT_QA_TEST_COMMAND = [["bash", ".claude/hooks/format-and-test.sh"]]
+
+
+def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path]:
+    workspace_root, project_root = resolve_project_root(raw_target, DEFAULT_PROJECT_SUBDIR)
+    if project_root.exists():
+        return workspace_root, project_root
+    if create:
+        project_root.mkdir(parents=True, exist_ok=True)
+        return workspace_root, project_root
+    if not raw_target.exists():
+        raise FileNotFoundError(f"target directory {raw_target} does not exist")
+    raise FileNotFoundError(
+        f"workflow not found at {project_root}. Initialise the workflow via "
+        f"'claude-workflow init --target {workspace_root}' "
+        f"(default subdir: {DEFAULT_PROJECT_SUBDIR})."
+    )
+
+
+def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
+    workspace_root, project_root = _resolve_roots(raw_target, create=False)
+    if not (project_root / ".claude").exists():
+        raise FileNotFoundError(
+            f"workflow files not found at {project_root}/.claude; "
+            f"run 'claude-workflow init --target {workspace_root}' "
+            f"to bootstrap (default subdir: {DEFAULT_PROJECT_SUBDIR})."
+        )
+    return workspace_root, project_root
 
 
 class PayloadError(RuntimeError):
@@ -284,12 +315,12 @@ def _filter_manifest_for_entries(
 
 
 def _report_manifest_diff(
-    target: Path, manifest_entries: Dict[str, Dict], *, prefix: str
+    destination_root: Path, manifest_entries: Dict[str, Dict], *, prefix: str
 ) -> Tuple[List[str], List[str]]:
     new_files: List[str] = []
     changed_files: List[str] = []
     for rel, entry in manifest_entries.items():
-        destination = target / rel
+        destination = destination_root / rel
         if not destination.exists():
             new_files.append(rel)
             continue
@@ -368,9 +399,8 @@ def _run_init(
     extra_args: List[str] | None = None,
 ) -> None:
     extra_args = extra_args or []
-    target.mkdir(parents=True, exist_ok=True)
-
-    current_version = _read_template_version(target)
+    workspace_root, project_root = _resolve_roots(target, create=True)
+    current_version = _read_template_version(project_root)
     if current_version and current_version != VERSION:
         print(
             f"[claude-workflow] existing template version {current_version} detected;"
@@ -383,8 +413,8 @@ def _run_init(
             raise FileNotFoundError(f"bootstrap script not found at {script}")
         env = {"CLAUDE_TEMPLATE_DIR": str(payload_path)}
         cmd = ["bash", str(script), *extra_args]
-        _run_subprocess(cmd, cwd=target, env=env)
-    _write_template_version(target)
+        _run_subprocess(cmd, cwd=project_root, env=env)
+    _write_template_version(project_root)
 
 
 def _run_smoke(verbose: bool) -> None:
@@ -431,7 +461,7 @@ def _smoke_command(args: argparse.Namespace) -> None:
 
 
 def _analyst_check_command(args: argparse.Namespace) -> None:
-    target = Path(args.target).resolve()
+    _, target = _require_workflow_root(Path(args.target).resolve())
     ticket, context = _require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
@@ -461,9 +491,7 @@ def _analyst_check_command(args: argparse.Namespace) -> None:
 
 
 def _research_command(args: argparse.Namespace) -> None:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, target = _require_workflow_root(Path(args.target).resolve())
 
     ticket, feature_context = _require_ticket(
         target,
@@ -607,9 +635,7 @@ def _research_command(args: argparse.Namespace) -> None:
 
 
 def _reviewer_tests_command(args: argparse.Namespace) -> None:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, target = _require_workflow_root(Path(args.target).resolve())
 
     ticket, context = _require_ticket(
         target,
@@ -794,9 +820,7 @@ def _run_qa_tests(
 
 
 def _qa_command(args: argparse.Namespace) -> int:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, target = _require_workflow_root(Path(args.target).resolve())
 
     context = _resolve_feature_context(
         target,
@@ -894,9 +918,7 @@ def _qa_command(args: argparse.Namespace) -> int:
 
 
 def _progress_command(args: argparse.Namespace) -> int:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, target = _require_workflow_root(Path(args.target).resolve())
 
     context = _resolve_feature_context(
         target,
@@ -1281,9 +1303,7 @@ def _apply_handoff_tasks(
 
 
 def _tasks_derive_command(args: argparse.Namespace) -> int:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, target = _require_workflow_root(Path(args.target).resolve())
 
     context = _resolve_feature_context(
         target,
@@ -1446,7 +1466,7 @@ def _select_payload_entries(
 
 
 def _copy_payload_entries(
-    target: Path,
+    destination_root: Path,
     entries: Iterable[tuple[Path, Path]],
     *,
     force: bool,
@@ -1458,7 +1478,7 @@ def _copy_payload_entries(
     backups: list[str] = []
 
     for src, rel in entries:
-        dest = target / rel
+        dest = destination_root / rel
 
         if not dest.exists():
             if not dry_run:
@@ -1485,7 +1505,10 @@ def _copy_payload_entries(
                 if create_backups:
                     backup_path = _ensure_unique_backup(dest)
                     shutil.copy2(dest, backup_path)
-                    backups.append(str(backup_path.relative_to(target)))
+                    try:
+                        backups.append(str(backup_path.relative_to(destination_root)))
+                    except ValueError:
+                        backups.append(backup_path.as_posix())
                 shutil.copy2(src, dest)
             updated.append(str(rel))
         else:
@@ -1504,11 +1527,9 @@ def _normalise_include(value: str) -> Path:
 
 
 def _upgrade_command(args: argparse.Namespace) -> None:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, project_root = _require_workflow_root(Path(args.target).resolve())
 
-    current_version = _read_template_version(target)
+    current_version = _read_template_version(project_root)
     if current_version and current_version == VERSION:
         print(
             f"[claude-workflow] project already on template version {VERSION};"
@@ -1519,9 +1540,9 @@ def _upgrade_command(args: argparse.Namespace) -> None:
         manifest = _load_manifest(payload_path)
         entries = _select_payload_entries(payload_path)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
-        _report_manifest_diff(target, managed_manifest, prefix="upgrade")
+        _report_manifest_diff(project_root, managed_manifest, prefix="upgrade")
         updated, skipped, backups = _copy_payload_entries(
-            target,
+            project_root,
             entries,
             force=args.force,
             dry_run=args.dry_run,
@@ -1539,7 +1560,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
                 print(f"  - {item}")
         return
 
-    _write_template_version(target)
+    _write_template_version(project_root)
 
     report_lines = [
         f"claude-workflow upgrade ({VERSION})",
@@ -1559,7 +1580,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
         report_lines.extend(f"  - {item}" for item in backups)
         report_lines.append("")
 
-    report_path = target / ".claude" / "upgrade-report.txt"
+    report_path = project_root / ".claude" / "upgrade-report.txt"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(report_lines), encoding="utf-8")
 
@@ -1572,9 +1593,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
 
 def _sync_command(args: argparse.Namespace) -> None:
-    target = Path(args.target).resolve()
-    if not target.exists():
-        raise FileNotFoundError(f"target directory {target} does not exist")
+    _, project_root = _require_workflow_root(Path(args.target).resolve())
 
     raw_includes = args.include or [".claude"]
     try:
@@ -1590,9 +1609,9 @@ def _sync_command(args: argparse.Namespace) -> None:
         manifest = _load_manifest(payload_path)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
-        _report_manifest_diff(target, managed_manifest, prefix=prefix)
+        _report_manifest_diff(project_root, managed_manifest, prefix=prefix)
         updated, skipped, backups = _copy_payload_entries(
-            target,
+            project_root,
             entries,
             force=args.force,
             dry_run=args.dry_run,
@@ -1611,7 +1630,7 @@ def _sync_command(args: argparse.Namespace) -> None:
         return
 
     if any(_is_relative_to(include, Path(".claude")) for include in includes):
-        _write_template_version(target)
+        _write_template_version(project_root)
 
     print(
         f"[claude-workflow] sync complete: {len(updated)} files updated,"
@@ -1646,7 +1665,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--target",
         default=".",
-        help="Directory where the workflow should be initialised (default: current)",
+        help="Workspace root for the workflow (default: current; installs into ./aidd by default).",
     )
     init_parser.add_argument(
         "--commit-mode",
@@ -1700,7 +1719,7 @@ def build_parser() -> argparse.ArgumentParser:
     preset_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     preset_parser.add_argument(
         "--force",
@@ -1748,7 +1767,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyst_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     analyst_parser.add_argument(
         "--branch",
@@ -1789,7 +1808,7 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     research_parser.add_argument(
         "--config",
@@ -1898,7 +1917,7 @@ def build_parser() -> argparse.ArgumentParser:
     reviewer_tests_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     reviewer_tests_parser.add_argument(
         "--status",
@@ -1944,7 +1963,7 @@ def build_parser() -> argparse.ArgumentParser:
     tasks_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     tasks_parser.add_argument(
         "--report",
@@ -1980,7 +1999,7 @@ def build_parser() -> argparse.ArgumentParser:
     qa_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     qa_parser.add_argument(
         "--branch",
@@ -2054,7 +2073,7 @@ def build_parser() -> argparse.ArgumentParser:
     progress_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     progress_parser.add_argument(
         "--branch",
@@ -2084,7 +2103,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     upgrade_parser.add_argument(
         "--force",
@@ -2119,7 +2138,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument(
         "--target",
         default=".",
-        help="Directory containing the workflow project (default: current).",
+        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
     )
     sync_parser.add_argument(
         "--include",
