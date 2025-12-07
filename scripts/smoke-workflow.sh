@@ -55,6 +55,7 @@ log "initialise git repository"
 git init -q
 git config user.name "Smoke Bot"
 git config user.email "smoke@example.com"
+git checkout -b feature/smoke >/dev/null
 
 log "bootstrap workflow scaffolding"
 run_cli init --target . --force >/dev/null
