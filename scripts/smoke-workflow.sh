@@ -75,7 +75,7 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" >/dev/null
+python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" --target "$WORKDIR" >/dev/null
 
 log "auto-collect research context before analyst"
 pushd "$WORKDIR" >/dev/null
