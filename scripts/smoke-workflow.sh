@@ -225,6 +225,7 @@ Research: docs/research/demo-checkout.md
 - [ ] Smoke iteration — add more items
 - [x] Smoke iteration — baseline checklist
 - [ ] Follow-up item
+- [ ] Research handoff — reports/research/${TICKET}-context.json
 EOF
 git add docs/prd/"${TICKET}.prd.md" docs/research/"${TICKET}.md" docs/plan/"${TICKET}.md" docs/tasklist/"${TICKET}.md"
 
