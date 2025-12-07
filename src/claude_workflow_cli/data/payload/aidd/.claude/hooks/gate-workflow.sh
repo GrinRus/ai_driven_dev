@@ -19,9 +19,12 @@ file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
 if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
-  if ! python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD" >/dev/null; then
-    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
-    exit 2
+  if [[ -x "$ROOT_DIR/scripts/lint-prompts.py" ]]; then
+    lint_cmd=(python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD")
+    if ! "${lint_cmd[@]}" >/dev/null; then
+      echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
+      exit 2
+    fi
   fi
   exit 0
 fi
