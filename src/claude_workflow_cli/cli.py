@@ -408,10 +408,11 @@ def _run_init(
         )
 
     with _payload_root() as payload_path:
-        script = payload_path / "init-claude-workflow.sh"
+        template_root = payload_path / DEFAULT_PROJECT_SUBDIR
+        script = template_root / "init-claude-workflow.sh"
         if not script.exists():
             raise FileNotFoundError(f"bootstrap script not found at {script}")
-        env = {"CLAUDE_TEMPLATE_DIR": str(payload_path)}
+        env = {"CLAUDE_TEMPLATE_DIR": str(template_root)}
         cmd = ["bash", str(script), *extra_args]
         _run_subprocess(cmd, cwd=project_root, env=env)
     _write_template_version(project_root)
