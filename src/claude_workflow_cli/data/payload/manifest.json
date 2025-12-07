@@ -291,8 +291,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 2752,
-      "sha256": "675574889510e07167427b6049bc43df49c2f623633d2475dcc39b4d1cff1e26"
+      "size": 2751,
+      "sha256": "d100feb2ea611b3d45dc227b2211eb4fe910d019813be06631eb6918807cca8b"
     },
     {
       "path": "aidd/conventions.md",

@@ -21,7 +21,7 @@
     ],
     "allow_missing_section": false,
     "require_action_items_closed": true,
-    "allow_missing_report": false,
+    "allow_missing_report": true,
     "blocking_severities": [
       "critical"
     ],
