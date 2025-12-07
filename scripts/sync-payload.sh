@@ -4,7 +4,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-payload_dir="${PAYLOAD_DIR:-${repo_root}/src/claude_workflow_cli/data/payload}"
+payload_dir="${PAYLOAD_DIR:-${repo_root}/src/claude_workflow_cli/data/payload/aidd}"
 
 usage() {
   cat <<'EOF'
