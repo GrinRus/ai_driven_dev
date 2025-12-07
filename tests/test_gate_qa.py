@@ -20,10 +20,12 @@ def test_blocks_when_report_missing(tmp_path):
     write_active_feature(tmp_path, "qa-demo")
     write_file(tmp_path, "src/main/App.kt", "class App")
 
+    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
     os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
     try:
         result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
     finally:
+        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     assert result.returncode != 0
@@ -46,10 +48,12 @@ def test_allows_when_report_present(tmp_path):
     write_file(tmp_path, "src/main/App.kt", "class App")
     write_file(tmp_path, "reports/qa/qa-ok.json", "{}\n")
 
+    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
     os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
     try:
         result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
     finally:
+        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     assert result.returncode == 0, result.stderr
@@ -70,11 +74,13 @@ def test_skip_env_allows(tmp_path):
     write_active_feature(tmp_path, "qa-skip")
     write_file(tmp_path, "src/main/App.kt", "class App")
     os.environ["CLAUDE_SKIP_QA"] = "1"
+    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
     os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
     try:
         result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
     finally:
         os.environ.pop("CLAUDE_SKIP_QA", None)
+        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     assert result.returncode == 0, result.stderr

@@ -22,7 +22,8 @@ model: inherit
 
 ## Automation & Hooks
 - Required call: `!("claude-workflow" qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json)`.
-- Gate `.claude/hooks/gate-qa.sh` uses `config/gates.json: qa.command` (default `claude-workflow qa --gate`), blocks merge on `blocker/critical` or missing `reports/qa/<ticket>.json`.
+- QA auto-runs tests from `config/gates.json: qa.tests` (default `.claude/hooks/format-and-test.sh`); logs to `reports/qa/<ticket>-tests*.log`, summary in report (`tests_summary`, `tests_executed`). Overrides: `--skip-tests`/`--allow-no-tests` or env `CLAUDE_QA_SKIP_TESTS`/`CLAUDE_QA_ALLOW_NO_TESTS`.
+- Gate `.claude/hooks/gate-qa.sh` uses `config/gates.json: qa.command` (default `claude-workflow qa --gate`), blocks merge on `blocker/critical` or missing `reports/qa/<ticket>.json`, checks tasklist progress (`progress --source qa|handoff`), and runs `tasks-derive --source qa --append` when `handoff=true`.
 - Record progress: `!("claude-workflow" progress --source qa --ticket "<ticket>")`.
 
 ## What is Edited
@@ -30,11 +31,11 @@ model: inherit
 - `reports/qa/<ticket>.json` — fresh QA report.
 
 ## Step-by-step Plan
-1. Run **qa** sub-agent via CLI (see command above); ensure `reports/qa/<ticket>.json` is written with READY/WARN/BLOCKED.
+1. Run **qa** sub-agent via CLI (see command above); ensure `reports/qa/<ticket>.json` is written with READY/WARN/BLOCKED and test logs are captured.
 2. Map diff to the QA checklist; capture findings with severity and recommendations.
-3. Update `docs/tasklist/<ticket>.md`: switch relevant items `- [ ] → - [x]`, add date/iteration, link to report and command logs.
-4. Execute `claude-workflow progress --source qa --ticket <ticket>` and confirm new `[x]` entries; with WARN list known issues.
-5. Reply with status, `Checkbox updated: ...`, link to `reports/qa/<ticket>.json`, and next steps if WARN/BLOCKED.
+3. Update `docs/tasklist/<ticket>.md`: switch relevant items `- [ ] → - [x]`, add date/iteration, link to report and test logs (`reports/qa/<ticket>-tests*.log`).
+4. Execute `claude-workflow progress --source qa --ticket <ticket>` and confirm new `[x]` entries; add handoff `- [ ] ... (source: reports/qa/<ticket>.json)` or run `claude-workflow tasks-derive --source qa --append`.
+5. Reply with status, `Checkbox updated: ...`, link to report/test logs, and next steps if WARN/BLOCKED.
 
 ## Fail-fast & Questions
 - No active ticket/QA checklist? Ask to run `/tasks-new` or set `docs/.active_ticket`.
