@@ -44,7 +44,7 @@
     "allow_missing": false,
     "minimum_paths": 1,
     "allow_pending_baseline": true,
-    "baseline_phrase": "\u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u0443\u0441\u0442"
+    "baseline_phrase": "контекст пуст"
   },
   "analyst": {
     "enabled": true,
@@ -137,5 +137,10 @@
       "gate",
       "handoff"
     ]
+  },
+  "tests": {
+    "reviewerGate": {
+      "enabled": false
+    }
   }
 }
