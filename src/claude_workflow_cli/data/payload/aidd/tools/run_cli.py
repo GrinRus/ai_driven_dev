@@ -47,6 +47,15 @@ def _module_available() -> bool:
         return False
 
 
+def _cli_module_available() -> bool:
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("claude_workflow_cli.cli") is not None
+    except Exception:
+        return False
+
+
 def _enhance_env(env: MutableMapping[str, str], runner: Runner) -> MutableMapping[str, str]:
     if not runner.uses_python:
         return env
@@ -71,12 +80,12 @@ def _resolve_runner() -> Runner:
     override_python = os.environ.get("CLAUDE_WORKFLOW_PYTHON")
     if override_python:
         return Runner([override_python, "-m", "claude_workflow_cli.cli"], True)
-    if DEV_SRC.exists() or HAS_VENDOR or _module_available():
+    if DEV_SRC.exists() or _cli_module_available():
         return Runner([sys.executable, "-m", "claude_workflow_cli.cli"], True)
     discovered = shutil.which("claude-workflow")
     if discovered:
         return Runner([discovered], False)
-    return Runner([sys.executable, "-m", "claude_workflow_cli.cli"], True)
+    raise CliNotFoundError(INSTALL_HINT)
 
 
 def _print_hint() -> None:
