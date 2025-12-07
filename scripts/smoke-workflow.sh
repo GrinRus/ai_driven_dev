@@ -170,10 +170,14 @@ if "## PRD Review" not in content:
     content += "\n## PRD Review\nStatus: pending\n"
 if "Status: approved" not in content:
     content = content.replace("Status: pending", "Status: approved", 1)
+if "## Диалог analyst" not in content:
+    content += "\n## Диалог analyst\nВопрос 1: Какую часть флоу покрываем?\nОтвет 1: Checkout happy-path и ошибка оплаты.\n"
+if "docs/research/" not in content:
+    content += "\nРеференс: docs/research/{ticket}.md\n"
 path.write_text(content, encoding="utf-8")
 PY
 mkdir -p reports/prd
-echo '{"status":"approved"}' > "reports/prd/${TICKET}.json"
+echo '{"status":"approved","findings":[]}' > "reports/prd/${TICKET}.json"
 
 log "expect block until research report ready"
 assert_gate_exit 2 "missing research report"
