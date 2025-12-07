@@ -84,6 +84,23 @@ if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
   exit 1
 fi
+python3 - <<'PY'
+from pathlib import Path
+ticket = Path("reports/research").stem  # not used
+path = Path("docs/research/demo-checkout.md")
+if path.exists():
+    text = path.read_text(encoding="utf-8")
+    lines = []
+    updated = False
+    for line in text.splitlines():
+        if line.lower().startswith("status:") and "reviewed" not in line.lower():
+            lines.append("Status: reviewed")
+            updated = True
+        else:
+            lines.append(line)
+    if updated:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
 
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
