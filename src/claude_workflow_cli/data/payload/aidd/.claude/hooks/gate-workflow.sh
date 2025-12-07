@@ -260,6 +260,7 @@ if isinstance(optional_values, list):
     optional_values = [str(value).strip().lower() for value in optional_values]
 else:
     optional_values = []
+allowed_values = set(required_values + optional_values)
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
@@ -279,10 +280,10 @@ except Exception:
     raise SystemExit(0)
 
 value = str(data.get(field, "")).strip().lower()
-if value in required_values:
-    print(
-        f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов."
-    )
+if allowed_values and value not in allowed_values:
+    print(f\"WARN: некорректный статус reviewer marker ({value or 'empty'}). Используйте required|optional|skipped.\")
+elif value in required_values:
+    print(f\"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов.\")
 PY
 )"
   if [[ -n "$reviewer_notice" ]]; then
