@@ -1453,15 +1453,28 @@ def _is_relative_to(path: Path, ancestor: Path) -> bool:
 
 
 def _select_payload_entries(
-    payload_path: Path, includes: Iterable[Path] | None = None
+    payload_path: Path,
+    includes: Iterable[Path] | None = None,
+    *,
+    strip_prefix: str | None = None,
 ) -> list[tuple[Path, Path]]:
     include_list = list(includes or [])
     entries: list[tuple[Path, Path]] = []
+    normalized_prefix = ""
+    if strip_prefix:
+        normalized_prefix = strip_prefix.rstrip("/").lstrip("/") + "/"
     for src in _iter_payload_files(payload_path):
         rel = src.relative_to(payload_path)
+        rel_posix = rel.as_posix()
         if include_list and not any(_is_relative_to(rel, inc) for inc in include_list):
             continue
-        entries.append((src, rel))
+        if normalized_prefix:
+            if not rel_posix.startswith(normalized_prefix):
+                continue
+            stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
+        else:
+            stripped_rel = rel
+        entries.append((src, stripped_rel))
     return entries
 
 
@@ -1517,6 +1530,27 @@ def _copy_payload_entries(
     return updated, skipped, backups
 
 
+def _detect_manifest_prefix(manifest: Dict[str, Dict]) -> str | None:
+    prefix = f"{DEFAULT_PROJECT_SUBDIR}/"
+    keys = list(manifest.keys())
+    if keys and all(key.startswith(prefix) for key in keys):
+        return prefix
+    return None
+
+
+def _strip_manifest_prefix(manifest: Dict[str, Dict], prefix: str) -> Dict[str, Dict]:
+    normalized = prefix.rstrip("/") + "/"
+    stripped: Dict[str, Dict] = {}
+    for rel, entry in manifest.items():
+        if not rel.startswith(normalized):
+            return manifest
+        new_rel = rel[len(normalized) :]
+        updated_entry = dict(entry)
+        updated_entry["path"] = new_rel
+        stripped[new_rel] = updated_entry
+    return stripped
+
+
 def _normalise_include(value: str) -> Path:
     path = Path(value)
     if path.is_absolute():
@@ -1538,8 +1572,10 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
     with _payload_root(args.release, args.cache_dir) as payload_path:
         manifest = _load_manifest(payload_path)
-        entries = _select_payload_entries(payload_path)
-        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
+        manifest_prefix = _detect_manifest_prefix(manifest)
+        manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
+        entries = _select_payload_entries(payload_path, strip_prefix=manifest_prefix)
+        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
         _report_manifest_diff(project_root, managed_manifest, prefix="upgrade")
         updated, skipped, backups = _copy_payload_entries(
             project_root,
@@ -1605,9 +1641,11 @@ def _sync_command(args: argparse.Namespace) -> None:
         for include in includes:
             if not (payload_path / include).exists():
                 raise FileNotFoundError(f"payload path not found: {include}")
-        entries = _select_payload_entries(payload_path, includes)
         manifest = _load_manifest(payload_path)
-        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest)
+        manifest_prefix = _detect_manifest_prefix(manifest)
+        manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
+        entries = _select_payload_entries(payload_path, includes, strip_prefix=manifest_prefix)
+        managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
         _report_manifest_diff(project_root, managed_manifest, prefix=prefix)
         updated, skipped, backups = _copy_payload_entries(
