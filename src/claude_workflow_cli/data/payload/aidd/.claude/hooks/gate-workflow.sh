@@ -29,12 +29,19 @@ if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|comman
     echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
     exit 2
   fi
-  ru_sum="$(md5sum "$ru_path" | awk '{print $1}')"
-  en_sum="$(md5sum "$en_path" | awk '{print $1}')"
-  if [[ "$ru_sum" != "$en_sum" ]]; then
-    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
-    exit 2
-  fi
+  python3 - <<'PY'
+import hashlib, sys
+ru_path, en_path = sys.argv[1], sys.argv[2]
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+if sha(ru_path) != sha(en_path):
+    print("BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер.")
+    raise SystemExit(2)
+PY
   if [[ -x "$ROOT_DIR/scripts/lint-prompts.py" ]]; then
     lint_cmd=(python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD")
     if ! "${lint_cmd[@]}" >/dev/null; then
