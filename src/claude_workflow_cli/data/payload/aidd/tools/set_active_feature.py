@@ -163,9 +163,9 @@ def _run_cli_research_targets(
     try:
         run_cli(cli_args, cwd=str(root))
         return True
-    except CliNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-    except subprocess.CalledProcessError:
+    except (CliNotFoundError, subprocess.CalledProcessError, Exception) as exc:
+        if isinstance(exc, CliNotFoundError):
+            print(str(exc), file=sys.stderr)
         return False
     return False
 
