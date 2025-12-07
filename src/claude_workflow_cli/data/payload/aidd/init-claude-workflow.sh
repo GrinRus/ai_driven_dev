@@ -13,24 +13,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# workspace root is one level up from aidd/, unless overridden
 ROOT_DIR="$(pwd)"
-
-PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-}"
-if [[ -n "$PAYLOAD_ROOT" ]]; then
-  PAYLOAD_ROOT="$(cd "$PAYLOAD_ROOT" && pwd)"
-else
-  if [[ "$SCRIPT_DIR" == */payload ]]; then
-    PAYLOAD_ROOT="$SCRIPT_DIR"
-  elif [[ -d "$SCRIPT_DIR/src/claude_workflow_cli/data/payload" ]]; then
-    PAYLOAD_ROOT="$(cd "$SCRIPT_DIR/src/claude_workflow_cli/data/payload" && pwd)"
-  elif [[ -d "$SCRIPT_DIR/payload" ]]; then
-    PAYLOAD_ROOT="$(cd "$SCRIPT_DIR/payload" && pwd)"
-  elif [[ -d "$SCRIPT_DIR/.claude" ]]; then
-    PAYLOAD_ROOT="$SCRIPT_DIR"
-  else
-    PAYLOAD_ROOT="$SCRIPT_DIR"
-  fi
-fi
+PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-$SCRIPT_DIR}"
 export CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT"
 
 COMMIT_MODE="ticket-prefix"
