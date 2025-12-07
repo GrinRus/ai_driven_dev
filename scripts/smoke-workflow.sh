@@ -220,6 +220,7 @@ Research: docs/research/demo-checkout.md
 
 - [ ] Smoke iteration — add more items
 EOF
+git add docs/prd/"${TICKET}.prd.md" docs/research/"${TICKET}.md" docs/plan/"${TICKET}.md" docs/tasklist/"${TICKET}.md"
 
 log "gate now allows source edits"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
