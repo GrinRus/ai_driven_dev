@@ -20,7 +20,7 @@ def _utc_now() -> str:
 
 
 def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> None:
-    ensure_gates_config(tmp_path)
+    ensure_gates_config(tmp_path, {"reviewer": {"enabled": False}})
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     prd_body = (

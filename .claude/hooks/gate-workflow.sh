@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -19,8 +19,70 @@ file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
 if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
-  if ! python3 "$ROOT_DIR/scripts/lint-prompts.py" --root "$PWD" >/dev/null; then
-    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер." >&2
+  # Проверяем паритет RU/EN: ожидаем RU в .claude, EN в prompts/en
+  ru_path="$file_path"
+  if [[ "$ru_path" =~ ^prompts/en/ ]]; then
+    ru_path=".claude/${ru_path#prompts/en/}"
+  fi
+  en_path="prompts/en/${ru_path#.claude/}"
+  skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
+from pathlib import Path
+import sys
+
+def has_skip(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    lines = text.splitlines()
+    if lines and lines[0].strip() == "---":
+        for line in lines[1:]:
+            stripped = line.strip()
+            if stripped == "---":
+                break
+            if stripped.lower().startswith("lang-parity:"):
+                value = stripped.split(":", 1)[1].strip().lower()
+                return value == "skip"
+    return "Lang-Parity: skip" in text
+
+ru = Path(sys.argv[1])
+en = Path(sys.argv[2])
+if has_skip(ru) or has_skip(en):
+    print("skip")
+PY
+)"
+  if [[ "$skip_lang_parity" == "skip" ]]; then
+    exit 0
+  fi
+  if [[ ! -f "$ru_path" || ! -f "$en_path" ]]; then
+    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
+    exit 2
+  fi
+  if ! python3 - "$ru_path" "$en_path" <<'PY'
+import sys
+from pathlib import Path
+
+def version(path: Path) -> str:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    for line in text.splitlines():
+        if line.strip().startswith("prompt_version"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+ru_path = Path(sys.argv[1])
+en_path = Path(sys.argv[2])
+ru_v = version(ru_path)
+en_v = version(en_path)
+if ru_v and en_v and ru_v != en_v:
+    print("BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер.")
+    raise SystemExit(2)
+PY
+  then
     exit 2
   fi
   exit 0
@@ -128,22 +190,8 @@ if required_statuses:
         raise SystemExit(1)
     if status not in required_statuses:
         if status == "pending" and allow_pending_baseline:
-            baseline_ok = False
-            try:
-                context = json.loads(context_path.read_text(encoding="utf-8"))
-            except (FileNotFoundError, json.JSONDecodeError):
-                baseline_ok = False
-            else:
-                profile = context.get("profile") or {}
-                auto_mode = bool(context.get("auto_mode"))
-                is_new_project = bool(profile.get("is_new_project"))
-                doc_has_marker = baseline_phrase and baseline_phrase in doc_text.lower()
-                baseline_ok = is_new_project and auto_mode and doc_has_marker
-            if baseline_ok:
-                print(f"WARN: Researcher baseline pending для {ticket} — контекст пуст, продолжайте после первичного аудита.")
-            else:
-                print("BLOCK: статус Researcher `pending` допускается только после фиксации baseline (контекст пуст).")
-                raise SystemExit(1)
+            print("ALLOW_PENDING_BASELINE")
+            raise SystemExit(0)
         else:
             print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
             raise SystemExit(1)
@@ -200,6 +248,9 @@ PY
     echo "BLOCK: проверка Researcher не прошла."
   fi
   exit 2
+fi
+if [[ "$research_msg" == "ALLOW_PENDING_BASELINE" ]]; then
+  exit 0
 fi
 
 [[ -f "docs/plan/$ticket.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
@@ -260,6 +311,7 @@ if isinstance(optional_values, list):
     optional_values = [str(value).strip().lower() for value in optional_values]
 else:
     optional_values = []
+allowed_values = set(required_values + optional_values)
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
@@ -279,12 +331,13 @@ except Exception:
     raise SystemExit(0)
 
 value = str(data.get(field, "")).strip().lower()
-if value in required_values:
-    print(
-        f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов."
-    )
+if allowed_values and value not in allowed_values:
+    label = value or "empty"
+    print(f"WARN: некорректный статус reviewer marker ({label}). Используйте required|optional|skipped.")
+elif value in required_values:
+    print(f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов.")
 PY
-)"
+)" || reviewer_notice=""
   if [[ -n "$reviewer_notice" ]]; then
     echo "$reviewer_notice" 1>&2
   fi

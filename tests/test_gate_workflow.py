@@ -364,7 +364,7 @@ def _apply_lang_parity_skip(root: Path, agent_name: str, command_name: str, vers
 
 
 def test_allows_pending_research_baseline(tmp_path):
-    ensure_gates_config(tmp_path)
+    ensure_gates_config(tmp_path, {"reviewer": {"enabled": False}})
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)

@@ -183,8 +183,8 @@
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 16061,
-      "sha256": "75cb2f9ccba98a96eacd04facdd5471947bf1a71be73d7529dfbd9d0a914c231"
+      "size": 14963,
+      "sha256": "6b92c54f49184353b4de8d5c24755d2bae647409efe57ce54424e87bda5136af"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
@@ -597,20 +597,14 @@
     {
       "path": "aidd/tests/test_payload_sync.py",
       "type": "file",
-      "size": 2414,
-      "sha256": "3dd133d260375b12cf8dc462bf1533af23143dc782c8b214f71f83c5d6ecf5db"
-    },
-    {
-      "path": "aidd/tools/__pycache__/check_payload_sync.cpython-311.pyc",
-      "type": "file",
-      "size": 8848,
-      "sha256": "39ed81f5fc733c309c161e4ae91956d39ade7d5cb9eff47205ede9907730db6e"
+      "size": 2802,
+      "sha256": "509e948b076bc09fd75f1253861539a0b01050c96c73d9d42250deec1aa2e7fc"
     },
     {
       "path": "aidd/tools/check_payload_sync.py",
       "type": "file",
-      "size": 5641,
-      "sha256": "0062cfb1974c781f20c94582f287129073b971520bcefc00e821bd06d48b6dc6"
+      "size": 5661,
+      "sha256": "df8b0b6caeebbb4ac87399bc372ccc296d56b8ff58ef8408cbd99c291b330752"
     },
     {
       "path": "aidd/tools/migrate_ticket.py",

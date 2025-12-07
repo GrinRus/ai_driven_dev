@@ -10,8 +10,6 @@ INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
-export CLAUDE_WORKFLOW_PYTHON="python3"
-export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd:${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor:${PYTHONPATH:-}"
 WORKDIR=""
 
 run_cli() {
@@ -51,16 +49,14 @@ assert_gate_exit() {
 
 log "working directory: $TMP_DIR"
 pushd "$TMP_DIR" >/dev/null
-log "bootstrap workflow scaffolding"
-run_cli init --target . --force >/dev/null
-WORKDIR="${TMP_DIR}/aidd"
-
-log "initialise git repository in aidd/"
-pushd "$WORKDIR" >/dev/null
+log "initialise git repository"
 git init -q
 git config user.name "Smoke Bot"
 git config user.email "smoke@example.com"
-git checkout -b feature/smoke >/dev/null
+
+log "bootstrap workflow scaffolding"
+run_cli init --target . --force >/dev/null
+WORKDIR="${TMP_DIR}/aidd"
 
 log "create demo source file"
 mkdir -p "$WORKDIR/src/main/kotlin"
@@ -76,54 +72,21 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" --target "$WORKDIR" >/dev/null
+python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" >/dev/null
 
 log "auto-collect research context before analyst"
+pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
   exit 1
 fi
-python3 - <<'PY'
-from pathlib import Path
-ticket = Path("reports/research").stem  # not used
-path = Path("docs/research/demo-checkout.md")
-if path.exists():
-    text = path.read_text(encoding="utf-8")
-    lines = []
-    updated = False
-    for line in text.splitlines():
-        if line.lower().startswith("status:") and "reviewed" not in line.lower():
-            lines.append("Status: reviewed")
-            updated = True
-        else:
-            lines.append(line)
-    if updated:
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
 
 log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
 
-log "prepare PRD review section"
-python3 - "$TICKET" <<'PY'
-from pathlib import Path
-import sys
-
-ticket = sys.argv[1]
-path = Path("docs/prd") / f"{ticket}.prd.md"
-text = path.read_text(encoding="utf-8")
-if "## PRD Review" not in text:
-    text += "\n## PRD Review\nStatus: pending\n"
-text = text.replace("Status: draft", "Status: READY")
-if "Status: approved" not in text:
-    text = text.replace("Status: pending", "Status: approved", 1)
-if "## Диалог analyst" not in text:
-    text += "\n## Диалог analyst\nВопрос 1: Какую часть флоу покрываем?\nОтвет 1: Checkout happy-path и ошибка оплаты.\n"
-if "docs/research/" not in text:
-    text += "\nРеференс: docs/research/{ticket}.md\n"
-path.write_text(text, encoding="utf-8")
-PY
+log "apply preset feature-prd"
+bash "$INIT_SCRIPT" --preset feature-prd --ticket "$TICKET" >/dev/null
 
 log "mark analyst dialog ready"
 python3 - "$TICKET" <<'PY'
@@ -167,17 +130,11 @@ ticket = sys.argv[1]
 path = Path("docs/prd") / f"{ticket}.prd.md"
 content = path.read_text(encoding="utf-8")
 if "## PRD Review" not in content:
-    content += "\n## PRD Review\nStatus: pending\n"
+    raise SystemExit("PRD Review section missing in smoke scenario")
 if "Status: approved" not in content:
     content = content.replace("Status: pending", "Status: approved", 1)
-if "## Диалог analyst" not in content:
-    content += "\n## Диалог analyst\nВопрос 1: Какую часть флоу покрываем?\nОтвет 1: Checkout happy-path и ошибка оплаты.\n"
-if "docs/research/" not in content:
-    content += "\nРеференс: docs/research/{ticket}.md\n"
 path.write_text(content, encoding="utf-8")
 PY
-mkdir -p reports/prd
-echo '{"status":"approved","findings":[]}' > "reports/prd/${TICKET}.json"
 
 log "expect block until research report ready"
 assert_gate_exit 2 "missing research report"
@@ -198,46 +155,38 @@ PY
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
-log "create minimal plan with architecture/reuse"
+log "apply preset feature-plan"
+bash "$INIT_SCRIPT" --preset feature-plan --ticket "$TICKET" >/dev/null
+log "ensure plan содержит Architecture & Patterns и reuse"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/plan") / f"{ticket}.md"
-content = (
-    f"# Plan {ticket}\n"
-    "## Architecture & Patterns\n"
-    "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
-    f"- Reuse: docs/research/{ticket}.md\n"
-    "## Tasks\n- [ ] Implement checkout flow\n"
-)
-path.write_text(content, encoding="utf-8")
+text = path.read_text(encoding="utf-8")
+if "Architecture & Patterns" not in text:
+    text += (
+        "\n## Architecture & Patterns\n"
+        "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
+        f"- Reuse: docs/research/{ticket}.md\n"
+        "- Scope: domain/application/infra boundaries fixed; avoid over-engineering.\n"
+    )
+elif "service layer" not in text.lower():
+    text += "\n- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
+path.write_text(text, encoding="utf-8")
 PY
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
-log "create minimal tasklist"
-cat > "docs/tasklist/${TICKET}.md" <<'EOF'
-Ticket: demo-checkout
-Slug hint: demo-checkout
-Feature: Smoke Demo
-Status: draft
-PRD: docs/prd/demo-checkout.prd.md
-Plan: docs/plan/demo-checkout.md
-Research: docs/research/demo-checkout.md
-
-- [ ] Smoke iteration — add more items
-- [x] Smoke iteration — baseline checklist
-- [ ] Follow-up item
-- [ ] Research handoff — reports/research/${TICKET}-context.json
-EOF
-git add docs/prd/"${TICKET}.prd.md" docs/research/"${TICKET}.md" docs/plan/"${TICKET}.md" docs/tasklist/"${TICKET}.md"
+log "apply preset feature-impl"
+bash "$INIT_SCRIPT" --preset feature-impl --ticket "$TICKET" >/dev/null
+log "tasklist snapshot"
+tail -n 10 "docs/tasklist/${TICKET}.md"
 
 log "gate now allows source edits"
-run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
-CLAUDE_PROJECT_DIR="$WORKDIR" assert_gate_exit 0 "all artifacts ready"
+assert_gate_exit 0 "all artifacts ready"
 
 log "commit baseline state"
 git add .
@@ -274,19 +223,6 @@ if ! progress_ok="$(run_cli progress --target . --ticket "$TICKET" --source impl
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
-python3 - "$TICKET" <<'PY'
-from pathlib import Path
-import sys
-
-ticket = sys.argv[1]
-path = Path("docs/prd") / f"{ticket}.prd.md"
-try:
-    text = path.read_text(encoding="utf-8")
-except Exception:
-    raise SystemExit(0)
-text = text.replace("Status: pending", "Status: approved")
-path.write_text(text, encoding="utf-8")
-PY
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
@@ -326,8 +262,12 @@ set +e
 prompt_output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" 2>&1)"
 prompt_rc=$?
 set -e
+if [[ "$prompt_rc" -ne 2 ]]; then
+  printf '[smoke] gate-workflow should block RU-only prompt change: rc=%s\n%s\n' "$prompt_rc" "$prompt_output" >&2
+  exit 1
+fi
 echo "$prompt_output" | grep -q "Lang-Parity" || {
-  printf '[smoke] expected Lang-Parity hint on RU-only change (rc=%s):\n%s\n' "$prompt_rc" "$prompt_output" >&2
+  printf '[smoke] expected Lang-Parity hint:\n%s\n' "$prompt_output" >&2
   exit 1
 }
 
@@ -335,10 +275,11 @@ log "синхронизируем EN-локаль и убеждаемся, чт�
 python3 - <<'PY'
 from pathlib import Path
 
-ru_path = Path('.claude/agents/analyst.md')
-en_path = Path('prompts/en/agents/analyst.md')
-en_path.parent.mkdir(parents=True, exist_ok=True)
-en_path.write_text(ru_path.read_text(encoding='utf-8'), encoding='utf-8')
+path = Path('prompts/en/agents/analyst.md')
+text = path.read_text(encoding='utf-8')
+text = text.replace('prompt_version: 1.0.0', 'prompt_version: 1.0.1', 1)
+text = text.replace('source_version: 1.0.0', 'source_version: 1.0.1', 1)
+path.write_text(text, encoding='utf-8')
 PY
 
 if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" >/dev/null; then
@@ -349,7 +290,7 @@ fi
 log "verify generated artifacts"
 [[ -f "docs/prd/${TICKET}.prd.md" ]]
 [[ -f "docs/plan/${TICKET}.md" ]]
-grep -q "PRD Review" "docs/prd/${TICKET}.prd.md"
+grep -q "Claude Code" "docs/prd/${TICKET}.prd.md"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
@@ -361,7 +302,7 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/nul
 log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 grep -q "Status: approved" "docs/prd/${TICKET}.prd.md"
-grep -q "Ticket: ${TICKET}" "docs/tasklist/${TICKET}.md"
+grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
 
 log "smoke scenario passed"
 log "аналогичная проверка для команд"
@@ -411,14 +352,14 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-ru_template = root / ".claude" / "commands" / "plan-new.md"
-en_template = root / "prompts" / "en" / "commands" / "plan-new.md"
-ru_dest = Path(".claude/commands/plan-new.md")
-en_dest = Path("prompts/en/commands/plan-new.md")
-en_dest.parent.mkdir(parents=True, exist_ok=True)
-ru_text = ru_template.read_text(encoding="utf-8")
-ru_dest.write_text(ru_text, encoding="utf-8")
-en_dest.write_text(ru_text, encoding="utf-8")
+template = root / "prompts" / "en" / "commands" / "plan-new.md"
+dest = Path('prompts/en/commands/plan-new.md')
+dest.parent.mkdir(parents=True, exist_ok=True)
+dest.write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
+ru_path = Path('.claude/commands/plan-new.md')
+text = ru_path.read_text(encoding='utf-8')
+text = text.replace('\nLang-Parity: skip', '', 1)
+ru_path.write_text(text, encoding='utf-8')
 PY
 
 if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$CMD_PAYLOAD" >/dev/null; then

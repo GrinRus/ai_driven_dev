@@ -1463,12 +1463,7 @@ def _select_payload_entries(
     include_rel: list[Path] = []
     if strip_prefix and include_list:
         prefix_path = Path(strip_prefix.strip("/"))
-        include_rel = []
-        for inc in include_list:
-            if inc.parts and inc.parts[0] == prefix_path.name:
-                include_rel.append(inc)
-            else:
-                include_rel.append(prefix_path / inc)
+        include_rel = [prefix_path / inc for inc in include_list]
     else:
         include_rel = include_list
     entries: list[tuple[Path, Path]] = []
@@ -1641,13 +1636,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
 
 def _sync_command(args: argparse.Namespace) -> None:
-    target_path = Path(args.target).resolve()
-    workspace_root, project_root = resolve_project_root(target_path, DEFAULT_PROJECT_SUBDIR)
-    if project_root.exists():
-        pass
-    elif not args.dry_run:
-        project_root.mkdir(parents=True, exist_ok=True)
-    # for dry-run we don't create project_root; proceed with computed path
+    _, project_root = _require_workflow_root(Path(args.target).resolve())
 
     raw_includes = args.include or [".claude"]
     try:
@@ -1656,21 +1645,13 @@ def _sync_command(args: argparse.Namespace) -> None:
         raise ValueError(f"invalid include path: {exc}") from exc
 
     with _payload_root(args.release, args.cache_dir) as payload_path:
+        for include in includes:
+            if not (payload_path / include).exists():
+                raise FileNotFoundError(f"payload path not found: {include}")
         manifest = _load_manifest(payload_path)
         manifest_prefix = _detect_manifest_prefix(manifest)
-        adjusted_includes: list[Path] = []
-        for include in includes:
-            candidate = payload_path / include
-            if not candidate.exists() and manifest_prefix:
-                prefixed = Path(manifest_prefix) / include
-                if (payload_path / prefixed).exists():
-                    include = prefixed
-                    candidate = payload_path / prefixed
-            if not candidate.exists():
-                raise FileNotFoundError(f"payload path not found: {include}")
-            adjusted_includes.append(include)
         manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
-        entries = _select_payload_entries(payload_path, adjusted_includes, strip_prefix=manifest_prefix)
+        entries = _select_payload_entries(payload_path, includes, strip_prefix=manifest_prefix)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
         _report_manifest_diff(project_root, managed_manifest, prefix=prefix)

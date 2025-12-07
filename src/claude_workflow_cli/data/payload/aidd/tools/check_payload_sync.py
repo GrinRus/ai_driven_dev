@@ -77,7 +77,7 @@ def compare_paths(
     payload_root: Path,
     paths: Sequence[str],
     *,
-    payload_prefix: str = "",
+    payload_prefix: str = DEFAULT_PAYLOAD_PREFIX,
 ) -> List[str]:
     mismatches: List[str] = []
     for relative in paths:

@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+PROJECT_SUBDIR = "aidd"
+PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
 HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
@@ -130,6 +132,29 @@ def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[st
     write_file(root, "docs/.active_ticket", ticket)
     hint = ticket if slug_hint is None else slug_hint
     write_file(root, "docs/.active_feature", hint)
+
+
+def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
+    """Ensure workspace has the expected project subdirectory with .claude stub."""
+    project_root = root / PROJECT_SUBDIR
+    (project_root / ".claude").mkdir(parents=True, exist_ok=True)
+    return project_root
+
+
+def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
+    """Run init-claude-workflow.sh from the packaged payload into root."""
+    project_root = ensure_project_root(root)
+    env = os.environ.copy()
+    env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
+    script = PAYLOAD_ROOT / "init-claude-workflow.sh"
+    subprocess.run(
+        ["bash", str(script), *extra_args],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=project_root,
+        env=env,
+    )
 
 
 def ensure_gates_config(

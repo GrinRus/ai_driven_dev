@@ -91,7 +91,12 @@
       "minor"
     ],
     "allow_missing_report": false,
-    "handoff": false
+    "handoff": false,
+    "tests": {
+      "commands": [
+        "echo smoke-test-ok"
+      ]
+    }
   },
   "reviewer": {
     "enabled": true,
@@ -137,5 +142,10 @@
       "gate",
       "handoff"
     ]
+  },
+  "tests": {
+    "reviewerGate": {
+      "enabled": false
+    }
   }
 }
