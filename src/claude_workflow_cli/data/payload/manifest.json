@@ -151,6 +151,12 @@
       "sha256": "f0176ef92e5e74ca33a32730daff9bb145d53b85604f75dddc844872df5bd17b"
     },
     {
+      "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/researcher_context.py",
+      "type": "file",
+      "size": 49288,
+      "sha256": "0674b19cdf114cf1135d0838dee87a55bd274f1c6de77dc6cbcb7e4e4e590e1d"
+    },
+    {
       "path": "aidd/.claude/hooks/format-and-test.sh",
       "type": "file",
       "size": 19640,
