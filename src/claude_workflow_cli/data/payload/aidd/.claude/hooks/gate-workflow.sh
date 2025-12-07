@@ -29,8 +29,10 @@ if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|comman
     echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
     exit 2
   fi
-  python3 - <<'PY'
+  python3 - "$ru_path" "$en_path" <<'PY'
 import hashlib, sys
+if len(sys.argv) < 3:
+    raise SystemExit(0)
 ru_path, en_path = sys.argv[1], sys.argv[2]
 def sha(path):
     h = hashlib.sha256()
