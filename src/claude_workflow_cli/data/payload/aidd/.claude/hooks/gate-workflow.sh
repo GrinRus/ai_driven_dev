@@ -25,6 +25,37 @@ if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|comman
     ru_path=".claude/${ru_path#prompts/en/}"
   fi
   en_path="prompts/en/${ru_path#.claude/}"
+  skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
+from pathlib import Path
+import sys
+
+def has_skip(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    lines = text.splitlines()
+    if lines and lines[0].strip() == "---":
+        for line in lines[1:]:
+            stripped = line.strip()
+            if stripped == "---":
+                break
+            if stripped.lower().startswith("lang-parity:"):
+                value = stripped.split(":", 1)[1].strip().lower()
+                return value == "skip"
+    return "Lang-Parity: skip" in text
+
+ru = Path(sys.argv[1])
+en = Path(sys.argv[2])
+if has_skip(ru) or has_skip(en):
+    print("skip")
+PY
+)"
+  if [[ "$skip_lang_parity" == "skip" ]]; then
+    exit 0
+  fi
   if [[ ! -f "$ru_path" || ! -f "$en_path" ]]; then
     echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
     exit 2

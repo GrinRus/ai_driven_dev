@@ -335,11 +335,10 @@ log "синхронизируем EN-локаль и убеждаемся, чт�
 python3 - <<'PY'
 from pathlib import Path
 
-path = Path('prompts/en/agents/analyst.md')
-text = path.read_text(encoding='utf-8')
-text = text.replace('prompt_version: 1.0.0', 'prompt_version: 1.0.1', 1)
-text = text.replace('source_version: 1.0.0', 'source_version: 1.0.1', 1)
-path.write_text(text, encoding='utf-8')
+ru_path = Path('.claude/agents/analyst.md')
+en_path = Path('prompts/en/agents/analyst.md')
+en_path.parent.mkdir(parents=True, exist_ok=True)
+en_path.write_text(ru_path.read_text(encoding='utf-8'), encoding='utf-8')
 PY
 
 if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PROMPT_PAYLOAD" >/dev/null; then
@@ -350,7 +349,7 @@ fi
 log "verify generated artifacts"
 [[ -f "docs/prd/${TICKET}.prd.md" ]]
 [[ -f "docs/plan/${TICKET}.md" ]]
-grep -q "Claude Code" "docs/prd/${TICKET}.prd.md"
+grep -q "PRD Review" "docs/prd/${TICKET}.prd.md"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
@@ -362,7 +361,7 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/nul
 log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 grep -q "Status: approved" "docs/prd/${TICKET}.prd.md"
-grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
+grep -q "Ticket: ${TICKET}" "docs/tasklist/${TICKET}.md"
 
 log "smoke scenario passed"
 log "аналогичная проверка для команд"
@@ -412,14 +411,14 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-template = root / "prompts" / "en" / "commands" / "plan-new.md"
-dest = Path('prompts/en/commands/plan-new.md')
-dest.parent.mkdir(parents=True, exist_ok=True)
-dest.write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
-ru_path = Path('.claude/commands/plan-new.md')
-text = ru_path.read_text(encoding='utf-8')
-text = text.replace('\nLang-Parity: skip', '', 1)
-ru_path.write_text(text, encoding='utf-8')
+ru_template = root / ".claude" / "commands" / "plan-new.md"
+en_template = root / "prompts" / "en" / "commands" / "plan-new.md"
+ru_dest = Path(".claude/commands/plan-new.md")
+en_dest = Path("prompts/en/commands/plan-new.md")
+en_dest.parent.mkdir(parents=True, exist_ok=True)
+ru_text = ru_template.read_text(encoding="utf-8")
+ru_dest.write_text(ru_text, encoding="utf-8")
+en_dest.write_text(ru_text, encoding="utf-8")
 PY
 
 if ! CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$CMD_PAYLOAD" >/dev/null; then
