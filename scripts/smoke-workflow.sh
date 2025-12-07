@@ -284,9 +284,8 @@ try:
     text = path.read_text(encoding="utf-8")
 except Exception:
     raise SystemExit(0)
-if "Status: approved" not in text:
-    text = text.replace("Status: pending", "Status: approved")
-    path.write_text(text, encoding="utf-8")
+text = text.replace("Status: pending", "Status: approved")
+path.write_text(text, encoding="utf-8")
 PY
 assert_gate_exit 0 "progress checkbox added"
 
