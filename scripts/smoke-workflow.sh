@@ -118,6 +118,8 @@ if "## PRD Review" not in text:
 text = text.replace("Status: draft", "Status: READY")
 if "Status: approved" not in text:
     text = text.replace("Status: pending", "Status: approved", 1)
+if "## Диалог analyst" not in text:
+    text += "\n## Диалог analyst\nВопрос 1: Какую часть флоу покрываем?\nОтвет 1: Checkout happy-path и ошибка оплаты.\n"
 path.write_text(text, encoding="utf-8")
 PY
 
