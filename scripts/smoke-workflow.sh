@@ -11,7 +11,7 @@ TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
 export CLAUDE_WORKFLOW_PYTHON="python3"
-export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor:${PYTHONPATH:-}"
+export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd:${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor:${PYTHONPATH:-}"
 WORKDIR=""
 
 run_cli() {
