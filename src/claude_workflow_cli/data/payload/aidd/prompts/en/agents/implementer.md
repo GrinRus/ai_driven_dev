@@ -6,6 +6,7 @@ prompt_version: 1.1.1
 source_version: 1.1.1
 tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(git add:*)
 model: inherit
+permissionMode: default
 ---
 
 ## Context

@@ -6,6 +6,7 @@ prompt_version: 1.0.0
 source_version: 1.0.0
 allowed-tools: Bash(claude-workflow qa:*),Bash(claude-workflow progress:*),Read,Grep,Glob,Write,Edit
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Context

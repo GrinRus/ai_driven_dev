@@ -6,6 +6,7 @@ prompt_version: 1.1.1
 source_version: 1.1.1
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow research:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*)
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Context

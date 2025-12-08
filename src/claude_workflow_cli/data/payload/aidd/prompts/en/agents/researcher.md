@@ -6,6 +6,7 @@ prompt_version: 1.1.0
 source_version: 1.1.0
 tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
 model: inherit
+permissionMode: default
 ---
 
 ## Context

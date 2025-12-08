@@ -6,6 +6,7 @@ prompt_version: 1.1.1
 source_version: 1.1.1
 allowed-tools: Bash("$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Read,Edit,Write,Grep,Glob
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Context

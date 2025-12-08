@@ -123,7 +123,7 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
     front: Dict[str, str] = {}
     for idx, raw in enumerate(front_lines, start=2):
         line = raw.strip()
-        if not line:
+        if not line or line.startswith("-"):
             continue
         if ":" not in line:
             errors.append(f"{path}:{idx}: invalid front matter line (expected key: value)")
@@ -154,7 +154,7 @@ def ensure_keys(info: PromptFile, keys: Iterable[str]) -> List[str]:
     errors = []
     front = info.front_matter
     for key in keys:
-        if not front.get(key):
+        if key not in front:
             errors.append(f"{info.path}: missing `{key}` in front matter")
     return errors
 

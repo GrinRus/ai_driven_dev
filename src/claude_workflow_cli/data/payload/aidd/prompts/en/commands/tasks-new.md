@@ -6,6 +6,7 @@ prompt_version: 1.0.0
 source_version: 1.0.0
 allowed-tools: Read,Edit,Write,Grep,Glob
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Context
