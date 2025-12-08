@@ -7,7 +7,7 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-03-17._
+_Last sync with `README.md`: 2025-03-17._  <!-- update when EN catches up -->
 
 ## TL;DR
 - `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
@@ -282,18 +282,18 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
 ## Slash commands
 
-Commands and agents ship as the `feature-dev-aidd` plugin in `aidd/.claude-plugin/` (manifest `plugin.json`); runtime copies for IDE live in `aidd/.claude/`. Command frontmatter includes `description`, `argument-hint`, `allowed-tools`, positional `$1/$2/$ARGUMENTS`, and `disable-model-invocation`.
+Commands and agents ship as the `feature-dev-aidd` plugin in `aidd/.claude-plugin/` (manifest `plugin.json`); runtime copies for IDE live in `aidd/.claude/`. Command frontmatter includes `description`, `argument-hint`, `allowed-tools`, `disable-model-invocation`, and positional `$1/$2/$ARGUMENTS`.
 
 | Command | Purpose | Example |
 | --- | --- | --- |
-| `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
+| `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY). Inputs: @docs/prd.template.md, @docs/research/<ticket>.md | `STORE-123 checkout-discounts` |
 | `/researcher` | Use Researcher context to clarify scope and modules | `STORE-123` |
-| `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
-| `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
-| `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |
-| `/implement` | Execute the plan with auto tests | `checkout-discounts` |
-| `/review` | Final code review and status sync | `checkout-discounts` |
-| `/qa` | Final QA gate, writes `reports/qa/<ticket>.json` | `checkout-discounts` |
+| `/plan-new` | Prepare plan and validation. Inputs: @docs/prd/<ticket>.prd.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/review-prd` | Run structured PRD review and log status. Inputs: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan. Inputs: @docs/plan/<ticket>.md, @docs/prd/<ticket>.prd.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/implement` | Execute the plan with auto tests. Inputs: @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md, @docs/prd/<ticket>.prd.md | `checkout-discounts` |
+| `/review` | Final code review and status sync. Inputs: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md | `checkout-discounts` |
+| `/qa` | Final QA gate, writes `reports/qa/<ticket>.json`. Inputs: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md | `checkout-discounts` |
 | `claude-workflow progress` | Ensure new completed checkboxes exist before closing a step | `--source implement --ticket checkout-discounts` |
 
 ## Branch & commit modes
