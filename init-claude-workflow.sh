@@ -605,15 +605,17 @@ generate_config_and_scripts() {
   copy_payload_dir "config"
   copy_payload_dir "scripts"
   copy_payload_dir "tools"
-  local scripts_dir="$ROOT_DIR/scripts"
-  if [[ -d "$scripts_dir" ]]; then
-    while IFS= read -r -d '' script; do
-      local rel="${script#"$ROOT_DIR"/}"
-      case "$rel" in
-        *.sh) set_executable "$rel" ;;
-      esac
-    done < <(find "$scripts_dir" -type f -print0)
-  fi
+  local dirs=("$ROOT_DIR/scripts" "$ROOT_DIR/tools")
+  for dir in "${dirs[@]}"; do
+    if [[ -d "$dir" ]]; then
+      while IFS= read -r -d '' file; do
+        local rel="${file#"$ROOT_DIR"/}"
+        case "$rel" in
+          *.sh|*.py) set_executable "$rel" ;;
+        esac
+      done < <(find "$dir" -type f -print0)
+    fi
+  done
 }
 
 embed_project_dir_in_settings() {

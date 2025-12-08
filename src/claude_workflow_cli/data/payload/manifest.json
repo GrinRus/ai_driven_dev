@@ -411,8 +411,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 21234,
-      "sha256": "5e706f559937a6047ae71a3203536e3646b8153077710eebb2cc1da841d96820"
+      "size": 21285,
+      "sha256": "fe21af697757ed33fd10c2e81ad5d194226f7067cafafcf1a5f0c4ef172a212e"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",
