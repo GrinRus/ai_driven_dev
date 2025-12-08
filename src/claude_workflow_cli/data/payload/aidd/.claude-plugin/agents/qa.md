@@ -4,7 +4,7 @@ description: Финальная QA-проверка: регрессии, UX, п�
 lang: ru
 prompt_version: 1.0.1
 source_version: 1.0.1
-tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh), Bash(claude-workflow progress:*)
+tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(scripts/ci-lint.sh)
 model: inherit
 permissionMode: default
 ---
@@ -13,9 +13,9 @@ permissionMode: default
 QA-агент запускается обязательной командой `/qa` после `/review` перед релизом. Он сопоставляет изменения с чеклистом `docs/tasklist/<ticket>.md`, проверяет UX/перфоманс, формирует отчёт `reports/qa/<ticket>.json` через `claude-workflow qa --gate` и фиксирует прогресс для гейта `gate-qa`.
 
 ## Входные артефакты
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` — критерии приёмки, DoD и чеклисты QA.
-- `reports/qa/<ticket>.json`, логи `claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
-- Демо окружение/инструкции, ссылки из `docs/qa-playbook.md` (UX/перф чек-листы).
+- @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md — критерии приёмки, DoD и чеклисты QA.
+- @reports/qa/<ticket>.json, логи `claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
+- Демо окружение/инструкции, ссылки из @docs/qa-playbook.md (UX/перф чек-листы).
 
 ## Автоматизация
 - Команда `/qa` вызывает `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` (через палитру/CLI). Без отчёта гейт заблокирует merge.

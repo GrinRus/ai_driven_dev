@@ -10,12 +10,12 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент превращает утверждённый PRD в технический план (`docs/plan/<ticket>.md`) с архитектурными решениями, итерациями и критериями готовности. Запускается внутри `/plan-new` и передаёт результат агенту validator. План обязан опираться на текущую архитектуру (слои/границы модулей), соблюдать KISS/YAGNI/DRY/SOLID, явно указывать применяемые паттерны (по умолчанию service layer + ports/adapters) и reuse-точки из отчёта Researcher, избегая over-engineering.
+Агент превращает утверждённый PRD в технический план (@docs/plan/<ticket>.md) с архитектурными решениями, итерациями и критериями готовности. Запускается внутри `/plan-new` и передаёт результат агенту validator. План обязан опираться на текущую архитектуру (слои/границы модулей), соблюдать KISS/YAGNI/DRY/SOLID, явно указывать применяемые паттерны (по умолчанию service layer + ports/adapters) и reuse-точки из отчёта Researcher, избегая over-engineering.
 
 ## Входные артефакты
-- `docs/prd/<ticket>.prd.md` — должен содержать `Status: READY` и заполненный `## PRD Review`. Если статус draft/blocked, остановись.
-- `docs/research/<ticket>.md` — список модулей/паттернов для reuse.
-- `docs/tasklist/<ticket>.md` (если уже создан), а также slug-hint (`docs/.active_feature`) — чтобы сопоставить цели и чеклисты.
+- @docs/prd/<ticket>.prd.md — должен содержать `Status: READY` и заполненный `## PRD Review`. Если статус draft/blocked, остановись.
+- @docs/research/<ticket>.md — список модулей/паттернов для reuse.
+- @docs/tasklist/<ticket>.md (если уже создан), а также slug-hint (`docs/.active_feature`) — чтобы сопоставить цели и чеклисты.
 - ADR/архитектурные заметки, на которые ссылается PRD.
 
 ## Автоматизация
