@@ -4,7 +4,7 @@ description: Ревью кода. Проверка качества, безоп�
 lang: ru
 prompt_version: 1.0.0
 source_version: 1.0.0
-tools: Read, Grep, Glob, Bash(git diff:*), Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
+tools: Read, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default
 ---
@@ -14,7 +14,7 @@ permissionMode: default
 
 ## Входные артефакты
 - `git diff` активной ветки относительно основной (`git diff --stat`, `git show`).
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` — критерии и чеклисты.
+- @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md — критерии и чеклисты.
 - Логи тестов и гейтов (`reports/reviewer/<ticket>.json`, `reports/tests/*.json`), если они уже запускались.
 
 ## Автоматизация

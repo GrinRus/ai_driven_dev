@@ -9,26 +9,26 @@
     {
       "path": "aidd/.claude/agents/implementer.md",
       "type": "file",
-      "size": 8025,
-      "sha256": "fc957789d87ca800771248692ea7097158e60cb01b376607adbd71fb55deee3e"
+      "size": 7999,
+      "sha256": "79419ec0d9553fa32cb2866efb1ce09abe62cd16084a3ab9fa9674fa19a41ad1"
     },
     {
       "path": "aidd/.claude/agents/planner.md",
       "type": "file",
-      "size": 5181,
-      "sha256": "dc46894172893b6f0353a0271d40591e73ce3a0ed3ea30ef4a92d3099afb8924"
+      "size": 5176,
+      "sha256": "1cd3a9cdd3af02b1d7f8321f5da1d6dab7a1ac6265a38c4077feaa5bfcd32fa7"
     },
     {
       "path": "aidd/.claude/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3276,
-      "sha256": "5f0c8d1bc424400bba3252837cbe404728d3351a37accc202a218a174da70758"
+      "size": 3272,
+      "sha256": "784129a314c44ccee7971150e43c0ae49d0f87c49cd1298549d546c18ab139e5"
     },
     {
       "path": "aidd/.claude/agents/qa.md",
       "type": "file",
-      "size": 5776,
-      "sha256": "f3fcdd219fe8922f46b7804012fae0a0aaa346fa97077d3fd5eadabb11018a07"
+      "size": 5736,
+      "sha256": "378b0443a9610790dbb896909079a591bf5e010fd58a773fe4a9d65244c2e7dc"
     },
     {
       "path": "aidd/.claude/agents/researcher.md",
@@ -39,14 +39,14 @@
     {
       "path": "aidd/.claude/agents/reviewer.md",
       "type": "file",
-      "size": 4067,
-      "sha256": "8a686b49e0a7fed53d990174a9347e954e9027b588e12974797273ec2b7e7375"
+      "size": 4046,
+      "sha256": "0610a3a18b3043549a2eb9e89a8a34c4472da3f91235ceae9259a430ea7137af"
     },
     {
       "path": "aidd/.claude/agents/validator.md",
       "type": "file",
-      "size": 2865,
-      "sha256": "678f87fc9a2f4e013439f1ec0d99e2711f193415d86189ad5836dc1692aaf8f7"
+      "size": 2862,
+      "sha256": "5adf64d7564a5f317edf40146cc12ef83dc330897be9e645bed67a7955e33e64"
     },
     {
       "path": "aidd/.claude/cache/.gitkeep",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "2293768c32f1f8314d2db9f2deba242d827073be1b0abfc1be32457361bd5f37"
+      "sha256": "ab47f894993f6b121ed1ed98e3453b7442793b87a0ef64f5f1e32763b3e8aa10"
     }
   ]
 }
