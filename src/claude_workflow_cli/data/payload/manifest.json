@@ -256,7 +256,7 @@
       "path": "aidd/commands/researcher.md",
       "type": "file",
       "size": 6002,
-      "sha256": "51fb631d1efbec02b8c099451a9a938136d68992136c9e68f0f6ed87ca79cb6b"
+      "sha256": "391c5cc7b60696c16a6dbc58156a998cf8698c0305bd5557dd54bad20719cc20"
     },
     {
       "path": "aidd/commands/review-prd.md",
@@ -646,7 +646,7 @@
       "path": "aidd/workflow.md",
       "type": "file",
       "size": 18334,
-      "sha256": "2f046bf8baae1d99d3420bd30e1267d9c77545884e98d4b471882dc2f129d736"
+      "sha256": "0d96b7ef5469dde654018bbed7c7784dde1e1cc5447492c2c5d1e17e60e4300e"
     }
   ]
 }
