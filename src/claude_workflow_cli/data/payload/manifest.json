@@ -3,8 +3,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 208,
-      "sha256": "dc540e5ce42e9a443b6726083826e3437b0b86653c9082c54870a4c03b441a45"
+      "size": 6772,
+      "sha256": "b7febc2d8ec3ef2a7eb80860592119acb1a86828096083bf25810e90e74b83ec"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -125,12 +125,6 @@
       "type": "file",
       "size": 1265,
       "sha256": "d9d37931c452e3332a75826422d2e1df7b6db69dfbf7ef3ce7cb91e36d872fd9"
-    },
-    {
-      "path": "aidd/.claude/settings.json",
-      "type": "file",
-      "size": 8100,
-      "sha256": "ed31484e97db0b0517d7e98b3e9a4cf4fe22986839a9dd8065408ca5cf3b9e21"
     },
     {
       "path": "aidd/.claude-plugin/plugin.json",
@@ -417,8 +411,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 20978,
-      "sha256": "b09d1898a402493dfa0c3f40ce8e709260b0739cc5b5d39db2c39b3de739a66d"
+      "size": 21009,
+      "sha256": "771d371ae94d503df4e8469cec8968583800fed93c59fa234660822c1401376b"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",

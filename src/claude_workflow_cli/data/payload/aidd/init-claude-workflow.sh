@@ -582,7 +582,7 @@ generate_prompt_references() {
 }
 
 generate_claude_settings() {
-  copy_template ".claude/settings.json" ".claude/settings.json"
+  copy_payload_file "$PAYLOAD_ROOT/../.claude/settings.json" "$ROOT_DIR/.claude/settings.json"
   copy_payload_dir ".claude/hooks"
   copy_payload_dir ".claude/cache"
   ensure_hook_permissions
