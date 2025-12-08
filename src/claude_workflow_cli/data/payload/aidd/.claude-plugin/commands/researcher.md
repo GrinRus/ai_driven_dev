@@ -10,9 +10,8 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(claude-workflow research:*)"
   - "Bash(python3 tools/set_active_feature.py:*)"
-  - "Bash(claude-workflow preset:*)"
+  - "Bash(claude-workflow research:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -22,8 +21,8 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - `docs/.active_ticket` и `.active_feature` — активный тикет/slug.
-- `docs/prd/<ticket>.prd.md` — для понимания целей.
-- `docs/templates/research-summary.md` — шаблон отчёта (если файл ещё не создан).
+- `@docs/prd/<ticket>.prd.md` — цели/контекст.
+- `@docs/templates/research-summary.md` — шаблон отчёта (если файл ещё не создан).
 - `reports/research/<ticket>-context.json` — формируется `claude-workflow research`.
 
 ## Когда запускать
@@ -42,7 +41,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Убедись, что активный ticket = `$1`. Если нет — запусти `/idea-new $1` или `python3 tools/set_active_feature.py $1`.
-2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]` (при необходимости `--reuse-only`, `--langs`, `--graph-langs`).
+2. Выполни `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]` (при необходимости `--reuse-only`, `--langs`, `--graph-langs`); если проект не JVM, call graph может быть пустым — зафиксируй предупреждение.
 3. Если CLI сообщает `0 matches`, создай `docs/research/$1.md` из шаблона и добавь baseline «Контекст пуст, требуется baseline».
 4. Запусти саб-агента **researcher** (через палитру) с JSON из `reports/research/$1-context.json`, используй `call_graph`/`import_graph` (Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
 5. Зафиксируй статус: `reviewed`, если команда согласовала действия; `pending`, если нужны уточнения (пропиши TODO).

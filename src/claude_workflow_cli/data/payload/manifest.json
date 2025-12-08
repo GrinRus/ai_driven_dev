@@ -291,8 +291,8 @@
     {
       "path": "aidd/.claude-plugin/commands/researcher.md",
       "type": "file",
-      "size": 5847,
-      "sha256": "c74279145279a9ceee892c884d99d1362e409b83b8d8b63f4b8fe6a093c4813e"
+      "size": 5932,
+      "sha256": "8548bd248baac6b4c64f6bddea449b85384897d45419178a333469800f4929e7"
     },
     {
       "path": "aidd/.claude-plugin/commands/review-prd.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "832f4be58fa1464b6e0f9f7759b70d7ea91cb6e2a9ab4d496370583663b0968d"
+      "sha256": "eb3189f00f8f6e4fe66cc246eabd0e2d90d03ceea1baf77b43fd6ea3dd49f8cb"
     }
   ]
 }
