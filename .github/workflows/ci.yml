@@ -36,4 +36,4 @@ jobs:
           else
             unset QA_AGENT_DIFF_BASE
           fi
-          ./.claude/hooks/gate-qa.sh --payload '{}'
+          src/claude_workflow_cli/data/payload/aidd/.claude/hooks/gate-qa.sh --payload '{}'

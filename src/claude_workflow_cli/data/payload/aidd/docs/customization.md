@@ -18,7 +18,7 @@
 Соблюдайте эти шаги перед публикацией релиза, чтобы `uv tool install claude-workflow-cli` всегда получал последнюю версию скриптов.
 
 ## Содержание
-- [.claude/settings.json](#.claudesettingsjson)
+- [.claude/settings.json](#claudesettingsjson)
 - [config/conventions.json](#configconventionsjson)
 - [Git-хуки](#git-хуки)
 - [Переопределение слэш-команд и шаблонов](#переопределение-слэш-команд-и-шаблонов)
