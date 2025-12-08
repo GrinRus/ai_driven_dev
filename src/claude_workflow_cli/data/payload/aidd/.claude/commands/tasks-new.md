@@ -18,10 +18,10 @@ disable-model-invocation: false
 Команда `/tasks-new` создаёт рабочий чеклист `docs/tasklist/<ticket>.md` на основе утверждённого плана. Tasklist фиксирует критерии прогресса для `/implement`, `/review`, `/qa` и контролируется `gate-workflow`.
 
 ## Входные артефакты
-- `docs/plan/<ticket>.md` — список итераций, DoD, зависимостей.
-- `docs/prd/<ticket>.prd.md` + раздел `## PRD Review` (approved action items).
-- `docs/research/<ticket>.md` — reuse и риски.
-- Шаблон `templates/tasklist.md` (если файл создаётся с нуля).
+- @docs/plan/<ticket>.md — список итераций, DoD, зависимостей.
+- @docs/prd/<ticket>.prd.md + раздел `## PRD Review` (approved action items).
+- @docs/research/<ticket>.md — reuse и риски.
+- Шаблон @templates/tasklist.md (если файл создаётся с нуля).
 
 ## Когда запускать
 - Сразу после `/plan-new` (validator PASS). Повторно — когда нужно пересобрать чеклист после изменения плана/PRD.

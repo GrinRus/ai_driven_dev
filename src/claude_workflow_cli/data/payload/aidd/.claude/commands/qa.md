@@ -11,7 +11,6 @@ allowed-tools:
   - Grep
   - Glob
   - "Bash(claude-workflow qa:*)"
-  - "Bash(claude-workflow progress:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -21,7 +20,7 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - Активный тикет (`docs/.active_ticket`), slug-hint (`docs/.active_feature`).
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` (QA секция), логи предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
+- @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md (QA секция), логи предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
 - Diff/логи выполнения (`git diff`, `reports/reviewer/<ticket>.json`, тесты, демо окружение).
 
 ## Когда запускать

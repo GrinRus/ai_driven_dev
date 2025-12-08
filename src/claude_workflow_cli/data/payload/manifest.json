@@ -57,50 +57,50 @@
     {
       "path": "aidd/.claude/commands/idea-new.md",
       "type": "file",
-      "size": 8851,
-      "sha256": "e310cea59aafd17f690277bccb5834488c7e763aa8e4b274b5ce666f317f1698"
+      "size": 8849,
+      "sha256": "3c64fac127f733c91701ccf7a612f01f3056444e2b4ef1aee3239dc17c033c1f"
     },
     {
       "path": "aidd/.claude/commands/implement.md",
       "type": "file",
-      "size": 4597,
-      "sha256": "bd097b1a5907ec3ade26e27979a979adf4b7f5ecbde444bc1ad7d8daf8ea9181"
+      "size": 4571,
+      "sha256": "04b9e70eecc60dd81599d90757bf028807f742bfd18cf683bb60c4a612d26acc"
     },
     {
       "path": "aidd/.claude/commands/plan-new.md",
       "type": "file",
-      "size": 4422,
-      "sha256": "7164905348d14e2da43141db8b78c30cf5cc563ab433f97e30971fc12c58f6c5"
+      "size": 4418,
+      "sha256": "8a284ee48db72923728f8b10b08407d4c8510635b8d6cbd75ee6085a808f6f06"
     },
     {
       "path": "aidd/.claude/commands/qa.md",
       "type": "file",
-      "size": 4315,
-      "sha256": "193e44f008dbdd5711576d587df711f5a9eba6336144ef1626aad49e7d1d827b"
+      "size": 4273,
+      "sha256": "2cdbbc642fee9b6154b7d897329fd65cd5c9c5ff70d69b57900215a259482d21"
     },
     {
       "path": "aidd/.claude/commands/researcher.md",
       "type": "file",
-      "size": 5847,
-      "sha256": "c74279145279a9ceee892c884d99d1362e409b83b8d8b63f4b8fe6a093c4813e"
+      "size": 5939,
+      "sha256": "18577557d719103ee5586632c336bdd4f6787fbf5b96da99f9b61f13e1333ec6"
     },
     {
       "path": "aidd/.claude/commands/review-prd.md",
       "type": "file",
-      "size": 3556,
-      "sha256": "f46853672c16952885e710fe006ff7fb65f566450fe34bd1b57837a60f40471b"
+      "size": 3591,
+      "sha256": "a7737879e88c64be73d32fe970bbc3446b161fb979bd03ea0a3380e765888c69"
     },
     {
       "path": "aidd/.claude/commands/review.md",
       "type": "file",
-      "size": 3766,
-      "sha256": "15845ffab333e3e1c55cecd9a3736c9cbcba767ac4258678de96997d4340b387"
+      "size": 3740,
+      "sha256": "a41bf1625996a5a24c9f9c9aa2eb604eef4bb2dbcb5b83b558fde8298db85206"
     },
     {
       "path": "aidd/.claude/commands/tasks-new.md",
       "type": "file",
-      "size": 3763,
-      "sha256": "e3a137b6fb5f4092f0d5f96abd665625d507a6a580b45a3b20ec6f4abc3fe359"
+      "size": 3759,
+      "sha256": "619659715207c79da197dd51bf55b00537d01e0b3e88fa2929424fd04e640d4e"
     },
     {
       "path": "aidd/.claude/gradle/init-print-projects.gradle",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "2d7fa48d12ffeb847b2717bff10b8d3162d2458bfed32909511f75263736875a"
+      "sha256": "6ae598b8e2f2c3ede5559b61cb2c70c400678e2f4bd77a377563277599304223"
     }
   ]
 }

@@ -10,7 +10,6 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(git diff:*)"
   - "Bash(claude-workflow reviewer-tests:*)"
   - "Bash(claude-workflow progress:*)"
 model: inherit
@@ -22,7 +21,7 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - Текущий `git diff` / PR.
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md` — критерии приёмки и чеклисты.
+- @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md — критерии приёмки и чеклисты.
 - Логи тестов/гейтов (если есть), `reports/reviewer/<ticket>.json` для статуса тестов.
 
 ## Когда запускать

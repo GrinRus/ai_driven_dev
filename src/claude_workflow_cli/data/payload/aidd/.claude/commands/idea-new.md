@@ -23,8 +23,8 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - Slug-hint пользователя (аргумент `[slug-hint]` у `/idea-new`) и любые найденные ссылки на тикет (`rg <ticket> docs/**`) — исходное описание.
-- `docs/prd.template.md` — шаблон PRD для автосборки.
-- `docs/research/<ticket>.md`, `reports/research/<ticket>-context.json`, `reports/research/<ticket>-targets.json` — создаются/обновляются автоматически (если отчёта нет, разворачивается `docs/templates/research-summary.md` с baseline).
+- @docs/prd.template.md — шаблон PRD для автосборки.
+- @docs/research/<ticket>.md, `reports/research/<ticket>-context.json`, `reports/research/<ticket>-targets.json` — создаются/обновляются автоматически (если отчёта нет, разворачивается `docs/templates/research-summary.md` с baseline).
 - Пользовательский `slug-hint` из команды `/idea-new <ticket> [slug-hint]` — первичный текст запроса; зафиксируй его в PRD (обзор, контекст) и, при необходимости, импортируй в backlog/заметки.
 
 ## Когда запускать

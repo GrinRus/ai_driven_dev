@@ -15,12 +15,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/plan-new` преобразует утверждённый PRD в технический план (`docs/plan/<ticket>.md`) и сразу прогоняет валидацию. После завершения шаг используют `/tasks-new`, `/implement`.
+Команда `/plan-new` преобразует утверждённый PRD в технический план (@docs/plan/<ticket>.md) и сразу прогоняет валидацию. После завершения шаг используют `/tasks-new`, `/implement`.
 
 ## Входные артефакты
-- `docs/prd/<ticket>.prd.md` — статус READY и заполненный `## PRD Review` обязательны.
-- `docs/research/<ticket>.md` — точки интеграции и reuse.
-- `doc/backlog.md`, ADR (если есть) — вспомогательные материалы.
+- @docs/prd/<ticket>.prd.md — статус READY и заполненный `## PRD Review` обязательны.
+- @docs/research/<ticket>.md — точки интеграции и reuse.
+- @doc/backlog.md, ADR (если есть) — вспомогательные материалы.
 
 ## Когда запускать
 - После `/idea-new` и `/review-prd`, когда PRD утверждён и есть результаты Researcher.
