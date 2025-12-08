@@ -313,18 +313,18 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 ## Слэш-команды
 
-Команды и агенты поставляются как плагин `feature-dev-aidd` в `aidd/.claude-plugin/` (манифест `plugin.json`); рантайм-копии для IDE лежат в `aidd/.claude/`. Фронтматтер команд включает `description`, `argument-hint`, `allowed-tools` и позиционные аргументы `$1/$2/$ARGUMENTS`.
+Команды и агенты поставляются как плагин `feature-dev-aidd` в `aidd/.claude-plugin/` (манифест `plugin.json`); рантайм-копии для IDE лежат в `aidd/.claude/`. Фронтматтер команд включает `description`, `argument-hint`, `allowed-tools`, `disable-model-invocation` и позиционные аргументы `$1/$2/$ARGUMENTS`.
 
 | Команда | Назначение | Аргументы (пример) |
 | --- | --- | --- |
-| `/idea-new` | Собрать вводные и автосоздать PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
+| `/idea-new` | Собрать вводные и автосоздать PRD (Status: draft → READY) — входы: @docs/prd.template.md, @docs/research/<ticket>.md | `STORE-123 checkout-discounts` |
 | `/researcher` | Использовать отчёт Researcher и контекст для уточнения области работ | `STORE-123` |
-| `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
-| `/review-prd` | Провести ревью PRD и зафиксировать статус | `checkout-discounts` |
-| `/tasks-new` | Обновить `docs/tasklist/<ticket>.md` по плану | `checkout-discounts` |
-| `/implement` | Реализация по плану с автотестами | `checkout-discounts` |
-| `/review` | Финальное ревью и фиксация статуса | `checkout-discounts` |
-| `/qa` | Финальная QA-проверка, отчёт `reports/qa/<ticket>.json` | `checkout-discounts` |
+| `/plan-new` | Подготовить план + валидацию — входы: @docs/prd/<ticket>.prd.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/review-prd` | Провести ревью PRD и зафиксировать статус — входы: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/tasks-new` | Обновить `docs/tasklist/<ticket>.md` по плану — входы: @docs/plan/<ticket>.md, @docs/prd/<ticket>.prd.md, @docs/research/<ticket>.md | `checkout-discounts` |
+| `/implement` | Реализация по плану с автотестами — входы: @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md, @docs/prd/<ticket>.prd.md | `checkout-discounts` |
+| `/review` | Финальное ревью и фиксация статуса — входы: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md | `checkout-discounts` |
+| `/qa` | Финальная QA-проверка, отчёт `reports/qa/<ticket>.json` — входы: @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md | `checkout-discounts` |
 | `claude-workflow progress` | Проверить наличие новых `- [x]` перед завершением шага | `--source implement --ticket checkout-discounts` |
 
 ## Режимы веток и коммитов
