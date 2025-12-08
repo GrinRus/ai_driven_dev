@@ -3,8 +3,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6772,
-      "sha256": "b7febc2d8ec3ef2a7eb80860592119acb1a86828096083bf25810e90e74b83ec"
+      "size": 4237,
+      "sha256": "da5b4c97e4914b41df4ad432f53d3a81a257ffe444dd600296d2ec6b30af9c75"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -93,8 +93,8 @@
     {
       "path": "aidd/.claude/hooks/gate-prd-review.sh",
       "type": "file",
-      "size": 1066,
-      "sha256": "9e26d2806e314cfc0709c27625c3c83405a8a37556c250c7f309d755489bc661"
+      "size": 1089,
+      "sha256": "5a284546e9574f150d90e966f7f3615fa1b229fb97eb4ee29fed910ea8de0b54"
     },
     {
       "path": "aidd/.claude/hooks/gate-qa.sh",
@@ -105,14 +105,14 @@
     {
       "path": "aidd/.claude/hooks/gate-tests.sh",
       "type": "file",
-      "size": 5384,
-      "sha256": "f4dd87a8af1477b15534bf134e602c2b752c772e102c07c608eed97103a62ae5"
+      "size": 5407,
+      "sha256": "fe77aa9ade8c141d5f38687fbb9b6b1987e3e74469e98ae0e186eefe35f2f121"
     },
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 15114,
-      "sha256": "9c93f95c36a53fc2d58ad7542ccc5338404ebfa21378144e2e13ef7b30ea64e2"
+      "size": 15137,
+      "sha256": "6cfa76fded9d2ac65d7b277e9f79ec9a426950e9b7c9e407b6afd01298d8fc26"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
@@ -411,8 +411,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 21009,
-      "sha256": "771d371ae94d503df4e8469cec8968583800fed93c59fa234660822c1401376b"
+      "size": 21234,
+      "sha256": "5e706f559937a6047ae71a3203536e3646b8153077710eebb2cc1da841d96820"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",
@@ -645,8 +645,8 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 18016,
-      "sha256": "c39becada17fa4d6812f80759da67075b6c63760dc95fe7507a0114bc873fbfc"
+      "size": 18024,
+      "sha256": "aa72c58936b20d1661e0f8b23996a4fe2ee404b5512f16c9cfa8cc30cd41adc1"
     }
   ]
 }

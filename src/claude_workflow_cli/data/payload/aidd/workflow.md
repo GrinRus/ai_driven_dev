@@ -71,7 +71,7 @@
 
 ## Автоматизация и гейты
 
-- Пресет `strict` в `.claude/settings.json` включает pre-хуки (`gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`) и пост-хуки `.claude/hooks/format-and-test.sh` вместе с `.claude/hooks/lint-deps.sh`.
+- Хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) описаны в `hooks/hooks.json` и вызывают `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`; `.claude/settings.json` хранит только permissions/automation и включает плагин.
 - `aidd/hooks/hooks.json` описывает hook events: PreToolUse (workflow/prd/qa/tests), PostToolUse (format/test/lint-deps), а также UserPromptSubmit/Stop/SubagentStop — все вызывают `gate-workflow` перед записью. Пути свернуты через `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/...`.
 - `config/gates.json` управляет дополнительными проверками:
   - дополнительные гейты конфигурируются в `config/gates.json` (см. `tests_required`, `qa`).

@@ -197,6 +197,29 @@ copy_template() {
   log_info "copied: $rel_dest"
 }
 
+copy_payload_file() {
+  local src="$1"
+  local dest="$2"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] copy $src -> $dest"
+    return
+  fi
+  if [[ ! -f "$src" ]]; then
+    log_warn "missing source: $src"
+    return
+  fi
+  if [[ "$dest" != /* ]]; then
+    dest="$ROOT_DIR/$dest"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if [[ -e "$dest" && "$FORCE" -ne 1 ]]; then
+    log_warn "skip: $dest (exists, use --force to overwrite)"
+    return
+  fi
+  cp "$src" "$dest"
+  log_info "copied: $dest"
+}
+
 copy_payload_dir() {
   local source_dir="$1"
   local target_dir="${2:-$1}"
@@ -554,7 +577,12 @@ generate_prompt_references() {
 }
 
 generate_claude_settings() {
-  copy_template ".claude/settings.json" ".claude/settings.json"
+  local primary_settings="$PAYLOAD_ROOT/.claude/settings.json"
+  local fallback_settings="$PAYLOAD_ROOT/../.claude/settings.json"
+  if [[ ! -f "$primary_settings" && -f "$fallback_settings" ]]; then
+    primary_settings="$fallback_settings"
+  fi
+  copy_payload_file "$primary_settings" ".claude/settings.json"
   copy_payload_dir ".claude/hooks"
   copy_payload_dir ".claude/cache"
   ensure_hook_permissions
@@ -562,11 +590,11 @@ generate_claude_settings() {
 }
 
 generate_agents() {
-  copy_payload_dir ".claude/agents"
+  copy_payload_dir "agents" "agents"
 }
 
 generate_commands() {
-  copy_payload_dir ".claude/commands"
+  copy_payload_dir "commands" "commands"
 }
 
 generate_gradle_helpers() {

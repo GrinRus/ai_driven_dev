@@ -49,7 +49,7 @@
 ## Архитектура workflow
 1. `init-claude-workflow.sh` разворачивает структуру `.claude/`, конфиги и шаблоны.
 2. Slash-команды Claude Code запускают многошаговый процесс (см. `workflow.md`): от идеи и плана до реализации и ревью, подключая специализированных саб-агентов.
-3. Пресет `strict` в `.claude/settings.json` включает `gate-workflow` и автозапуск `.claude/hooks/format-and-test.sh`; дополнительные гейты (`gate-tests`, `gate-qa`) включаются флагами в `config/gates.json`.
+3. Плагин `feature-dev-aidd` из `.claude-plugin/marketplace.json` вешает pre-/post-хуки (`gate-*`, `format-and-test.sh`); `.claude/settings.json` хранит только разрешения/automation и включает плагин.
 4. Git-хук `format-and-test.sh` выполняет форматирование и выборочные Gradle-тесты; полный прогон инициируется при изменении общих артефактов.
 5. Политики доступа и режимы веток/коммитов управляются через `.claude/settings.json` и `config/conventions.json`.
 
@@ -63,7 +63,7 @@
 ## Структура репозитория
 | Каталог/файл | Назначение | Ключевые детали |
 | --- | --- | --- |
-| `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, pre/post-хуки, auto-форматирование/тесты, защита prod-путей |
+| `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, allow/ask/deny, automation; pre/post-хуки живут в плагине (`hooks/hooks.json`) |
 | `.claude/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` с `allowed-tools` и встроенными shell-шагами |
 | `.claude/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa` |
 | `prompts/en/` | EN-версии промптов | `prompts/en/agents/*.md`, `prompts/en/commands/*.md`, синхронизированы с `.claude/**` (см. `docs/prompt-versioning.md`) |
@@ -123,7 +123,7 @@
 - Сообщения коммитов формируйте вручную (`git commit`), сверяясь со схемами в `config/conventions.json`.
 
 ### Конфигурация и политики
-- `.claude/settings.json` — пресеты `start/strict`, списки `allow/ask/deny` и параметры `automation` (формат/тесты).
+- `.claude/settings.json` — пресеты `start/strict`, списки `allow/ask/deny` и параметры `automation` (формат/тесты); pre/post-хуки поставляет плагин.
 - `config/conventions.json` — commit/branch режимы (`ticket-prefix`, `conventional`, `mixed`), шаблоны сообщений, примеры, заметки для ревью и CLI.
 - `config/gates.json` — флаги `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source`; управляет поведением гейтов и `lint-deps.sh`.
 - `config/allowed-deps.txt` — allowlist `group:artifact`, поддерживает комментарии, используется `lint-deps.sh`.
@@ -139,15 +139,15 @@
 - `tests/test_init_claude_workflow.py` — проверка bootstrap-скрипта, флагов `--dry-run`, `--force`, наличия ключевых артефактов.
 - `tests/test_gate_*.py` — сценарии для гейтов workflow, API, миграций БД, обязательных тестов; учитывают tracked/untracked миграции и пропуски нецелевых файлов.
 - `tests/test_format_and_test.py` — покрытие selective runner: `moduleMatrix`, общие файлы, переменные `TEST_SCOPE`, `SKIP_AUTO_TESTS`.
-- `tests/test_settings_policy.py` — защита `permissions`/`hooks` в `.claude/settings.json`, гарантирует, что критичные команды остаются в `ask/deny`.
+- `tests/test_settings_policy.py` — проверяет, что `permissions` настроены безопасно и хуки берутся из плагина (не дублируются в settings).
 
 ### Демо и расширения
 - `examples/gradle-demo/` — двухсервисный Gradle-монорепо (модули `service-checkout`, `service-payments`) на Kotlin 1.9.22 с общим `jvmToolchain(17)` и настройками `JUnit 5`.
 - `claude-workflow-extensions.patch` — patch-файл с расширениями агентов, команд и гейтов, готовый к применению на чистый репозиторий.
 
 ## Архитектура и взаимосвязи
-- Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды, которые затем задействуются hook-пайплайном.
-- Пресет `strict` в `.claude/settings.json` подключает pre/post-хуки и автоматически запускает `.claude/hooks/format-and-test.sh` после успешной записи.
+- Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды; хуки подключает плагин `feature-dev-aidd`.
+- Pre-/post-хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) перечислены в `aidd/hooks/hooks.json` и ссылаются на `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`.
 - Гейты (`gate-*`) читают `config/gates.json` и артефакты в `docs/**`, обеспечивая прохождение цепочки `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new`; включайте дополнительные проверки (`researcher`, `prd_review`, `tests_required`) по мере необходимости.
 - `.claude/hooks/format-and-test.sh` опирается на Gradle-скрипт `init-print-projects.gradle`, сохранённый ticket (и slug-хинт) и `moduleMatrix`, чтобы решать, запускать ли selective или полный набор задач.
 - Тестовый набор на Python использует `tests/helpers.py` для эмуляции git/файловой системы, покрывая dry-run, tracked/untracked изменения и поведение хуков.
@@ -170,7 +170,7 @@
 - `tests/test_init_claude_workflow.py` — проверяет чистую установку, `--dry-run`, `--force`, наличие ключевых артефактов и поведение bootstrap-скрипта.
 - `tests/test_gate_*.py` — проверяют workflow/API/DB/tests гейты: учитывают ticket/slug-хинт, tracked/untracked миграции, режимы `soft/hard/disabled` и нецелевые файлы.
 - `tests/test_format_and_test.py` — моделирует запуск Python-хука, проверяет `moduleMatrix`, реакцию на общие файлы, переменные `SKIP_AUTO_TESTS`, `TEST_SCOPE`.
-- `tests/test_settings_policy.py` — валидирует `.claude/settings.json`, гарантируя, что критичные команды (`git add/commit/push`, `curl`, запись в прод-пути) находятся в `ask/deny`.
+- `tests/test_settings_policy.py` — валидирует `.claude/settings.json`, гарантируя, что критичные команды (`git add/commit/push`, `curl`, запись в прод-пути) находятся в `ask/deny` и хуки остаются в плагине (не дублируются в settings).
 - `scripts/ci-lint.sh` и `.github/workflows/ci.yml` — единый entrypoint линтеров/тестов для локального запуска и GitHub Actions.
 - `scripts/smoke-workflow.sh` — E2E smoke, подтверждает, что `gate-workflow` блокирует исходники до появления PRD/плана/tasklist (`docs/tasklist/<ticket>.md`).
 
@@ -183,10 +183,10 @@
 - **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
 
 ## Политики доступа и гейты
-- `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй включает pre- и post-хуки (`gate-*`, `format-and-test`, `lint-deps`) и требует явного подтверждения `git add/commit/push`.
+- `.claude/settings.json` содержит пресеты `start` и `strict`: первый позволяет базовые операции, второй расширяет allow/ask/deny; хуки подключает плагин `feature-dev-aidd` (`hooks/hooks.json`).
 - Раздел `automation` управляет форматированием и тестами; настройте `format`/`tests` под ваш Gradle-пайплайн.
 - `config/gates.json` централизует флаги `prd_review`, `tests_required`, `deps_allowlist`, а также пути к активному ticket (`feature_ticket_source`) и slug-хинту (`feature_slug_hint_source`); для `prd_review` доступны параметры `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches` и `branches`.
-- Комбинация хуков `gate-*` в `.claude/hooks/` реализует согласованную политику: блокировка кода без артефактов, требование миграций и тестов, контроль API-контрактов.
+- Комбинация хуков `gate-*` в `.claude/hooks/` (вызываются через plugin hooks/hooks.json) реализует согласованную политику: блокировка кода без артефактов, требование миграций и тестов, контроль API-контрактов.
 
 ## Документация и шаблоны
 - `workflow.md`, `docs/agents-playbook.md` — описывают целевой цикл idea→review, роли саб-агентов и взаимодействие с гейтами.

@@ -7,7 +7,7 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-03-17._  <!-- update when EN catches up -->
+_Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 
 ## TL;DR
 - `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
@@ -54,7 +54,7 @@ _Last sync with `README.md`: 2025-03-17._  <!-- update when EN catches up -->
 ## Workflow architecture
 1. `init-claude-workflow.sh` scaffolds `.claude/`, configs, and templates.
 2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, PRD review, tasklist, implementation, and review with dedicated sub-agents.
-3. The `strict` preset in `.claude/settings.json` enables `gate-workflow`, `gate-prd-review`, and auto-runs `.claude/hooks/format-and-test.sh`; extra gates (`gate-tests`, `gate-qa`) are toggled via `config/gates.json`.
+3. The `feature-dev-aidd` plugin from `.claude-plugin/marketplace.json` wires pre/post hooks (`gate-*`, `format-and-test.sh`); `.claude/settings.json` only keeps permissions/automation and enables the plugin.
 4. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
@@ -68,7 +68,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 ## Repository structure
 | Path | Purpose | Highlights |
 | --- | --- | --- |
-| `.claude/settings.json` | Access & automation policies | `start`/`strict` presets, pre/post hooks, auto formatting/tests |
+| `.claude/settings.json` | Access & automation policies | `start`/`strict` presets, allow/ask/deny, automation; pre/post hooks live in the plugin (`hooks/hooks.json`) |
 | `.claude/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new`, `/implement`, `/review` with `allowed-tools` and inline shell steps |
 | `.claude/agents/` | Sub-agent playbooks | Roles for analyst, planner, prd-reviewer, validator, implementer, reviewer, qa |
 | `.claude/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
@@ -121,7 +121,7 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - Craft commits with `git commit`, aligning messages to the schemes described in `config/conventions.json`.
 
 ### Configuration & policy
-- `.claude/settings.json` — `start/strict` presets, allow/ask/deny lists, and automation knobs (`format/tests`).
+- `.claude/settings.json` — `start/strict` presets, allow/ask/deny lists, and automation knobs (`format/tests`); hooks are supplied by the plugin.
 - `config/conventions.json` — branch/commit modes (`ticket-prefix`, `conventional`, `mixed`), message templates, examples, and review/CLI guidance.
 - `config/gates.json` — toggles for `prd_review`, `tests_required`, `deps_allowlist`, plus pointers to the active ticket/slug hint (`feature_ticket_source`, `feature_slug_hint_source`); drives gate behaviour and `lint-deps.sh`.
 - `config/allowed-deps.txt` — comment-friendly `group:artifact` allowlist consumed by `lint-deps.sh`.
@@ -137,15 +137,15 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `tests/test_init_claude_workflow.py` — validates bootstrap execution together with `--dry-run`, `--force`, and required artefacts.
 - `tests/test_gate_*.py` — scenarios for workflow/API/DB/test gates, covering tracked/untracked migrations and mode toggles.
 - `tests/test_format_and_test.py` — selective runner coverage with `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS`, `TEST_SCOPE`.
-- `tests/test_settings_policy.py` — enforces `permissions`/`hooks` constraints in `.claude/settings.json`, ensuring critical commands stay in `ask/deny`.
+- `tests/test_settings_policy.py` — ensures `permissions` stay safe and hooks are delegated to the plugin (not duplicated in settings).
 
 ### Demos & extensions
 - `examples/gradle-demo/` — two-service Gradle monorepo (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5) used to validate selective testing.
 - `claude-workflow-extensions.patch` — patch file bundling agent, command, and gate extensions ready to apply to blank repositories.
 
 ## Architecture & relationships
-- The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions that are invoked by the hook pipeline.
-- The `strict` preset in `.claude/settings.json` wires pre/post hooks and automatically runs `.claude/hooks/format-and-test.sh` after successful writes.
+- The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions; the `feature-dev-aidd` plugin attaches the hook pipeline.
+- Pre/post hooks (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) live in `aidd/hooks/hooks.json` and point to `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`.
 - Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `docs/**`, enforcing the `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`researcher`, `prd_review`, `tests_required`) as your process demands.
 - `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active ticket/slug hint, and `moduleMatrix` to decide between selective and full test runs.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
@@ -167,15 +167,15 @@ Advanced customization tips are covered in `workflow.md` and `docs/customization
 - `tests/test_init_claude_workflow.py` validates fresh installs, `--dry-run`, `--force`, and required artefacts emitted by the bootstrap.
 - `tests/test_gate_*.py` cover workflow/API/DB/test gates, including tracked/untracked migration detection and `soft/hard/disabled` enforcement.
 - `tests/test_format_and_test.py` exercises the Python hook, checking `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS` and `TEST_SCOPE`.
-- `tests/test_settings_policy.py` guards `.claude/settings.json`, ensuring critical commands (`git add/commit/push`, `curl`, prod writes) sit in `ask/deny`.
+- `tests/test_settings_policy.py` guards `.claude/settings.json`, keeping critical commands (`git add/commit/push`, `curl`, prod writes) in `ask/deny` and asserting hooks stay delegated to the plugin.
 - `scripts/ci-lint.sh` plus `.github/workflows/ci.yml` deliver linters and the unittest suite as a single local/CI entrypoint.
 - `scripts/smoke-workflow.sh` runs an E2E smoke to ensure `gate-workflow` blocks code edits until PRD Review, plan, and `docs/tasklist/<ticket>.md` artefacts exist.
 
 ## Access policies & gates
-- `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter enables pre/post hooks (`gate-*`, `format-and-test`, `lint-deps`) and requires approval for `git add/commit/push`.
+- `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter expands allow/ask/deny; hooks come from the `feature-dev-aidd` plugin (`hooks/hooks.json`).
 - The `automation` section drives formatting/test runners; adjust `format`/`tests` there to align with your Gradle setup.
 - `config/gates.json` centralises `prd_review`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`); the `prd_review` section exposes `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches`, and `branches`.
-- Combined `gate-*` hooks inside `.claude/hooks/` enforce the workflow: blocking code without PRD review/plan/tasklist (`docs/tasklist/<ticket>.md`), requiring migrations/tests, and validating OpenAPI specs.
+- Combined `gate-*` hooks inside `.claude/hooks/` (invoked via the plugin) enforce the workflow: blocking code without PRD review/plan/tasklist (`docs/tasklist/<ticket>.md`), requiring migrations/tests, and validating OpenAPI specs.
 
 ## Docs & templates
 - `workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.

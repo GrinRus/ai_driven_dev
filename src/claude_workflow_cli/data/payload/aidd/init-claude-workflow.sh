@@ -582,7 +582,12 @@ generate_prompt_references() {
 }
 
 generate_claude_settings() {
-  copy_payload_file "$PAYLOAD_ROOT/../.claude/settings.json" "$ROOT_DIR/.claude/settings.json"
+  local primary_settings="$PAYLOAD_ROOT/../.claude/settings.json"
+  local fallback_settings="$PAYLOAD_ROOT/.claude/settings.json"
+  if [[ ! -f "$primary_settings" && -f "$fallback_settings" ]]; then
+    primary_settings="$fallback_settings"
+  fi
+  copy_payload_file "$primary_settings" "$ROOT_DIR/.claude/settings.json"
   copy_payload_dir ".claude/hooks"
   copy_payload_dir ".claude/cache"
   ensure_hook_permissions
