@@ -6,32 +6,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-workflow.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-prd-review.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-prd-review.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-api-contract.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-api-contract.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-db-migration.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-db-migration.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-qa.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-qa.sh",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/gate-tests.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-tests.sh",
             "timeout": 5
           }
         ]
@@ -43,13 +43,49 @@
         "hooks": [
           {
             "type": "command",
-            "command": "../.claude/hooks/format-and-test.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh",
             "timeout": 900
           },
           {
             "type": "command",
-            "command": "../.claude/hooks/lint-deps.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-deps.sh",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh",
+            "timeout": 5
           }
         ]
       }
