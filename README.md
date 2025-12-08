@@ -8,6 +8,7 @@
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
 - Установка по умолчанию раскладывает payload в поддиректорию `aidd/` (`aidd/.claude`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`). Все пути в хуках, smoke и тестах рассчитываются относительно `aidd/`.
+  Корневые снапшоты удалены: рабочие файлы берутся только из payload `aidd/`.
 
 ## Оглавление
 - [Что входит в шаблон](#что-входит-в-шаблон)

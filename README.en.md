@@ -15,6 +15,7 @@ _Last sync with `README.md`: 2025-11-24._
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
+  Root snapshots were removed; runtime files live only in the `aidd/` payload.
 
 ## Table of Contents
 - [What you get](#what-you-get)

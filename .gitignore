@@ -11,3 +11,11 @@ dist/
 .tmp-debug/
 .idea/
 .vscode/
+.claude/
+claude-presets/
+config/
+docs/
+prompts/
+scripts/
+templates/
+tools/
