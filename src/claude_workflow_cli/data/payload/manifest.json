@@ -309,8 +309,8 @@
     {
       "path": "aidd/.claude-plugin/commands/tasks-new.md",
       "type": "file",
-      "size": 3763,
-      "sha256": "e3a137b6fb5f4092f0d5f96abd665625d507a6a580b45a3b20ec6f4abc3fe359"
+      "size": 3759,
+      "sha256": "619659715207c79da197dd51bf55b00537d01e0b3e88fa2929424fd04e640d4e"
     },
     {
       "path": "aidd/.claude-plugin/hooks/hooks.json",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "f753f05d92a5d27782c52c5e63ff572655814c99cedcdbaf097d2fbe7a446fc0"
+      "sha256": "2d7fa48d12ffeb847b2717bff10b8d3162d2458bfed32909511f75263736875a"
     }
   ]
 }
