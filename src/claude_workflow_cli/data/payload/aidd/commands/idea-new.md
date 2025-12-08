@@ -10,7 +10,7 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(python3 tools/set_active_feature.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py:*)"
   - "Bash(claude-workflow research:*)"
   - "Bash(claude-workflow analyst:*)"
   - "Bash(claude-workflow analyst-check:*)"
@@ -32,7 +32,7 @@ disable-model-invocation: false
 - Повторный запуск допустим только если нужно пересоздать активный ticket (используй флаг`--force`и убедись, что не перетираешь заполненный PRD).
 
 ## Автоматические хуки и переменные
--`python3 tools/set_active_feature.py`синхронизирует`docs/.active_ticket`,`.active_feature`и scaffold'ит PRD (может читать slug/alias из аргументов).
+-`${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py`синхронизирует`docs/.active_ticket`,`.active_feature`и scaffold'ит PRD (может читать slug/alias из аргументов).
 -`claude-workflow research --ticket`&lt;ticket&gt;`--auto`собирает кодовый контекст и обновляет`reports/research/`&lt;ticket&gt;`-context.json`/`-targets.json`; параметры`--paths/--keywords/--note`указываем только при реальной необходимости уточнить область поиска.
 -`claude-workflow analyst --ticket`&lt;ticket&gt;`--auto`запускает агента-аналитика, который сам перечитывает research, slug-hint и применяет rg; при нехватке данных он может инициировать повторный research с уточнёнными путями/ключевыми словами.
 -`claude-workflow analyst-check --ticket`&lt;ticket&gt;``валидирует, что блок`## Диалог analyst`заполнен и статус PRD не`draft`.
@@ -45,7 +45,7 @@ disable-model-invocation: false
 - Дополнительные заметки/файлы, которые пользователь указал в аргументах (`--note`).
 
 ## Пошаговый план
-1. Запусти`python3 tools/set_active_feature.py "$1" [--slug-note "$2"]`— команда обновит`docs/.active_ticket`,`.active_feature`(сохраняет slug-hint как сырой запрос пользователя) и создаст PRD (`Status: draft`). Аргумент`--force`используем только если подтверждено перезаписывание существующей фичи.
+1. Запусти`${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py "$1" [--slug-note "$2"]`— команда обновит`docs/.active_ticket`,`.active_feature`(сохраняет slug-hint как сырой запрос пользователя) и создаст PRD (`Status: draft`). Аргумент`--force`используем только если подтверждено перезаписывание существующей фичи.
 2. Сразу после фиксации тикета выполни`claude-workflow research --ticket "$1" --auto`— это соберёт пути/ключевые слова/experts и создаст`reports/research/`&lt;ticket&gt;`-context.json`. Дополнительные`--paths`/`--keywords`указываем только при явном ограничении области поиска; по умолчанию агент сам сканирует репозиторий.
 3. Если CLI сообщает`0 matches`, развёрни`docs/templates/research-summary.md`в`docs/research/$1.md`, добавь baseline «Контекст пуст, требуется baseline» и перечисли команды/пути, которые ничего не нашли.
 4. Запусти саб-агента **analyst** автомодно:`claude-workflow analyst --ticket "$1" --auto`. Агент читает slug-hint (`docs/.active_feature`),`docs/research/`&lt;ticket&gt;`.md`,`reports/research/*.json`, применяет`rg`и при нехватке данных сам инициирует дополнительный`claude-workflow research --ticket "$1" --auto --paths ... --keywords ...`.
