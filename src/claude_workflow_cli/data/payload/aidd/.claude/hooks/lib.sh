@@ -151,3 +151,40 @@ resolve_script_path() {
   fi
   return 1
 }
+
+ensure_template() {
+  local src="$1"
+  local dest="$2"
+  if [[ -z "$src" || -z "$dest" ]]; then
+    return 1
+  fi
+  if [[ -f "$dest" ]]; then
+    return 0
+  fi
+  local src_path=""
+  if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/$src" ]]; then
+    src_path="$ROOT_DIR/$src"
+  elif [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/aidd/$src" ]]; then
+    src_path="$ROOT_DIR/aidd/$src"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if [[ -n "$src_path" ]]; then
+    cp "$src_path" "$dest"
+    return 0
+  fi
+  # fallback: create minimal stub
+  cat >"$dest" <<'EOF'
+# Research
+
+Status: pending
+
+## Summary
+
+## Findings
+- TBD
+
+## Next steps
+- TBD
+EOF
+  return 0
+}

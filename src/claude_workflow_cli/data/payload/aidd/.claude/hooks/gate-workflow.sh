@@ -109,6 +109,8 @@ if [[ ! "$file_path" =~ (^|/)src/ ]]; then
   exit 0
 fi
 
+ensure_template "docs/templates/research-summary.md" "docs/research/$ticket.md"
+
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
 analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticket")
