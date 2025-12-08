@@ -93,8 +93,8 @@
     {
       "path": "aidd/.claude/hooks/gate-prd-review.sh",
       "type": "file",
-      "size": 1089,
-      "sha256": "5a284546e9574f150d90e966f7f3615fa1b229fb97eb4ee29fed910ea8de0b54"
+      "size": 1177,
+      "sha256": "460bcfde482c622cd0698563b1eb274bc1b0fac5cfe759c10ceb3af15d9b4e06"
     },
     {
       "path": "aidd/.claude/hooks/gate-qa.sh",
@@ -111,14 +111,14 @@
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 15137,
-      "sha256": "6cfa76fded9d2ac65d7b277e9f79ec9a426950e9b7c9e407b6afd01298d8fc26"
+      "size": 15225,
+      "sha256": "df6a2bbe2392f352da9ab642da6bd2f3855e42e4fb1ab9ade804c66085b1155b"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
       "type": "file",
-      "size": 3750,
-      "sha256": "26fa3868095b2de629e7ca60504b88ed5c77899499f5697d6eaa9bf7f26c1bb0"
+      "size": 4114,
+      "sha256": "b74c0375d4b0967071dcaafcb3529b01845c6f349a6a371cd43c33b5f7ee02ce"
     },
     {
       "path": "aidd/.claude/hooks/lint-deps.sh",

@@ -135,3 +135,19 @@ run_cli_or_hint() {
   echo "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git" >&2
   return 127
 }
+
+resolve_script_path() {
+  local relative="$1"
+  if [[ -z "$relative" ]]; then
+    return 1
+  fi
+  if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/$relative" ]]; then
+    printf '%s\n' "$ROOT_DIR/$relative"
+    return 0
+  fi
+  if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/aidd/$relative" ]]; then
+    printf '%s\n' "$ROOT_DIR/aidd/$relative"
+    return 0
+  fi
+  return 1
+}
