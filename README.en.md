@@ -7,14 +7,14 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-11-24._
+_Last sync with `README.md`: 2025-03-17._
 
 ## TL;DR
 - `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
 - Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
-- By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
+- By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/.claude-plugin` with the `feature-dev-aidd` plugin, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
   Root snapshots were removed; runtime files live only in the `aidd/` payload.
 
 ## Table of Contents
@@ -282,9 +282,12 @@ A detailed agent/gate playbook lives in `docs/agents-playbook.md`.
 
 ## Slash commands
 
+Commands and agents ship as the `feature-dev-aidd` plugin in `aidd/.claude-plugin/` (manifest `plugin.json`); runtime copies for IDE live in `aidd/.claude/`. Command frontmatter includes `description`, `argument-hint`, `allowed-tools`, positional `$1/$2/$ARGUMENTS`, and `disable-model-invocation`.
+
 | Command | Purpose | Example |
 | --- | --- | --- |
 | `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
+| `/researcher` | Use Researcher context to clarify scope and modules | `STORE-123` |
 | `/plan-new` | Prepare plan and validation pass | `checkout-discounts` |
 | `/review-prd` | Run structured PRD review and log status | `checkout-discounts` |
 | `/tasks-new` | Refresh `docs/tasklist/<ticket>.md` from the plan | `checkout-discounts` |
