@@ -609,8 +609,8 @@
     {
       "path": "aidd/scripts/lint-prompts.py",
       "type": "file",
-      "size": 11983,
-      "sha256": "649d4e083fbcd3275d99a062afa8e7aa70d67da7e899222883f6edd32fb12678"
+      "size": 12394,
+      "sha256": "ce908935e538b334f55b3fe4453293715502fb1be50ea7ac6a5016af86e7d306"
     },
     {
       "path": "aidd/scripts/migrate-tasklist.py",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "bab7721a39ada4c7e995ee6d8f85408ef28bde0bcf44c65b1fbc006ef1f9ac10"
+      "sha256": "e9020cf6262bfd0e189e0c35bb6b7f6e0b2615c35c79d744165344acbd7d323d"
     }
   ]
 }

@@ -182,13 +182,32 @@ def validate_prompt(info: PromptFile) -> List[str]:
     front = info.front_matter
     if info.kind == "agent":
         errors.extend(
-            ensure_keys(info, ["name", "description", "lang", "prompt_version", "source_version", "tools"])
+            ensure_keys(
+                info,
+                [
+                    "name",
+                    "description",
+                    "lang",
+                    "prompt_version",
+                    "source_version",
+                    "tools",
+                    "permissionMode",
+                ],
+            )
         )
     else:
         errors.extend(
             ensure_keys(
                 info,
-                ["description", "argument-hint", "lang", "prompt_version", "source_version", "allowed-tools"],
+                [
+                    "description",
+                    "argument-hint",
+                    "lang",
+                    "prompt_version",
+                    "source_version",
+                    "allowed-tools",
+                    "disable-model-invocation",
+                ],
             )
         )
 
