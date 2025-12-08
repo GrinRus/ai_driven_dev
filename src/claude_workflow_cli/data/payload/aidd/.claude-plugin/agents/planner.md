@@ -6,6 +6,7 @@ prompt_version: 1.0.0
 source_version: 1.0.0
 tools: Read, Write, Grep, Glob
 model: inherit
+permissionMode: default
 ---
 
 ## Контекст
