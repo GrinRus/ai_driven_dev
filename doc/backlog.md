@@ -676,6 +676,10 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 ### Тестирование и фиксация Wave 46
 - [x] После обновления хуков/смоука прогнать `python -m pytest tests/test_gate_workflow.py tests/test_gate_tests_hook.py tests/test_gate_qa.py` и `scripts/smoke-workflow.sh`; зафиксировать результаты.
 - [x] При изменениях в payload/хуках обновить `src/claude_workflow_cli/data/payload/manifest.json` (payload sync) и отметить чекбокс Wave 46.
+- [ ] Привести все пути артефактов к `aidd/docs/**` вместо `./docs/**`: обновить хуки, агенты, команды и шаблоны, чтобы они читали/писали в подпапку плагина.
+- [ ] Гарантировать наличие шаблонов: добавить в payload/manifest `aidd/docs/templates/research-summary.md` (и другие используемые шаблоны) либо fallback-генерацию минимальной заготовки при отсутствии файла.
+- [ ] Исправить ссылки на скрипты в хуках: использовать `${CLAUDE_PLUGIN_ROOT}/scripts/...` (например, `prd_review_gate.py`) и убедиться, что `aidd/scripts/**` копируются при init/sync.
+- [ ] Добавить префлайт автосоздание артефактов (PRD/Research) перед вызовом агентов/хуков: если нет `aidd/docs/research/<ticket>.md` или `aidd/docs/prd/<ticket>.prd.md`, создать из шаблона или пустой заготовки; покрыть тестом/smoke.
 
 ## Wave 47
 
