@@ -4,18 +4,18 @@ description: Реализация задачи. Основан на данных
 lang: ru
 prompt_version: 1.1.1
 source_version: 1.1.1
-tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(git add:*)
+tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow progress:*), Bash(git:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Исполнитель реализует изменения строго по репозиторию: опирается на `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`, читает PRD/research только если в плане/чеклисте не хватает деталей, затем минимально исправляет код/конфигурацию. Агент работает малыми итерациями: делает пакет правок, обновляет tasklist, запускает автотесты перед отдачей ответа и фиксирует прогресс через `claude-workflow progress --source implement --ticket <ticket>`. Вопросы пользователю допустимы только если артефакты не отвечают на блокер.
+Исполнитель реализует изменения строго по репозиторию: опирается на @docs/plan/<ticket>.md и @docs/tasklist/<ticket>.md, читает PRD/research только если в плане/чеклисте не хватает деталей, затем минимально исправляет код/конфигурацию. Агент работает малыми итерациями: делает пакет правок, обновляет tasklist, запускает автотесты перед отдачей ответа и фиксирует прогресс через `claude-workflow progress --source implement --ticket <ticket>`. Вопросы пользователю допустимы только если артефакты не отвечают на блокер.
 
 ## Входные артефакты
-- `docs/plan/<ticket>.md` — пошаговый план; уточни итерацию и ожидаемый DoD.
-- `docs/tasklist/<ticket>.md` — текущий чеклист; фиксируй здесь каждое завершённое действие.
-- `docs/research/<ticket>.md`, `docs/prd/<ticket>.prd.md` — используй для уточнений, если план/чеклист не покрывают требования или ограничения.
+- @docs/plan/<ticket>.md — пошаговый план; уточни итерацию и ожидаемый DoD.
+- @docs/tasklist/<ticket>.md — текущий чеклист; фиксируй здесь каждое завершённое действие.
+- @docs/research/<ticket>.md, @docs/prd/<ticket>.prd.md — используй для уточнений, если план/чеклист не покрывают требования или ограничения.
 - Git diff, текущая ветка, связанные скрипты/миграции.
 
 ## Автоматизация
