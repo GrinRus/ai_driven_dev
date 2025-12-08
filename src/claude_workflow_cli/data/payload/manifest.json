@@ -141,8 +141,8 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 2487,
-      "sha256": "faabfb435935f63f92580d2e948ddfc6c7dbfc2422d45de12e1b523fab3a1277"
+      "size": 2502,
+      "sha256": "3541dffc12562eeb4ee350d7df75de54127ce5c59c9b34d57c281067fe387115"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -297,8 +297,8 @@
     {
       "path": "aidd/conventions.md",
       "type": "file",
-      "size": 1326,
-      "sha256": "20129a0f8f825ca3248b0ac4a9c252dfd1cebe0f23738f3a5f9adc65b171b16c"
+      "size": 1351,
+      "sha256": "405e8cca0f778e6008c4f1f8f23c09a87daa7ecb8a108a97e594e84e515372d3"
     },
     {
       "path": "aidd/docs/adr/.gitkeep",
@@ -645,8 +645,8 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 18179,
-      "sha256": "33e17c07c675e139b45a720f2922379f8bb6ea1b85504c44ebc2effad3b0c51d"
+      "size": 18334,
+      "sha256": "2f046bf8baae1d99d3420bd30e1267d9c77545884e98d4b471882dc2f129d736"
     }
   ]
 }
