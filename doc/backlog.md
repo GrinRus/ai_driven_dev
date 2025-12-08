@@ -679,9 +679,25 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 
 ## Wave 47
 
+### Разделение настроек проекта и плагина (Claude Code)
+- [ ] Перенести скрипты из `aidd/.claude/hooks/*.sh` и gradle-helper из `aidd/.claude/gradle/` в плагинные каталоги (`aidd/hooks` или `aidd/scripts`), обновить ссылки на них через `${CLAUDE_PLUGIN_ROOT}/hooks` и удалить `.claude` из корня плагина.
+- [ ] Обновить `aidd/.claude-plugin/plugin.json` и `aidd/hooks/hooks.json` под новые пути, исключить обращения к `$CLAUDE_PROJECT_DIR`, оставить только `${CLAUDE_PLUGIN_ROOT}` для плагинных хуков.
+- [ ] Скорректировать `aidd/init-claude-workflow.sh`: не копировать `.claude` изнутри плагина, копировать проектные `.claude/**` из payload root, сохранять генерацию marketplace в `/.claude-plugin/` и ссылку на подпапку `aidd/`.
+- [ ] Привести тесты/tools, которые проверяют наличие хуков/gradle helper, к новой раскладке (путь в плагине вместо `.claude`), дополнить smoke-кейс запуском хуков при CWD=корень репо.
+- [ ] Документация (`README*`, `workflow.md`, `aidd/CLAUDE.md`, `docs/agents-playbook.md`): явное разделение project `.claude/` vs plugin `.claude-plugin/`, примеры подключения marketplace из подпапки `aidd/`, новые пути хуков.
+
 ### Аудит и чистка дистрибутива
 - [ ] Провести ревизию payload/distro: какие файлы должны ставиться пользователю (hooks, tools, prompts, scripts), какие остаются dev-only; зафиксировать критерии (назначение, зависимость в командах/хуках/CI) и вывод в отдельной заметке.
 - [ ] Добавить автоматическую проверку состава дистрибутива: allowlist/denylist для `aidd/tools`, `scripts`, `commands/agents/hooks`, защитный тест или `scripts/check-payload-contents.sh`, который валит CI при появлении лишних/неиспользуемых файлов.
 - [ ] Обновить manifest генератор и `tools/check_payload_sync.py`/tests так, чтобы они опирались на новый список обязательных артефактов и подсвечивали осиротевшие файлы (например, неиспользуемые утилиты вроде `prompt_diff.py`).
 - [ ] Добавить CLI или make-таргет (`claude-workflow payload audit` или `make payload-audit`), который запускает проверку после `sync --direction=from-root` и перед релизом; включить в release pipeline.
 - [ ] Обновить документацию (README/README.en/workflow.md/CONTRIBUTING.md) и release checklist с правилами: что считается runtime-артефактом, что dev-only, как проводить аудит перед тэгом и где оставлять решение по удалённым файлам.
+
+## Wave 48
+
+_Статус: новый, приоритет 3. Цель — аудит и упорядочивание корня репозитория (dev-only артефакты, дубли документации)._
+
+- [ ] Провести инвентаризацию корневых каталогов (`doc/`, `docs/`, `scripts/`, `tools/`, `CLAUDE.md`, `workflow.md`), составить таблицу dev-only vs дистрибутив и отметить, что реально нужно пользователю.
+- [ ] Убрать/переместить dev-only материалы (design/feature-presets, backlog и пр.) в отдельный путь или wiki; обновить ссылки из README/CONTRIBUTING, чтобы не было битых путей после чистки.
+- [ ] Обновить gitignore/manifest/payload sync так, чтобы корневые dev-only файлы не попадали в релизы и установки; добавить чек в `tools/check_payload_sync.py` или новый `scripts/check-root-audit.sh`.
+- [ ] Документация: README/README.en/CONTRIBUTING — раздел «Состав репозитория» с явным перечислением, что остаётся в корне, что ставится пользователю, куда смотреть dev-доки.
