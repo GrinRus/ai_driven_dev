@@ -333,8 +333,8 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 1962,
-      "sha256": "9086b0a412c66388e6d488f6085c17626d99633aa42db6f02441885e1a4449e8"
+      "size": 2306,
+      "sha256": "76c5eb0624656fc30250219b2c45d368ec9b8e33c8e95a18474b5d2c80ab125a"
     },
     {
       "path": "aidd/claude-presets/advanced/feature-design.yaml",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "2b3a8363de9e12ee16a339fac2de77ad336ab7f9ec3fa2d788124b48ffbd206d"
+      "sha256": "832f4be58fa1464b6e0f9f7759b70d7ea91cb6e2a9ab4d496370583663b0968d"
     }
   ]
 }
