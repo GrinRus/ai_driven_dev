@@ -267,8 +267,8 @@
     {
       "path": "aidd/.claude-plugin/commands/idea-new.md",
       "type": "file",
-      "size": 8851,
-      "sha256": "e310cea59aafd17f690277bccb5834488c7e763aa8e4b274b5ce666f317f1698"
+      "size": 8849,
+      "sha256": "3c64fac127f733c91701ccf7a612f01f3056444e2b4ef1aee3239dc17c033c1f"
     },
     {
       "path": "aidd/.claude-plugin/commands/implement.md",
@@ -285,8 +285,8 @@
     {
       "path": "aidd/.claude-plugin/commands/qa.md",
       "type": "file",
-      "size": 4315,
-      "sha256": "193e44f008dbdd5711576d587df711f5a9eba6336144ef1626aad49e7d1d827b"
+      "size": 4273,
+      "sha256": "2cdbbc642fee9b6154b7d897329fd65cd5c9c5ff70d69b57900215a259482d21"
     },
     {
       "path": "aidd/.claude-plugin/commands/researcher.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "953aa3ab906f72aecd62b8506214f046519623561dd63ddd9f95f4ce5f3394f3"
+      "sha256": "af2f6491cbf189f1b1b08cef3d7b7d8ac931bbfb567db8d0b4547d9d76b2d02d"
     }
   ]
 }
