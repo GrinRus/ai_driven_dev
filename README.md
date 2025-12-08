@@ -7,7 +7,7 @@
 - Автоформат и выборочные Gradle-тесты запускаются после каждой правки (можно отключить `SKIP_AUTO_TESTS=1`), артефакты защищены хуками `gate-*`.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
-- Установка по умолчанию раскладывает payload в поддиректорию `aidd/` (`aidd/.claude`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`). Все пути в хуках, smoke и тестах рассчитываются относительно `aidd/`.
+- Установка по умолчанию раскладывает payload в поддиректорию `aidd/` (`aidd/.claude`, `aidd/.claude-plugin` с плагином `feature-dev-aidd`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`). Все пути в хуках, smoke и тестах рассчитываются относительно `aidd/`.
   Корневые снапшоты удалены: рабочие файлы берутся только из payload `aidd/`.
 
 ## Оглавление
@@ -313,9 +313,12 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 ## Слэш-команды
 
+Команды и агенты поставляются как плагин `feature-dev-aidd` в `aidd/.claude-plugin/` (манифест `plugin.json`); рантайм-копии для IDE лежат в `aidd/.claude/`. Фронтматтер команд включает `description`, `argument-hint`, `allowed-tools` и позиционные аргументы `$1/$2/$ARGUMENTS`.
+
 | Команда | Назначение | Аргументы (пример) |
 | --- | --- | --- |
 | `/idea-new` | Собрать вводные и автосоздать PRD (Status: draft → READY) | `STORE-123 checkout-discounts` |
+| `/researcher` | Использовать отчёт Researcher и контекст для уточнения области работ | `STORE-123` |
 | `/plan-new` | Подготовить план + валидацию | `checkout-discounts` |
 | `/review-prd` | Провести ревью PRD и зафиксировать статус | `checkout-discounts` |
 | `/tasks-new` | Обновить `docs/tasklist/<ticket>.md` по плану | `checkout-discounts` |

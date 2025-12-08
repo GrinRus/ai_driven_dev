@@ -12,7 +12,7 @@
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `.claude/agents/*.md` и `.claude/commands/*.md` начинается с блока:
+Каждый файл `.claude-plugin/agents/*.md`, `.claude/agents/*.md`, `.claude-plugin/commands/*.md` и `.claude/commands/*.md` начинается с блока:
 
 ```yaml
 ---
@@ -23,6 +23,7 @@ prompt_version: 1.0.0       # major.minor.patch
 source_version: 1.0.0       # если документ локализован, укажите версию оригинала
 tools: Read, Write, ...     # только разрешённые инструменты
 model: inherit | opus       # при необходимости фиксируйте модель
+permissionMode: default     # для агентов (acceptEdits/bypassPermissions/plan/ignore/default)
 ---
 ```
 
@@ -30,6 +31,7 @@ model: inherit | opus       # при необходимости фиксируй
 - Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
 - `prompt_version` повышается при любых правках текста (см. раздел 7).
 - Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
+- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; для агентов поле `name` обязательно.
 
 ### 2.2 Обязательные разделы
 После фронт-маттера соблюдайте блоки в указанном порядке:

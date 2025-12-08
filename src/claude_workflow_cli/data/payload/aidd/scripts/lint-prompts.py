@@ -61,8 +61,8 @@ LANG_SECTION_TITLES = {
 
 LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
     "ru": {
-        "agent": [Path(".claude/agents")],
-        "command": [Path(".claude/commands")],
+        "agent": [Path(".claude/agents"), Path(".claude-plugin/agents")],
+        "command": [Path(".claude/commands"), Path(".claude-plugin/commands")],
     },
     "en": {
         "agent": [Path("prompts/en/agents")],

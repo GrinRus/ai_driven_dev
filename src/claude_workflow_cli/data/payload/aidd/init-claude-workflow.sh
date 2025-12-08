@@ -526,6 +526,10 @@ generate_directories() {
   local dirs=(
     ".claude"
     ".claude/cache"
+    ".claude-plugin"
+    ".claude-plugin/commands"
+    ".claude-plugin/agents"
+    ".claude-plugin/hooks"
     "doc"
     "config"
     "docs"
@@ -568,6 +572,10 @@ generate_agents() {
 
 generate_commands() {
   copy_payload_dir ".claude/commands"
+}
+
+generate_plugin() {
+  copy_payload_dir ".claude-plugin"
 }
 
 generate_gradle_helpers() {
@@ -692,6 +700,7 @@ main() {
   generate_claude_settings
   generate_agents
   generate_commands
+  generate_plugin
   apply_prompt_locale
   generate_gradle_helpers
   generate_config_and_scripts

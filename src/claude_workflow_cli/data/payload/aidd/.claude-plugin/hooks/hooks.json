@@ -1,0 +1,58 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-workflow.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-prd-review.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-api-contract.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-db-migration.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-qa.sh",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/gate-tests.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "../.claude/hooks/format-and-test.sh",
+            "timeout": 900
+          },
+          {
+            "type": "command",
+            "command": "../.claude/hooks/lint-deps.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
