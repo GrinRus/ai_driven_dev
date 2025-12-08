@@ -105,14 +105,14 @@
     {
       "path": "aidd/.claude/hooks/gate-tests.sh",
       "type": "file",
-      "size": 5322,
-      "sha256": "545de319d2b56e64c4c07dae8a33a677005b79d2b5263c26b596003b10310895"
+      "size": 5384,
+      "sha256": "f4dd87a8af1477b15534bf134e602c2b752c772e102c07c608eed97103a62ae5"
     },
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 15098,
-      "sha256": "9b50673d7b0c2b0bb951dae238ec4c6ca9efaf4f15e45d8245820c00d7fdb1c3"
+      "size": 15114,
+      "sha256": "9c93f95c36a53fc2d58ad7542ccc5338404ebfa21378144e2e13ef7b30ea64e2"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
@@ -129,8 +129,8 @@
     {
       "path": "aidd/.claude/settings.json",
       "type": "file",
-      "size": 7895,
-      "sha256": "5ceecb18c9e9cc6a96212082659d4ccf844e5c11cdae542782ca78ac985daace"
+      "size": 8100,
+      "sha256": "ed31484e97db0b0517d7e98b3e9a4cf4fe22986839a9dd8065408ca5cf3b9e21"
     },
     {
       "path": "aidd/.claude-plugin/plugin.json",

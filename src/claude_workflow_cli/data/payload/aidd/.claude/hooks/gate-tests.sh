@@ -3,8 +3,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
+
+cd "$ROOT_DIR"
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
