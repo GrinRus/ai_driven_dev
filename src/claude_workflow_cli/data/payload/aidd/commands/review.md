@@ -17,11 +17,11 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/review`запускает саб-агента **reviewer** для проверки изменений перед QA. Она фиксирует замечания в`docs/tasklist/`&lt;ticket&gt;`.md`, управляет маркером обязательных тестов и синхронизирует прогресс.
+Команда`/review`запускает саб-агента **reviewer** для проверки изменений перед QA. Она фиксирует замечания в`aidd/docs/tasklist/`&lt;ticket&gt;`.md`, управляет маркером обязательных тестов и синхронизирует прогресс.
 
 ## Входные артефакты
 - Текущий`git diff`/ PR.
-- @docs/prd/`&lt;ticket&gt;`.prd.md, @docs/plan/`&lt;ticket&gt;`.md, @docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки и чеклисты.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки и чеклисты.
 - Логи тестов/гейтов (если есть),`reports/reviewer/`&lt;ticket&gt;`.json`для статуса тестов.
 
 ## Когда запускать
@@ -34,13 +34,13 @@ disable-model-invocation: false
 - При необходимости запусти пресет`feature-release`для подготовки release notes.
 
 ## Что редактируется
-- Код/конфиги (для мелких фиксов) и`docs/tasklist/`&lt;ticket&gt;`.md`(замечания, закрытые чекбоксы).
-- Возможное обновление`docs/release-notes.md`при подготовке релиза.
+- Код/конфиги (для мелких фиксов) и`aidd/docs/tasklist/`&lt;ticket&gt;`.md`(замечания, закрытые чекбоксы).
+- Возможное обновление`aidd/docs/release-notes.md`при подготовке релиза.
 
 ## Пошаговый план
 1. Вызови саб-агента **reviewer** — он проанализирует diff, сверит его с PRD/планом и сформирует список замечаний.
 2. Если reviewer считает, что нужны тесты, установи`claude-workflow reviewer-tests --status required [--ticket $1]`; после зелёного прогона переведи в`optional`.
-3. Обнови`docs/tasklist/`&lt;ticket&gt;`.md`: какие пункты закрыты, какие остаются`- [ ]`, ссылки на строки/файлы.
+3. Обнови`aidd/docs/tasklist/`&lt;ticket&gt;`.md`: какие пункты закрыты, какие остаются`- [ ]`, ссылки на строки/файлы.
 4. Запусти`!bash -lc 'claude-workflow progress --source review --ticket "$1"'`.
 5. В ответе изложи статус READY/WARN/BLOCKED и список следующих шагов.
 
@@ -50,7 +50,7 @@ disable-model-invocation: false
 - При невозможности запустить тесты сообщи об этом и не переводите статус READY.
 
 ## Ожидаемый вывод
--`docs/tasklist/`&lt;ticket&gt;`.md`содержит новые`- [x]`/замечания.
+-`aidd/docs/tasklist/`&lt;ticket&gt;`.md`содержит новые`- [x]`/замечания.
 - Отмечено, нужен ли дополнительный прогон тестов.
 - Ответ заканчивается`Checkbox updated: ...`и резюме состояния тикета.
 

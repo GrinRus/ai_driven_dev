@@ -13,9 +13,9 @@ permissionMode: default
 Validator runs automatically inside`/plan-new`after the planner finishes. It ensures PRD and plan cover stories, criteria, dependencies, and integrations before implementation.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`— READY with`## PRD Review`.
--`docs/plan/&lt;ticket&gt;.md`— newly generated plan.
--`docs/research/&lt;ticket&gt;.md`— reuse and risk references.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`— READY with`## PRD Review`.
+-`aidd/docs/plan/&lt;ticket&gt;.md`— newly generated plan.
+-`aidd/docs/research/&lt;ticket&gt;.md`— reuse and risk references.
 
 ## Automation
 -`/plan-new`halts if validator reports BLOCKED; the user must address questions before proceeding.

@@ -13,7 +13,7 @@ disable-model-invocation: false
 `/implement`drives development by delegating to the implementer agent, keeping tasklist aligned with the plan, consulting PRD/research only when plan/tasklist lack detail, and running format/tests before handing results back.
 
 ## Input Artifacts
--`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`.
+-`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`.
 - Research/PRD for supplemental context when plan/tasklist miss details.
 - Current git diff/config.
 
@@ -26,7 +26,7 @@ disable-model-invocation: false
 
 ## What is Edited
 - Source code, configs, docs according to the plan.
--`docs/tasklist/&lt;ticket&gt;.md`checkboxes after each iteration.
+-`aidd/docs/tasklist/&lt;ticket&gt;.md`checkboxes after each iteration.
 
 ## Step-by-step Plan
 1. Call **implementer** with the ticket ID.

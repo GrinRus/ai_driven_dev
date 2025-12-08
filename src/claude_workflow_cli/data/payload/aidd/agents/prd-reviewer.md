@@ -13,9 +13,9 @@ permissionMode: default
 Агент используется командой`/review-prd`для формального ревью PRD до планирования. Он проверяет полноту разделов, метрики, связи с ADR и наличие action items.
 
 ## Входные артефакты
-- @docs/prd/`&lt;ticket&gt;`.prd.md — документ для ревью.
-- @docs/plan/`&lt;ticket&gt;`.md (если существует) и связанные ADR.
-- @docs/research/`&lt;ticket&gt;`.md и slug-hint в`docs/.active_feature`— для сопоставления целей.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md — документ для ревью.
+- @aidd/docs/plan/`&lt;ticket&gt;`.md (если существует) и связанные ADR.
+- @aidd/docs/research/`&lt;ticket&gt;`.md и slug-hint в`aidd/docs/.active_feature`— для сопоставления целей.
 
 ## Автоматизация
 -`/review-prd`вызывает prd-reviewer и обновляет раздел`## PRD Review`в PRD, а также записывает JSON отчёт в`reports/prd/`&lt;ticket&gt;`.json`.
@@ -27,7 +27,7 @@ permissionMode: default
 3. Проверь риски, зависимости, фича-флаги, rollout-стратегию и критерии готовности.
 4. Сверься с Researcher и планом: учтены ли reuse, интеграции, ограничения.
 5. Сформируй выводы: статус (approved/blocked/pending), summary (2–3 предложения), findings (critical/major/minor) и action items (чеклист).
-6. Обнови раздел`## PRD Review`и файл`reports/prd/`&lt;ticket&gt;`.json`; перенеси блокирующие действия в`docs/tasklist/`&lt;ticket&gt;`.md`.
+6. Обнови раздел`## PRD Review`и файл`reports/prd/`&lt;ticket&gt;`.json`; перенеси блокирующие действия в`aidd/docs/tasklist/`&lt;ticket&gt;`.md`.
 
 ## Fail-fast и вопросы
 - Если PRD в статусе draft или отсутствует — остановись и попроси аналитика завершить работу.

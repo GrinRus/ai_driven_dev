@@ -10,11 +10,11 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/plan-new`transforms an approved PRD into`docs/plan/&lt;ticket&gt;.md`using the planner and validator agents. Run it before`/tasks-new`or any implementation work. The plan must include architecture & patterns (KISS/YAGNI/DRY/SOLID, default service layer + adapters/ports), reuse points from Researcher, and avoid over-engineering.
+`/plan-new`transforms an approved PRD into`aidd/docs/plan/&lt;ticket&gt;.md`using the planner and validator agents. Run it before`/tasks-new`or any implementation work. The plan must include architecture & patterns (KISS/YAGNI/DRY/SOLID, default service layer + adapters/ports), reuse points from Researcher, and avoid over-engineering.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`— READY with`## PRD Review`.
--`docs/research/&lt;ticket&gt;.md`— integration/risks.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`— READY with`## PRD Review`.
+-`aidd/docs/research/&lt;ticket&gt;.md`— integration/risks.
 - ADRs/backlog notes referenced by the PRD.
 
 ## When to Run
@@ -22,12 +22,12 @@ disable-model-invocation: false
 - Repeat when the PRD changes materially and the plan must be updated.
 
 ## Automation & Hooks
-- Planner agent writes`docs/plan/&lt;ticket&gt;.md`.
+- Planner agent writes`aidd/docs/plan/&lt;ticket&gt;.md`.
 - Validator agent checks the plan and returns PASS/BLOCKED.
 -`claude-presets/feature-plan.yaml`can prefill iterations for known waves.
 
 ## What is Edited
--`docs/plan/&lt;ticket&gt;.md`.
+-`aidd/docs/plan/&lt;ticket&gt;.md`.
 - “Open questions” sections in PRD/plan — action items from PRD Review must be synced.
 
 ## Step-by-step Plan
@@ -42,7 +42,7 @@ disable-model-invocation: false
 - Unknown dependencies/integrations — ask before finalizing the plan.
 
 ## Expected Output
--`docs/plan/&lt;ticket&gt;.md`filled with Architecture & Patterns (boundaries/patterns/reuse, minimal viable scope), iterations, DoD, risks, metrics.
+-`aidd/docs/plan/&lt;ticket&gt;.md`filled with Architecture & Patterns (boundaries/patterns/reuse, minimal viable scope), iterations, DoD, risks, metrics.
 - Validator PASS; otherwise the list of blocking questions.
 
 ## CLI Examples

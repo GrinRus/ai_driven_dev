@@ -13,9 +13,9 @@ disable-model-invocation: false
 `/review-prd`runs after the analyst finishes the PRD. It calls`prd-reviewer`, updates`## PRD Review`, and records findings.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`.
--`docs/plan/&lt;ticket&gt;.md`, ADRs, related tasks.
--`docs/research/&lt;ticket&gt;.md`.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`.
+-`aidd/docs/plan/&lt;ticket&gt;.md`, ADRs, related tasks.
+-`aidd/docs/research/&lt;ticket&gt;.md`.
 
 ## When to Run
 - Before`/plan-new`or whenever the PRD receives significant edits.
@@ -25,8 +25,8 @@ disable-model-invocation: false
 -`gate-workflow`blocks code changes until`## PRD Review`has`Status: approved`(or explicitly allowed states).
 
 ## What is Edited
--`docs/prd/&lt;ticket&gt;.prd.md`(`## PRD Review`).
--`docs/tasklist/&lt;ticket&gt;.md`— blocking action items from the review.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`(`## PRD Review`).
+-`aidd/docs/tasklist/&lt;ticket&gt;.md`— blocking action items from the review.
 -`reports/prd/&lt;ticket&gt;.json`.
 
 ## Step-by-step Plan

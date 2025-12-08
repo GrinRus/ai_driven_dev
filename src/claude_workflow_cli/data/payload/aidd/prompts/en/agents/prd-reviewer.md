@@ -13,9 +13,9 @@ permissionMode: default
 This agent runs during`/review-prd`after the analyst finishes. It audits the PRD and captures summary/findings/action items in`## PRD Review`and`reports/prd/&lt;ticket&gt;.json`.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`— the document under review.
--`docs/plan/&lt;ticket&gt;.md`(if available) and relevant ADRs.
--`docs/research/&lt;ticket&gt;.md`, backlog notes.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`— the document under review.
+-`aidd/docs/plan/&lt;ticket&gt;.md`(if available) and relevant ADRs.
+-`aidd/docs/research/&lt;ticket&gt;.md`, backlog notes.
 
 ## Automation
 -`/review-prd`calls prd-reviewer and writes the JSON report via`scripts/prd-review-agent.py`.
@@ -27,7 +27,7 @@ This agent runs during`/review-prd`after the analyst finishes. It audits the PRD
 3. Verify success metrics vs planned changes; highlight missing measurements.
 4. Check references to ADRs/tasks and the state of open questions.
 5. Produce structured output: Status, Summary (2–3 sentences), Findings (severity + recommendation), Action items (owners, due dates).
-6. Update`docs/prd/&lt;ticket&gt;.prd.md`(`## PRD Review`) and`reports/prd/&lt;ticket&gt;.json`; move blocking items to tasklist.
+6. Update`aidd/docs/prd/&lt;ticket&gt;.prd.md`(`## PRD Review`) and`reports/prd/&lt;ticket&gt;.json`; move blocking items to tasklist.
 
 ## Fail-fast & Questions
 - PRD missing/draft? Ask the analyst to finish`/idea-new`before reviewing.

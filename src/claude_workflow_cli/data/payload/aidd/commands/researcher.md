@@ -17,12 +17,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/researcher`собирает кодовый контекст для новой фичи: запускает автоматический анализ, обновляет`docs/research/`&lt;ticket&gt;`.md`по шаблону и связывает результаты с PRD/plan/tasklist. Это обязательный шаг перед планированием и реализацией.
+Команда`/researcher`собирает кодовый контекст для новой фичи: запускает автоматический анализ, обновляет`aidd/docs/research/`&lt;ticket&gt;`.md`по шаблону и связывает результаты с PRD/plan/tasklist. Это обязательный шаг перед планированием и реализацией.
 
 ## Входные артефакты
--`docs/.active_ticket`и`.active_feature`— активный тикет/slug.
--`@docs/prd/`&lt;ticket&gt;`.prd.md`— цели/контекст.
--`@docs/templates/research-summary.md`— шаблон отчёта (если файл ещё не создан).
+-`aidd/docs/.active_ticket`и`.active_feature`— активный тикет/slug.
+-`@aidd/docs/prd/`&lt;ticket&gt;`.prd.md`— цели/контекст.
+-`@aidd/docs/templates/research-summary.md`— шаблон отчёта (если файл ещё не создан).
 -`reports/research/`&lt;ticket&gt;`-context.json`— формируется`claude-workflow research`.
 
 ## Когда запускать
@@ -36,13 +36,13 @@ disable-model-invocation: false
 - После формирования отчёта подготовь handoff для исполнителя: перечисли доработки/reuse/риски и запусти`claude-workflow tasks-derive --source research --append --ticket`&lt;ticket&gt;``(новые`- [ ]`ссылаются на`reports/research/`&lt;ticket&gt;`-context.json`).
 
 ## Что редактируется
--`docs/research/`&lt;ticket&gt;`.md`— отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус`pending`/`reviewed`).
+-`aidd/docs/research/`&lt;ticket&gt;`.md`— отчёт (разделы «Паттерны/анти-паттерны», «Отсутствие паттернов», «Дополнительные заметки» + статус`pending`/`reviewed`).
 - PRD и tasklist получают ссылки на отчёт (если отсутствуют).
 
 ## Пошаговый план
 1. Убедись, что активный ticket =`$1`. Если нет — запусти`/idea-new $1`или`${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py $1`.
 2. Выполни`claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]`(при необходимости`--reuse-only`,`--langs`,`--graph-langs`); если проект не JVM, call graph может быть пустым — зафиксируй предупреждение.
-3. Если CLI сообщает`0 matches`, создай`docs/research/$1.md`из шаблона и добавь baseline «Контекст пуст, требуется baseline».
+3. Если CLI сообщает`0 matches`, создай`aidd/docs/research/$1.md`из шаблона и добавь baseline «Контекст пуст, требуется baseline».
 4. Запусти саб-агента **researcher** (через палитру) с JSON из`reports/research/$1-context.json`, используй`call_graph`/`import_graph`(Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
 5. Зафиксируй статус:`reviewed`, если команда согласовала действия;`pending`, если нужны уточнения (пропиши TODO).
 6. Убедись, что ссылки на отчёт добавлены в PRD (`## Диалог analyst`) и tasklist; добавь handoff-пункты (`- [ ] Research: ... (source: reports/research/$1-context.json)`) или выполни`claude-workflow tasks-derive --source research --append --ticket "$1"`.
@@ -53,7 +53,7 @@ disable-model-invocation: false
 - Если отчёт остаётся`pending`, перечисли действия для перехода к`reviewed`.
 
 ## Ожидаемый вывод
-- Обновлённый`docs/research/`&lt;ticket&gt;`.md`(статус`pending|reviewed`).
+- Обновлённый`aidd/docs/research/`&lt;ticket&gt;`.md`(статус`pending|reviewed`).
 -`reports/research/`&lt;ticket&gt;`-context.json`актуализирован.
 - PRD/tasklist содержат ссылку на отчёт.
 

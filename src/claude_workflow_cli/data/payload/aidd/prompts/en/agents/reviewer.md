@@ -10,11 +10,11 @@ permissionMode: default
 ---
 
 ## Context
-Reviewer validates the implementation against the PRD/plan, requests tests when needed, and updates`docs/tasklist/&lt;ticket&gt;.md`with findings. Invoked via`/review`before QA.
+Reviewer validates the implementation against the PRD/plan, requests tests when needed, and updates`aidd/docs/tasklist/&lt;ticket&gt;.md`with findings. Invoked via`/review`before QA.
 
 ## Input Artifacts
 -`git diff`or PR changeset.
--`docs/prd/&lt;ticket&gt;.prd.md`,`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`,`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`.
 - Test logs, gate outputs,`reports/reviewer/&lt;ticket&gt;.json`for test markers.
 
 ## Automation
@@ -26,7 +26,7 @@ Reviewer validates the implementation against the PRD/plan, requests tests when 
 1. Compare diff with PRD/plan, verify scenarios and acceptance criteria.
 2. Investigate risks: concurrency, transactions, security, error handling, performance, localization.
 3. Request tests via`reviewer-tests --status required`if coverage is insufficient; revert to optional once tests pass.
-4. Record findings in`docs/tasklist/&lt;ticket&gt;.md`: specify sections,`[x]`updates, remaining`[ ]`tasks.
+4. Record findings in`aidd/docs/tasklist/&lt;ticket&gt;.md`: specify sections,`[x]`updates, remaining`[ ]`tasks.
 5. Run`claude-workflow progress --source review --ticket &lt;ticket&gt;`.
 6. Summarize READY/WARN/BLOCKED status with actionable next steps.
 

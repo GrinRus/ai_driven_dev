@@ -10,11 +10,11 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/qa`runs the mandatory QA stage after`/review`: it invokes the **qa** sub-agent via`claude-workflow qa --gate`, produces`reports/qa/&lt;ticket&gt;.json`, updates the QA section in`docs/tasklist/&lt;ticket&gt;.md`, and records progress before release.
+`/qa`runs the mandatory QA stage after`/review`: it invokes the **qa** sub-agent via`claude-workflow qa --gate`, produces`reports/qa/&lt;ticket&gt;.json`, updates the QA section in`aidd/docs/tasklist/&lt;ticket&gt;.md`, and records progress before release.
 
 ## Input Artifacts
-- Active ticket (`docs/.active_ticket`), slug hint (`docs/.active_feature`).
--`docs/prd/&lt;ticket&gt;.prd.md`,`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`(QA section), logs from previous gates (`gate-tests`).
+- Active ticket (`aidd/docs/.active_ticket`), slug hint (`aidd/docs/.active_feature`).
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`,`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`(QA section), logs from previous gates (`gate-tests`).
 - Diff/logs (`git diff`,`reports/reviewer/&lt;ticket&gt;.json`, test outputs, demo/staging info).
 
 ## When to Run
@@ -28,18 +28,18 @@ disable-model-invocation: false
 - Record progress:`!("claude-workflow" progress --source qa --ticket "&lt;ticket&gt;")`.
 
 ## What is Edited
--`docs/tasklist/&lt;ticket&gt;.md`— QA checkboxes, run dates, links to logs/report.
+-`aidd/docs/tasklist/&lt;ticket&gt;.md`— QA checkboxes, run dates, links to logs/report.
 -`reports/qa/&lt;ticket&gt;.json`— fresh QA report.
 
 ## Step-by-step Plan
 1. Run **qa** sub-agent via CLI (see command above); ensure`reports/qa/&lt;ticket&gt;.json`is written with READY/WARN/BLOCKED and test logs are captured.
 2. Map diff to the QA checklist; capture findings with severity and recommendations.
-3. Update`docs/tasklist/&lt;ticket&gt;.md`: switch relevant items`- [ ] → - [x]`, add date/iteration, link to report and test logs (`reports/qa/&lt;ticket&gt;-tests*.log`).
+3. Update`aidd/docs/tasklist/&lt;ticket&gt;.md`: switch relevant items`- [ ] → - [x]`, add date/iteration, link to report and test logs (`reports/qa/&lt;ticket&gt;-tests*.log`).
 4. Execute`claude-workflow progress --source qa --ticket &lt;ticket&gt;`and confirm new`[x]`entries; add handoff`- [ ] ... (source: reports/qa/&lt;ticket&gt;.json)`or run`claude-workflow tasks-derive --source qa --append`.
 5. Reply with status,`Checkbox updated: ...`, link to report/test logs, and next steps if WARN/BLOCKED.
 
 ## Fail-fast & Questions
-- No active ticket/QA checklist? Ask to run`/tasks-new`or set`docs/.active_ticket`.
+- No active ticket/QA checklist? Ask to run`/tasks-new`or set`aidd/docs/.active_ticket`.
 - Report missing? Rerun the CLI and include stderr; gate requires the report.
 - Missing tests/env logs — request them or document uncovered scope explicitly.
 

@@ -1,5 +1,5 @@
 ---
-description: "Build docs/tasklist/&lt;ticket&gt;.md for the feature"
+description: "Build aidd/docs/tasklist/&lt;ticket&gt;.md for the feature"
 argument-hint: "<TICKET>"
 lang: en
 prompt_version: 1.0.0
@@ -10,12 +10,12 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/tasks-new`converts the plan into a detailed checklist (`docs/tasklist/&lt;ticket&gt;.md`) across analytics, implementation, QA, release, and post-release stages.
+`/tasks-new`converts the plan into a detailed checklist (`aidd/docs/tasklist/&lt;ticket&gt;.md`) across analytics, implementation, QA, release, and post-release stages.
 
 ## Input Artifacts
--`docs/plan/&lt;ticket&gt;.md`— source of iterations/DoD.
--`docs/prd/&lt;ticket&gt;.prd.md`+`## PRD Review`action items.
--`docs/research/&lt;ticket&gt;.md`.
+-`aidd/docs/plan/&lt;ticket&gt;.md`— source of iterations/DoD.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`+`## PRD Review`action items.
+-`aidd/docs/research/&lt;ticket&gt;.md`.
 -`templates/tasklist.md`/`claude-presets/feature-impl.yaml`for baseline structure.
 
 ## When to Run
@@ -26,10 +26,10 @@ disable-model-invocation: false
 -`feature-impl`preset can populate default sections for Wave 7 tasks.
 
 ## What is Edited
--`docs/tasklist/&lt;ticket&gt;.md`— front matter (Ticket, Slug hint, Feature, Status, PRD/Plan/Research links, Updated date) and sections 1–6 + “How to track progress”.
+-`aidd/docs/tasklist/&lt;ticket&gt;.md`— front matter (Ticket, Slug hint, Feature, Status, PRD/Plan/Research links, Updated date) and sections 1–6 + “How to track progress”.
 
 ## Step-by-step Plan
-1. Create/open`docs/tasklist/&lt;ticket&gt;.md`; copy from template if new.
+1. Create/open`aidd/docs/tasklist/&lt;ticket&gt;.md`; copy from template if new.
 2. Update front matter with current ticket info and date.
 3. Migrate plan iterations into the relevant sections (analytics, build, QA, release, post-release).
 4. Copy all approved action items from PRD Review into explicit checkboxes.
@@ -42,7 +42,7 @@ disable-model-invocation: false
 - If owners or dependencies are unknown, ask before finalizing.
 
 ## Expected Output
-- Updated`docs/tasklist/&lt;ticket&gt;.md`aligned with plan/PRD, including action items and progress instructions.
+- Updated`aidd/docs/tasklist/&lt;ticket&gt;.md`aligned with plan/PRD, including action items and progress instructions.
 - Response lists key checkboxes to tackle first.
 
 ## CLI Examples

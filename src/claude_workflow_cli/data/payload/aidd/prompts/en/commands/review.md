@@ -14,7 +14,7 @@ disable-model-invocation: false
 
 ## Input Artifacts
 -`git diff`/ PR.
--`docs/prd/&lt;ticket&gt;.prd.md`,`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`,`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`.
 - Test logs, reviewer test markers.
 
 ## When to Run
@@ -26,7 +26,7 @@ disable-model-invocation: false
 - Preset`feature-release`can help with release notes if required.
 
 ## What is Edited
-- Source files for quick fixes (optional) and`docs/tasklist/&lt;ticket&gt;.md`entries.
+- Source files for quick fixes (optional) and`aidd/docs/tasklist/&lt;ticket&gt;.md`entries.
 
 ## Step-by-step Plan
 1. Call **reviewer** with the ticket ID; share priorities to inspect.

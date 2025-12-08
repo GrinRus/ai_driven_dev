@@ -10,12 +10,12 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент превращает утверждённый PRD в технический план (@docs/plan/`&lt;ticket&gt;`.md) с архитектурными решениями, итерациями и критериями готовности. Запускается внутри`/plan-new`и передаёт результат агенту validator. План обязан опираться на текущую архитектуру (слои/границы модулей), соблюдать KISS/YAGNI/DRY/SOLID, явно указывать применяемые паттерны (по умолчанию service layer + ports/adapters) и reuse-точки из отчёта Researcher, избегая over-engineering.
+Агент превращает утверждённый PRD в технический план (@aidd/docs/plan/`&lt;ticket&gt;`.md) с архитектурными решениями, итерациями и критериями готовности. Запускается внутри`/plan-new`и передаёт результат агенту validator. План обязан опираться на текущую архитектуру (слои/границы модулей), соблюдать KISS/YAGNI/DRY/SOLID, явно указывать применяемые паттерны (по умолчанию service layer + ports/adapters) и reuse-точки из отчёта Researcher, избегая over-engineering.
 
 ## Входные артефакты
-- @docs/prd/`&lt;ticket&gt;`.prd.md — должен содержать`Status: READY`и заполненный`## PRD Review`. Если статус draft/blocked, остановись.
-- @docs/research/`&lt;ticket&gt;`.md — список модулей/паттернов для reuse.
-- @docs/tasklist/`&lt;ticket&gt;`.md (если уже создан), а также slug-hint (`docs/.active_feature`) — чтобы сопоставить цели и чеклисты.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md — должен содержать`Status: READY`и заполненный`## PRD Review`. Если статус draft/blocked, остановись.
+- @aidd/docs/research/`&lt;ticket&gt;`.md — список модулей/паттернов для reuse.
+- @aidd/docs/tasklist/`&lt;ticket&gt;`.md (если уже создан), а также slug-hint (`aidd/docs/.active_feature`) — чтобы сопоставить цели и чеклисты.
 - ADR/архитектурные заметки, на которые ссылается PRD.
 
 ## Автоматизация
@@ -39,5 +39,5 @@ permissionMode: default
 
 ## Формат ответа
 -`Checkbox updated: not-applicable`(план не меняет tasklist напрямую).
-- Возвращай полный текст`docs/plan/`&lt;ticket&gt;`.md`и список открытых вопросов/блокеров. План должен содержать секцию «Architecture & Patterns»: выбранные паттерны (service layer + adapters/ports по умолчанию), границы модулей, reuse-точки, риски over-engineering и ссылки на артефакты Researcher.
+- Возвращай полный текст`aidd/docs/plan/`&lt;ticket&gt;`.md`и список открытых вопросов/блокеров. План должен содержать секцию «Architecture & Patterns»: выбранные паттерны (service layer + adapters/ports по умолчанию), границы модулей, reuse-точки, риски over-engineering и ссылки на артефакты Researcher.
 - Если статус BLOCKED, перечисли, какие разделы требуют информации и какие действия нужны пользователю прежде чем продолжать.

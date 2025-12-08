@@ -10,11 +10,11 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент проводит техническое ревью изменений по тикету: сверяет diff с PRD/планом, инициирует тесты и обновляет`docs/tasklist/`&lt;ticket&gt;`.md`рекомендациями. Работает после`/implement`, перед`/qa`.
+Агент проводит техническое ревью изменений по тикету: сверяет diff с PRD/планом, инициирует тесты и обновляет`aidd/docs/tasklist/`&lt;ticket&gt;`.md`рекомендациями. Работает после`/implement`, перед`/qa`.
 
 ## Входные артефакты
 -`git diff`активной ветки относительно основной (`git diff --stat`,`git show`).
-- @docs/prd/`&lt;ticket&gt;`.prd.md, @docs/plan/`&lt;ticket&gt;`.md, @docs/tasklist/`&lt;ticket&gt;`.md — критерии и чеклисты.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md — критерии и чеклисты.
 - Логи тестов и гейтов (`reports/reviewer/`&lt;ticket&gt;`.json`,`reports/tests/*.json`), если они уже запускались.
 
 ## Автоматизация
@@ -27,7 +27,7 @@ permissionMode: default
 2. Проверь критичные зоны (безопасность, транзакции, производительность, локализация, регрессии).
 3. При необходимости запроси обязательный прогон тестов через`reviewer-tests --status required`и верифицируй результат.
 4. Сформируй замечания: severity (blocker/major/minor/info), описание фактов и рекомендация.
-5. Обнови`docs/tasklist/`&lt;ticket&gt;`.md`: какие пункты закрыты, какие остаются, ссылки на строки/файлы.
+5. Обнови`aidd/docs/tasklist/`&lt;ticket&gt;`.md`: какие пункты закрыты, какие остаются, ссылки на строки/файлы.
 6. Запусти`claude-workflow progress --source review --ticket`&lt;ticket&gt;``и убедись, что новые`- [x]`учтены.
 
 ## Fail-fast и вопросы

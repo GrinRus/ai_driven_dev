@@ -10,12 +10,12 @@ permissionMode: default
 ---
 
 ## Context
-Implementer follows`docs/plan/&lt;ticket&gt;.md`, keeps`docs/tasklist/&lt;ticket&gt;.md`in sync, and works in short iterations driven by repository artifacts. Plan/tasklist are primary; PRD/research are read only when plan/tasklist lack needed detail. Each iteration applies the minimum code/config change, updates the tasklist, runs tests before responding, and reports progress via`claude-workflow progress --source implement --ticket &lt;ticket&gt;`. Ask the user only if artifacts cannot answer a blocker.
+Implementer follows`aidd/docs/plan/&lt;ticket&gt;.md`, keeps`aidd/docs/tasklist/&lt;ticket&gt;.md`in sync, and works in short iterations driven by repository artifacts. Plan/tasklist are primary; PRD/research are read only when plan/tasklist lack needed detail. Each iteration applies the minimum code/config change, updates the tasklist, runs tests before responding, and reports progress via`claude-workflow progress --source implement --ticket &lt;ticket&gt;`. Ask the user only if artifacts cannot answer a blocker.
 
 ## Input Artifacts
--`docs/plan/&lt;ticket&gt;.md`— current iteration and DoD.
--`docs/tasklist/&lt;ticket&gt;.md`— checklist that must be updated.
--`docs/research/&lt;ticket&gt;.md`,`docs/prd/&lt;ticket&gt;.prd.md`— use as supplemental context when plan/tasklist do not cover constraints or requirements.
+-`aidd/docs/plan/&lt;ticket&gt;.md`— current iteration and DoD.
+-`aidd/docs/tasklist/&lt;ticket&gt;.md`— checklist that must be updated.
+-`aidd/docs/research/&lt;ticket&gt;.md`,`aidd/docs/prd/&lt;ticket&gt;.prd.md`— use as supplemental context when plan/tasklist do not cover constraints or requirements.
 - Current Git diff and any related scripts/migrations.
 
 ## Automation
@@ -26,10 +26,10 @@ Implementer follows`docs/plan/&lt;ticket&gt;.md`, keeps`docs/tasklist/&lt;ticket
 - For repository searches rely on`Read/Grep/Glob`; no Bash access to`rg`is provided, so cite the files you inspected instead.
 
 ## Step-by-step Plan
-1. Read`docs/plan/&lt;ticket&gt;.md`and`docs/tasklist/&lt;ticket&gt;.md`; select the next actionable item based on the current iteration.
-2. If plan/tasklist lack needed detail, consult`docs/research/&lt;ticket&gt;.md`and PRD for constraints/feature flags/tests; note what you pulled from them.
+1. Read`aidd/docs/plan/&lt;ticket&gt;.md`and`aidd/docs/tasklist/&lt;ticket&gt;.md`; select the next actionable item based on the current iteration.
+2. If plan/tasklist lack needed detail, consult`aidd/docs/research/&lt;ticket&gt;.md`and PRD for constraints/feature flags/tests; note what you pulled from them.
 3. Apply the minimum code/config change needed for the selected step. State which files/modules are touched, what commands you run (`./gradlew test`,`gradle spotlessApply`, etc.), and stage changes with`git add <file|dir>`(list what you added).
-4. Update`docs/tasklist/&lt;ticket&gt;.md`: switch relevant checkboxes to`[x]`, append date + iteration, include a short description and links (PR, commit, diff).
+4. Update`aidd/docs/tasklist/&lt;ticket&gt;.md`: switch relevant checkboxes to`[x]`, append date + iteration, include a short description and links (PR, commit, diff).
 5. Run`.claude/hooks/format-and-test.sh`before responding (or equivalent commands); fix failures or justify temporary overrides (include command output snippets).
 6. Execute`claude-workflow progress --source implement --ticket &lt;ticket&gt;`and include output/summary.
 7. Summarize what was completed vs. pending; ensure the diff only includes this iteration. Escalate to the user only after re-checking plan/tasklist/research/PRD and listing what you reviewed.

@@ -1,5 +1,5 @@
 ---
-description: "Сформировать чеклист задач (docs/tasklist/`&lt;ticket&gt;`.md) для фичи"
+description: "Сформировать чеклист задач (aidd/docs/tasklist/`&lt;ticket&gt;`.md) для фичи"
 argument-hint: "<TICKET>"
 lang: ru
 prompt_version: 1.0.0
@@ -15,12 +15,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/tasks-new`создаёт рабочий чеклист`docs/tasklist/`&lt;ticket&gt;`.md`на основе утверждённого плана. Tasklist фиксирует критерии прогресса для`/implement`,`/review`,`/qa`и контролируется`gate-workflow`.
+Команда`/tasks-new`создаёт рабочий чеклист`aidd/docs/tasklist/`&lt;ticket&gt;`.md`на основе утверждённого плана. Tasklist фиксирует критерии прогресса для`/implement`,`/review`,`/qa`и контролируется`gate-workflow`.
 
 ## Входные артефакты
-- @docs/plan/`&lt;ticket&gt;`.md — список итераций, DoD, зависимостей.
-- @docs/prd/`&lt;ticket&gt;`.prd.md + раздел`## PRD Review`(approved action items).
-- @docs/research/`&lt;ticket&gt;`.md — reuse и риски.
+- @aidd/docs/plan/`&lt;ticket&gt;`.md — список итераций, DoD, зависимостей.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md + раздел`## PRD Review`(approved action items).
+- @aidd/docs/research/`&lt;ticket&gt;`.md — reuse и риски.
 - Шаблон @templates/tasklist.md (если файл создаётся с нуля).
 
 ## Когда запускать
@@ -31,10 +31,10 @@ disable-model-invocation: false
 - Пресет`feature-impl`(`claude-presets/feature-impl.yaml`) может заполнить типовые задачи.
 
 ## Что редактируется
--`docs/tasklist/`&lt;ticket&gt;`.md`: фронт-маттер (Ticket, Slug hint, Feature, Status, PRD/Plan/Research ссылки, Updated), разделы 1–6 и памятка «Как отмечать прогресс».
+-`aidd/docs/tasklist/`&lt;ticket&gt;`.md`: фронт-маттер (Ticket, Slug hint, Feature, Status, PRD/Plan/Research ссылки, Updated), разделы 1–6 и памятка «Как отмечать прогресс».
 
 ## Пошаговый план
-1. Создай/открой`docs/tasklist/`&lt;ticket&gt;`.md`. При отсутствии файла скопируй`templates/tasklist.md`.
+1. Создай/открой`aidd/docs/tasklist/`&lt;ticket&gt;`.md`. При отсутствии файла скопируй`templates/tasklist.md`.
 2. Обнови фронт-маттер Данными тикета и текущей даты (`Updated`).
 3. Перенеси этапы из плана: аналитика, реализация, QA, релиз, пострелиз. Добавь конкретные чекбоксы с владельцами и результатами.
 4. Вынеси все approved action items из`## PRD Review`в отдельные чекбоксы.
@@ -47,7 +47,7 @@ disable-model-invocation: false
 - Если непонятно, кто владеет action items, запроси владельцев до фиксации чеклистов.
 
 ## Ожидаемый вывод
-- Актуальный`docs/tasklist/`&lt;ticket&gt;`.md`с фронт-маттером, чеклистами по этапам, переносом action items из PRD Review и памяткой по прогрессу.
+- Актуальный`aidd/docs/tasklist/`&lt;ticket&gt;`.md`с фронт-маттером, чеклистами по этапам, переносом action items из PRD Review и памяткой по прогрессу.
 - В ответе указан список приоритетных чекбоксов и строка`Checkbox updated: tasklist drafted`.
 
 ## Примеры CLI

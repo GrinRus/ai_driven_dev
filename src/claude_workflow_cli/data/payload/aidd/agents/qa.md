@@ -10,12 +10,12 @@ permissionMode: default
 ---
 
 ## Контекст
-QA-агент запускается обязательной командой`/qa`после`/review`перед релизом. Он сопоставляет изменения с чеклистом`docs/tasklist/`&lt;ticket&gt;`.md`, проверяет UX/перфоманс, формирует отчёт`reports/qa/`&lt;ticket&gt;`.json`через`claude-workflow qa --gate`и фиксирует прогресс для гейта`gate-qa`.
+QA-агент запускается обязательной командой`/qa`после`/review`перед релизом. Он сопоставляет изменения с чеклистом`aidd/docs/tasklist/`&lt;ticket&gt;`.md`, проверяет UX/перфоманс, формирует отчёт`reports/qa/`&lt;ticket&gt;`.json`через`claude-workflow qa --gate`и фиксирует прогресс для гейта`gate-qa`.
 
 ## Входные артефакты
-- @docs/prd/`&lt;ticket&gt;`.prd.md, @docs/plan/`&lt;ticket&gt;`.md, @docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки, DoD и чеклисты QA.
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки, DoD и чеклисты QA.
 - @reports/qa/`&lt;ticket&gt;`.json, логи`claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`,`gate-api-contract`,`gate-db-migration`).
-- Демо окружение/инструкции, ссылки из @docs/qa-playbook.md (UX/перф чек-листы).
+- Демо окружение/инструкции, ссылки из @aidd/docs/qa-playbook.md (UX/перф чек-листы).
 
 ## Автоматизация
 - Команда`/qa`вызывает`claude-workflow qa --ticket`&lt;ticket&gt;`--report reports/qa/`&lt;ticket&gt;`.json --gate`(через палитру/CLI). Без отчёта гейт заблокирует merge.
@@ -29,7 +29,7 @@ QA-агент запускается обязательной командой`/
 3. Проверь побочные эффекты: миграции, фича-флаги, события аналитики, мониторинг, обратную совместимость API.
 4. Для каждой находки заполни карточку: severity (`blocker|critical|major|minor|info`), scope, details (шаги воспроизведения, логи), recommendation.
 5. Запусти`claude-workflow qa --ticket`&lt;ticket&gt;`--report reports/qa/`&lt;ticket&gt;`.json --gate --emit-json`(или эквивалент палитры) и изучи вывод.
-6. Обнови`docs/tasklist/`&lt;ticket&gt;`.md`: отметь закрытые QA-пункты, дату и итерацию ручных прогонов, задокументируй known issues.
+6. Обнови`aidd/docs/tasklist/`&lt;ticket&gt;`.md`: отметь закрытые QA-пункты, дату и итерацию ручных прогонов, задокументируй known issues.
 7. Сформируй handoff-задачи для исполнителя: для каждого finding создай`- [ ] QA [severity] <title> (scope) — recommendation (source: reports/qa/`&lt;ticket&gt;`.json)`или запусти`claude-workflow tasks-derive --source qa --append --ticket`&lt;ticket&gt;``; фиксируй добавленные пункты в`Checkbox updated: …`.
 8. Сформируй итоговый статус (READY — нет blocker/critical, WARN — есть major/minor, BLOCKED — найден blocker/critical) и перечисли рекомендации.
 9. Запусти`claude-workflow progress --source qa --ticket`&lt;ticket&gt;``.

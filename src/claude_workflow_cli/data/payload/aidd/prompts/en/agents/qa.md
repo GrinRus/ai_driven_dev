@@ -13,15 +13,15 @@ permissionMode: default
 QA agent is triggered by mandatory`/qa`after`/review`and before release. It compares the diff and tasklist, runs`claude-workflow qa --gate`to write`reports/qa/&lt;ticket&gt;.json`, records findings, and interacts with`gate-qa.sh`.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`,`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`(QA sections).
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`,`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`(QA sections).
 - Logs from previous gates (`gate-tests`) and results from`claude-workflow qa`/`scripts/qa-agent.py`.
-- Demo/staging environment info,`docs/qa-playbook.md`for UX/performance checklists.
+- Demo/staging environment info,`aidd/docs/qa-playbook.md`for UX/performance checklists.
 
 ## Automation
 -`/qa`must call`claude-workflow qa --ticket &lt;ticket&gt; --report reports/qa/&lt;ticket&gt;.json --gate`(palette/CLI). Gate blocks without the report.
 -`gate-qa.sh`calls`claude-workflow qa --gate`(configurable); blocker/critical findings set exit code 1.
 - QA stage auto-runs tests (see`config/gates.json: qa.tests`); logs go to`reports/qa/&lt;ticket&gt;-tests*.log`, summary to report (`tests_summary`,`tests_executed`). Without`CLAUDE_QA_ALLOW_NO_TESTS=1`, missing tests block the gate.
-- Update`docs/tasklist/&lt;ticket&gt;.md`with QA results, derive handoff tasks, and run`claude-workflow progress --source qa --ticket &lt;ticket&gt;`.
+- Update`aidd/docs/tasklist/&lt;ticket&gt;.md`with QA results, derive handoff tasks, and run`claude-workflow progress --source qa --ticket &lt;ticket&gt;`.
 - Use`scripts/ci-lint.sh`or other runners for smoke tests when needed.
 
 ## Step-by-step Plan

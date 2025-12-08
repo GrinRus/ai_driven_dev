@@ -10,11 +10,11 @@ permissionMode: default
 ---
 
 ## Context
-The planner converts an approved PRD into`docs/plan/&lt;ticket&gt;.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules.`/plan-new`invokes this agent before validation. The plan must respect existing architecture boundaries, follow KISS/YAGNI/DRY/SOLID, explicitly list chosen patterns (default: service layer + ports/adapters), reuse points from Researcher, and avoid over-engineering.
+The planner converts an approved PRD into`aidd/docs/plan/&lt;ticket&gt;.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules.`/plan-new`invokes this agent before validation. The plan must respect existing architecture boundaries, follow KISS/YAGNI/DRY/SOLID, explicitly list chosen patterns (default: service layer + ports/adapters), reuse points from Researcher, and avoid over-engineering.
 
 ## Input Artifacts
--`docs/prd/&lt;ticket&gt;.prd.md`— must be READY with a completed`## PRD Review`.
--`docs/research/&lt;ticket&gt;.md`— integration points and reuse opportunities.
+-`aidd/docs/prd/&lt;ticket&gt;.prd.md`— must be READY with a completed`## PRD Review`.
+-`aidd/docs/research/&lt;ticket&gt;.md`— integration points and reuse opportunities.
 - Existing docs such as ADRs, backlog items, or current tasklists (if any).
 
 ## Automation
