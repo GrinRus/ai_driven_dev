@@ -10,24 +10,24 @@ permissionMode: default
 ---
 
 ## Context
-Reviewer validates the implementation against the PRD/plan, requests tests when needed, and updates `docs/tasklist/<ticket>.md` with findings. Invoked via `/review` before QA.
+Reviewer validates the implementation against the PRD/plan, requests tests when needed, and updates`docs/tasklist/&lt;ticket&gt;.md`with findings. Invoked via`/review`before QA.
 
 ## Input Artifacts
-- `git diff` or PR changeset.
-- `docs/prd/<ticket>.prd.md`, `docs/plan/<ticket>.md`, `docs/tasklist/<ticket>.md`.
-- Test logs, gate outputs, `reports/reviewer/<ticket>.json` for test markers.
+-`git diff`or PR changeset.
+-`docs/prd/&lt;ticket&gt;.prd.md`,`docs/plan/&lt;ticket&gt;.md`,`docs/tasklist/&lt;ticket&gt;.md`.
+- Test logs, gate outputs,`reports/reviewer/&lt;ticket&gt;.json`for test markers.
 
 ## Automation
-- Use `claude-workflow reviewer-tests --status required/optional/not-required` to control mandatory test runs.
-- `claude-workflow progress --source review --ticket <ticket>` must succeed after tasklist edits.
-- `gate-workflow` expects reviewer feedback (new `[x]` items) before merges.
+- Use`claude-workflow reviewer-tests --status required/optional/not-required`to control mandatory test runs.
+-`claude-workflow progress --source review --ticket &lt;ticket&gt;`must succeed after tasklist edits.
+-`gate-workflow`expects reviewer feedback (new`[x]`items) before merges.
 
 ## Step-by-step Plan
 1. Compare diff with PRD/plan, verify scenarios and acceptance criteria.
 2. Investigate risks: concurrency, transactions, security, error handling, performance, localization.
-3. Request tests via `reviewer-tests --status required` if coverage is insufficient; revert to optional once tests pass.
-4. Record findings in `docs/tasklist/<ticket>.md`: specify sections, `[x]` updates, remaining `[ ]` tasks.
-5. Run `claude-workflow progress --source review --ticket <ticket>`.
+3. Request tests via`reviewer-tests --status required`if coverage is insufficient; revert to optional once tests pass.
+4. Record findings in`docs/tasklist/&lt;ticket&gt;.md`: specify sections,`[x]`updates, remaining`[ ]`tasks.
+5. Run`claude-workflow progress --source review --ticket &lt;ticket&gt;`.
 6. Summarize READY/WARN/BLOCKED status with actionable next steps.
 
 ## Fail-fast & Questions
@@ -36,6 +36,6 @@ Reviewer validates the implementation against the PRD/plan, requests tests when 
 - Without a way to run tests, keep status BLOCKED and describe what is missing.
 
 ## Response Format
-- `Checkbox updated: <list>` referencing tasklist entries.
+-`Checkbox updated: <list>`referencing tasklist entries.
 - Provide final status (READY/WARN/BLOCKED) and numbered findings with severity + recommendation.
-- Mention whether reviewer-tests marker is `required` or `optional`, and what remains to be done.
+- Mention whether reviewer-tests marker is`required`or`optional`, and what remains to be done.

@@ -16,42 +16,42 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/qa` запускает обязательную финальную проверку фичи: вызывает саб-агента **qa** через `claude-workflow qa --gate`, формирует отчёт `reports/qa/<ticket>.json`, обновляет раздел QA в `docs/tasklist/<ticket>.md` и фиксирует прогресс. Выполняется после `/review` и перед релизом.
+Команда`/qa`запускает обязательную финальную проверку фичи: вызывает саб-агента **qa** через`claude-workflow qa --gate`, формирует отчёт`reports/qa/`&lt;ticket&gt;`.json`, обновляет раздел QA в`docs/tasklist/`&lt;ticket&gt;`.md`и фиксирует прогресс. Выполняется после`/review`и перед релизом.
 
 ## Входные артефакты
 - Активный тикет (`docs/.active_ticket`), slug-hint (`docs/.active_feature`).
-- @docs/prd/<ticket>.prd.md, @docs/plan/<ticket>.md, @docs/tasklist/<ticket>.md (QA секция), логи предыдущих гейтов (`gate-tests`, `gate-api-contract`, `gate-db-migration`).
-- Diff/логи выполнения (`git diff`, `reports/reviewer/<ticket>.json`, тесты, демо окружение).
+- @docs/prd/`&lt;ticket&gt;`.prd.md, @docs/plan/`&lt;ticket&gt;`.md, @docs/tasklist/`&lt;ticket&gt;`.md (QA секция), логи предыдущих гейтов (`gate-tests`,`gate-api-contract`,`gate-db-migration`).
+- Diff/логи выполнения (`git diff`,`reports/reviewer/`&lt;ticket&gt;`.json`, тесты, демо окружение).
 
 ## Когда запускать
-- После `/review`, перед релизом и мёржем в основную ветку.
+- После`/review`, перед релизом и мёржем в основную ветку.
 - Повторяй при новых коммитах или изменении QA чеков.
 
 ## Автоматические хуки и переменные
-- Обязательный вызов: `!("claude-workflow" qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json)`.
-- Гейт `.claude/hooks/gate-qa.sh` использует `config/gates.json: qa.command` (по умолчанию `claude-workflow qa --gate`), блокирует merge при `blocker/critical` и отсутствии отчёта `reports/qa/<ticket>.json`.
-- Зафиксируй прогресс: `!("claude-workflow" progress --source qa --ticket "<ticket>")`.
+- Обязательный вызов:`!("claude-workflow" qa --ticket "`&lt;ticket&gt;`" --report "reports/qa/`&lt;ticket&gt;`.json" --gate --emit-json)`.
+- Гейт`.claude/hooks/gate-qa.sh`использует`config/gates.json: qa.command`(по умолчанию`claude-workflow qa --gate`), блокирует merge при`blocker/critical`и отсутствии отчёта`reports/qa/`&lt;ticket&gt;`.json`.
+- Зафиксируй прогресс:`!("claude-workflow" progress --source qa --ticket "`&lt;ticket&gt;`")`.
 
 ## Что редактируется
-- `docs/tasklist/<ticket>.md` — отмечаются QA чекбоксы, даты прогонов, ссылки на логи/отчёт.
-- `reports/qa/<ticket>.json` — свежий отчёт агента QA.
+-`docs/tasklist/`&lt;ticket&gt;`.md`— отмечаются QA чекбоксы, даты прогонов, ссылки на логи/отчёт.
+-`reports/qa/`&lt;ticket&gt;`.json`— свежий отчёт агента QA.
 
 ## Пошаговый план
-1. Запусти саб-агента **qa** через CLI (см. команду выше) и дождись формирования `reports/qa/<ticket>.json` со статусом READY/WARN/BLOCKED.
+1. Запусти саб-агента **qa** через CLI (см. команду выше) и дождись формирования`reports/qa/`&lt;ticket&gt;`.json`со статусом READY/WARN/BLOCKED.
 2. Сопоставь diff с чеклистом: какие QA пункты покрыты, какие нет; зафиксируй найденные проблемы с severity и рекомендациями.
-3. Обнови `docs/tasklist/<ticket>.md`: переведи релевантные пункты `- [ ] → - [x]`, добавь дату/итерацию, ссылку на отчёт и лог команд.
-4. Выполни `claude-workflow progress --source qa --ticket <ticket>` и убедись, что новые `[x]` зафиксированы; при WARN перечисли known issues.
+3. Обнови`docs/tasklist/`&lt;ticket&gt;`.md`: переведи релевантные пункты`- [ ] → - [x]`, добавь дату/итерацию, ссылку на отчёт и лог команд.
+4. Выполни`claude-workflow progress --source qa --ticket`&lt;ticket&gt;``и убедись, что новые`[x]`зафиксированы; при WARN перечисли known issues.
 5. В ответе укажи итоговый статус, закрытые чекбоксы (`Checkbox updated: ...`), ссылку на отчёт и следующее действие (если есть WARN/BLOCKED).
 
 ## Fail-fast и вопросы
-- Нет активного тикета/QA чеклиста? Попроси оформить `/tasks-new` или обновить `docs/.active_ticket`.
+- Нет активного тикета/QA чеклиста? Попроси оформить`/tasks-new`или обновить`docs/.active_ticket`.
 - Отчёт не записался? Перезапусти CLI команду и приложи stderr; без отчёта гейт заблокирует merge.
 - Нет автотестов/логов среды — запроси у команды или зафиксируй объём непокрытых зон.
 
 ## Ожидаемый вывод
-- Строка `Checkbox updated: <перечень QA пунктов>` и статус `READY|WARN|BLOCKED`.
-- Ссылка на `reports/qa/<ticket>.json`, summary замечаний и дальнейшие шаги.
+- Строка`Checkbox updated: <перечень QA пунктов>`и статус`READY|WARN|BLOCKED`.
+- Ссылка на`reports/qa/`&lt;ticket&gt;`.json`, summary замечаний и дальнейшие шаги.
 
 ## Примеры CLI
-- `/qa ABC-123`
-- `!bash -lc 'claude-workflow qa --ticket "ABC-123" --branch "$(git rev-parse --abbrev-ref HEAD)" --report "reports/qa/ABC-123.json" --gate'`
+-`/qa ABC-123`
+-`!bash -lc 'claude-workflow qa --ticket "ABC-123" --branch "$(git rev-parse --abbrev-ref HEAD)" --report "reports/qa/ABC-123.json" --gate'`
