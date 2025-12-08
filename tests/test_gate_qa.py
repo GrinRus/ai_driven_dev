@@ -88,7 +88,7 @@ def test_skip_env_allows(tmp_path):
 
 
 def test_plugin_hooks_include_qa_gate():
-    hooks = json.loads((PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     pre_hooks = hooks.get("hooks", {}).get("PreToolUse", [])
     commands = [hook for entry in pre_hooks for hook in entry.get("hooks", [])]
     qa_hook = next((hook for hook in commands if "gate-qa.sh" in hook.get("command", "")), None)

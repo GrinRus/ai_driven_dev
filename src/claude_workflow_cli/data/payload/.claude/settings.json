@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "aidd-local": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "feature-dev-aidd@aidd-local": true
+  }
+}

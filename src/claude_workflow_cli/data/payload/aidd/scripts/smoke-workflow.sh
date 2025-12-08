@@ -64,8 +64,8 @@ run_cli init --target . --force >/dev/null
 WORKDIR="${TMP_DIR}/aidd"
 
 log "validate plugin hooks wiring"
-if [[ ! -f "$WORKDIR/.claude-plugin/hooks/hooks.json" ]]; then
-  echo "[smoke] missing plugin hooks at $WORKDIR/.claude-plugin/hooks/hooks.json" >&2
+if [[ ! -f "$WORKDIR/hooks/hooks.json" ]]; then
+  echo "[smoke] missing plugin hooks at $WORKDIR/hooks/hooks.json" >&2
   exit 1
 fi
 python3 - "$WORKDIR" <<'PY'
@@ -74,7 +74,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-hooks_path = root / ".claude-plugin" / "hooks" / "hooks.json"
+hooks_path = root / "hooks" / "hooks.json"
 hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
 
 def commands(event: str) -> list[str]:

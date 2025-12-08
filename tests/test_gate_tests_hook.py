@@ -76,7 +76,7 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
 
 
 def test_plugin_hooks_include_tests_and_post_hooks():
-    hooks = json.loads((PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     pre_cmds = [
         hook.get("command", "")
         for entry in hooks.get("hooks", {}).get("PreToolUse", [])

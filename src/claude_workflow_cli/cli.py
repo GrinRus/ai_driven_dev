@@ -1490,7 +1490,10 @@ def _select_payload_entries(
                 continue
             stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
         else:
-            stripped_rel = rel
+            if rel.parts and rel.parts[0] == DEFAULT_PROJECT_SUBDIR:
+                stripped_rel = Path(*rel.parts[1:])
+            else:
+                stripped_rel = rel
         entries.append((src, stripped_rel))
     return entries
 
@@ -1672,9 +1675,22 @@ def _sync_command(args: argparse.Namespace) -> None:
                     include = prefixed
                     candidate = payload_path / prefixed
             if not candidate.exists():
+                fallback = Path(DEFAULT_PROJECT_SUBDIR) / include
+                if (payload_path / fallback).exists():
+                    include = fallback
+                    candidate = payload_path / fallback
+            if not candidate.exists():
                 raise FileNotFoundError(f"payload path not found: {include}")
             adjusted_includes.append(include)
         manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
+        if not manifest_prefix:
+            prefix = f"{DEFAULT_PROJECT_SUBDIR}/"
+            extras: Dict[str, Dict] = {}
+            for rel, entry in manifest.items():
+                if rel.startswith(prefix):
+                    extras[rel[len(prefix) :]] = entry
+            if extras:
+                manifest_view = {**manifest, **extras}
         entries = _select_payload_entries(payload_path, adjusted_includes, strip_prefix=manifest_prefix)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"

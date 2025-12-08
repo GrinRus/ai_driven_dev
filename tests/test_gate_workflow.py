@@ -32,7 +32,7 @@ REVIEW_REPORT = '{"summary": "", "findings": []}'
 
 
 def _plugin_hooks():
-    path = PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json"
+    path = PAYLOAD_ROOT / "hooks" / "hooks.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
