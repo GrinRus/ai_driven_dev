@@ -340,20 +340,7 @@ _Статус: активный, приоритет 1. Объединено с W
 - [x] Перенести системные файлы в древовидную структуру `aidd/` (исключить корневые `.claude`/`.dev` и прочие артефакты, которые разворачиваются при установке); разложить корневые шаблоны/скрипты/README, относящиеся к payload, в подпапки. _Сделано: корневые снапшоты удалены, игнор добавлен._
 - [x] Покрыть установку в `aidd/` тестами/smoke: CLI init в целевой каталог, проверка доступности всех команд/агентов/скриптов и прав доступа через `claude-workflow` без ручных шагов. _pytest + smoke проходят._
 
-### Официальные команды/агенты и плагин AIDD
-- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
-- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
-- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
-
-### Хуки и гейты (официальные события)
-- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
-- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
-- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
-
-### Документация и CLAUDE.md
-- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
-- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
-- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.
+- Оставшиеся открытые задачи по плагину/командам/агентам/хукам и документации перенесены в Wave 46.
 
 ## Wave 28
 
@@ -645,3 +632,22 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 - [ ] `.claude/commands/researcher.md`, `prompts/en/commands/researcher.md`, `/idea-new`: синхронизировать дефолтные параметры (JVM → call graph+deep-code, non-JVM → fast scan), описать эскалацию дополнительных `--paths/--keywords` и повторный запуск с graph-focus.
 - [ ] Документация: `docs/agents-playbook.md`, `docs/feature-cookbook.md`, `workflow.md` — добавить таблицу «когда запускать graph vs обычный ресерч», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста.
 - [ ] Тесты/смоук: кейсы `claude-workflow research --auto` в JVM-репо (строится граф, сохраняется полный JSON), в non-JVM (граф не строится, WARN), и «0 matches → baseline note». Обновить `tests/test_researcher_context.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`.
+
+## Wave 46
+
+_Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
+
+### Официальные команды/агенты и плагин AIDD
+- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
+- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
+- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
+
+### Хуки и гейты (официальные события)
+- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
+- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
+- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
+
+### Документация и CLAUDE.md
+- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
+- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
+- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.
