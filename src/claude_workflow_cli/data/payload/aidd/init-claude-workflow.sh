@@ -681,6 +681,38 @@ EOF
   fi
 }
 
+append_shell_export() {
+  local profile="$1"
+  local target_dir="$2"
+  local line="export CLAUDE_PROJECT_DIR=\"$target_dir\""
+
+  if [[ ! -f "$profile" ]]; then
+    return 0
+  fi
+
+  if grep -F "$line" "$profile" >/dev/null 2>&1; then
+    log_info "CLAUDE_PROJECT_DIR already set in $profile"
+    return
+  fi
+
+  {
+    printf '\n# Claude Workflow runtime (aidd/)\n'
+    printf '%s\n' "$line"
+  } >>"$profile"
+  log_info "Added CLAUDE_PROJECT_DIR to $profile"
+}
+
+setup_env_exports() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] would export CLAUDE_PROJECT_DIR=\"$ROOT_DIR/aidd\" in shell profile"
+    return
+  fi
+
+  local target_dir="$ROOT_DIR/aidd"
+  append_shell_export "$HOME/.zshrc" "$target_dir"
+  append_shell_export "$HOME/.bashrc" "$target_dir"
+}
+
 main() {
   parse_args "$@"
   check_dependencies
@@ -698,6 +730,7 @@ main() {
   replace_commit_mode
   generate_ci_workflow
   apply_preset
+  setup_env_exports
   final_message
 }
 
