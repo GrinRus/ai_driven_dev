@@ -16,13 +16,16 @@ INSTALL_HINT = (
     "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git"
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[5]  # repo root or site-packages root
 DEV_SRC = PROJECT_ROOT / "src"
 VENDOR_DIR = PROJECT_ROOT / ".claude" / "hooks" / "_vendor"
 HAS_VENDOR = VENDOR_DIR.exists()
+DEV_SRC_OVERRIDE = Path(os.environ.get("CLAUDE_WORKFLOW_DEV_SRC", "")).expanduser()
 
 if DEV_SRC.exists():
     sys.path.insert(0, str(DEV_SRC))
+if DEV_SRC_OVERRIDE.is_dir():
+    sys.path.insert(0, str(DEV_SRC_OVERRIDE))
 if HAS_VENDOR:
     sys.path.insert(0, str(VENDOR_DIR))
 
@@ -62,6 +65,8 @@ def _enhance_env(env: MutableMapping[str, str], runner: Runner) -> MutableMappin
     python_path_parts = []
     if DEV_SRC.exists():
         python_path_parts.append(str(DEV_SRC))
+    if DEV_SRC_OVERRIDE.is_dir():
+        python_path_parts.append(str(DEV_SRC_OVERRIDE))
     if VENDOR_DIR.exists():
         python_path_parts.append(str(VENDOR_DIR))
     if python_path_parts:

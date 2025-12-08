@@ -420,7 +420,12 @@ def _run_init(
 
 def _run_smoke(verbose: bool) -> None:
     with _payload_root() as payload_path:
-        script = payload_path / "scripts" / "smoke-workflow.sh"
+        manifest = _load_manifest(payload_path)
+        manifest_prefix = _detect_manifest_prefix(manifest)
+        script_rel = Path("scripts/smoke-workflow.sh")
+        if manifest_prefix:
+            script_rel = Path(manifest_prefix) / script_rel
+        script = payload_path / script_rel
         if not script.exists():
             raise FileNotFoundError(f"smoke script not found at {script}")
         cmd = ["bash", str(script)]
@@ -428,7 +433,7 @@ def _run_smoke(verbose: bool) -> None:
         if verbose:
             env["SMOKE_VERBOSE"] = "1"
         # smoke script handles its own temp directory; run from payload root
-        _run_subprocess(cmd, cwd=payload_path, env=env)
+        _run_subprocess(cmd, cwd=script.parent, env=env)
 
 
 def _init_command(args: argparse.Namespace) -> None:

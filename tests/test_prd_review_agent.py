@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import json
 import subprocess
 import sys
@@ -9,8 +10,9 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
+from .helpers import PAYLOAD_ROOT
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "prd-review-agent.py"
+MODULE_PATH = PAYLOAD_ROOT / "scripts" / "prd-review-agent.py"
 
 
 def _load_prd_review_agent():
@@ -113,10 +115,15 @@ class PRDReviewAgentTests(unittest.TestCase):
         report_path = self.tmp_path / "reports" / "prd" / "demo-feature.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
 
+        env = os.environ.copy()
+        pythonpath = os.pathsep.join(filter(None, [str(PAYLOAD_ROOT.parents[5] / "src"), env.get("PYTHONPATH")]))
+        env["PYTHONPATH"] = pythonpath
         subprocess.run(
             [
                 sys.executable,
                 str(MODULE_PATH),
+                "--ticket",
+                "demo-feature",
                 "--slug",
                 "demo-feature",
                 "--prd",
@@ -126,6 +133,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             ],
             check=True,
             cwd=self.tmp_path,
+            env=env,
         )
 
         payload = json.loads(report_path.read_text(encoding="utf-8"))

@@ -74,7 +74,7 @@ def test_sync_custom_include(tmp_path):
     assert not template_version.exists(), "template version should not update when .claude not synced"
 
 
-def test_sync_supports_readme_include(tmp_path):
+def test_sync_supports_claude_include(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     project_root = workspace / "aidd"
@@ -82,7 +82,7 @@ def test_sync_supports_readme_include(tmp_path):
     _clean_payload_pycache()
     args = SimpleNamespace(
         target=str(workspace),
-        include=["README.md"],
+        include=["CLAUDE.md"],
         force=False,
         dry_run=False,
         release=None,
@@ -90,5 +90,5 @@ def test_sync_supports_readme_include(tmp_path):
     )
     cli._sync_command(args)
 
-    readme = project_root / "README.md"
-    assert readme.exists(), "sync should copy README.md when explicitly requested"
+    claude_doc = project_root / "CLAUDE.md"
+    assert claude_doc.exists(), "sync should copy CLAUDE.md when explicitly requested"

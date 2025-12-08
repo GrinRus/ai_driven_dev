@@ -8,7 +8,7 @@ if str(TOOLS_DIR) not in sys.path:  # pragma: no cover - environment setup
 
 from check_payload_sync import DEFAULT_PATHS, compare_paths, parse_paths  # type: ignore  # noqa: E402
 
-PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / "aidd"
+PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload"
 
 
 def _prepare_tree(base: Path, relative: str, files: dict[str, str]) -> None:
@@ -58,5 +58,5 @@ def test_parse_paths_splits_commas() -> None:
 
 
 def test_repo_and_payload_default_paths_in_sync() -> None:
-    mismatches = compare_paths(REPO_ROOT, PAYLOAD_ROOT, DEFAULT_PATHS, payload_prefix="")
+    mismatches = compare_paths(REPO_ROOT, PAYLOAD_ROOT, DEFAULT_PATHS, payload_prefix="aidd")
     assert mismatches == []

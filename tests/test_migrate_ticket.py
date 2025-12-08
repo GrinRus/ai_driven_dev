@@ -2,9 +2,9 @@ import json
 import subprocess
 from pathlib import Path
 
-from .helpers import REPO_ROOT, write_file
+from .helpers import PAYLOAD_ROOT, write_file
 
-SCRIPT = REPO_ROOT / "tools" / "migrate_ticket.py"
+SCRIPT = PAYLOAD_ROOT / "tools" / "migrate_ticket.py"
 
 
 def run_migration(tmp_path: Path, *extra_args: str, dry_run: bool = False) -> subprocess.CompletedProcess[str]:

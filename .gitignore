@@ -19,3 +19,7 @@ prompts/
 scripts/
 templates/
 tools/
+!scripts/
+!scripts/package_payload_archive.py
+!tools/
+!tools/check_payload_sync.py

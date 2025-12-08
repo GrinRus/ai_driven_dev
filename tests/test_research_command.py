@@ -33,7 +33,7 @@ class ResearchCommandTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(REPO_ROOT / "tools" / "run_cli.py"),
+                    str(PAYLOAD_ROOT / "tools" / "run_cli.py"),
                     "research",
                     "--target",
                     project_root,

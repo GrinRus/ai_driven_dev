@@ -205,40 +205,10 @@
       "sha256": "5ceecb18c9e9cc6a96212082659d4ccf844e5c11cdae542782ca78ac985daace"
     },
     {
-      "path": "aidd/.pre-commit-config.yaml",
-      "type": "file",
-      "size": 211,
-      "sha256": "dd729278cda093e4c4542d9047b64f4068d8abcb4625336bb07e14086e2357b1"
-    },
-    {
-      "path": "aidd/CHANGELOG.md",
-      "type": "file",
-      "size": 4988,
-      "sha256": "d5cc01ff7b9b9efd7137162cf640ffa8d88eb958ee62ded1510b6e3f954bb8b7"
-    },
-    {
       "path": "aidd/CLAUDE.md",
       "type": "file",
       "size": 1962,
       "sha256": "9086b0a412c66388e6d488f6085c17626d99633aa42db6f02441885e1a4449e8"
-    },
-    {
-      "path": "aidd/CONTRIBUTING.md",
-      "type": "file",
-      "size": 4976,
-      "sha256": "51c45d80f3855a69b00cd9bd3a2f47fe8eac77d56aa4161578696c24f86a8754"
-    },
-    {
-      "path": "aidd/README.en.md",
-      "type": "file",
-      "size": 31317,
-      "sha256": "621356469f7b5f28106533321dad2cb3b0c685aa408fb437389fcddcfc5427f0"
-    },
-    {
-      "path": "aidd/README.md",
-      "type": "file",
-      "size": 51961,
-      "sha256": "8ab57873ca9d59fc1bc0b76ea8cdf127e54d89941e1d04ebeb1f86abcf68bce5"
     },
     {
       "path": "aidd/claude-presets/advanced/feature-design.yaml",
@@ -405,8 +375,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 19734,
-      "sha256": "c082f7068b57a34a227976c1785cf3769d63c698feea3379e3b73e298e124ab7"
+      "size": 19779,
+      "sha256": "8716e9bdda9df85c6f767669005f3307dc8243373ab6b053b5ff1b2c12030cd2"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",
@@ -535,6 +505,12 @@
       "sha256": "02e8f4cf3a76c4565426657625e517e4ef10dab5891b1740a2ec5f8ed0a13c3e"
     },
     {
+      "path": "aidd/scripts/prompt-version",
+      "type": "file",
+      "size": 4167,
+      "sha256": "5f01f148faeeac33fb3eeb9d2beba6a39fd67d3b04b0a8b950aefa456e8923ef"
+    },
+    {
       "path": "aidd/scripts/qa-agent.py",
       "type": "file",
       "size": 15814,
@@ -543,14 +519,14 @@
     {
       "path": "aidd/scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 12193,
-      "sha256": "ba978c8e930a4b7bfe98db48953fa4be9f3bbf745d3eba978912ff71291040d0"
+      "size": 10472,
+      "sha256": "ad9411aef36a551a69dae45a52006fa1fd9a09b3ed03cebf73618acb5dd48868"
     },
     {
       "path": "aidd/scripts/sync-payload.sh",
       "type": "file",
-      "size": 3390,
-      "sha256": "74998daec73d458f86cf6d9de1ed91c674ce74bef809c1d8edf6892d79336048"
+      "size": 3342,
+      "sha256": "0da6ad384e61299d886dee96c1abfa911c23ff7e01c2316d1ef2b1c0af493d44"
     },
     {
       "path": "aidd/templates/git-hooks/README.md",
@@ -595,16 +571,10 @@
       "sha256": "e6e6d308ecf8a6e98ee600d4f7db326cde4418568738cbb80d4c73fafdb28f53"
     },
     {
-      "path": "aidd/tests/test_payload_sync.py",
-      "type": "file",
-      "size": 2802,
-      "sha256": "509e948b076bc09fd75f1253861539a0b01050c96c73d9d42250deec1aa2e7fc"
-    },
-    {
       "path": "aidd/tools/check_payload_sync.py",
       "type": "file",
-      "size": 5661,
-      "sha256": "df8b0b6caeebbb4ac87399bc372ccc296d56b8ff58ef8408cbd99c291b330752"
+      "size": 5464,
+      "sha256": "cd606729081a804635b3a577d2553db8c4972b7ce74d47ce4d04a181b962fa25"
     },
     {
       "path": "aidd/tools/migrate_ticket.py",
@@ -627,8 +597,8 @@
     {
       "path": "aidd/tools/run_cli.py",
       "type": "file",
-      "size": 3823,
-      "sha256": "3708f73bcab5f0d9be59bae4c735dce52180399f00619b80a5579015317deba5"
+      "size": 4108,
+      "sha256": "79d938f60c34543394cf69ceb4cf858ff81178477bdde37c41e98892b171a73d"
     },
     {
       "path": "aidd/tools/set_active_feature.py",

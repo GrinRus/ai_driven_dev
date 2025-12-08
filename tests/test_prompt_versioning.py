@@ -1,9 +1,12 @@
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from textwrap import dedent
 import unittest
+
+from .helpers import PAYLOAD_ROOT, REPO_ROOT
 
 
 RU_TEMPLATE_AGENT = dedent(
@@ -178,10 +181,13 @@ class PromptVersioningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_pair(root, "analyst")
+            env = os.environ.copy()
+            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+            env["PYTHONPATH"] = pythonpath
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/prompt-version",
+                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -196,6 +202,7 @@ class PromptVersioningTests(unittest.TestCase):
                 ],
                 text=True,
                 capture_output=True,
+                env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             ru_text = (root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
@@ -209,10 +216,13 @@ class PromptVersioningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_pair(root, "plan-new", kind="command")
+            env = os.environ.copy()
+            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+            env["PYTHONPATH"] = pythonpath
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/prompt-version",
+                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -227,6 +237,7 @@ class PromptVersioningTests(unittest.TestCase):
                 ],
                 text=True,
                 capture_output=True,
+                env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             ru_text = (root / ".claude" / "commands" / "plan-new.md").read_text(encoding="utf-8")
@@ -238,10 +249,13 @@ class PromptVersioningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_pair(root, "analyst")
+            env = os.environ.copy()
+            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+            env["PYTHONPATH"] = pythonpath
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/prompt-version",
+                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -256,6 +270,7 @@ class PromptVersioningTests(unittest.TestCase):
                 ],
                 text=True,
                 capture_output=True,
+                env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             en_text = (root / "prompts" / "en" / "agents" / "analyst.md").read_text(encoding="utf-8")
@@ -267,10 +282,13 @@ class PromptVersioningTests(unittest.TestCase):
             root = Path(tmp)
             self.write_pair(root, "analyst", lang_skip=True)
             (root / "prompts" / "en" / "agents" / "analyst.md").unlink()
+            env = os.environ.copy()
+            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+            env["PYTHONPATH"] = pythonpath
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/prompt-version",
+                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -285,6 +303,7 @@ class PromptVersioningTests(unittest.TestCase):
                 ],
                 text=True,
                 capture_output=True,
+                env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             ru_text = (root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")

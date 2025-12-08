@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Dict
 
 from .helpers import (
+    PAYLOAD_ROOT,
     REPO_ROOT,
     cli_cmd,
     ensure_gates_config,
@@ -17,7 +18,7 @@ from .helpers import (
     write_file,
 )
 
-QA_AGENT = REPO_ROOT / "scripts" / "qa-agent.py"
+QA_AGENT = PAYLOAD_ROOT / "scripts" / "qa-agent.py"
 
 APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: approved\n"
 
@@ -38,6 +39,8 @@ class QaAgentTests(unittest.TestCase):
         run_env.setdefault("QA_AGENT_DIFF_BASE", "")
         if env:
             run_env.update(env)
+        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), run_env.get("PYTHONPATH")]))
+        run_env["PYTHONPATH"] = pythonpath
         return subprocess.run(
             ["python3", str(QA_AGENT), *argv],
             cwd=self.project_root,

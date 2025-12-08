@@ -47,10 +47,30 @@ def approved_prd(ticket: str = "demo-checkout") -> str:
 
 
 def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", status: str = "reviewed") -> None:
+    from datetime import datetime, timezone
+
+    generated_at = datetime.now(timezone.utc).isoformat()
     write_file(
         tmp_path,
         f"docs/research/{ticket}.md",
         f"# Research\n\nStatus: {status}\n",
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "status": status,
+            "generated_at": generated_at,
+            "profile": {},
+            "manual_notes": [],
+            "matches": [],
+            "targets": {"paths": ["src/main/kotlin"]},
+        },
     )
 
 
@@ -123,6 +143,11 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
+    write_json(
+        tmp_path,
+        "reports/reviewer/demo-checkout.json",
+        {"ticket": "demo-checkout", "tests": "optional"},
+    )
     write_file(
         tmp_path,
         "docs/tasklist/demo-checkout.md",
@@ -133,14 +158,17 @@ def test_tasks_with_slug_allow_changes(tmp_path):
             Status: draft
             PRD: docs/prd/demo-checkout.prd.md
             Plan: docs/plan/demo-checkout.md
-            Research: docs/research/demo-checkout.md
-            Updated: 2024-01-01
-            ---
+                Research: docs/research/demo-checkout.md
+                Updated: 2024-01-01
+                ---
 
-            - [ ] QA :: подготовить smoke сценарии
-            """
-        ),
-    )
+                - [ ] QA :: подготовить smoke сценарии
+                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+                - [ ] Research: follow-up
+                <!-- handoff:research end -->
+                """
+            ),
+        )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
@@ -380,15 +408,18 @@ def test_allows_pending_research_baseline(tmp_path):
             Feature: demo-checkout
             Status: draft
             PRD: docs/prd/demo-checkout.prd.md
-            Plan: docs/plan/demo-checkout.md
-            Research: docs/research/demo-checkout.md
-            Updated: 2024-01-01
-            ---
+                Plan: docs/plan/demo-checkout.md
+                Research: docs/research/demo-checkout.md
+                Updated: 2024-01-01
+                ---
 
-            - [ ] Реализация :: подготовить сервис
-            """
-        ),
-    )
+                - [ ] Реализация :: подготовить сервис
+                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+                - [ ] Research: follow-up
+                <!-- handoff:research end -->
+                """
+            ),
+        )
     baseline_doc = (
         "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
     )
@@ -479,7 +510,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "новых `- [x]`" in result.stdout or "новых `- [x]`" in result.stderr
+    assert "handoff-задачи" in result.stdout or "tasks-derive" in result.stdout
 
     write_file(
         tmp_path,
@@ -491,15 +522,18 @@ def test_progress_blocks_without_checkbox(tmp_path):
             Status: draft
             PRD: docs/prd/demo-checkout.prd.md
             Plan: docs/plan/demo-checkout.md
-            Research: docs/research/demo-checkout.md
-            Updated: 2024-01-01
-            ---
+                Research: docs/research/demo-checkout.md
+                Updated: 2024-01-01
+                ---
 
-            - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
-            - [ ] QA :: подготовить smoke сценарии
-            """
-        ),
-    )
+                - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
+                - [ ] QA :: подготовить smoke сценарии
+                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+                - [ ] Research: follow-up
+                <!-- handoff:research end -->
+                """
+            ),
+        )
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
@@ -556,7 +590,8 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     write_json(tmp_path, f"reports/reviewer/{slug_hint}.json", reviewer_marker)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2
+    assert "reviewer запросил тесты" in result.stdout or "reviewer запросил тесты" in result.stderr
     combined_output = (result.stdout + result.stderr).lower()
     assert "checkout-lite" in combined_output
     assert "reviewer запросил тесты" in combined_output
