@@ -1,6 +1,6 @@
 # Claude Code Workflow (AI-driven)
 
-> Команды и агенты поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`); рантайм-копии для IDE лежат в `aidd/.claude/`. Следуйте `workflow.md` и `config/conventions.json` — они описывают порядок шагов и соглашения.
+> Команды и агенты поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`); рантайм-копии для IDE лежат в `aidd/.claude/`. Следуйте `workflow.md` и `config/conventions.json` — они описывают порядок шагов и соглашения. Hook events настроены в `aidd/.claude-plugin/hooks/hooks.json` и вызывают `"$CLAUDE_PROJECT_DIR"/.claude/hooks/*.sh`.
 
 ## Основной цикл
 1. `/idea-new <ticket> [slug-hint]` — фиксирует ticket в `docs/.active_ticket` (и при необходимости slug-хинт в `.active_feature`), агент analyst оформляет PRD и собирает вводные.

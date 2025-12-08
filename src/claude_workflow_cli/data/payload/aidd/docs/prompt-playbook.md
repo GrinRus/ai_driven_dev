@@ -82,6 +82,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Ссылайтесь на переменные окружения из `.claude/settings.json` (например, `SKIP_AUTO_TESTS`, `TEST_SCOPE`).
 - Для команд, которые вызывают дополнительные скрипты, описывайте формат `!bash -lc '...'` и ожидаемые побочные эффекты.
 - Если агент должен запускаться из палитры (например, `qa`), напишите явное указание «Запусти через Claude: Run agent → qa».
+- Hook events: `aidd/.claude-plugin/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `"$CLAUDE_PROJECT_DIR"/.claude/hooks/<name>.sh`.
 
 ## 7. Процесс изменений и версионирование
 - Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).

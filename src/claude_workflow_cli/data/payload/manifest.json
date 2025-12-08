@@ -333,8 +333,8 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 2306,
-      "sha256": "76c5eb0624656fc30250219b2c45d368ec9b8e33c8e95a18474b5d2c80ab125a"
+      "size": 2443,
+      "sha256": "c523825174afe581fc80fd3f31349c566b45fef5687513c89888787ca3832f23"
     },
     {
       "path": "aidd/claude-presets/advanced/feature-design.yaml",
@@ -411,8 +411,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 20245,
-      "sha256": "9406aabeacd81d5c3b733f7c4da95730e0411c27934fc9fd65c86e7f038e08ad"
+      "size": 20545,
+      "sha256": "fd4c4ba26a42e7ef8255ca00f77ecafa9d7d228d93cb601e8c79798bd2713bcc"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -453,8 +453,8 @@
     {
       "path": "aidd/docs/prompt-playbook.md",
       "type": "file",
-      "size": 14131,
-      "sha256": "2646c2365f619c39a3454a1f858cbf90985c195873f50e8e2b65f6090cfa04a9"
+      "size": 14373,
+      "sha256": "c58758832e6c091bf6fb435cc5bb2300c7b0b4220f46161d9a01713fffd82053"
     },
     {
       "path": "aidd/docs/prompt-versioning.md",
@@ -735,14 +735,14 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 17544,
-      "sha256": "9f591e4b1a5eb2b8d3e3974b484c7dc151b7091cd16c1763f03f66013c87b990"
+      "size": 17888,
+      "sha256": "e0c9048889bc5e3e495150f3eb9a95a13ce68cc86ee52d3388caacd5104e4dbf"
     },
     {
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "ee147c9e637055d420e8844f66744145c48b398f3416e6c88cb842d7730d89da"
+      "sha256": "2fb555c16e9253cbc897f53e8cf4e309dbda656e28beadbb17249e8fe4accfe4"
     }
   ]
 }
