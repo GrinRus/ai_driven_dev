@@ -321,8 +321,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 20545,
-      "sha256": "fd4c4ba26a42e7ef8255ca00f77ecafa9d7d228d93cb601e8c79798bd2713bcc"
+      "size": 20789,
+      "sha256": "804ffad9d273861969a800b0e3a78d0a227b65b20e0692bda52a2ce4fb5e56ac"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -651,8 +651,8 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 17875,
-      "sha256": "a257986426fc27b7c1c524742a7e015d0d1e79ce0e370f1e4c9cf8c878400399"
+      "size": 18016,
+      "sha256": "c39becada17fa4d6812f80759da67075b6c63760dc95fe7507a0114bc873fbfc"
     }
   ]
 }

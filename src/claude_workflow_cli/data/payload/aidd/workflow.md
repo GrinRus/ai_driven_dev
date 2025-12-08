@@ -2,7 +2,7 @@
 
 Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит семь этапов: **идея → research → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
 
-> **Плагин AIDD.** Команды и агенты поставляются как плагин `feature-dev-aidd` в `aidd/.claude-plugin/` (манифест `plugin.json`). Claude Code подхватывает плагин автоматически после `init-claude-workflow.sh`. Runtime-копии для IDE остаются в `.claude/`, EN‑локаль — в `prompts/en/**`.
+> **Плагин AIDD.** Команды/агенты/хуки живут в `aidd/{commands,agents,hooks}` с манифестом `aidd/.claude-plugin/plugin.json`; runtime `.claude/` содержит только настройки/хуки проекта. Marketplace для автоподключения — корневой `.claude-plugin/marketplace.json`, root `.claude/settings.json` включает `feature-dev-aidd`. Запускайте Claude из корня: плагин подхватится автоматически.
 > Ticket — основной идентификатор фичи (`docs/.active_ticket`), slug-hint при необходимости сохраняется в `docs/.active_feature` и используется в шаблонах и логах.
 > **Важно:** `.claude/`, `.claude-plugin/`, `docs/`, `templates/` и скрипты в корне — это развернутый snapshot. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 ## Обзор этапов

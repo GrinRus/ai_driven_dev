@@ -661,11 +661,11 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 ### Структура payload AIDD под схему плагина
 - [x] Перенести плагинные команды/агенты/хуки из `aidd/.claude-plugin/{commands,agents,hooks}` в корень плагина `aidd/{commands,agents,hooks}`, поправить `plugin.json` на пути `./commands/`, `./agents/`, `./hooks/hooks.json`.
 - [x] Обновить `aidd/.claude-plugin/hooks/hooks.json`: использовать `${CLAUDE_PLUGIN_ROOT}` для ссылок на bash-хуки/скрипты вместо `$CLAUDE_PROJECT_DIR`.
-- [ ] Развести плагинные файлы и runtime `.claude`: в `.claude` оставить настройки/хуки проекта, в плагине — только команды/агенты/плагинные хуки; убрать дубликаты.
-- [ ] После перевода валидаторов/гейтов/линтов на `aidd/{commands,agents}` удалить дубли команд/агентов из `aidd/.claude/` (IDE runtime) и очистить проверки, которые их требуют.
+- [x] Развести плагинные файлы и runtime `.claude`: в `.claude` оставить настройки/хуки проекта, в плагине — только команды/агенты/плагинные хуки; убрать дубликаты.
+- [x] После перевода валидаторов/гейтов/линтов на `aidd/{commands,agents}` удалить дубли команд/агентов из `aidd/.claude/` (IDE runtime) и очистить проверки, которые их требуют.
 - [x] Обновить init/sync/manifest под новую структуру (копирование новых путей, hash в manifest.json).
 - [x] Тесты/smoke/prompt-lint: учесть новые пути команд/агентов/хуков и переменную `${CLAUDE_PLUGIN_ROOT}`; добавить smoke-кейс установки и работы хуков при CWD=корень.
-- [ ] Документация: README/workflow/agents-playbook — описать новую структуру плагина в `aidd/` и различие между `.claude` (runtime) и `commands/agents/hooks` (плагин).
+- [x] Документация: README/workflow/agents-playbook — описать новую структуру плагина в `aidd/` и различие между `.claude` (runtime) и `commands/agents/hooks` (плагин).
 
 ### Документация и CLAUDE.md
 - [x] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.

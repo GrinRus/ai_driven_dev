@@ -3,7 +3,7 @@
 Документ помогает быстро провести фичу через цикл Claude Code, понять роли саб-агентов и поведение гейтов. Следуйте последовательности, чтобы избегать блокирующих хуков и расхождений в артефактах.
 
 > Ticket — основной идентификатор фичи, сохраняется в `docs/.active_ticket`. При необходимости указывайте slug-hint (человекочитаемый алиас) — он хранится в `docs/.active_feature` и используется в шаблонах/логах.
-> Команды и агенты поставляются как плагин `aidd/.claude-plugin` (manifest `plugin.json`); runtime-копии для IDE находятся в `.claude/**`, EN‑локаль — в `prompts/en/**`.
+> Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/хуки, EN‑локаль — в `prompts/en/**`. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
 > Требования к структуре промптов агентов и слэш-команд описаны в `docs/prompt-playbook.md`. При редактировании файлов в `.claude-plugin/agents|commands` и `.claude/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`. EN локализации синхронизируются по правилам `docs/prompt-versioning.md`.
 > Hook events определены в `aidd/.claude-plugin/hooks/hooks.json`: PreToolUse/PostToolUse (workflow/prd/qa/tests/format/lint), UserPromptSubmit/Stop/SubagentStop (повторный `gate-workflow`). Скрипты вызываются через `$CLAUDE_PROJECT_DIR/.claude/hooks/*.sh`.
 
