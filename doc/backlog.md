@@ -645,12 +645,12 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 - [x] Обновить README/README.en/quick-reference под плагин `feature-dev-aidd`: таблица команд с аргументами и @docs артефактами, упоминание `.claude-plugin`, обновить sync-даты.
 
 ### Хуки и гейты (официальные события)
-- [ ] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
-- [ ] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
+- [x] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
+- [x] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
 - [ ] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
 
 ### Документация и CLAUDE.md
-- [ ] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.
-- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `aidd/CLAUDE.md`, вписав в существующий текст без перетирания содержимого.
-- [ ] Пересобрать quick-start/quick-reference (RU/EN) под плагинную раскладку и новые пути, синхронизировать с README/workflow и manifest/payload тестами.
-- [ ] Включить в prompt/agents playbook краткие шаблоны команды и агента (по официальной доке: фронтматтер, positional args, allowed-tools), дать ссылки на slash-commands/subagents и community-примеры для копипасты.
+- [x] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.
+- [x] Добавить ссылки на `workflow.md` и `config/conventions.md` в `aidd/CLAUDE.md`, вписав в существующий текст без перетирания содержимого.
+- [x] Пересобрать quick-start/quick-reference (RU/EN) под плагинную раскладку и новые пути, синхронизировать с README/workflow и manifest/payload тестами.
+- [x] Включить в prompt/agents playbook краткие шаблоны команды и агента (по официальной доке: фронтматтер, positional args, allowed-tools), дать ссылки на slash-commands/subagents и community-примеры для копипасты.
