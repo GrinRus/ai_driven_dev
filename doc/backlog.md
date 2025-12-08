@@ -638,16 +638,18 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 _Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
 
 ### Официальные команды/агенты и плагин AIDD
-- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
-- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
-- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
+- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в плагинном каталоге `.claude-plugin/commands/` с единым фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`, позиционные `$1/$2`, ссылки `@docs/...`), убрать кастомные поля, обновить quick-reference, prompt-lint и `manifest.json`/sync-проверки под новые пути.
+- [ ] Переписать `.claude/agents/*.md` и EN-копии в формат плагина (`description/capabilities`, блоки «Роль/Когда вызывать/Как работать с файлами/Правила», статусы READY/BLOCKED/WARN, ссылки на артефакты validator/qa/prd-reviewer), синхронизировать версии RU/EN и линтеры.
+- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, при необходимости `.mcp.json`), включить его в payload/manifest, обновить init/sync/upgrade и тесты/CI, чтобы плагин разворачивался вместе с `aidd/`.
+- [ ] Привести фронтматтер команд/агентов к требованиям Claude Code (обязательные `description/argument-hint/name/tools/model/permissionMode`, позиционные `$1/$ARGUMENTS`, минимальные `allowed-tools`), зашить проверки в prompt-lint и quick-reference с короткими шаблонами.
 
 ### Хуки и гейты (официальные события)
-- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
-- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
-- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
+- [ ] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
+- [ ] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
+- [ ] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
 
 ### Документация и CLAUDE.md
-- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
-- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
-- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.
+- [ ] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.
+- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `aidd/CLAUDE.md`, вписав в существующий текст без перетирания содержимого.
+- [ ] Пересобрать quick-start/quick-reference (RU/EN) под плагинную раскладку и новые пути, синхронизировать с README/workflow и manifest/payload тестами.
+- [ ] Включить в prompt/agents playbook краткие шаблоны команды и агента (по официальной доке: фронтматтер, positional args, allowed-tools), дать ссылки на slash-commands/subagents и community-примеры для копипасты.
