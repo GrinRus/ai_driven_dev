@@ -10,19 +10,19 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash($CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*)"
+  - "Bash(.claude/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/implement` запускает саб-агента **implementer**, который работает по `docs/plan/<ticket>.md` и `docs/tasklist/<ticket>.md`, при необходимости сверяется с PRD/research для уточнений, обновляет tasklist и следит за запуском `.claude/hooks/format-and-test.sh` перед итоговым ответом. Используется в основной разработке.
+Команда `/implement` запускает саб-агента **implementer**, который работает по @docs/plan/<ticket>.md и @docs/tasklist/<ticket>.md, при необходимости сверяется с PRD/research для уточнений, обновляет tasklist и следит за запуском `.claude/hooks/format-and-test.sh` перед итоговым ответом. Используется в основной разработке.
 
 ## Входные артефакты
-- `docs/plan/<ticket>.md` — итерации и DoD.
-- `docs/tasklist/<ticket>.md` — чеклист прогресса.
-- `docs/research/<ticket>.md`, `docs/prd/<ticket>.prd.md` — доп. контекст и ограничения (используются, если не хватает деталей в плане/чеклисте).
+- @docs/plan/<ticket>.md — итерации и DoD.
+- @docs/tasklist/<ticket>.md — чеклист прогресса.
+- @docs/research/<ticket>.md, @docs/prd/<ticket>.prd.md — доп. контекст и ограничения (используются, если не хватает деталей в плане/чеклисте).
 
 ## Когда запускать
 - После `/tasks-new`, когда план и tasklist готовы.

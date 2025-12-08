@@ -273,8 +273,8 @@
     {
       "path": "aidd/.claude-plugin/commands/implement.md",
       "type": "file",
-      "size": 4597,
-      "sha256": "bd097b1a5907ec3ade26e27979a979adf4b7f5ecbde444bc1ad7d8daf8ea9181"
+      "size": 4571,
+      "sha256": "04b9e70eecc60dd81599d90757bf028807f742bfd18cf683bb60c4a612d26acc"
     },
     {
       "path": "aidd/.claude-plugin/commands/plan-new.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "af2f6491cbf189f1b1b08cef3d7b7d8ac931bbfb567db8d0b4547d9d76b2d02d"
+      "sha256": "4cefc00600b8247b792f5acf2b80669842644541623abd70418a48c218a86b86"
     }
   ]
 }
