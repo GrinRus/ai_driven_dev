@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
-PAYLOAD_ROOT = Path(__file__).resolve().parents[1] / "src" / "claude_workflow_cli" / "data" / "payload"
+from .helpers import PAYLOAD_ROOT, PROJECT_SUBDIR
 
 # Represent key artefacts that must match payload byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
@@ -35,9 +35,12 @@ REQUIRED_DIRECTORIES = (
 
 def _run_bootstrap(target: Path, *extra_args: str) -> None:
     env = os.environ.copy()
-    env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
-    cmd = ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix", *extra_args]
-    subprocess.run(cmd, cwd=target, check=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    template = PAYLOAD_ROOT
+    env["CLAUDE_TEMPLATE_DIR"] = str(template)
+    project_root = target / PROJECT_SUBDIR
+    project_root.mkdir(parents=True, exist_ok=True)
+    cmd = ["bash", str(template / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix", *extra_args]
+    subprocess.run(cmd, cwd=project_root, check=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def _hash_file(path: Path) -> str:
@@ -85,24 +88,25 @@ def test_bootstrap_copies_payload_files_and_directories():
     with tempfile.TemporaryDirectory(prefix="claude-workflow-e2e-") as tmpdir:
         target = Path(tmpdir)
         _run_bootstrap(target)
+        project_root = target / PROJECT_SUBDIR
 
         for directory in REQUIRED_DIRECTORIES:
-            assert (target / directory).is_dir(), f"{directory} must exist after bootstrap"
+            assert (project_root / directory).is_dir(), f"{directory} must exist after bootstrap"
 
         for relative in CRITICAL_FILES:
             payload_file = PAYLOAD_ROOT / relative
-            project_file = target / relative
+            project_file = project_root / relative
             assert payload_file.is_file(), f"payload missing {relative}"
             assert project_file.is_file(), f"project missing {relative}"
             assert _hash_file(payload_file) == _hash_file(project_file), f"{relative} mismatch vs payload"
 
         # settings.json should embed an absolute project path (no $CLAUDE_PROJECT_DIR).
-        settings_path = target / ".claude" / "settings.json"
+        settings_path = project_root / ".claude" / "settings.json"
         commands = _read_hook_commands(settings_path)
         assert commands, "hook commands should be present"
         for command in commands:
             assert "$CLAUDE_PROJECT_DIR" not in command
-            assert str(target) in command, "commands must reference the actual project directory"
+            assert str(project_root) in command, "commands must reference the actual project directory"
 
 
 def test_bootstrap_force_overwrites_modified_files():
@@ -110,7 +114,8 @@ def test_bootstrap_force_overwrites_modified_files():
         target = Path(tmpdir)
         _run_bootstrap(target)
 
-        gate_workflow = target / ".claude" / "hooks" / "gate-workflow.sh"
+        project_root = target / PROJECT_SUBDIR
+        gate_workflow = project_root / ".claude" / "hooks" / "gate-workflow.sh"
         gate_workflow.write_text("# modified\n", encoding="utf-8")
         assert "modified" in gate_workflow.read_text(encoding="utf-8")
 
@@ -124,8 +129,9 @@ def test_bootstrap_prompt_locale_en():
     with tempfile.TemporaryDirectory(prefix="claude-workflow-en-") as tmpdir:
         target = Path(tmpdir)
         _run_bootstrap(target, "--prompt-locale", "en")
+        project_root = target / PROJECT_SUBDIR
 
-        analyst = (target / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
-        idea = (target / ".claude" / "commands" / "idea-new.md").read_text(encoding="utf-8")
+        analyst = (project_root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
+        idea = (project_root / ".claude" / "commands" / "idea-new.md").read_text(encoding="utf-8")
         assert "lang: en" in analyst
         assert "lang: en" in idea

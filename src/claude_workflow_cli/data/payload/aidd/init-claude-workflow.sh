@@ -323,7 +323,7 @@ for candidate in template_candidates:
         template_text = candidate.read_text(encoding="utf-8")
         break
 if template_text is None:
-template_text = """---
+    template_text = """---
 Ticket: {slug}
 Slug hint: {slug}
 Feature: {title}
@@ -421,6 +421,7 @@ apply_preset() {
   goals_block="$(preset_default_goals | format_bullets)"
   local tasks_block
   tasks_block="$(format_bullets < /dev/null)"
+  local tasks_source="${TASKS_SOURCE:-}"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log_info "[dry-run] preset ${PRESET_NAME} (ticket=${slug})"
     return

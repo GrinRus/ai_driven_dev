@@ -1,13 +1,18 @@
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
+PROJECT_SUBDIR = "aidd"
+PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
+HOOKS_DIR = PAYLOAD_ROOT / ".claude" / "hooks"
+os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
+os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
     "feature_slug_hint_source": "docs/.active_feature",
@@ -95,11 +100,24 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
     """Execute the given hook inside tmp_path and capture output."""
     env = os.environ.copy()
     src_path = REPO_ROOT / "src"
+    vendor_path = PAYLOAD_ROOT / ".claude" / "hooks" / "_vendor"
     existing = env.get("PYTHONPATH")
     path_value = str(src_path)
+    if vendor_path.exists():
+        path_value = f"{vendor_path}:{path_value}"
     if existing:
         path_value = f"{str(src_path)}:{existing}"
     env["PYTHONPATH"] = path_value
+    config_src = PAYLOAD_ROOT / "config" / "gates.json"
+    config_dst = tmp_path / "config" / "gates.json"
+    if config_src.exists() and not config_dst.exists():
+        config_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(config_src, config_dst)
+    settings_src = PAYLOAD_ROOT / ".claude" / "settings.json"
+    settings_dst = tmp_path / ".claude" / "settings.json"
+    if settings_src.exists() and not settings_dst.exists():
+        settings_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(settings_src, settings_dst)
     result = subprocess.run(
         [str(hook_path(hook_name))],
         input=payload,
@@ -130,6 +148,29 @@ def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[st
     write_file(root, "docs/.active_ticket", ticket)
     hint = ticket if slug_hint is None else slug_hint
     write_file(root, "docs/.active_feature", hint)
+
+
+def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
+    """Ensure workspace has the expected project subdirectory with .claude stub."""
+    project_root = root / PROJECT_SUBDIR
+    (project_root / ".claude").mkdir(parents=True, exist_ok=True)
+    return project_root
+
+
+def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
+    """Run init-claude-workflow.sh from the packaged payload into root."""
+    project_root = ensure_project_root(root)
+    env = os.environ.copy()
+    env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
+    script = PAYLOAD_ROOT / "init-claude-workflow.sh"
+    subprocess.run(
+        ["bash", str(script), *extra_args],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=project_root,
+        env=env,
+    )
 
 
 def ensure_gates_config(
@@ -163,4 +204,4 @@ def git_config_user(path: pathlib.Path) -> None:
 
 def cli_cmd(*args: str) -> list[str]:
     """Build a command that invokes the installed claude-workflow CLI via helper."""
-    return [sys.executable, str(REPO_ROOT / "tools" / "run_cli.py"), *args]
+    return [sys.executable, str(PAYLOAD_ROOT / "tools" / "run_cli.py"), *args]

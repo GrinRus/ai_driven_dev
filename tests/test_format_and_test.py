@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .helpers import REPO_ROOT, cli_cmd, git_init, write_active_feature, write_file
+from .helpers import PAYLOAD_ROOT, REPO_ROOT, cli_cmd, git_init, write_active_feature, write_file
 
-HOOK = Path(__file__).resolve().parents[1] / ".claude/hooks/format-and-test.sh"
+HOOK = PAYLOAD_ROOT / ".claude/hooks/format-and-test.sh"
 
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:

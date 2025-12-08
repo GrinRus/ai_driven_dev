@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import tempfile
@@ -5,6 +6,8 @@ from pathlib import Path
 from textwrap import dedent
 import unittest
 from typing import Dict, Optional
+
+from .helpers import PAYLOAD_ROOT, REPO_ROOT
 
 
 REQUIRED_AGENT_PAIRS = [
@@ -173,10 +176,14 @@ def build_command_en(description: str = "test command") -> str:
 
 class PromptLintTests(unittest.TestCase):
     def run_lint(self, root: Path) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+        env["PYTHONPATH"] = pythonpath
         return subprocess.run(
-            [sys.executable, "scripts/lint-prompts.py", "--root", str(root)],
+            [sys.executable, str(PAYLOAD_ROOT / "scripts" / "lint-prompts.py"), "--root", str(root)],
             text=True,
             capture_output=True,
+            env=env,
         )
 
     def write_prompts(

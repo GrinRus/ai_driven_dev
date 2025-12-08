@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload"
+PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / "aidd"
 SRC_ROOT = REPO_ROOT / "src"
 
 
@@ -16,9 +16,11 @@ class ResearchCommandTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="claude-workflow-research-") as tmpdir:
             env = os.environ.copy()
             env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
+            project_root = Path(tmpdir) / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
                 ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix"],
-                cwd=tmpdir,
+                cwd=project_root,
                 env=env,
                 check=True,
                 stdout=subprocess.PIPE,
@@ -31,23 +33,23 @@ class ResearchCommandTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(REPO_ROOT / "tools" / "run_cli.py"),
+                    str(PAYLOAD_ROOT / "tools" / "run_cli.py"),
                     "research",
                     "--target",
-                    tmpdir,
+                    project_root,
                     "--ticket",
                     "TEST-123",
                     "--limit",
                     "1",
                 ],
-                cwd=tmpdir,
+                cwd=project_root,
                 env=command_env,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
 
-            summary_path = Path(tmpdir) / "docs" / "research" / "TEST-123.md"
+            summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
 
 

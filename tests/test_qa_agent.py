@@ -6,9 +6,19 @@ import unittest
 from pathlib import Path
 from typing import Optional, Dict
 
-from .helpers import REPO_ROOT, cli_cmd, ensure_gates_config, git_config_user, git_init, write_active_feature, write_file
+from .helpers import (
+    PAYLOAD_ROOT,
+    REPO_ROOT,
+    cli_cmd,
+    ensure_gates_config,
+    ensure_project_root,
+    git_config_user,
+    git_init,
+    write_active_feature,
+    write_file,
+)
 
-QA_AGENT = REPO_ROOT / "scripts" / "qa-agent.py"
+QA_AGENT = PAYLOAD_ROOT / "scripts" / "qa-agent.py"
 
 APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: approved\n"
 
@@ -17,8 +27,9 @@ class QaAgentTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory(prefix="qa-agent-test-")
         self.root = Path(self._tmp.name)
-        git_init(self.root)
-        git_config_user(self.root)
+        self.project_root = ensure_project_root(self.root)
+        git_init(self.project_root)
+        git_config_user(self.project_root)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -28,16 +39,18 @@ class QaAgentTests(unittest.TestCase):
         run_env.setdefault("QA_AGENT_DIFF_BASE", "")
         if env:
             run_env.update(env)
+        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), run_env.get("PYTHONPATH")]))
+        run_env["PYTHONPATH"] = pythonpath
         return subprocess.run(
             ["python3", str(QA_AGENT), *argv],
-            cwd=self.root,
+            cwd=self.project_root,
             text=True,
             capture_output=True,
             env=run_env,
         )
 
     def test_fixme_causes_blocker(self):
-        write_file(self.root, "src/main/App.kt", "class App { // FIXME: remove }\n")
+        write_file(self.project_root, "src/main/App.kt", "class App { // FIXME: remove }\n")
 
         result = self.run_agent("--gate")
 
@@ -46,14 +59,14 @@ class QaAgentTests(unittest.TestCase):
         self.assertIn("FIXME", result.stderr)
 
     def test_tasklist_qa_item_report(self):
-        write_active_feature(self.root, "checkout")
+        write_active_feature(self.project_root, "checkout")
         write_file(
-            self.root,
+            self.project_root,
             "docs/tasklist/checkout.md",
             "- [ ] QA: smoke checkout flow\n",
         )
 
-        report_path = self.root / "reports" / "qa" / "checkout.json"
+        report_path = self.project_root / "reports" / "qa" / "checkout.json"
         result = self.run_agent(
             "--gate",
             "--dry-run",
@@ -69,7 +82,7 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(report_path.exists(), "QA report should be written")
 
     def test_missing_tests_flags_major_warning(self):
-        write_file(self.root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
 
         result = self.run_agent("--format", "json")
 
@@ -120,16 +133,18 @@ class QaAgentTests(unittest.TestCase):
     def test_progress_cli_requires_tasklist_update(self):
         slug = "demo-checkout"
         ensure_gates_config(
-            self.root,
+            self.project_root,
             {
                 "prd_review": {"enabled": False},
                 "researcher": {"enabled": False},
                 "analyst": {"enabled": False},
+                "tasklist_progress": {"enabled": True},
+                "reviewer": {"enabled": False},
             },
         )
-        write_active_feature(self.root, slug)
+        write_active_feature(self.project_root, slug)
         write_file(
-            self.root,
+            self.project_root,
             f"docs/tasklist/{slug}.md",
             """---
 Feature: demo-checkout
@@ -142,19 +157,19 @@ Updated: 2024-01-01
 - [ ] Реализация :: подготовить сервис
 """,
         )
-        write_file(self.root, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
-        write_file(self.root, f"docs/plan/{slug}.md", "# Plan")
-        write_file(self.root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+        write_file(self.project_root, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
+        write_file(self.project_root, f"docs/plan/{slug}.md", "# Plan")
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
 
-        subprocess.run(["git", "add", "."], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=self.project_root, check=True, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "feat: baseline"],
-            cwd=self.root,
+            cwd=self.project_root,
             check=True,
             capture_output=True,
         )
 
-        write_file(self.root, "src/main/App.kt", "class App { fun run() = \"updated\" }\n")
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"updated\" }\n")
 
         result = subprocess.run(
             cli_cmd(
@@ -166,7 +181,7 @@ Updated: 2024-01-01
                 "--source",
                 "qa",
             ),
-            cwd=self.root,
+            cwd=self.project_root,
             text=True,
             capture_output=True,
         )
@@ -175,7 +190,7 @@ Updated: 2024-01-01
         self.assertIn("`- [x]`", output)
 
         write_file(
-            self.root,
+            self.project_root,
             f"docs/tasklist/{slug}.md",
             """---
 Feature: demo-checkout
@@ -199,7 +214,7 @@ Updated: 2024-01-02
                 "--source",
                 "qa",
             ),
-            cwd=self.root,
+            cwd=self.project_root,
             text=True,
             capture_output=True,
         )
