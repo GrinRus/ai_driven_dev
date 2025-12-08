@@ -602,7 +602,6 @@ generate_agents() {
 
 generate_commands() {
   copy_payload_dir "commands" "commands"
-  copy_payload_dir "commands" ".claude/commands"
 }
 
 generate_plugin() {

@@ -13,106 +13,10 @@
       "sha256": "8fb9c7d6670014e9eaa8d180abe8f5e392f054031a8a8fb3fec5aecdb65c32ee"
     },
     {
-      "path": "aidd/.claude/agents/analyst.md",
-      "type": "file",
-      "size": 7915,
-      "sha256": "486d843da8fdc37cbb7342966d823dd0cdf1dd4ceb156de18c4d4e91711bd8da"
-    },
-    {
-      "path": "aidd/.claude/agents/implementer.md",
-      "type": "file",
-      "size": 8074,
-      "sha256": "6676b92ef812b69a31e9f29ad49ffe8232f419df5b33dcc93f218457f27ae462"
-    },
-    {
-      "path": "aidd/.claude/agents/planner.md",
-      "type": "file",
-      "size": 5200,
-      "sha256": "2ee448753418a9ee180d914031c94c4a15904d6393bb7197c9b5812755119fb3"
-    },
-    {
-      "path": "aidd/.claude/agents/prd-reviewer.md",
-      "type": "file",
-      "size": 3293,
-      "sha256": "74b422c976cada2837a10b270870b3b68d795dc34f1409adae728b81f90bc1ab"
-    },
-    {
-      "path": "aidd/.claude/agents/qa.md",
-      "type": "file",
-      "size": 5819,
-      "sha256": "ba1de11687732cb215865be503f7f060fc4085e281c805d801325af841e81e56"
-    },
-    {
-      "path": "aidd/.claude/agents/researcher.md",
-      "type": "file",
-      "size": 8708,
-      "sha256": "bd97b79ae0f34719bf95d5b3c60bd45e9fff2e22dbfd287d5ebbaac5a16b2882"
-    },
-    {
-      "path": "aidd/.claude/agents/reviewer.md",
-      "type": "file",
-      "size": 4088,
-      "sha256": "8257fe53e81bd3ba56c01c2e2d7c906da039ae45a6d8790d911395a9165175b6"
-    },
-    {
-      "path": "aidd/.claude/agents/validator.md",
-      "type": "file",
-      "size": 2870,
-      "sha256": "184c1fc4a3a8f80db885a8ee9826b1f298585d6ab7d24b25ad0f85d9551c7176"
-    },
-    {
       "path": "aidd/.claude/cache/.gitkeep",
       "type": "file",
       "size": 1,
       "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-    },
-    {
-      "path": "aidd/.claude/commands/idea-new.md",
-      "type": "file",
-      "size": 8878,
-      "sha256": "d47c81b11c66f62c3c8b5f2a692a3b743a6c07a2f3e0b45c76aa3d8ead9ef0d5"
-    },
-    {
-      "path": "aidd/.claude/commands/implement.md",
-      "type": "file",
-      "size": 4614,
-      "sha256": "574b8c794b05afecb0b52beef839d09cbbdb6676b2fd4a2326f9716425d43b09"
-    },
-    {
-      "path": "aidd/.claude/commands/plan-new.md",
-      "type": "file",
-      "size": 4437,
-      "sha256": "402347548709a1ab80d80868c0de3e45038e82c7b2d35f77868ef1afc19f9b91"
-    },
-    {
-      "path": "aidd/.claude/commands/qa.md",
-      "type": "file",
-      "size": 4357,
-      "sha256": "89df782129b3c59c2223dcd334df2efcf9ddda10bc3a3b02d493b3180584f37b"
-    },
-    {
-      "path": "aidd/.claude/commands/researcher.md",
-      "type": "file",
-      "size": 5950,
-      "sha256": "6a1ed45886aa22b860a53d6fbc6ae8ff6e0fe99d737caf9fc152767a6f5fb3cc"
-    },
-    {
-      "path": "aidd/.claude/commands/review-prd.md",
-      "type": "file",
-      "size": 3641,
-      "sha256": "9fc7baed3a818f1530586ad67eb96a930f685039da7a8c014ebc846768c9aed0"
-    },
-    {
-      "path": "aidd/.claude/commands/review.md",
-      "type": "file",
-      "size": 3778,
-      "sha256": "032e94072d84ca4ced50c36d11c41072f91cac5a0b8919ac44b5a996eaff4dd5"
-    },
-    {
-      "path": "aidd/.claude/commands/tasks-new.md",
-      "type": "file",
-      "size": 3790,
-      "sha256": "c42d22fe4ecadb5193b93d00c794ec385298bf36eab5ca7e6e962a7cf2fa71c0"
     },
     {
       "path": "aidd/.claude/gradle/init-print-projects.gradle",
@@ -207,8 +111,8 @@
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 14963,
-      "sha256": "6b92c54f49184353b4de8d5c24755d2bae647409efe57ce54424e87bda5136af"
+      "size": 15098,
+      "sha256": "9b50673d7b0c2b0bb951dae238ec4c6ca9efaf4f15e45d8245820c00d7fdb1c3"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
@@ -513,8 +417,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 21027,
-      "sha256": "de088e5f8710577a5784483adb77873840bd63853f61affc8a8ce5aa2eb3990a"
+      "size": 20978,
+      "sha256": "b09d1898a402493dfa0c3f40ce8e709260b0739cc5b5d39db2c39b3de739a66d"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",

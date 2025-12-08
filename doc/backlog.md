@@ -650,20 +650,21 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 - [x] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
 
 ### Marketplace и запуск плагина из корня
-- [ ] Добавить корневой `.claude-plugin/marketplace.json` c `source: "./aidd"` и плагином `feature-dev-aidd`.
-- [ ] Обновить `aidd/.claude/settings.json` в payload: `extraKnownMarketplaces` (directory ".") и `enabledPlugins` (`feature-dev-aidd@aidd-local`), чтобы при запуске из корня плагин подключался автоматически.
-- [ ] Переписать `aidd/.claude-plugin/hooks/hooks.json` на `${CLAUDE_PLUGIN_ROOT}/…` для всех команд, чтобы хуки работали при установке в подпапку.
-- [ ] Проверить/уточнить пути в `aidd/.claude-plugin/plugin.json` (commands/agents/hooks с `./`), учесть размещение файлов в корне плагина.
-- [ ] Обновить init/sync/upgrade: генерация marketplace и настроек при установке в `aidd/`, включить в payload manifest.
-- [ ] Тесты: e2e init → marketplace+enabledPlugins; lint/manifest на marketplace; smoke с CWD=корень и плагином в `aidd/`, проверки `${CLAUDE_PLUGIN_ROOT}` в хуках.
+- [x] Добавить корневой `.claude-plugin/marketplace.json` c `source: "./aidd"` и плагином `feature-dev-aidd`.
+- [x] Обновить настройки автоподключения плагина (root `.claude/settings.json` с `extraKnownMarketplaces` и `enabledPlugins`), чтобы при запуске из корня плагин подключался автоматически.
+- [x] Переписать `aidd/.claude-plugin/hooks/hooks.json` на `${CLAUDE_PLUGIN_ROOT}/…` для всех команд, чтобы хуки работали при установке в подпапку.
+- [x] Проверить/уточнить пути в `aidd/.claude-plugin/plugin.json` (commands/agents/hooks с `./`), учесть размещение файлов в корне плагина.
+- [x] Обновить init/sync/upgrade: генерация marketplace и настроек при установке в `aidd/`, включить в payload manifest.
+- [x] Тесты: e2e init → marketplace+enabledPlugins; lint/manifest на marketplace; smoke с CWD=корень и плагином в `aidd/`, проверки `${CLAUDE_PLUGIN_ROOT}` в хуках.
 - [ ] Дока: README/workflow/agents-playbook — раздел про запуск из корня с плагином в `aidd/`, шаги доверия/установки marketplace.
 
 ### Структура payload AIDD под схему плагина
-- [ ] Перенести плагинные команды/агенты/хуки из `aidd/.claude-plugin/{commands,agents,hooks}` в корень плагина `aidd/{commands,agents,hooks}`, поправить `plugin.json` на пути `./commands/`, `./agents/`, `./hooks/hooks.json`.
-- [ ] Обновить `aidd/.claude-plugin/hooks/hooks.json`: использовать `${CLAUDE_PLUGIN_ROOT}` для ссылок на bash-хуки/скрипты вместо `$CLAUDE_PROJECT_DIR`.
+- [x] Перенести плагинные команды/агенты/хуки из `aidd/.claude-plugin/{commands,agents,hooks}` в корень плагина `aidd/{commands,agents,hooks}`, поправить `plugin.json` на пути `./commands/`, `./agents/`, `./hooks/hooks.json`.
+- [x] Обновить `aidd/.claude-plugin/hooks/hooks.json`: использовать `${CLAUDE_PLUGIN_ROOT}` для ссылок на bash-хуки/скрипты вместо `$CLAUDE_PROJECT_DIR`.
 - [ ] Развести плагинные файлы и runtime `.claude`: в `.claude` оставить настройки/хуки проекта, в плагине — только команды/агенты/плагинные хуки; убрать дубликаты.
-- [ ] Обновить init/sync/manifest под новую структуру (копирование новых путей, hash в manifest.json).
-- [ ] Тесты/smoke/prompt-lint: учесть новые пути команд/агентов/хуков и переменную `${CLAUDE_PLUGIN_ROOT}`; добавить smoke-кейс установки и работы хуков при CWD=корень.
+- [ ] После перевода валидаторов/гейтов/линтов на `aidd/{commands,agents}` удалить дубли команд/агентов из `aidd/.claude/` (IDE runtime) и очистить проверки, которые их требуют.
+- [x] Обновить init/sync/manifest под новую структуру (копирование новых путей, hash в manifest.json).
+- [x] Тесты/smoke/prompt-lint: учесть новые пути команд/агентов/хуков и переменную `${CLAUDE_PLUGIN_ROOT}`; добавить smoke-кейс установки и работы хуков при CWD=корень.
 - [ ] Документация: README/workflow/agents-playbook — описать новую структуру плагина в `aidd/` и различие между `.claude` (runtime) и `commands/agents/hooks` (плагин).
 
 ### Документация и CLAUDE.md

@@ -9,7 +9,7 @@ from .helpers import PAYLOAD_ROOT, PROJECT_SUBDIR
 
 # Represent key artefacts that must match payload byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
-    ".claude/commands/idea-new.md",
+    "commands/idea-new.md",
     ".claude/hooks/gate-workflow.sh",
     ".claude/hooks/gate-qa.sh",
     ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",

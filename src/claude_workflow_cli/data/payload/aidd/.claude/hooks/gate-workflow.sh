@@ -18,13 +18,15 @@ payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
-if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
-  # Проверяем паритет RU/EN: ожидаем RU в .claude, EN в prompts/en
+if [[ "$file_path" =~ (^|/)(agents|commands)/ ]] || [[ "$file_path" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
+  # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
   ru_path="$file_path"
-  if [[ "$ru_path" =~ ^prompts/en/ ]]; then
-    ru_path=".claude/${ru_path#prompts/en/}"
+  if [[ "$ru_path" =~ ^prompts/en/agents/ ]]; then
+    ru_path="agents/${ru_path#prompts/en/agents/}"
+  elif [[ "$ru_path" =~ ^prompts/en/commands/ ]]; then
+    ru_path="commands/${ru_path#prompts/en/commands/}"
   fi
-  en_path="prompts/en/${ru_path#.claude/}"
+  en_path="prompts/en/${ru_path}"
   skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
 from pathlib import Path
 import sys
