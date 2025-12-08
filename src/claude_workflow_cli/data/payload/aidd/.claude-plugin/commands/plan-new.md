@@ -11,6 +11,7 @@ allowed-tools:
   - Grep
   - Glob
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

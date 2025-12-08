@@ -12,6 +12,7 @@ allowed-tools:
   - Glob
   - "Bash(python3 scripts/prd-review-agent.py:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

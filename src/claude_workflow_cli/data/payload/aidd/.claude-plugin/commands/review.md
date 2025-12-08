@@ -14,6 +14,7 @@ allowed-tools:
   - "Bash(claude-workflow reviewer-tests:*)"
   - "Bash(claude-workflow progress:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

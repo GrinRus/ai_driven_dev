@@ -15,6 +15,7 @@ allowed-tools:
   - "Bash(claude-workflow analyst:*)"
   - "Bash(claude-workflow analyst-check:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

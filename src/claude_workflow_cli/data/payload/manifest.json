@@ -267,50 +267,50 @@
     {
       "path": "aidd/.claude-plugin/commands/idea-new.md",
       "type": "file",
-      "size": 8819,
-      "sha256": "e1f5fe854242d92804de6a48bb96f17886a16ee0b4e9cd76bef06d5586472f11"
+      "size": 8851,
+      "sha256": "e310cea59aafd17f690277bccb5834488c7e763aa8e4b274b5ce666f317f1698"
     },
     {
       "path": "aidd/.claude-plugin/commands/implement.md",
       "type": "file",
-      "size": 4565,
-      "sha256": "246749c019ef84a58bd7f91966a4ba8040aa18406d0a1f314f3e59e5b7385691"
+      "size": 4597,
+      "sha256": "bd097b1a5907ec3ade26e27979a979adf4b7f5ecbde444bc1ad7d8daf8ea9181"
     },
     {
       "path": "aidd/.claude-plugin/commands/plan-new.md",
       "type": "file",
-      "size": 4390,
-      "sha256": "9919f7e70b673db0fe3e8846d97b6342db5254246b25581302b362848cf442d9"
+      "size": 4422,
+      "sha256": "7164905348d14e2da43141db8b78c30cf5cc563ab433f97e30971fc12c58f6c5"
     },
     {
       "path": "aidd/.claude-plugin/commands/qa.md",
       "type": "file",
-      "size": 4283,
-      "sha256": "cd051f9c1392be4aaeb5cfd395cadf6760850dccbd6c2d0cc81e89c9e5786582"
+      "size": 4315,
+      "sha256": "193e44f008dbdd5711576d587df711f5a9eba6336144ef1626aad49e7d1d827b"
     },
     {
       "path": "aidd/.claude-plugin/commands/researcher.md",
       "type": "file",
-      "size": 5815,
-      "sha256": "12f05038f62fc855ebffb9a0e15f7abf7fca9f465de761db5e3616adc096ffa7"
+      "size": 5847,
+      "sha256": "c74279145279a9ceee892c884d99d1362e409b83b8d8b63f4b8fe6a093c4813e"
     },
     {
       "path": "aidd/.claude-plugin/commands/review-prd.md",
       "type": "file",
-      "size": 3524,
-      "sha256": "e051de486ff1f40e3025903bb92566efa3f1502799702a4b4b2d1446d7ca44a1"
+      "size": 3556,
+      "sha256": "f46853672c16952885e710fe006ff7fb65f566450fe34bd1b57837a60f40471b"
     },
     {
       "path": "aidd/.claude-plugin/commands/review.md",
       "type": "file",
-      "size": 3734,
-      "sha256": "2cdaa3442b0ded5855aed11c46a5cc1142d9486e69c8a733c07ae07e9defd071"
+      "size": 3766,
+      "sha256": "15845ffab333e3e1c55cecd9a3736c9cbcba767ac4258678de96997d4340b387"
     },
     {
       "path": "aidd/.claude-plugin/commands/tasks-new.md",
       "type": "file",
-      "size": 3731,
-      "sha256": "5dacff09a373e545cd305c5f1a6bff3ee30e1b9102e017e05ebe4f5a2f9a0cc5"
+      "size": 3763,
+      "sha256": "e3a137b6fb5f4092f0d5f96abd665625d507a6a580b45a3b20ec6f4abc3fe359"
     },
     {
       "path": "aidd/.claude-plugin/hooks/hooks.json",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "927b6fa1eb0da4da34870f08a8eeca3a4851b6beb887ffa540f9ed201092bd50"
+      "sha256": "43f11c7acf1718d226ff4886263c967987b6e54b0f96eabfc2f9e8b7834060c7"
     }
   ]
 }
