@@ -638,10 +638,11 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 _Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
 
 ### Официальные команды/агенты и плагин AIDD
-- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в плагинном каталоге `.claude-plugin/commands/` с единым фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`, позиционные `$1/$2`, ссылки `@docs/...`), убрать кастомные поля, обновить quick-reference, prompt-lint и `manifest.json`/sync-проверки под новые пути.
-- [ ] Переписать `.claude/agents/*.md` и EN-копии в формат плагина (`description/capabilities`, блоки «Роль/Когда вызывать/Как работать с файлами/Правила», статусы READY/BLOCKED/WARN, ссылки на артефакты validator/qa/prd-reviewer), синхронизировать версии RU/EN и линтеры.
-- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, при необходимости `.mcp.json`), включить его в payload/manifest, обновить init/sync/upgrade и тесты/CI, чтобы плагин разворачивался вместе с `aidd/`.
-- [ ] Привести фронтматтер команд/агентов к требованиям Claude Code (обязательные `description/argument-hint/name/tools/model/permissionMode`, позиционные `$1/$ARGUMENTS`, минимальные `allowed-tools`), зашить проверки в prompt-lint и quick-reference с короткими шаблонами.
+- [x] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в плагинном каталоге `.claude-plugin/commands/` с единым фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`, позиционные `$1/$2`, ссылки `@docs/...`), убрать кастомные поля, обновить quick-reference, prompt-lint и `manifest.json`/sync-проверки под новые пути.
+- [x] Переписать `.claude/agents/*.md` и EN-копии в формат плагина (`description/capabilities`, блоки «Роль/Когда вызывать/Как работать с файлами/Правила», статусы READY/BLOCKED/WARN, ссылки на артефакты validator/qa/prd-reviewer), синхронизировать версии RU/EN и линтеры.
+- [x] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, при необходимости `.mcp.json`), включить его в payload/manifest, обновить init/sync/upgrade и тесты/CI, чтобы плагин разворачивался вместе с `aidd/`.
+- [x] Привести фронтматтер команд/агентов к требованиям Claude Code (обязательные `description/argument-hint/name/tools/model/permissionMode`, позиционные `$1/$ARGUMENTS`, минимальные `allowed-tools`), зашить проверки в prompt-lint и quick-reference с короткими шаблонами.
+- [x] Обновить README/README.en/quick-reference под плагин `feature-dev-aidd`: таблица команд с аргументами и @docs артефактами, упоминание `.claude-plugin`, обновить sync-даты.
 
 ### Хуки и гейты (официальные события)
 - [ ] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
