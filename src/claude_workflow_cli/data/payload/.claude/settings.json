@@ -19,7 +19,7 @@
       "start": {
         "description": "Базовый режим: минимальные права; хуки берутся из плагина feature-dev-aidd.",
         "permissions": {
-          "allow": ["Read", "Write", "Edit", "Grep", "Glob"],
+          "allow": ["Read", "Write", "Edit", "Grep", "Glob", "Find"],
           "ask": ["Bash(git add:*)", "Bash(git commit:*)"],
           "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
         }
@@ -33,6 +33,8 @@
             "Edit",
             "Grep",
             "Glob",
+            "Find",
+            "Read",
             "Bash(git status:*)",
             "Bash(git diff:*)",
             "Bash(git rev-parse:*)",
@@ -40,7 +42,9 @@
             "Bash(./gradlew:*)",
             "Bash(gradle:*)",
             "Bash(.claude/hooks/:*)",
-            "Bash(python3 scripts/:*)"
+            "Bash(python3 scripts/:*)",
+            "Bash(python3 aidd/tools/:*)",
+            "Bash(claude-workflow:*)"
           ],
           "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
           "deny": [
@@ -68,7 +72,9 @@
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/:*)",
-      "Bash(python3 scripts/:*)"
+      "Bash(python3 scripts/:*)",
+      "Bash(python3 aidd/tools/:*)",
+      "Bash(claude-workflow:*)"
     ],
     "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
     "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)", "Write(./infra/prod/**)"]
