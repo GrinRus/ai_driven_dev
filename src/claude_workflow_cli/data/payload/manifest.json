@@ -297,14 +297,14 @@
     {
       "path": "aidd/.claude-plugin/commands/review-prd.md",
       "type": "file",
-      "size": 3556,
-      "sha256": "f46853672c16952885e710fe006ff7fb65f566450fe34bd1b57837a60f40471b"
+      "size": 3591,
+      "sha256": "a7737879e88c64be73d32fe970bbc3446b161fb979bd03ea0a3380e765888c69"
     },
     {
       "path": "aidd/.claude-plugin/commands/review.md",
       "type": "file",
-      "size": 3766,
-      "sha256": "15845ffab333e3e1c55cecd9a3736c9cbcba767ac4258678de96997d4340b387"
+      "size": 3740,
+      "sha256": "a41bf1625996a5a24c9f9c9aa2eb604eef4bb2dbcb5b83b558fde8298db85206"
     },
     {
       "path": "aidd/.claude-plugin/commands/tasks-new.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "4cefc00600b8247b792f5acf2b80669842644541623abd70418a48c218a86b86"
+      "sha256": "f753f05d92a5d27782c52c5e63ff572655814c99cedcdbaf097d2fbe7a446fc0"
     }
   ]
 }

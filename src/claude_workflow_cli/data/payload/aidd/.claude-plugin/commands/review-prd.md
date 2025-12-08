@@ -10,6 +10,7 @@ allowed-tools:
   - Write
   - Grep
   - Glob
+  - "Bash(claude-workflow progress:*)"
   - "Bash(python3 scripts/prd-review-agent.py:*)"
 model: inherit
 disable-model-invocation: false
@@ -19,9 +20,9 @@ disable-model-invocation: false
 Команда `/review-prd` запускает структурное ревью PRD перед планированием и реализацией. Она вызывает саб-агента `prd-reviewer`, обновляет раздел `## PRD Review` и фиксирует отчёт (`reports/prd/<ticket>.json`).
 
 ## Входные артефакты
-- `docs/prd/<ticket>.prd.md` — основной документ.
-- `docs/plan/<ticket>.md` (если есть) и ADR.
-- `docs/research/<ticket>.md`, `doc/backlog.md` — контекст.
+- @docs/prd/<ticket>.prd.md — основной документ.
+- @docs/plan/<ticket>.md (если есть) и ADR.
+- @docs/research/<ticket>.md, @doc/backlog.md — контекст.
 
 ## Когда запускать
 - После `/idea-new` и обновления PRD, перед `/plan-new`.
