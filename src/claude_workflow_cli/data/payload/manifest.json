@@ -219,8 +219,8 @@
     {
       "path": "aidd/.claude-plugin/agents/analyst.md",
       "type": "file",
-      "size": 7826,
-      "sha256": "ce2e5e0ca5421f72fa81a919fdedb8f2be8ad571f997eb2e274737115a59a823"
+      "size": 7824,
+      "sha256": "0fe3fdce658a5e85b502fa8105d1f43a0c8dfedf75552763f3a247e76dcef86e"
     },
     {
       "path": "aidd/.claude-plugin/agents/implementer.md",
@@ -249,8 +249,8 @@
     {
       "path": "aidd/.claude-plugin/agents/researcher.md",
       "type": "file",
-      "size": 8753,
-      "sha256": "b592382162abb6f5cbb549f0dd338cd50e5df39226d93f9d0232381dea191621"
+      "size": 8785,
+      "sha256": "98bfca5ddabfdfa34e71b8544042cc6bec81e61edd42eafef3b10e41ac23c017"
     },
     {
       "path": "aidd/.claude-plugin/agents/reviewer.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "99e806b45c90392bbdd3a77a78a8d82834786061ecba01bd11832e40edcb1b3b"
+      "sha256": "4ee9029ae778bb9f4f996500f76dcf4e1b0c286ae141e9cc0899ffb2e5595545"
     }
   ]
 }

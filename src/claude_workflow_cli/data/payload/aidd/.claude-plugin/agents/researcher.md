@@ -4,7 +4,7 @@ description: Исследует кодовую базу перед внедре�
 lang: ru
 prompt_version: 1.1.0
 source_version: 1.1.0
-tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
+tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*), Bash(claude-workflow research:*)
 model: inherit
 permissionMode: default
 ---
@@ -15,7 +15,7 @@ permissionMode: default
 ## Входные артефакты
 - `docs/prd/&lt;ticket&gt;.prd.md`, `docs/plan/&lt;ticket&gt;.md` (если уже создан), `docs/tasklist/&lt;ticket&gt;.md` — границы изменений.
 - `reports/research/&lt;ticket&gt;-context.json` / `-targets.json` — пути/ключевые слова + `code_index` (символы/импорты/тесты), `reuse_candidates`, `call_graph` (только Java/Kotlin) и `import_graph`.
-- `docs/.active_feature` (slug-hint), `docs/prompt-playbook.md`, ADR/исторические PR — используем для поиска похожих решений (`rg <ticket|feature>`).
+- @docs/.active_feature (slug-hint), @docs/prompt-playbook.md, ADR/исторические PR — используем для поиска похожих решений (`rg <ticket|feature>`).
 - Тестовые каталоги (`tests/**`, `src/**/test*`) и скрипты миграций — чтобы предложить готовые паттерны проверки.
 
 ## Автоматизация
