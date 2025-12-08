@@ -110,6 +110,7 @@ if [[ ! "$file_path" =~ (^|/)src/ ]]; then
 fi
 
 ensure_template "docs/templates/research-summary.md" "docs/research/$ticket.md"
+ensure_template "docs/prd.template.md" "docs/prd/$ticket.prd.md"
 
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }

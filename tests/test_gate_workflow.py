@@ -101,7 +101,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "нет PRD" in result.stdout or "нет PRD" in result.stderr
+    assert ("нет PRD" in result.stdout or "нет PRD" in result.stderr or "не содержит раздела `## Диалог analyst`" in result.stderr)
 
 
 def test_missing_plan_blocks(tmp_path):
