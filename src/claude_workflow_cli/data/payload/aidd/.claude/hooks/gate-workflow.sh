@@ -111,6 +111,18 @@ fi
 
 ensure_template "docs/templates/research-summary.md" "docs/research/$ticket.md"
 ensure_template "docs/prd.template.md" "docs/prd/$ticket.prd.md"
+plan_path="docs/plan/$ticket.md"
+if [[ ! -f "$plan_path" ]]; then
+  ensure_template "docs/plan/template.md" "$plan_path"
+  echo "BLOCK: нет плана → запустите /plan-new $ticket"
+  exit 2
+fi
+tasklist_path="docs/tasklist/$ticket.md"
+if [[ ! -f "$tasklist_path" ]]; then
+  ensure_template "docs/tasklist.template.md" "$tasklist_path"
+  echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
+  exit 2
+fi
 
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }

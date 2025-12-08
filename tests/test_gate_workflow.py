@@ -98,10 +98,20 @@ def test_no_active_feature_allows_changes(tmp_path):
 def test_missing_prd_blocks_when_feature_active(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] <ticket> placeholder\n",
+    )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert ("нет PRD" in result.stdout or "нет PRD" in result.stderr or "не содержит раздела `## Диалог analyst`" in result.stderr)
+    assert (
+        "нет PRD" in result.stdout
+        or "нет PRD" in result.stderr
+        or "не содержит раздела `## Диалог analyst`" in result.stderr
+    )
 
 
 def test_missing_plan_blocks(tmp_path):
@@ -132,6 +142,12 @@ def test_blocked_status_blocks(tmp_path):
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", blocked_prd)
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] <ticket> placeholder\n",
+    )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
