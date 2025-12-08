@@ -676,3 +676,12 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 ### Тестирование и фиксация Wave 46
 - [x] После обновления хуков/смоука прогнать `python -m pytest tests/test_gate_workflow.py tests/test_gate_tests_hook.py tests/test_gate_qa.py` и `scripts/smoke-workflow.sh`; зафиксировать результаты.
 - [x] При изменениях в payload/хуках обновить `src/claude_workflow_cli/data/payload/manifest.json` (payload sync) и отметить чекбокс Wave 46.
+
+## Wave 47
+
+### Аудит и чистка дистрибутива
+- [ ] Провести ревизию payload/distro: какие файлы должны ставиться пользователю (hooks, tools, prompts, scripts), какие остаются dev-only; зафиксировать критерии (назначение, зависимость в командах/хуках/CI) и вывод в отдельной заметке.
+- [ ] Добавить автоматическую проверку состава дистрибутива: allowlist/denylist для `aidd/tools`, `scripts`, `commands/agents/hooks`, защитный тест или `scripts/check-payload-contents.sh`, который валит CI при появлении лишних/неиспользуемых файлов.
+- [ ] Обновить manifest генератор и `tools/check_payload_sync.py`/tests так, чтобы они опирались на новый список обязательных артефактов и подсвечивали осиротевшие файлы (например, неиспользуемые утилиты вроде `prompt_diff.py`).
+- [ ] Добавить CLI или make-таргет (`claude-workflow payload audit` или `make payload-audit`), который запускает проверку после `sync --direction=from-root` и перед релизом; включить в release pipeline.
+- [ ] Обновить документацию (README/README.en/workflow.md/CONTRIBUTING.md) и release checklist с правилами: что считается runtime-артефактом, что dev-only, как проводить аудит перед тэгом и где оставлять решение по удалённым файлам.
