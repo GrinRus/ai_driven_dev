@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash(claude-workflow qa:*)"
   - "Bash(claude-workflow progress:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

@@ -14,6 +14,7 @@ allowed-tools:
   - "Bash(python3 tools/set_active_feature.py:*)"
   - "Bash(claude-workflow preset:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст

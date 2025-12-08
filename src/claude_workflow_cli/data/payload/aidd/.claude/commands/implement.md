@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash($CLAUDE_PROJECT_DIR/.claude/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
 model: inherit
+disable-model-invocation: false
 ---
 
 ## Контекст
