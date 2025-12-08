@@ -4,6 +4,7 @@
 - Payload разросся: команды, агенты, хуки, пресеты, templates, docs.
 - Требуется изоляция служебных файлов от кода продукта и reproducible-sync по manifest.
 - Нужно поддерживать init/upgrade/sync из CLI и smoke с одинаковой структурой.
+- Smoke/pytest должны использовать именно текущий git checkout, развёрнутый в tmp-каталог, без скачивания внешних снапшотов.
 
 ## Варианты
 1) **Поверх корня**: раскладывать `.claude`, `docs`, `config` прямо в `<repo>/`.  
@@ -20,12 +21,16 @@
 - Принять вариант 2: дефолтный таргет установки — поддиректория `aidd/` в рабочем каталоге.
 - CLI (`init/sync/upgrade`) и smoke работают относительно `aidd/`, manifest содержит префикс `aidd/`.
 - Dry-run не создаёт директорию; `resolve_project_root` учитывает существующий `.claude` и префикс.
+- Smoke/e2e запускаются из текущей ветки в tmp-каталоге: `claude-workflow smoke` и `aidd/scripts/smoke-workflow.sh` не тянут внешние архивы.
+- Установка через `uv tool install git+...` + `claude-workflow init --target .` — каноничный путь; локальный payload допускается через `CLAUDE_TEMPLATE_DIR`.
 
 ## Последствия
 - Документация и примеры должны ссылаться на пути `aidd/...`.
 - Корневые служебные файлы (если остаются) считаются dev-only; payload распространяется только из `src/claude_workflow_cli/data/payload/aidd`.
 - Хуки проверяют пути RU/EN промптов внутри `aidd/.claude` и `aidd/prompts/en`.
+- CI/smoke используют один и тот же payload и структуру путей; проверка sync (`tools/check_payload_sync.py`) работает от `aidd/`.
 
 ## To-do
 - Обновить гайды (workflow.md, README*, prompt-playbook) с новой структурой путей.
 - Описать миграцию для существующих установок (перенос из корня в `aidd/`).
+- Зафиксировать примеры запуска smoke/pytest после миграции (tmp-каталог, текущая ветка).
