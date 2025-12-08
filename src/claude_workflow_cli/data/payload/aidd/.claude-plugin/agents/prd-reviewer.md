@@ -13,9 +13,9 @@ permissionMode: default
 Агент используется командой `/review-prd` для формального ревью PRD до планирования. Он проверяет полноту разделов, метрики, связи с ADR и наличие action items.
 
 ## Входные артефакты
-- `docs/prd/<ticket>.prd.md` — документ для ревью.
-- `docs/plan/<ticket>.md` (если существует) и связанные ADR.
-- `docs/research/<ticket>.md` и slug-hint в `docs/.active_feature` — для сопоставления целей.
+- @docs/prd/<ticket>.prd.md — документ для ревью.
+- @docs/plan/<ticket>.md (если существует) и связанные ADR.
+- @docs/research/<ticket>.md и slug-hint в `docs/.active_feature` — для сопоставления целей.
 
 ## Автоматизация
 - `/review-prd` вызывает prd-reviewer и обновляет раздел `## PRD Review` в PRD, а также записывает JSON отчёт в `reports/prd/<ticket>.json`.

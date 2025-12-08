@@ -237,8 +237,8 @@
     {
       "path": "aidd/.claude-plugin/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3276,
-      "sha256": "5f0c8d1bc424400bba3252837cbe404728d3351a37accc202a218a174da70758"
+      "size": 3273,
+      "sha256": "cb48fa51b121c8d5eb58f334aa4949e086268339c1f3988e4080836e8cc2f32c"
     },
     {
       "path": "aidd/.claude-plugin/agents/qa.md",
@@ -255,14 +255,14 @@
     {
       "path": "aidd/.claude-plugin/agents/reviewer.md",
       "type": "file",
-      "size": 4067,
-      "sha256": "8a686b49e0a7fed53d990174a9347e954e9027b588e12974797273ec2b7e7375"
+      "size": 4046,
+      "sha256": "0610a3a18b3043549a2eb9e89a8a34c4472da3f91235ceae9259a430ea7137af"
     },
     {
       "path": "aidd/.claude-plugin/agents/validator.md",
       "type": "file",
-      "size": 2865,
-      "sha256": "678f87fc9a2f4e013439f1ec0d99e2711f193415d86189ad5836dc1692aaf8f7"
+      "size": 2862,
+      "sha256": "5adf64d7564a5f317edf40146cc12ef83dc330897be9e645bed67a7955e33e64"
     },
     {
       "path": "aidd/.claude-plugin/commands/idea-new.md",
@@ -742,7 +742,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 23608,
-      "sha256": "4ee9029ae778bb9f4f996500f76dcf4e1b0c286ae141e9cc0899ffb2e5595545"
+      "sha256": "7996fcd33a413d5826d7c8516a30359fe3a43bbddc18c36fd72e3613baed020b"
     }
   ]
 }
