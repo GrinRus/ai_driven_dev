@@ -1,6 +1,7 @@
+import json
 import os
 
-from .helpers import ensure_gates_config, run_hook, write_active_feature, write_file
+from .helpers import PAYLOAD_ROOT, ensure_gates_config, run_hook, write_active_feature, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/App.kt"}}'
 
@@ -84,3 +85,12 @@ def test_skip_env_allows(tmp_path):
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_plugin_hooks_include_qa_gate():
+    hooks = json.loads((PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    pre_hooks = hooks.get("hooks", {}).get("PreToolUse", [])
+    commands = [hook for entry in pre_hooks for hook in entry.get("hooks", [])]
+    qa_hook = next((hook for hook in commands if "gate-qa.sh" in hook.get("command", "")), None)
+    assert qa_hook is not None, "gate-qa hook not registered in PreToolUse"
+    assert qa_hook.get("timeout") == 60, "gate-qa expected timeout=60s"

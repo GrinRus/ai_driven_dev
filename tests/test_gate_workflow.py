@@ -1,10 +1,12 @@
 import datetime as dt
+import json
 import pathlib
 from pathlib import Path
 import subprocess
 from textwrap import dedent
 
 from .helpers import (
+    PAYLOAD_ROOT,
     ensure_gates_config,
     git_config_user,
     git_init,
@@ -27,6 +29,19 @@ PROMPT_PAIRS = [
     ("prd-reviewer", "review-prd"),
 ]
 REVIEW_REPORT = '{"summary": "", "findings": []}'
+
+
+def _plugin_hooks():
+    path = PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _has_command(hooks: dict, event: str, needle: str) -> bool:
+    return any(
+        needle in hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get(event, [])
+        for hook in entry.get("hooks", [])
+    )
 
 
 def _timestamp() -> str:
@@ -172,6 +187,12 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_plugin_hooks_cover_workflow_events():
+    hooks = _plugin_hooks()
+    for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
+        assert _has_command(hooks, event, "gate-workflow.sh"), f"gate-workflow missing in {event}"
 
 
 def _ru_prompt(version: str, name: str = "analyst", skip: bool = False) -> str:

@@ -1,3 +1,6 @@
+import json
+
+from .helpers import PAYLOAD_ROOT
 from .helpers import ensure_gates_config, run_hook, write_active_feature, write_file
 from .helpers import write_json
 
@@ -70,3 +73,20 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
     assert result.returncode == 0
     assert "reviewer запросил обязательный запуск тестов" in (result.stderr or "")
+
+
+def test_plugin_hooks_include_tests_and_post_hooks():
+    hooks = json.loads((PAYLOAD_ROOT / ".claude-plugin" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    pre_cmds = [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get("PreToolUse", [])
+        for hook in entry.get("hooks", [])
+    ]
+    post_cmds = [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get("PostToolUse", [])
+        for hook in entry.get("hooks", [])
+    ]
+    assert any("gate-tests.sh" in cmd for cmd in pre_cmds), "gate-tests missing in PreToolUse hooks"
+    assert any("format-and-test.sh" in cmd for cmd in post_cmds), "format-and-test missing in PostToolUse"
+    assert any("lint-deps.sh" in cmd for cmd in post_cmds), "lint-deps missing in PostToolUse"

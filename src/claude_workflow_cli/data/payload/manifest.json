@@ -645,8 +645,8 @@
     {
       "path": "aidd/scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 10472,
-      "sha256": "ad9411aef36a551a69dae45a52006fa1fd9a09b3ed03cebf73618acb5dd48868"
+      "size": 11523,
+      "sha256": "c4214a7ec6a7890a8e3124efa1c12112f2a885b3e0bd1d2eb29c0e2857ac7b7d"
     },
     {
       "path": "aidd/scripts/sync-payload.sh",
@@ -737,12 +737,6 @@
       "type": "file",
       "size": 17888,
       "sha256": "e0c9048889bc5e3e495150f3eb9a95a13ce68cc86ee52d3388caacd5104e4dbf"
-    },
-    {
-      "path": "manifest.json",
-      "type": "file",
-      "size": 23608,
-      "sha256": "2fb555c16e9253cbc897f53e8cf4e309dbda656e28beadbb17249e8fe4accfe4"
     }
   ]
 }

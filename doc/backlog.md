@@ -647,10 +647,14 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 ### Хуки и гейты (официальные события)
 - [x] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
 - [x] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
-- [ ] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
+- [x] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
 
 ### Документация и CLAUDE.md
 - [x] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.
 - [x] Добавить ссылки на `workflow.md` и `config/conventions.md` в `aidd/CLAUDE.md`, вписав в существующий текст без перетирания содержимого.
 - [x] Пересобрать quick-start/quick-reference (RU/EN) под плагинную раскладку и новые пути, синхронизировать с README/workflow и manifest/payload тестами.
 - [x] Включить в prompt/agents playbook краткие шаблоны команды и агента (по официальной доке: фронтматтер, positional args, allowed-tools), дать ссылки на slash-commands/subagents и community-примеры для копипасты.
+
+### Тестирование и фиксация Wave 46
+- [x] После обновления хуков/смоука прогнать `python -m pytest tests/test_gate_workflow.py tests/test_gate_tests_hook.py tests/test_gate_qa.py` и `scripts/smoke-workflow.sh`; зафиксировать результаты.
+- [x] При изменениях в payload/хуках обновить `src/claude_workflow_cli/data/payload/manifest.json` (payload sync) и отметить чекбокс Wave 46.
