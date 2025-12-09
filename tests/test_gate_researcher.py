@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from .helpers import (
+    DEFAULT_GATES_CONFIG,
     REPO_ROOT,
     ensure_gates_config,
     run_hook,
@@ -20,7 +21,15 @@ def _utc_now() -> str:
 
 
 def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> None:
-    ensure_gates_config(tmp_path, {"reviewer": {"enabled": False}})
+    researcher_cfg = DEFAULT_GATES_CONFIG["researcher"].copy()
+    researcher_cfg["require_for_branches"] = ["feature/*", "release/*", "hotfix/*"]
+    ensure_gates_config(
+        tmp_path,
+        {
+            "reviewer": {"enabled": False},
+            "researcher": researcher_cfg,
+        },
+    )
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     prd_body = (

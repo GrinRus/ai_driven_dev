@@ -261,14 +261,14 @@ def validate_prd(
 
     research_status, research_text = _read_research_status(root, ticket)
     if research_status is None:
-        raise AnalystValidationError(f"BLOCK: отсутствует docs/research/{ticket}.md → выполните `claude-workflow research --ticket {ticket}`.")
+        raise AnalystValidationError(f"BLOCK: отсутствует docs/research/{ticket}.md → выполните `claude-workflow research --ticket {ticket}` или `/researcher {ticket}`.")
     baseline_pending = _has_pending_baseline(root, ticket, research_text)
     if status == "READY" and research_status != "REVIEWED":
         if research_status == "PENDING" and baseline_pending:
             pass
         else:
             raise AnalystValidationError(
-                f"BLOCK: Researcher имеет статус {research_status or 'N/A'} → доведите отчёт docs/research/{ticket}.md до reviewed."
+                f"BLOCK: Researcher имеет статус {research_status or 'N/A'} → доведите отчёт docs/research/{ticket}.md до reviewed (baseline pending допускается только для новых проектов)."
             )
 
     if settings.check_open_questions and status == "READY":
