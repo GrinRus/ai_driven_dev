@@ -705,3 +705,13 @@ _Статус: новый, приоритет 3. Цель — аудит и уп
 - [ ] Убрать/переместить dev-only материалы (design/feature-presets, backlog и пр.) в отдельный путь или wiki; обновить ссылки из README/CONTRIBUTING, чтобы не было битых путей после чистки.
 - [ ] Обновить gitignore/manifest/payload sync так, чтобы корневые dev-only файлы не попадали в релизы и установки; добавить чек в `tools/check_payload_sync.py` или новый `scripts/check-root-audit.sh`.
 - [ ] Документация: README/README.en/CONTRIBUTING — раздел «Состав репозитория» с явным перечислением, что остаётся в корне, что ставится пользователю, куда смотреть dev-доки.
+
+## Wave 49
+
+_Статус: новый, приоритет 1. Цель — выровнять базовый флоу `/idea-new`: сначала analyst, researcher только по требованию, без слома гейтов._
+
+- [ ] Переработать `aidd/commands/idea-new.md` (RU/EN): убрать принудительный автозапуск `claude-workflow research --auto`, оставить analyst как первичный шаг, описать, когда вызывать `/researcher` или research CLI (перед планом/кодом), сохранить примеры `--paths/--keywords` как опциональные.
+- [ ] Обновить промпт аналитика `aidd/agents/analyst.md`: добавить явное требование запускать `/researcher <ticket>` или `claude-workflow research --auto` при отсутствии/устаревшем отчёте; разрешить вызов саб-агента (добавить `Bash(claude-workflow researcher:*)` или инструкции), не ставить PRD в READY без `docs/research/<ticket>.md: Status reviewed` (кроме baseline-пустых проектов).
+- [ ] Синхронизировать документацию (`workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/CLAUDE.md`): зафиксировать порядок `/idea-new → analyst → /researcher (по необходимости) → /plan-new`, ожидания по статусам research/PRD, когда проходит `analyst-check`.
+- [ ] Подправить гейтинг Researcher/Analyst: определить допуск на стадии idea (baseline без JSON или с pending) и момент, когда `gate-workflow`/`analyst_guard` должны требовать `reports/research/*` и `Status: reviewed`; при необходимости скорректировать `config/gates.json` и проверки в `.claude/hooks/gate-workflow.sh`.
+- [ ] Добавить smoke/юнит-сценарий: `/idea-new` без автозапуска research → analyst инициирует `/researcher` → после `/researcher` гейт пропускает план/код, `analyst-check` проходит; покрыть наличие baseline и отсутствие блокеров для документации-only изменений.
