@@ -153,8 +153,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 8127,
-      "sha256": "1b7472d0e3f904f93a55b839c597c1b7127aff90cf3a1eb2d96598ee4ac67875"
+      "size": 8197,
+      "sha256": "ccdc6b841976f5aa11011e02b8071e461262783d88de80656e46f611439a0e35"
     },
     {
       "path": "aidd/agents/planner.md",
@@ -183,8 +183,8 @@
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 4113,
-      "sha256": "dec2997c84b842c3973d456b3a2e0ec35267c576912f27bde19f4c3deadad02a"
+      "size": 4138,
+      "sha256": "3f92951a1191d7297a60defd8dc64ace6f9a1b00745e81ec067447fd1fbe9548"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -237,8 +237,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 4659,
-      "sha256": "bcb30a834e59ad64a3e4d826c1cb88463f5dcb2124fd97203b3ca3fd28c878dd"
+      "size": 4747,
+      "sha256": "cac802570c86c8247c21e74230587913f9845206e469bcfec1d4bc592bd727f8"
     },
     {
       "path": "aidd/commands/plan-new.md",
