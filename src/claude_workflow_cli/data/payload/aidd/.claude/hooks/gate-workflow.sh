@@ -134,13 +134,15 @@ if ! "${analyst_cmd[@]}" >/dev/null; then
   exit 2
 fi
 prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
-if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
-  if [[ -n "$review_msg" ]]; then
-    echo "$review_msg"
-  else
-    echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+if [[ -f "docs/plan/$ticket.md" ]]; then
+  if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+    if [[ -n "$review_msg" ]]; then
+      echo "$review_msg"
+    else
+      echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+    fi
+    exit 2
   fi
-  exit 2
 fi
 
 if ! research_msg="$(python3 - "$ticket" "$current_branch" <<'PY'

@@ -99,3 +99,15 @@ def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "pending" in combined or "baseline" in combined
+
+
+def test_researcher_blocks_missing_report(tmp_path):
+    ticket = "demo-checkout"
+    _setup_common_artifacts(tmp_path, ticket)
+    # Researcher report intentionally missing
+    _write_context(tmp_path, ticket, is_new=False, auto_mode=False)
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "researcher" in combined or "отчёт" in combined or "report" in combined
