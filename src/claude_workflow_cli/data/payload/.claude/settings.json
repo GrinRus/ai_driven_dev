@@ -37,15 +37,16 @@
             "Read",
             "Bash(git status:*)",
             "Bash(git diff:*)",
-            "Bash(git rev-parse:*)",
-            "Bash(git checkout:*)",
-            "Bash(./gradlew:*)",
-            "Bash(gradle:*)",
-            "Bash(.claude/hooks/:*)",
-            "Bash(python3 scripts/:*)",
-            "Bash(python3 aidd/tools/:*)",
-            "Bash(claude-workflow:*)"
-          ],
+          "Bash(git rev-parse:*)",
+          "Bash(git checkout:*)",
+          "Bash(./gradlew:*)",
+          "Bash(gradle:*)",
+          "Bash(.claude/hooks/:*)",
+          "Bash(python3:*)",
+          "Bash(python3 scripts/:*)",
+          "Bash(python3 aidd/tools/:*)",
+          "Bash(claude-workflow:*)"
+        ],
           "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
           "deny": [
             "Bash(curl:*)",
@@ -72,6 +73,7 @@
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/:*)",
+      "Bash(python3:*)",
       "Bash(python3 scripts/:*)",
       "Bash(python3 aidd/tools/:*)",
       "Bash(claude-workflow:*)"
