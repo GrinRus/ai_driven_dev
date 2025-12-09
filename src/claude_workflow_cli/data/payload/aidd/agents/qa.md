@@ -14,7 +14,7 @@ QA-агент запускается обязательной командой`/
 
 ## Входные артефакты
 - @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки, DoD и чеклисты QA.
-- @reports/qa/`&lt;ticket&gt;`.json, логи`claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`,`gate-api-contract`,`gate-db-migration`).
+- @reports/qa/`&lt;ticket&gt;`.json, логи`claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`).
 - Демо окружение/инструкции, ссылки из @aidd/docs/qa-playbook.md (UX/перф чек-листы).
 
 ## Автоматизация

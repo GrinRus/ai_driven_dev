@@ -79,18 +79,6 @@
       "sha256": "8bc4b011e15445316b84dfe7d635b4d319f4985e4684bb319c848da5b67e3571"
     },
     {
-      "path": "aidd/.claude/hooks/gate-api-contract.sh",
-      "type": "file",
-      "size": 217,
-      "sha256": "db33ec18c74ad530f4fdfbd6ec0053b7c1622dff34472a0016c63bf089b3aa85"
-    },
-    {
-      "path": "aidd/.claude/hooks/gate-db-migration.sh",
-      "type": "file",
-      "size": 217,
-      "sha256": "7bcb8a77521c0b44f910ab8a48c1e53b20cb3b954104ddb1393170b8cedb7dde"
-    },
-    {
       "path": "aidd/.claude/hooks/gate-prd-review.sh",
       "type": "file",
       "size": 1273,

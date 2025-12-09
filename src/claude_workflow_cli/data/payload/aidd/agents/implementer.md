@@ -20,7 +20,7 @@ permissionMode: default
 
 ## Автоматизация
 - Перед отдачей ответа на итерацию запускай`${CLAUDE_PROJECT_DIR:-.}/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`; при необходимости используй`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`и обязательно фиксируй override в ответе.
--`gate-tests`,`gate-db-migration`,`gate-workflow`проверяют наличие tasklist, миграций и тестов перед пушем; перечисли, какие проверки проходил и какие команды запускал (`./gradlew test`,`gradle lint`, т.д.).
+-`gate-tests`,`gate-workflow`проверяют наличие tasklist и тестов перед пушем; перечисли, какие проверки проходил и какие команды запускал (`./gradlew test`,`gradle lint`, т.д.).
 - После изменений перечисли затронутые файлы/модули и выполни точечный`git add <file|dir>`для каждого изменённого артефакта (добавь в ответ список проиндексированных путей).
 - Заверши каждую итерацию командой`claude-workflow progress --source implement --ticket`&lt;ticket&gt;``— укажи вывод или резюме изменений tasklist.
 - Если требуется поиск по репозиторию, используй`Grep`/`rg`в режиме чтения (у тебя нет Bash-доступа к`rg`, поэтому опирайся на встроенный инструментарий редактора).

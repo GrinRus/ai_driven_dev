@@ -646,7 +646,7 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 
 ### Хуки и гейты (официальные события)
 - [x] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
-- [x] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
+- [x] Переписать bash-хуки под новый конфиг (убрать лишние заглушки дополнительных гейтов), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
 - [x] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
 
 ### Marketplace и запуск плагина из корня
@@ -708,12 +708,18 @@ _Статус: новый, приоритет 3. Цель — аудит и уп
 
 ## Wave 49
 
-_Статус: готово, приоритет 1. Цель — выровнять базовый флоу `/idea-new`: сначала analyst, researcher только по требованию, без слома гейтов._
+_Статус: новый, приоритет 1. Цель — починить базовый флоу `/idea-new` и пути плагина Claude Code, чтобы гейты работали без ложных блокировок._
 
-- [x] Переработать `aidd/commands/idea-new.md` (RU/EN): убрать принудительный автозапуск `claude-workflow research --auto`, оставить analyst как первичный шаг, описать, когда вызывать `/researcher` или research CLI (перед планом/кодом), сохранить примеры `--paths/--keywords` как опциональные.
-- [x] Обновить промпт аналитика `aidd/agents/analyst.md`: добавить явное требование запускать `/researcher <ticket>` или `claude-workflow research --auto` при отсутствии/устаревшем отчёте; разрешить вызов саб-агента (добавить `Bash(claude-workflow researcher:*)` или инструкции), не ставить PRD в READY без `docs/research/<ticket>.md: Status reviewed` (кроме baseline-пустых проектов).
-- [x] Синхронизировать документацию (`workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/CLAUDE.md`): зафиксировать порядок `/idea-new → analyst → /researcher (по необходимости) → /plan-new`, ожидания по статусам research/PRD, когда проходит `analyst-check`.
-- [x] Подправить гейтинг Researcher/Analyst: определить допуск на стадии idea (baseline без JSON или с pending) и момент, когда `gate-workflow`/`analyst_guard` должны требовать `reports/research/*` и `Status: reviewed`; при необходимости скорректировать `config/gates.json` и проверки в `.claude/hooks/gate-workflow.sh`.
-- [x] Добавить smoke/юнит-сценарий: `/idea-new` без автозапуска research → analyst инициирует `/researcher` → после `/researcher` гейт пропускает план/код, `analyst-check` проходит; покрыть наличие baseline и отсутствие блокеров для документации-only изменений.
-- [x] Автодетект `aidd/` в CLI/analyst-check: если команда запущена из родительского каталога без `docs/`, но с `aidd/docs/`, использовать `./aidd` как root; вывести подсказку про `--target aidd`/рабочий корень вместо `BLOCK: нет PRD`.
-- [x] Проверить все инструкции агентов/команд на вызовы `.claude/hooks/*.sh`: заменить голые пути на `${CLAUDE_PROJECT_DIR}/.claude/hooks/...` (или `${CLAUDE_PLUGIN_ROOT}` для плагинных хуков), чтобы команды и агенты работали из корня репозитория с подпапкой `aidd/`.
+### Пути и документация
+- [ ] `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md`: убрать двойные ссылки `aidd/aidd/**`, оставить корректные пути `aidd/docs/**`, уточнить упоминания хуков на `${CLAUDE_PLUGIN_ROOT}`.
+- [ ] `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `.../agents/reviewer.md`: исправить путь к автохуку на `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-and-test.sh` (или `${CLAUDE_PLUGIN_ROOT}`), убрать дубли `${CLAUDE_PROJECT_DIR}`.
+- [ ] `src/claude_workflow_cli/data/payload/aidd/commands/idea-new.md` и EN-версия: зафиксировать порядок `/idea-new → analyst → /researcher при необходимости`, оставить research как опциональный шаг с примерами `--paths/--keywords`.
+
+### Хуки и гейты
+- [ ] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить блок `PostToolUse` с `format-and-test.sh` и `lint-deps.sh`, убедиться, что `PreToolUse`/`Stop`/`SubagentStop` ссылаются на `${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}/.claude/hooks/*.sh`.
+- [ ] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/gate-workflow.sh`: скорректировать автодетект корня (`./aidd` при запуске из родителя), уточнить чтение `Status:` только в секции диалога analyst, добавить понятное сообщение, если PRD остаётся draft при готовом PRD review.
+- [ ] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py`: автоподстановка `--target aidd` при отсутствии `docs/`, исключить ложные BLOCK из-за повторных `Status:` в других разделах, писать в вывод, откуда взят статус.
+
+### Тесты и смоук
+- [ ] `tests/test_gate_tests_hook.py` (и новые тесты): проверить наличие `PostToolUse` команд и корректные пути (`gate-tests.sh`, `format-and-test.sh`, `lint-deps.sh`), сценарий idea-new без research → analyst требует research → после reports/research READY гейт пропускает план/код.
+- [ ] `scripts/smoke-workflow.sh`: добавить кейс запуска из корня без `docs/` (используется `aidd/docs`), убедиться, что хуки не падают по отсутствующим путям и что `format-and-test`/`lint-deps` срабатывают после записи.
