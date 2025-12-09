@@ -6,32 +6,32 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-workflow.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-prd-review.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-prd-review.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-api-contract.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-api-contract.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-db-migration.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-db-migration.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-qa.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-qa.sh\\\"'",
                 "timeout": 60
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-tests.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-tests.sh\\\"'",
                 "timeout": 5
               }
             ]
@@ -43,7 +43,7 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-workflow.sh\\\"'",
                 "timeout": 5
               }
             ]
@@ -55,17 +55,17 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-workflow.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/format-and-test.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/format-and-test.sh\\\"'",
                 "timeout": 900
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/lint-deps.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/lint-deps.sh\\\"'",
                 "timeout": 10
               }
             ]
@@ -77,17 +77,17 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/gate-workflow.sh\\\"'",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/format-and-test.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/format-and-test.sh\\\"'",
                 "timeout": 900
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/lint-deps.sh",
+                "command": "bash -lc 'ROOT=${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}; if [ ! -d \\\"$ROOT/.claude/hooks\\\" ] && [ -d \\\"$ROOT/aidd/.claude/hooks\\\" ]; then ROOT=\\\"$ROOT/aidd\\\"; fi; \\\"$ROOT/.claude/hooks/lint-deps.sh\\\"'",
                 "timeout": 10
               }
             ]
