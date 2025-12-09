@@ -297,8 +297,8 @@
     {
       "path": "aidd/conventions.md",
       "type": "file",
-      "size": 1351,
-      "sha256": "405e8cca0f778e6008c4f1f8f23c09a87daa7ecb8a108a97e594e84e515372d3"
+      "size": 1373,
+      "sha256": "13780843ca525008d41f09353fec0e0701f07f363ae9b7e99c1179b8a0777167"
     },
     {
       "path": "aidd/docs/adr/.gitkeep",
@@ -333,8 +333,8 @@
     {
       "path": "aidd/docs/feature-cookbook.md",
       "type": "file",
-      "size": 4836,
-      "sha256": "8b4929bc14d196507c6d142d255004ee1b39f8b3d525638f0b0a1a77076bfdc2"
+      "size": 4858,
+      "sha256": "b26648ac09346a298b2aa1aa7b489857271a5eb5de6f7a962fd16b61124123fe"
     },
     {
       "path": "aidd/docs/plan/.gitkeep",
@@ -357,14 +357,14 @@
     {
       "path": "aidd/docs/prompt-playbook.md",
       "type": "file",
-      "size": 14485,
-      "sha256": "1beab5d7789d3d6355386c4de6f124497e8e0841e4dc4ca23a8e907b93830dce"
+      "size": 14617,
+      "sha256": "0b3cd7d6600aed49792816fdcf751958d48fd61be173a5079a4e1c901e27ca4f"
     },
     {
       "path": "aidd/docs/prompt-versioning.md",
       "type": "file",
-      "size": 5327,
-      "sha256": "54d56eaaa82514e180eb7abc0c74b50ab0b2a7ca4d37b9e354edbce701072e14"
+      "size": 5371,
+      "sha256": "da14ae8e01bdbed5496e044595702eccc19fa05742f1937c9af63f7978c743fd"
     },
     {
       "path": "aidd/docs/qa-playbook.md",

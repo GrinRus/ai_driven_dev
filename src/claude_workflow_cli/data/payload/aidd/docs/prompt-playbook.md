@@ -12,7 +12,7 @@
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `.claude-plugin/agents/*.md`, `.claude/agents/*.md`, `.claude-plugin/commands/*.md` и `.claude/commands/*.md` начинается с блока:
+Каждый файл `.claude-plugin/agents/*.md`, `${CLAUDE_PROJECT_DIR}/.claude/agents/*.md`, `.claude-plugin/commands/*.md` и `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md` начинается с блока:
 
 ```yaml
 ---
@@ -50,7 +50,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
 
 ### 2.3 Локализация
-- RU-файлы используются рантаймом (`.claude/agents/*.md`, `.claude/commands/*.md`), EN-хранилище — `prompts/en/agents/*.md`, `prompts/en/commands/*.md`.
+- RU-файлы используются рантаймом (`${CLAUDE_PROJECT_DIR}/.claude/agents/*.md`, `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md`), EN-хранилище — `prompts/en/agents/*.md`, `prompts/en/commands/*.md`.
 - Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `prompts/en/**`).
 - Добавьте `Lang-Parity: skip` в фронт-маттер только когда одну локаль намеренно пропускают (например, черновик); после синхронизации уберите.
 - Версионные правила и workflow описаны в `aidd/docs/prompt-versioning.md`.
@@ -101,7 +101,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 ## 9. Шаблоны и автоматизация
 - Используйте `templates/prompt-agent.md` и `templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
-- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target .claude/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
-- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path .claude/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
+- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target ${CLAUDE_PROJECT_DIR}/.claude/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
+- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path ${CLAUDE_PROJECT_DIR}/.claude/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
 - Проверяйте локализации: `python3 scripts/lint-prompts.py`, `tools/prompt_diff.py --kind command --name plan-new`, `scripts/prompt-version bump --prompts plan-new --kind command --lang ru,en --part patch --dry-run`.
 - После генерации обязательно вручную заполните все блоки и обновите `prompt_version`/`source_version`, если правки вносились вручную или делался перевод.
