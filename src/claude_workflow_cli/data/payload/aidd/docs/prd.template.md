@@ -5,7 +5,7 @@
 ## Диалог analyst
 Status: draft
 
-Ссылка на исследование: `docs/research/<ticket>.md`
+Ссылка на исследование: `aidd/docs/research/<ticket>.md`
 
 > Этот раздел создаётся автоматически после `/idea-new <ticket>` — заполните вопросы/ответы и обновите статус на READY перед `analyst-check`.
 
@@ -16,7 +16,7 @@ Status: draft
 
 ## 1. Обзор
 - **Название продукта/фичи**: `<Название или код>` (например, `Smart Checkout`)
-- **Исходные артефакты**: `<Перечень репозиторных документов>` (например, slug-hint, `docs/research/ABC-123.md`, `reports/research/ABC-123-context.json`)
+- **Исходные артефакты**: `<Перечень репозиторных документов>` (например, slug-hint, `aidd/docs/research/ABC-123.md`, `reports/research/ABC-123-context.json`)
 - **Дата/версия**: `<2024-05-14 v1>`
 - **Краткое описание**: `<1–2 предложения о цели инициативы>`
 
@@ -33,7 +33,7 @@ Status: draft
 ## 4. Связанные ADR и артефакты
 - `<adr/0001-smart-checkout.md — объясняет выбор протокола>`  
 - `<adr/0002-payment-gateway.md — описывает интеграцию с PSP>`  
-- `docs/research/<ticket>.md — выводы Researcher и рекомендации по интеграции`  
+- `aidd/docs/research/<ticket>.md — выводы Researcher и рекомендации по интеграции`  
 - `<таски / epic / RFC>` (укажите ссылки или идентификаторы)
 
 ## 5. Пользовательские сценарии

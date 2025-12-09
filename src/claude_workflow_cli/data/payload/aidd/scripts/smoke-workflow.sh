@@ -63,6 +63,40 @@ log "bootstrap workflow scaffolding"
 run_cli init --target . --force >/dev/null
 WORKDIR="${TMP_DIR}/aidd"
 
+log "validate plugin hooks wiring"
+if [[ ! -f "$WORKDIR/hooks/hooks.json" ]]; then
+  echo "[smoke] missing plugin hooks at $WORKDIR/hooks/hooks.json" >&2
+  exit 1
+fi
+python3 - "$WORKDIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+hooks_path = root / "hooks" / "hooks.json"
+hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+
+def commands(event: str) -> list[str]:
+    return [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get(event, [])
+        for hook in entry.get("hooks", [])
+    ]
+
+def assert_has(needle: str, event: str) -> None:
+    cmds = commands(event)
+    if not any(needle in cmd for cmd in cmds):
+        raise SystemExit(f"{needle} missing in {event}: {cmds}")
+
+for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
+    assert_has("gate-workflow.sh", event)
+
+assert_has("gate-tests.sh", "PreToolUse")
+assert_has("gate-qa.sh", "PreToolUse")
+assert_has("format-and-test.sh", "PostToolUse")
+PY
+
 log "create demo source file"
 mkdir -p "$WORKDIR/src/main/kotlin"
 cat <<'KT' >"$WORKDIR/src/main/kotlin/App.kt"

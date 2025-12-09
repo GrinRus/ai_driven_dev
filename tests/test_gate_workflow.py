@@ -1,10 +1,12 @@
 import datetime as dt
+import json
 import pathlib
 from pathlib import Path
 import subprocess
 from textwrap import dedent
 
 from .helpers import (
+    PAYLOAD_ROOT,
     ensure_gates_config,
     git_config_user,
     git_init,
@@ -16,8 +18,8 @@ from .helpers import (
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
-PROMPT_PAYLOAD = '{"tool_input":{"file_path":".claude/agents/analyst.md"}}'
-CMD_PAYLOAD = '{"tool_input":{"file_path":".claude/commands/plan-new.md"}}'
+PROMPT_PAYLOAD = '{"tool_input":{"file_path":"agents/analyst.md"}}'
+CMD_PAYLOAD = '{"tool_input":{"file_path":"commands/plan-new.md"}}'
 PROMPT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
@@ -27,6 +29,19 @@ PROMPT_PAIRS = [
     ("prd-reviewer", "review-prd"),
 ]
 REVIEW_REPORT = '{"summary": "", "findings": []}'
+
+
+def _plugin_hooks():
+    path = PAYLOAD_ROOT / "hooks" / "hooks.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _has_command(hooks: dict, event: str, needle: str) -> bool:
+    return any(
+        needle in hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get(event, [])
+        for hook in entry.get("hooks", [])
+    )
 
 
 def _timestamp() -> str:
@@ -83,10 +98,20 @@ def test_no_active_feature_allows_changes(tmp_path):
 def test_missing_prd_blocks_when_feature_active(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] <ticket> placeholder\n",
+    )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "нет PRD" in result.stdout or "нет PRD" in result.stderr
+    assert (
+        "нет PRD" in result.stdout
+        or "нет PRD" in result.stderr
+        or "не содержит раздела `## Диалог analyst`" in result.stderr
+    )
 
 
 def test_missing_plan_blocks(tmp_path):
@@ -117,6 +142,12 @@ def test_blocked_status_blocks(tmp_path):
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", blocked_prd)
     write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] <ticket> placeholder\n",
+    )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -172,6 +203,12 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_plugin_hooks_cover_workflow_events():
+    hooks = _plugin_hooks()
+    for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
+        assert _has_command(hooks, event, "gate-workflow.sh"), f"gate-workflow missing in {event}"
 
 
 def _ru_prompt(version: str, name: str = "analyst", skip: bool = False) -> str:
@@ -250,7 +287,7 @@ def test_prompt_locale_mismatch_blocks(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", PROMPT_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
-    write_file(tmp_path, ".claude/agents/analyst.md", _ru_prompt("1.0.1"))
+    write_file(tmp_path, "agents/analyst.md", _ru_prompt("1.0.1"))
     result = run_hook(tmp_path, "gate-workflow.sh", PROMPT_PAYLOAD)
     assert result.returncode == 2
     assert "Lang-Parity" in result.stderr or "Lang-Parity" in result.stdout
@@ -354,7 +391,7 @@ def test_command_locale_mismatch_blocks(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
-    write_file(tmp_path, ".claude/commands/plan-new.md", _ru_command("1.0.1"))
+    write_file(tmp_path, "commands/plan-new.md", _ru_command("1.0.1"))
     result = run_hook(tmp_path, "gate-workflow.sh", CMD_PAYLOAD)
     assert result.returncode == 2
     assert "Lang-Parity" in result.stderr or "Lang-Parity" in result.stdout
@@ -374,15 +411,15 @@ def _seed_prompt_pairs(root: Path) -> None:
 
 
 def _update_pair_versions(root: Path, agent_name: str, command_name: str, version: str) -> None:
-    write_file(root, f".claude/agents/{agent_name}.md", _ru_prompt(version, agent_name))
+    write_file(root, f"agents/{agent_name}.md", _ru_prompt(version, agent_name))
     write_file(root, f"prompts/en/agents/{agent_name}.md", _en_prompt(version, version, agent_name))
-    write_file(root, f".claude/commands/{command_name}.md", _ru_command(version, name=command_name))
+    write_file(root, f"commands/{command_name}.md", _ru_command(version, name=command_name))
     write_file(root, f"prompts/en/commands/{command_name}.md", _en_command(version, version, command_name))
 
 
 def _apply_lang_parity_skip(root: Path, agent_name: str, command_name: str, version: str) -> None:
-    write_file(root, f".claude/agents/{agent_name}.md", _ru_prompt(version, agent_name, skip=True))
-    write_file(root, f".claude/commands/{command_name}.md", _ru_command(version, skip=True, name=command_name))
+    write_file(root, f"agents/{agent_name}.md", _ru_prompt(version, agent_name, skip=True))
+    write_file(root, f"commands/{command_name}.md", _ru_command(version, skip=True, name=command_name))
     for path in (
         root / "prompts/en/agents" / f"{agent_name}.md",
         root / "prompts/en/commands" / f"{command_name}.md",

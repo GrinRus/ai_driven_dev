@@ -31,20 +31,20 @@ class SettingsPolicyTest(unittest.TestCase):
         self.assertIn("Bash(curl:*)", deny, "curl should be denied by default")
         self.assertIn("Write(./infra/prod/**)", deny, "production files must be protected")
 
-    def test_hooks_guard_sensitive_operations(self):
+    def test_hooks_delegated_to_plugin(self):
         data = self.load_settings()
+
+        enabled = data.get("enabledPlugins", {})
+        self.assertTrue(
+            enabled.get("feature-dev-aidd@aidd-local"),
+            "feature-dev-aidd plugin must be enabled to supply hooks",
+        )
+
         hooks = data.get("hooks", {})
-        pre_hooks = hooks.get("PreToolUse", [])
-        post_hooks = hooks.get("PostToolUse", [])
-
-        self.assertTrue(pre_hooks, "PreToolUse hook list should not be empty")
-        self.assertTrue(post_hooks, "PostToolUse hook list should not be empty")
-
-        pre_commands = {h.get("hooks", [{}])[0].get("command") for h in pre_hooks}
-        post_commands = {h.get("hooks", [{}])[0].get("command") for h in post_hooks}
-
-        self.assertIn("\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-workflow.sh", pre_commands)
-        self.assertIn("\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-and-test.sh", post_commands)
+        self.assertFalse(
+            hooks,
+            "runtime hooks should be provided by the plugin (hooks/hooks.json), not duplicated in settings.json",
+        )
 
 
 if __name__ == "__main__":

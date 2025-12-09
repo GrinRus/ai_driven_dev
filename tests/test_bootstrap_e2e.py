@@ -9,7 +9,7 @@ from .helpers import PAYLOAD_ROOT, PROJECT_SUBDIR
 
 # Represent key artefacts that must match payload byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
-    ".claude/commands/idea-new.md",
+    "commands/idea-new.md",
     ".claude/hooks/gate-workflow.sh",
     ".claude/hooks/gate-qa.sh",
     ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
@@ -100,13 +100,11 @@ def test_bootstrap_copies_payload_files_and_directories():
             assert project_file.is_file(), f"project missing {relative}"
             assert _hash_file(payload_file) == _hash_file(project_file), f"{relative} mismatch vs payload"
 
-        # settings.json should embed an absolute project path (no $CLAUDE_PROJECT_DIR).
+        # settings.json must exist, enable the plugin, and avoid $CLAUDE_PROJECT_DIR placeholders.
         settings_path = project_root / ".claude" / "settings.json"
-        commands = _read_hook_commands(settings_path)
-        assert commands, "hook commands should be present"
-        for command in commands:
-            assert "$CLAUDE_PROJECT_DIR" not in command
-            assert str(project_root) in command, "commands must reference the actual project directory"
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        assert data.get("enabledPlugins", {}).get("feature-dev-aidd@aidd-local"), "plugin should be enabled"
+        assert "$CLAUDE_PROJECT_DIR" not in settings_path.read_text(encoding="utf-8"), "placeholders must be rewritten"
 
 
 def test_bootstrap_force_overwrites_modified_files():

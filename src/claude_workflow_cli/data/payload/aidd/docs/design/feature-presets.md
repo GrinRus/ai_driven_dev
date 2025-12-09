@@ -47,15 +47,15 @@ claude-presets/
 ```yaml
 context:
   files:
-    - docs/.active_feature
+    - aidd/docs/.active_feature
     - workflow.md
-    - docs/customization.md
+    - aidd/docs/customization.md
   instructions:
     - "Используй активную фичу {{feature}} и сформируй PRD."
     - "Отрази критерии успеха и связанные ADR."
 ```
 
-Слоты `{{feature}}`, `{{acceptance_criteria}}`, `{{plan_links}}` заполняются CLI-утилитой, которая читает slug-hint (`docs/.active_feature`), актуальный тасклист и дополнительные аргументы пользователя.
+Слоты `{{feature}}`, `{{acceptance_criteria}}`, `{{plan_links}}` заполняются CLI-утилитой, которая читает slug-hint (`aidd/docs/.active_feature`), актуальный тасклист и дополнительные аргументы пользователя.
 
 ### Выходные данные
 
@@ -63,7 +63,7 @@ context:
 
 ```yaml
 output:
-  path: docs/prd/{{feature}}.prd.md
+  path: aidd/docs/prd/{{feature}}.prd.md
   format: markdown
   mode: overwrite
 ```
@@ -107,9 +107,9 @@ claude:
 
 ## Источники данных
 
-- `docs/.active_feature` — хранит пользовательский slug-hint и описание активной фичи.
+- `aidd/docs/.active_feature` — хранит пользовательский slug-hint и описание активной фичи.
 - `workflow.md` — структура этапов; пресеты должны ссылаться на соответствующие гейты.
-- `docs/tasklist.template.md`, `docs/prd.template.md`, `docs/adr.template.md` — шаблоны, которые агент использует при генерации.
+- `aidd/docs/tasklist.template.md`, `aidd/docs/prd.template.md`, `aidd/docs/adr.template.md` — шаблоны, которые агент использует при генерации.
 
 ## Риски и открытые вопросы
 

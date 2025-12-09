@@ -1,0 +1,15 @@
+{
+  "name": "aidd-local",
+  "owner": {
+    "name": "AI-Driven Dev"
+  },
+  "plugins": [
+    {
+      "name": "feature-dev-aidd",
+      "source": "./aidd",
+      "description": "AI-driven development workflow: idea → research → plan → tasks → implement → review → QA.",
+      "version": "0.1.0",
+      "strict": true
+    }
+  ]
+}

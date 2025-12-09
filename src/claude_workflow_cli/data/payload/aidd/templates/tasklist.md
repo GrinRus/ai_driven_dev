@@ -3,9 +3,9 @@ Ticket: &lt;ticket&gt;
 Slug hint: &lt;slug-hint или повторите ticket&gt;
 Feature: &lt;display name&gt;
 Status: draft
-PRD: docs/prd/&lt;ticket&gt;.prd.md
-Plan: docs/plan/&lt;ticket&gt;.md
-Research: docs/research/&lt;ticket&gt;.md
+PRD: aidd/docs/prd/&lt;ticket&gt;.prd.md
+Plan: aidd/docs/plan/&lt;ticket&gt;.md
+Research: aidd/docs/research/&lt;ticket&gt;.md
 Updated: YYYY-MM-DD
 ---
 
@@ -31,15 +31,15 @@ Updated: YYYY-MM-DD
 - [ ] Проведено ручное тестирование / UAT, результаты зафиксированы.
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист в статусе READY.
-- [ ] Researcher: ссылка на `docs/research/&lt;ticket&gt;.md`, статус `Status: reviewed`.
-- [ ] API: обновлены `docs/api/&lt;ticket&gt;.yaml` и связанные контроллеры.
+- [ ] READY: `aidd/docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист в статусе READY.
+- [ ] Researcher: ссылка на `aidd/docs/research/&lt;ticket&gt;.md`, статус `Status: reviewed`.
+- [ ] API: обновлены `aidd/docs/api/&lt;ticket&gt;.yaml` и связанные контроллеры.
 - [ ] DB: миграции размещены и проверены (`src/**/db/migration`).
 - [ ] Tests: `.claude/hooks/format-and-test.sh` успешен, покрытие принято.
 
 ## 5. Документация и релиз
 - [ ] README/usage-гайды отражают изменения.
-- [ ] В changelog и `docs/release-notes.md` добавлен пункт.
+- [ ] В changelog и `aidd/docs/release-notes.md` добавлен пункт.
 - [ ] Настроены флаги/конфиги выката и план отката.
 - [ ] Мониторинг/алерты обновлены, on-call проинформирован.
 
