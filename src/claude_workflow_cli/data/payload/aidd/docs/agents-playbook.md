@@ -19,7 +19,7 @@
 | Шаг | Команда | Агент(ы) | Основной вход | Основной выход | Готовность |
 | --- | --- | --- | --- | --- | --- |
 | 1 | `/idea-new <ticket> [slug-hint]` | `analyst` | Свободная идея, вводные, ограничения | `aidd/docs/.active_ticket`, `aidd/docs/prd/<ticket>.prd.md` | PRD заполнен, статус READY/BLOCKED выставлен |
-| 2 | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` | `researcher` | PRD, backlog, целевые модули | `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-context.json` | Status: reviewed, пути интеграции подтверждены |
+| 2 | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` (по требованию) | `researcher` | PRD, backlog, целевые модули | `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-context.json` | Status: reviewed, пути интеграции подтверждены |
 | 3 | `/plan-new <ticket>` | `planner`, `validator` | PRD, отчёт Researcher, ответы на вопросы | `aidd/docs/plan/<ticket>.md`, протокол проверки | План покрывает модули из research, критичные риски закрыты |
 | 4 | `/review-prd <ticket>` | `prd-reviewer` | PRD, план, ADR, Researcher | Раздел `## PRD Review`, отчёт `reports/prd/<ticket>.json` | Status: approved, action items перенесены |
 | 5 | `/tasks-new <ticket>` | — | Утверждённый план | Обновлённый `aidd/docs/tasklist/<ticket>.md` | Чеклисты привязаны к ticket (slug-hint) и этапам |
@@ -31,10 +31,10 @@
 
 ### analyst — аналитика идеи
 - **Вызов:** `/idea-new <ticket> [slug-hint]`
-- **Вход:** slug-hint пользователя (`aidd/docs/.active_feature`) + данные из репозитория (`aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-context.json`, дев-заметки).
-- **Перед стартом:** убедитесь, что `claude-workflow research --ticket <ticket> --auto` отработал и `aidd/docs/research/<ticket>.md` существует. Если отчёт отсутствует — инициируйте запуск и дождитесь baseline.
-- **Автошаблон:** `/idea-new` автоматически создаёт `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`. Агент обязан заполнить разделы PRD на основе найденных артефактов (поиск `rg <ticket>` по backlog/docs, чтение `reports/research/*.json`), фиксируя источник каждой гипотезы.
-- **Процесс:** аналитик вначале собирает максимум фактов из репозитория: цели, сегменты, метрики, ограничения, reuse. Только после этого он формирует список пробелов и задаёт формальные вопросы пользователю (`Вопрос N → Ответ N`). Каждый вопрос сопровождается перечислением просмотренных файлов/команд. После получения ответа PRD обновляется сразу же.
+- **Вход:** slug-hint пользователя (`aidd/docs/.active_feature`) + имеющиеся данные из репозитория (backlog, ADR, `reports/research/*.json`, если уже запускали research).
+- **Перед стартом:** убедитесь, что активный ticket задан; если research отсутствует или устарел, инициируйте `/researcher` или `claude-workflow research --auto` и дождитесь baseline/обновления.
+- **Автошаблон:** `/idea-new` автоматически создаёт `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`. Агент заполняет PRD на основе найденных артефактов (поиск `rg <ticket>` по backlog/docs, чтение `reports/research/*.json`), фиксируя источник каждой гипотезы; статус READY ставится только при свежем `docs/research/<ticket>.md: Status reviewed` (кроме baseline-пустых проектов).
+- **Процесс:** аналитик собирает факты из репозитория (цели, метрики, ограничения, reuse), при нехватке контекста запускает research и возвращается к PRD. Вопросы пользователю формулируются только после перечисления просмотренных файлов/команд (`Вопрос N → Ответ N`), PRD обновляется сразу после получения ответа.
 - **Выход:** PRD `aidd/docs/prd/<ticket>.prd.md` с заполненными секциями (цели, сценарии, требования, риски), ссылками на источники (backlog, research, reports, ответы) и актуальным блоком `## Диалог analyst`.
 - **Готовность:** `Status: READY`, `## 10. Открытые вопросы` пуст или содержит только ссылки на план/тасклист, `claude-workflow analyst-check --ticket <ticket>` проходит без ошибок. Если хотя бы один ответ отсутствует, PRD остаётся `Status: BLOCKED`.
 

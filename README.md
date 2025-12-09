@@ -3,7 +3,7 @@
 > Готовый GitHub-шаблон и инсталлятор, который подключает Claude Code к вашему Java/Kotlin монорепозиторию, добавляет слэш-команды, безопасные хуки и выборочный запуск Gradle-тестов.
 
 ## TL;DR
-- `/init-claude-workflow.sh` разворачивает цикл `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
+- `/init-claude-workflow.sh` разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
 - Автоформат и выборочные Gradle-тесты запускаются после каждой правки (можно отключить `SKIP_AUTO_TESTS=1`), артефакты защищены хуками `gate-*`.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
@@ -114,7 +114,7 @@
 
 ### Слэш-команды и пайплайн
 - Ветки создайте `git checkout -b feature/<TICKET>` или по другим паттернам из `config/conventions.json`.
-- `.claude/commands/idea-new.md` — фиксирует ticket (и при необходимости slug-хинт) в `aidd/docs/.active_ticket`/`.active_feature`, сразу запускает `claude-workflow research --ticket <ticket> --auto`, вызывает `analyst`, **создаёт черновик `aidd/docs/prd/<ticket>.prd.md` (Status: draft)** и открытые вопросы.
+- `.claude/commands/idea-new.md` — фиксирует ticket (и при необходимости slug-хинт) в `aidd/docs/.active_ticket`/`.active_feature`, запускает `analyst` (research — по требованию), **создаёт черновик `aidd/docs/prd/<ticket>.prd.md` (Status: draft)** и открытые вопросы.
 - `.claude/commands/researcher.md` — собирает контекст (CLI `claude-workflow research`) и оформляет отчёт `aidd/docs/research/<ticket>.md`.
 - `.claude/commands/plan-new.md` — подключает `planner` и `validator`, обновляет план и протокол проверки.
 - `.claude/commands/tasks-new.md` — синхронизирует `aidd/docs/tasklist/<ticket>.md` с планом, распределяя задачи по этапам и заполняя slug-хинт/артефакты.
@@ -148,7 +148,7 @@
 ## Архитектура и взаимосвязи
 - Инициализация (`init-claude-workflow.sh`) генерирует настройки `.claude/settings.json`, гейты и слэш-команды; хуки подключает плагин `feature-dev-aidd`.
 - Pre-/post-хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) перечислены в `aidd/hooks/hooks.json` и ссылаются на `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`.
-- Гейты (`gate-*`) читают `config/gates.json` и артефакты в `aidd/docs/**`, обеспечивая прохождение цепочки `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new`; включайте дополнительные проверки (`researcher`, `prd_review`, `tests_required`) по мере необходимости.
+- Гейты (`gate-*`) читают `config/gates.json` и артефакты в `aidd/docs/**`, обеспечивая прохождение цепочки `/idea-new → research (при необходимости) → /plan-new → /review-prd → /tasks-new`; включайте дополнительные проверки (`researcher`, `prd_review`, `tests_required`) по мере необходимости.
 - `.claude/hooks/format-and-test.sh` опирается на Gradle-скрипт `init-print-projects.gradle`, сохранённый ticket (и slug-хинт) и `moduleMatrix`, чтобы решать, запускать ли selective или полный набор задач.
 - Тестовый набор на Python использует `tests/helpers.py` для эмуляции git/файловой системы, покрывая dry-run, tracked/untracked изменения и поведение хуков.
 
@@ -292,15 +292,15 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` сразу сохраняет черновик PRD со статусом `Status: draft`, аналитик фиксирует диалог в `## Диалог analyst`, а ответы даются в формате `Ответ N: …`;
-- `claude-workflow research --auto --deep-code` сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline».
+- `claude-workflow research --auto --deep-code` запускается по требованию: сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline`.
 - при правках автоматически запускается `.claude/hooks/format-and-test.sh`, гейты блокируют изменения в соответствии с `config/gates.json`;
 - `git commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
 - прогресс каждой итерации фиксируется в `aidd/docs/tasklist/<ticket>.md`: переводите `- [ ] → - [x]`, обновляйте строку `Checkbox updated: …` и запускайте `claude-workflow progress --source <этап> --ticket <ticket>`.
 
 ## Чеклист запуска фичи
 
-1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `aidd/docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Сразу после этого выполните `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`, чтобы зафиксировать цели/контекст (добавьте `--note` для свободного ввода); отвечайте на вопросы аналитика в формате `Ответ N: …`, пока не обновите `Status: READY` и не пройдёте `claude-workflow analyst-check --ticket <ticket>`.
-2. Соберите артефакты аналитики: `/idea-new`, `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `aidd/docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
+1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `aidd/docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Ответьте аналитике в формате `Ответ N: …`; если контекста не хватает, инициируйте research (`/researcher` или `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), затем вернитесь к аналитику и доведите PRD до READY (`claude-workflow analyst-check --ticket <ticket>`).
+2. Соберите артефакты аналитики: `/idea-new`, при необходимости `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, `/plan-new`, `/review-prd`, `/tasks-new` до статуса READY/PASS (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `aidd/docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 
    > Call graph (Java/Kotlin через tree-sitter) по умолчанию фильтруется по `<ticket>|<keywords>` и ограничивается 300 рёбрами (focus) в контексте; полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`. Настройка: `--graph-filter/--graph-limit/--graph-langs`.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).

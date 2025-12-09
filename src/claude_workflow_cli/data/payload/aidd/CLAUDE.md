@@ -4,10 +4,11 @@
 
 ## Основной цикл
 1. `/idea-new <ticket> [slug-hint]` — фиксирует ticket в `aidd/aidd/docs/.active_ticket` (и при необходимости slug-хинт в `.active_feature`), агент analyst оформляет PRD и собирает вводные.
-2. `/plan-new <ticket>` — planner строит план реализации, validator проверяет риски и возвращает вопросы.
-3. `/tasks-new <ticket>` — tasklist синхронизируется с планом: чеклисты по аналитике, разработке, тестированию и релизу.
-4. `/implement <ticket>` — агент implementer вносит изменения малыми итерациями, автозапускает `.claude/hooks/format-and-test.sh`.
-5. `/review <ticket>` — reviewer проводит финальное ревью и фиксирует замечания в `aidd/aidd/docs/tasklist/<ticket>.md`.
+2. `/researcher <ticket>` или `claude-workflow research --ticket <ticket> --auto` — запускается при нехватке контекста (после аналитика); формирует `aidd/aidd/docs/research/<ticket>.md` и отчёты `reports/research/*.json`, baseline допустим для пустых проектов.
+3. `/plan-new <ticket>` — planner строит план реализации, validator проверяет риски и возвращает вопросы.
+4. `/tasks-new <ticket>` — tasklist синхронизируется с планом: чеклисты по аналитике, разработке, тестированию и релизу.
+5. `/implement <ticket>` — агент implementer вносит изменения малыми итерациями, автозапускает `.claude/hooks/format-and-test.sh`.
+6. `/review <ticket>` — reviewer проводит финальное ревью и фиксирует замечания в `aidd/aidd/docs/tasklist/<ticket>.md`.
 
 ## Хуки и гейты
 - `.claude/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD, план и `aidd/aidd/docs/tasklist/<ticket>.md`.
