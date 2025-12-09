@@ -171,8 +171,8 @@
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 5848,
-      "sha256": "a9f2de605e4154c21b2d7fd030506ef6e4160d3c8b3d6cc777e81a248414a540"
+      "size": 5884,
+      "sha256": "8c388437771bb630673447c7e6eafc93514a2fcbe2aaae2d11a829fd7aa73e11"
     },
     {
       "path": "aidd/agents/researcher.md",
@@ -249,8 +249,8 @@
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 4402,
-      "sha256": "c446c2830d0bc5482271fd1d818debc773990e1f231bd4de192833e450551abc"
+      "size": 4424,
+      "sha256": "838e927a4634c79fe4e7ab43f561f1e9dac6f972aad36f5daa7325b27cb86274"
     },
     {
       "path": "aidd/commands/researcher.md",
