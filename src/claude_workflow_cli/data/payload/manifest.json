@@ -8,9 +8,9 @@
     },
     {
       "path": ".claude/settings.json",
-      "type": "file",
-      "size": 5381,
-      "sha256": "fd1df707b4b33ae7e4e418efa2ea276b17ae92e4d051614d3dc85b7beccb4f3f"
+      "sha256": "fd521ebfe4b23209b5786b72aef4e84ded693cf1e7bb8d563fdf89576e640dff",
+      "size": 5397,
+      "type": "file"
     },
     {
       "path": "aidd/.claude-plugin/plugin.json",

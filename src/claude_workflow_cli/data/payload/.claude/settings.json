@@ -19,8 +19,8 @@
       "start": {
         "description": "Базовый режим: минимальные права; хуки берутся из плагина feature-dev-aidd.",
         "permissions": {
-          "allow": ["Read", "Write", "Edit", "Grep", "Glob", "Find"],
-          "ask": ["Bash(git add:*)", "Bash(git commit:*)"],
+          "allow": ["Read", "Write", "Edit", "Grep", "Glob", "Find", "Bash(git add:*)"],
+          "ask": ["Bash(git commit:*)"],
           "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
         }
       },
@@ -39,6 +39,7 @@
             "Bash(git diff:*)",
           "Bash(git rev-parse:*)",
           "Bash(git checkout:*)",
+          "Bash(git add:*)",
           "Bash(./gradlew:*)",
           "Bash(gradle:*)",
           "Bash(.claude/hooks/:*)",
@@ -56,7 +57,7 @@
           "SlashCommand(/feature-dev-aidd:review:*)",
           "SlashCommand(/feature-dev-aidd:qa:*)"
         ],
-          "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
+          "ask": ["Bash(git commit:*)", "Bash(git push:*)"],
           "deny": [
             "Bash(curl:*)",
             "Read(./.env)",
@@ -79,6 +80,7 @@
       "Bash(git diff:*)",
       "Bash(git rev-parse:*)",
       "Bash(git checkout:*)",
+      "Bash(git add:*)",
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/:*)",
@@ -96,7 +98,7 @@
       "SlashCommand(/feature-dev-aidd:review:*)",
       "SlashCommand(/feature-dev-aidd:qa:*)"
     ],
-    "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
+    "ask": ["Bash(git commit:*)", "Bash(git push:*)"],
     "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)", "Write(./infra/prod/**)"]
   },
   "automation": {
