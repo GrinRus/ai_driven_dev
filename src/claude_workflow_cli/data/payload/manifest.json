@@ -3,8 +3,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 4473,
-      "sha256": "d4d4bff6afe580994c73ee99f8cf9b69967feb98f35e2b4ae555f6bf61963cd3"
+      "size": 4521,
+      "sha256": "0453295cf8f526dcb44faa72ca9d6ca7382bdbb6f041c3ae96137aa717cfde0d"
     },
     {
       "path": ".claude-plugin/marketplace.json",
