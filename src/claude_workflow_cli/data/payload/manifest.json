@@ -111,8 +111,8 @@
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 15835,
-      "sha256": "935aa31dcec71d67064c96f59a45a35bacd147ff0e49b8bf150aa17e11557906"
+      "size": 15895,
+      "sha256": "0e6db2db378847f9c3049d82e024f5765c2e3fb8524965d090a923c86e0b8365"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
@@ -141,14 +141,14 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 2502,
-      "sha256": "3541dffc12562eeb4ee350d7df75de54127ce5c59c9b34d57c281067fe387115"
+      "size": 2854,
+      "sha256": "9ef480514a2da6394a7cac6ce4c4985f06daea6e3e1641ad81eaf9023670a014"
     },
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 7990,
-      "sha256": "ecd6660787c215a13564a597b580e30ab269e67f1ba78a1825bdc45d62f01eab"
+      "size": 8618,
+      "sha256": "84b71b2068fdb0abae31457563c96ac9aab471445709e4657b80d1f991c4e07c"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -231,8 +231,8 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 9010,
-      "sha256": "6dab8bab73b5da3ef2b8eed5b9f11a0a12e8f3000b9a23ec51a6f540157ed764"
+      "size": 8890,
+      "sha256": "0213852c5aca0870dbf1350c1ea59c389787d738327b0de331f5558e91b527fa"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -315,8 +315,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 20959,
-      "sha256": "f44df2747d162a58f236934f6f41d3ccef313ad0b0d954f7f5f6ba7ee679b324"
+      "size": 21037,
+      "sha256": "12718f85bea4f398918e95c517383d52dc68259fbcf89f06274562ffe609a9d6"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -417,8 +417,8 @@
     {
       "path": "aidd/prompts/en/agents/analyst.md",
       "type": "file",
-      "size": 5400,
-      "sha256": "71a8d14122aaf2682583e9e3bd695ad9cbabbef2fd673d4530d13fa2809021e7"
+      "size": 5632,
+      "sha256": "fcf566d5dda0f1456f40214e7de68ce2152d00cf926979868853ce44e1f5ccd3"
     },
     {
       "path": "aidd/prompts/en/agents/implementer.md",
@@ -465,8 +465,8 @@
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
       "type": "file",
-      "size": 5096,
-      "sha256": "7d3b2d07b09f954dc9a603edbab46ae6f573fead0f3aee7584e78b8bc4e96ae5"
+      "size": 4840,
+      "sha256": "0b8f97f495f36f6f02997b6b0f963fb2f656392761ac9802043c1a5aac4bc85e"
     },
     {
       "path": "aidd/prompts/en/commands/implement.md",
