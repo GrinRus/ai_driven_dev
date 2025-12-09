@@ -153,8 +153,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 8197,
-      "sha256": "ccdc6b841976f5aa11011e02b8071e461262783d88de80656e46f611439a0e35"
+      "size": 8263,
+      "sha256": "60752a11cfb2e346e10c073bc7c4dbc9e508e3c6a3ec34ac7b60595b879d2fc4"
     },
     {
       "path": "aidd/agents/planner.md",
@@ -183,8 +183,8 @@
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 4138,
-      "sha256": "3f92951a1191d7297a60defd8dc64ace6f9a1b00745e81ec067447fd1fbe9548"
+      "size": 4160,
+      "sha256": "57331332639ddf494a6b47c4fdc35e31621dd46cf9e9167824aa8c613ca1df77"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -321,14 +321,14 @@
     {
       "path": "aidd/docs/customization.md",
       "type": "file",
-      "size": 16138,
-      "sha256": "c2f262234b77ce54247182c2f6b63f672d49d9afc8049ad7a0470aea2a9e6fe5"
+      "size": 16248,
+      "sha256": "e2e8dcd7a8aaeab7a36735dc55b70f23b19a7bde25ceb078f68fe48e125b6947"
     },
     {
       "path": "aidd/docs/design/feature-presets.md",
       "type": "file",
-      "size": 6759,
-      "sha256": "814b2edda40692a0c9e79673c93a5e4fdba9d35f90227b4363e1af4264496144"
+      "size": 6781,
+      "sha256": "a441cec3008fb28ece9dc6f74a4b28e3437dc08cbf1f738379015df91e5292cd"
     },
     {
       "path": "aidd/docs/feature-cookbook.md",
@@ -369,8 +369,8 @@
     {
       "path": "aidd/docs/qa-playbook.md",
       "type": "file",
-      "size": 5899,
-      "sha256": "54effefe99b8e40c3fc77af5e10622a7524a933e02ca1348850353a2a10653bf"
+      "size": 5943,
+      "sha256": "8b4d665d88d5bc0aee7257b50def8ef65c61d33af1ed073cf627670de61093e5"
     },
     {
       "path": "aidd/docs/release-notes.md",
@@ -423,8 +423,8 @@
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 4281,
-      "sha256": "8feb95955a35577751e18ef96ecc2c4cea312f80f9c4e6bc4dfc372828dcc7ea"
+      "size": 4347,
+      "sha256": "8bc094a23276fabc085e066b12a8bf3e6d7685be4ee9b23ad5a2cfdca7a78ac3"
     },
     {
       "path": "aidd/prompts/en/agents/planner.md",
@@ -471,8 +471,8 @@
     {
       "path": "aidd/prompts/en/commands/implement.md",
       "type": "file",
-      "size": 2260,
-      "sha256": "3796b6a45eb37e2f1e9e72f084a0268d3823c73579b0fa39d8217f8c7559a5ef"
+      "size": 2348,
+      "sha256": "4f1b45e9350355051fd6e66de10ff505c9ae0013caa4908d965c77432be6b534"
     },
     {
       "path": "aidd/prompts/en/commands/plan-new.md",
@@ -567,8 +567,8 @@
     {
       "path": "aidd/templates/git-hooks/README.md",
       "type": "file",
-      "size": 1491,
-      "sha256": "f4009ba7c8e51d6c8a7370fbce15632f1228bccd60752a27ef6e13ce23b09092"
+      "size": 1513,
+      "sha256": "07497e6bc1831aac7a1b43c45d4abaf63f2fb07a0f0f9c8628e2ccb2e8f3ff9e"
     },
     {
       "path": "aidd/templates/git-hooks/commit-msg.sample",
@@ -591,20 +591,20 @@
     {
       "path": "aidd/templates/prompt-agent.md",
       "type": "file",
-      "size": 3519,
-      "sha256": "e7ee78b93286e31a7273af69de590ab578c9127df8f8e859be506637500fc6f4"
+      "size": 3541,
+      "sha256": "0f4a050fdc486c48f053fc7b8bb6cfcc9b348c1a0a3b8aec523b7c298d65f90e"
     },
     {
       "path": "aidd/templates/prompt-command.md",
       "type": "file",
-      "size": 4314,
-      "sha256": "6594f07ece1096b39320128f20455220fdea7660f87c847d619bc510c4924514"
+      "size": 4336,
+      "sha256": "5a6b4c7cdc46f257bcd44c7b9c54c73ee0dfb65ccc9e0e1cae032c5b22cbba39"
     },
     {
       "path": "aidd/templates/tasklist.md",
       "type": "file",
-      "size": 3095,
-      "sha256": "9c192ea207883fd92e75e38e09e29fcaa0acb10a364aa5e21c7aee7b77f48bd0"
+      "size": 3139,
+      "sha256": "9d05e35e8604545d5f179d6c8598680f6507d5dc0f719e676b88b0c3e6570009"
     },
     {
       "path": "aidd/tools/check_payload_sync.py",

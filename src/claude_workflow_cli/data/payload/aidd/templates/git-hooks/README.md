@@ -13,7 +13,7 @@ chmod +x .git/hooks/commit-msg
 | --- | --- |
 | `commit-msg.sample` | Проверяет сообщение коммита на соответствие активной конвенции из `config/conventions.json`. |
 | `prepare-commit-msg.sample` | Предзаполняет шаблон сообщения на основе ветки и режима. |
-| `pre-push.sample` | Выполняет `.claude/hooks/format-and-test.sh` перед пушем, чтобы поймать ошибки локально. |
+| `pre-push.sample` | Выполняет `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` перед пушем, чтобы поймать ошибки локально. |
 
 ## Рекомендации
 - Добавьте `export PRE_PUSH_SKIP=1` или аналогичные переменные в rare-case сценариях (см. скрипты).
