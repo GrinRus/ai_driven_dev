@@ -3,6 +3,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
