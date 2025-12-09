@@ -37,23 +37,6 @@
             ]
           }
         ],
-        "PostToolUse": [
-          {
-            "matcher": "Write|Edit",
-            "hooks": [
-              {
-                "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/format-and-test.sh",
-                "timeout": 900
-              },
-              {
-                "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/lint-deps.sh",
-                "timeout": 10
-              }
-            ]
-          }
-        ],
         "UserPromptSubmit": [
           {
             "matcher": ".*",
@@ -74,6 +57,16 @@
                 "type": "command",
                 "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
+              },
+              {
+                "type": "command",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/format-and-test.sh",
+                "timeout": 900
+              },
+              {
+                "type": "command",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/lint-deps.sh",
+                "timeout": 10
               }
             ]
           }
@@ -86,6 +79,16 @@
                 "type": "command",
                 "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
+              },
+              {
+                "type": "command",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/format-and-test.sh",
+                "timeout": 900
+              },
+              {
+                "type": "command",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-$CLAUDE_PROJECT_DIR}\"/.claude/hooks/lint-deps.sh",
+                "timeout": 10
               }
             ]
           }
