@@ -2,7 +2,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
@@ -22,6 +22,7 @@ cd "$ROOT_DIR"
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+status_source_hint=""
 
 if [[ "$file_path" =~ (^|/)(agents|commands)/ ]] || [[ "$file_path" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
   # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
@@ -133,7 +134,10 @@ analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticke
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
-if ! "${analyst_cmd[@]}" >/dev/null; then
+if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
+  if [[ -n "$analyst_output" ]]; then
+    echo "$analyst_output" >&2
+  fi
   exit 2
 fi
 prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"

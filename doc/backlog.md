@@ -711,16 +711,16 @@ _Статус: новый, приоритет 3. Цель — аудит и уп
 _Статус: новый, приоритет 1. Цель — починить базовый флоу `/idea-new` и пути плагина Claude Code, чтобы гейты работали без ложных блокировок._
 
 ### Пути и документация
-- [ ] `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md`: убрать двойные ссылки `aidd/aidd/**`, оставить корректные пути `aidd/docs/**`, уточнить упоминания хуков на `${CLAUDE_PLUGIN_ROOT}`.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `.../agents/reviewer.md`: исправить путь к автохуку на `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-and-test.sh` (или `${CLAUDE_PLUGIN_ROOT}`), убрать дубли `${CLAUDE_PROJECT_DIR}`.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/commands/idea-new.md` и EN-версия: зафиксировать порядок `/idea-new → analyst → /researcher при необходимости`, оставить research как опциональный шаг с примерами `--paths/--keywords`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md`: убрать двойные ссылки `aidd/aidd/**`, оставить корректные пути `aidd/docs/**`, уточнить упоминания хуков на `${CLAUDE_PLUGIN_ROOT}`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `.../agents/reviewer.md`: исправить путь к автохуку на `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-and-test.sh` (или `${CLAUDE_PLUGIN_ROOT}`), убрать дубли `${CLAUDE_PROJECT_DIR}`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/commands/idea-new.md` и EN-версия: зафиксировать порядок `/idea-new → analyst → /researcher при необходимости`, оставить research как опциональный шаг с примерами `--paths/--keywords`.
 - [x] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: заменить ссылки на хуки только на `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/...` без fallback на `CLAUDE_PROJECT_DIR`, в соответствии с документацией Claude Code.
 
 ### Хуки и гейты
-- [ ] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить блок `PostToolUse` с `format-and-test.sh` и `lint-deps.sh`, убедиться, что `PreToolUse`/`Stop`/`SubagentStop` ссылаются на `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*.sh`.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/gate-workflow.sh`: скорректировать автодетект корня (`./aidd` при запуске из родителя), уточнить чтение `Status:` только в секции диалога analyst, добавить понятное сообщение, если PRD остаётся draft при готовом PRD review.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py`: автоподстановка `--target aidd` при отсутствии `docs/`, исключить ложные BLOCK из-за повторных `Status:` в других разделах, писать в вывод, откуда взят статус.
+- [x] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить блок `PostToolUse` с `format-and-test.sh` и `lint-deps.sh`, убедиться, что `PreToolUse`/`Stop`/`SubagentStop` ссылаются на `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*.sh`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/gate-workflow.sh`: скорректировать автодетект корня (`./aidd` при запуске из родителя), уточнить чтение `Status:` только в секции диалога analyst, добавить понятное сообщение, если PRD остаётся draft при готовом PRD review.
+- [x] `src/claude_workflow_cli/data/payload/aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py`: автоподстановка `--target aidd` при отсутствии `docs/`, исключить ложные BLOCK из-за повторных `Status:` в других разделах, писать в вывод, откуда взят статус.
 
 ### Тесты и смоук
-- [ ] `tests/test_gate_tests_hook.py` (и новые тесты): проверить наличие `PostToolUse` команд и корректные пути (`gate-tests.sh`, `format-and-test.sh`, `lint-deps.sh`), сценарий idea-new без research → analyst требует research → после reports/research READY гейт пропускает план/код.
-- [ ] `scripts/smoke-workflow.sh`: добавить кейс запуска из корня без `docs/` (используется `aidd/docs`), убедиться, что хуки не падают по отсутствующим путям и что `format-and-test`/`lint-deps` срабатывают после записи.
+- [x] `tests/test_gate_tests_hook.py` (и новые тесты): проверить наличие `PostToolUse` команд и корректные пути (`gate-tests.sh`, `format-and-test.sh`, `lint-deps.sh`), сценарий idea-new без research → analyst требует research → после reports/research READY гейт пропускает план/код.
+- [x] `scripts/smoke-workflow.sh`: добавить кейс запуска из корня без `docs/` (используется `aidd/docs`), убедиться, что хуки не падают по отсутствующим путям и что `format-and-test`/`lint-deps` срабатывают после записи.

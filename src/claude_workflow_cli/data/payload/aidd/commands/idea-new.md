@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/idea-new`заводит новую фичу: фиксирует активный ticket, подготавливает шаблон PRD и отдаёт управление аналитику. Исследование запускается только если контекста мало (ручной вызов `/researcher` или `claude-workflow research`). Цикл «идея → research → PRD» следует agent-first принципу: аналитик/ресерчер сами собирают данные из репозитория (slug-hint, reports, rg) и задают вопросы пользователю только если артефактов недостаточно.
+Команда `/idea-new` запускает фичу: фиксирует активный ticket, готовит шаблон PRD и передаёт работу аналитику. Research — опционален и включается только если контекста мало (ручной `/researcher` или `claude-workflow research`). Базовый порядок: `/idea-new → analyst → (по необходимости) /researcher → analyst-check → plan`. Аналитик/ресерчер сначала читают slug-hint (`aidd/docs/.active_feature`), `aidd/docs/research/*.md`, `reports/research/*.json`, ищут по репо и только потом задают вопросы; research вызывается аналитиком при нехватке входных данных (можно уточнять paths/keywords).
 
 ## Входные артефакты
 - Slug-hint пользователя (аргумент`[slug-hint]`у`/idea-new`) и любые найденные ссылки на тикет (`rg`&lt;ticket&gt;`aidd/docs/**`) — исходное описание.

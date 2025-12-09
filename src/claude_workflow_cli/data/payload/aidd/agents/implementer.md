@@ -19,7 +19,7 @@ permissionMode: default
 - Git diff, текущая ветка, связанные скрипты/миграции.
 
 ## Автоматизация
-- Перед отдачей ответа на итерацию запускай`${CLAUDE_PROJECT_DIR:-.}/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`; при необходимости используй`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`и обязательно фиксируй override в ответе.
+- Перед отдачей ответа на итерацию запускай`${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}}/.claude/hooks/format-and-test.sh`; при необходимости используй`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`и обязательно фиксируй override в ответе.
 -`gate-tests`,`gate-workflow`проверяют наличие tasklist и тестов перед пушем; перечисли, какие проверки проходил и какие команды запускал (`./gradlew test`,`gradle lint`, т.д.).
 - После изменений перечисли затронутые файлы/модули и выполни точечный`git add <file|dir>`для каждого изменённого артефакта (добавь в ответ список проиндексированных путей).
 - Заверши каждую итерацию командой`claude-workflow progress --source implement --ticket`&lt;ticket&gt;``— укажи вывод или резюме изменений tasklist.
@@ -31,7 +31,7 @@ permissionMode: default
 2. При необходимости сверься с`aidd/docs/research/`&lt;ticket&gt;`.md`и PRD, если в плане/чеклисте не хватает деталей (архитектура, ограничения, тестовые требования); фиксируй, какие выводы взял оттуда.
 3. Внеси минимальные изменения в код/конфигурацию. Сразу укажи, какие файлы/модули затронуты, какие команды запускаешь (`./gradlew test`,`gradle spotlessApply`, и т.д.), и проиндексируй изменения`git add <файл|каталог>`(перечисли, что добавил в индекс).
 4. Обнови`aidd/docs/tasklist/`&lt;ticket&gt;`.md`: переведи соответствующие пункты`- [ ] → - [x]`, добавь дату, итерацию, краткое описание и ссылку на diff/команду.
-5. Запусти`${CLAUDE_PROJECT_DIR:-.}/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`перед ответом (или эквивалентные команды вручную); если хук упал, почини причину или объясни обход и когда вернёшься к тестам.
+5. Запусти`${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}}/.claude/hooks/format-and-test.sh`перед ответом (или эквивалентные команды вручную); если хук упал, почини причину или объясни обход и когда вернёшься к тестам.
 6. Выполни`claude-workflow progress --source implement --ticket`&lt;ticket&gt;``и приложи вывод/резюме.
 7. Перед завершением итерации опиши, что сделано и что осталось; убедись, что в diff только изменения текущей итерации. Вопросы пользователю формулируй только после повторного просмотра плана/чеклиста/исследования и указания, что проверял.
 
@@ -44,5 +44,5 @@ permissionMode: default
 
 ## Формат ответа
 - Всегда начинай со строки`Checkbox updated: <перечень пунктов>`(см.`aidd/docs/prompt-playbook.md`).
-- Кратко перечисли, что изменено (файлы/модули), какие команды выполнены (`./gradlew …`,`$CLAUDE_PROJECT_DIR/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`,`claude-workflow progress …`), статусы тестов и автотестов; отметь, если использовал`SKIP_AUTO_TESTS`/`TEST_SCOPE`/`FORMAT_ONLY`. Укажи, какие handoff-пункты из`reports/qa|review|research/`&lt;ticket&gt;`.json`закрыты или перенесены, и какие пути были добавлены в индекс`git add`.
+- Кратко перечисли, что изменено (файлы/модули), какие команды выполнены (`./gradlew …`,`$CLAUDE_PLUGIN_ROOT/.claude/hooks/format-and-test.sh`,`claude-workflow progress …`), статусы тестов и автотестов; отметь, если использовал`SKIP_AUTO_TESTS`/`TEST_SCOPE`/`FORMAT_ONLY`. Укажи, какие handoff-пункты из`reports/qa|review|research/`&lt;ticket&gt;`.json`закрыты или перенесены, и какие пути были добавлены в индекс`git add`.
 - Опиши оставшуюся работу и текущий статус READY/BLOCKED; при BLOCKED перечисли конкретные вопросы с указанием, что уже проверено.
