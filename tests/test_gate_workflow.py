@@ -169,6 +169,67 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_research_required_before_code_changes(tmp_path):
+    ticket = "demo-checkout"
+    write_active_feature(tmp_path, ticket)
+    # PRD drafted but research missing → gate should block code edits
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "research" in combined or "отчёт" in combined
+
+    # After research is added (reviewed) and tasklist has real items, code edits should be allowed
+    write_research_doc(tmp_path, status="reviewed")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] initial task\n- [ ] second task\n",
+    )
+    write_json(
+        tmp_path,
+        "reports/reviewer/demo-checkout.json",
+        {"ticket": ticket, "tests": "optional"},
+    )
+    write_json(
+        tmp_path,
+        "reports/research/demo-checkout-context.json",
+        {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "matches": [], "targets": {"paths": ["src"], "docs": ["docs"]}},
+    )
+    write_json(
+        tmp_path,
+        "reports/research/demo-checkout-targets.json",
+        {"paths": ["src"], "docs": ["docs"], "generated_at": _timestamp()},
+    )
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] initial task
+            <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+            - [ ] add research handoff
+            <!-- handoff:research end -->
+            """
+        ),
+    )
+    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result_ok.returncode == 0, result_ok.stderr
+
+
 def test_blocked_status_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
