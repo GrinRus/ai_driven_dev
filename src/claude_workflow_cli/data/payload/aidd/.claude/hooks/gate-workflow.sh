@@ -22,7 +22,6 @@ cd "$ROOT_DIR"
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
-status_source_hint=""
 
 if [[ "$file_path" =~ (^|/)(agents|commands)/ ]] || [[ "$file_path" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
   # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
