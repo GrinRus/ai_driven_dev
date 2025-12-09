@@ -74,7 +74,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 | `planner` / `/plan-new` | PRD (Status: approved), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
-| `qa` | Tasklist, логи гейтов | `gate-qa`, `.claude/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
+| `qa` | Tasklist, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 

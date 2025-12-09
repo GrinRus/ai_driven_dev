@@ -315,8 +315,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 21037,
-      "sha256": "12718f85bea4f398918e95c517383d52dc68259fbcf89f06274562ffe609a9d6"
+      "size": 21081,
+      "sha256": "2ec67bba45b4a3644defd24c600e3a5f4e8dc5cace38cf1833fee3124acfd933"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -357,8 +357,8 @@
     {
       "path": "aidd/docs/prompt-playbook.md",
       "type": "file",
-      "size": 14463,
-      "sha256": "eb9e91f350d99d6ff0ad7b0183821f9b939f5d6a74b1b6b7a01ab4973c8ad95d"
+      "size": 14485,
+      "sha256": "1beab5d7789d3d6355386c4de6f124497e8e0841e4dc4ca23a8e907b93830dce"
     },
     {
       "path": "aidd/docs/prompt-versioning.md",
@@ -369,8 +369,8 @@
     {
       "path": "aidd/docs/qa-playbook.md",
       "type": "file",
-      "size": 5859,
-      "sha256": "dd6ec6b822d44653a604b3583af5850259c5942ada4959b1f112c646b8bc4faa"
+      "size": 5899,
+      "sha256": "54effefe99b8e40c3fc77af5e10622a7524a933e02ca1348850353a2a10653bf"
     },
     {
       "path": "aidd/docs/release-notes.md",
@@ -393,8 +393,8 @@
     {
       "path": "aidd/docs/tasklist.template.md",
       "type": "file",
-      "size": 6063,
-      "sha256": "4a15a8d6e5281054a4aaa2daadbeba0caa7661974b0b545dc5e814a71f0218b0"
+      "size": 6088,
+      "sha256": "3c9ae8fe69bb5f6fb5c079a0ef9a786c525dfcb63b6e34ec160e09aafd2b708b"
     },
     {
       "path": "aidd/docs/templates/research-summary.md",
@@ -423,8 +423,8 @@
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 4211,
-      "sha256": "818d81dfe897ad6e074c4cf4dcc1ff446790ce2c30d3852a14c2a5b9343890f4"
+      "size": 4281,
+      "sha256": "8feb95955a35577751e18ef96ecc2c4cea312f80f9c4e6bc4dfc372828dcc7ea"
     },
     {
       "path": "aidd/prompts/en/agents/planner.md",
@@ -441,8 +441,8 @@
     {
       "path": "aidd/prompts/en/agents/qa.md",
       "type": "file",
-      "size": 4075,
-      "sha256": "23af340662b01ed3da941e76942a5336d4053e9aed222a6a4478d698e96073b0"
+      "size": 4097,
+      "sha256": "d105bb1ab0b73d3fa4f901f0a5a7665cda8720a108ad50271eca1e160d0cadf5"
     },
     {
       "path": "aidd/prompts/en/agents/researcher.md",
@@ -483,8 +483,8 @@
     {
       "path": "aidd/prompts/en/commands/qa.md",
       "type": "file",
-      "size": 3421,
-      "sha256": "7f7d773912b72185be395ee9cc1f37bf2eea19664075acbcd4b1f5fcc03b3ebc"
+      "size": 3465,
+      "sha256": "200096d1dc3eb6cda0df327a1a66183b79d64dca557f715b096059e56b5a2c66"
     },
     {
       "path": "aidd/prompts/en/commands/researcher.md",
