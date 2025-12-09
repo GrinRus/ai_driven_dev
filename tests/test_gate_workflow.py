@@ -61,6 +61,19 @@ def approved_prd(ticket: str = "demo-checkout") -> str:
     )
 
 
+def pending_baseline_prd(ticket: str = "demo-checkout") -> str:
+    return (
+        "# PRD\n\n"
+        "## Диалог analyst\n"
+        "Status: READY\n\n"
+        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
+        "Вопрос 1: Что нужно для baseline?\n"
+        "Ответ 1: Репозиторий пуст, собираем baseline.\n\n"
+        "## PRD Review\n"
+        "Status: approved\n"
+    )
+
+
 def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", status: str = "reviewed") -> None:
     from datetime import datetime, timezone
 
@@ -124,6 +137,36 @@ def test_missing_plan_blocks(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "нет плана" in result.stdout or "нет плана" in result.stderr
+
+
+def test_pending_baseline_allows_docs_only(tmp_path):
+    ticket = "demo-checkout"
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_research_doc(tmp_path, status="pending")
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _timestamp(),
+            "profile": {"is_new_project": True},
+            "auto_mode": True,
+            "matches": [],
+            "targets": {"paths": [], "docs": []},
+        },
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": [], "docs": [], "generated_at": _timestamp()},
+    )
+    # doc-only change: should allow pending baseline
+    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
 
 
 def test_blocked_status_blocks(tmp_path):
