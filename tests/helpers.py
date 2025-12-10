@@ -15,8 +15,8 @@ SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / 
 os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
 os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
-    "feature_ticket_source": ["docs/.active_ticket", "aidd/docs/.active_ticket"],
-    "feature_slug_hint_source": ["docs/.active_feature", "aidd/docs/.active_feature"],
+    "feature_ticket_source": "aidd/docs/.active_ticket",
+    "feature_slug_hint_source": "aidd/docs/.active_feature",
     "tests_required": "soft",
     "deps_allowlist": False,
     "prd_review": {

@@ -32,13 +32,6 @@ elif mode == "config_get":
         print(default)
         raise SystemExit(0)
     value = data.get(key, default)
-    if isinstance(value, list):
-        selected = None
-        for item in value:
-            if isinstance(item, str) and item.strip():
-                selected = item
-                break
-        value = selected if selected is not None else default
     if value is None:
         print(default)
     elif isinstance(value, bool):
@@ -114,14 +107,14 @@ hook_read_ticket() {
   local slug_path="${2:-}"
   local ticket_env=""
   local slug_env=""
-  if [[ -n "$ticket_path" && ! -f "$ticket_path" && -f "aidd/$ticket_path" ]]; then
-    ticket_path="aidd/$ticket_path"
+  if [[ -n "$ticket_path" && ! -f "$ticket_path" && "$ticket_path" == aidd/* && -f "${ticket_path#aidd/}" ]]; then
+    ticket_path="${ticket_path#aidd/}"
   fi
   if [[ -n "$ticket_path" && -f "$ticket_path" ]]; then
     ticket_env="$ticket_path"
   fi
-  if [[ -n "$slug_path" && ! -f "$slug_path" && -f "aidd/$slug_path" ]]; then
-    slug_path="aidd/$slug_path"
+  if [[ -n "$slug_path" && ! -f "$slug_path" && "$slug_path" == aidd/* && -f "${slug_path#aidd/}" ]]; then
+    slug_path="${slug_path#aidd/}"
   fi
   if [[ -n "$slug_path" && -f "$slug_path" ]]; then
     slug_env="$slug_path"

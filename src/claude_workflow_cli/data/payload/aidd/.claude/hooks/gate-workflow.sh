@@ -101,6 +101,12 @@ slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_sour
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
   exit 0
 fi
+if [[ -n "$ticket_source" && "$ticket_source" == aidd/* && ! -f "$ticket_source" && -f "${ticket_source#aidd/}" ]]; then
+  ticket_source="${ticket_source#aidd/}"
+fi
+if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* && ! -f "$slug_hint_source" && -f "${slug_hint_source#aidd/}" ]]; then
+  slug_hint_source="${slug_hint_source#aidd/}"
+fi
 if [[ -n "$ticket_source" && ! -f "$ticket_source" ]] && [[ -n "$slug_hint_source" && ! -f "$slug_hint_source" ]]; then
   exit 0  # нет активной фичи — не блокируем
 fi
