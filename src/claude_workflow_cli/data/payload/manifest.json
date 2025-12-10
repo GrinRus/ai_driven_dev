@@ -68,8 +68,8 @@
     },
     {
       "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-      "sha256": "dd2ea2b2729c8709faee212673c3823674e21b835177e8cd39914457be670cc5",
-      "size": 14519,
+      "sha256": "14c2d86afdb2c3657781328129979c989bf899ce51c6e9b05b00281fe75a17ca",
+      "size": 14615,
       "type": "file"
     },
     {
@@ -146,9 +146,9 @@
     },
     {
       "path": "aidd/agents/analyst.md",
-      "type": "file",
-      "size": 8618,
-      "sha256": "84b71b2068fdb0abae31457563c96ac9aab471445709e4657b80d1f991c4e07c"
+      "sha256": "8c25925fa43c83b6eafd49a3be2a8c7203139ce6d6b61fa2d0aa254c9bb3dabf",
+      "size": 5238,
+      "type": "file"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -230,8 +230,8 @@
     },
     {
       "path": "aidd/commands/idea-new.md",
-      "sha256": "8443492ee6031383df1416f9b4c8a0531cf3ef88b92c5e687f3386fa3c0e87e0",
-      "size": 9045,
+      "sha256": "8fed8de4ab87d961c154c7fc4cbe51388dd4219e82d0698f079027277fcb700a",
+      "size": 6037,
       "type": "file"
     },
     {
@@ -464,8 +464,8 @@
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
-      "sha256": "dfef47e68f1183980c53ab6c10033974b814a8caad5b5a3ecbcbbc4af0fb5e14",
-      "size": 4912,
+      "sha256": "555be5937515f173b00198aeae04ff8cb7ce3e0690727de1105c8638d826f2c7",
+      "size": 3761,
       "type": "file"
     },
     {
@@ -638,8 +638,8 @@
     },
     {
       "path": "aidd/tools/set_active_feature.py",
-      "sha256": "d4b1e6412c51c3a1d1e6c10aae39551b6283e94b5f3321b61259d0876dfb8a56",
-      "size": 8981,
+      "sha256": "af032e4440b3537e8d99a62e49ff51249536f3c0933cecf656773f86beac4fbe",
+      "size": 8865,
       "type": "file"
     },
     {
