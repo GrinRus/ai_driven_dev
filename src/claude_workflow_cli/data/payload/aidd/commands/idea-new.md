@@ -60,6 +60,11 @@ disable-model-invocation: false
 - `aidd/docs/research/<ticket>.md` и `reports/research/*` актуализированы (или baseline).
 - Пользователь получает список вопросов для перехода к READY/plan.
 
+## Troubleshooting
+- PRD остаётся draft/BLOCKED: проверьте, что отвечены все `Вопрос N:` в `## Диалог analyst` и запустите `claude-workflow analyst-check --ticket <ticket> --target aidd`.
+- Нет research или он pending: выполните `claude-workflow research --ticket <ticket> --auto --target aidd` (либо `/researcher`), убедитесь в `Status: reviewed`.
+- Команда ищет артефакты не там: запустите с `--target aidd` (если работаете из корня без `docs/`), убедитесь, что `aidd/docs/.active_*` существует.
+
 ## Примеры CLI
 - `/idea-new ABC-123 checkout-demo`
 - `/idea-new ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --slug-note checkout-demo`

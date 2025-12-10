@@ -272,6 +272,45 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
+    ticket = "demo-draft"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(tmp_path, ticket)
+    write_file(
+        tmp_path,
+        f"docs/prd/{ticket}.prd.md",
+        (
+            "# PRD\n\n"
+            "## Диалог analyst\n"
+            "Status: draft\n\n"
+            f"Researcher: docs/research/{ticket}.md (Status: reviewed)\n\n"
+            "Вопрос 1: Какие ограничения?\n"
+            "Ответ 1: TBD\n\n"
+            "## PRD Review\n"
+            "Status: approved\n"
+        ),
+    )
+    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] clarify limits\n")
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "status": "reviewed"},
+    )
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "draft" in combined or "готов" in combined
+
+
 def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     ticket = "demo-thin"
     project_root = tmp_path / "aidd"
@@ -302,6 +341,63 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
+
+
+def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
+    ticket = "demo-rich"
+    project_root = tmp_path / "aidd"
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+    write_file(project_root, "docs/.active_ticket", ticket)
+    write_file(project_root, "docs/.active_feature", "rich context demo")
+    write_file(
+        project_root,
+        f"docs/prd/{ticket}.prd.md",
+        (
+            "# PRD\n\n"
+            "## Диалог analyst\n"
+            "Status: READY\n\n"
+            "Researcher: docs/research/demo-rich.md (Status: reviewed)\n\n"
+            "Вопрос 1: Какие требования уже покрыты?\n"
+            "Ответ 1: Достаточно контекста, research не запускали.\n\n"
+            "## PRD Review\n"
+            "Status: approved\n"
+        ),
+    )
+    write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(
+        project_root,
+        f"docs/tasklist/{ticket}.md",
+        "- [ ] implement\n- [ ] Research handoff (source: reports/research/demo-rich-context.json)\n",
+    )
+    write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: reviewed\n")
+    write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _timestamp(),
+            "profile": {},
+            "auto_mode": False,
+            "status": "reviewed",
+            "matches": ["src/main/kotlin"],
+        },
+    )
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    write_json(
+        project_root,
+        f"reports/reviewer/{ticket}.json",
+        {"ticket": ticket, "tests": "optional"},
+    )
+    # provide prd_review_gate stub so gate-workflow can resolve it from aidd/scripts
+    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    assert result.returncode == 0, result.stderr
 
 
 def test_research_required_before_code_changes(tmp_path):

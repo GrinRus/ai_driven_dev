@@ -50,6 +50,11 @@ disable-model-invocation: false
 - Research artifacts up to date (or baseline recorded).
 - User sees explicit questions to move to READY/plan.
 
+## Troubleshooting
+- PRD stays draft/BLOCKED: answer all `Question N:` entries in `## Диалог analyst` and run `claude-workflow analyst-check --ticket <ticket> --target aidd`.
+- Research pending/missing: run `claude-workflow research --ticket <ticket> --auto --target aidd` (or `/researcher`) and ensure `Status: reviewed`.
+- Artifacts not found: run with `--target aidd` from repo root without `docs/`; verify `aidd/docs/.active_*` exists.
+
 ## CLI Examples
 - `/idea-new ABC-123 checkout-demo`
 - `/idea-new ABC-123 --paths src/app --keywords "checkout,pay" --slug-note checkout-demo`

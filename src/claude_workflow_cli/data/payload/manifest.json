@@ -230,8 +230,8 @@
     },
     {
       "path": "aidd/commands/idea-new.md",
-      "sha256": "8fed8de4ab87d961c154c7fc4cbe51388dd4219e82d0698f079027277fcb700a",
-      "size": 6037,
+      "sha256": "a402605ac22c5217eb9363b18e539e89b46b7699d0618c25290f85ed9ce34f71",
+      "size": 6701,
       "type": "file"
     },
     {
@@ -464,8 +464,8 @@
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
-      "sha256": "555be5937515f173b00198aeae04ff8cb7ce3e0690727de1105c8638d826f2c7",
-      "size": 3761,
+      "sha256": "ba6dbeb71a957fe508c2beb57341b5ce67da948985d49aa76046df943b199d86",
+      "size": 4208,
       "type": "file"
     },
     {
@@ -554,8 +554,8 @@
     },
     {
       "path": "aidd/scripts/smoke-workflow.sh",
-      "sha256": "f40f85a0a9147f4a7616b54be50849bea1b69ad8edc246899bae81dc069157e2",
-      "size": 14458,
+      "sha256": "b66a858b45e8c7e594620139acb37d3d3dc535578cbaa1c41b94b16316adef94",
+      "size": 16149,
       "type": "file"
     },
     {
