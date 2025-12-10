@@ -774,3 +774,15 @@ _Статус: новый, приоритет 1. Цель — отказатьс
 - [ ] Обновить `aidd/scripts/smoke-workflow.sh`: убрать сценарий «корень без docs → fallback aidd», добавить проверку на ошибку при неправильном таргете и успешный happy-path только через `aidd/`; синхронизировать вызовы `set_active_feature.py` с новым `--target`.
 - [ ] Покрыть хуки: `tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py` — убедиться, что пути резолвятся из `aidd/`, нет попыток читать `./docs`, PostToolUse/PreToolUse команды не используют `CLAUDE_PROJECT_DIR`.
 - [ ] Обновить payload/manifest после правок; добавить regression-тест на `resolve_project_root` и отсутствие fallback в `tests/test_resources.py` (или новый тест).
+
+
+## Wave 52
+
+_Статус: новый, приоритет 2. Цель — усилить авто-сбор контекста Researcher (call/import graph, зависимостные цепочки) без ручных флагов._
+
+- [ ] `claude-workflow research`: включить сбор call/import graph по умолчанию при наличии поддерживаемых языков (Java/Kotlin, tree-sitter) и режимах `--auto/--deep-code`; оставить отключение через `--graph-engine none`. Обновить вывод/контекст (`call_graph`, `import_graph`, `call_graph_full_path`) и smoke/regрессы на наличие графа.
+- [ ] Команда `/researcher` (RU/EN): описать авто-сбор call graph (без ручного `--call-graph`), опцию `--graph-engine none`, и применение графа для поиска точек встройки/зависимостей.
+- [ ] Агент Researcher: добавить инструкцию проверять `call_graph`/`import_graph`; при пустом графе и поддерживаемых языках инициировать повторный сбор (`claude-workflow research --graph-engine ts --call-graph`) или зафиксировать предупреждение в отчёте.
+- [ ] Аналитик (опционально): упомянуть, что для “тонкого” контекста инициируется research с call graph, чтобы выявить точки встройки.
+- [ ] Тесты/Smoke: расширить проверки, что стандартный вызов `claude-workflow research --auto --deep-code` формирует `call_graph` в `reports/research/*-context.json` (включая fallback full graph файл); протестировать отключение через `--graph-engine none`.
+
