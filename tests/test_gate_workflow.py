@@ -21,6 +21,7 @@ DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 PROMPT_PAYLOAD = '{"tool_input":{"file_path":"agents/analyst.md"}}'
 CMD_PAYLOAD = '{"tool_input":{"file_path":"commands/plan-new.md"}}'
 AIDD_SRC_PAYLOAD = '{"tool_input":{"file_path":"aidd/src/main/kotlin/App.kt"}}'
+IDEA_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt","ticket":"demo-thin"}}'
 PROMPT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
@@ -269,6 +270,38 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", AIDD_SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
+
+
+def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
+    ticket = "demo-thin"
+    project_root = tmp_path / "aidd"
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+    # emulate idea-new: set active, scaffold PRD/research stub
+    write_file(project_root, "docs/.active_ticket", ticket)
+    write_file(project_root, "docs/.active_feature", "thin context demo")
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "- [ ] implement\n")
+    write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: pending\n")
+    write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": []})
+    write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
+    write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    # provide prd_review_gate stub so gate-workflow can resolve it from aidd/scripts
+    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
+
+    # missing reviewed research -> should block
+    result_block = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    assert result_block.returncode == 2
+
+    # after research reviewed -> should pass
+    write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: reviewed\n")
+    write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False})
+    write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]})
+    with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+
+    result_ok = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
+    assert result_ok.returncode == 0, result_ok.stderr
 
 
 def test_research_required_before_code_changes(tmp_path):
