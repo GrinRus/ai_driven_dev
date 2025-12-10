@@ -638,9 +638,9 @@
     },
     {
       "path": "aidd/tools/set_active_feature.py",
-      "type": "file",
-      "size": 8865,
-      "sha256": "af032e4440b3537e8d99a62e49ff51249536f3c0933cecf656773f86beac4fbe"
+      "sha256": "d4b1e6412c51c3a1d1e6c10aae39551b6283e94b5f3321b61259d0876dfb8a56",
+      "size": 8981,
+      "type": "file"
     },
     {
       "path": "aidd/workflow.md",
