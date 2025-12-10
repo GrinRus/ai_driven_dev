@@ -561,8 +561,8 @@
     {
       "path": "aidd/scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 14512,
-      "sha256": "5004e39e97f80fac553ea1f69096ee928f5756bea7a9bbda7925b376661fdfb2"
+      "size": 14435,
+      "sha256": "2d8164c388facf1e3e943da8f45e68f606d8cf681b41ee03b2cf229c0cfe8d83"
     },
     {
       "path": "aidd/scripts/sync-payload.sh",

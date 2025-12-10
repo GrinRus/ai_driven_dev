@@ -9,7 +9,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-PAYLOAD_IN_ROOT='{"tool_input":{"file_path":"aidd/src/main/kotlin/App.kt"}}'
 CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
 REPO_SRC="$(cd "${ROOT_DIR}/../../../../../" && pwd)/src"
 VENDOR_PATH="${ROOT_DIR}/.claude/hooks/_vendor"
