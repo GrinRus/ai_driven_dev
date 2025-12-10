@@ -230,8 +230,8 @@
     },
     {
       "path": "aidd/commands/idea-new.md",
-      "sha256": "ffb655f2348d924ac8a3fb4793eb106d6d0edc43c4a664c16c5d74da737bb97f",
-      "size": 6701,
+      "sha256": "d201f1cb2b642b23b01e63a5fd834a80151bd2091f7a61b5cd67b0047a0c99d8",
+      "size": 6928,
       "type": "file"
     },
     {
@@ -464,8 +464,8 @@
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
-      "sha256": "ba6dbeb71a957fe508c2beb57341b5ce67da948985d49aa76046df943b199d86",
-      "size": 4208,
+      "sha256": "b30bb913eb8bebfd6ff2bfa4c7b6cb7623859f776449fa37e0dac3debddbc2c4",
+      "size": 4305,
       "type": "file"
     },
     {

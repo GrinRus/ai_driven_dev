@@ -20,7 +20,7 @@ disable-model-invocation: false
 
 ## When to Run
 - At the start of a feature.
-- Rerun only to re-init the ticket with `--force` (avoid overwriting filled PRD).
+- Rerun only to re-init the ticket with `--force`: re-read existing PRD, don’t overwrite answers, add new questions/sources, and refresh status/Researcher when context changed.
 
 ## Automation & Hooks
 - `python3 tools/set_active_feature.py <ticket> [--slug-note ...] [--target <root>]` writes `aidd/docs/.active_*` (fallback to `aidd/docs`), scaffolds PRD and research stub if missing.
