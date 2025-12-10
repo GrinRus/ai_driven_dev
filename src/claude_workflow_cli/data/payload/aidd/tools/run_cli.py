@@ -16,7 +16,8 @@ INSTALL_HINT = (
     "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git"
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[5]  # repo root or site-packages root
+# repo root or site-packages root; runtime workflow lives in ./aidd relative to workspace
+PROJECT_ROOT = Path(__file__).resolve().parents[5]
 DEV_SRC = PROJECT_ROOT / "src"
 VENDOR_DIR = PROJECT_ROOT / ".claude" / "hooks" / "_vendor"
 HAS_VENDOR = VENDOR_DIR.exists()

@@ -403,61 +403,20 @@ log "smoke scenario passed"
 popd >/dev/null
 popd >/dev/null
 
-log "secondary scenario: run from repo root without docs/ (use aidd/docs) and ensure post hooks fire"
-ROOT_SMOKE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claude-workflow-smoke-root.XXXXXX")"
-cleanup_root() { rm -rf "$ROOT_SMOKE_DIR"; }
-trap cleanup_root EXIT
-pushd "$ROOT_SMOKE_DIR" >/dev/null
-git init -q
-git config user.name "Smoke Bot"
-git config user.email "smoke@example.com"
-
-run_cli init --target . --force >/dev/null
-[[ -d "$ROOT_SMOKE_DIR/aidd" ]] || { echo "[smoke-root] missing aidd dir after init"; exit 1; }
-ROOT_WORKDIR="$ROOT_SMOKE_DIR"
-log "[smoke-root] ensure gate uses aidd/docs"
-
-mkdir -p "$ROOT_WORKDIR/aidd/src/main/kotlin"
-cat <<'KT' >"$ROOT_WORKDIR/aidd/src/main/kotlin/App.kt"
-package demo
-class App {
-    fun run(): String = "root-mode"
+log "negative scenario: gate fails on incorrect target without aidd workflow"
+BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claude-workflow-smoke-bad-target.XXXXXX")"
+set +e
+bad_output="$(CLAUDE_PLUGIN_ROOT="$BAD_DIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+bad_rc=$?
+set -e
+if [[ "$bad_rc" -eq 0 ]]; then
+  echo "[smoke] expected gate-workflow to fail for missing aidd/docs" >&2
+  echo "$bad_output" >&2
+  exit 1
+fi
+echo "$bad_output" | grep -qi "aidd/docs not found" || {
+  echo "[smoke] unexpected gate-workflow output for bad target:" >&2
+  echo "$bad_output" >&2
+  exit 1
 }
-KT
-
-export CLAUDE_PROJECT_DIR="$ROOT_WORKDIR"
-output="$(CLAUDE_PROJECT_DIR="$ROOT_WORKDIR" "$ROOT_WORKDIR/aidd/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD_IN_ROOT" 2>&1)" || true
-echo "$output" | grep -qi "нет PRD" || echo "$output" >/dev/null
-
-python3 "$ROOT_WORKDIR/aidd/tools/set_active_feature.py" "$TICKET" --target "$ROOT_WORKDIR/aidd" >/dev/null
-cat <<'MD' >"$ROOT_WORKDIR/aidd/docs/prd/${TICKET}.prd.md"
-# PRD
-
-## Диалог analyst
-Status: READY
-
-Researcher: docs/research/demo-checkout.md (Status: reviewed)
-
-## PRD Review
-Status: approved
-MD
-cat <<'MD' >"$ROOT_WORKDIR/aidd/docs/plan/${TICKET}.md"
-# Plan
-MD
-cat <<'MD' >"$ROOT_WORKDIR/aidd/docs/tasklist/${TICKET}.md"
-- [ ] initial
-MD
-cat <<'MD' >"$ROOT_WORKDIR/aidd/docs/research/${TICKET}.md"
-# Research
-Status: reviewed
-MD
-
-output2="$(CLAUDE_SKIP_TASKLIST_PROGRESS=1 CLAUDE_PROJECT_DIR="$ROOT_WORKDIR" "$ROOT_WORKDIR/aidd/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD_IN_ROOT" 2>&1)" || true
-echo "$output2" | grep -qi "BLOCK" && { echo "[smoke-root] gate still blocking after docs in aidd"; echo "$output2"; exit 1; }
-
-log "[smoke-root] trigger stop hooks to ensure post-run format/lint fire"
-CLAUDE_PROJECT_DIR="$ROOT_WORKDIR/aidd" "$ROOT_WORKDIR/aidd/.claude/hooks/format-and-test.sh" <<<"$PAYLOAD_IN_ROOT" >/dev/null 2>&1 || true
-CLAUDE_PROJECT_DIR="$ROOT_WORKDIR/aidd" "$ROOT_WORKDIR/aidd/.claude/hooks/lint-deps.sh" <<<"$PAYLOAD_IN_ROOT" >/dev/null 2>&1 || true
-
-log "root-mode smoke scenario passed"
-popd >/dev/null
+rm -rf "$BAD_DIR"

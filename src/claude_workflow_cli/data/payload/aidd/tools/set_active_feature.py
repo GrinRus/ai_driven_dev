@@ -39,13 +39,13 @@ except ImportError:  # pragma: no cover - fallback when module unavailable
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write the provided ticket to docs/.active_ticket and update Researcher targets."
+        description="Write the provided ticket to docs/.active_ticket (under aidd/) and update Researcher targets."
     )
     parser.add_argument("ticket", help="Feature ticket identifier to persist")
     parser.add_argument(
         "--target",
-        default=".",
-        help="Project root containing docs/.active_ticket (default: current directory).",
+        default="aidd",
+        help="Project root containing docs/.active_ticket (default: aidd/ under the workspace).",
     )
     parser.add_argument(
         "--paths",

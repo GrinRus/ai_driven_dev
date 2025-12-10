@@ -18,7 +18,7 @@ permissionMode: default
 - @aidd/docs/prd/`<ticket>`.prd.md — PRD draft (`Status: draft`, `## Диалог analyst`).
 - @aidd/docs/research/`<ticket>`.md — отчёт Researcher; при отсутствии/устаревании запусти research.
 - `reports/research/<ticket>-(context|targets).json`, `reports/prd/<ticket>.json` — цели и данные research/PRD.
-- `aidd/docs/.active_feature` (slug-hint/payload) и `aidd/docs/.active_ticket` (или `aidd/docs` при запуске из корня с `--target aidd`) — исходный запрос и ID.
+- `aidd/docs/.active_feature` (slug-hint/payload) и `aidd/docs/.active_ticket` — исходный запрос и ID (workflow всегда в ./aidd).
 
 ## Автоматизация
 - Проверь `aidd/docs/.active_ticket` и наличие PRD/research. Если отчёта нет/устарел — запусти `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (или попроси `/researcher`).

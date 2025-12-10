@@ -13,14 +13,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Upgrade workflow artefacts to the ticket-first format. "
-            "Creates docs/.active_ticket when missing and injects Ticket/Slug hint front-matter "
+            "Creates docs/.active_ticket (under aidd/) when missing and injects Ticket/Slug hint front-matter "
             "into docs/tasklist/*.md."
         )
     )
     parser.add_argument(
         "--target",
-        default=".",
-        help="Project root containing docs/.active_feature (default: current directory).",
+        default="aidd",
+        help="Project root containing docs/.active_feature (default: aidd/ under the workspace).",
     )
     parser.add_argument(
         "--dry-run",
@@ -172,7 +172,7 @@ def main() -> int:
         print("[dry-run] migration completed (no files modified).")
     else:
         if created_ticket:
-            print(f"[summary] docs/.active_ticket set to '{ticket_value}'.")
+            print(f"[summary] aidd/docs/.active_ticket set to '{ticket_value}'.")
         if tasklist_updates:
             print(f"[summary] updated {tasklist_updates} tasklist front-matter file(s).")
         if not created_ticket and tasklist_updates == 0:

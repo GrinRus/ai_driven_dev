@@ -194,7 +194,7 @@ def test_research_required_then_passes_after_report(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_prd_with_status(tmp_path, ticket, status="READY", research_status="pending")
     write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
-    write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] implement\n")
+    tasklist_path = write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] implement\n")
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     ensure_gates_config(
         tmp_path,
@@ -231,7 +231,7 @@ def test_research_required_then_passes_after_report(tmp_path):
         {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
     )
     # add research handoff marker to tasklist to satisfy gate handoff check
-    with (tmp_path / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
+    with tasklist_path.open("a", encoding="utf-8") as fh:
         fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -544,6 +544,11 @@ def test_plugin_hooks_cover_workflow_events():
     hooks = _plugin_hooks()
     for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
         assert _has_command(hooks, event, "gate-workflow.sh"), f"gate-workflow missing in {event}"
+    for event, entries in hooks.get("hooks", {}).items():
+        for entry in entries:
+            for hook in entry.get("hooks", []):
+                cmd = hook.get("command", "")
+                assert "${CLAUDE_PLUGIN_ROOT:-./aidd}" in cmd, f"hook command missing aidd guard in {event}: {cmd}"
 
 
 def _ru_prompt(version: str, name: str = "analyst", skip: bool = False) -> str:
@@ -894,21 +899,67 @@ def test_progress_blocks_without_checkbox(tmp_path):
             Status: draft
             PRD: docs/prd/demo-checkout.prd.md
             Plan: docs/plan/demo-checkout.md
-                Research: docs/research/demo-checkout.md
-                Updated: 2024-01-01
-                ---
+             Research: docs/research/demo-checkout.md
+             Updated: 2024-01-01
+             ---
 
-                - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
-                - [ ] QA :: подготовить smoke сценарии
-                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
-                - [ ] Research: follow-up
-                <!-- handoff:research end -->
-                """
+             - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
+             - [ ] QA :: подготовить smoke сценарии
+             <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+             - [ ] Research: follow-up
+             <!-- handoff:research end -->
+             """
             ),
         )
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
+
+
+def test_hook_uses_aidd_docs_when_workspace_has_legacy_docs(tmp_path):
+    slug = "demo-checkout"
+    legacy_root = tmp_path
+    # create legacy docs that must be ignored by hook
+    write_file(legacy_root, "docs/prd/legacy.prd.md", "# Legacy PRD")
+    # workspace contains aidd/ with proper docs
+    project_root = legacy_root / "aidd"
+    project_root.mkdir(exist_ok=True)
+    write_active_feature(project_root, slug)
+    write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
+    write_file(project_root, f"docs/plan/{slug}.md", "# Plan")
+    write_file(project_root, f"docs/tasklist/{slug}.md", "- [ ] implement\n")
+    write_research_doc(project_root, slug)
+    write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+
+    payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+    result = run_hook(tmp_path, "gate-workflow.sh", payload)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "legacy" not in combined
+
+
+def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
+    slug = "demo-checkout"
+    project_root = tmp_path / "aidd"
+    project_root.mkdir(exist_ok=True)
+    write_active_feature(project_root, slug)
+    write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
+    write_file(project_root, f"docs/plan/{slug}.md", "# Plan")
+    write_file(project_root, f"docs/tasklist/{slug}.md", "- [ ] implement\n")
+    write_research_doc(project_root, slug)
+    write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+
+    env = {
+        "CLAUDE_PLUGIN_ROOT": "",
+        "CLAUDE_PROJECT_DIR": str(tmp_path),
+    }
+    payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    # research pending will still block; key is no crash and correct root resolution
+    assert result.returncode in (0, 2)
+    assert "aidd" in (result.stdout + result.stderr)
 
 
 def test_reviewer_marker_with_slug_hint(tmp_path):

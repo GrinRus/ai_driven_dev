@@ -63,43 +63,49 @@ def run_hook(
 
 
 def test_module_matrix_tasks_logged(tmp_path):
-    git_init(tmp_path)
-    settings = write_settings(tmp_path, {})
-    (tmp_path / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
+    (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
+    (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
-    result = run_hook(tmp_path, settings, env={"TEST_SCOPE": "module-task"})
+    result = run_hook(project, settings, env={"TEST_SCOPE": "module-task"})
 
     assert "Выбранные задачи тестов: module-task" in result.stderr
     assert "Запуск тестов: /bin/echo module-task" in result.stderr
 
 
 def test_common_change_forces_full_suite(tmp_path):
-    git_init(tmp_path)
-    settings = write_settings(tmp_path, {})
-    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
-    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
-    write_active_feature(tmp_path, "demo")
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
+    (project / "config").mkdir(parents=True, exist_ok=True)
+    (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (project / "docs").mkdir(parents=True, exist_ok=True)
+    write_active_feature(project, "demo")
 
-    result = run_hook(tmp_path, settings)
+    result = run_hook(project, settings)
 
     assert "Изменены только некодовые файлы" in result.stderr
     assert "Запуск тестов" not in result.stderr
 
 
 def test_reviewer_marker_forces_full_suite(tmp_path):
-    git_init(tmp_path)
-    settings = write_settings(tmp_path, {})
-    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
-    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
-    write_active_feature(tmp_path, "demo")
-    marker = tmp_path / "reports" / "reviewer" / "demo.json"
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
+    (project / "config").mkdir(parents=True, exist_ok=True)
+    (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (project / "docs").mkdir(parents=True, exist_ok=True)
+    write_active_feature(project, "demo")
+    marker = project / "reports" / "reviewer" / "demo.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text('{"ticket": "demo", "slug": "demo", "tests": "required"}', encoding="utf-8")
 
-    result = run_hook(tmp_path, settings)
+    result = run_hook(project, settings)
 
     assert "reviewer запросил тесты" in result.stderr
     assert "Выбранные задачи тестов: default_task" in result.stderr
@@ -107,18 +113,22 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
 
 
 def test_skip_auto_tests_env(tmp_path):
-    git_init(tmp_path)
-    settings = write_settings(tmp_path, {})
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
 
-    result = run_hook(tmp_path, settings, env={"SKIP_AUTO_TESTS": "1"})
+    result = run_hook(project, settings, env={"SKIP_AUTO_TESTS": "1"})
 
     assert "SKIP_AUTO_TESTS=1" in result.stderr
     assert "Запуск тестов" not in result.stderr
 
 
 def test_snake_case_reviewer_gate_config(tmp_path):
-    git_init(tmp_path)
-    settings = write_settings(tmp_path, {})
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
     payload = json.loads(settings.read_text(encoding="utf-8"))
     payload["automation"]["tests"]["reviewerGate"].update(
         {
@@ -130,15 +140,15 @@ def test_snake_case_reviewer_gate_config(tmp_path):
         }
     )
     settings.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "config/app.yml").write_text("feature: true", encoding="utf-8")
-    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
-    write_active_feature(tmp_path, "demo", slug_hint="checkout-lite")
-    marker = tmp_path / "reports" / "reviewer" / "checkout-lite.json"
+    (project / "config").mkdir(parents=True, exist_ok=True)
+    (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
+    (project / "docs").mkdir(parents=True, exist_ok=True)
+    write_active_feature(project, "demo", slug_hint="checkout-lite")
+    marker = project / "reports" / "reviewer" / "checkout-lite.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text('{"ticket": "demo", "slug": "checkout-lite", "state": "force"}', encoding="utf-8")
 
-    result = run_hook(tmp_path, settings)
+    result = run_hook(project, settings)
 
     assert "reviewer запросил тесты" in result.stderr
     assert "default_task" in result.stderr
@@ -158,8 +168,10 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
             }
         }
     }
-    write_file(tmp_path, ".claude/settings.json", json.dumps(settings, indent=2))
-    write_active_feature(tmp_path, "demo")
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    write_file(project, ".claude/settings.json", json.dumps(settings, indent=2))
+    write_active_feature(project, "demo")
     env = os.environ.copy()
     python_path = str(REPO_ROOT / "src")
     existing = env.get("PYTHONPATH")
@@ -168,21 +180,21 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     cmd = cli_cmd(
         "reviewer-tests",
         "--target",
-        ".",
+        str(tmp_path),
         "--status",
         "force",
     )
     result = subprocess.run(cmd, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
     assert result.returncode == 0, result.stderr
 
-    marker = tmp_path / "reports" / "reviewer" / "demo.json"
+    marker = project / "reports" / "reviewer" / "demo.json"
     payload = json.loads(marker.read_text(encoding="utf-8"))
     assert payload["state"] == "force"
 
     cmd_idle = cli_cmd(
         "reviewer-tests",
         "--target",
-        ".",
+        str(tmp_path),
         "--status",
         "idle",
     )
