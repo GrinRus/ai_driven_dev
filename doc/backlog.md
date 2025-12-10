@@ -633,6 +633,29 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 - [ ] Документация: `docs/agents-playbook.md`, `docs/feature-cookbook.md`, `workflow.md` — добавить таблицу «когда запускать graph vs обычный ресерч», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста.
 - [ ] Тесты/смоук: кейсы `claude-workflow research --auto` в JVM-репо (строится граф, сохраняется полный JSON), в non-JVM (граф не строится, WARN), и «0 matches → baseline note». Обновить `tests/test_researcher_context.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`.
 
+## Wave 51
+
+_Статус: новый, приоритет 1. Цель — отказаться от опционального `--target`: всегда ставим/используем payload в `aidd/`, пути фиксированы во всех инструментах, хуках и документации._
+
+### Жёсткая фиксация таргета `aidd/` в CLI и bootstrap
+- [ ] `src/claude_workflow_cli/resources.py`, `src/claude_workflow_cli/cli.py`: трактовать `--target` как workspace (по умолчанию `.`) и всегда создавать/искать `<workspace>/aidd`; убрать авто-fallback на родителя/`./.claude`, понятные ошибки при запуске вне `aidd/`, обновить `build_parser` help и все команды (`init/preset/research/analyst-check/...`) на единый контракт.
+- [ ] `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh` + корневой `init-claude-workflow.sh`: работать строго внутри `aidd/`, убрать зеркалирование `.claude/.claude-plugin` в workspace root, оставить явные сообщения про `CLAUDE_TEMPLATE_DIR` и пути результата; обновить манифест payload.
+- [ ] Тесты CLI/init: новые проверки «init без `aidd/` → ошибка», «init в workspace → создаёт `aidd/`», покрыть `_resolve_roots/_require_workflow_root` и подсказки по таргету; обновить `tests/test_init_*`, `tests/test_cli_payload.py`, `tests/test_bootstrap_e2e.py`.
+
+### Хуки/инструменты и конфиги с обязательным `aidd/`
+- [ ] `aidd/hooks/hooks.json`, `aidd/.claude/hooks/gate-workflow.sh`, `aidd/.claude/hooks/lib.sh`: убрать fallback на корневой `docs/`, зафиксировать `CLAUDE_PLUGIN_ROOT` = `<workspace>/aidd`, скорректировать `resolve_script_path/ensure_template` на единственный префикс `aidd/`, добавить WARN при чужом CWD.
+- [ ] Инструменты/скрипты: `aidd/tools/set_active_feature.py`, `aidd/tools/migrate_ticket.py`, `aidd/scripts/smoke-workflow.sh`, `aidd/tools/run_cli.py` — дефолт `--target aidd`, жёсткая проверка, WARN/exit при попытке писать в корень; подправить `aidd/config/gates.json` (feature_ticket_source/slug_hint_source → `aidd/docs/.active_*` если запуск из корня).
+- [ ] Агенты/команды/промпты: пройти упоминания путей и подсказок `--target aidd` (idea-new/researcher/qa/analyst) на предмет любых ссылок на корневой `docs/`, синхронизировать RU/EN и quick-reference.
+
+### Дока и DX
+- [ ] Обновить `README.md`, `README.en.md`, `workflow.md`, `doc/design/install-subdir.md`, `doc/adr/install-subdir-decision.md`, `aidd/docs/agents-playbook.md`: убрать советы про произвольный `--target`, показать единственную установку `claude-workflow init --target .` → `./aidd`, troubleshooting «CLI не найден/не видит .claude» с ссылкой на фиксированный путь.
+- [ ] Добавить миграционную заметку: как перевести старые установки с корневым `.claude`/`docs` в `aidd/` (удалить dev-снапшоты, запустить init, перенести активные `.active_*` и артефакты), прописать в release notes и в doc/backlog (готово после выполнения).
+
+### Тесты/смоук/CI
+- [ ] Обновить `aidd/scripts/smoke-workflow.sh`: убрать сценарий «корень без docs → fallback aidd», добавить проверку на ошибку при неправильном таргете и успешный happy-path только через `aidd/`; синхронизировать вызовы `set_active_feature.py` с новым `--target`.
+- [ ] Покрыть хуки: `tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py` — убедиться, что пути резолвятся из `aidd/`, нет попыток читать `./docs`, PostToolUse/PreToolUse команды не используют `CLAUDE_PROJECT_DIR`.
+- [ ] Обновить payload/manifest после правок; добавить regression-тест на `resolve_project_root` и отсутствие fallback в `tests/test_resources.py` (или новый тест).
+
 ## Wave 46
 
 _Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
