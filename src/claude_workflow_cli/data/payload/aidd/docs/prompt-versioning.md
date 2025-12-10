@@ -8,7 +8,7 @@
 - Гейты/линтеры блокируют ситуации, когда изменена только одна локаль.
 
 ## 2. Структура директорий
-- RU-файлы используются рантаймом Claude: `.claude/agents/*.md`, `.claude/commands/*.md`.
+- RU-файлы используются рантаймом Claude: `${CLAUDE_PROJECT_DIR}/.claude/agents/*.md`, `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md`.
 - EN-файлы живут в `prompts/en/agents/*.md` и `prompts/en/commands/*.md`.
 - Оба варианта используют одинаковую структуру (см. `aidd/docs/prompt-playbook.md`), но заголовки переведены (`Контекст` → `Context` и т.д.).
 

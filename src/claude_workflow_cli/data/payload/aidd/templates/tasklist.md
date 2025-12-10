@@ -23,7 +23,7 @@ Updated: YYYY-MM-DD
 - [ ] Код реализован в согласованных модулях.
 - [ ] Покрыты новые ветви логики unit/интеграционными тестами.
 - [ ] Добавлены проверки на негативные сценарии и edge cases.
-- [ ] Локальный запуск `.claude/hooks/format-and-test.sh` зелёный.
+- [ ] Локальный запуск `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` зелёный.
 
 ## 3. QA / Проверки
 - [ ] Обновлены или добавлены тест-кейсы.
@@ -35,7 +35,7 @@ Updated: YYYY-MM-DD
 - [ ] Researcher: ссылка на `aidd/docs/research/&lt;ticket&gt;.md`, статус `Status: reviewed`.
 - [ ] API: обновлены `aidd/docs/api/&lt;ticket&gt;.yaml` и связанные контроллеры.
 - [ ] DB: миграции размещены и проверены (`src/**/db/migration`).
-- [ ] Tests: `.claude/hooks/format-and-test.sh` успешен, покрытие принято.
+- [ ] Tests: `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` успешен, покрытие принято.
 
 ## 5. Документация и релиз
 - [ ] README/usage-гайды отражают изменения.

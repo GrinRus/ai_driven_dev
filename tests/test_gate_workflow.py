@@ -20,6 +20,7 @@ SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 PROMPT_PAYLOAD = '{"tool_input":{"file_path":"agents/analyst.md"}}'
 CMD_PAYLOAD = '{"tool_input":{"file_path":"commands/plan-new.md"}}'
+AIDD_SRC_PAYLOAD = '{"tool_input":{"file_path":"aidd/src/main/kotlin/App.kt"}}'
 PROMPT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
@@ -28,7 +29,7 @@ PROMPT_PAIRS = [
     ("researcher", "researcher"),
     ("prd-reviewer", "review-prd"),
 ]
-REVIEW_REPORT = '{"summary": "", "findings": []}'
+REVIEW_REPORT = {"summary": "", "findings": []}
 
 
 def _plugin_hooks():
@@ -56,6 +57,19 @@ def approved_prd(ticket: str = "demo-checkout") -> str:
         f"Researcher: docs/research/{ticket}.md (Status: reviewed)\n\n"
         "Вопрос 1: Требуется ли отдельный сценарий оплаты?\n"
         "Ответ 1: Покрываем happy-path и отказ платежа.\n\n"
+        "## PRD Review\n"
+        "Status: approved\n"
+    )
+
+
+def pending_baseline_prd(ticket: str = "demo-checkout") -> str:
+    return (
+        "# PRD\n\n"
+        "## Диалог analyst\n"
+        "Status: READY\n\n"
+        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
+        "Вопрос 1: Что нужно для baseline?\n"
+        "Ответ 1: Репозиторий пуст, собираем baseline.\n\n"
         "## PRD Review\n"
         "Status: approved\n"
     )
@@ -89,6 +103,23 @@ def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", st
     )
 
 
+def write_prd_with_status(tmp_path: pathlib.Path, ticket: str, status: str, research_status: str = "pending") -> None:
+    write_file(
+        tmp_path,
+        f"docs/prd/{ticket}.prd.md",
+        (
+            "# PRD\n\n"
+            "## Диалог analyst\n"
+            f"Status: {status}\n\n"
+            f"Researcher: docs/research/{ticket}.md (Status: {research_status})\n\n"
+            "Вопрос 1: Что нужно уточнить?\n"
+            "Ответ 1: TBD\n\n"
+            "## PRD Review\n"
+            "Status: approved\n"
+        ),
+    )
+
+
 def test_no_active_feature_allows_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -118,12 +149,187 @@ def test_missing_plan_blocks(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
-    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "нет плана" in result.stdout or "нет плана" in result.stderr
+
+
+def test_pending_baseline_allows_docs_only(tmp_path):
+    ticket = "demo-checkout"
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_research_doc(tmp_path, status="pending")
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _timestamp(),
+            "profile": {"is_new_project": True},
+            "auto_mode": True,
+            "matches": [],
+            "targets": {"paths": [], "docs": []},
+        },
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": [], "docs": [], "generated_at": _timestamp()},
+    )
+    # doc-only change: should allow pending baseline
+    result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
+def test_research_required_then_passes_after_report(tmp_path):
+    ticket = "demo-checkout"
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_prd_with_status(tmp_path, ticket, status="READY", research_status="pending")
+    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] implement\n")
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    ensure_gates_config(
+        tmp_path,
+        {
+            "researcher": {
+                "enabled": True,
+                "require_status": ["reviewed"],
+                "allow_missing": False,
+                "minimum_paths": 1,
+                "allow_pending_baseline": False,
+            }
+        },
+    )
+
+    # Missing research report should block
+    result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result_block.returncode == 2
+
+    # Add research report + context and expect pass
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _timestamp(),
+            "profile": {},
+            "auto_mode": False,
+        },
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    # add research handoff marker to tasklist to satisfy gate handoff check
+    with (tmp_path / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+
+    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result_ok.returncode == 0, result_ok.stderr
+
+
+def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
+    ticket = "demo-checkout"
+    project_root = tmp_path / "aidd"
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(project_root, ticket)
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "- [ ] implement\n")
+    write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_research_doc(project_root, ticket=ticket, status="reviewed")
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-context.json",
+        {
+            "ticket": ticket,
+            "generated_at": _timestamp(),
+            "profile": {},
+            "auto_mode": False,
+        },
+    )
+    with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+    # provide prd_review_gate stub to satisfy hook resolver
+    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", AIDD_SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
+def test_research_required_before_code_changes(tmp_path):
+    ticket = "demo-checkout"
+    write_active_feature(tmp_path, ticket)
+    # PRD drafted but research missing → gate should block code edits
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", pending_baseline_prd(ticket))
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
+    write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "research" in combined or "отчёт" in combined
+
+    # After research is added (reviewed) and tasklist has real items, code edits should be allowed
+    write_research_doc(tmp_path, status="reviewed")
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        "- [ ] initial task\n- [ ] second task\n",
+    )
+    write_json(
+        tmp_path,
+        "reports/reviewer/demo-checkout.json",
+        {"ticket": ticket, "tests": "optional"},
+    )
+    write_json(
+        tmp_path,
+        "reports/research/demo-checkout-context.json",
+        {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "matches": [], "targets": {"paths": ["src"], "docs": ["docs"]}},
+    )
+    write_json(
+        tmp_path,
+        "reports/research/demo-checkout-targets.json",
+        {"paths": ["src"], "docs": ["docs"], "generated_at": _timestamp()},
+    )
+    write_file(
+        tmp_path,
+        "docs/tasklist/demo-checkout.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-checkout
+            Status: draft
+            PRD: docs/prd/demo-checkout.prd.md
+            Plan: docs/plan/demo-checkout.md
+            Research: docs/research/demo-checkout.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] initial task
+            <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+            - [ ] add research handoff
+            <!-- handoff:research end -->
+            """
+        ),
+    )
+    result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result_ok.returncode == 0, result_ok.stderr
 
 
 def test_blocked_status_blocks(tmp_path):
@@ -140,7 +346,7 @@ def test_blocked_status_blocks(tmp_path):
         "Status: pending\n"
     )
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", blocked_prd)
-    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
     write_file(
@@ -159,7 +365,7 @@ def test_missing_tasks_blocks(tmp_path):
     write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
-    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -172,7 +378,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     write_active_feature(tmp_path, "demo-checkout")
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", approved_prd())
     write_file(tmp_path, "docs/plan/demo-checkout.md", "# Plan")
-    write_file(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
+    write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_research_doc(tmp_path)
     write_json(
         tmp_path,
@@ -435,7 +641,7 @@ def test_allows_pending_research_baseline(tmp_path):
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
-    write_file(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(
         tmp_path,
         f"docs/tasklist/{ticket}.md",
@@ -505,7 +711,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
     write_active_feature(tmp_path, slug)
     write_file(tmp_path, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_file(tmp_path, f"docs/plan/{slug}.md", "# Plan")
-    write_file(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
+    write_json(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, slug)
     write_file(
         tmp_path,
@@ -599,7 +805,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_research_doc(tmp_path, ticket)
     write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
-    write_file(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(
         tmp_path,
         f"docs/tasklist/{ticket}.md",

@@ -19,9 +19,25 @@
       "start": {
         "description": "Базовый режим: минимальные права; хуки берутся из плагина feature-dev-aidd.",
         "permissions": {
-          "allow": ["Read", "Write", "Edit", "Grep", "Glob", "Find"],
-          "ask": ["Bash(git add:*)", "Bash(git commit:*)"],
-          "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
+          "allow": [
+            "Read",
+            "Write",
+            "Edit",
+            "Grep",
+            "Glob",
+            "Find",
+            "Bash(git add:*)",
+            "Bash(find:*)"
+          ],
+          "ask": [
+            "Bash(git commit:*)"
+          ],
+          "deny": [
+            "Bash(curl:*)",
+            "Read(./.env)",
+            "Read(./.env.*)",
+            "Read(./secrets/**)"
+          ]
         }
       },
       "strict": {
@@ -39,14 +55,28 @@
             "Bash(git diff:*)",
             "Bash(git rev-parse:*)",
             "Bash(git checkout:*)",
+            "Bash(git add:*)",
             "Bash(./gradlew:*)",
             "Bash(gradle:*)",
             "Bash(.claude/hooks/:*)",
+            "Bash(find:*)",
+            "Bash(python3:*)",
             "Bash(python3 scripts/:*)",
             "Bash(python3 aidd/tools/:*)",
-            "Bash(claude-workflow:*)"
+            "Bash(claude-workflow:*)",
+            "SlashCommand(/feature-dev-aidd:idea-new:*)",
+            "SlashCommand(/feature-dev-aidd:researcher:*)",
+            "SlashCommand(/feature-dev-aidd:plan-new:*)",
+            "SlashCommand(/feature-dev-aidd:tasks-new:*)",
+            "SlashCommand(/feature-dev-aidd:implement:*)",
+            "SlashCommand(/feature-dev-aidd:review-prd:*)",
+            "SlashCommand(/feature-dev-aidd:review:*)",
+            "SlashCommand(/feature-dev-aidd:qa:*)"
           ],
-          "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
+          "ask": [
+            "Bash(git commit:*)",
+            "Bash(git push:*)"
+          ],
           "deny": [
             "Bash(curl:*)",
             "Read(./.env)",
@@ -69,15 +99,35 @@
       "Bash(git diff:*)",
       "Bash(git rev-parse:*)",
       "Bash(git checkout:*)",
+      "Bash(git add:*)",
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
       "Bash(.claude/hooks/:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)",
       "Bash(python3 scripts/:*)",
       "Bash(python3 aidd/tools/:*)",
-      "Bash(claude-workflow:*)"
+      "Bash(claude-workflow:*)",
+      "SlashCommand(/feature-dev-aidd:idea-new:*)",
+      "SlashCommand(/feature-dev-aidd:researcher:*)",
+      "SlashCommand(/feature-dev-aidd:plan-new:*)",
+      "SlashCommand(/feature-dev-aidd:tasks-new:*)",
+      "SlashCommand(/feature-dev-aidd:implement:*)",
+      "SlashCommand(/feature-dev-aidd:review-prd:*)",
+      "SlashCommand(/feature-dev-aidd:review:*)",
+      "SlashCommand(/feature-dev-aidd:qa:*)"
     ],
-    "ask": ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"],
-    "deny": ["Bash(curl:*)", "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)", "Write(./infra/prod/**)"]
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(curl:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Write(./infra/prod/**)"
+    ]
   },
   "automation": {
     "format": {
@@ -90,8 +140,12 @@
     },
     "tests": {
       "runner": "bash",
-      "defaultTasks": ["scripts/ci-lint.sh"],
-      "fallbackTasks": ["scripts/ci-lint.sh"],
+      "defaultTasks": [
+        "scripts/ci-lint.sh"
+      ],
+      "fallbackTasks": [
+        "scripts/ci-lint.sh"
+      ],
       "changedOnly": true,
       "strictDefault": 1,
       "moduleMatrix": [],
@@ -99,8 +153,14 @@
         "enabled": true,
         "marker": "reports/reviewer/{slug}.json",
         "field": "tests",
-        "requiredValues": ["required"],
-        "optionalValues": ["optional", "skipped", "not-required"],
+        "requiredValues": [
+          "required"
+        ],
+        "optionalValues": [
+          "optional",
+          "skipped",
+          "not-required"
+        ],
         "forceEnv": "FORCE_TESTS",
         "skipEnv": "SKIP_TESTS"
       },

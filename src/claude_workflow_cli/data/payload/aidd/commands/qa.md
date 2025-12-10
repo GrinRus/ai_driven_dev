@@ -20,7 +20,7 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - Активный тикет (`aidd/docs/.active_ticket`), slug-hint (`aidd/docs/.active_feature`).
-- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md (QA секция), логи предыдущих гейтов (`gate-tests`,`gate-api-contract`,`gate-db-migration`).
+- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md (QA секция), логи предыдущих гейтов (`gate-tests`).
 - Diff/логи выполнения (`git diff`,`reports/reviewer/`&lt;ticket&gt;`.json`, тесты, демо окружение).
 
 ## Когда запускать
@@ -29,7 +29,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - Обязательный вызов:`!("claude-workflow" qa --ticket "`&lt;ticket&gt;`" --report "reports/qa/`&lt;ticket&gt;`.json" --gate --emit-json)`.
-- Гейт`.claude/hooks/gate-qa.sh`использует`config/gates.json: qa.command`(по умолчанию`claude-workflow qa --gate`), блокирует merge при`blocker/critical`и отсутствии отчёта`reports/qa/`&lt;ticket&gt;`.json`.
+- Гейт`${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh`использует`config/gates.json: qa.command`(по умолчанию`claude-workflow qa --gate`), блокирует merge при`blocker/critical`и отсутствии отчёта`reports/qa/`&lt;ticket&gt;`.json`.
 - Зафиксируй прогресс:`!("claude-workflow" progress --source qa --ticket "`&lt;ticket&gt;`")`.
 
 ## Что редактируется

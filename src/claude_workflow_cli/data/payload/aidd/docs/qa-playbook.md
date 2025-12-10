@@ -30,7 +30,7 @@
 claude-workflow qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate
 
 # dry-run (не проваливать выполнение при блокерах)
-CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
+CLAUDE_QA_DRY_RUN=1 "$CLAUDE_PROJECT_DIR"/${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
 ```
 
 Перед завершением каждой сессии QA обновите чеклист, сформируйте строку `Checkbox updated: …` и выполните `claude-workflow progress --source qa --ticket <ticket>` — гейт `gate-workflow.sh` блокирует правки без новых `- [x]`.
@@ -41,7 +41,7 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
    ветки (см. `.github/workflows/ci.yml`).
 2. Перед шагом QA установите
    `QA_AGENT_DIFF_BASE=origin/${{ github.event.pull_request.base.ref }}`.
-3. Запустите `./.claude/hooks/gate-qa.sh --payload '{}'`. Скрипт вызовет
+3. Запустите `"$CLAUDE_PROJECT_DIR"/${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-qa.sh --payload '{}'`. Скрипт вызовет
    `claude-workflow qa --gate` и провалит job при блокерах.
 
 ## Severity и статус гейта

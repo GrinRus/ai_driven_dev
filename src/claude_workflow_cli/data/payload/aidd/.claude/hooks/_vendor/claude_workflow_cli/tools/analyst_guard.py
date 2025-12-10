@@ -160,6 +160,18 @@ def _has_pending_baseline(root: Path, ticket: str, doc_text: Optional[str]) -> b
     return auto_mode and is_new_project and ("контекст пуст" in doc_text.lower())
 
 
+def _detect_status(text: str, dialog_section: Optional[str]) -> tuple[Optional[str], str]:
+    """Extract Status with preference to dialog section and return source hint."""
+    if dialog_section:
+        match = STATUS_RE.search(dialog_section)
+        if match:
+            return match.group(1).upper(), "dialog"
+    match = STATUS_RE.search(text)
+    if match:
+        return match.group(1).upper(), "any"
+    return None, ""
+
+
 def validate_prd(
     root: Path,
     ticket: str,
@@ -224,10 +236,9 @@ def validate_prd(
             f"BLOCK: отсутствуют ответы для вопросов {sample}. Ответьте в формате «Ответ N: …» и повторите /idea-new {ticket}."
         )
 
-    status_match = STATUS_RE.search(text)
-    status = status_match.group(1).upper() if status_match else None
+    status, status_source = _detect_status(text, dialog_section)
     if status is None:
-        raise AnalystValidationError("BLOCK: в PRD отсутствует строка `Status:` → обновите раздел `## Диалог analyst`.")
+        raise AnalystValidationError("BLOCK: в PRD отсутствует строка `Status:` в разделе диалога → обновите `## Диалог analyst`.")
     if status == "DRAFT":
         raise AnalystValidationError(
             "BLOCK: PRD в статусе draft. Заполните диалог analyst и обновите Status: READY перед запуском analyst-check."
@@ -248,8 +259,8 @@ def validate_prd(
     if require_ready and status != "READY":
         if status == "BLOCKED" and not allow_blocked:
             raise AnalystValidationError(
-                f"BLOCK: PRD помечен Status: {status}. Ответьте на вопросы и доведите аналитический цикл до READY."
-            )
+            f"BLOCK: PRD помечен Status: {status} (source: {status_source or 'dialog'}). Ответьте на вопросы и доведите аналитический цикл до READY."
+        )
         if status == "PENDING":
             raise AnalystValidationError("BLOCK: статус PENDING. Закройте вопросы и установите Status: READY.")
 
@@ -322,6 +333,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     root = Path(args.target).resolve()
+    if not (root / "docs").exists() and (root / "aidd" / "docs").exists():
+        root = (root / "aidd").resolve()
     settings = load_settings(root)
     try:
         summary = validate_prd(

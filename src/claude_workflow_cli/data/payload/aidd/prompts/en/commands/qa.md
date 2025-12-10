@@ -23,8 +23,8 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - Required call:`!("claude-workflow" qa --ticket "&lt;ticket&gt;" --report "reports/qa/&lt;ticket&gt;.json" --gate --emit-json)`.
-- QA auto-runs tests from`config/gates.json: qa.tests`(default`.claude/hooks/format-and-test.sh`); logs to`reports/qa/&lt;ticket&gt;-tests*.log`, summary in report (`tests_summary`,`tests_executed`). Overrides:`--skip-tests`/`--allow-no-tests`or env`CLAUDE_QA_SKIP_TESTS`/`CLAUDE_QA_ALLOW_NO_TESTS`.
-- Gate`.claude/hooks/gate-qa.sh`uses`config/gates.json: qa.command`(default`claude-workflow qa --gate`), blocks merge on`blocker/critical`or missing`reports/qa/&lt;ticket&gt;.json`, checks tasklist progress (`progress --source qa|handoff`), and runs`tasks-derive --source qa --append`when`handoff=true`.
+- QA auto-runs tests from`config/gates.json: qa.tests`(default`${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`); logs to`reports/qa/&lt;ticket&gt;-tests*.log`, summary in report (`tests_summary`,`tests_executed`). Overrides:`--skip-tests`/`--allow-no-tests`or env`CLAUDE_QA_SKIP_TESTS`/`CLAUDE_QA_ALLOW_NO_TESTS`.
+- Gate`${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh`uses`config/gates.json: qa.command`(default`claude-workflow qa --gate`), blocks merge on`blocker/critical`or missing`reports/qa/&lt;ticket&gt;.json`, checks tasklist progress (`progress --source qa|handoff`), and runs`tasks-derive --source qa --append`when`handoff=true`.
 - Record progress:`!("claude-workflow" progress --source qa --ticket "&lt;ticket&gt;")`.
 
 ## What is Edited

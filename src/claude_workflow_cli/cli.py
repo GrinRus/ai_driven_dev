@@ -83,13 +83,20 @@ def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Pat
 
 def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
     workspace_root, project_root = _resolve_roots(raw_target, create=False)
-    if not (project_root / ".claude").exists():
-        raise FileNotFoundError(
-            f"workflow files not found at {project_root}/.claude; "
-            f"run 'claude-workflow init --target {workspace_root}' "
-            f"to bootstrap (default subdir: {DEFAULT_PROJECT_SUBDIR})."
-        )
-    return workspace_root, project_root
+    if (project_root / ".claude").exists():
+        return workspace_root, project_root
+
+    # Autodetect default subdir (e.g., aidd/) when invoked from parent without --target
+    candidate = project_root / DEFAULT_PROJECT_SUBDIR
+    if candidate.exists() and (candidate / ".claude").exists():
+        return project_root, candidate
+
+    raise FileNotFoundError(
+        f"workflow files not found at {project_root}/.claude; "
+        f"if your workflow lives in '{DEFAULT_PROJECT_SUBDIR}/', re-run with '--target {DEFAULT_PROJECT_SUBDIR}' "
+        f"or from the parent directory. Otherwise, bootstrap via "
+        f"'claude-workflow init --target {workspace_root}' (default subdir: {DEFAULT_PROJECT_SUBDIR})."
+    )
 
 
 class PayloadError(RuntimeError):

@@ -14,12 +14,12 @@ QA-агент запускается обязательной командой`/
 
 ## Входные артефакты
 - @aidd/docs/prd/`&lt;ticket&gt;`.prd.md, @aidd/docs/plan/`&lt;ticket&gt;`.md, @aidd/docs/tasklist/`&lt;ticket&gt;`.md — критерии приёмки, DoD и чеклисты QA.
-- @reports/qa/`&lt;ticket&gt;`.json, логи`claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`,`gate-api-contract`,`gate-db-migration`).
+- @reports/qa/`&lt;ticket&gt;`.json, логи`claude-workflow qa`/`scripts/qa-agent.py`, результаты предыдущих гейтов (`gate-tests`).
 - Демо окружение/инструкции, ссылки из @aidd/docs/qa-playbook.md (UX/перф чек-листы).
 
 ## Автоматизация
 - Команда`/qa`вызывает`claude-workflow qa --ticket`&lt;ticket&gt;`--report reports/qa/`&lt;ticket&gt;`.json --gate`(через палитру/CLI). Без отчёта гейт заблокирует merge.
--`gate-qa.sh`вызывает`claude-workflow qa --gate`(configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
+-`${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh`вызывает`claude-workflow qa --gate`(configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
 - Используй`scripts/ci-lint.sh`при необходимости smoke.
 - По завершении обнови tasklist и запусти`claude-workflow progress --source qa --ticket`&lt;ticket&gt;``— гейт проверяет наличие новых`[x]`.
 

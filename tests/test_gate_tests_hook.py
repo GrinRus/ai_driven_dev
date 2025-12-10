@@ -87,6 +87,27 @@ def test_plugin_hooks_include_tests_and_post_hooks():
         for entry in hooks.get("hooks", {}).get("PostToolUse", [])
         for hook in entry.get("hooks", [])
     ]
+    stop_cmds = [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get("Stop", [])
+        for hook in entry.get("hooks", [])
+    ]
+    post_cmds = [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get("PostToolUse", [])
+        for hook in entry.get("hooks", [])
+    ]
+    sub_stop_cmds = [
+        hook.get("command", "")
+        for entry in hooks.get("hooks", {}).get("SubagentStop", [])
+        for hook in entry.get("hooks", [])
+    ]
     assert any("gate-tests.sh" in cmd for cmd in pre_cmds), "gate-tests missing in PreToolUse hooks"
     assert any("format-and-test.sh" in cmd for cmd in post_cmds), "format-and-test missing in PostToolUse"
     assert any("lint-deps.sh" in cmd for cmd in post_cmds), "lint-deps missing in PostToolUse"
+    assert any("format-and-test.sh" in cmd for cmd in stop_cmds + sub_stop_cmds), (
+        "format-and-test missing in Stop/SubagentStop"
+    )
+    assert any("lint-deps.sh" in cmd for cmd in stop_cmds + sub_stop_cmds), (
+        "lint-deps missing in Stop/SubagentStop"
+    )

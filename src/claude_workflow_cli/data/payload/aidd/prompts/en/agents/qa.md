@@ -4,7 +4,7 @@ description: Final QA gate: regressions, UX, performance, release artifacts.
 lang: en
 prompt_version: 1.0.1
 source_version: 1.0.1
-tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh), Bash(claude-workflow progress:*)
+tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default
 ---

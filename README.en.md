@@ -10,7 +10,7 @@
 _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 
 ## TL;DR
-- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new → claude-workflow research --deep-code → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
+- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new (analyst) → research when needed → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
 - Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
@@ -61,7 +61,7 @@ _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 ## Agent-first principles
 - **Slug-hint and repository first, questions later.** Analyst starts with the slug-hint stored in `aidd/docs/.active_feature`, then reads `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (`code_index`/`reuse_candidates`), and existing plans before creating any Q&A. Researcher records every command (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) and builds the call/import graph with Claude Code; implementer updates the tasklist plus lists executed `./gradlew` / `claude-workflow progress` runs before pinging the user.
 - **Commands & logs are part of the answer.** Prompts and templates now require documenting allowed CLI invocations (Gradle, `rg`, `claude-workflow`) and attaching logs/paths so downstream agents can reproduce the steps. Tasklist and research templates include explicit `Commands/Reports` sections.
-- **Auto-generated artifacts.** `/idea-new` scaffolds PRD, refreshes research reports, and instructs the analyst to mine repository data. The `templates/prompt-agent.md` / `templates/prompt-command.md` presets describe how to document inputs, gates, commands, and fail-fast rules in an agent-first style.
+- **Auto-generated artifacts.** `/idea-new` scaffolds PRD, triggers the analyst (research is on-demand when context is thin), and instructs the analyst to mine repository data. The `templates/prompt-agent.md` / `templates/prompt-command.md` presets describe how to document inputs, gates, commands, and fail-fast rules in an agent-first style.
 
 Advanced customization tips are covered in `workflow.md` and `aidd/docs/customization.md`.
 
@@ -111,7 +111,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 
 ### Slash-command definitions
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
-- `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `aidd/docs/.active_ticket`/`.active_feature`, invokes `analyst`, assembles the PRD, and captures outstanding questions **starting from an auto-generated `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.**
+- `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `aidd/docs/.active_ticket`/`.active_feature`, invokes `analyst` (research on demand), assembles the PRD, and captures outstanding questions **starting from an auto-generated `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.**
 - `.claude/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `aidd/docs/research/<ticket>.md`.
 - `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: approved`) before plan creation.
 - `.claude/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
@@ -146,7 +146,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 ## Architecture & relationships
 - The bootstrap (`init-claude-workflow.sh`) generates `.claude/settings.json`, gates, and slash-command definitions; the `feature-dev-aidd` plugin attaches the hook pipeline.
 - Pre/post hooks (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) live in `aidd/hooks/hooks.json` and point to `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`.
-- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `aidd/docs/**`, enforcing the `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`researcher`, `prd_review`, `tests_required`) as your process demands.
+- Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `aidd/docs/**`, enforcing the `/idea-new → research (when needed) → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`researcher`, `prd_review`, `tests_required`) as your process demands.
 - `.claude/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active ticket/slug hint, and `moduleMatrix` to decide between selective and full test runs.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
 
@@ -159,7 +159,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `aidd/docs/qa-playbook.md`.
 - **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky Gradle changes.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
-- **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → claude-workflow research → /plan-new → /review-prd → /tasks-new` gate sequence.
+- **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → research (when needed) → /plan-new → /review-prd → /tasks-new` gate sequence.
 - **`examples/apply-demo.sh`** — applies the bootstrap to a Gradle project step by step, handy for workshops and demos.
 
 ## Test toolkit
@@ -269,8 +269,8 @@ You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `aidd/docs
 
 ## Feature kickoff checklist
 
-1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `aidd/docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.** Answer every analyst prompt as `Answer N: …`, update the PRD link to `aidd/docs/research/<ticket>.md`, and keep iterating until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
-2. Generate discovery artifacts: `/idea-new`, `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]` + `/researcher`, `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the ticket is already in place after step 1 and verified via `analyst-check`).
+1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `aidd/docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.** Answer every analyst prompt as `Answer N: …`; if context is thin, trigger research (`/researcher` or `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), then return to the analyst until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
+2. Generate discovery artifacts: `/idea-new`, research when needed (`claude-workflow research --ticket <ticket> --auto --deep-code --call-graph` + `/researcher`), `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the ticket is already in place after step 1 and verified via `analyst-check`).
    > Call graph (Java/Kotlin via tree-sitter) defaults to filter `<ticket>|<keywords>` and limit 300 edges in the context; the full graph is saved separately at `reports/research/<ticket>-call-graph-full.json`. Tune with `--graph-filter/--graph-limit/--graph-langs`.
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.

@@ -2,7 +2,10 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
+if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
@@ -130,17 +133,22 @@ analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticke
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
-if ! "${analyst_cmd[@]}" >/dev/null; then
+if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
+  if [[ -n "$analyst_output" ]]; then
+    echo "$analyst_output" >&2
+  fi
   exit 2
 fi
 prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
-if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
-  if [[ -n "$review_msg" ]]; then
-    echo "$review_msg"
-  else
-    echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+if [[ -f "docs/plan/$ticket.md" ]]; then
+  if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+    if [[ -n "$review_msg" ]]; then
+      echo "$review_msg"
+    else
+      echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+    fi
+    exit 2
   fi
-  exit 2
 fi
 
 if ! research_msg="$(python3 - "$ticket" "$current_branch" <<'PY'

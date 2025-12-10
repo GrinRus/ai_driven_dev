@@ -141,14 +141,24 @@ resolve_script_path() {
   if [[ -z "$relative" ]]; then
     return 1
   fi
-  if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/$relative" ]]; then
-    printf '%s\n' "$ROOT_DIR/$relative"
-    return 0
+  local candidates=()
+  if [[ -n "${ROOT_DIR:-}" ]]; then
+    candidates+=("$ROOT_DIR")
   fi
-  if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/aidd/$relative" ]]; then
-    printf '%s\n' "$ROOT_DIR/aidd/$relative"
-    return 0
+  if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
+    candidates+=("${CLAUDE_PLUGIN_ROOT}")
   fi
+  local root
+  for root in "${candidates[@]}"; do
+    if [[ -f "$root/$relative" ]]; then
+      printf '%s\n' "$root/$relative"
+      return 0
+    fi
+    if [[ -f "$root/aidd/$relative" ]]; then
+      printf '%s\n' "$root/aidd/$relative"
+      return 0
+    fi
+  done
   return 1
 }
 

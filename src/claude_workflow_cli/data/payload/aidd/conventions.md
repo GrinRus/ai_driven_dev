@@ -5,5 +5,5 @@
 - **Коммиты**: оформляем `git commit`, сообщения валидируются правилами `config/conventions.json`.
 - **Документация**: PRD (`aidd/aidd/docs/prd/<ticket>.prd.md`), план (`aidd/aidd/docs/plan/<ticket>.md`), tasklist (`aidd/aidd/docs/tasklist/<ticket>.md`), при необходимости ADR (`aidd/aidd/docs/adr/*.md`).
 - **Автогейты**: базовый цикл требует готовности PRD/плана/tasklist (`aidd/aidd/docs/tasklist/<ticket>.md`); дополнительные проверки включаются флагами в `config/gates.json`.
-- **Тесты**: `.claude/hooks/format-and-test.sh` запускается автоматически после записей; при длительных правках можно вызвать его вручную.
+- **Тесты**: `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` запускается автоматически после записей; при длительных правках можно вызвать его вручную.
 - **Контроль зависимостей**: актуальный allowlist — `config/allowed-deps.txt`, изменения проходят через ревью.
