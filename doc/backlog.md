@@ -750,6 +750,12 @@ _Статус: новый, приоритет 1. Цель — сделать `/i
 
 _Статус: новый, приоритет 1. Цель — отказаться от опционального `--target`: всегда ставим/используем payload в `aidd/`, пути фиксированы во всех инструментах, хуках и документации._
 
+### Фикс багов
+- [ ] `aidd/hooks/hooks.json` + все гейты: не падать при пустом `CLAUDE_PLUGIN_ROOT`, вычислять корень из `CLAUDE_PROJECT_DIR`/`pwd` → `<workspace>/aidd`, выдавать явное сообщение вместо блокировки записи.
+- [ ] `aidd/.claude/hooks/gate-workflow.sh`, `aidd/.claude/hooks/lib.sh`: убрать смешение `docs/` и `aidd/docs/`, запретить создание артефактов в обоих местах, логировать WARN при чужом `cwd`, единообразно резолвить `ROOT_DIR=<workspace>/aidd`.
+- [ ] `aidd/docs/tasklist/*.md` + прогресс: выровнять путь/формат чекбоксов с gate (без дублей дат), добавить тест, что `progress` видит задачи и не пишет мусор при обновлении.
+- [ ] Тесты/смоук: сценарий записи файла при пустом `CLAUDE_PLUGIN_ROOT` и запуске из корня — хуки не падают, блокируют только по делу; добавить кейс с дублирующими `docs/`/`aidd/docs/`.
+
 ### Жёсткая фиксация таргета `aidd/` в CLI и bootstrap
 - [ ] `src/claude_workflow_cli/resources.py`, `src/claude_workflow_cli/cli.py`: трактовать `--target` как workspace (по умолчанию `.`) и всегда создавать/искать `<workspace>/aidd`; убрать авто-fallback на родителя/`./.claude`, понятные ошибки при запуске вне `aidd/`, обновить `build_parser` help и все команды (`init/preset/research/analyst-check/...`) на единый контракт.
 - [ ] `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh` + корневой `init-claude-workflow.sh`: работать строго внутри `aidd/`, убрать зеркалирование `.claude/.claude-plugin` в workspace root, оставить явные сообщения про `CLAUDE_TEMPLATE_DIR` и пути результата; обновить манифест payload.
