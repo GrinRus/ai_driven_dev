@@ -531,8 +531,8 @@
     {
       "path": "aidd/scripts/prd-review-agent.py",
       "type": "file",
-      "size": 9082,
-      "sha256": "885c3fa02df1dd14907daa07dfff5e4e5f6f85c657567311cde745b7769572fb"
+      "size": 9194,
+      "sha256": "7c9aae48421bbe496e05fc81287ad70e848d986405e52fecac4ece9518741883"
     },
     {
       "path": "aidd/scripts/prd_review_gate.py",
