@@ -18,7 +18,7 @@ permissionMode: default
 - @aidd/docs/research/`&lt;ticket&gt;`.md и slug-hint в`aidd/docs/.active_feature`— для сопоставления целей.
 
 ## Автоматизация
--`/review-prd`вызывает prd-reviewer и обновляет раздел`## PRD Review`в PRD, а также записывает JSON отчёт в`reports/prd/`&lt;ticket&gt;`.json`.
+-`/review-prd`вызывает prd-reviewer и обновляет раздел`## PRD Review`в PRD, а также записывает JSON отчёт в`reports/prd/`&lt;ticket&gt;`.json` (в корне `aidd`; если запускается из родительского каталога, путь отчёта нужно указать через `aidd/reports/prd/…`).
 -`gate-workflow`требует`Status: approved`(если не указано разрешение). Блокирующие action items добавляются в tasklist.
 
 ## Пошаговый план

@@ -68,8 +68,8 @@
     },
     {
       "path": "aidd/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-      "sha256": "dd2ea2b2729c8709faee212673c3823674e21b835177e8cd39914457be670cc5",
-      "size": 14519,
+      "sha256": "14c2d86afdb2c3657781328129979c989bf899ce51c6e9b05b00281fe75a17ca",
+      "size": 14615,
       "type": "file"
     },
     {
@@ -116,15 +116,15 @@
     },
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
-      "sha256": "29a37bb7a460dd159b2bc867bd75693366fc6aae3cc7cea0230cf76632694359",
-      "size": 16102,
+      "sha256": "1a8c170cb607e8883eb7777264992bdf15cadce8eab7e812aab616948411b9a0",
+      "size": 16515,
       "type": "file"
     },
     {
       "path": "aidd/.claude/hooks/lib.sh",
       "type": "file",
-      "size": 4952,
-      "sha256": "0766c57a417aa25e93cd65f2a2b582c4aeb7164d0f099a45920292abde87b961"
+      "size": 5258,
+      "sha256": "1539917d4f5277395cbbe6f9b3fc61ce03150a606eed80e84e431caa19c4a54d"
     },
     {
       "path": "aidd/.claude/hooks/lint-deps.sh",
@@ -146,9 +146,9 @@
     },
     {
       "path": "aidd/agents/analyst.md",
-      "type": "file",
-      "size": 8618,
-      "sha256": "84b71b2068fdb0abae31457563c96ac9aab471445709e4657b80d1f991c4e07c"
+      "sha256": "8c25925fa43c83b6eafd49a3be2a8c7203139ce6d6b61fa2d0aa254c9bb3dabf",
+      "size": 5238,
+      "type": "file"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -165,8 +165,8 @@
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3317,
-      "sha256": "f7a2b3859b7770226372cc1860f33421f37c7e259e26cf498457327bf66cc2dd"
+      "size": 3505,
+      "sha256": "1ed2c0869578768993235703e2438ff950b9df000c6df09a69f241ec867047d9"
     },
     {
       "path": "aidd/agents/qa.md",
@@ -230,8 +230,8 @@
     },
     {
       "path": "aidd/commands/idea-new.md",
-      "sha256": "8443492ee6031383df1416f9b4c8a0531cf3ef88b92c5e687f3386fa3c0e87e0",
-      "size": 9045,
+      "sha256": "d201f1cb2b642b23b01e63a5fd834a80151bd2091f7a61b5cd67b0047a0c99d8",
+      "size": 6928,
       "type": "file"
     },
     {
@@ -291,8 +291,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 2830,
-      "sha256": "01bb4539db0acf052f4a23e5dc5ee87493a418ead911e73e94e767ae5656c0d0"
+      "size": 2840,
+      "sha256": "2c4de64aa5e594ff7d9413a2467fea067514e9885e355ef83effd9c798c15cfd"
     },
     {
       "path": "aidd/conventions.md",
@@ -464,8 +464,8 @@
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
-      "sha256": "dfef47e68f1183980c53ab6c10033974b814a8caad5b5a3ecbcbbc4af0fb5e14",
-      "size": 4912,
+      "sha256": "b30bb913eb8bebfd6ff2bfa4c7b6cb7623859f776449fa37e0dac3debddbc2c4",
+      "size": 4305,
       "type": "file"
     },
     {
@@ -531,8 +531,8 @@
     {
       "path": "aidd/scripts/prd-review-agent.py",
       "type": "file",
-      "size": 9082,
-      "sha256": "885c3fa02df1dd14907daa07dfff5e4e5f6f85c657567311cde745b7769572fb"
+      "size": 9194,
+      "sha256": "7c9aae48421bbe496e05fc81287ad70e848d986405e52fecac4ece9518741883"
     },
     {
       "path": "aidd/scripts/prd_review_gate.py",
@@ -554,8 +554,8 @@
     },
     {
       "path": "aidd/scripts/smoke-workflow.sh",
-      "sha256": "f40f85a0a9147f4a7616b54be50849bea1b69ad8edc246899bae81dc069157e2",
-      "size": 14458,
+      "sha256": "b66a858b45e8c7e594620139acb37d3d3dc535578cbaa1c41b94b16316adef94",
+      "size": 16149,
       "type": "file"
     },
     {
@@ -638,8 +638,8 @@
     },
     {
       "path": "aidd/tools/set_active_feature.py",
-      "sha256": "d4b1e6412c51c3a1d1e6c10aae39551b6283e94b5f3321b61259d0876dfb8a56",
-      "size": 8981,
+      "sha256": "af032e4440b3537e8d99a62e49ff51249536f3c0933cecf656773f86beac4fbe",
+      "size": 8865,
       "type": "file"
     },
     {

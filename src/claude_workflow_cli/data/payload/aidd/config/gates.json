@@ -1,6 +1,6 @@
 {
-  "feature_ticket_source": "docs/.active_ticket",
-  "feature_slug_hint_source": "docs/.active_feature",
+  "feature_ticket_source": "aidd/docs/.active_ticket",
+  "feature_slug_hint_source": "aidd/docs/.active_feature",
   "tests_required": "soft",
   "deps_allowlist": false,
   "prd_review": {
