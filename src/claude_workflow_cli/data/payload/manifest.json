@@ -116,8 +116,8 @@
     },
     {
       "path": "aidd/.claude/hooks/gate-workflow.sh",
-      "sha256": "29a37bb7a460dd159b2bc867bd75693366fc6aae3cc7cea0230cf76632694359",
-      "size": 16102,
+      "sha256": "097e308ba0e64529e2a161c07f63a5af5311cc25a76495be9b4492ff22a8c0a5",
+      "size": 16167,
       "type": "file"
     },
     {
