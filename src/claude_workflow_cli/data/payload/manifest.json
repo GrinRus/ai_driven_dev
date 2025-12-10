@@ -123,8 +123,8 @@
     {
       "path": "aidd/.claude/hooks/lib.sh",
       "type": "file",
-      "size": 4952,
-      "sha256": "0766c57a417aa25e93cd65f2a2b582c4aeb7164d0f099a45920292abde87b961"
+      "size": 5192,
+      "sha256": "3e6c484a7750c16834c83439853eb4acf6da7cfa9d94195e390cbc07b0eccfd0"
     },
     {
       "path": "aidd/.claude/hooks/lint-deps.sh",
