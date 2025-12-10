@@ -165,8 +165,8 @@
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3317,
-      "sha256": "f7a2b3859b7770226372cc1860f33421f37c7e259e26cf498457327bf66cc2dd"
+      "size": 3505,
+      "sha256": "1ed2c0869578768993235703e2438ff950b9df000c6df09a69f241ec867047d9"
     },
     {
       "path": "aidd/agents/qa.md",
