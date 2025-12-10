@@ -123,8 +123,8 @@
     {
       "path": "aidd/.claude/hooks/lib.sh",
       "type": "file",
-      "size": 5192,
-      "sha256": "3e6c484a7750c16834c83439853eb4acf6da7cfa9d94195e390cbc07b0eccfd0"
+      "size": 5446,
+      "sha256": "a33ea48833b49aaa5e9422d41b12b365910dbdba8be241afb92e0cd7d8a06481"
     },
     {
       "path": "aidd/.claude/hooks/lint-deps.sh",
@@ -291,8 +291,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 2830,
-      "sha256": "01bb4539db0acf052f4a23e5dc5ee87493a418ead911e73e94e767ae5656c0d0"
+      "size": 2915,
+      "sha256": "d0c867042dcc1c037d600fdadeca1d9c50ed6cb632ea41bf462ec9e3cd3885d5"
     },
     {
       "path": "aidd/conventions.md",

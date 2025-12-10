@@ -32,6 +32,13 @@ elif mode == "config_get":
         print(default)
         raise SystemExit(0)
     value = data.get(key, default)
+    if isinstance(value, list):
+        selected = None
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                selected = item
+                break
+        value = selected if selected is not None else default
     if value is None:
         print(default)
     elif isinstance(value, bool):
