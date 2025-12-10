@@ -31,7 +31,7 @@ disable-model-invocation: false
 - В начале работы над фичей, до плана/кода.
 - Повторно — только с `--force`, если нужно переинициализировать тикет/PRD.
 
-## Автоматические шаги и переменные
+## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py` синхронизирует `aidd/docs/.active_*` (fallback на `aidd/docs`), scaffold'ит PRD.
 - Внутри `/idea-new` автоматически запускается **analyst**; при нехватке контекста он инициирует `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (или просит пользователя, если задан `--no-research`).
 - Флаги: `--auto-research` (по умолчанию on), `--no-research` — отключить автозапуск исследования.
