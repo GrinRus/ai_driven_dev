@@ -208,8 +208,6 @@ def _scaffold_prd_manual(root: Path, ticket: str) -> bool:
 def main() -> None:
     args = parse_args()
     root = Path(args.target).resolve()
-    if not (root / "docs").exists() and (root / "aidd" / "docs").exists():
-        root = (root / "aidd").resolve()
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     resolved_slug_hint = args.slug_hint
