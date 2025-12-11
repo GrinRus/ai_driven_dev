@@ -55,6 +55,11 @@ class InitClaudeWorkflowTests(unittest.TestCase):
 
         conventions = (project_root / "config/conventions.json").read_text(encoding="utf-8")
         self.assertIn('"mode": "ticket-prefix"', conventions)
+        # workspace-root plugin files
+        settings_root = workdir / ".claude" / "settings.json"
+        marketplace_root = workdir / ".claude-plugin" / "marketplace.json"
+        self.assertTrue(settings_root.exists(), "workspace/.claude/settings.json should be created")
+        self.assertTrue(marketplace_root.exists(), "workspace/.claude-plugin/marketplace.json should be created")
 
     def test_dry_run_does_not_create_files(self):
         workdir = self.make_tempdir()
