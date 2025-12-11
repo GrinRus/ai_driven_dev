@@ -10,7 +10,7 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(./aidd/tools/set_active_feature.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
   - "Bash(claude-workflow research:*)"
 model: inherit
 disable-model-invocation: false
@@ -40,7 +40,7 @@ disable-model-invocation: false
 - PRD и tasklist получают ссылки на отчёт (если отсутствуют).
 
 ## Пошаговый план
-1. Убедись, что активный ticket =`$1`. Если нет — запусти`/idea-new $1`или`./aidd/tools/set_active_feature.py $1`.
+1. Убедись, что активный ticket =`$1`. Если нет — запусти`/idea-new $1`или`${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py $1`.
 2. Выполни`claude-workflow research --ticket "$1" --auto --deep-code --call-graph [доп. опции]`(при необходимости`--reuse-only`,`--langs`,`--graph-langs`); если проект не JVM, call graph может быть пустым — зафиксируй предупреждение.
 3. Если CLI сообщает`0 matches`, создай`aidd/docs/research/$1.md`из шаблона и добавь baseline «Контекст пуст, требуется baseline».
 4. Запусти саб-агента **researcher** (через палитру) с JSON из`reports/research/$1-context.json`, используй`call_graph`/`import_graph`(Java/Kotlin) и при необходимости расширь связи в Claude Code, обнови отчёт и перенеси рекомендации.
