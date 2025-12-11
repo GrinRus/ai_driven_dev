@@ -8,6 +8,7 @@ from textwrap import dedent
 from .helpers import (
     PAYLOAD_ROOT,
     ensure_gates_config,
+    ensure_project_root,
     git_config_user,
     git_init,
     run_hook,
@@ -919,11 +920,10 @@ def test_progress_blocks_without_checkbox(tmp_path):
 def test_hook_uses_aidd_docs_when_workspace_has_legacy_docs(tmp_path):
     slug = "demo-checkout"
     legacy_root = tmp_path
-    # create legacy docs that must be ignored by hook
+    # legacy docs that must be ignored by hook
     write_file(legacy_root, "docs/prd/legacy.prd.md", "# Legacy PRD")
     # workspace contains aidd/ with proper docs
-    project_root = legacy_root / "aidd"
-    project_root.mkdir(exist_ok=True)
+    project_root = ensure_project_root(legacy_root)
     write_active_feature(project_root, slug)
     write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_file(project_root, f"docs/plan/{slug}.md", "# Plan")
@@ -941,8 +941,7 @@ def test_hook_uses_aidd_docs_when_workspace_has_legacy_docs(tmp_path):
 
 def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
     slug = "demo-checkout"
-    project_root = tmp_path / "aidd"
-    project_root.mkdir(exist_ok=True)
+    project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, slug)
     write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_file(project_root, f"docs/plan/{slug}.md", "# Plan")
@@ -951,15 +950,47 @@ def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
     write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
-    env = {
-        "CLAUDE_PLUGIN_ROOT": "",
-        "CLAUDE_PROJECT_DIR": str(tmp_path),
-    }
+    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
     result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
     # research pending will still block; key is no crash and correct root resolution
     assert result.returncode in (0, 2)
     assert "aidd" in (result.stdout + result.stderr)
+
+
+def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):
+    # legacy markers in workspace root must be ignored when aidd/ exists
+    legacy_root = tmp_path
+    write_file(legacy_root, "docs/.active_ticket", "LEGACY-1\n")
+    write_file(legacy_root, "docs/.active_feature", "legacy-slug\n")
+
+    project_root = ensure_project_root(legacy_root)
+    ticket = "AIDD-123"
+    write_active_feature(project_root, ticket, slug_hint="aidd-slug")
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "- [x] done\n")
+    write_research_doc(project_root, ticket, status="reviewed")
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-context.json",
+        {"status": "reviewed", "matches": [], "targets": {"paths": ["src/main/kotlin"], "docs": []}},
+    )
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-targets.json",
+        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
+    )
+    write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+
+    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(legacy_root)}
+    payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    assert result.returncode in (0, 2)
+    combined = (result.stdout + result.stderr).lower()
+    assert ticket.lower() in combined or "block" not in combined
+    assert "legacy" not in combined
 
 
 def test_reviewer_marker_with_slug_hint(tmp_path):

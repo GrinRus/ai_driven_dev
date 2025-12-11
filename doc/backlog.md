@@ -735,8 +735,8 @@ _Статус: новый, приоритет 1. Цель — сделать `/i
 - [x] Скорректировать `analyst_guard`/gate сообщения: fallback на `aidd/docs` с WARN, BLOCKED/PENDING допустимы после идеи, план/код требуют READY + reviewed research; подсказки про `--target aidd`.
 
 ### Пути и источники тикета
-- [ ] Убедиться, что все команды/агенты/gates используют `.active_ticket/.active_feature` из `docs/` или `aidd/docs/` (fallback), как в обновлённом `set_active_feature.py`; добавить проверки и WARN, если cwd не совпадает.
-- [ ] При необходимости обновить `config/gates.json` (фоллбек на `aidd/docs/.active_*`), чтобы исключить рассинхроны при запуске из корня без `docs/`.
+- [x] Убедиться, что все команды/агенты/gates используют `.active_ticket/.active_feature` из `docs/` или `aidd/docs/` (fallback), как в обновлённом `set_active_feature.py`; добавить проверки и WARN, если cwd не совпадает. *(регрессы: хуки/CLI/tests читают `docs/.active_*` под aidd; добавлен тест с legacy `./docs` + пустым CLAUDE_PLUGIN_ROOT)*.
+- [x] При необходимости обновить `config/gates.json` (фоллбек на `aidd/docs/.active_*`), чтобы исключить рассинхроны при запуске из корня без `docs/`. *(протестировано через хуки с legacy `./docs`, CLAUDE_PLUGIN_ROOT="" → используются только `aidd/docs` активные маркеры)*.
 
 ### Тесты и smoke
 - [x] Добавить тесты: (а) запуск `/idea-new` в корне без `docs/` (используется `aidd/docs`, `.active_*` пишутся корректно); (б) тонкий контекст → авто research → PRD остаётся BLOCKED с вопросами; (в) достаточно контекста → без research, READY после ответов. _(покрыто регрессами `gate-workflow`: aidd fallback + reviewed research блокировки + rich-context без auto-research)._
