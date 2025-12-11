@@ -754,7 +754,7 @@ _Статус: новый, приоритет 1. Цель — отказатьс
 - [x] `aidd/hooks/hooks.json` + все гейты: не падать при пустом `CLAUDE_PLUGIN_ROOT`, вычислять корень из `CLAUDE_PROJECT_DIR`/`pwd` → `<workspace>/aidd`, выдавать явное сообщение вместо блокировки записи.
 - [x] `aidd/.claude/hooks/gate-workflow.sh`, `aidd/.claude/hooks/lib.sh`: убрать смешение `docs/` и `aidd/docs/`, запретить создание артефактов в обоих местах, логировать WARN при чужом `cwd`, единообразно резолвить `ROOT_DIR=<workspace>/aidd`.
 - [x] `aidd/docs/tasklist/*.md` + прогресс: выровнять путь/формат чекбоксов с gate (без дублей дат), добавить тест, что `progress` видит задачи и не пишет мусор при обновлении.
-- [ ] Тесты/смоук: сценарий записи файла при пустом `CLAUDE_PLUGIN_ROOT` и запуске из корня — хуки не падают, блокируют только по делу; добавить кейс с дублирующими `docs/`/`aidd/docs/`.
+- [x] Тесты/смоук: сценарий записи файла при пустом `CLAUDE_PLUGIN_ROOT` и запуске из корня — хуки не падают, блокируют только по делу; добавить кейс с дублирующими `docs/`/`aidd/docs/`.
 
 ### Жёсткая фиксация таргета `aidd/` в CLI и bootstrap
 - [x] `src/claude_workflow_cli/resources.py`, `src/claude_workflow_cli/cli.py`: трактовать `--target` как workspace (по умолчанию `.`) и всегда создавать/искать `<workspace>/aidd`; убрать авто-fallback на родителя/`./.claude`, понятные ошибки при запуске вне `aidd/`, обновить `build_parser` help и все команды (`init/preset/research/analyst-check/...`) на единый контракт.
