@@ -993,6 +993,44 @@ def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):
     assert "legacy" not in combined
 
 
+def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
+    legacy_root = tmp_path
+    write_file(legacy_root, "docs/prd/legacy.prd.md", "# Legacy")
+    project_root = ensure_project_root(legacy_root)
+    ensure_gates_config(
+        project_root,
+        {
+            "prd_review": {"enabled": False},
+            "researcher": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {"enabled": False},
+        },
+    )
+    ticket = "AIDD-456"
+    write_active_feature(project_root, ticket)
+    write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")
+    write_file(
+        project_root,
+        f"docs/tasklist/{ticket}.md",
+        "- [ ] pending\n- [x] impl done\n<!-- handoff:research start (source: reports/research/AIDD-456-context.json) -->\n- [ ] Research follow-up\n<!-- handoff:research end -->\n",
+    )
+    write_research_doc(project_root, ticket, status="reviewed")
+    write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')\n")
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+    payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+    env = {
+        "CLAUDE_PLUGIN_ROOT": "",
+        "CLAUDE_PROJECT_DIR": str(legacy_root),
+        "CLAUDE_SKIP_TASKLIST_PROGRESS": "1",
+    }
+    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    assert result.returncode == 0
+    combined = (result.stdout + result.stderr).lower()
+    assert "legacy" not in combined
+
+
 def test_reviewer_marker_with_slug_hint(tmp_path):
     ticket = "FEAT-123"
     slug_hint = "checkout-lite"
