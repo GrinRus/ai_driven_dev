@@ -19,7 +19,7 @@ QA-агент запускается обязательной командой`/
 
 ## Автоматизация
 - Команда`/qa`вызывает`claude-workflow qa --ticket`&lt;ticket&gt;`--report reports/qa/`&lt;ticket&gt;`.json --gate`(через палитру/CLI). Без отчёта гейт заблокирует merge.
--`${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh`вызывает`claude-workflow qa --gate`(configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
+-`./aidd/.claude/hooks/gate-qa.sh` вызывает `claude-workflow qa --gate` (configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
 - Используй`scripts/ci-lint.sh`при необходимости smoke.
 - По завершении обнови tasklist и запусти`claude-workflow progress --source qa --ticket`&lt;ticket&gt;``— гейт проверяет наличие новых`[x]`.
 

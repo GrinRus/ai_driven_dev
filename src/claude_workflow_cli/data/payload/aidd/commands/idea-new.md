@@ -10,7 +10,7 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py:*)"
+  - "Bash(./aidd/tools/set_active_feature.py:*)"
   - "Bash(claude-workflow analyst:*)"
   - "Bash(claude-workflow analyst-check:*)"
   - "Bash(claude-workflow research:*)"
@@ -32,7 +32,7 @@ disable-model-invocation: false
 - Повторно — только с `--force`, если нужно переинициализировать тикет/PRD: перечитай существующий PRD, не затирай ответы, добавь новые вопросы/источники и обнови статус/Researcher при изменении контекста.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py` синхронизирует `aidd/docs/.active_*` (fallback на `aidd/docs`), scaffold'ит PRD.
+- `./aidd/tools/set_active_feature.py` синхронизирует `aidd/docs/.active_*` (fallback на `aidd/docs`), scaffold'ит PRD.
 - Внутри `/idea-new` автоматически запускается **analyst**; при нехватке контекста он инициирует `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (или просит пользователя, если задан `--no-research`).
 - Флаги: `--auto-research` (по умолчанию on), `--no-research` — отключить автозапуск исследования.
 - `claude-workflow analyst-check --ticket <ticket>` — валидация диалога/статусов после получения ответов.
@@ -44,7 +44,7 @@ disable-model-invocation: false
 - Доп. заметки (`--note`) при необходимости.
 
 ## Пошаговый план
-1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/set_active_feature.py "$1" [--slug-note "$2"] [--target .]` — обновит `.active_*`, создаст PRD и, при отсутствии, research-заготовку (workflow живёт в ./aidd).
+1. Запусти `./aidd/tools/set_active_feature.py "$1" [--slug-note "$2"] [--target .]` — обновит `.active_*`, создаст PRD и, при отсутствии, research-заготовку (workflow живёт в ./aidd).
 2. Автоматически запусти **analyst**: он читает slug-hint и артефакты, ищет контекст. При нехватке данных инициирует `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]` (или просит пользователя при `--no-research`).
 3. После research (если был) аналитик обновляет PRD, фиксирует источники и формирует блок «Вопросы к пользователю» в `## Диалог analyst`. READY не ставится, пока нет ответов и research не reviewed (кроме baseline-проектов).
 4. Заверши команду с явным списком вопросов/блокеров. Пользователь отвечает в формате `Ответ N: ...`; после ответов запусти `claude-workflow analyst-check --ticket "$1"` и, при необходимости, повторно аналитика для обновления статуса.

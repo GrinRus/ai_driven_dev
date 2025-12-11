@@ -19,7 +19,7 @@ permissionMode: default
 
 ## Автоматизация
 - Для обязательных тестов выставляй`claude-workflow reviewer-tests --status required [--ticket`&lt;ticket&gt;`]`; после успешного прогона верни`optional`или`not-required`.
-- Форматирование/тесты автоматически запускаются`${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-.}}/.claude/hooks/format-and-test.sh`; проверяй его вывод и проси повторный прогон при необходимости.
+- Форматирование/тесты автоматически запускаются`./aidd/.claude/hooks/format-and-test.sh`; проверяй его вывод и проси повторный прогон при необходимости.
 -`gate-workflow`ожидает обновлённый tasklist; после фиксации замечаний запусти`claude-workflow progress --source review --ticket`&lt;ticket&gt;``.
 
 ## Пошаговый план

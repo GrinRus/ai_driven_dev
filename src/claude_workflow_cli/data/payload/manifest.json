@@ -153,8 +153,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 8205,
-      "sha256": "497d921306e067becf98e344e5697392f006f06ee72bbb91c7e2207adb957b90"
+      "size": 8110,
+      "sha256": "ceaaa4413efd4f36c9646d409452dd8f71c0c99f127459f55d72d9875d7b1e1b"
     },
     {
       "path": "aidd/agents/planner.md",
@@ -171,8 +171,8 @@
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 5844,
-      "sha256": "9abf6f00bf2a95442172656cacbfab5791835939e2821a4402470adfce85b08d"
+      "size": 5832,
+      "sha256": "56d7609da46b58028da7add7b03c9e6cfa46ced531a2ff4caaaa6b0a1b5804f4"
     },
     {
       "path": "aidd/agents/researcher.md",
@@ -183,8 +183,8 @@
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 4161,
-      "sha256": "d54ca8d0f83ed3865c4f3eaeefd696725e46bf3330a3207f5616f84bbf627b19"
+      "size": 4120,
+      "sha256": "4e6b89228717fe6a8750e22d3261718e8ad5bd345b9f4e0c4e908dc52ce73ad0"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -231,14 +231,14 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 6823,
-      "sha256": "8a8139f1821cb2a6e200145c71ac8cb13b43838b98a612bcdd2a107704fddf73"
+      "size": 6778,
+      "sha256": "a5aad87ef872b3b4e5dd62744f0851192592f88b021db196b15e703dcd19f5cd"
     },
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 4747,
-      "sha256": "cac802570c86c8247c21e74230587913f9845206e469bcfec1d4bc592bd727f8"
+      "size": 4657,
+      "sha256": "671fafe4e165f631dd5304fd53bc99dccc0b806f69e5741817147efde48dfc09"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -249,14 +249,14 @@
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 4384,
-      "sha256": "7e720cf851df6962844de82db784cd614eb43ab3dcb3205289c320478a4b8c1c"
+      "size": 4370,
+      "sha256": "e01e6c73c9e4cbf09e97e0fee0a9aa20b0e2eea16918040433c459b064a353fb"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6002,
-      "sha256": "391c5cc7b60696c16a6dbc58156a998cf8698c0305bd5557dd54bad20719cc20"
+      "size": 5972,
+      "sha256": "a12c5329cbc85ddeffff4909dd13d39a9f534a88a445ca1b5b90db3e7affa957"
     },
     {
       "path": "aidd/commands/review-prd.md",
