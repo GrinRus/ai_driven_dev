@@ -231,8 +231,8 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 6847,
-      "sha256": "c5ecf0a94d094c93465e934bd6611c3d7457bc7f6775a6518835f0738bc9f086"
+      "size": 6911,
+      "sha256": "bd9b57700435a7ff2cb09a2e5b206eba5426118b8b7d652b0b97ebd801466251"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -261,8 +261,8 @@
     {
       "path": "aidd/commands/review-prd.md",
       "type": "file",
-      "size": 3671,
-      "sha256": "73f83395606a2d8c44b5a582fee28513dfd5bdee19f599577a0444d5c0406a40"
+      "size": 3797,
+      "sha256": "124dfa610e7219e8484a09d762ae5969ea0a3fcbe5cc1c33e97d0ba5e2320013"
     },
     {
       "path": "aidd/commands/review.md",
@@ -537,14 +537,14 @@
     {
       "path": "aidd/scripts/prd-review-agent.py",
       "type": "file",
-      "size": 9194,
-      "sha256": "7c9aae48421bbe496e05fc81287ad70e848d986405e52fecac4ece9518741883"
+      "size": 9804,
+      "sha256": "28957f6d8b0ef84f7f6a850632e9be01edf9c07294dfd60cae562ec69137fde3"
     },
     {
       "path": "aidd/scripts/prd_review_gate.py",
       "type": "file",
-      "size": 12216,
-      "sha256": "02e8f4cf3a76c4565426657625e517e4ef10dab5891b1740a2ec5f8ed0a13c3e"
+      "size": 13278,
+      "sha256": "ad905243381ec02d6b2630d53ebe26a623ea9dfb70cc53f5cc69decbe59450d5"
     },
     {
       "path": "aidd/scripts/prompt-version",
@@ -555,14 +555,14 @@
     {
       "path": "aidd/scripts/qa-agent.py",
       "type": "file",
-      "size": 15814,
-      "sha256": "f4b6224b06ab59ad3a1a424da507811a634b02111f9f55f60d31a07da9c3f387"
+      "size": 16526,
+      "sha256": "05b12d162cd430bb8bf4477d70476cb354edf68bd95b5e89a671704b1f5c3c03"
     },
     {
       "path": "aidd/scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 14435,
-      "sha256": "2d8164c388facf1e3e943da8f45e68f606d8cf681b41ee03b2cf229c0cfe8d83"
+      "size": 14831,
+      "sha256": "fcd91b806cbcf6a043b664ea2519a5a659797eb6eb9f8955f566d2978cdf2511"
     },
     {
       "path": "aidd/scripts/sync-payload.sh",
@@ -639,14 +639,14 @@
     {
       "path": "aidd/tools/run_cli.py",
       "type": "file",
-      "size": 4163,
-      "sha256": "0bc0511e6746ce1326880b9f2381ad7a6fdbf8c427f4431d3b4732f93418ec70"
+      "size": 4444,
+      "sha256": "97184a715102af1b1a35082f2208183a7b9ae2b7e75527c82e465e3ccd8cf1a4"
     },
     {
       "path": "aidd/tools/set_active_feature.py",
       "type": "file",
-      "size": 8890,
-      "sha256": "7beeedf598ec56d3cee943da38839401085f29c0fb6045a4ea2b86e5b8fbc5b8"
+      "size": 9496,
+      "sha256": "010a5381b121d1e496ce1bb88b1074b8d9d38593cb7161bef80ba59251ab5f22"
     },
     {
       "path": "aidd/workflow.md",

@@ -208,6 +208,19 @@ def _scaffold_prd_manual(root: Path, ticket: str) -> bool:
 def main() -> None:
     args = parse_args()
     root = Path(args.target).resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if env_root:
+        root = Path(env_root).expanduser().resolve()
+    elif not (root / "docs").is_dir():
+        for candidate in (root / "aidd", root.parent / "aidd"):
+            if (candidate / "docs").is_dir():
+                root = candidate.resolve()
+                break
+        if project_dir and not (root / "docs").is_dir():
+            project_candidate = Path(project_dir).expanduser().resolve()
+            if (project_candidate / "docs").is_dir():
+                root = project_candidate
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     resolved_slug_hint = args.slug_hint

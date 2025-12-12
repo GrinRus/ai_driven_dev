@@ -448,6 +448,7 @@ apply_preset() {
   goals_block="$(preset_default_goals | format_bullets)"
   local tasks_block
   tasks_block="$(format_bullets < /dev/null)"
+  local tasks_source=""
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log_info "[dry-run] preset ${PRESET_NAME} (ticket=${slug})"
     return

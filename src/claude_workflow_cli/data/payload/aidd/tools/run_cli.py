@@ -16,7 +16,7 @@ INSTALL_HINT = (
     "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git"
 )
 
-# repo root or site-packages root; runtime workflow lives in ./aidd relative to workspace
+# repo root or site-packages root; runtime workflow lives in ${CLAUDE_PLUGIN_ROOT:-./aidd} relative to workspace
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 DEV_SRC = PROJECT_ROOT / "src"
 VENDOR_DIR = PROJECT_ROOT / ".claude" / "hooks" / "_vendor"
@@ -109,6 +109,11 @@ def run_cli(
     if runner.uses_python and not _module_available():
         raise CliNotFoundError(INSTALL_HINT)
     cmd = runner.argv + list(args)
+    # Ensure plugin root is available to downstream hooks/scripts.
+    if "CLAUDE_PLUGIN_ROOT" not in run_env and cwd:
+        candidate = Path(cwd) / "aidd"
+        if candidate.is_dir():
+            run_env["CLAUDE_PLUGIN_ROOT"] = str(candidate.resolve())
     try:
         return subprocess.run(cmd, check=check, env=run_env, cwd=cwd)
     except FileNotFoundError as exc:

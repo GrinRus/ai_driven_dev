@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
@@ -179,7 +180,7 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     label = feature_label(ticket, slug_hint)
     if kind == "missing_section":
         return (
-            f"BLOCK: нет раздела '## PRD Review' в docs/prd/{ticket}.prd.md → выполните /review-prd {label}"
+            f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-prd {label}"
         )
     if kind == "missing_prd":
         return (
@@ -211,6 +212,27 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     return f"BLOCK: PRD Review не готов → выполните /review-prd {label or ticket}"
 
 
+def detect_project_root() -> Path:
+    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
+    cwd = Path.cwd().resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_root = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_root:
+        candidates.append(Path(project_root).expanduser().resolve())
+    for candidate in candidates:
+        docs_dir = candidate / "docs"
+        if docs_dir.is_dir():
+            return candidate
+    return cwd
+
+
 def extract_dialog_status(content: str) -> str | None:
     inside = False
     for raw in content.splitlines():
@@ -228,7 +250,11 @@ def extract_dialog_status(content: str) -> str | None:
 
 def main() -> None:
     args = parse_args()
-    gate = load_gate_config(Path(args.config))
+    root = detect_project_root()
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = root / config_path
+    gate = load_gate_config(config_path)
 
     ticket = args.ticket.strip()
     slug_hint = args.slug_hint.strip() or None
@@ -252,9 +278,10 @@ def main() -> None:
     if normalized and not _is_code_path(normalized, code_prefixes, code_globs):
         raise SystemExit(0)
 
-    prd_path = Path("docs/prd") / f"{ticket}.prd.md"
+    prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
     if not prd_path.is_file():
-        print(format_message("missing_prd", ticket, slug_hint))
+        expected = prd_path.as_posix()
+        print(f"BLOCK: нет PRD (ожидается {expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-prd {feature_label(ticket, slug_hint) or ticket}.")
         raise SystemExit(1)
 
     allow_missing = bool(gate.get("allow_missing_section", False))
@@ -294,7 +321,7 @@ def main() -> None:
     resolved_report = report_template.replace("{ticket}", ticket).replace("{slug}", slug_hint or ticket)
     report_path = Path(resolved_report)
     if not report_path.is_absolute():
-        report_path = Path.cwd() / report_path
+        report_path = root / report_path
 
     if report_path.exists():
         try:
