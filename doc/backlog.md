@@ -756,6 +756,7 @@ _Статус: новый, приоритет 1. Цель — отказатьс
 - [x] `aidd/docs/tasklist/*.md` + прогресс: выровнять путь/формат чекбоксов с gate (без дублей дат), добавить тест, что `progress` видит задачи и не пишет мусор при обновлении.
 - [x] Тесты/смоук: сценарий записи файла при пустом `CLAUDE_PLUGIN_ROOT` и запуске из корня — хуки не падают, блокируют только по делу; добавить кейс с дублирующими `docs/`/`aidd/docs/`.
 - [x] Агенты/команды: заменить ссылки на хуки/скрипты (`format-and-test.sh`, `gate-qa.sh`, `set_active_feature.py`) на `${CLAUDE_PLUGIN_ROOT:-./aidd}/...`, убрать `./aidd` и `${CLAUDE_PROJECT_DIR}` из bash-инструкций; обновить описание запуска (примеры в md); регенерировать manifest после правок и прогнать markdownlint/pytest (по желанию).
+- [ ] Скрипты/хуки: заменить жёсткие `./aidd/...` в bash/python скриптах на `${CLAUDE_PLUGIN_ROOT:-./aidd}/...`, добавить fallback внутри скриптов на этот префикс; обновить manifest и прогнать lint/pytest.
 
 ### Жёсткая фиксация таргета `aidd/` в CLI и bootstrap
 - [x] `src/claude_workflow_cli/resources.py`, `src/claude_workflow_cli/cli.py`: трактовать `--target` как workspace (по умолчанию `.`) и всегда создавать/искать `<workspace>/aidd`; убрать авто-fallback на родителя/`./.claude`, понятные ошибки при запуске вне `aidd/`, обновить `build_parser` help и все команды (`init/preset/research/analyst-check/...`) на единый контракт.
