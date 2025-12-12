@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict
@@ -33,9 +34,28 @@ try:
 except ImportError:  # pragma: no cover - fallback for standalone usage
     resolve_identifiers = None  # type: ignore
 
-ROOT_DIR = Path.cwd()
-if not (ROOT_DIR / "docs").is_dir() and (ROOT_DIR / "aidd" / "docs").is_dir():
-    ROOT_DIR = ROOT_DIR / "aidd"
+def detect_project_root() -> Path:
+    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
+    cwd = Path.cwd().resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_root = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_root:
+        candidates.append(Path(project_root).expanduser().resolve())
+    for candidate in candidates:
+        docs_dir = candidate / "docs"
+        if docs_dir.is_dir():
+            return candidate
+    return cwd
+
+
+ROOT_DIR = detect_project_root()
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"approved"}
 BLOCKING_TOKENS = {"blocked", "reject"}

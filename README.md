@@ -93,7 +93,7 @@
 - `init-claude-workflow.sh` — модульный bootstrap со строгими проверками (`bash/git/python3`, Gradle/ktlint), режимами `--commit-mode/--enable-ci/--force/--dry-run` и потоковой синхронизацией артефактов из `src/claude_workflow_cli/data/payload/` (без heredoc-вставок), включая обновление `config/conventions.json`.
 - `scripts/ci-lint.sh` — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, интегрированная с CI и корректно пропускающая отсутствующие линтеры с предупреждением.
 - `scripts/smoke-workflow.sh` — E2E smoke-сценарий: поднимает временный проект, запускает bootstrap, воспроизводит ticket-first цикл (`ticket → PRD → план → tasklist`) и проверяет, что `gate-workflow.sh`/`tasklist_progress` блокируют правки без новых `- [x]`.
-- `scripts/bootstrap-local.sh` — копирует `src/claude_workflow_cli/data/payload/` в `.dev/.claude-example/` (или произвольный `--target`), чтобы быстро проверить изменения payload без публикации новой версии CLI.
+- `scripts/bootstrap-local.sh` — копирует `src/claude_workflow_cli/data/payload/` в `.dev/.claude-example/` (workspace по умолчанию; workflow всегда в поддиректории `aidd/`) для быстрой проверки payload без публикации новой версии CLI.
 - `claude-workflow sync` / `claude-workflow upgrade` — поддерживают режим `--release <tag|owner/repo@tag|latest>` для скачивания payload из GitHub Releases (кешируется в `~/.cache/claude-workflow`, переопределяется `--cache-dir` или `CLAUDE_WORKFLOW_CACHE`). CLI сверяет контрольные суммы из `manifest.json`, перед синхронизацией выводит diff и при недоступности сети откатывается к встроенному payload.
 - `examples/apply-demo.sh` — демонстрирует применение шаблона к Gradle-монорепо, печатает дерево каталогов до/после и, при наличии wrapper, запускает `gradlew test`.
 
@@ -217,6 +217,7 @@ uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_dri
 claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 ```
 
+- `--target` всегда указывает на workspace; payload разворачивается только в `./aidd`. Запуск CLI/хуков вне `aidd/` приведёт к понятной ошибке «aidd/docs not found».
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `init-claude-workflow.sh`, копируя шаблоны, гейты и пресеты в текущий проект;
 - для EN-локали промптов добавьте `--prompt-locale en` (по умолчанию копируется русская версия `.claude/agents|commands`); каталоги `prompts/en/**` копируются для редактирования EN-версий;

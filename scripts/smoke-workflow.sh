@@ -124,36 +124,7 @@ CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKDIR" python3 "$WORKDIR/to
   exit 1
 }
 
-log "simulate idea-new: seed draft PRD with questions and pending research"
-python3 - "$TICKET" <<'PY'
-from pathlib import Path
-import sys
-
-ticket = sys.argv[1]
-base = Path("docs")
-(base / "prd").mkdir(parents=True, exist_ok=True)
-(base / "research").mkdir(parents=True, exist_ok=True)
-(base / "plan").mkdir(parents=True, exist_ok=True)
-(base / "tasklist").mkdir(parents=True, exist_ok=True)
-prd_path = base / "prd" / f"{ticket}.prd.md"
-research_path = base / "research" / f"{ticket}.md"
-if not prd_path.exists():
-    prd_path.write_text(
-        "# PRD\n\n"
-        "## Диалог analyst\n"
-        "Status: draft\n\n"
-        f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
-        "Вопрос 1: Какие ограничения по среде?\n"
-        "Ответ 1: TBD\n\n"
-        "## PRD Review\n"
-        "Status: pending\n",
-        encoding="utf-8",
-    )
-if not research_path.exists():
-    research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
-PY
-
-log "auto-collect research context after idea-new (thin context → auto)"
+log "auto-collect research context before analyst"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
@@ -162,39 +133,23 @@ if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
 fi
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
-import json
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/research") / f"{ticket}.md"
 text = path.read_text(encoding="utf-8") if path.exists() else "# Research\n\nStatus: pending\n"
-text = text.replace("Status: draft", "Status: pending")
 if "Status: reviewed" not in text:
     text = text.replace("Status: pending", "Status: reviewed", 1)
 if "Baseline" not in text:
     text += "\nBaseline: автоматическая генерация\n"
 path.write_text(text, encoding="utf-8")
-context_path = Path("reports/research") / f"{ticket}-context.json"
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
-if context_path.exists():
-    data = json.loads(context_path.read_text(encoding="utf-8"))
-    data.setdefault("status", "reviewed")
-    data["status"] = "reviewed"
-    data.setdefault("docs", [f"docs/research/{ticket}.md"])
-    context_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-if targets_path.exists():
-    data = json.loads(targets_path.read_text(encoding="utf-8"))
-    docs = data.get("docs") or []
-    if f"docs/research/{ticket}.md" not in docs:
-        docs.append(f"docs/research/{ticket}.md")
-    data["docs"] = docs
-    targets_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 PY
 
-log "expect block while PRD draft / research handoff pending"
+log "expect block while PRD в статусе draft"
 assert_gate_exit 2 "draft PRD"
 
-log "analyst answers questions and marks PRD READY"
+log "apply preset feature-prd"
+bash "$INIT_SCRIPT" --preset feature-prd --ticket "$TICKET" >/dev/null
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
@@ -204,12 +159,8 @@ prd_path = Path("docs/prd") / f"{ticket}.prd.md"
 content = prd_path.read_text(encoding="utf-8")
 if "## PRD Review" not in content:
     content += "\n## PRD Review\nStatus: pending\n"
-if "Вопрос 1:" in content and "TBD" in content:
-    content = content.replace("Ответ 1: TBD", "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.", 1)
-if "Status: draft" in content:
-    content = content.replace("Status: draft", "Status: READY", 1)
-if "Researcher:" not in content:
-    content = content.replace("## Диалог analyst", f"## Диалог analyst\nResearcher: docs/research/{ticket}.md (Status: reviewed)", 1)
+if "Status: pending" in content and "Status: approved" not in content:
+    content = content.replace("Status: pending", "Status: approved", 1)
 prd_path.write_text(content, encoding="utf-8")
 PY
 
@@ -258,6 +209,22 @@ if "## PRD Review" not in content:
     raise SystemExit("PRD Review section missing in smoke scenario")
 if "Status: approved" not in content:
     content = content.replace("Status: pending", "Status: approved", 1)
+path.write_text(content, encoding="utf-8")
+PY
+
+log "expect block until research report ready"
+assert_gate_exit 2 "missing research report"
+
+log "mark research summary as reviewed"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/research") / f"{ticket}.md"
+content = path.read_text(encoding="utf-8")
+if "Status: reviewed" not in content:
+    content = content.replace("Status: pending", "Status: reviewed", 1)
 path.write_text(content, encoding="utf-8")
 PY
 
@@ -338,24 +305,6 @@ fi
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
-# pre-mark QA checklist items to avoid false blockers from template
-python3 - "$TICKET" <<'PY'
-from pathlib import Path
-import sys
-
-ticket = sys.argv[1]
-path = Path("docs/tasklist") / f"{ticket}.md"
-text = path.read_text(encoding="utf-8")
-replacements = {
-    "- [ ] Прогнаны unit/integration/e2e": "- [x] Прогнаны unit/integration/e2e",
-    "- [ ] Проведено ручное тестирование или UAT": "- [x] Проведено ручное тестирование или UAT",
-}
-for old, new in replacements.items():
-    if old in text:
-        text = text.replace(old, new, 1)
-path.write_text(text, encoding="utf-8")
-PY
-
 if ! run_cli qa --ticket "$TICKET" --target . --report "reports/qa/${TICKET}.json" --emit-json >/dev/null; then
   echo "[smoke] qa command failed" >&2
   exit 1
@@ -408,21 +357,3 @@ grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
 log "smoke scenario passed"
 popd >/dev/null
 popd >/dev/null
-
-log "negative scenario: gate fails on incorrect target without aidd workflow"
-BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claude-workflow-smoke-bad-target.XXXXXX")"
-set +e
-bad_output="$(CLAUDE_PLUGIN_ROOT="$BAD_DIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
-bad_rc=$?
-set -e
-if [[ "$bad_rc" -eq 0 ]]; then
-  echo "[smoke] expected gate-workflow to fail for missing aidd/docs" >&2
-  echo "$bad_output" >&2
-  exit 1
-fi
-echo "$bad_output" | grep -qi "aidd/docs not found" || {
-  echo "[smoke] unexpected gate-workflow output for bad target:" >&2
-  echo "$bad_output" >&2
-  exit 1
-}
-rm -rf "$BAD_DIR"

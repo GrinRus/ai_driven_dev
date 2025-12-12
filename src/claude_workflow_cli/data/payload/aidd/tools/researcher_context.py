@@ -1032,7 +1032,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--slug",
         "--feature",
         dest="ticket",
-        help="Ticket identifier to analyse (defaults to docs/.active_ticket or legacy .active_feature).",
+        help="Ticket identifier to analyse (defaults to docs/.active_ticket under aidd/ or legacy .active_feature).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -1084,7 +1084,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = identifiers.resolved_ticket
     if not ticket:
-        parser.error("feature ticket is required (--ticket) or set docs/.active_ticket first.")
+        parser.error("feature ticket is required (--ticket) or set docs/.active_ticket under aidd/ first.")
 
     config_path = Path(args.config).resolve() if args.config else None
     builder = ResearcherContextBuilder(root, config_path=config_path)

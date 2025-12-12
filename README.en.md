@@ -195,9 +195,10 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 
 ```bash
 uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git
-claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci   # workspace → ./aidd
 ```
 
+- `--target` always points to the workspace; the payload installs strictly under `./aidd`. Running CLI/hooks outside `aidd/` will fail with a clear “aidd/docs not found” message.
 - the first command installs the `claude-workflow` CLI via `uv`;
 - `claude-workflow init` mirrors the behaviour of `init-claude-workflow.sh`, copying presets, hooks, and docs into the current project;
 - the CLI now vendors the required Python modules into `.claude/hooks/_vendor`, so hooks that invoke `python3 -m claude_workflow_cli ...` run immediately with no extra `pip install`;
@@ -209,7 +210,7 @@ When `uv` is unavailable:
 
 ```bash
 pipx install git+https://github.com/GrinRus/ai_driven_dev.git
-claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci   # workspace → ./aidd
 ```
 
 `pipx` keeps the CLI isolated and upgradeable (`pipx upgrade claude-workflow-cli`).

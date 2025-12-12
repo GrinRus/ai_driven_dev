@@ -29,6 +29,7 @@
 - Корневые служебные файлы (если остаются) считаются dev-only; payload распространяется только из `src/claude_workflow_cli/data/payload/aidd`.
 - Хуки проверяют пути RU/EN промптов внутри `aidd/.claude` и `aidd/prompts/en`.
 - CI/smoke используют один и тот же payload и структуру путей; проверка sync (`tools/check_payload_sync.py`) работает от `aidd/`.
+- Запуск CLI/хуков вне `aidd/` должен явно падать (без fallback в корень) с подсказкой `claude-workflow init --target .`.
 
 ## To-do
 - Обновить гайды (workflow.md, README*, prompt-playbook) с новой структурой путей.

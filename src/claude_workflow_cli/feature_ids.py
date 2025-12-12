@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,31 @@ ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
 PRD_TEMPLATE_FILE = Path("docs") / "prd.template.md"
 PRD_DIR = Path("docs") / "prd"
+
+
+def resolve_project_root(raw: Path) -> Path:
+    """
+    Prefer plugin root when available.
+
+    Order: CLAUDE_PLUGIN_ROOT -> cwd/aidd -> cwd -> CLAUDE_PROJECT_DIR.
+    """
+    cwd = raw.resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_dir:
+        candidates.append(Path(project_dir).expanduser().resolve())
+    for candidate in candidates:
+        docs_dir = candidate / "docs"
+        if docs_dir.is_dir():
+            return candidate
+    return cwd
 
 
 def _read_text(path: Path) -> Optional[str]:
@@ -34,7 +60,7 @@ class FeatureIdentifiers:
 
 
 def read_identifiers(root: Path) -> FeatureIdentifiers:
-    root = root.resolve()
+    root = resolve_project_root(root)
     ticket = _read_text(root / ACTIVE_TICKET_FILE)
     slug_hint = _read_text(root / SLUG_HINT_FILE)
     if ticket:
@@ -63,7 +89,7 @@ def resolve_identifiers(
 def scaffold_prd(root: Path, ticket: str) -> bool:
     """Ensure docs/prd/<ticket>.prd.md exists by copying the template."""
 
-    root = root.resolve()
+    root = resolve_project_root(root)
     ticket_value = ticket.strip()
     if not ticket_value:
         return False
@@ -96,7 +122,7 @@ def write_identifiers(
     slug_hint: Optional[str] = None,
     scaffold_prd_file: bool = True,
 ) -> None:
-    root = root.resolve()
+    root = resolve_project_root(root)
     ticket_value = ticket.strip()
     if not ticket_value:
         raise ValueError("ticket must be a non-empty string")

@@ -18,7 +18,8 @@ from .helpers import PAYLOAD_ROOT, write_file
 class ResearcherContextTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory(prefix="researcher-context-")
-        self.root = Path(self._tmp.name)
+        self.workspace = Path(self._tmp.name)
+        self.root = self.workspace / "aidd"
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)

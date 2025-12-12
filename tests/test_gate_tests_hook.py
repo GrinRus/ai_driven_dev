@@ -75,6 +75,18 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
     assert "reviewer запросил обязательный запуск тестов" in (result.stderr or "")
 
 
+def test_gate_tests_uses_aidd_root_even_if_plugin_root_missing(tmp_path):
+    ensure_gates_config(tmp_path, {"tests_required": "hard"})
+    project_root = tmp_path / "aidd"
+    project_root.mkdir(exist_ok=True)
+    write_active_feature(project_root, "demo")
+    write_file(project_root, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+    write_file(project_root, "src/test/kotlin/service/RuleEngineTest.kt", "class RuleEngineTest")
+
+    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD, extra_env=env)
+    assert result.returncode == 0, result.stderr
+
 def test_plugin_hooks_include_tests_and_post_hooks():
     hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     pre_cmds = [

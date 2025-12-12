@@ -28,7 +28,28 @@ for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
         if candidate_str not in sys.path:
             sys.path.insert(0, candidate_str)
 
-ROOT_DIR = Path.cwd()
+def detect_project_root() -> Path:
+    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
+    cwd = Path.cwd().resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_root = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_root:
+        candidates.append(Path(project_root).expanduser().resolve())
+    for candidate in candidates:
+        docs_dir = candidate / "docs"
+        if docs_dir.is_dir():
+            return candidate
+    return cwd
+
+
+ROOT_DIR = detect_project_root()
 
 from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
 

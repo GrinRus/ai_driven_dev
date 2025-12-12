@@ -94,3 +94,22 @@ def test_plugin_hooks_include_qa_gate():
     qa_hook = next((hook for hook in commands if "gate-qa.sh" in hook.get("command", "")), None)
     assert qa_hook is not None, "gate-qa hook not registered in PreToolUse"
     assert qa_hook.get("timeout") == 60, "gate-qa expected timeout=60s"
+
+
+def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
+    ensure_gates_config(tmp_path)
+    project_root = tmp_path / "aidd"
+    project_root.mkdir(exist_ok=True)
+    write_active_feature(project_root, "demo")
+    write_file(project_root, "src/main/App.kt", "class App")
+    write_file(project_root, "docs/tasklist/demo.md", "- [ ] QA")
+    write_file(project_root, "docs/prd/demo.prd.md", "# PRD\n\n## PRD Review\nStatus: approved\n")
+    write_file(project_root, "docs/plan/demo.md", "# Plan")
+    write_file(project_root, "docs/research/demo.md", "# Research\nStatus: reviewed\n")
+    write_file(project_root, "reports/qa/demo.json", '{"status": "ready"}\n')
+
+    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
+    assert result.returncode in (0, 2)
+    combined = result.stdout + result.stderr
+    assert "/aidd" in combined
