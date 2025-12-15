@@ -9,6 +9,7 @@
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
 - Установка по умолчанию раскладывает payload в поддиректорию `aidd/` (`aidd/.claude`, `aidd/.claude-plugin` с плагином `feature-dev-aidd`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`). Все пути в хуках, smoke и тестах рассчитываются относительно `aidd/`.
   Корневые снапшоты удалены: рабочие файлы берутся только из payload `aidd/`.
+- **Troubleshooting путей:** все артефакты (PRD/Research/QA/PRD Review/Reviewer) находятся под `aidd/`. Если `Read(reports/...)` не находит файл, проверяйте `aidd/reports/...` и запускайте CLI с `${CLAUDE_PLUGIN_ROOT:-./aidd}` или `--target aidd`.
 
 ## Оглавление
 - [Что входит в шаблон](#что-входит-в-шаблон)

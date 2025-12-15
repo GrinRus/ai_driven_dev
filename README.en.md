@@ -16,6 +16,7 @@ _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/.claude-plugin` with the `feature-dev-aidd` plugin, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
   Root snapshots were removed; runtime files live only in the `aidd/` payload.
+- **Path troubleshooting:** all artifacts (PRD/Research/QA/PRD Review/Reviewer) reside under `aidd/`. If `Read(reports/...)` fails, look under `aidd/reports/...` and run CLI with `${CLAUDE_PLUGIN_ROOT:-./aidd}` or `--target aidd`.
 
 ## Table of Contents
 - [What you get](#what-you-get)
