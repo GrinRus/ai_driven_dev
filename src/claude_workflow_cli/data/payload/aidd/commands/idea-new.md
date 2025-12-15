@@ -24,7 +24,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - Slug-hint пользователя (`[slug-hint]`, `rg <ticket> aidd/docs/**`) — исходное описание.
 - @aidd/docs/prd.template.md — шаблон PRD (Status: draft, `## Диалог analyst`).
-- @aidd/docs/research/`<ticket>`.md, `reports/research/*` — создаются/обновляются автоматически (если отчёта нет, разворачивается `aidd/docs/templates/research-summary.md` с baseline).
+- @aidd/docs/research/`<ticket>`.md, `aidd/reports/research/*` — создаются/обновляются автоматически (если отчёта нет, разворачивается `aidd/docs/templates/research-summary.md` с baseline).
 - Активные маркеры: `aidd/docs/.active_ticket`, `.active_feature`.
 
 ## Когда запускать
@@ -40,7 +40,7 @@ disable-model-invocation: false
 ## Что редактируется
 - `aidd/docs/.active_ticket`, `.active_feature` — текущий тикет/slug.
 - `aidd/docs/prd/<ticket>.prd.md` — основной документ (draft → READY/BLOCKED).
-- `aidd/docs/research/<ticket>.md` и `reports/research/*` — отчёт/контекст Researcher.
+- `aidd/docs/research/<ticket>.md` и `aidd/reports/research/*` — отчёт/контекст Researcher.
 - Доп. заметки (`--note`) при необходимости.
 
 ## Пошаговый план
@@ -57,7 +57,7 @@ disable-model-invocation: false
 ## Ожидаемый вывод
 - Активный ticket/slug зафиксирован в `aidd/docs/.active_*`.
 - `aidd/docs/prd/<ticket>.prd.md` создан и заполнен (draft/BLOCKED с вопросами; READY только после ответов).
-- `aidd/docs/research/<ticket>.md` и `reports/research/*` актуализированы (или baseline).
+- `aidd/docs/research/<ticket>.md` и `aidd/reports/research/*` актуализированы (или baseline).
 - Пользователь получает список вопросов для перехода к READY/plan.
 
 ## Troubleshooting

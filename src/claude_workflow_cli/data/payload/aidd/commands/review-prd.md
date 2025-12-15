@@ -30,12 +30,12 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 -`gate-workflow`требует`## PRD Review`со статусом`approved`(или явным разрешением) перед изменениями в`src/**`.
-- Скрипт`python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket`&lt;ticket&gt;`--report reports/prd/`&lt;ticket&gt;`.json --emit-text`сохраняет отчёт.
+- Скрипт`python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket`&lt;ticket&gt;`--report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/`&lt;ticket&gt;`.json" --emit-text`сохраняет отчёт.
 
 ## Что редактируется
 -`aidd/docs/prd/`&lt;ticket&gt;`.prd.md`— раздел`## PRD Review`.
 -`aidd/docs/tasklist/`&lt;ticket&gt;`.md`— перенос блокирующих action items.
--`reports/prd/`&lt;ticket&gt;`.json`— структурированный вывод (генерируется скриптом).
+-`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/`&lt;ticket&gt;`.json`— структурированный вывод (генерируется скриптом).
 
 ## Пошаговый план
 1. Подготовь контекст: открой PRD, план, ADR, заметки.
@@ -44,7 +44,7 @@ disable-model-invocation: false
 4. Перенеси блокирующие action items в`aidd/docs/tasklist/`&lt;ticket&gt;`.md`(укажи владельцев и сроки).
 5. Зафиксируй результат в отчёте:
   ```
-   !bash -lc 'python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket "$1" --report "reports/prd/$1.json" --emit-text'
+   !bash -lc 'python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket "$1" --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/$1.json" --emit-text'
   ```
 
 ## Fail-fast и вопросы
@@ -54,9 +54,9 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - Раздел`## PRD Review`обновлён, статус выставлен, findings/action items перечислены.
--`reports/prd/`&lt;ticket&gt;`.json`содержит тот же вывод.
+-`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/`&lt;ticket&gt;`.json`содержит тот же вывод.
 - Блокирующие action items перенесены в tasklist.
 
 ## Примеры CLI
 -`/review-prd ABC-123`
--`!bash -lc 'python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket "ABC-123" --report "reports/prd/ABC-123.json" --emit-text'`
+-`!bash -lc 'python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket "ABC-123" --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/ABC-123.json" --emit-text'`

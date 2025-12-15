@@ -293,9 +293,15 @@ def main() -> None:
     if should_emit_json:
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
 
-    if args.report:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path = args.report
+    if output_path is None:
+        output_path = ROOT_DIR / "reports" / "prd" / f"{ticket}.json"
+    if not output_path.is_absolute():
+        output_path = ROOT_DIR / output_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    rel = output_path.relative_to(ROOT_DIR) if output_path.is_relative_to(ROOT_DIR) else output_path
+    print(f"[prd-review] report saved to {rel}", file=sys.stderr)
 
 
 if __name__ == "__main__":

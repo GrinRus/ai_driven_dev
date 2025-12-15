@@ -147,8 +147,8 @@
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 5194,
-      "sha256": "9739ccefa932682f53f52798bee2a79677199674be4d238a88a7261273086b82"
+      "size": 5214,
+      "sha256": "7373c7b217511aaf25a61cc7136c921d22160cdb9ce36f9ded12714f9cb7f78c"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -165,8 +165,8 @@
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3505,
-      "sha256": "1ed2c0869578768993235703e2438ff950b9df000c6df09a69f241ec867047d9"
+      "size": 3452,
+      "sha256": "31f46885eb566b967c0bb5940fa7bb988933342c0adc61d28b405b3c74c56926"
     },
     {
       "path": "aidd/agents/qa.md",
@@ -177,8 +177,8 @@
     {
       "path": "aidd/agents/researcher.md",
       "type": "file",
-      "size": 8773,
-      "sha256": "85793fbd259cb3ff370417715c81d1e9438c787e0213b1045ede619a4ffb8d22"
+      "size": 8803,
+      "sha256": "4ad5eb723eef81e68c3d3fb0f12cfdf8dd305774a3dce7a87b2337d1ed5e3e34"
     },
     {
       "path": "aidd/agents/reviewer.md",
@@ -231,8 +231,8 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 6911,
-      "sha256": "bd9b57700435a7ff2cb09a2e5b206eba5426118b8b7d652b0b97ebd801466251"
+      "size": 6926,
+      "sha256": "99e727a1b62b8d7007b5e573e672626cdd0eb3f1548b970ce2e5cf98c57d7b86"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -255,14 +255,14 @@
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6018,
-      "sha256": "59501636ac04ac45863a8d1b63b691b81c4f4fcae7ae2d05e52614df813b3c64"
+      "size": 6048,
+      "sha256": "b53862e913fa9f67d025bd0b74efed997bbaa40f6bc1856edec9b7c7bfbab245"
     },
     {
       "path": "aidd/commands/review-prd.md",
       "type": "file",
-      "size": 3797,
-      "sha256": "124dfa610e7219e8484a09d762ae5969ea0a3fcbe5cc1c33e97d0ba5e2320013"
+      "size": 3949,
+      "sha256": "34dea954c6f3ed1fefcb1fb9b5378afbf13fb439cb12eb691b5145d1920f06ac"
     },
     {
       "path": "aidd/commands/review.md",
@@ -537,8 +537,8 @@
     {
       "path": "aidd/scripts/prd-review-agent.py",
       "type": "file",
-      "size": 9804,
-      "sha256": "28957f6d8b0ef84f7f6a850632e9be01edf9c07294dfd60cae562ec69137fde3"
+      "size": 10154,
+      "sha256": "55ff0c183c2d0d9091a9bf9c7cbcb62bcb078f752d34b4581d0ad539587d97ae"
     },
     {
       "path": "aidd/scripts/prd_review_gate.py",
