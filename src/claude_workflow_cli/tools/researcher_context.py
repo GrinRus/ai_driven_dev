@@ -131,11 +131,34 @@ class Scope:
 class ResearcherContextBuilder:
     """Builds file/doc scopes and extracts keyword matches for Researcher."""
 
-    def __init__(self, root: Path, config_path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        config_path: Optional[Path] = None,
+        *,
+        paths_relative: Optional[str] = None,
+    ) -> None:
         self.root = root.resolve()
+        self.workspace_root = self.root.parent if self.root.name == "aidd" else self.root
         base_config = config_path or (_DEFAULT_CONFIG if _DEFAULT_CONFIG.is_absolute() else self.root / _DEFAULT_CONFIG)
         self.config_path = base_config.resolve()
         self._settings = self._load_settings()
+        default_mode = "workspace" if self.root.name == "aidd" else "aidd"
+        config_mode = default_mode
+        defaults = self._settings.get("defaults", {})
+        if isinstance(defaults, dict) and defaults.get("workspace_relative") is False:
+            config_mode = "aidd"
+        elif isinstance(defaults, dict) and defaults.get("workspace_relative") is True:
+            config_mode = "workspace"
+        chosen = (paths_relative or "").strip().lower()
+        if chosen in {"workspace", "aidd"}:
+            config_mode = chosen
+        self._paths_base = self.workspace_root if config_mode == "workspace" else self.root
+        self._paths_relative_mode = config_mode
+
+    @property
+    def paths_relative_mode(self) -> str:
+        return self._paths_relative_mode
 
     def _load_settings(self) -> Dict[str, Any]:
         if not self.config_path.exists():
@@ -170,7 +193,7 @@ class ResearcherContextBuilder:
             tag_keywords.extend(info.get("keywords", []))
 
         def _norm_all(values: Sequence[str]) -> List[str]:
-            return _unique([_normalise_rel(item, self.root) for item in values])
+            return _unique([_normalise_rel(item, self._paths_base) for item in values])
 
         scope = Scope(
             ticket=ticket_value,
@@ -285,12 +308,16 @@ class ResearcherContextBuilder:
         if raw_path.is_absolute():
             abs_path = raw_path
             try:
-                rel_path = abs_path.relative_to(self.root).as_posix()
+                rel_path = abs_path.relative_to(self._paths_base).as_posix()
             except ValueError:
                 rel_path = abs_path.as_posix()
         else:
             rel_path = raw_path.as_posix().lstrip("./")
-            abs_path = (self.root / raw_path).resolve()
+            abs_path = (self._paths_base / raw_path).resolve()
+            if not abs_path.exists() and self._paths_base != self.root:
+                alt_path = (self.root / raw_path).resolve()
+                if alt_path.exists():
+                    abs_path = alt_path
         info: Dict[str, Any] = {
             "path": rel_path,
             "exists": abs_path.exists(),
@@ -313,12 +340,16 @@ class ResearcherContextBuilder:
             if raw_path.is_absolute():
                 abs_path = raw_path
                 try:
-                    rel_path = abs_path.relative_to(self.root).as_posix()
+                    rel_path = abs_path.relative_to(self._paths_base).as_posix()
                 except ValueError:
                     rel_path = abs_path.as_posix()
             else:
                 rel_path = raw_path.as_posix().lstrip("./")
-                abs_path = (self.root / raw_path).resolve()
+                abs_path = (self._paths_base / raw_path).resolve()
+                if not abs_path.exists() and self._paths_base != self.root:
+                    alt_path = (self.root / raw_path).resolve()
+                    if alt_path.exists():
+                        abs_path = alt_path
             if abs_path.is_dir():
                 doc_files = sorted(p for p in abs_path.glob("*.md"))
                 if not doc_files:
@@ -362,7 +393,10 @@ class ResearcherContextBuilder:
         except OSError:
             return samples
         for path in iterator:
-            samples.append(path.relative_to(self.root).as_posix())
+            try:
+                samples.append(path.relative_to(self._paths_base).as_posix())
+            except ValueError:
+                samples.append(path.as_posix())
             if len(samples) >= limit:
                 break
         return samples
@@ -516,7 +550,13 @@ class ResearcherContextBuilder:
             else:
                 iterator = iter([root])
             for file_path in iterator:
-                rel = file_path.relative_to(self.root).as_posix()
+                try:
+                    rel = file_path.relative_to(self.root).as_posix()
+                except ValueError:
+                    try:
+                        rel = file_path.relative_to(self._paths_base).as_posix()
+                    except ValueError:
+                        rel = file_path.as_posix()
                 try:
                     data = file_path.read_text(encoding="utf-8")
                 except (OSError, UnicodeDecodeError):

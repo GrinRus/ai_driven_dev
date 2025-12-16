@@ -255,8 +255,8 @@
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6048,
-      "sha256": "b53862e913fa9f67d025bd0b74efed997bbaa40f6bc1856edec9b7c7bfbab245"
+      "size": 6340,
+      "sha256": "fe7343da5c441309cdc993adbdd12d4844df46538456aabe5a64fab576bbede2"
     },
     {
       "path": "aidd/commands/review-prd.md",

@@ -213,3 +213,29 @@ class ResearcherContextTests(unittest.TestCase):
         targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
         targets = json.loads(targets_path.read_text(encoding="utf-8"))
         self.assertEqual(targets["slug"], "checkout-lite")
+
+    def test_workspace_relative_paths_find_code_outside_aidd(self) -> None:
+        workspace = Path(self._tmp.name) / "workspace2"
+        project_root = workspace / "aidd"
+        project_root.mkdir(parents=True, exist_ok=True)
+        config = {
+            "researcher": {
+                "defaults": {
+                    "paths": ["src/main"],
+                    "docs": ["docs/research"],
+                    "workspace_relative": True,
+                }
+            }
+        }
+        (project_root / "config").mkdir(parents=True, exist_ok=True)
+        (project_root / "config" / "conventions.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
+        code_path = workspace / "src" / "main" / "kotlin"
+        code_path.mkdir(parents=True, exist_ok=True)
+        demo_file = code_path / "WorkspaceDemo.kt"
+        demo_file.write_text("package demo\n// workspace-ticket demo\n", encoding="utf-8")
+
+        builder = ResearcherContextBuilder(project_root, config_path=project_root / "config" / "conventions.json")
+        scope = builder.build_scope("workspace-ticket", slug_hint="workspace-ticket")
+        self.assertIn("src/main", scope.paths)
+        context = builder.collect_context(scope, limit=5)
+        self.assertGreaterEqual(len(context["matches"]), 1, "workspace-relative paths should find code outside aidd")

@@ -512,7 +512,11 @@ def _research_command(args: argparse.Namespace) -> None:
             config_path = (target / config_path).resolve()
         else:
             config_path = config_path.resolve()
-    builder = ResearcherContextBuilder(target, config_path=config_path)
+    builder = ResearcherContextBuilder(
+        target,
+        config_path=config_path,
+        paths_relative=getattr(args, "paths_relative", None),
+    )
     scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
     scope = builder.extend_scope(
         scope,
@@ -524,9 +528,10 @@ def _research_command(args: argparse.Namespace) -> None:
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
+    base_label = builder.paths_relative_mode
     print(
         f"[claude-workflow] researcher targets saved to {rel_targets} "
-        f"({len(scope.paths)} paths, {len(scope.docs)} docs)."
+        f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."
     )
 
     if args.targets_only:
@@ -596,6 +601,16 @@ def _research_command(args: argparse.Namespace) -> None:
         print(
             f"[claude-workflow] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
         )
+        if (
+            builder.paths_relative_mode == "aidd"
+            and builder.workspace_root != builder.root
+            and any((builder.workspace_root / name).exists() for name in ("src", "services", "modules", "apps"))
+        ):
+            print(
+                "[claude-workflow] hint: включите workspace-relative paths (--paths-relative workspace) "
+                "или добавьте ../paths — под aidd/ нет поддерживаемых файлов, но в workspace есть код.",
+                file=sys.stderr,
+            )
     if args.dry_run:
         print(json.dumps(collected_context, indent=2, ensure_ascii=False))
         return
@@ -605,7 +620,7 @@ def _research_command(args: argparse.Namespace) -> None:
     rel_output = output_path.relative_to(target).as_posix()
     reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
     call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
-    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches"
+    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if args.deep_code:
         message += f", {reuse_count} reuse candidates"
     if args.call_graph:
@@ -1902,6 +1917,11 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--paths",
         help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
+    )
+    research_parser.add_argument(
+        "--paths-relative",
+        choices=("workspace", "aidd"),
+        help="Treat relative paths as workspace-rooted (default) or under aidd/. When omitted, defaults to workspace if target is aidd.",
     )
     research_parser.add_argument(
         "--keywords",
