@@ -809,3 +809,10 @@ _Статус: новый, приоритет 1. Цель — убрать `Modu
 - [ ] Тесты: добавить регрессию, эмулирующую uv/pipx (пакет не установлен в системный `python3`), и проверить, что `claude-workflow qa --emit-json` проходит без `ModuleNotFoundError`; обновить smoke-сценарий/fixtures на прогон QA без доп. установок.
 - [ ] Документация: README/qa-playbook/quick-start — уточнить, что после `uv tool install ...` + `claude-workflow init --target aidd --force` QA-агент готов без ручного `pip install`; добавить troubleshoot «CLI не найден»/«ModuleNotFoundError» с новой логикой.
 - [ ] Payload/manifest: после изменений в QA-агенте и путях обновить payload манифест и синк-тесты (`tools/check_payload_sync.py`/`tests/test_package_payload.py`), убедиться, что `_vendor` остаётся в дистрибутиве.
+
+## Wave 54
+
+_Статус: новый, приоритет 1. Цель — убрать ложные срабатывания PRD-ревьюера на дженерики._
+
+- [ ] `scripts/prd-review-agent.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/prd-review-agent.py`: сузить `PLACEHOLDER_PATTERN`/`collect_placeholders`, чтобы типы с дженериками (`SignatureDefaultResponseDto<T>`, `<K, V>` и т.п.) не считались плейсхолдерами; оставить детекцию реальных заглушек из шаблона PRD (`<...>`, `TODO`, `TBD`).
+- [ ] Тесты PRD-ревьюера: добавить кейс с настоящим плейсхолдером (ожидается finding) и кейс с дженериком (findings отсутствуют).
