@@ -274,6 +274,10 @@ def _load_manifest(payload_path: Path) -> Dict[str, Dict]:
         file_path = payload_path / rel
         if not file_path.exists():
             raise PayloadError(f"Payload file listed in manifest is missing: {rel}")
+        if rel == "manifest.json":
+            # Self-referential entry: skip checksum validation to avoid infinite hash churn.
+            entries[rel] = entry
+            continue
         expected_hash = entry.get("sha256")
         actual_hash = _hash_file(file_path)
         if expected_hash != actual_hash:
@@ -528,7 +532,8 @@ def _research_command(args: argparse.Namespace) -> None:
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
-    base_label = builder.paths_relative_mode
+    base_root = builder.workspace_root if builder.paths_relative_mode == "workspace" else builder.root
+    base_label = f"{builder.paths_relative_mode}:{base_root}"
     print(
         f"[claude-workflow] researcher targets saved to {rel_targets} "
         f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."

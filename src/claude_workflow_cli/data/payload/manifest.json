@@ -177,8 +177,8 @@
     {
       "path": "aidd/agents/researcher.md",
       "type": "file",
-      "size": 8803,
-      "sha256": "4ad5eb723eef81e68c3d3fb0f12cfdf8dd305774a3dce7a87b2337d1ed5e3e34"
+      "size": 9189,
+      "sha256": "da71200a4c11bd49bf32c4796c0f0154a2f9234aac461aa254324f149dcad2fd"
     },
     {
       "path": "aidd/agents/reviewer.md",
@@ -255,8 +255,8 @@
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6340,
-      "sha256": "fe7343da5c441309cdc993adbdd12d4844df46538456aabe5a64fab576bbede2"
+      "size": 6726,
+      "sha256": "68f4e420e13bb6ef2fdec15639742e964f5d92b7f951498e1356db1243025aa6"
     },
     {
       "path": "aidd/commands/review-prd.md",
@@ -633,8 +633,8 @@
     {
       "path": "aidd/tools/researcher_context.py",
       "type": "file",
-      "size": 45058,
-      "sha256": "a3ee6c92162843f5db146a3d467dd66edc34d53f8383426783041a2218b1fd11"
+      "size": 51469,
+      "sha256": "c037a526ee93876a76dff7aad05ab0ef5860e2f979726af4c99ab7335cec067e"
     },
     {
       "path": "aidd/tools/run_cli.py",
@@ -653,6 +653,12 @@
       "type": "file",
       "size": 18334,
       "sha256": "0d96b7ef5469dde654018bbed7c7784dde1e1cc5447492c2c5d1e17e60e4300e"
+    },
+    {
+      "path": "manifest.json",
+      "type": "file",
+      "size": 20709,
+      "sha256": "c57600be0977252b8697926d0b94ba8852461089e2c97c17961155f05c0f0d62"
     }
   ]
 }

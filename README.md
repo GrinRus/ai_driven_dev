@@ -294,7 +294,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` сразу сохраняет черновик PRD со статусом `Status: draft`, аналитик фиксирует диалог в `## Диалог analyst`, а ответы даются в формате `Ответ N: …`;
-- `claude-workflow research --auto --deep-code` запускается по требованию: сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline`.
+- `claude-workflow research --auto --deep-code` запускается по требованию: сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline». Пути по умолчанию резолвятся от рабочего корня (parent `aidd/`), CLI выводит `base=workspace:/...` и подсказывает включить `--paths-relative workspace` или передать абсолютные/`../` пути, если граф/матчи пустые.
 - при правках автоматически запускается `.claude/hooks/format-and-test.sh`, гейты блокируют изменения в соответствии с `config/gates.json`;
 - `git commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
 - прогресс каждой итерации фиксируется в `aidd/docs/tasklist/<ticket>.md`: переводите `- [ ] → - [x]`, обновляйте строку `Checkbox updated: …` и запускайте `claude-workflow progress --source <этап> --ticket <ticket>`.

@@ -20,6 +20,7 @@ permissionMode: default
 
 ## Автоматизация
 - Запускай`claude-workflow research --ticket &lt;ticket&gt; --auto --deep-code --call-graph [--reuse-only] [--paths ... --keywords ... --langs ... --graph-langs ...]`для сбора контекста и актуализации JSON-отчёта (call graph строится только для Java/Kotlin; при отсутствии tree-sitter будет пустой с предупреждением).
+- CLI выводит базу путей (`base=workspace:/...` или `base=aidd:/...`) и предупреждает, если под `aidd/` нет поддерживаемых файлов, но в workspace есть код — включи `--paths-relative workspace` или передай абсолютные/`../` пути, если граф/совпадения пустые.
 - Если сканирование ничего не нашло, создай`aidd/docs/research/&lt;ticket&gt;.md`из`aidd/docs/templates/research-summary.md`и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Используй`rg`,`find`,`python`скрипты для обхода каталогов, проверки наличия тестов/миграций, формируй call/import graph Claude Code'ом по`code_index`; фиксируй команды и пути прямо в отчёте.
 - Гейты`gate-workflow`и`/plan-new`требуют`Status: reviewed`; если отчёт pending, опиши TODO и где отсутствуют данные.

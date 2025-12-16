@@ -268,6 +268,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 > The first argument is the ticket identifier; add an optional slug hint (e.g. `checkout-discounts`) as the second argument if you want a human-readable alias in `aidd/docs/.active_feature`.
 
 You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` immediately scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
+Research defaults to workspace-relative paths (parent of `aidd/`); the CLI prints `base=workspace:/...` and hints to use `--paths-relative workspace` or pass absolute/`../` paths if the call graph or matches are empty.
 
 ## Feature kickoff checklist
 
