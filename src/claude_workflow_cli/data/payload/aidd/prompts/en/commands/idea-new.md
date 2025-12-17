@@ -1,5 +1,5 @@
 ---
-description: "Feature initiation: capture idea → clarifications → PRD"
+description: "Feature initiation: analyst + (opt.) auto-research → user questions → PRD draft"
 argument-hint: "<TICKET> [slug-hint]"
 lang: en
 prompt_version: 1.2.0
@@ -10,47 +10,51 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/idea-new` registers the active feature, scaffolds a PRD, and hands off to the analyst. Research is optional and runs only when context is thin (manual `/researcher` or `claude-workflow research`). Flow: `/idea-new → analyst → (optional) /researcher → analyst-check → plan`. Analysts/researchers mine the slug-hint (`aidd/docs/.active_feature`), `aidd/docs/research/*.md`, `reports/research/*.json`, and ask the user only after exhausting repo data; the analyst triggers research when inputs are missing, optionally refining paths/keywords.
+`/idea-new` is a single run: records the active ticket, runs the analyst, optionally triggers research when context is thin, drafts the PRD and surfaces user questions. READY is set only after answers and up-to-date research; the command finishes in BLOCKED/READY?BLOCKED with questions for the user.
 
 ## Input Artifacts
-- Slug-hint / user notes (argument`[slug-hint]`and`rg &lt;ticket&gt; aidd/docs/**`).
--`aidd/docs/prd.template.md`— used for scaffolding.
--`aidd/docs/research/&lt;ticket&gt;.md`,`reports/research/&lt;ticket&gt;-(context|targets).json`— created/updated automatically; when missing,`aidd/docs/templates/research-summary.md`is used as baseline.
-- User-provided`slug-hint`from`/idea-new &lt;ticket&gt; [slug-hint]`— treat it as the primary raw idea; record it in PRD (overview/context) and backlog notes if applicable.
+- Slug-hint / user notes (`[slug-hint]`, `rg <ticket> aidd/docs/**`).
+- `aidd/docs/prd.template.md` — scaffolds PRD (Status: draft, `## Диалог analyst`).
+- `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-(context|targets).json` — auto-created/updated; baseline from `aidd/docs/templates/research-summary.md` if missing.
+- Active markers: `aidd/docs/.active_ticket`, `.active_feature` (use `--target aidd` if running from repo root without `docs/`).
 
 ## When to Run
-- At the very beginning of a feature lifecycle.
-- Rerun only if you intentionally reset the active ticket (use`--force`cautiously).
+- At the start of a feature.
+- Rerun only to re-init the ticket with `--force`: re-read existing PRD, don’t overwrite answers, add new questions/sources, and refresh status/Researcher when context changed.
 
 ## Automation & Hooks
--`python3 tools/set_active_feature.py &lt;ticket&gt; [--slug-note ...]`writes`aidd/docs/.active_ticket`,`.active_feature`, and scaffolds`aidd/docs/prd/&lt;ticket&gt;.prd.md`(Status: draft).
--`claude-workflow analyst --ticket &lt;ticket&gt; --auto`launches the analyst; it re-reads slug-hint and artifacts, and requests research only if context is missing.
--`claude-workflow research --ticket &lt;ticket&gt; --auto`is used on demand (when the analyst spots gaps). Extra`--paths/--keywords/--note`flags narrow the scope only when necessary.
--`claude-workflow analyst-check --ticket &lt;ticket&gt;`ensures the dialog block is structured and`Status`is not`draft`.
+- `python3 tools/set_active_feature.py <ticket> [--slug-note ...] [--target <root>]` writes `aidd/docs/.active_*` (fallback to `aidd/docs`), scaffolds PRD and research stub if missing.
+- Inside `/idea-new` the **analyst** runs automatically; when context is thin, it triggers `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (or asks the user if `--no-research`).
+- Flags: `--auto-research` (default on), `--no-research` to skip auto research.
+- `claude-workflow analyst-check --ticket <ticket>` validates dialog/status after answers.
 
 ## What is Edited
--`aidd/docs/.active_ticket`,`aidd/docs/.active_feature`.
--`aidd/docs/prd/&lt;ticket&gt;.prd.md`— filled per template, status updated from draft to READY/BLOCKED.
--`aidd/docs/research/&lt;ticket&gt;.md`— created/updated (baseline recorded when no context is found).
-- Auto-generated`reports/research/&lt;ticket&gt;-(context|targets).json`.
+- `aidd/docs/.active_ticket`, `.active_feature`.
+- `aidd/docs/prd/<ticket>.prd.md` — draft/BLOCKED with questions; READY only after answers.
+- `aidd/docs/research/<ticket>.md`, `reports/research/*` — updated/baseline as needed.
+- Auto-generated `reports/research/<ticket>-(context|targets).json`.
 
 ## Step-by-step Plan
-1. Run`python3 tools/set_active_feature.py "$1" [--slug-note "$2"]`— it updates`aidd/docs/.active_ticket`,`.active_feature`(capturing the slug-hint as the raw user request), and scaffolds the PRD (use`--force`only after confirming you may overwrite the current ticket).
-2. Launch the **analyst** agent automatically: `claude-workflow analyst --ticket "$1" --auto`. The agent reads slug-hint (`aidd/docs/.active_feature`), searches for ticket mentions (`rg`), checks existing artifacts, and logs questions.
-3. If context is missing (no or stale `aidd/docs/research/$1.md`), trigger research on demand: run `/researcher $1` or `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]`. If the CLI reports `0 matches`, expand `aidd/docs/templates/research-summary.md` into `aidd/docs/research/$1.md`, add the “Context empty, baseline required” note, and list all commands/paths that returned nothing.
-4. After research, return to the analyst (rerun `claude-workflow analyst --ticket "$1" --auto` if needed) and update the PRD: filled sections, `## Диалог analyst`, links to research/reports; set READY only when context is sufficient (`Status: reviewed` or baseline project).
-5. Run`claude-workflow analyst-check --ticket "$1"`and fix any reported mismatches before continuing.
-6. Optionally apply preset`feature-prd`or attach notes via`--note @file.md`to pre-populate research/PRD context.
+1. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"] [--target <root>]` — updates `.active_*`, scaffolds PRD and research stub.
+2. Auto-run **analyst**: reads slug-hint/artifacts; if context is thin, triggers `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]` (or asks the user if `--no-research`).
+3. After research (if any), analyst updates PRD, logs sources, and builds “Questions for the user” in `## Диалог analyst`. Do not set READY until answers and research reviewed (baseline allowed for empty repos).
+4. Finish with explicit questions/blockers. User replies as `Ответ N: ...`; after answers run `claude-workflow analyst-check --ticket "$1"` and rerun analyst if needed to reach READY.
 
 ## Fail-fast & Questions
-- Missing ticket or slug-hint — stop and request it.
-- Do not overwrite a filled PRD unless the user confirms (`--force`).
-- If`claude-workflow research --auto`still lacks context after scanning, describe the commands/paths you already used, kick off another research pass with refined scope if needed, and only then ask the user for extra`--paths/--keywords`or`--note` or to run `/researcher`.
+- Missing ticket/slug — stop and request it; avoid overwriting PRD without `--force`.
+- No research or stale — analyst triggers research; with `--no-research` ask the user to run `/researcher`.
+- Thin context even after research — list what you tried (paths/keywords/rg), form questions; do not set READY until answers.
 
 ## Expected Output
-- Active ticket/slug set, PRD scaffolded + filled, Researcher report created/updated, status READY/BLOCKED reflecting dialog state.
-- User understands remaining questions if BLOCKED.
+- Active ticket/slug set; PRD draft/BLOCKED with questions, READY only after answers.
+- Research artifacts up to date (or baseline recorded).
+- User sees explicit questions to move to READY/plan.
+
+## Troubleshooting
+- PRD stays draft/BLOCKED: answer all `Question N:` entries in `## Диалог analyst` and run `claude-workflow analyst-check --ticket <ticket> --target aidd`.
+- Research pending/missing: run `claude-workflow research --ticket <ticket> --auto --target aidd` (or `/researcher`) and ensure `Status: reviewed`.
+- Artifacts not found: run with `--target aidd` from repo root without `docs/`; verify `aidd/docs/.active_*` exists.
 
 ## CLI Examples
--`/idea-new ABC-123 checkout-demo`
--`/idea-new ABC-123 --paths src/app --keywords "checkout,pay" --slug-note checkout-demo`
+- `/idea-new ABC-123 checkout-demo`
+- `/idea-new ABC-123 --paths src/app --keywords "checkout,pay" --slug-note checkout-demo`

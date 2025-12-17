@@ -334,6 +334,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
     root = Path(args.target).resolve()
     if not (root / "docs").exists() and (root / "aidd" / "docs").exists():
+        print("[analyst_guard] docs/ not found; using ./aidd as project root", file=sys.stderr)
         root = (root / "aidd").resolve()
     settings = load_settings(root)
     try:

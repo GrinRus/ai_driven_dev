@@ -34,6 +34,8 @@ except ImportError:  # pragma: no cover - fallback for standalone usage
     resolve_identifiers = None  # type: ignore
 
 ROOT_DIR = Path.cwd()
+if not (ROOT_DIR / "docs").is_dir() and (ROOT_DIR / "aidd" / "docs").is_dir():
+    ROOT_DIR = ROOT_DIR / "aidd"
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"approved"}
 BLOCKING_TOKENS = {"blocked", "reject"}

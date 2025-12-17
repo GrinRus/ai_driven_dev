@@ -107,8 +107,14 @@ hook_read_ticket() {
   local slug_path="${2:-}"
   local ticket_env=""
   local slug_env=""
+  if [[ -n "$ticket_path" && ! -f "$ticket_path" && "$ticket_path" == aidd/* && -f "${ticket_path#aidd/}" ]]; then
+    ticket_path="${ticket_path#aidd/}"
+  fi
   if [[ -n "$ticket_path" && -f "$ticket_path" ]]; then
     ticket_env="$ticket_path"
+  fi
+  if [[ -n "$slug_path" && ! -f "$slug_path" && "$slug_path" == aidd/* && -f "${slug_path#aidd/}" ]]; then
+    slug_path="${slug_path#aidd/}"
   fi
   if [[ -n "$slug_path" && -f "$slug_path" ]]; then
     slug_env="$slug_path"

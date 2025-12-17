@@ -4,6 +4,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
+  echo "WARN: docs/ not found; using ./aidd as project root" >&2
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
 # shellcheck source=.claude/hooks/lib.sh
@@ -99,6 +100,12 @@ ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source doc
 slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
   exit 0
+fi
+if [[ -n "$ticket_source" && "$ticket_source" == aidd/* && ! -f "$ticket_source" && -f "${ticket_source#aidd/}" ]]; then
+  ticket_source="${ticket_source#aidd/}"
+fi
+if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* && ! -f "$slug_hint_source" && -f "${slug_hint_source#aidd/}" ]]; then
+  slug_hint_source="${slug_hint_source#aidd/}"
 fi
 if [[ -n "$ticket_source" && ! -f "$ticket_source" ]] && [[ -n "$slug_hint_source" && ! -f "$slug_hint_source" ]]; then
   exit 0  # нет активной фичи — не блокируем
