@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from .helpers import (
+    DEFAULT_GATES_CONFIG,
     REPO_ROOT,
     ensure_gates_config,
     run_hook,
@@ -20,7 +21,15 @@ def _utc_now() -> str:
 
 
 def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> None:
-    ensure_gates_config(tmp_path, {"reviewer": {"enabled": False}})
+    researcher_cfg = DEFAULT_GATES_CONFIG["researcher"].copy()
+    researcher_cfg["require_for_branches"] = ["feature/*", "release/*", "hotfix/*"]
+    ensure_gates_config(
+        tmp_path,
+        {
+            "reviewer": {"enabled": False},
+            "researcher": researcher_cfg,
+        },
+    )
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     prd_body = (
@@ -99,3 +108,15 @@ def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
     assert "pending" in combined or "baseline" in combined
+
+
+def test_researcher_blocks_missing_report(tmp_path):
+    ticket = "demo-checkout"
+    _setup_common_artifacts(tmp_path, ticket)
+    # Researcher report intentionally missing
+    _write_context(tmp_path, ticket, is_new=False, auto_mode=False)
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "researcher" in combined or "отчёт" in combined or "report" in combined

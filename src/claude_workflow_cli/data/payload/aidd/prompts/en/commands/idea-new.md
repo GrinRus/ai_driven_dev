@@ -2,15 +2,15 @@
 description: "Feature initiation: capture idea → clarifications → PRD"
 argument-hint: "<TICKET> [slug-hint]"
 lang: en
-prompt_version: 1.1.1
-source_version: 1.1.1
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow research:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*)
+prompt_version: 1.2.0
+source_version: 1.2.0
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*)
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/idea-new`registers the active feature, scaffolds a PRD, runs Researcher, and kicks off the analyst dialog. It enforces the agent-first flow: analysts and researchers mine the slug-hint (`aidd/docs/.active_feature`),`aidd/docs/research/*.md`,`reports/research/*.json`, and run allowed CLI commands before escalating to the user. The analyst can trigger an extra research pass if context is thin (refining paths/keywords).
+`/idea-new` registers the active feature, scaffolds a PRD, and hands off to the analyst. Research is optional and runs only when context is thin (manual `/researcher` or `claude-workflow research`). Flow: `/idea-new → analyst → (optional) /researcher → analyst-check → plan`. Analysts/researchers mine the slug-hint (`aidd/docs/.active_feature`), `aidd/docs/research/*.md`, `reports/research/*.json`, and ask the user only after exhausting repo data; the analyst triggers research when inputs are missing, optionally refining paths/keywords.
 
 ## Input Artifacts
 - Slug-hint / user notes (argument`[slug-hint]`and`rg &lt;ticket&gt; aidd/docs/**`).
@@ -24,8 +24,8 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 -`python3 tools/set_active_feature.py &lt;ticket&gt; [--slug-note ...]`writes`aidd/docs/.active_ticket`,`.active_feature`, and scaffolds`aidd/docs/prd/&lt;ticket&gt;.prd.md`(Status: draft).
--`claude-workflow research --ticket &lt;ticket&gt; --auto`gathers repo context and refreshes`reports/research/&lt;ticket&gt;-context.json`/`-targets.json`. Extra`--paths/--keywords/--note`flags are optional and used only when the repo scope has to be narrowed.
--`claude-workflow analyst --ticket &lt;ticket&gt; --auto`launches the analyst agent; it re-reads research + slug-hint, applies`rg`, and if context is still weak can start another`claude-workflow research --ticket &lt;ticket&gt; --auto --paths ... --keywords ...`before asking the user.
+-`claude-workflow analyst --ticket &lt;ticket&gt; --auto`launches the analyst; it re-reads slug-hint and artifacts, and requests research only if context is missing.
+-`claude-workflow research --ticket &lt;ticket&gt; --auto`is used on demand (when the analyst spots gaps). Extra`--paths/--keywords/--note`flags narrow the scope only when necessary.
 -`claude-workflow analyst-check --ticket &lt;ticket&gt;`ensures the dialog block is structured and`Status`is not`draft`.
 
 ## What is Edited
@@ -36,17 +36,16 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Run`python3 tools/set_active_feature.py "$1" [--slug-note "$2"]`— it updates`aidd/docs/.active_ticket`,`.active_feature`(capturing the slug-hint as the raw user request), and scaffolds the PRD (use`--force`only after confirming you may overwrite the current ticket).
-2. Execute`claude-workflow research --ticket "$1" --auto`to collect repository context. Pass`--paths/--keywords/--note`only when the default scan misses important modules; otherwise rely on the repo-driven output.
-3. If the CLI reports`0 matches`, expand`aidd/docs/templates/research-summary.md`into`aidd/docs/research/$1.md`, add the “Context empty, baseline required” note, and list all commands/paths that returned nothing.
-4. Launch the **analyst** agent automatically:`claude-workflow analyst --ticket "$1" --auto`. The agent reads slug-hint (`aidd/docs/.active_feature`),`aidd/docs/research/&lt;ticket&gt;.md`,`reports/research/*.json`, applies`rg`, and when context is insufficient can trigger another`claude-workflow research --ticket "$1" --auto --paths ... --keywords ...`before asking the user (answers must follow`Answer N:`format).
-5. Analyst fills`aidd/docs/prd/$1.prd.md`: references to research/backlog, goals, scenarios, metrics, risks, dialog block. Switch the status from draft to READY once repo data plus any needed answers cover all sections.
-6. Run`claude-workflow analyst-check --ticket "$1"`and fix any reported mismatches before continuing.
-7. Optionally apply preset`feature-prd`or attach notes via`--note @file.md`to pre-populate research/PRD context.
+2. Launch the **analyst** agent automatically: `claude-workflow analyst --ticket "$1" --auto`. The agent reads slug-hint (`aidd/docs/.active_feature`), searches for ticket mentions (`rg`), checks existing artifacts, and logs questions.
+3. If context is missing (no or stale `aidd/docs/research/$1.md`), trigger research on demand: run `/researcher $1` or `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]`. If the CLI reports `0 matches`, expand `aidd/docs/templates/research-summary.md` into `aidd/docs/research/$1.md`, add the “Context empty, baseline required” note, and list all commands/paths that returned nothing.
+4. After research, return to the analyst (rerun `claude-workflow analyst --ticket "$1" --auto` if needed) and update the PRD: filled sections, `## Диалог analyst`, links to research/reports; set READY only when context is sufficient (`Status: reviewed` or baseline project).
+5. Run`claude-workflow analyst-check --ticket "$1"`and fix any reported mismatches before continuing.
+6. Optionally apply preset`feature-prd`or attach notes via`--note @file.md`to pre-populate research/PRD context.
 
 ## Fail-fast & Questions
 - Missing ticket or slug-hint — stop and request it.
 - Do not overwrite a filled PRD unless the user confirms (`--force`).
-- If`claude-workflow research --auto`still lacks context after scanning, describe the commands/paths you already used, kick off another research pass with refined scope if needed, and only then ask the user for extra`--paths/--keywords`or`--note`.
+- If`claude-workflow research --auto`still lacks context after scanning, describe the commands/paths you already used, kick off another research pass with refined scope if needed, and only then ask the user for extra`--paths/--keywords`or`--note` or to run `/researcher`.
 
 ## Expected Output
 - Active ticket/slug set, PRD scaffolded + filled, Researcher report created/updated, status READY/BLOCKED reflecting dialog state.
