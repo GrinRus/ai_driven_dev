@@ -328,30 +328,19 @@ _Статус: активный, приоритет 1. Цель — предск
 ## Wave 27
 
 _Статус: активный, приоритет 1. Объединено с Wave 46. Цель — установка в поддиректорию `aidd/` с полным payload и официальным плагином/хуками Claude Code._
+Прогресс: init/sync/smoke/tests под `aidd/` готовы; остаются задачи по документации и оформлению плагина.
 
-### Установка в поддиректорию `aidd/` и упаковка payload
-- [ ] `doc/design/install-subdir.md`: зафиксировать новую структуру установки (дефолт `./aidd/`), сценарии `--workspace-root`/`--target`, влияние на DX и совместимость; описать, что все артефакты плагина (`aidd/.claude`, `aidd/docs`, `aidd/tools`, `aidd/prompts`, `aidd/scripts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/reports`, `aidd/etc`) живут внутри поддиректории.
-- [ ] `doc/adr/install-subdir-decision.md`: сравнить варианты (авто-перенос, генерация поверх `--target`, шаблонный репозиторий) и выбрать целевой подход для `aidd/`.
-- [ ] `src/claude_workflow_cli/cli.py` / `init.py`: добавить поддержку установки в `aidd/` по умолчанию, опцию переопределения пути, защиту от конфликтов и автоматический перенос payload при `claude-workflow init --target .` (после `uv tool install --force "git+https://github.com/GrinRus/ai_driven_dev.git#egg=claude-workflow-cli[call-graph]"`).
-- [ ] `src/claude_workflow_cli/resources.py` (новый): единый слой копирования payload/плагина в выбранный корень с учётом manifest, прав и дотфайлов.
-- [ ] `init-claude-workflow.sh`, `scripts/smoke-workflow.sh`: синхронизировать bash-обёртку с новой структурой, покрыть пустую/существующую директорию, гарантировать идентичную логику с CLI и новой раскладкой `aidd/`.
-- [ ] Обновить manifest/payload так, чтобы все каталоги (`docs/tools/prompts/scripts/config/claude-presets/templates/reports/etc`) жили под `aidd/`; обеспечить sync-скрипты/проверки на новую вложенность и гарантировать, что после `claude-workflow init --target . --commit-mode ticket-prefix --enable-ci --force` доступны команды, агенты и скрипты без ручных шагов.
-- [ ] Покрыть установку в `aidd/` тестами/smoke: CLI init в целевой каталог, проверка доступности всех команд/агентов/скриптов и прав доступа через `claude-workflow` без ручных шагов.
+### Установка в поддиректорию `aidd/` и упаковка payload (в процессе)
+- [x] `doc/design/install-subdir.md`: зафиксировать новую структуру установки (дефолт `./aidd/`), сценарии `--workspace-root`/`--target`, влияние на DX и совместимость; описать, что все артефакты плагина (`aidd/.claude`, `aidd/docs`, `aidd/tools`, `aidd/prompts`, `aidd/scripts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/reports`, `aidd/etc`) живут внутри поддиректории.
+- [x] `doc/adr/install-subdir-decision.md`: сравнить варианты (авто-перенос, генерация поверх `--target`, шаблонный репозиторий) и выбрать целевой подход для `aidd/`.
+- [x] `src/claude_workflow_cli/cli.py` / `init.py`: добавить поддержку установки в `aidd/` по умолчанию, опцию переопределения пути, защиту от конфликтов и автоматический перенос payload при `claude-workflow init --target .` (после `uv tool install --force "git+https://github.com/GrinRus/ai_driven_dev.git#egg=claude-workflow-cli[call-graph]"`).
+- [x] `src/claude_workflow_cli/resources.py` (новый): единый слой копирования payload/плагина в выбранный корень с учётом manifest, прав и дотфайлов.
+- [x] `init-claude-workflow.sh`, `scripts/smoke-workflow.sh`: синхронизировать bash-обёртку с новой структурой, покрыть пустую/существующую директорию, гарантировать идентичную логику с CLI и новой раскладкой `aidd/`. _Сделано: init + smoke работают с поддиректорией, тесты зелёные._
+- [x] Обновить manifest/payload так, чтобы все каталоги (`docs/tools/prompts/scripts/config/claude-presets/templates/reports/etc`) жили под `aidd/`; обеспечить sync-скрипты/проверки на новую вложенность и гарантировать, что после `claude-workflow init --target . --commit-mode ticket-prefix --enable-ci --force` доступны команды, агенты и скрипты без ручных шагов. _Сделано: payload переложен в `aidd/`, manifest пересобран под префикс; sync-check обновлён._
+- [x] Перенести системные файлы в древовидную структуру `aidd/` (исключить корневые `.claude`/`.dev` и прочие артефакты, которые разворачиваются при установке); разложить корневые шаблоны/скрипты/README, относящиеся к payload, в подпапки. _Сделано: корневые снапшоты удалены, игнор добавлен._
+- [x] Покрыть установку в `aidd/` тестами/smoke: CLI init в целевой каталог, проверка доступности всех команд/агентов/скриптов и прав доступа через `claude-workflow` без ручных шагов. _pytest + smoke проходят._
 
-### Официальные команды/агенты и плагин AIDD
-- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
-- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
-- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
-
-### Хуки и гейты (официальные события)
-- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
-- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
-- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
-
-### Документация и CLAUDE.md
-- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
-- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
-- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.
+- Оставшиеся открытые задачи по плагину/командам/агентам/хукам и документации перенесены в Wave 46.
 
 ## Wave 28
 
@@ -646,4 +635,19 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 
 ## Wave 46
 
-_(Объединено с Wave 27; все задачи перенесены выше, раздел оставлен как маркер миграции.)_
+_Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
+
+### Официальные команды/агенты и плагин AIDD
+- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
+- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
+- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
+
+### Хуки и гейты (официальные события)
+- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
+- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
+- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
+
+### Документация и CLAUDE.md
+- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
+- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
+- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.

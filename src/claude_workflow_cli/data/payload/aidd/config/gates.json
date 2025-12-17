@@ -1,0 +1,151 @@
+{
+  "feature_ticket_source": "docs/.active_ticket",
+  "feature_slug_hint_source": "docs/.active_feature",
+  "tests_required": "soft",
+  "deps_allowlist": false,
+  "prd_review": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "approved_statuses": [
+      "approved"
+    ],
+    "blocking_statuses": [
+      "blocked"
+    ],
+    "allow_missing_section": false,
+    "require_action_items_closed": true,
+    "allow_missing_report": true,
+    "blocking_severities": [
+      "critical"
+    ],
+    "report_path": "reports/prd/{ticket}.json"
+  },
+  "researcher": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "require_status": [
+      "reviewed"
+    ],
+    "freshness_days": 14,
+    "allow_missing": false,
+    "minimum_paths": 1,
+    "allow_pending_baseline": true,
+    "baseline_phrase": "контекст пуст"
+  },
+  "analyst": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "min_questions": 1,
+    "require_ready": true,
+    "allow_blocked": false,
+    "check_open_questions": true,
+    "require_dialog_section": true
+  },
+  "qa": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "requires": [
+      "gate-tests"
+    ],
+    "command": [
+      "claude-workflow",
+      "qa",
+      "--gate"
+    ],
+    "timeout": 600,
+    "report": "reports/qa/{ticket}.json",
+    "block_on": [
+      "blocker",
+      "critical"
+    ],
+    "warn_on": [
+      "major",
+      "minor"
+    ],
+    "allow_missing_report": false,
+    "handoff": false,
+    "tests": {
+      "commands": [
+        "echo smoke-test-ok"
+      ]
+    }
+  },
+  "reviewer": {
+    "enabled": true,
+    "tests_marker": "reports/reviewer/{ticket}.json",
+    "tests_field": "tests",
+    "required_values": [
+      "required"
+    ],
+    "optional_values": [
+      "optional",
+      "skipped",
+      "not-required"
+    ],
+    "warn_on_missing": true
+  },
+  "tasklist_progress": {
+    "enabled": true,
+    "code_prefixes": [
+      "src/",
+      "tests/",
+      "test/",
+      "app/",
+      "services/",
+      "backend/",
+      "frontend/",
+      "lib/",
+      "core/",
+      "packages/",
+      "modules/",
+      "cmd/"
+    ],
+    "skip_branches": [
+      "docs/*",
+      "chore/*"
+    ],
+    "allow_missing_tasklist": false,
+    "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
+    "sources": [
+      "manual",
+      "implement",
+      "qa",
+      "review",
+      "gate",
+      "handoff"
+    ]
+  },
+  "tests": {
+    "reviewerGate": {
+      "enabled": false
+    }
+  }
+}

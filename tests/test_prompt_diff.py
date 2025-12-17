@@ -5,6 +5,8 @@ from pathlib import Path
 from textwrap import dedent
 import unittest
 
+from .helpers import PAYLOAD_ROOT
+
 
 class PromptDiffTests(unittest.TestCase):
     def write_prompt_pair(self, root: Path, kind: str, name: str, ru_text: str, en_text: str) -> None:
@@ -85,7 +87,7 @@ class PromptDiffTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "tools/prompt_diff.py",
+                    str(PAYLOAD_ROOT / "tools" / "prompt_diff.py"),
                     "--name",
                     "analyst",
                     "--kind",
@@ -190,7 +192,7 @@ class PromptDiffTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "tools/prompt_diff.py",
+                    str(PAYLOAD_ROOT / "tools" / "prompt_diff.py"),
                     "--name",
                     "plan-new",
                     "--kind",

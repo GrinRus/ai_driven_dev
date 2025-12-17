@@ -23,15 +23,16 @@ def _clean_payload_pycache() -> None:
 
 
 def test_sync_materialises_claude(tmp_path):
-    target = tmp_path / "workspace"
-    target.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    project_root = workspace / "aidd"
 
     _clean_payload_pycache()
-    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=False, release=None, cache_dir=None)
+    args = SimpleNamespace(target=str(workspace), include=None, force=False, dry_run=False, release=None, cache_dir=None)
     cli._sync_command(args)
 
-    settings = target / ".claude" / "settings.json"
-    version = target / ".claude" / ".template_version"
+    settings = project_root / ".claude" / "settings.json"
+    version = project_root / ".claude" / ".template_version"
 
     assert settings.exists(), "sync should copy .claude/settings.json"
     assert version.exists(), "sync should record template version when .claude included"
@@ -39,25 +40,26 @@ def test_sync_materialises_claude(tmp_path):
 
 
 def test_sync_dry_run_does_not_touch_files(tmp_path, capsys):
-    target = tmp_path / "workspace"
-    target.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
 
     _clean_payload_pycache()
-    args = SimpleNamespace(target=str(target), include=None, force=False, dry_run=True, release=None, cache_dir=None)
+    args = SimpleNamespace(target=str(workspace), include=None, force=False, dry_run=True, release=None, cache_dir=None)
     cli._sync_command(args)
 
-    assert not any(target.iterdir()), "dry-run must not create new files"
+    assert not any(workspace.iterdir()), "dry-run must not create new files"
     out = capsys.readouterr().out
     assert "sync dry-run" in out
 
 
 def test_sync_custom_include(tmp_path):
-    target = tmp_path / "workspace"
-    target.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    project_root = workspace / "aidd"
 
     _clean_payload_pycache()
     args = SimpleNamespace(
-        target=str(target),
+        target=str(workspace),
         include=["claude-presets"],
         force=False,
         dry_run=False,
@@ -66,20 +68,21 @@ def test_sync_custom_include(tmp_path):
     )
     cli._sync_command(args)
 
-    preset = target / "claude-presets" / "feature-prd.yaml"
+    preset = project_root / "claude-presets" / "feature-prd.yaml"
     assert preset.exists(), "sync should copy requested payload fragments"
-    template_version = target / ".claude" / ".template_version"
+    template_version = project_root / ".claude" / ".template_version"
     assert not template_version.exists(), "template version should not update when .claude not synced"
 
 
-def test_sync_supports_readme_include(tmp_path):
-    target = tmp_path / "workspace"
-    target.mkdir()
+def test_sync_supports_claude_include(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    project_root = workspace / "aidd"
 
     _clean_payload_pycache()
     args = SimpleNamespace(
-        target=str(target),
-        include=["README.md"],
+        target=str(workspace),
+        include=["CLAUDE.md"],
         force=False,
         dry_run=False,
         release=None,
@@ -87,5 +90,5 @@ def test_sync_supports_readme_include(tmp_path):
     )
     cli._sync_command(args)
 
-    readme = target / "README.md"
-    assert readme.exists(), "sync should copy README.md when explicitly requested"
+    claude_doc = project_root / "CLAUDE.md"
+    assert claude_doc.exists(), "sync should copy CLAUDE.md when explicitly requested"

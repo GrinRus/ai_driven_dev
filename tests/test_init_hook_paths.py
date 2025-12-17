@@ -5,8 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.helpers import PROJECT_SUBDIR
 
-PAYLOAD_ROOT = Path(__file__).resolve().parents[1] / "src" / "claude_workflow_cli" / "data" / "payload"
+PAYLOAD_ROOT = Path(__file__).resolve().parents[1] / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
 
 
 class InitHookCommandTest(unittest.TestCase):
@@ -14,15 +15,17 @@ class InitHookCommandTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="claude-workflow-test-") as tmpdir:
             env = os.environ.copy()
             env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
+            project_root = Path(tmpdir) / PROJECT_SUBDIR
+            project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
                 ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix"],
-                cwd=tmpdir,
+                cwd=project_root,
                 env=env,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            settings_path = Path(tmpdir) / ".claude" / "settings.json"
+            settings_path = project_root / ".claude" / "settings.json"
             self.assertTrue(settings_path.exists(), ".claude/settings.json must be created")
             data = json.loads(settings_path.read_text(encoding="utf-8"))
 
@@ -53,7 +56,7 @@ class InitHookCommandTest(unittest.TestCase):
 
             self.assertTrue(commands, "hook commands must not be empty")
 
-            project_dir = Path(tmpdir).resolve()
+            project_dir = project_root.resolve()
             project_prefix = f"\"{project_dir}\"/.claude/hooks"
             for cmd in commands:
                 with self.subTest(command=cmd):

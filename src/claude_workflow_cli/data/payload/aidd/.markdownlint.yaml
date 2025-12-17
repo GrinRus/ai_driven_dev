@@ -3,5 +3,5 @@ MD022: false   # Blanks around headings
 MD031: false   # Blanks around fenced code blocks
 MD032: false   # Lists should be surrounded by blank lines
 MD040: false   # Fenced code blocks should have a language specified
-MD041: false   # First line in file should be a top-level heading
+MD041: false   # First line in a file should be a top-level heading
 MD051: false   # Link fragments validation

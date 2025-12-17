@@ -8,6 +8,7 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
+
 DEFAULT_PATHS: list[str] = []
 
 DEFAULT_PAYLOAD_PREFIX = "aidd"
