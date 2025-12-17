@@ -10,16 +10,15 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from claude_workflow_cli import cli  # noqa: E402
 
-from .helpers import PAYLOAD_ROOT
+from .helpers import PAYLOAD_ROOT, SETTINGS_SRC
 
 
 def prepare_workspace(tmp_path: Path) -> Path:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    settings_src = PAYLOAD_ROOT / ".claude" / "settings.json"
     settings_dst = workspace / ".claude" / "settings.json"
     settings_dst.parent.mkdir(parents=True, exist_ok=True)
-    settings_dst.write_text(settings_src.read_text(encoding="utf-8"), encoding="utf-8")
+    settings_dst.write_text(SETTINGS_SRC.read_text(encoding="utf-8"), encoding="utf-8")
     return workspace
 
 

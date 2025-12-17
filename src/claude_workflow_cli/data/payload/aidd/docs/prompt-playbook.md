@@ -12,7 +12,7 @@
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `.claude/agents/*.md` и `.claude/commands/*.md` начинается с блока:
+Каждый файл `.claude-plugin/agents/*.md`, `.claude/agents/*.md`, `.claude-plugin/commands/*.md` и `.claude/commands/*.md` начинается с блока:
 
 ```yaml
 ---
@@ -23,6 +23,7 @@ prompt_version: 1.0.0       # major.minor.patch
 source_version: 1.0.0       # если документ локализован, укажите версию оригинала
 tools: Read, Write, ...     # только разрешённые инструменты
 model: inherit | opus       # при необходимости фиксируйте модель
+permissionMode: default     # для агентов (acceptEdits/bypassPermissions/plan/ignore/default)
 ---
 ```
 
@@ -30,32 +31,33 @@ model: inherit | opus       # при необходимости фиксируй
 - Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
 - `prompt_version` повышается при любых правках текста (см. раздел 7).
 - Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
+- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; для агентов поле `name` обязательно.
 
 ### 2.2 Обязательные разделы
 После фронт-маттера соблюдайте блоки в указанном порядке:
-1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@docs/...`). В этом блоке явно укажите философию agent-first: какие данные агент обязан собрать самостоятельно и какие действия автоматизированы.
-2. **Входные артефакты** — маркированный список (`- PRD: docs/prd/<ticket>.prd.md`). Указывайте обязательность и fallback (например, «если отчёт research отсутствует → попроси запустить команду»).
+1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@aidd/docs/...`). В этом блоке явно укажите философию agent-first: какие данные агент обязан собрать самостоятельно и какие действия автоматизированы.
+2. **Входные артефакты** — маркированный список (`- PRD: aidd/docs/prd/<ticket>.prd.md`). Указывайте обязательность и fallback (например, «если отчёт research отсутствует → попроси запустить команду»).
 3. **Автоматизация** — что делает CLA `gate-*`, какие переменные окружения поддерживаются, как реагировать на автозапуск `format-and-test`. Здесь же перечислите разрешённые команды (например, `./gradlew test`, `rg pattern`, `claude-workflow progress`) и ожидаемый формат фиксации их вывода.
 4. **Пошаговый план** — пронумерованный список действий агента/команды. Для команд допускается блок «Когда запускать / Что модифицируем / Ожидаемый вывод».
 5. **Fail-fast & вопросы** — что считать блокером, как задавать вопросы пользователю (формат, обязательные ответы). Подчеркните, что вопросы задаются только после того, как агент перечислил проверенные артефакты/команды.
 6. **Формат ответа** — чёткие требования к финальному сообщению (статус, блоки, `Checkbox updated`).
 
-Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. docs/agents-playbook.md`).
+Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. aidd/docs/agents-playbook.md`).
 
 ### 2.4 Agent-first обязательства
-- Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
+- Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
 - Разрешённый Q&A с пользователем всегда идёт в формате «перечислены изученные артефакты → сформулирован недостающий ответ → приложен требуемый формат ответа».
-- Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
+- Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
 
 ### 2.3 Локализация
 - RU-файлы используются рантаймом (`.claude/agents/*.md`, `.claude/commands/*.md`), EN-хранилище — `prompts/en/agents/*.md`, `prompts/en/commands/*.md`.
 - Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `prompts/en/**`).
 - Добавьте `Lang-Parity: skip` в фронт-маттер только когда одну локаль намеренно пропускают (например, черновик); после синхронизации уберите.
-- Версионные правила и workflow описаны в `docs/prompt-versioning.md`.
+- Версионные правила и workflow описаны в `aidd/docs/prompt-versioning.md`.
 
 ## 3. Правила `Checkbox updated`
 - Всегда начинайте блок статуса строкой `Checkbox updated: <список>` или `Checkbox updated: none`.
-- Формат списка: идентификатор чекбокса (`1.1 – Аналитика`) или ссылку на файл (`docs/tasklist/ABC-123.md: QA #3`).
+- Формат списка: идентификатор чекбокса (`1.1 – Аналитика`) или ссылку на файл (`aidd/docs/tasklist/ABC-123.md: QA #3`).
 - Команды/агенты, которые не обновляют tasklist, должны явно указывать `Checkbox updated: not-applicable`.
 - Любые дополнения (например, краткий отчёт) следуют после строки `Checkbox updated: ...`.
 
@@ -68,11 +70,11 @@ model: inherit | opus       # при необходимости фиксируй
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `docs/prd/<ticket>.prd.md`, `docs/research/<ticket>.md` | `gate-prd-review`, `gate-workflow` | PRD READY/BLOCKED, список вопросов | `docs/prd.template.md`, `docs/agents-playbook.md` |
-| `planner` / `/plan-new` | PRD (Status: approved), research, `docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `docs/plan/.template` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-prd-review`, `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
+| `planner` / `/plan-new` | PRD (Status: approved), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
-| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `docs/agents-playbook.md` |
-| `qa` | Tasklist, логи гейтов | `gate-qa`, `.claude/hooks/gate-qa.sh` | QA отчёт | `docs/qa-playbook.md` |
+| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
+| `qa` | Tasklist, логи гейтов | `gate-qa`, `.claude/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 
@@ -80,19 +82,20 @@ model: inherit | opus       # при необходимости фиксируй
 - Ссылайтесь на переменные окружения из `.claude/settings.json` (например, `SKIP_AUTO_TESTS`, `TEST_SCOPE`).
 - Для команд, которые вызывают дополнительные скрипты, описывайте формат `!bash -lc '...'` и ожидаемые побочные эффекты.
 - Если агент должен запускаться из палитры (например, `qa`), напишите явное указание «Запусти через Claude: Run agent → qa».
+- Hook events: `aidd/.claude-plugin/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `"$CLAUDE_PROJECT_DIR"/.claude/hooks/<name>.sh`.
 
 ## 7. Процесс изменений и версионирование
 - Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).
-- EN-файл обязан держать `prompt_version`, равный RU, а `source_version` = текущей RU-версии; детали в `docs/prompt-versioning.md`.
+- EN-файл обязан держать `prompt_version`, равный RU, а `source_version` = текущей RU-версии; детали в `aidd/docs/prompt-versioning.md`.
 - Используйте `scripts/prompt-version bump --prompts <name> --kind agent|command --lang ru,en --part <...>` и `tools/prompt_diff.py` для контроля изменений.
-- После обновления промпта обязательно опишите изменения в `docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
+- После обновления промпта обязательно опишите изменения в `aidd/docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
 
 ## 8. Минимальный чеклист перед публикацией
 1. Проверить фронт-маттер (`lang`, `prompt_version`, инструменты).
 2. Убедиться, что все обязательные блоки присутствуют и оформлены.
 3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
 4. Запустить `scripts/lint-prompts.py` и убедиться, что проверки пройдены.
-5. Обновить внутренний wave backlog (dev-only, `doc/backlog.md` не входит в payload) и сопутствующие документы (README, docs/agents-playbook.md) при необходимости.
+5. Обновить внутренний wave backlog (dev-only, `doc/backlog.md` не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
 
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 

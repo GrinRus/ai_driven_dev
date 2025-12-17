@@ -15,6 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # workspace root is one level up from aidd/, unless overridden
 ROOT_DIR="$(pwd)"
+WORKSPACE_ROOT="$(cd "${ROOT_DIR}/.." && pwd)"
 PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-$SCRIPT_DIR}"
 export CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT"
 
@@ -195,6 +196,26 @@ copy_template() {
   mkdir -p "$(dirname "$dest_path")"
   cp "$src" "$dest_path"
   log_info "copied: $rel_dest"
+}
+
+copy_payload_file() {
+  local src="$1"
+  local dest="$2"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] copy $src -> $dest"
+    return
+  fi
+  if [[ ! -f "$src" ]]; then
+    log_warn "missing source: $src"
+    return
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if [[ -e "$dest" && "$FORCE" -ne 1 ]]; then
+    log_warn "skip: $dest (exists, use --force to overwrite)"
+    return
+  fi
+  cp "$src" "$dest"
+  log_info "copied: $dest"
 }
 
 copy_payload_dir() {
@@ -526,6 +547,10 @@ generate_directories() {
   local dirs=(
     ".claude"
     ".claude/cache"
+    ".claude-plugin"
+    "commands"
+    "agents"
+    "hooks"
     "doc"
     "config"
     "docs"
@@ -534,8 +559,10 @@ generate_directories() {
     "reports/research"
   )
   for dir in "${dirs[@]}"; do
-    ensure_directory "$dir"
+    ensure_directory "$ROOT_DIR/$dir"
   done
+  ensure_directory "$WORKSPACE_ROOT/.claude"
+  ensure_directory "$WORKSPACE_ROOT/.claude-plugin"
 }
 
 generate_core_docs() {
@@ -555,19 +582,39 @@ generate_prompt_references() {
 }
 
 generate_claude_settings() {
-  copy_template ".claude/settings.json" ".claude/settings.json"
+  local primary_settings="$PAYLOAD_ROOT/../.claude/settings.json"
+  local fallback_settings="$PAYLOAD_ROOT/.claude/settings.json"
+  if [[ ! -f "$primary_settings" && -f "$fallback_settings" ]]; then
+    primary_settings="$fallback_settings"
+  fi
+  copy_payload_file "$primary_settings" "$ROOT_DIR/.claude/settings.json"
   copy_payload_dir ".claude/hooks"
   copy_payload_dir ".claude/cache"
   ensure_hook_permissions
   embed_project_dir_in_settings
 }
 
+generate_workspace_settings() {
+  local root_settings_src="$PAYLOAD_ROOT/../.claude/settings.json"
+  local marketplace_src="$PAYLOAD_ROOT/../.claude-plugin/marketplace.json"
+  copy_payload_file "$root_settings_src" "$WORKSPACE_ROOT/.claude/settings.json"
+  copy_payload_file "$marketplace_src" "$WORKSPACE_ROOT/.claude-plugin/marketplace.json"
+}
+
 generate_agents() {
-  copy_payload_dir ".claude/agents"
+  copy_payload_dir "agents" "agents"
 }
 
 generate_commands() {
-  copy_payload_dir ".claude/commands"
+  copy_payload_dir "commands" "commands"
+}
+
+generate_plugin() {
+  copy_payload_dir ".claude-plugin"
+}
+
+generate_plugin_hooks() {
+  copy_payload_dir "hooks" "hooks"
 }
 
 generate_gradle_helpers() {
@@ -578,15 +625,17 @@ generate_config_and_scripts() {
   copy_payload_dir "config"
   copy_payload_dir "scripts"
   copy_payload_dir "tools"
-  local scripts_dir="$ROOT_DIR/scripts"
-  if [[ -d "$scripts_dir" ]]; then
-    while IFS= read -r -d '' script; do
-      local rel="${script#"$ROOT_DIR"/}"
-      case "$rel" in
-        *.sh) set_executable "$rel" ;;
-      esac
-    done < <(find "$scripts_dir" -type f -print0)
-  fi
+  local dirs=("$ROOT_DIR/scripts" "$ROOT_DIR/tools")
+  for dir in "${dirs[@]}"; do
+    if [[ -d "$dir" ]]; then
+      while IFS= read -r -d '' file; do
+        local rel="${file#"$ROOT_DIR"/}"
+        case "$rel" in
+          *.sh|*.py) set_executable "$rel" ;;
+        esac
+      done < <(find "$dir" -type f -print0)
+    fi
+  done
 }
 
 embed_project_dir_in_settings() {
@@ -689,9 +738,12 @@ main() {
   generate_templates
   generate_prompt_references
   copy_presets
+  generate_workspace_settings
   generate_claude_settings
   generate_agents
   generate_commands
+  generate_plugin
+  generate_plugin_hooks
   apply_prompt_locale
   generate_gradle_helpers
   generate_config_and_scripts

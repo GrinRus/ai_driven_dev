@@ -6,8 +6,8 @@ Commands:
   Research scan: claude-workflow research --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}
   Search: rg "{{ticket|feature}}" {{modules}}
 Artifacts:
-  PRD: docs/prd/{{ticket}}.prd.md
-  Tasklist: docs/tasklist/{{ticket}}.md
+  PRD: aidd/docs/prd/{{ticket}}.prd.md
+  Tasklist: aidd/docs/tasklist/{{ticket}}.md
 
 ## Контекст
 - **Цель фичи:** {{goal}}

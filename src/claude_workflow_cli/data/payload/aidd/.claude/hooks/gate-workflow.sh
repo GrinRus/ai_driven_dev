@@ -2,7 +2,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 # shellcheck source=.claude/hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
@@ -14,17 +14,21 @@ if [[ -d "$HOOK_VENDOR_DIR" ]]; then
   fi
 fi
 
+cd "$ROOT_DIR"
+
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
-if [[ "$file_path" =~ (^|/)(\.claude/(agents|commands)|prompts/en/(agents|commands))/ ]]; then
-  # Проверяем паритет RU/EN: ожидаем RU в .claude, EN в prompts/en
+if [[ "$file_path" =~ (^|/)(agents|commands)/ ]] || [[ "$file_path" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
+  # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
   ru_path="$file_path"
-  if [[ "$ru_path" =~ ^prompts/en/ ]]; then
-    ru_path=".claude/${ru_path#prompts/en/}"
+  if [[ "$ru_path" =~ ^prompts/en/agents/ ]]; then
+    ru_path="agents/${ru_path#prompts/en/agents/}"
+  elif [[ "$ru_path" =~ ^prompts/en/commands/ ]]; then
+    ru_path="commands/${ru_path#prompts/en/commands/}"
   fi
-  en_path="prompts/en/${ru_path#.claude/}"
+  en_path="prompts/en/${ru_path}"
   skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
 from pathlib import Path
 import sys
@@ -105,6 +109,21 @@ if [[ ! "$file_path" =~ (^|/)src/ ]]; then
   exit 0
 fi
 
+ensure_template "docs/templates/research-summary.md" "docs/research/$ticket.md"
+ensure_template "docs/prd.template.md" "docs/prd/$ticket.prd.md"
+plan_path="docs/plan/$ticket.md"
+if [[ ! -f "$plan_path" ]]; then
+  ensure_template "docs/plan/template.md" "$plan_path"
+  echo "BLOCK: нет плана → запустите /plan-new $ticket"
+  exit 2
+fi
+tasklist_path="docs/tasklist/$ticket.md"
+if [[ ! -f "$tasklist_path" ]]; then
+  ensure_template "docs/tasklist.template.md" "$tasklist_path"
+  echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
+  exit 2
+fi
+
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
 analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticket")
@@ -114,7 +133,8 @@ fi
 if ! "${analyst_cmd[@]}" >/dev/null; then
   exit 2
 fi
-if ! review_msg="$(python3 "$ROOT_DIR/scripts/prd_review_gate.py" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
+if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"
   else

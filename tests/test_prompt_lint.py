@@ -31,6 +31,7 @@ def build_agent(name: str) -> str:
         source_version: 1.0.0
         tools: Read, Write
         model: inherit
+        permissionMode: inherit
         ---
 
         ## Контекст
@@ -65,6 +66,7 @@ def build_command(description: str = "test command") -> str:
         source_version: 1.0.0
         allowed-tools: Read,Edit
         model: inherit
+        disable-model-invocation: false
         ---
 
         ## Контекст
@@ -108,6 +110,7 @@ def build_agent_en(name: str) -> str:
         source_version: 1.0.0
         tools: Read, Write
         model: inherit
+        permissionMode: inherit
         ---
 
         ## Context
@@ -142,6 +145,7 @@ def build_command_en(description: str = "test command") -> str:
         source_version: 1.0.0
         allowed-tools: Read,Edit
         model: inherit
+        disable-model-invocation: false
         ---
 
         ## Context

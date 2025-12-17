@@ -2,24 +2,24 @@
 
 Документ описывает, как готовить входные данные, запускать QA-агента и
 интерпретировать результаты гейта (`gate-qa.sh`). Используйте его вместе с
-`docs/agents-playbook.md` и шаблоном `docs/tasklist/<ticket>.md`.
+`aidd/docs/agents-playbook.md` и шаблоном `aidd/docs/tasklist/<ticket>.md`.
 
-> Ticket — основной идентификатор фичи; при необходимости указывайте slug-hint (сохраняется в `docs/.active_feature`).
+> Ticket — основной идентификатор фичи; при необходимости указывайте slug-hint (сохраняется в `aidd/docs/.active_feature`).
 
 ## Входные данные
 
-- **Активная фича** — `docs/.active_ticket` указывает ticket. В PRD и плане должны
+- **Активная фича** — `aidd/docs/.active_ticket` указывает ticket. В PRD и плане должны
   быть закрыты блокирующие вопросы.
-- **Чеклисты** — раздел `QA` в `docs/tasklist/<ticket>.md` заполнен, новые сценарии добавлены.
+- **Чеклисты** — раздел `QA` в `aidd/docs/tasklist/<ticket>.md` заполнен, новые сценарии добавлены.
 - **Артефакты** — релевантные логи, отчёты нагрузочного тестирования, ссылки на
   демо или тестовые окружения.
-- **Research** — `docs/research/<ticket>.md` со статусом `Status: reviewed`, актуальный
+- **Research** — `aidd/docs/research/<ticket>.md` со статусом `Status: reviewed`, актуальный
   `reports/research/<ticket>-context.json` (не старше установленного порога), ссылка
-  на отчёт проставлена в PRD и `docs/tasklist/<ticket>.md`.
+  на отчёт проставлена в PRD и `aidd/docs/tasklist/<ticket>.md`.
 - **Diff** — локально агент анализирует рабочее дерево (`git diff HEAD` +
   незакоммиченные файлы). В CI добавьте `QA_AGENT_DIFF_BASE=origin/<base>`, чтобы
   сравнивать с веткой-основой.
-- **Прогресс** — в `docs/tasklist/<ticket>.md` фиксируются завершённые пункты `- [x]`, рядом указаны дата/итерация и строка `Checkbox updated: …`; предыдущий запуск `claude-workflow progress --source qa --ticket <ticket>` прошёл без ошибок.
+- **Прогресс** — в `aidd/docs/tasklist/<ticket>.md` фиксируются завершённые пункты `- [x]`, рядом указаны дата/итерация и строка `Checkbox updated: …`; предыдущий запуск `claude-workflow progress --source qa --ticket <ticket>` прошёл без ошибок.
 
 ## Как запускать QA-агента
 
@@ -69,7 +69,7 @@ CLAUDE_QA_DRY_RUN=1 ./.claude/hooks/gate-qa.sh --payload '{"tool_input":{"file_p
 
 ## Чеклист QA-подготовки
 
-- [ ] Все шаги раздела `QA` в `docs/tasklist/<ticket>.md` закрыты/перенесены.
+- [ ] Все шаги раздела `QA` в `aidd/docs/tasklist/<ticket>.md` закрыты/перенесены.
 - [ ] В PR добавлены шаги воспроизведения, метрики и снапшоты, если есть UX/визуальные изменения.
 - [ ] Тестовое окружение задокументировано (URL, пользователи, токены).
 - [ ] Автоматические гейты (`gate-tests`) прошли.

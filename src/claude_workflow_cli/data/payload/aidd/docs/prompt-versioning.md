@@ -10,7 +10,7 @@
 ## 2. Структура директорий
 - RU-файлы используются рантаймом Claude: `.claude/agents/*.md`, `.claude/commands/*.md`.
 - EN-файлы живут в `prompts/en/agents/*.md` и `prompts/en/commands/*.md`.
-- Оба варианта используют одинаковую структуру (см. `docs/prompt-playbook.md`), но заголовки переведены (`Контекст` → `Context` и т.д.).
+- Оба варианта используют одинаковую структуру (см. `aidd/docs/prompt-playbook.md`), но заголовки переведены (`Контекст` → `Context` и т.д.).
 
 ## 3. Поля версий
 - `prompt_version`: semver (`MAJOR.MINOR.PATCH`).
@@ -40,7 +40,7 @@
   - `python3 scripts/prompt-version bump --lang ru,en --prompts <список> --part patch --dry-run`
   - `python3 scripts/lint-prompts.py`
   - `python3 tools/prompt_diff.py --kind agent --name <name>` (по необходимости)
-- Зафиксируйте изменения в `docs/release-notes.md` и `CHANGELOG.md`.
+- Зафиксируйте изменения в `aidd/docs/release-notes.md` и `CHANGELOG.md`.
 
 Соблюдайте эти правила, чтобы RU и EN инструкции оставались синхронными и понятными как русскоязычной, так и англоязычной команде.
 
@@ -52,4 +52,4 @@
   4. `tools/check_payload_sync.py` (включая директорию `prompts/en/**`).
   5. `tests/test_gate_workflow.py` — убеждаемся, что gate ловит несинхрон.
 - Пример запуска: `./scripts/prompt-release.sh --part minor` или `./scripts/prompt-release.sh --dry-run`.
-- Этот скрипт включён в release checklist `docs/release-notes.md` и позволяет быстро убедиться, что payload готов к публикации.
+- Этот скрипт включён в release checklist `aidd/docs/release-notes.md` и позволяет быстро убедиться, что payload готов к публикации.

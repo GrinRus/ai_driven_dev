@@ -11,6 +11,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROJECT_SUBDIR = "aidd"
 PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
 HOOKS_DIR = PAYLOAD_ROOT / ".claude" / "hooks"
+SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / ".claude" / "settings.json"
 os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
 os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
@@ -99,6 +100,7 @@ def hook_path(name: str) -> pathlib.Path:
 def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess.CompletedProcess[str]:
     """Execute the given hook inside tmp_path and capture output."""
     env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
     src_path = REPO_ROOT / "src"
     vendor_path = PAYLOAD_ROOT / ".claude" / "hooks" / "_vendor"
     existing = env.get("PYTHONPATH")
@@ -113,11 +115,19 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
     if config_src.exists() and not config_dst.exists():
         config_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(config_src, config_dst)
-    settings_src = PAYLOAD_ROOT / ".claude" / "settings.json"
+    scripts_src = PAYLOAD_ROOT / "scripts"
+    if scripts_src.exists():
+        for file in scripts_src.rglob("*"):
+            if not file.is_file():
+                continue
+            dest = tmp_path / "scripts" / file.relative_to(scripts_src)
+            if not dest.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(file, dest)
     settings_dst = tmp_path / ".claude" / "settings.json"
-    if settings_src.exists() and not settings_dst.exists():
+    if SETTINGS_SRC.exists() and not settings_dst.exists():
         settings_dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(settings_src, settings_dst)
+        shutil.copy2(SETTINGS_SRC, settings_dst)
     result = subprocess.run(
         [str(hook_path(hook_name))],
         input=payload,

@@ -638,16 +638,80 @@ _Статус: новый, приоритет 2. Цель — оптимизир
 _Статус: активный, приоритет 1. Перенос из Wave 27 — плагин AIDD, нормализация команд/агентов, официальные хуки и обновление документации._
 
 ### Официальные команды/агенты и плагин AIDD
-- [ ] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в `.claude/commands/aidd/` с фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`), позиционными `$1/$2` и ссылками `@docs/...`; почистить кастомные поля и обновить quick-reference/linters/manifest.
-- [ ] Переписать `.claude/agents/*.md` и RU/EN копии в плагинный формат (`description/capabilities` + разделы «Роль/Когда вызывать/Как работать с файлами/Правила»), зафиксировать READY/BLOCKED/WARN и артефакты для validator/qa/prd-reviewer.
-- [ ] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json` при необходимости) и включить его в payload/manifest + sync-проверки.
+- [x] Нормализовать `/idea /researcher /plan /review-prd /tasks /implement /review /qa` в плагинном каталоге `.claude-plugin/commands/` с единым фронтматтером (`description/argument-hint/allowed-tools/model/disable-model-invocation`, позиционные `$1/$2`, ссылки `@docs/...`), убрать кастомные поля, обновить quick-reference, prompt-lint и `manifest.json`/sync-проверки под новые пути.
+- [x] Переписать `.claude/agents/*.md` и EN-копии в формат плагина (`description/capabilities`, блоки «Роль/Когда вызывать/Как работать с файлами/Правила», статусы READY/BLOCKED/WARN, ссылки на артефакты validator/qa/prd-reviewer), синхронизировать версии RU/EN и линтеры.
+- [x] Собрать плагин `feature-dev-aidd` (`.claude-plugin/plugin.json`, `commands/`, `agents/`, `hooks/hooks.json`, при необходимости `.mcp.json`), включить его в payload/manifest, обновить init/sync/upgrade и тесты/CI, чтобы плагин разворачивался вместе с `aidd/`.
+- [x] Привести фронтматтер команд/агентов к требованиям Claude Code (обязательные `description/argument-hint/name/tools/model/permissionMode`, позиционные `$1/$ARGUMENTS`, минимальные `allowed-tools`), зашить проверки в prompt-lint и quick-reference с короткими шаблонами.
+- [x] Обновить README/README.en/quick-reference под плагин `feature-dev-aidd`: таблица команд с аргументами и @docs артефактами, упоминание `.claude-plugin`, обновить sync-даты.
 
 ### Хуки и гейты (официальные события)
-- [ ] Спроектировать hooks (`hooks.json` или `.claude/settings.json`) на PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA hook; задать matcher Write/Edit и типы validation/command/prompt.
-- [ ] Обновить/реализовать shell-хуки под новый конфиг, подключить `tasks-derive`/`progress` как post-write действия, учесть `config/gates.json` и режимы dry-run.
-- [ ] Добавить unit/smoke проверки для хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) и README/docs инструкцию по активации.
+- [x] Спроектировать плагинные hook events (PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop) через `hooks.json`: workflow-gate (PRD/plan/tasklist), tests/format, anti-vibe prompt-gate, QA, post-write `tasks-derive`/`progress`, учесть `config/gates.json` и dry-run.
+- [x] Переписать bash-хуки под новый конфиг (убрать/заменить отсутствующие `gate-api-contract.sh`/`gate-db-migration.sh` либо добавить stubs), подключить общий helper и новые события; синхронизировать payload/manifest и sync-проверки.
+- [x] Обновить unit/smoke проверки хуков (`tests/test_gate_workflow.py`, `tests/test_gate_tests_hook.py`, `tests/test_gate_qa.py`, `scripts/smoke-workflow.sh`) под плагинные пути и сценарии PostToolUse/PostWrite.
+
+### Marketplace и запуск плагина из корня
+- [x] Добавить корневой `.claude-plugin/marketplace.json` c `source: "./aidd"` и плагином `feature-dev-aidd`.
+- [x] Обновить настройки автоподключения плагина (root `.claude/settings.json` с `extraKnownMarketplaces` и `enabledPlugins`), чтобы при запуске из корня плагин подключался автоматически.
+- [x] Переписать `aidd/.claude-plugin/hooks/hooks.json` на `${CLAUDE_PLUGIN_ROOT}/…` для всех команд, чтобы хуки работали при установке в подпапку.
+- [x] Проверить/уточнить пути в `aidd/.claude-plugin/plugin.json` (commands/agents/hooks с `./`), учесть размещение файлов в корне плагина.
+- [x] Обновить init/sync/upgrade: генерация marketplace и настроек при установке в `aidd/`, включить в payload manifest.
+- [x] Тесты: e2e init → marketplace+enabledPlugins; lint/manifest на marketplace; smoke с CWD=корень и плагином в `aidd/`, проверки `${CLAUDE_PLUGIN_ROOT}` в хуках.
+- [ ] Дока: README/workflow/agents-playbook — раздел про запуск из корня с плагином в `aidd/`, шаги доверия/установки marketplace.
+
+### Структура payload AIDD под схему плагина
+- [x] Перенести плагинные команды/агенты/хуки из `aidd/.claude-plugin/{commands,agents,hooks}` в корень плагина `aidd/{commands,agents,hooks}`, поправить `plugin.json` на пути `./commands/`, `./agents/`, `./hooks/hooks.json`.
+- [x] Обновить `aidd/.claude-plugin/hooks/hooks.json`: использовать `${CLAUDE_PLUGIN_ROOT}` для ссылок на bash-хуки/скрипты вместо `$CLAUDE_PROJECT_DIR`.
+- [x] Развести плагинные файлы и runtime `.claude`: в `.claude` оставить настройки/хуки проекта, в плагине — только команды/агенты/плагинные хуки; убрать дубликаты.
+- [x] После перевода валидаторов/гейтов/линтов на `aidd/{commands,agents}` удалить дубли команд/агентов из `aidd/.claude/` (IDE runtime) и очистить проверки, которые их требуют.
+- [x] Обновить init/sync/manifest под новую структуру (копирование новых путей, hash в manifest.json).
+- [x] Тесты/smoke/prompt-lint: учесть новые пути команд/агентов/хуков и переменную `${CLAUDE_PLUGIN_ROOT}`; добавить smoke-кейс установки и работы хуков при CWD=корень.
+- [x] Документация: README/workflow/agents-playbook — описать новую структуру плагина в `aidd/` и различие между `.claude` (runtime) и `commands/agents/hooks` (плагин).
 
 ### Документация и CLAUDE.md
-- [ ] Обновить гайды (`workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md` и текущую статью) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой Hook Events и установкой плагина/поддиректории `aidd/`.
-- [ ] Добавить ссылки на `workflow.md` и `config/conventions.md` в `CLAUDE.md`, дописывая к текущему тексту (не перетирать существующий контент).
-- [ ] Обновить quick-start/quick-reference (RU/EN) под новую раскладку и плагин.
+- [x] Обновить гайды (`aidd/workflow.md`, `docs/prompt-playbook.md`, `docs/agents-playbook.md`, текущая статья) с примерами `$1/$ARGUMENTS`, `argument-hint`, `@docs/...`, схемой hook events и установкой плагина в поддиректорию `aidd/`.
+- [x] Добавить ссылки на `workflow.md` и `config/conventions.md` в `aidd/CLAUDE.md`, вписав в существующий текст без перетирания содержимого.
+- [x] Пересобрать quick-start/quick-reference (RU/EN) под плагинную раскладку и новые пути, синхронизировать с README/workflow и manifest/payload тестами.
+- [x] Включить в prompt/agents playbook краткие шаблоны команды и агента (по официальной доке: фронтматтер, positional args, allowed-tools), дать ссылки на slash-commands/subagents и community-примеры для копипасты.
+
+### Тестирование и фиксация Wave 46
+- [x] После обновления хуков/смоука прогнать `python -m pytest tests/test_gate_workflow.py tests/test_gate_tests_hook.py tests/test_gate_qa.py` и `scripts/smoke-workflow.sh`; зафиксировать результаты.
+- [x] При изменениях в payload/хуках обновить `src/claude_workflow_cli/data/payload/manifest.json` (payload sync) и отметить чекбокс Wave 46.
+- [x] Привести все пути артефактов к `aidd/docs/**` вместо `./docs/**`: обновить хуки, агенты, команды и шаблоны, чтобы они читали/писали в подпапку плагина.
+- [x] Гарантировать наличие шаблонов: добавить в payload/manifest `aidd/docs/templates/research-summary.md` (и другие используемые шаблоны) либо fallback-генерацию минимальной заготовки при отсутствии файла.
+- [x] Исправить ссылки на скрипты в хуках: использовать `${CLAUDE_PLUGIN_ROOT}/scripts/...` (например, `prd_review_gate.py`) и убедиться, что `aidd/scripts/**` копируются при init/sync.
+- [x] Добавить префлайт автосоздание артефактов (PRD/Research) перед вызовом агентов/хуков: если нет `aidd/docs/research/<ticket>.md` или `aidd/docs/prd/<ticket>.prd.md`, создать из шаблона или пустой заготовки; покрыть тестом/smoke.
+
+## Wave 47
+
+### Разделение настроек проекта и плагина (Claude Code)
+- [ ] Перенести скрипты из `aidd/.claude/hooks/*.sh` и gradle-helper из `aidd/.claude/gradle/` в плагинные каталоги (`aidd/hooks` или `aidd/scripts`), обновить ссылки на них через `${CLAUDE_PLUGIN_ROOT}/hooks` и удалить `.claude` из корня плагина.
+- [ ] Обновить `aidd/.claude-plugin/plugin.json` и `aidd/hooks/hooks.json` под новые пути, исключить обращения к `$CLAUDE_PROJECT_DIR`, оставить только `${CLAUDE_PLUGIN_ROOT}` для плагинных хуков.
+- [ ] Скорректировать `aidd/init-claude-workflow.sh`: не копировать `.claude` изнутри плагина, копировать проектные `.claude/**` из payload root, сохранять генерацию marketplace в `/.claude-plugin/` и ссылку на подпапку `aidd/`.
+- [ ] Привести тесты/tools, которые проверяют наличие хуков/gradle helper, к новой раскладке (путь в плагине вместо `.claude`), дополнить smoke-кейс запуском хуков при CWD=корень репо.
+- [ ] Документация (`README*`, `workflow.md`, `aidd/CLAUDE.md`, `docs/agents-playbook.md`): явное разделение project `.claude/` vs plugin `.claude-plugin/`, примеры подключения marketplace из подпапки `aidd/`, новые пути хуков.
+
+### Аудит и чистка дистрибутива
+- [ ] Провести ревизию payload/distro: какие файлы должны ставиться пользователю (hooks, tools, prompts, scripts), какие остаются dev-only; зафиксировать критерии (назначение, зависимость в командах/хуках/CI) и вывод в отдельной заметке.
+- [ ] Добавить автоматическую проверку состава дистрибутива: allowlist/denylist для `aidd/tools`, `scripts`, `commands/agents/hooks`, защитный тест или `scripts/check-payload-contents.sh`, который валит CI при появлении лишних/неиспользуемых файлов.
+- [ ] Обновить manifest генератор и `tools/check_payload_sync.py`/tests так, чтобы они опирались на новый список обязательных артефактов и подсвечивали осиротевшие файлы (например, неиспользуемые утилиты вроде `prompt_diff.py`).
+- [ ] Добавить CLI или make-таргет (`claude-workflow payload audit` или `make payload-audit`), который запускает проверку после `sync --direction=from-root` и перед релизом; включить в release pipeline.
+- [ ] Обновить документацию (README/README.en/workflow.md/CONTRIBUTING.md) и release checklist с правилами: что считается runtime-артефактом, что dev-only, как проводить аудит перед тэгом и где оставлять решение по удалённым файлам.
+
+## Wave 48
+
+_Статус: новый, приоритет 3. Цель — аудит и упорядочивание корня репозитория (dev-only артефакты, дубли документации)._
+
+- [ ] Провести инвентаризацию корневых каталогов (`doc/`, `docs/`, `scripts/`, `tools/`, `CLAUDE.md`, `workflow.md`), составить таблицу dev-only vs дистрибутив и отметить, что реально нужно пользователю.
+- [ ] Убрать/переместить dev-only материалы (design/feature-presets, backlog и пр.) в отдельный путь или wiki; обновить ссылки из README/CONTRIBUTING, чтобы не было битых путей после чистки.
+- [ ] Обновить gitignore/manifest/payload sync так, чтобы корневые dev-only файлы не попадали в релизы и установки; добавить чек в `tools/check_payload_sync.py` или новый `scripts/check-root-audit.sh`.
+- [ ] Документация: README/README.en/CONTRIBUTING — раздел «Состав репозитория» с явным перечислением, что остаётся в корне, что ставится пользователю, куда смотреть dev-доки.
+
+## Wave 49
+
+_Статус: новый, приоритет 1. Цель — выровнять базовый флоу `/idea-new`: сначала analyst, researcher только по требованию, без слома гейтов._
+
+- [ ] Переработать `aidd/commands/idea-new.md` (RU/EN): убрать принудительный автозапуск `claude-workflow research --auto`, оставить analyst как первичный шаг, описать, когда вызывать `/researcher` или research CLI (перед планом/кодом), сохранить примеры `--paths/--keywords` как опциональные.
+- [ ] Обновить промпт аналитика `aidd/agents/analyst.md`: добавить явное требование запускать `/researcher <ticket>` или `claude-workflow research --auto` при отсутствии/устаревшем отчёте; разрешить вызов саб-агента (добавить `Bash(claude-workflow researcher:*)` или инструкции), не ставить PRD в READY без `docs/research/<ticket>.md: Status reviewed` (кроме baseline-пустых проектов).
+- [ ] Синхронизировать документацию (`workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/CLAUDE.md`): зафиксировать порядок `/idea-new → analyst → /researcher (по необходимости) → /plan-new`, ожидания по статусам research/PRD, когда проходит `analyst-check`.
+- [ ] Подправить гейтинг Researcher/Analyst: определить допуск на стадии idea (baseline без JSON или с pending) и момент, когда `gate-workflow`/`analyst_guard` должны требовать `reports/research/*` и `Status: reviewed`; при необходимости скорректировать `config/gates.json` и проверки в `.claude/hooks/gate-workflow.sh`.
+- [ ] Добавить smoke/юнит-сценарий: `/idea-new` без автозапуска research → analyst инициирует `/researcher` → после `/researcher` гейт пропускает план/код, `analyst-check` проходит; покрыть наличие baseline и отсутствие блокеров для документации-only изменений.
