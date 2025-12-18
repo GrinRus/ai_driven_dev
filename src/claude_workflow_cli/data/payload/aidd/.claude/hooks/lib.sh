@@ -107,14 +107,8 @@ hook_read_ticket() {
   local slug_path="${2:-}"
   local ticket_env=""
   local slug_env=""
-  if [[ -n "$ticket_path" && ! -f "$ticket_path" && "$ticket_path" == aidd/* && -f "${ticket_path#aidd/}" ]]; then
-    ticket_path="${ticket_path#aidd/}"
-  fi
   if [[ -n "$ticket_path" && -f "$ticket_path" ]]; then
     ticket_env="$ticket_path"
-  fi
-  if [[ -n "$slug_path" && ! -f "$slug_path" && "$slug_path" == aidd/* && -f "${slug_path#aidd/}" ]]; then
-    slug_path="${slug_path#aidd/}"
   fi
   if [[ -n "$slug_path" && -f "$slug_path" ]]; then
     slug_env="$slug_path"
@@ -160,10 +154,6 @@ resolve_script_path() {
       printf '%s\n' "$root/$relative"
       return 0
     fi
-    if [[ -f "$root/aidd/$relative" ]]; then
-      printf '%s\n' "$root/aidd/$relative"
-      return 0
-    fi
   done
   return 1
 }
@@ -180,8 +170,6 @@ ensure_template() {
   local src_path=""
   if [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/$src" ]]; then
     src_path="$ROOT_DIR/$src"
-  elif [[ -n "${ROOT_DIR:-}" && -f "$ROOT_DIR/aidd/$src" ]]; then
-    src_path="$ROOT_DIR/aidd/$src"
   fi
   mkdir -p "$(dirname "$dest")"
   if [[ -n "$src_path" ]]; then

@@ -6,6 +6,7 @@
 > Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/хуки, EN‑локаль — в `prompts/en/**`. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
 > Требования к структуре промптов агентов и слэш-команд описаны в `aidd/docs/prompt-playbook.md`. При редактировании файлов в `.claude-plugin/agents|commands` и `.claude/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`. EN локализации синхронизируются по правилам `aidd/docs/prompt-versioning.md`.
 > Hook events определены в `aidd/.claude-plugin/hooks/hooks.json`: PreToolUse/PostToolUse (workflow/prd/qa/tests/format/lint), UserPromptSubmit/Stop/SubagentStop (повторный `gate-workflow`). Скрипты вызываются через `$CLAUDE_PROJECT_DIR/.claude/hooks/*.sh`.
+> Все команды и хуки ожидают структуру `./aidd/**` (workspace = `--target .`); при запуске из другого каталога появится явная ошибка «aidd/docs not found».
 
 ## Agent-first принципы
 

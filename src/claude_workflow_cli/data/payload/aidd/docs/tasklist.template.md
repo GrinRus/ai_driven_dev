@@ -1,6 +1,6 @@
 # Tasklist — шаблон фичи
 
-Tasklist хранится по адресу `aidd/docs/tasklist/&lt;ticket&gt;.md` и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте ticket/slug-hint и ссылки, либо воспользуйтесь `/tasks-new &lt;ticket&gt;` — команда создаст файл автоматически.
+Tasklist хранится по адресу `docs/tasklist/&lt;ticket&gt;.md` (внутри `aidd/`) и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте ticket/slug-hint и ссылки, либо воспользуйтесь `/tasks-new &lt;ticket&gt;` — команда создаст файл автоматически.
 
 ```markdown
 ---
@@ -8,9 +8,9 @@ Ticket: &lt;ticket&gt;
 Slug hint: &lt;slug-hint или повторите ticket&gt;
 Feature: &lt;display name&gt;
 Status: draft
-PRD: aidd/docs/prd/&lt;ticket&gt;.prd.md
-Plan: aidd/docs/plan/&lt;ticket&gt;.md
-Research: aidd/docs/research/&lt;ticket&gt;.md
+PRD: docs/prd/&lt;ticket&gt;.prd.md
+Plan: docs/plan/&lt;ticket&gt;.md
+Research: docs/research/&lt;ticket&gt;.md
 Reports:
   Research: reports/research/&lt;ticket&gt;-context.json
   QA: reports/qa/&lt;ticket&gt;.json
@@ -30,8 +30,8 @@ Updated: YYYY-MM-DD
 - После отчётов QA/Review/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|review|research> --append --ticket "&lt;ticket&gt;"`; новые `- [ ]` должны ссылаться на соответствующий `reports/<source>/...`.
 
 ## 1. Аналитика и дизайн
-- [ ] PRD и дизайн синхронизированы, риски зафиксированы (`aidd/docs/prd/&lt;ticket&gt;.prd.md`, макеты).
-- [ ] Метрики успеха и ограничения подтверждены артефактами (`aidd/docs/.active_feature`, `reports/research/&lt;ticket&gt;-context.json`).
+- [ ] PRD и дизайн синхронизированы, риски зафиксированы (`docs/prd/&lt;ticket&gt;.prd.md`, макеты).
+- [ ] Метрики успеха и ограничения подтверждены артефактами (`docs/.active_feature`, `reports/research/&lt;ticket&gt;-context.json`).
 - [ ] Согласован объём разработки и зависимости (ссылки на ADR/план).
 
 ## 2. Реализация
@@ -40,25 +40,25 @@ Updated: YYYY-MM-DD
 - [ ] `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-and-test.sh` и ручные команды (`./gradlew …`) выполняются без ошибок (приложите выдержки).
 
 ## 3. QA / Проверки
-- [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `aidd/docs/testcases/*.md` или `tests/**`).
+- [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
 - [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи `./gradlew test`, `pytest`, `claude-workflow qa --gate`).
-- [ ] Проведено ручное тестирование или UAT (протокол в `aidd/docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
+- [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
 
 ## 4. Интеграция с гейтами
-- [ ] READY: `aidd/docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.
-- [ ] Researcher: `aidd/docs/research/&lt;ticket&gt;.md` со статусом `Status: reviewed`.
+- [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.
+- [ ] Researcher: `docs/research/&lt;ticket&gt;.md` со статусом `Status: reviewed`.
 - [ ] API/DB: обновлены контракты и миграции, гейты зелёные.
 - [ ] Tests: включены новые тесты, `gate-tests` завершился успешно.
 
 ## 5. Документация и релиз
 - [ ] README и связанные руководства отражают изменения (укажите пути к файлам).
-- [ ] Добавлены заметки в `aidd/docs/release-notes.md` и `CHANGELOG.md`.
+- [ ] Добавлены заметки в `docs/release-notes.md` и `CHANGELOG.md`.
 - [ ] Подготовлен план выката/отката, инструментальные инструкции (`scripts/deploy.sh`, runbook).
 
 ## 6. Пострелиз
 - [ ] Собраны метрики и обратная связь (источник данных, путь к дашборду/отчёту).
 - [ ] Закрыты инциденты и действия по результатам (ссылка на issue/документ).
-- [ ] Обновлён roadmap/бэклог (используйте собственные источники, например `aidd/docs/roadmap.md`).
+- [ ] Обновлён roadmap/бэклог (используйте собственные источники, например `docs/roadmap.md`).
 
 ## 7. Примечания
 - Свободное поле для договёрностей, ссылок, action items.

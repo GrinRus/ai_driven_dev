@@ -16,6 +16,7 @@ _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/.claude-plugin` with the `feature-dev-aidd` plugin, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
   Root snapshots were removed; runtime files live only in the `aidd/` payload.
+- **Path troubleshooting:** all artifacts (PRD/Research/QA/PRD Review/Reviewer) reside under `aidd/`. If `Read(reports/...)` fails, look under `aidd/reports/...` and run CLI with `${CLAUDE_PLUGIN_ROOT:-./aidd}` or `--target aidd`.
 
 ## Table of Contents
 - [What you get](#what-you-get)
@@ -195,9 +196,10 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 
 ```bash
 uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git
-claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci   # workspace → ./aidd
 ```
 
+- `--target` always points to the workspace; the payload installs strictly under `./aidd`. Running CLI/hooks outside `aidd/` will fail with a clear “aidd/docs not found” message.
 - the first command installs the `claude-workflow` CLI via `uv`;
 - `claude-workflow init` mirrors the behaviour of `init-claude-workflow.sh`, copying presets, hooks, and docs into the current project;
 - the CLI now vendors the required Python modules into `.claude/hooks/_vendor`, so hooks that invoke `python3 -m claude_workflow_cli ...` run immediately with no extra `pip install`;
@@ -209,7 +211,7 @@ When `uv` is unavailable:
 
 ```bash
 pipx install git+https://github.com/GrinRus/ai_driven_dev.git
-claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+claude-workflow init --target . --commit-mode ticket-prefix --enable-ci   # workspace → ./aidd
 ```
 
 `pipx` keeps the CLI isolated and upgradeable (`pipx upgrade claude-workflow-cli`).
@@ -266,6 +268,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 > The first argument is the ticket identifier; add an optional slug hint (e.g. `checkout-discounts`) as the second argument if you want a human-readable alias in `aidd/docs/.active_feature`.
 
 You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` immediately scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `.claude/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
+Research defaults to workspace-relative paths (parent of `aidd/`); the CLI prints `base=workspace:/...` and hints to use `--paths-relative workspace` or pass absolute/`../` paths if the call graph or matches are empty.
 
 ## Feature kickoff checklist
 

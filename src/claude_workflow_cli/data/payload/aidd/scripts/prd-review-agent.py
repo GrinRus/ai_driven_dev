@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict
@@ -33,9 +34,28 @@ try:
 except ImportError:  # pragma: no cover - fallback for standalone usage
     resolve_identifiers = None  # type: ignore
 
-ROOT_DIR = Path.cwd()
-if not (ROOT_DIR / "docs").is_dir() and (ROOT_DIR / "aidd" / "docs").is_dir():
-    ROOT_DIR = ROOT_DIR / "aidd"
+def detect_project_root() -> Path:
+    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
+    cwd = Path.cwd().resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_root = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_root:
+        candidates.append(Path(project_root).expanduser().resolve())
+    for candidate in candidates:
+        docs_dir = candidate / "docs"
+        if docs_dir.is_dir():
+            return candidate
+    return cwd
+
+
+ROOT_DIR = detect_project_root()
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"approved"}
 BLOCKING_TOKENS = {"blocked", "reject"}
@@ -273,9 +293,15 @@ def main() -> None:
     if should_emit_json:
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
 
-    if args.report:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path = args.report
+    if output_path is None:
+        output_path = ROOT_DIR / "reports" / "prd" / f"{ticket}.json"
+    if not output_path.is_absolute():
+        output_path = ROOT_DIR / output_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    rel = output_path.relative_to(ROOT_DIR) if output_path.is_relative_to(ROOT_DIR) else output_path
+    print(f"[prd-review] report saved to {rel}", file=sys.stderr)
 
 
 if __name__ == "__main__":

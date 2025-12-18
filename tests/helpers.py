@@ -15,8 +15,8 @@ SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / 
 os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
 os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
-    "feature_ticket_source": "aidd/docs/.active_ticket",
-    "feature_slug_hint_source": "aidd/docs/.active_feature",
+    "feature_ticket_source": "docs/.active_ticket",
+    "feature_slug_hint_source": "docs/.active_feature",
     "tests_required": "soft",
     "deps_allowlist": False,
     "prd_review": {
@@ -97,10 +97,25 @@ def hook_path(name: str) -> pathlib.Path:
     return HOOKS_DIR / name
 
 
-def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess.CompletedProcess[str]:
+def _project_root(base: pathlib.Path) -> pathlib.Path:
+    """Return the project root inside the workspace (always <workspace>/aidd)."""
+    if base.name == PROJECT_SUBDIR:
+        return base
+    return base / PROJECT_SUBDIR
+
+
+def run_hook(
+    tmp_path: pathlib.Path, hook_name: str, payload: str, *, extra_env: Optional[dict[str, str]] = None
+) -> subprocess.CompletedProcess[str]:
     """Execute the given hook inside tmp_path and capture output."""
+    project_root = _project_root(tmp_path)
+    project_root.mkdir(parents=True, exist_ok=True)
+    (project_root / "docs").mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["CLAUDE_PROJECT_DIR"] = str(project_root)
+    env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
+    if extra_env:
+        env.update(extra_env)
     src_path = REPO_ROOT / "src"
     vendor_path = PAYLOAD_ROOT / ".claude" / "hooks" / "_vendor"
     existing = env.get("PYTHONPATH")
@@ -111,7 +126,7 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
         path_value = f"{str(src_path)}:{existing}"
     env["PYTHONPATH"] = path_value
     config_src = PAYLOAD_ROOT / "config" / "gates.json"
-    config_dst = tmp_path / "config" / "gates.json"
+    config_dst = project_root / "config" / "gates.json"
     if config_src.exists() and not config_dst.exists():
         config_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(config_src, config_dst)
@@ -120,11 +135,11 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
         for file in scripts_src.rglob("*"):
             if not file.is_file():
                 continue
-            dest = tmp_path / "scripts" / file.relative_to(scripts_src)
+            dest = project_root / "scripts" / file.relative_to(scripts_src)
             if not dest.exists():
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(file, dest)
-    settings_dst = tmp_path / ".claude" / "settings.json"
+    settings_dst = project_root / ".claude" / "settings.json"
     if SETTINGS_SRC.exists() and not settings_dst.exists():
         settings_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SETTINGS_SRC, settings_dst)
@@ -133,7 +148,7 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
         input=payload,
         text=True,
         capture_output=True,
-        cwd=tmp_path,
+        cwd=project_root,
         env=env,
     )
     return result
@@ -141,23 +156,26 @@ def run_hook(tmp_path: pathlib.Path, hook_name: str, payload: str) -> subprocess
 
 def write_file(root: pathlib.Path, relative: str, content: str = "") -> pathlib.Path:
     """Create a file with UTF-8 content."""
-    target = root / relative
+    project_root = _project_root(root)
+    target = project_root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return target
 
 
 def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathlib.Path:
-    target = root / relative
+    project_root = _project_root(root)
+    target = project_root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return target
 
 
 def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[str] = None) -> None:
-    write_file(root, "docs/.active_ticket", ticket)
+    project_root = _project_root(root)
+    write_file(project_root, "docs/.active_ticket", ticket)
     hint = ticket if slug_hint is None else slug_hint
-    write_file(root, "docs/.active_feature", hint)
+    write_file(project_root, "docs/.active_feature", hint)
 
 
 def ensure_project_root(root: pathlib.Path) -> pathlib.Path:

@@ -72,12 +72,12 @@ def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Pat
     if create:
         project_root.mkdir(parents=True, exist_ok=True)
         return workspace_root, project_root
-    if not raw_target.exists():
-        raise FileNotFoundError(f"target directory {raw_target} does not exist")
+    if not workspace_root.exists():
+        raise FileNotFoundError(f"workspace directory {workspace_root} does not exist")
     raise FileNotFoundError(
-        f"workflow not found at {project_root}. Initialise the workflow via "
+        f"workflow not found at {project_root}. Initialise via "
         f"'claude-workflow init --target {workspace_root}' "
-        f"(default subdir: {DEFAULT_PROJECT_SUBDIR})."
+        f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
 
@@ -85,17 +85,10 @@ def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
     workspace_root, project_root = _resolve_roots(raw_target, create=False)
     if (project_root / ".claude").exists():
         return workspace_root, project_root
-
-    # Autodetect default subdir (e.g., aidd/) when invoked from parent without --target
-    candidate = project_root / DEFAULT_PROJECT_SUBDIR
-    if candidate.exists() and (candidate / ".claude").exists():
-        return project_root, candidate
-
     raise FileNotFoundError(
         f"workflow files not found at {project_root}/.claude; "
-        f"if your workflow lives in '{DEFAULT_PROJECT_SUBDIR}/', re-run with '--target {DEFAULT_PROJECT_SUBDIR}' "
-        f"or from the parent directory. Otherwise, bootstrap via "
-        f"'claude-workflow init --target {workspace_root}' (default subdir: {DEFAULT_PROJECT_SUBDIR})."
+        f"bootstrap via 'claude-workflow init --target {workspace_root}' "
+        f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
 
@@ -281,6 +274,10 @@ def _load_manifest(payload_path: Path) -> Dict[str, Dict]:
         file_path = payload_path / rel
         if not file_path.exists():
             raise PayloadError(f"Payload file listed in manifest is missing: {rel}")
+        if rel == "manifest.json":
+            # Self-referential entry: skip checksum validation to avoid infinite hash churn.
+            entries[rel] = entry
+            continue
         expected_hash = entry.get("sha256")
         actual_hash = _hash_file(file_path)
         if expected_hash != actual_hash:
@@ -519,7 +516,11 @@ def _research_command(args: argparse.Namespace) -> None:
             config_path = (target / config_path).resolve()
         else:
             config_path = config_path.resolve()
-    builder = ResearcherContextBuilder(target, config_path=config_path)
+    builder = ResearcherContextBuilder(
+        target,
+        config_path=config_path,
+        paths_relative=getattr(args, "paths_relative", None),
+    )
     scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
     scope = builder.extend_scope(
         scope,
@@ -531,9 +532,11 @@ def _research_command(args: argparse.Namespace) -> None:
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
+    base_root = builder.workspace_root if builder.paths_relative_mode == "workspace" else builder.root
+    base_label = f"{builder.paths_relative_mode}:{base_root}"
     print(
         f"[claude-workflow] researcher targets saved to {rel_targets} "
-        f"({len(scope.paths)} paths, {len(scope.docs)} docs)."
+        f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."
     )
 
     if args.targets_only:
@@ -603,6 +606,16 @@ def _research_command(args: argparse.Namespace) -> None:
         print(
             f"[claude-workflow] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
         )
+        if (
+            builder.paths_relative_mode == "aidd"
+            and builder.workspace_root != builder.root
+            and any((builder.workspace_root / name).exists() for name in ("src", "services", "modules", "apps"))
+        ):
+            print(
+                "[claude-workflow] hint: включите workspace-relative paths (--paths-relative workspace) "
+                "или добавьте ../paths — под aidd/ нет поддерживаемых файлов, но в workspace есть код.",
+                file=sys.stderr,
+            )
     if args.dry_run:
         print(json.dumps(collected_context, indent=2, ensure_ascii=False))
         return
@@ -612,7 +625,7 @@ def _research_command(args: argparse.Namespace) -> None:
     rel_output = output_path.relative_to(target).as_posix()
     reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
     call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
-    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches"
+    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if args.deep_code:
         message += f", {reuse_count} reuse candidates"
     if args.call_graph:
@@ -1757,7 +1770,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace root for the workflow (default: current; installs into ./aidd by default).",
+        help="Workspace root for the workflow (default: current; workflow always lives in ./aidd).",
     )
     init_parser.add_argument(
         "--commit-mode",
@@ -1811,7 +1824,7 @@ def build_parser() -> argparse.ArgumentParser:
     preset_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     preset_parser.add_argument(
         "--force",
@@ -1859,7 +1872,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyst_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     analyst_parser.add_argument(
         "--branch",
@@ -1900,7 +1913,7 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     research_parser.add_argument(
         "--config",
@@ -1909,6 +1922,11 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--paths",
         help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
+    )
+    research_parser.add_argument(
+        "--paths-relative",
+        choices=("workspace", "aidd"),
+        help="Treat relative paths as workspace-rooted (default) or under aidd/. When omitted, defaults to workspace if target is aidd.",
     )
     research_parser.add_argument(
         "--keywords",
@@ -2009,7 +2027,7 @@ def build_parser() -> argparse.ArgumentParser:
     reviewer_tests_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     reviewer_tests_parser.add_argument(
         "--status",
@@ -2055,7 +2073,7 @@ def build_parser() -> argparse.ArgumentParser:
     tasks_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     tasks_parser.add_argument(
         "--report",
@@ -2091,7 +2109,7 @@ def build_parser() -> argparse.ArgumentParser:
     qa_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     qa_parser.add_argument(
         "--branch",
@@ -2165,7 +2183,7 @@ def build_parser() -> argparse.ArgumentParser:
     progress_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     progress_parser.add_argument(
         "--branch",
@@ -2195,7 +2213,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     upgrade_parser.add_argument(
         "--force",
@@ -2230,7 +2248,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     sync_parser.add_argument(
         "--include",

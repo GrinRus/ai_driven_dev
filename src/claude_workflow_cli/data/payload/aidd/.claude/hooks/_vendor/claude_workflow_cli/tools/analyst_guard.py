@@ -333,9 +333,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     root = Path(args.target).resolve()
-    if not (root / "docs").exists() and (root / "aidd" / "docs").exists():
-        print("[analyst_guard] docs/ not found; using ./aidd as project root", file=sys.stderr)
-        root = (root / "aidd").resolve()
+    if not (root / "docs").exists():
+        parser.exit(1, f"BLOCK: expected aidd/docs at {root / 'docs'}. Run 'claude-workflow init --target <workspace>' to install payload.")
     settings = load_settings(root)
     try:
         summary = validate_prd(

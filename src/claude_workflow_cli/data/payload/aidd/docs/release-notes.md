@@ -38,6 +38,11 @@
 - [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --kind agent --name <name>` точечно.
 - [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
 - [ ] Убедиться, что dev-only артефакты (например, `doc/backlog.md`) не попали в payload/manifest; каталог `doc/` исключён из sync по умолчанию.
+
+## Migration: legacy root installs → `./aidd` (Wave 51)
+- CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
+- Для старых установок: удалите корневые снапшоты `.claude/`, `config/`, `docs/`, `prompts/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
+- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `aidd/docs/migration-aidd.md`.
 - [ ] Зафиксировать изменения в `aidd/docs/release-notes.md`.
 
 ## Публикация релиза

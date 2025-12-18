@@ -17,8 +17,8 @@ permissionMode: default
 ## Входные артефакты
 - @aidd/docs/prd/`<ticket>`.prd.md — PRD draft (`Status: draft`, `## Диалог analyst`).
 - @aidd/docs/research/`<ticket>`.md — отчёт Researcher; при отсутствии/устаревании запусти research.
-- `reports/research/<ticket>-(context|targets).json`, `reports/prd/<ticket>.json` — цели и данные research/PRD.
-- `aidd/docs/.active_feature` (slug-hint/payload) и `aidd/docs/.active_ticket` (или `aidd/docs` при запуске из корня с `--target aidd`) — исходный запрос и ID.
+- `aidd/reports/research/<ticket>-(context|targets).json`, `aidd/reports/prd/<ticket>.json` — цели и данные research/PRD.
+- `aidd/docs/.active_feature` (slug-hint/payload) и `aidd/docs/.active_ticket` — исходный запрос и ID (workflow всегда в ./aidd).
 
 ## Автоматизация
 - Проверь `aidd/docs/.active_ticket` и наличие PRD/research. Если отчёта нет/устарел — запусти `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (или попроси `/researcher`).
@@ -27,8 +27,8 @@ permissionMode: default
 - Отмечай, какие действия автоматизированы (rg, чтение JSON, повторный research), чтобы downstream-агенты не дублировали шаги.
 
 ## Пошаговый план
-1. Убедись, что `aidd/docs/.active_ticket`/`.active_feature` соответствуют задаче; прочитай PRD draft и состояние research (`aidd/docs/research/<ticket>.md` + `reports/research/*.json`). При отсутствии/устаревании research — запусти его.
-2. Зафиксируй slug-hint (`.active_feature`), собери контекст из репозитория (ADR, планы, PR через `rg <ticket>`), изучи `reports/research/*` (targets/context).
+1. Убедись, что `aidd/docs/.active_ticket`/`.active_feature` соответствуют задаче; прочитай PRD draft и состояние research (`aidd/docs/research/<ticket>.md` + `aidd/reports/research/*.json`). При отсутствии/устаревании research — запусти его.
+2. Зафиксируй slug-hint (`.active_feature`), собери контекст из репозитория (ADR, планы, PR через `rg <ticket>`), изучи `aidd/reports/research/*` (targets/context).
 3. Если контекст тонкий — инициируй/повтори `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]`; задокументируй, что уже проверял.
 4. Обнови PRD (обзор, контекст, метрики, сценарии, требования, риски) с указанием источников. READY не ставь, пока research не reviewed (baseline допускается).
 5. Сформируй блок вопросов: `Вопрос N: …` → жди `Ответ N: …`; поддерживай историю в `## Диалог analyst`. Без ответов оставляй Status: BLOCKED/BLOCKED?READY.

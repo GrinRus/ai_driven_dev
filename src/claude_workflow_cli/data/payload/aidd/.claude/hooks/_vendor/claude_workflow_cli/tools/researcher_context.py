@@ -1104,7 +1104,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deep-code", action="store_true", help="Collect code symbols/imports/tests alongside keyword matches.")
     parser.add_argument("--reuse-only", action="store_true", help="Skip keyword matches and focus on reuse candidates.")
     parser.add_argument("--langs", help="Comma-separated list of languages to scan (py,kt,kts,java).")
-    parser.add_argument("--call-graph", action="store_true", help="Build call/import graph for supported languages.")
+    parser.add_argument(
+        "--call-graph",
+        action="store_true",
+        help="Build call/import graph for supported languages. Deprecated: graph is built automatically in deep-code unless --graph-engine none.",
+    )
     parser.add_argument(
         "--graph-engine",
         choices=["auto", "none", "ts"],
@@ -1192,7 +1196,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context["deep_mode"] = True
     else:
         context["deep_mode"] = False
-    if getattr(args, "call_graph", False):
+    should_build_graph = args.call_graph or (args.deep_code and graph_engine != "none")
+    if should_build_graph:
         graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
         graph_limit = int(getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT) or _DEFAULT_GRAPH_LIMIT)
         graph = builder.collect_call_graph(

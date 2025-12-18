@@ -72,24 +72,24 @@ def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Pat
     if create:
         project_root.mkdir(parents=True, exist_ok=True)
         return workspace_root, project_root
-    if not raw_target.exists():
-        raise FileNotFoundError(f"target directory {raw_target} does not exist")
+    if not workspace_root.exists():
+        raise FileNotFoundError(f"workspace directory {workspace_root} does not exist")
     raise FileNotFoundError(
-        f"workflow not found at {project_root}. Initialise the workflow via "
+        f"workflow not found at {project_root}. Initialise via "
         f"'claude-workflow init --target {workspace_root}' "
-        f"(default subdir: {DEFAULT_PROJECT_SUBDIR})."
+        f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
 
 def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
     workspace_root, project_root = _resolve_roots(raw_target, create=False)
-    if not (project_root / ".claude").exists():
-        raise FileNotFoundError(
-            f"workflow files not found at {project_root}/.claude; "
-            f"run 'claude-workflow init --target {workspace_root}' "
-            f"to bootstrap (default subdir: {DEFAULT_PROJECT_SUBDIR})."
-        )
-    return workspace_root, project_root
+    if (project_root / ".claude").exists():
+        return workspace_root, project_root
+    raise FileNotFoundError(
+        f"workflow files not found at {project_root}/.claude; "
+        f"bootstrap via 'claude-workflow init --target {workspace_root}' "
+        f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
+    )
 
 
 class PayloadError(RuntimeError):
@@ -420,7 +420,12 @@ def _run_init(
 
 def _run_smoke(verbose: bool) -> None:
     with _payload_root() as payload_path:
-        script = payload_path / "scripts" / "smoke-workflow.sh"
+        manifest = _load_manifest(payload_path)
+        manifest_prefix = _detect_manifest_prefix(manifest)
+        script_rel = Path("scripts/smoke-workflow.sh")
+        if manifest_prefix:
+            script_rel = Path(manifest_prefix) / script_rel
+        script = payload_path / script_rel
         if not script.exists():
             raise FileNotFoundError(f"smoke script not found at {script}")
         cmd = ["bash", str(script)]
@@ -428,7 +433,7 @@ def _run_smoke(verbose: bool) -> None:
         if verbose:
             env["SMOKE_VERBOSE"] = "1"
         # smoke script handles its own temp directory; run from payload root
-        _run_subprocess(cmd, cwd=payload_path, env=env)
+        _run_subprocess(cmd, cwd=script.parent, env=env)
 
 
 def _init_command(args: argparse.Namespace) -> None:
@@ -1463,7 +1468,12 @@ def _select_payload_entries(
     include_rel: list[Path] = []
     if strip_prefix and include_list:
         prefix_path = Path(strip_prefix.strip("/"))
-        include_rel = [prefix_path / inc for inc in include_list]
+        include_rel = []
+        for inc in include_list:
+            if inc.parts and inc.parts[0] == prefix_path.name:
+                include_rel.append(inc)
+            else:
+                include_rel.append(prefix_path / inc)
     else:
         include_rel = include_list
     entries: list[tuple[Path, Path]] = []
@@ -1480,7 +1490,10 @@ def _select_payload_entries(
                 continue
             stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
         else:
-            stripped_rel = rel
+            if rel.parts and rel.parts[0] == DEFAULT_PROJECT_SUBDIR:
+                stripped_rel = Path(*rel.parts[1:])
+            else:
+                stripped_rel = rel
         entries.append((src, stripped_rel))
     return entries
 
@@ -1636,7 +1649,13 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
 
 def _sync_command(args: argparse.Namespace) -> None:
-    _, project_root = _require_workflow_root(Path(args.target).resolve())
+    target_path = Path(args.target).resolve()
+    workspace_root, project_root = resolve_project_root(target_path, DEFAULT_PROJECT_SUBDIR)
+    if project_root.exists():
+        pass
+    elif not args.dry_run:
+        project_root.mkdir(parents=True, exist_ok=True)
+    # for dry-run we don't create project_root; proceed with computed path
 
     raw_includes = args.include or [".claude"]
     try:
@@ -1645,13 +1664,34 @@ def _sync_command(args: argparse.Namespace) -> None:
         raise ValueError(f"invalid include path: {exc}") from exc
 
     with _payload_root(args.release, args.cache_dir) as payload_path:
-        for include in includes:
-            if not (payload_path / include).exists():
-                raise FileNotFoundError(f"payload path not found: {include}")
         manifest = _load_manifest(payload_path)
         manifest_prefix = _detect_manifest_prefix(manifest)
+        adjusted_includes: list[Path] = []
+        for include in includes:
+            candidate = payload_path / include
+            if not candidate.exists() and manifest_prefix:
+                prefixed = Path(manifest_prefix) / include
+                if (payload_path / prefixed).exists():
+                    include = prefixed
+                    candidate = payload_path / prefixed
+            if not candidate.exists():
+                fallback = Path(DEFAULT_PROJECT_SUBDIR) / include
+                if (payload_path / fallback).exists():
+                    include = fallback
+                    candidate = payload_path / fallback
+            if not candidate.exists():
+                raise FileNotFoundError(f"payload path not found: {include}")
+            adjusted_includes.append(include)
         manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
-        entries = _select_payload_entries(payload_path, includes, strip_prefix=manifest_prefix)
+        if not manifest_prefix:
+            prefix = f"{DEFAULT_PROJECT_SUBDIR}/"
+            extras: Dict[str, Dict] = {}
+            for rel, entry in manifest.items():
+                if rel.startswith(prefix):
+                    extras[rel[len(prefix) :]] = entry
+            if extras:
+                manifest_view = {**manifest, **extras}
+        entries = _select_payload_entries(payload_path, adjusted_includes, strip_prefix=manifest_prefix)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
         _report_manifest_diff(project_root, managed_manifest, prefix=prefix)
@@ -1710,7 +1750,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace root for the workflow (default: current; installs into ./aidd by default).",
+        help="Workspace root for the workflow (default: current; workflow always lives in ./aidd).",
     )
     init_parser.add_argument(
         "--commit-mode",
@@ -1764,7 +1804,7 @@ def build_parser() -> argparse.ArgumentParser:
     preset_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     preset_parser.add_argument(
         "--force",
@@ -1812,7 +1852,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyst_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     analyst_parser.add_argument(
         "--branch",
@@ -1853,7 +1893,7 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     research_parser.add_argument(
         "--config",
@@ -1962,7 +2002,7 @@ def build_parser() -> argparse.ArgumentParser:
     reviewer_tests_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     reviewer_tests_parser.add_argument(
         "--status",
@@ -2008,7 +2048,7 @@ def build_parser() -> argparse.ArgumentParser:
     tasks_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     tasks_parser.add_argument(
         "--report",
@@ -2044,7 +2084,7 @@ def build_parser() -> argparse.ArgumentParser:
     qa_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     qa_parser.add_argument(
         "--branch",
@@ -2118,7 +2158,7 @@ def build_parser() -> argparse.ArgumentParser:
     progress_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     progress_parser.add_argument(
         "--branch",
@@ -2148,7 +2188,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     upgrade_parser.add_argument(
         "--force",
@@ -2183,7 +2223,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument(
         "--target",
         default=".",
-        help="Workspace or workflow directory (default: current; auto-detects ./aidd).",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     sync_parser.add_argument(
         "--include",

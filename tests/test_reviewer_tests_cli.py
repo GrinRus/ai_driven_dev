@@ -10,15 +10,18 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from claude_workflow_cli import cli  # noqa: E402
 
-from .helpers import PAYLOAD_ROOT, SETTINGS_SRC
+from .helpers import PAYLOAD_ROOT, SETTINGS_SRC, ensure_project_root, write_active_feature, write_file
 
 
 def prepare_workspace(tmp_path: Path) -> Path:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    settings_dst = workspace / ".claude" / "settings.json"
+    project_root = ensure_project_root(workspace)
+    settings_dst = project_root / ".claude" / "settings.json"
     settings_dst.parent.mkdir(parents=True, exist_ok=True)
     settings_dst.write_text(SETTINGS_SRC.read_text(encoding="utf-8"), encoding="utf-8")
+    # seed active feature and reviewer folder
+    write_active_feature(project_root, "demo")
     return workspace
 
 
@@ -37,7 +40,7 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
 
     cli._reviewer_tests_command(args)
 
-    marker = workspace / "reports" / "reviewer" / "demo.json"
+    marker = workspace / "aidd" / "reports" / "reviewer" / "demo.json"
     assert marker.exists(), "marker should be created for required tests"
     data = json.loads(marker.read_text(encoding="utf-8"))
     assert data["tests"] == "required"

@@ -6,22 +6,22 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-workflow.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-prd-review.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-prd-review.sh",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-qa.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-qa.sh",
                 "timeout": 60
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-tests.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-tests.sh",
                 "timeout": 5
               }
             ]
@@ -33,7 +33,7 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-workflow.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
               }
             ]
@@ -45,12 +45,12 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/format-and-test.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/format-and-test.sh",
                 "timeout": 900
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/lint-deps.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/lint-deps.sh",
                 "timeout": 10
               }
             ]
@@ -62,17 +62,17 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-workflow.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/format-and-test.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/format-and-test.sh",
                 "timeout": 900
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/lint-deps.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/lint-deps.sh",
                 "timeout": 10
               }
             ]
@@ -84,17 +84,17 @@
             "hooks": [
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/gate-workflow.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/gate-workflow.sh",
                 "timeout": 5
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/format-and-test.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/format-and-test.sh",
                 "timeout": 900
               },
               {
                 "type": "command",
-                "command": "\"${CLAUDE_PLUGIN_ROOT}\"/.claude/hooks/lint-deps.sh",
+                "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/.claude/hooks/lint-deps.sh",
                 "timeout": 10
               }
             ]

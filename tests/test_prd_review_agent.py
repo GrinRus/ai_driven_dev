@@ -141,6 +141,46 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(payload["status"], "approved")
         self.assertEqual(payload["recommended_status"], "approved")
 
+    def test_cli_default_report_path_under_plugin_root(self):
+        workspace = self.tmp_path / "workspace"
+        project_root = workspace / "aidd"
+        prd = project_root / "docs" / "prd" / "demo-feature.prd.md"
+        prd.parent.mkdir(parents=True, exist_ok=True)
+        prd.write_text(
+            "# Demo\n\n## PRD Review\nStatus: approved\n",
+            encoding="utf-8",
+        )
+
+        env = os.environ.copy()
+        env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
+        pythonpath = os.pathsep.join(filter(None, [str(PAYLOAD_ROOT.parents[5] / "src"), env.get("PYTHONPATH")]))
+        env["PYTHONPATH"] = pythonpath
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(MODULE_PATH),
+                "--ticket",
+                "demo-feature",
+                "--prd",
+                str(prd),
+                "--stdout-format",
+                "json",
+            ],
+            check=True,
+            cwd=workspace,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        report_path = project_root / "reports" / "prd" / "demo-feature.json"
+        self.assertTrue(report_path.exists(), "default report path should be under plugin root")
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["ticket"], "demo-feature")
+        self.assertEqual(payload["status"], "approved")
+        self.assertIn("[prd-review] report saved to reports/prd/demo-feature.json", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
