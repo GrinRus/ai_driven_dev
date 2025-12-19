@@ -830,22 +830,22 @@ _Статус: новый, приоритет 1. Цель — привести R
 _Статус: новый, приоритет 1. Цель — контекст‑GC через хуки Claude Code (Working Set + контекст‑файрвол) без ручных правок settings.json._
 
 ### Конфиг и артефакты контекст‑GC
-- [ ] `src/claude_workflow_cli/data/payload/aidd/config/context_gc.json`: добавить дефолтный конфиг (лимиты transcript, рабочий набор, guard'ы Bash/Read), описать переключатели `enabled`, `hard_behavior`, `ask_instead_of_deny`.
-- [ ] `aidd/reports/context/`: определить структуру снапшотов (`<session_id>/working_set.md`, `precompact_meta.json`, `transcript_tail.jsonl`, `latest_working_set.md`) и гарантировать создание директорий из hook‑скриптов.
+- [x] `src/claude_workflow_cli/data/payload/aidd/config/context_gc.json`: добавить дефолтный конфиг (лимиты transcript, рабочий набор, guard'ы Bash/Read), описать переключатели `enabled`, `hard_behavior`, `ask_instead_of_deny`.
+- [x] `aidd/reports/context/`: определить структуру снапшотов (`<session_id>/working_set.md`, `precompact_meta.json`, `transcript_tail.jsonl`, `latest_working_set.md`) и гарантировать создание директорий из hook‑скриптов.
 
 ### Скрипты context‑GC (плагин)
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/hooklib.py`: общий helper для чтения stdin JSON, поиска `aidd`‑root, загрузки/merge конфига, формирования ответов hook API (SessionStart/UserPromptSubmit/PreToolUse).
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/working_set_builder.py`: сбор Working Set из `.active_ticket/.active_feature`, PRD/research/tasklist, git status; лимиты на размер/кол-во задач/обрезку code blocks.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/precompact_snapshot.py`: снимать Working Set + метаданные + tail transcript до compact, писать в `aidd/reports/context`.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/sessionstart_inject.py`: вставлять Working Set через `additionalContext` при `SessionStart`.
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/userprompt_guard.py`: soft‑warn/hard‑block по размеру transcript (настройки из `context_gc.json`).
-- [ ] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/pretooluse_guard.py`: guard для Bash (wrap → log + tail) и Read (ask/deny для больших файлов), учитывать regex allow/skip.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/hooklib.py`: общий helper для чтения stdin JSON, поиска `aidd`‑root, загрузки/merge конфига, формирования ответов hook API (SessionStart/UserPromptSubmit/PreToolUse).
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/working_set_builder.py`: сбор Working Set из `.active_ticket/.active_feature`, PRD/research/tasklist, git status; лимиты на размер/кол-во задач/обрезку code blocks.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/precompact_snapshot.py`: снимать Working Set + метаданные + tail transcript до compact, писать в `aidd/reports/context`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/sessionstart_inject.py`: вставлять Working Set через `additionalContext` при `SessionStart`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/userprompt_guard.py`: soft‑warn/hard‑block по размеру transcript (настройки из `context_gc.json`).
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/pretooluse_guard.py`: guard для Bash (wrap → log + tail) и Read (ask/deny для больших файлов), учитывать regex allow/skip.
 
 ### Подключение hooks
-- [ ] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить `PreCompact` и `SessionStart` (context snapshots + inject), `UserPromptSubmit` (context guard рядом с gate-workflow), `PreToolUse` (Bash|Read) без конфликта с существующим `Write|Edit`.
-- [ ] Обновить описания в `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md` или `.../docs/customization.md`: что такое Working Set, где лежат отчёты, как менять лимиты/отключать guard'ы.
+- [x] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить `PreCompact` и `SessionStart` (context snapshots + inject), `UserPromptSubmit` (context guard рядом с gate-workflow), `PreToolUse` (Bash|Read) без конфликта с существующим `Write|Edit`.
+- [x] Обновить описания в `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md` или `.../docs/customization.md`: что такое Working Set, где лежат отчёты, как менять лимиты/отключать guard'ы.
 
 ### Упаковка, синк и тесты
-- [ ] `src/claude_workflow_cli/data/payload/manifest.json`: включить новые файлы `scripts/context_gc/**` и `config/context_gc.json`; прогнать `python3 tools/check_payload_sync.py`.
-- [ ] Тесты: добавить unit‑кейсы на `working_set_builder` (лимиты, сбор задач, git status), `userprompt_guard` (soft/hard thresholds) и `pretooluse_guard` (updatedInput/deny/ask).
-- [ ] Smoke‑сценарий: зафиксировать ручную проверку `/compact` → снапшот → новый SessionStart с Working Set, и проверку wrapper'а для `docker logs`/`Read` больших файлов.
+- [x] `src/claude_workflow_cli/data/payload/manifest.json`: включить новые файлы `scripts/context_gc/**` и `config/context_gc.json`; прогнать `python3 tools/check_payload_sync.py`.
+- [x] Тесты: добавить unit‑кейсы на `working_set_builder` (лимиты, сбор задач, git status), `userprompt_guard` (soft/hard thresholds) и `pretooluse_guard` (updatedInput/deny/ask).
+- [x] Smoke‑сценарий: зафиксировать ручную проверку `/compact` → снапшот → новый SessionStart с Working Set, и проверку wrapper'а для `docker logs`/`Read` больших файлов.
