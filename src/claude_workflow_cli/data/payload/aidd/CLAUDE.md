@@ -23,4 +23,8 @@
 - Перед `/compact` (`PreCompact`) сохраняется снапшот: `aidd/reports/context/<session_id>/working_set.md`, `precompact_meta.json`, `transcript_tail.jsonl`, а также `aidd/reports/context/latest_working_set.md`. Дополнительно создаётся индекс по тикету: `aidd/reports/context/by-ticket/<ticket>/<session_id>/...` и `aidd/reports/context/by-ticket/<ticket>/latest_working_set.md`.
 - `PreToolUse` ограничивает раздувание контекста: Bash-команды с большим выводом логируются в `aidd/reports/logs/` и в чат попадает только tail, большие `Read` требуют подтверждения или блокируются.
 - `UserPromptSubmit` предупреждает или блокирует промпты при достижении лимита: основной режим `context_limits` работает по токенам (128k), при невозможности парсинга транскрипта используется bytes‑fallback из `transcript_limits`. Настройки — в `aidd/config/context_gc.json`.
-- Smoke-проверка: новая сессия → есть Working Set в начале; `/compact` → появляются файлы в `aidd/reports/context/`; `docker logs` без `--tail` и `Read` большого файла → срабатывают guard'ы.
+- Smoke-проверка (ручная):
+  1. Новая сессия → убедиться, что в начале есть Working Set (SessionStart.additionalContext).
+  2. Запустить `/compact` → проверить `aidd/reports/context/<session_id>/...` и `aidd/reports/context/by-ticket/<ticket>/...`.
+  3. Выполнить `docker logs ...` без `--tail` → полный лог сохранён в `aidd/reports/logs`, в чат выводится tail.
+  4. `Read` большого файла (`> read_guard.max_bytes`) → запрос на подтверждение или блок (зависит от `ask_instead_of_deny`).

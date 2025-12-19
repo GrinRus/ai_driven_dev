@@ -21,6 +21,7 @@ import working_set_builder  # type: ignore  # noqa: E402
 USERPROMPT_SCRIPT = SCRIPTS_ROOT / "userprompt_guard.py"
 PRETOOLUSE_SCRIPT = SCRIPTS_ROOT / "pretooluse_guard.py"
 PRECOMPACT_SCRIPT = SCRIPTS_ROOT / "precompact_snapshot.py"
+SESSIONSTART_SCRIPT = SCRIPTS_ROOT / "sessionstart_inject.py"
 
 
 def _env_for_workspace(root: Path) -> dict[str, str]:
@@ -446,6 +447,33 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertIn("Context GC(bytes): transcript exceeded hard limit", data.get("systemMessage", ""))
 
 
+class SessionStartInjectTests(unittest.TestCase):
+    def test_sessionstart_inject_adds_working_set(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "docs/prd/demo-ticket.prd.md",
+                "# Demo PRD\n\nStatus: draft\n\n",
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+            payload = {"hook_event_name": "SessionStart"}
+            result = _run_hook_script(SESSIONSTART_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("hookEventName"), "SessionStart")
+            context = hook_output.get("additionalContext", "")
+            self.assertIn("AIDD Working Set", context)
+            self.assertIn("Ticket: demo-ticket", context)
+
+
 class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_wraps_bash_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
@@ -519,6 +547,58 @@ class PreToolUseGuardTests(unittest.TestCase):
             data = json.loads(result.stdout)
             hook_output = data.get("hookSpecificOutput", {})
             self.assertEqual(hook_output.get("permissionDecision"), "deny")
+
+    def test_pretooluse_guard_resolves_log_dir_in_aidd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "bash_output_guard": {
+                        "enabled": True,
+                        "tail_lines": 10,
+                        "log_dir": "reports/logs",
+                        "only_for_regex": "docker\\s+logs",
+                        "skip_if_regex": "--tail",
+                    }
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "docker logs app"},
+            }
+            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            updated = hook_output.get("updatedInput", {}).get("command", "")
+            expected = (root / "aidd" / "reports" / "logs").resolve()
+            self.assertIn(str(expected), updated)
+
+    def test_pretooluse_guard_resolves_read_path_without_aidd_prefix(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"read_guard": {"enabled": True, "max_bytes": 10, "ask_instead_of_deny": True}},
+            )
+            write_file(root, "docs/large.txt", "x" * 20)
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "docs/large.txt"},
+            }
+            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "ask")
 
 
 class PreCompactSnapshotTests(unittest.TestCase):
