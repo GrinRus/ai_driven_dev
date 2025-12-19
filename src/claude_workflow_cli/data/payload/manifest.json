@@ -141,8 +141,8 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 4413,
-      "sha256": "d4b60a2fec7aae5c823304225498771bb62685379e06d970b975fd19aef64688"
+      "size": 4551,
+      "sha256": "2ee4bce4c3ca2a1a555f4fe36f5155a066af96f3b9f4053f4bb9f260f3c3d39a"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -285,8 +285,8 @@
     {
       "path": "aidd/config/context_gc.json",
       "type": "file",
-      "size": 725,
-      "sha256": "45078673cb46c2101258186a68a2ca24711884d83a5424eb2b06aa3674671ebb"
+      "size": 944,
+      "sha256": "8d0eebdaa246fee783471fbec0497294701bd768bbe6ea60ba79c1a64879e4cb"
     },
     {
       "path": "aidd/config/conventions.json",
@@ -531,8 +531,8 @@
     {
       "path": "aidd/scripts/context_gc/hooklib.py",
       "type": "file",
-      "size": 5217,
-      "sha256": "650fd6d90b6d5d2561db8b3aa0d255e924d23517b5ca1e3083881acd596e6223"
+      "size": 5468,
+      "sha256": "ff6130a16f65d687683af8de6a01a3d5dc567504f0a1e59d9845baccdf6f3050"
     },
     {
       "path": "aidd/scripts/context_gc/precompact_snapshot.py",
@@ -555,8 +555,8 @@
     {
       "path": "aidd/scripts/context_gc/userprompt_guard.py",
       "type": "file",
-      "size": 1691,
-      "sha256": "7c385c4d655495c49e4c09576e1b25d7b16194c9f155c97933063e6fc1513865"
+      "size": 5063,
+      "sha256": "2e2589c945b14df8f71031b6e07906c8ed274a91bb37a52ee168034f3da5f165"
     },
     {
       "path": "aidd/scripts/context_gc/working_set_builder.py",

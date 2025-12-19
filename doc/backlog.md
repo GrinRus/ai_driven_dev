@@ -849,3 +849,11 @@ _Статус: новый, приоритет 1. Цель — контекст�
 - [x] `src/claude_workflow_cli/data/payload/manifest.json`: включить новые файлы `scripts/context_gc/**` и `config/context_gc.json`; прогнать `python3 tools/check_payload_sync.py`.
 - [x] Тесты: добавить unit‑кейсы на `working_set_builder` (лимиты, сбор задач, git status), `userprompt_guard` (soft/hard thresholds) и `pretooluse_guard` (updatedInput/deny/ask).
 - [x] Smoke‑сценарий: зафиксировать ручную проверку `/compact` → снапшот → новый SessionStart с Working Set, и проверку wrapper'а для `docker logs`/`Read` больших файлов.
+
+### Контекст‑лимиты по токенам (128k)
+- [x] `src/claude_workflow_cli/data/payload/aidd/config/context_gc.json`: добавить `context_limits` (mode=tokens, max_context_tokens=128000, buffer/reserve, warn/block проценты), увеличить `working_set.max_chars` до 10–12k, `max_tasks`/`max_open_questions`, `read_guard.max_bytes`, `bash_output_guard.tail_lines`; оставить bytes‑лимиты как fallback.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/hooklib.py`: расширить `DEFAULT_CONFIG` под `context_limits` и новые дефолты.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/userprompt_guard.py`: перейти на токены из последней main‑chain записи transcript (input + cache tokens), применить warn/block по `context_limits`, оставить bytes‑fallback.
+- [x] `tests/test_context_gc.py`: добавить тесты на token‑mode (warn/block), включая парсинг JSONL из transcript и fallback на bytes.
+- [x] `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md`: описать token‑mode, buffer/reserve и поведение fallback на bytes.
+- [x] `src/claude_workflow_cli/data/payload/manifest.json`: обновить size/sha для изменённых файлов и прогнать `python3 tools/check_payload_sync.py`.

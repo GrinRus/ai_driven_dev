@@ -12,27 +12,35 @@ from typing import Any, Dict, Optional
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": True,
     "working_set": {
-        "max_chars": 6000,
-        "max_tasks": 25,
-        "max_open_questions": 15,
+        "max_chars": 12000,
+        "max_tasks": 40,
+        "max_open_questions": 20,
         "include_git_status": True,
-        "max_git_status_lines": 60,
+        "max_git_status_lines": 80,
+    },
+    "context_limits": {
+        "mode": "tokens",
+        "max_context_tokens": 128_000,
+        "autocompact_buffer_tokens": 16_000,
+        "reserve_next_turn_tokens": 8_000,
+        "warn_pct_of_usable": 80,
+        "block_pct_of_usable": 92,
     },
     "transcript_limits": {
         "soft_bytes": 2_500_000,
         "hard_bytes": 4_500_000,
-        "hard_behavior": "block_prompt",  # block_prompt | warn_only
+        "hard_behavior": "warn_only",  # block_prompt | warn_only
     },
     "bash_output_guard": {
         "enabled": True,
-        "tail_lines": 200,
+        "tail_lines": 400,
         "log_dir": "aidd/reports/logs",
         "only_for_regex": r"(docker\s+logs|kubectl\s+logs|journalctl|gradlew|mvn|npm|pnpm|pytest|go\s+test|cat\s+)",
         "skip_if_regex": r"(--tail\s+|\|\s*tail\b|>\s*\S+|2>\s*\S+|--quiet\b|--silent\b)",
     },
     "read_guard": {
         "enabled": True,
-        "max_bytes": 200_000,
+        "max_bytes": 350_000,
         "ask_instead_of_deny": True,
     },
 }

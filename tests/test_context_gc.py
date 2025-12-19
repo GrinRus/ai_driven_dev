@@ -131,7 +131,14 @@ class UserPromptGuardTests(unittest.TestCase):
             write_json(
                 root,
                 "config/context_gc.json",
-                {"transcript_limits": {"soft_bytes": 10, "hard_bytes": 20, "hard_behavior": "block_prompt"}},
+                {
+                    "context_limits": {"mode": "bytes"},
+                    "transcript_limits": {
+                        "soft_bytes": 10,
+                        "hard_bytes": 20,
+                        "hard_behavior": "block_prompt",
+                    },
+                },
             )
             transcript = root / "transcript.jsonl"
             transcript.write_text("x" * 15, encoding="utf-8")
@@ -144,7 +151,7 @@ class UserPromptGuardTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
-            self.assertIn("Context GC: transcript is large", data.get("systemMessage", ""))
+            self.assertIn("Context GC(bytes): transcript is large", data.get("systemMessage", ""))
             self.assertNotIn("decision", data)
 
     def test_userprompt_guard_hard_block(self) -> None:
@@ -154,7 +161,14 @@ class UserPromptGuardTests(unittest.TestCase):
             write_json(
                 root,
                 "config/context_gc.json",
-                {"transcript_limits": {"soft_bytes": 10, "hard_bytes": 20, "hard_behavior": "block_prompt"}},
+                {
+                    "context_limits": {"mode": "bytes"},
+                    "transcript_limits": {
+                        "soft_bytes": 10,
+                        "hard_bytes": 20,
+                        "hard_behavior": "block_prompt",
+                    },
+                },
             )
             transcript = root / "transcript.jsonl"
             transcript.write_text("x" * 25, encoding="utf-8")
@@ -168,6 +182,268 @@ class UserPromptGuardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
             self.assertEqual(data.get("decision"), "block")
+
+    def test_userprompt_guard_token_warns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {
+                        "mode": "tokens",
+                        "max_context_tokens": 100,
+                        "autocompact_buffer_tokens": 0,
+                        "reserve_next_turn_tokens": 0,
+                        "warn_pct_of_usable": 80,
+                        "block_pct_of_usable": 95,
+                    }
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "message": {
+                            "usage": {
+                                "input_tokens": 85,
+                                "cache_read_input_tokens": 0,
+                                "cache_creation_input_tokens": 0,
+                            }
+                        }
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
+
+    def test_userprompt_guard_token_blocks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {
+                        "mode": "tokens",
+                        "max_context_tokens": 100,
+                        "autocompact_buffer_tokens": 0,
+                        "reserve_next_turn_tokens": 0,
+                        "warn_pct_of_usable": 80,
+                        "block_pct_of_usable": 90,
+                    }
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "message": {
+                            "usage": {
+                                "input_tokens": 95,
+                                "cache_read_input_tokens": 0,
+                                "cache_creation_input_tokens": 0,
+                            }
+                        }
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertEqual(data.get("decision"), "block")
+
+    def test_userprompt_guard_token_fallbacks_to_bytes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {"mode": "tokens", "max_context_tokens": 100},
+                    "transcript_limits": {"soft_bytes": 5, "hard_bytes": 10, "hard_behavior": "warn_only"},
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("x" * 8, encoding="utf-8")
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("Context GC(bytes): transcript is large", data.get("systemMessage", ""))
+
+    def test_userprompt_guard_ignores_sidechain_and_api_errors(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {
+                        "mode": "tokens",
+                        "max_context_tokens": 100,
+                        "autocompact_buffer_tokens": 0,
+                        "reserve_next_turn_tokens": 0,
+                        "warn_pct_of_usable": 80,
+                        "block_pct_of_usable": 90,
+                    }
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "isSidechain": True,
+                                "message": {
+                                    "usage": {
+                                        "input_tokens": 95,
+                                        "cache_read_input_tokens": 0,
+                                        "cache_creation_input_tokens": 0,
+                                    }
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "isApiErrorMessage": True,
+                                "message": {
+                                    "usage": {
+                                        "input_tokens": 95,
+                                        "cache_read_input_tokens": 0,
+                                        "cache_creation_input_tokens": 0,
+                                    }
+                                },
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "message": {
+                                    "usage": {
+                                        "input_tokens": 85,
+                                        "cache_read_input_tokens": 0,
+                                        "cache_creation_input_tokens": 0,
+                                    }
+                                }
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
+
+    def test_userprompt_guard_respects_reserve_and_buffer(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {
+                        "mode": "tokens",
+                        "max_context_tokens": 100,
+                        "autocompact_buffer_tokens": 20,
+                        "reserve_next_turn_tokens": 10,
+                        "warn_pct_of_usable": 80,
+                        "block_pct_of_usable": 95,
+                    }
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "message": {
+                            "usage": {
+                                "input_tokens": 65,
+                                "cache_read_input_tokens": 0,
+                                "cache_creation_input_tokens": 0,
+                            }
+                        }
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("Context GC: high context usage", data.get("systemMessage", ""))
+
+    def test_userprompt_guard_bytes_warn_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "context_limits": {"mode": "bytes"},
+                    "transcript_limits": {
+                        "soft_bytes": 10,
+                        "hard_bytes": 20,
+                        "hard_behavior": "warn_only",
+                    },
+                },
+            )
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("x" * 25, encoding="utf-8")
+
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("Context GC(bytes): transcript exceeded hard limit", data.get("systemMessage", ""))
 
 
 class PreToolUseGuardTests(unittest.TestCase):
