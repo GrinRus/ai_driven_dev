@@ -7,18 +7,17 @@
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
+_Last sync with `README.md`: 2025-12-18._  <!-- update when EN catches up -->
 
 ## TL;DR
-- `init-claude-workflow.sh` bootstraps the end-to-end flow `/idea-new (analyst) → research when needed → /plan-new → /review-prd → /tasks-new → /implement → /review` with protective hooks and automated testing.
-- Formatting and selective Gradle tests run automatically after each edit (set `SKIP_AUTO_TESTS=1` to disable temporarily), keeping the repo protected by `gate-*` hooks.
-- Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and templates.
+- `claude-workflow init --target .` (or `./init-claude-workflow.sh` from the payload) bootstraps `/idea-new (analyst) → research when needed → /plan-new → /review-prd → /tasks-new → /implement → /review`; `claude-workflow preset|sync|upgrade|smoke` cover demo assets, payload refresh, and smoke.
+- Formatting and selective Gradle tests (`aidd/.claude/hooks/format-and-test.sh`) run automatically after each edit (`SKIP_AUTO_TESTS=1` to pause); `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
+- Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs/templates/prompts.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
-- By default the payload installs into the `aidd/` subdirectory (`aidd/.claude`, `aidd/.claude-plugin` with the `feature-dev-aidd` plugin, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); hooks/smoke/tests are wired to this layout.
-  Root snapshots were removed; runtime files live only in the `aidd/` payload.
-- **Path troubleshooting:** all artifacts (PRD/Research/QA/PRD Review/Reviewer) reside under `aidd/`. If `Read(reports/...)` fails, look under `aidd/reports/...` and run CLI with `${CLAUDE_PLUGIN_ROOT:-./aidd}` or `--target aidd`.
+- The payload always lives in `aidd/` (`aidd/.claude`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); all artifacts/reports are under `aidd/` — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
 
 ## Table of Contents
+- [CLI cheatsheet](#cli-cheatsheet)
 - [What you get](#what-you-get)
 - [Workflow architecture](#workflow-architecture)
 - [Agent-first principles](#agent-first-principles)
@@ -44,6 +43,18 @@ _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 - [Migration to agent-first](#migration-to-agent-first)
 - [Contribution & license](#contribution--license)
 
+## CLI cheatsheet
+- `claude-workflow init --target . [--commit-mode ... --enable-ci --prompt-locale en]` — bootstrap into `./aidd`.
+- `claude-workflow preset feature-prd|feature-plan|feature-impl|feature-design|feature-release --ticket demo` — scaffold demo artefacts.
+- `claude-workflow sync --include .claude [--include claude-presets --release latest]` / `claude-workflow upgrade [--force]` — refresh the payload without overwriting local edits (use `--force` to overwrite).
+- `claude-workflow smoke` — e2e smoke (idea → plan → tasklist) with gates.
+- `claude-workflow analyst-check --ticket <ticket>` — validate the analyst dialog/PRD status.
+- `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — collect targets, matches, and call graph.
+- `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — toggle reviewer test marker.
+- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — append handoff items to `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow qa --ticket <ticket> --gate` — QA agent + gate report.
+- `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — assert new `- [x]`/handoff tasks before merging.
+
 ## What you get
 - Claude Code slash commands and sub-agents to bootstrap PRD/ADR/Tasklist docs, generate updates, and validate commits.
 - A multi-stage workflow (idea → research → plan → PRD review → tasks → implementation → review → QA) powered by `analyst/researcher/planner/prd-reviewer/validator/implementer/reviewer/qa` sub-agents; additional gates are toggled via `config/gates.json`.
@@ -53,7 +64,7 @@ _Last sync with `README.md`: 2025-12-08._  <!-- update when EN catches up -->
 - Zero dependency on Spec Kit or BMAD — everything runs locally.
 
 ## Workflow architecture
-1. `init-claude-workflow.sh` scaffolds `.claude/`, configs, and templates.
+1. `claude-workflow init --target .` (or `init-claude-workflow.sh` from the payload) scaffolds `.claude/`, configs, and templates.
 2. Slash commands drive the multi-stage process (see `workflow.md`): idea, plan, PRD review, tasklist, implementation, and review with dedicated sub-agents.
 3. The `feature-dev-aidd` plugin from `.claude-plugin/marketplace.json` wires pre/post hooks (`gate-*`, `format-and-test.sh`); `.claude/settings.json` only keeps permissions/automation and enables the plugin.
 4. `.claude/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
