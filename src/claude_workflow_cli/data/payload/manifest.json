@@ -141,8 +141,8 @@
     {
       "path": "aidd/CLAUDE.md",
       "type": "file",
-      "size": 2834,
-      "sha256": "6a42cc13c0f3e05e6a939e02b6ce6ce6f5c6eba0121d144f6a05953c3f05b66d"
+      "size": 4413,
+      "sha256": "d4b60a2fec7aae5c823304225498771bb62685379e06d970b975fd19aef64688"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -283,6 +283,12 @@
       "sha256": "23848d481be24e503c9ef899947cf6d51e1f7027111fb8164510ad3377df9bc7"
     },
     {
+      "path": "aidd/config/context_gc.json",
+      "type": "file",
+      "size": 725,
+      "sha256": "45078673cb46c2101258186a68a2ca24711884d83a5424eb2b06aa3674671ebb"
+    },
+    {
       "path": "aidd/config/conventions.json",
       "type": "file",
       "size": 4119,
@@ -411,8 +417,8 @@
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 3144,
-      "sha256": "b58011b01ea408fbb7bedea9ff7b001f2e25b937b88cb16ec9c16dd8a05e97ba"
+      "size": 4358,
+      "sha256": "ec5582184db28255090711c44d60fc5a17291fec454afbc437713e45ddc264d2"
     },
     {
       "path": "aidd/init-claude-workflow.sh",
@@ -521,6 +527,42 @@
       "type": "file",
       "size": 4860,
       "sha256": "dcc8237f1d4c228f906d3e19b06c8b99245b4b4772a38e6b3f3bac4387b99ebe"
+    },
+    {
+      "path": "aidd/scripts/context_gc/hooklib.py",
+      "type": "file",
+      "size": 5217,
+      "sha256": "650fd6d90b6d5d2561db8b3aa0d255e924d23517b5ca1e3083881acd596e6223"
+    },
+    {
+      "path": "aidd/scripts/context_gc/precompact_snapshot.py",
+      "type": "file",
+      "size": 2693,
+      "sha256": "b26ed7d38854ec37c5a48d1c7407b25ae7e43fae37b01c7808250bd35eee91e4"
+    },
+    {
+      "path": "aidd/scripts/context_gc/pretooluse_guard.py",
+      "type": "file",
+      "size": 5080,
+      "sha256": "712dc41c1137b8d04a4f93859ec44497f86c6459b5ef35e208bc18cc7586c8a5"
+    },
+    {
+      "path": "aidd/scripts/context_gc/sessionstart_inject.py",
+      "type": "file",
+      "size": 709,
+      "sha256": "034857a7963def7120e8ddbfd018ecfac465b7695b021374b05e45cc867340b2"
+    },
+    {
+      "path": "aidd/scripts/context_gc/userprompt_guard.py",
+      "type": "file",
+      "size": 1691,
+      "sha256": "7c385c4d655495c49e4c09576e1b25d7b16194c9f155c97933063e6fc1513865"
+    },
+    {
+      "path": "aidd/scripts/context_gc/working_set_builder.py",
+      "type": "file",
+      "size": 6159,
+      "sha256": "df999683e3ae95a972e98f71b4691395ff9601119fb3fd6934b505be69bd32b9"
     },
     {
       "path": "aidd/scripts/lint-prompts.py",

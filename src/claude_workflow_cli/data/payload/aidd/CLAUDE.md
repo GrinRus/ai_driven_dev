@@ -17,3 +17,10 @@
 - `.claude/hooks/lint-deps.sh` — напоминает про allowlist зависимостей.
 
 Дополнительные проверки настраиваются в `config/gates.json`. Пресеты разрешений и хуков описаны в `.claude/settings.json`, правила веток/коммитов — в `config/conventions.json`.
+
+## Контроль контекста (context GC)
+- Working Set собирается из `aidd/docs/.active_ticket`, PRD/research/tasklist и состояния git, затем подмешивается в `SessionStart` (startup/resume/clear/compact).
+- Перед `/compact` (`PreCompact`) сохраняется снапшот: `aidd/reports/context/<session_id>/working_set.md`, `precompact_meta.json`, `transcript_tail.jsonl`, а также `aidd/reports/context/latest_working_set.md`. Дополнительно создаётся индекс по тикету: `aidd/reports/context/by-ticket/<ticket>/<session_id>/...` и `aidd/reports/context/by-ticket/<ticket>/latest_working_set.md`.
+- `PreToolUse` ограничивает раздувание контекста: Bash-команды с большим выводом логируются в `aidd/reports/logs/` и в чат попадает только tail, большие `Read` требуют подтверждения или блокируются.
+- `UserPromptSubmit` предупреждает или блокирует промпты при достижении лимита (soft/hard). Настройки и переключатели — в `aidd/config/context_gc.json` (`enabled`, `hard_behavior`, `ask_instead_of_deny`).
+- Smoke-проверка: новая сессия → есть Working Set в начале; `/compact` → появляются файлы в `aidd/reports/context/`; `docker logs` без `--tail` и `Read` большого файла → срабатывают guard'ы.

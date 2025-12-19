@@ -13,12 +13,19 @@ CRITICAL_FILES: Iterable[str] = (
     ".claude/hooks/gate-workflow.sh",
     ".claude/hooks/gate-qa.sh",
     ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+    "config/context_gc.json",
     "config/conventions.json",
     "claude-presets/feature-prd.yaml",
     "claude-presets/advanced/feature-design.yaml",
     "docs/customization.md",
     "docs/prd.template.md",
     "scripts/ci-lint.sh",
+    "scripts/context_gc/hooklib.py",
+    "scripts/context_gc/precompact_snapshot.py",
+    "scripts/context_gc/pretooluse_guard.py",
+    "scripts/context_gc/sessionstart_inject.py",
+    "scripts/context_gc/userprompt_guard.py",
+    "scripts/context_gc/working_set_builder.py",
     "CLAUDE.md",
     "conventions.md",
 )
@@ -29,6 +36,7 @@ REQUIRED_DIRECTORIES = (
     "config",
     "docs",
     "scripts",
+    "scripts/context_gc",
     "tools",
 )
 
