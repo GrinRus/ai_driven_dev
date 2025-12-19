@@ -3,15 +3,16 @@
 > Готовый GitHub-шаблон и инсталлятор, который подключает Claude Code к вашему Java/Kotlin монорепозиторию, добавляет слэш-команды, безопасные хуки и выборочный запуск Gradle-тестов.
 
 ## TL;DR
-- `/init-claude-workflow.sh` разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-prd → /tasks-new → /implement → /review` с защитными хуками и автоматическим запуском тестов.
-- Автоформат и выборочные Gradle-тесты запускаются после каждой правки (можно отключить `SKIP_AUTO_TESTS=1`), артефакты защищены хуками `gate-*`.
-- Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации.
+- `claude-workflow init --target .` (или `./init-claude-workflow.sh` из payload) разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-prd → /tasks-new → /implement → /review`; `claude-workflow preset|sync|upgrade|smoke` покрывают демо-артефакты, обновление payload и e2e-smoke.
+- Автоформат и выборочные Gradle-тесты (`aidd/.claude/hooks/format-and-test.sh`) запускаются после каждой правки (`SKIP_AUTO_TESTS=1` временно отключает), артефакты защищены хуками `gate-*`.
+- Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации/промптов.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
-- Установка по умолчанию раскладывает payload в поддиректорию `aidd/` (`aidd/.claude`, `aidd/.claude-plugin` с плагином `feature-dev-aidd`, `aidd/docs`, `aidd/prompts`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`). Все пути в хуках, smoke и тестах рассчитываются относительно `aidd/`.
+- Payload ставится только в поддиректорию `aidd/` (`aidd/.claude`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); все артефакты и отчёты (`aidd/reports/**`) живут там же — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
   Корневые снапшоты удалены: рабочие файлы берутся только из payload `aidd/`.
 - **Troubleshooting путей:** все артефакты (PRD/Research/QA/PRD Review/Reviewer) находятся под `aidd/`. Если `Read(reports/...)` не находит файл, проверяйте `aidd/reports/...` и запускайте CLI с `${CLAUDE_PLUGIN_ROOT:-./aidd}` или `--target aidd`.
 
 ## Оглавление
+- [CLI шпаргалка](#cli-шпаргалка)
 - [Что входит в шаблон](#что-входит-в-шаблон)
 - [Архитектура workflow](#архитектура-workflow)
 - [Agent-first принципы](#agent-first-принципы)
@@ -39,6 +40,18 @@
 - [Миграция на agent-first](#миграция-на-agent-first)
 - [Вклад и лицензия](#вклад-и-лицензия)
 
+## CLI шпаргалка
+- `claude-workflow init --target . [--commit-mode ... --enable-ci --prompt-locale en]` — bootstrap в `./aidd`.
+- `claude-workflow preset feature-prd|feature-plan|feature-impl|feature-design|feature-release --ticket demo` — разложить демо-артефакты.
+- `claude-workflow sync --include .claude [--include claude-presets --release latest]` / `claude-workflow upgrade [--force]` — подтянуть обновления payload (без перезаписи изменённых файлов, кроме `--force`).
+- `claude-workflow smoke` — e2e-smoke idea → план → tasklist + гейты.
+- `claude-workflow analyst-check --ticket <ticket>` — валидация диалога analyst и статуса PRD.
+- `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — сбор целей/матчей/графа вызовов.
+- `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — маркер автотестов на ревью.
+- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — handoff-задачи в `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow qa --ticket <ticket> --gate` — отчёт QA + гейт.
+- `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — подтверждение новых `- [x]`/handoff-пунктов.
+
 ## Что входит в шаблон
 - Слэш-команды Claude Code и саб-агенты для подготовки PRD/ADR/Tasklist, генерации документации и валидации коммитов.
 - Многошаговый workflow (идея → план → PRD review → задачи → реализация → ревью → QA) с саб-агентами `analyst/planner/prd-reviewer/validator/implementer/reviewer/qa`; дополнительные проверки включаются через `config/gates.json`.
@@ -48,7 +61,7 @@
 - Локальная, прозрачная установка без зависимости от Spec Kit или BMAD.
 
 ## Архитектура workflow
-1. `init-claude-workflow.sh` разворачивает структуру `.claude/`, конфиги и шаблоны.
+1. `claude-workflow init --target .` (или `init-claude-workflow.sh` из payload) разворачивает структуру `.claude/`, конфиги и шаблоны.
 2. Slash-команды Claude Code запускают многошаговый процесс (см. `workflow.md`): от идеи и плана до реализации и ревью, подключая специализированных саб-агентов.
 3. Плагин `feature-dev-aidd` из `.claude-plugin/marketplace.json` вешает pre-/post-хуки (`gate-*`, `format-and-test.sh`); `.claude/settings.json` хранит только разрешения/automation и включает плагин.
 4. Git-хук `format-and-test.sh` выполняет форматирование и выборочные Gradle-тесты; полный прогон инициируется при изменении общих артефактов.
