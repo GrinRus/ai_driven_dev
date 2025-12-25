@@ -1,20 +1,20 @@
 ---
 description: "Code review and feedback"
-argument-hint: "<TICKET>"
+argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.0
-source_version: 1.0.0
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*),Bash(claude-workflow reviewer-tests:*),Bash(claude-workflow progress:*)
+prompt_version: 1.0.1
+source_version: 1.0.1
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*),Bash(claude-workflow reviewer-tests:*),Bash(claude-workflow progress:*),Bash(./gradlew:*),Bash(gradle:*)
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/review`launches the reviewer agent to analyze the diff, record findings, and update the tasklist before QA.
+`/review`launches the reviewer agent to analyze the diff, record findings, and update the tasklist before QA. Use any free-form notes after the ticket as additional review context.
 
 ## Input Artifacts
 -`git diff`/ PR.
--`aidd/docs/prd/&lt;ticket&gt;.prd.md`,`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`.
+-`aidd/docs/prd/<ticket>.prd.md`,`aidd/docs/plan/<ticket>.md`,`aidd/docs/tasklist/<ticket>.md`.
 - Test logs, reviewer test markers.
 
 ## When to Run
@@ -22,11 +22,11 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 -`claude-workflow reviewer-tests --status required/optional/clear`toggles mandatory tests.
--`claude-workflow progress --source review --ticket &lt;ticket&gt;`confirms`[x]`updates.
+-`claude-workflow progress --source review --ticket <ticket>`confirms`[x]`updates.
 - Preset`feature-release`can help with release notes if required.
 
 ## What is Edited
-- Source files for quick fixes (optional) and`aidd/docs/tasklist/&lt;ticket&gt;.md`entries.
+- Source files for quick fixes (optional) and`aidd/docs/tasklist/<ticket>.md`entries.
 
 ## Step-by-step Plan
 1. Call **reviewer** with the ticket ID; share priorities to inspect.

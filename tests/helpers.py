@@ -21,7 +21,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "deps_allowlist": False,
     "prd_review": {
         "enabled": True,
-        "approved_statuses": ["approved"],
+        "approved_statuses": ["ready"],
         "blocking_statuses": ["blocked"],
         "allow_missing_section": False,
         "require_action_items_closed": True,

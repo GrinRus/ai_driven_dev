@@ -1,16 +1,16 @@
 ---
 description: "Research report prep: collect context + run agent"
-argument-hint: "<TICKET> [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
+argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: en
-prompt_version: 1.1.0
-source_version: 1.1.0
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(claude-workflow research:*),Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow preset:*)
+prompt_version: 1.1.2
+source_version: 1.1.2
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(claude-workflow research:*),Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow preset:*),Bash(find:*),Bash(python:*),Bash(rg:*)
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/researcher`ensures every feature has an up-to-date research report. It reuses the CLI scan, updates`aidd/docs/research/&lt;ticket&gt;.md`, and syncs links with PRD/tasklist.
+`/researcher`ensures every feature has an up-to-date research report. It reuses the CLI scan, updates`aidd/docs/research/<ticket>.md`, and syncs links with PRD/tasklist. Free-form notes after the ticket should be recorded in the report.
 
 ## Input Artifacts
 - Active ticket (`aidd/docs/.active_ticket`or CLI arg).
@@ -22,12 +22,12 @@ disable-model-invocation: false
 - Re-run when architecture changes or codebase diverges significantly.
 
 ## Automation & Hooks
--`claude-workflow research --ticket &lt;ticket&gt; --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]`populates`reports/research/&lt;ticket&gt;-context.json`with`code_index`,`reuse_candidates`, and a focused`call_graph`/`import_graph`(Java/Kotlin only, tree-sitter when available). The full graph is saved to`reports/research/&lt;ticket&gt;-call-graph-full.json`; defaults: filter =`&lt;ticket&gt;|<keywords>`, limit = 300 edges.
+-`claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]`populates`reports/research/<ticket>-context.json`with`code_index`,`reuse_candidates`, and a focused`call_graph`/`import_graph`(Java/Kotlin only, tree-sitter when available). The full graph is saved to`reports/research/<ticket>-call-graph-full.json`; defaults: filter =`<ticket>|<keywords>`, limit = 300 edges.
 -`--dry-run`writes only JSON;`--targets-only`refreshes target paths without scanning;`--reuse-only`focuses on reuse candidates;`--langs`filters deep-code languages;`--graph-langs`narrows call graph to kt/kts/java;`--graph-filter/--graph-limit`tune focus graph;`--no-agent`skips launching the Claude agent.
-- After a successful report, derive implementer tasks: call`claude-workflow tasks-derive --source research --append --ticket &lt;ticket&gt;`so`aidd/docs/tasklist/&lt;ticket&gt;.md`contains`- [ ] Research ... (source: reports/research/&lt;ticket&gt;-context.json)`entries.
+- After a successful report, derive implementer tasks: call`claude-workflow tasks-derive --source research --append --ticket <ticket>`so`aidd/docs/tasklist/<ticket>.md`contains`- [ ] Research ... (source: reports/research/<ticket>-context.json)`entries.
 
 ## What is Edited
--`aidd/docs/research/&lt;ticket&gt;.md`(per template) and references in PRD/tasklist.
+-`aidd/docs/research/<ticket>.md`(per template) and references in PRD/tasklist.
 
 ## Step-by-step Plan
 1. Ensure active ticket matches`$1`; run`/idea-new`or`python3 tools/set_active_feature.py`if needed.

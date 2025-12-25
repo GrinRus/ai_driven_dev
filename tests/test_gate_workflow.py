@@ -60,7 +60,7 @@ def approved_prd(ticket: str = "demo-checkout") -> str:
         "Вопрос 1: Требуется ли отдельный сценарий оплаты?\n"
         "Ответ 1: Покрываем happy-path и отказ платежа.\n\n"
         "## PRD Review\n"
-        "Status: approved\n"
+        "Status: READY\n"
     )
 
 
@@ -73,7 +73,7 @@ def pending_baseline_prd(ticket: str = "demo-checkout") -> str:
         "Вопрос 1: Что нужно для baseline?\n"
         "Ответ 1: Репозиторий пуст, собираем baseline.\n\n"
         "## PRD Review\n"
-        "Status: approved\n"
+        "Status: READY\n"
     )
 
 
@@ -117,7 +117,7 @@ def write_prd_with_status(tmp_path: pathlib.Path, ticket: str, status: str, rese
             "Вопрос 1: Что нужно уточнить?\n"
             "Ответ 1: TBD\n\n"
             "## PRD Review\n"
-            "Status: approved\n"
+            "Status: READY\n"
         ),
     )
 
@@ -288,7 +288,7 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
             "Вопрос 1: Какие ограничения?\n"
             "Ответ 1: TBD\n\n"
             "## PRD Review\n"
-            "Status: approved\n"
+            "Status: READY\n"
         ),
     )
     write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan")
@@ -361,7 +361,7 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
             "Вопрос 1: Какие требования уже покрыты?\n"
             "Ответ 1: Достаточно контекста, research не запускали.\n\n"
             "## PRD Review\n"
-            "Status: approved\n"
+            "Status: READY\n"
         ),
     )
     write_file(project_root, f"docs/plan/{ticket}.md", "# Plan")

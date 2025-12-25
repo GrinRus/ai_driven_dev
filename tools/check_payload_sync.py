@@ -8,7 +8,24 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
-DEFAULT_PATHS: list[str] = []
+DEFAULT_PATHS: list[str] = [
+    ".claude",
+    "claude-presets",
+    "config",
+    "docs",
+    "templates",
+    "tools",
+    "workflow.md",
+    "CLAUDE.md",
+    "conventions.md",
+    "init-claude-workflow.sh",
+    "scripts/ci-lint.sh",
+    "scripts/migrate-tasklist.py",
+    "scripts/prd-review-agent.py",
+    "scripts/prd_review_gate.py",
+    "scripts/qa-agent.py",
+    "scripts/smoke-workflow.sh",
+]
 
 DEFAULT_PAYLOAD_PREFIX = "aidd"
 
@@ -56,6 +73,20 @@ def _guess_repo_root(marker: str = "pyproject.toml") -> Path:
         if (parent / marker).exists() or (parent / ".git").exists():
             return parent
     return path.parents[1]
+
+
+def resolve_snapshot_root(repo_root: Path, payload_prefix: str) -> Path:
+    prefix = payload_prefix.strip("/")
+    if not prefix:
+        return repo_root
+    candidate = repo_root / prefix
+    if candidate.is_dir():
+        return candidate
+    return repo_root
+
+
+def has_any_snapshot_paths(root: Path, paths: Sequence[str]) -> bool:
+    return any((root / rel).exists() for rel in paths)
 
 
 def compare_paths(
@@ -143,12 +174,20 @@ def main(argv: list[str] | None = None) -> int:
     payload_root = Path(args.payload_dir).resolve() if args.payload_dir else default_payload
     if not payload_root.is_dir():
         parser.error(f"payload directory not found: {payload_root}")
+    payload_prefix = args.payload_prefix.strip("/")
     paths = parse_paths(args.paths)
+    snapshot_root = resolve_snapshot_root(repo_root, payload_prefix)
+    if not args.paths and payload_prefix and snapshot_root == repo_root:
+        print(
+            f"[payload-sync] runtime snapshot not found at {repo_root / payload_prefix}; "
+            "run scripts/sync-payload.sh --direction=to-root before checking."
+        )
+        return 0
     mismatches = compare_paths(
-        repo_root,
+        snapshot_root,
         payload_root,
         paths,
-        payload_prefix=args.payload_prefix.strip("/"),
+        payload_prefix=payload_prefix,
     )
     if mismatches:
         print("[payload-sync] detected mismatches:")

@@ -57,7 +57,7 @@ def detect_project_root() -> Path:
 
 ROOT_DIR = detect_project_root()
 DEFAULT_STATUS = "pending"
-APPROVED_STATUSES = {"approved"}
+APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
 PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
 REVIEW_SECTION_HEADER = "## PRD Review"
@@ -219,7 +219,7 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
             Finding(
                 severity="minor",
                 title="Статус PRD Review не обновлён",
-                details="Укажите Status: approved после ревью.",
+                details="Укажите Status: READY после ревью.",
             )
         )
 
@@ -227,7 +227,7 @@ def analyse_prd(slug: str, prd_path: Path, *, ticket: Optional[str] = None) -> R
         findings.append(
             Finding(
                 severity="critical",
-                title="PRD Review помечен как blocked",
+                title="PRD Review помечен как BLOCKED",
                 details="Закройте блокеры перед разработкой.",
             )
         )

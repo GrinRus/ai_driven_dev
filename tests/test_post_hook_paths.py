@@ -25,7 +25,7 @@ def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
     project_root = legacy_root / "aidd"
     project_root.mkdir(exist_ok=True)
     write_active_feature(project_root, slug)
-    write_file(project_root, f"docs/prd/{slug}.prd.md", "# PRD\n\n## PRD Review\nStatus: approved\n")
+    write_file(project_root, f"docs/prd/{slug}.prd.md", "# PRD\n\n## PRD Review\nStatus: READY\n")
     write_file(project_root, f"docs/plan/{slug}.md", "# Plan")
     write_file(project_root, f"docs/tasklist/{slug}.md", "- [ ] impl\n")
     write_file(project_root, f"docs/research/{slug}.md", "# Research\nStatus: reviewed\n")

@@ -203,7 +203,7 @@ ticket = sys.argv[1]
 prd_path = Path("docs/prd") / f"{ticket}.prd.md"
 content = prd_path.read_text(encoding="utf-8")
 if "## PRD Review" not in content:
-    content += "\n## PRD Review\nStatus: pending\n"
+    content += "\n## PRD Review\nStatus: PENDING\n"
 if "Вопрос 1:" in content and "TBD" in content:
     content = content.replace("Ответ 1: TBD", "Ответ 1: Покрываем стандартный happy-path и ошибку оплаты.", 1)
 if "Status: draft" in content:
@@ -243,10 +243,10 @@ PY
 log "analyst-check must pass"
 run_cli analyst-check --ticket "$TICKET" --target . >/dev/null
 
-log "expect block until PRD review approved"
+log "expect block until PRD review READY"
 assert_gate_exit 2 "pending PRD review"
 
-log "mark PRD review as approved"
+log "mark PRD review as READY"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
@@ -256,8 +256,11 @@ path = Path("docs/prd") / f"{ticket}.prd.md"
 content = path.read_text(encoding="utf-8")
 if "## PRD Review" not in content:
     raise SystemExit("PRD Review section missing in smoke scenario")
-if "Status: approved" not in content:
-    content = content.replace("Status: pending", "Status: approved", 1)
+if "Status: READY" not in content:
+    if "Status: PENDING" in content:
+        content = content.replace("Status: PENDING", "Status: READY", 1)
+    else:
+        content = content.replace("Status: pending", "Status: READY", 1)
 path.write_text(content, encoding="utf-8")
 PY
 
@@ -402,7 +405,7 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/nul
 
 log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
-grep -q "Status: approved" "docs/prd/${TICKET}.prd.md"
+grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
 grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
 
 log "smoke scenario passed"

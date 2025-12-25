@@ -31,7 +31,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
 - `prompt_version` повышается при любых правках текста (см. раздел 7).
 - Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
-- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; для агентов поле `name` обязательно.
+- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; свободный ввод после тикета должен быть предусмотрен и описан. Для агентов поле `name` обязательно.
 
 ### 2.2 Обязательные разделы
 После фронт-маттера соблюдайте блоки в указанном порядке:
@@ -71,7 +71,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
 | `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-prd-review`, `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
-| `planner` / `/plan-new` | PRD (Status: approved), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
+| `planner` / `/plan-new` | PRD (Status: READY), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
 | `qa` | Tasklist, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |

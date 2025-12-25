@@ -2,7 +2,7 @@
 """Shared PRD review gate logic for Claude workflow hooks.
 
 The script checks that `docs/prd/<ticket>.prd.md` contains a `## PRD Review`
-section with an approved status and no unresolved action items. Behaviour is
+section with a READY status and no unresolved action items. Behaviour is
 configured through `config/gates.json` (see the `prd_review` section).
 
 Exit codes:
@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Iterable, List, Set
 
 
-DEFAULT_APPROVED = {"approved"}
+DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
 DEFAULT_BLOCKING_SEVERITIES = {"critical"}
 DEFAULT_CODE_PREFIXES = (
@@ -178,6 +178,7 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
 
 def format_message(kind: str, ticket: str, slug_hint: str | None = None, status: str | None = None) -> str:
     label = feature_label(ticket, slug_hint)
+    human_status = (status or "PENDING").upper()
     if kind == "missing_section":
         return (
             f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-prd {label}"
@@ -188,11 +189,10 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
         )
     if kind == "blocking_status":
         return (
-            f"BLOCK: PRD Review помечен как '{status}' → устраните блокеры и обновите статус через /review-prd {label or ticket}"
+            f"BLOCK: PRD Review помечен как '{human_status}' → устраните блокеры и обновите статус через /review-prd {label or ticket}"
         )
     if kind == "not_approved":
-        human = status or "pending"
-        return f"BLOCK: PRD Review не утверждён (Status: {human}) → выполните /review-prd {label or ticket}"
+        return f"BLOCK: PRD Review не READY (Status: {human_status}) → выполните /review-prd {label or ticket}"
     if kind == "open_actions":
         return (
             f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в docs/tasklist/{ticket}.md и отметьте выполнение."

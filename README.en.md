@@ -107,7 +107,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 
 ### Hooks & automation
 - `.claude/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active ticket/slug hint, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
-- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active ticket has PRD, `## PRD Review` with `Status: approved`, plan, and fresh `- [x]` entries in `aidd/docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
+- `.claude/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active ticket has PRD, `## PRD Review` with `Status: READY`, plan, and fresh `- [x]` entries in `aidd/docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
 - `.claude/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
 - `.claude/hooks/gate-tests.sh` — optional check driven by `config/gates.json`, validating the presence of matching tests (`disabled|soft|hard`) with actionable hints.
 - `.claude/hooks/lint-deps.sh` — monitors dependency changes, validates them against `config/allowed-deps.txt`, and reports drift.
@@ -125,7 +125,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 - Create branches with `git checkout -b feature/<TICKET>` (or other patterns from `config/conventions.json`).
 - `.claude/commands/idea-new.md` — persists the ticket (and optional slug hint) in `aidd/docs/.active_ticket`/`.active_feature`, invokes `analyst` (research on demand), assembles the PRD, and captures outstanding questions **starting from an auto-generated `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.**
 - `.claude/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `aidd/docs/research/<ticket>.md`.
-- `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: approved`) before plan creation.
+- `.claude/commands/plan-new.md` — chains `planner` and `validator`, enforcing a completed `## PRD Review` (`Status: READY`) before plan creation.
 - `.claude/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
 - `.claude/commands/tasks-new.md` — syncs `aidd/docs/tasklist/<ticket>.md` with the plan and migrates PRD Review action items with the proper slug hint/front matter.
 - `.claude/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
@@ -165,7 +165,7 @@ Advanced customization tips are covered in `workflow.md` and `aidd/docs/customiz
 ## Key scripts and hooks
 - **`init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/ config/ aidd/docs/ templates/`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`.claude/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
-- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: approved`), plan, and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
+- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: READY`), plan, and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
 - **`gate-prd-review.sh`** — funnels to `scripts/prd_review_gate.py`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `aidd/docs/qa-playbook.md`.
