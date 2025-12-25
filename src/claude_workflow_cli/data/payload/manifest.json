@@ -148,13 +148,13 @@
       "path": "aidd/agents/analyst.md",
       "type": "file",
       "size": 5242,
-      "sha256": "0799d7c0dfd28b336b9bb2b48d9883136574d9e117d2729d24c4939e0a60c5cb"
+      "sha256": "d38837140018687a235576e14560668d00fb5fdc99a4e9a2a7f0bf2883f7e539"
     },
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 8079,
-      "sha256": "8249ded21c23727f92805415f63caafd7fc6615a44b61cd0ce1863fe0a29aa08"
+      "size": 8151,
+      "sha256": "3d04223ae7363790fc71b2b6156649a7b0a5e544795851169170a8727909ca0b"
     },
     {
       "path": "aidd/agents/planner.md",
@@ -166,7 +166,7 @@
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
       "size": 3322,
-      "sha256": "b5705d3870e9feb4a16ec0585a79a919029f4fa80bfced4ca3cd4d0162c32484"
+      "sha256": "c275e537204f990f81580fa4efd6d82e445e0b0ac892195ad2b16daf2f5875ec"
     },
     {
       "path": "aidd/agents/qa.md",
@@ -178,7 +178,7 @@
       "path": "aidd/agents/researcher.md",
       "type": "file",
       "size": 8973,
-      "sha256": "a192058ee0f33a4ed037c6ad39c452aca1c12e2836618193ec7ac49a159929de"
+      "sha256": "ad944dc4e03db4443f0b7d7dfc872e329a077e6c0b7e31b3e1e763a254289f4a"
     },
     {
       "path": "aidd/agents/reviewer.md",
@@ -190,7 +190,7 @@
       "path": "aidd/agents/validator.md",
       "type": "file",
       "size": 2894,
-      "sha256": "86465b606cfc99c109401d94a427cecd94450c992528f1047f4b391ff9041d2d"
+      "sha256": "4ac177fb5ad221b7ef19dc3a50fa81f944846d89871c17b77b260ada4524d55d"
     },
     {
       "path": "aidd/claude-presets/advanced/feature-design.yaml",
@@ -232,13 +232,13 @@
       "path": "aidd/commands/idea-new.md",
       "type": "file",
       "size": 7389,
-      "sha256": "02b22f9413c36f3283c044f31ba107df5a6c5efd2a1801fd4ee627369ec7ac08"
+      "sha256": "9cda036ec7f92bf4489bf6cdda06f9b51f5883c120dd5d3bbce1992b6cc0c1ee"
     },
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
       "size": 4885,
-      "sha256": "8c70edd2497621452727a492be4345404fdd447632053e3ac9c9720aa939bd8e"
+      "sha256": "af9a4bf4df8aa645451856ebc10602e612c5f2883594495d84ea6ae414c687d1"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -250,19 +250,19 @@
       "path": "aidd/commands/qa.md",
       "type": "file",
       "size": 4745,
-      "sha256": "2b9d81106ddbe9a634e9b9fdd334ee8c5bfa4ecb39e2aaa59e33c3b7043137c3"
+      "sha256": "9d4710f087143d11644848c419cb7b2b1888456e7a2d44d76759b290fb5bdeb4"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
       "size": 6868,
-      "sha256": "e9cfad586f112b9d5095bc4db2d30ae76b02b4afb848aff737ad34e4c8083dce"
+      "sha256": "0ae732ae185ac7b964efdc159618b1b649e66942c04009ae0644d48f72a5e83e"
     },
     {
       "path": "aidd/commands/review-prd.md",
       "type": "file",
       "size": 4039,
-      "sha256": "1f548f0597903a6741eea313dd80fa8ab24feeb8427659188b882f44c5aa5481"
+      "sha256": "c846202e1c9d50b9058013a9a7d17f72884434737c8726e9a8ba021b4b9a543f"
     },
     {
       "path": "aidd/commands/review.md",
@@ -274,7 +274,7 @@
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
       "size": 3925,
-      "sha256": "ae252d2239fc8a1dd498238bceb32e51f4e307ddfdcf6227da481d9a9997344a"
+      "sha256": "9d03093b1afeb1fc19711b5eb41bdae839c77afd51980cc6525317fcfd4fb2f5"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -387,8 +387,8 @@
     {
       "path": "aidd/docs/release-notes.md",
       "type": "file",
-      "size": 10295,
-      "sha256": "9d073bd966a5ff89ecdf20d97ff696d143974b84ba7c20efa993739a0afd820f"
+      "size": 11364,
+      "sha256": "689e8e387e04eedfacf37b3dc5e224b9d11346e58d871b13747d8e1b03f82ce5"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -430,13 +430,13 @@
       "path": "aidd/prompts/en/agents/analyst.md",
       "type": "file",
       "size": 5470,
-      "sha256": "4655093a5671521d0af92ede5a0166c198fbcd22225039a1a9e9dc33bb59b91d"
+      "sha256": "968e6fe64fb0d30e54138d9a2e602ad98a5f425fb8964711ce92ef96c54ac091"
     },
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 4269,
-      "sha256": "8b63c7c5e028bc9918db740fe88276dfbfc014095ba08cfc25eb4874b31515da"
+      "size": 4295,
+      "sha256": "962eca805d51e84b3e8ac698206a13e420cbb2d5fd4d59bf0ae6ba0719314fd0"
     },
     {
       "path": "aidd/prompts/en/agents/planner.md",
@@ -447,8 +447,8 @@
     {
       "path": "aidd/prompts/en/agents/prd-reviewer.md",
       "type": "file",
-      "size": 1741,
-      "sha256": "d1455288b36406578bd36d029b70047137cba5ea8218a15a578b9957d858ca0a"
+      "size": 1810,
+      "sha256": "e1f3984b09f0293b76af41377ec1a67af215095b8a65a39e1de5ace708d58ab4"
     },
     {
       "path": "aidd/prompts/en/agents/qa.md",
@@ -459,8 +459,8 @@
     {
       "path": "aidd/prompts/en/agents/researcher.md",
       "type": "file",
-      "size": 4973,
-      "sha256": "51b2355da6eb7d5fff3297e72034370ba78a1734b79714036ca41a8f97987b8b"
+      "size": 4904,
+      "sha256": "aa05a5ffd4dd4026ad38394cdb54e376e40d19abae405511e21fb9f1475d6196"
     },
     {
       "path": "aidd/prompts/en/agents/reviewer.md",
@@ -472,19 +472,19 @@
       "path": "aidd/prompts/en/agents/validator.md",
       "type": "file",
       "size": 1462,
-      "sha256": "68c6b88d690a16387319cd8204e441b5d895a44a143454550b595dd4da79d776"
+      "sha256": "2138d6e255eacffd0cbadb16b41beed59eab67cec97a5df556b381ab5ec9ec7b"
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
       "type": "file",
       "size": 4333,
-      "sha256": "b900e021eee57352226fa855f0f815a19218ffd05163ba8d1dce2a2a028df333"
+      "sha256": "4e26a9d004eff6bd402438341b372a12e9b633930216d609c2bf54ab5045b785"
     },
     {
       "path": "aidd/prompts/en/commands/implement.md",
       "type": "file",
-      "size": 2494,
-      "sha256": "85cdd35c365b42bfe345ed8a95e482ea7d6b7bb84a54d492436a26e0271c2c82"
+      "size": 2460,
+      "sha256": "000e5dada9247a7d205e16e321f707fe93f76441be14fc508af03b9f44db783b"
     },
     {
       "path": "aidd/prompts/en/commands/plan-new.md",
@@ -495,20 +495,20 @@
     {
       "path": "aidd/prompts/en/commands/qa.md",
       "type": "file",
-      "size": 3423,
-      "sha256": "43a051e236c919dc41548b96c7c94637de628111acdbeb80d6ab8b39ec42174f"
+      "size": 3458,
+      "sha256": "ccda668e6dcecb0afba45f97b632a5788ce9f83b81d124f21d2bf37f71b355bd"
     },
     {
       "path": "aidd/prompts/en/commands/researcher.md",
       "type": "file",
       "size": 3573,
-      "sha256": "268486c3476319a1b6ecef603eb690ca7ff3e94f153b647cb32c78c529f0da21"
+      "sha256": "20fe87aaf2192b39878ae31a2f9c91d7dd12ac334614f9465024b6ff067abb86"
     },
     {
       "path": "aidd/prompts/en/commands/review-prd.md",
       "type": "file",
-      "size": 1924,
-      "sha256": "c6035c0236565a104b871fba945393e57c7179566e167a3f97ea9be35d76a167"
+      "size": 2196,
+      "sha256": "9274f91043fa35c306c8e4ab3210a34251f75edb3bcb2acdea35d111b1a01c2e"
     },
     {
       "path": "aidd/prompts/en/commands/review.md",
@@ -520,7 +520,7 @@
       "path": "aidd/prompts/en/commands/tasks-new.md",
       "type": "file",
       "size": 2251,
-      "sha256": "a6b2b4043ea982dee0587426410269ea1bba2b84fe95e8ffa90bfbdf557ce111"
+      "sha256": "88cc22e05ff776cd0519ad0985bfed4d6f6a4c4ccdd0e2305fe57d115fb697f7"
     },
     {
       "path": "aidd/scripts/ci-lint.sh",
@@ -567,8 +567,8 @@
     {
       "path": "aidd/scripts/lint-prompts.py",
       "type": "file",
-      "size": 16069,
-      "sha256": "749cf721d162f6dcd2067988e84869055f53d971642b831b06ffa95b95af5e47"
+      "size": 16086,
+      "sha256": "e7d31d90006a33b9e40dace2663672ee3b90d1cc2a6952a829c77e1658dbbe8b"
     },
     {
       "path": "aidd/scripts/migrate-tasklist.py",
@@ -657,8 +657,8 @@
     {
       "path": "aidd/tools/check_payload_sync.py",
       "type": "file",
-      "size": 5464,
-      "sha256": "cd606729081a804635b3a577d2553db8c4972b7ce74d47ce4d04a181b962fa25"
+      "size": 6624,
+      "sha256": "005a2977109aa85370923d19ec6cf287cb457a68c4cd8d060451476bc323d407"
     },
     {
       "path": "aidd/tools/migrate_ticket.py",

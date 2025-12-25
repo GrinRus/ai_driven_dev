@@ -2,8 +2,8 @@
 description: "Инициация фичи: аналитик + (опц.) auto-research → вопросы пользователю → PRD draft"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.2.1
-source_version: 1.2.1
+prompt_version: 1.2.2
+source_version: 1.2.2
 allowed-tools:
   - Read
   - Edit
@@ -25,7 +25,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - Slug-hint пользователя (`[slug-hint]`, `rg <ticket> aidd/docs/**`) и свободные заметки (`[note...]`) — исходное описание и уточнения.
 - @aidd/docs/prd.template.md — шаблон PRD (Status: draft, `## Диалог analyst`).
-- @aidd/docs/research/`<ticket>`.md, `aidd/reports/research/*` — создаются/обновляются автоматически (если отчёта нет, разворачивается `aidd/docs/templates/research-summary.md` с baseline).
+- `@aidd/docs/research/<ticket>.md`, `aidd/reports/research/*` — создаются/обновляются автоматически (если отчёта нет, разворачивается `aidd/docs/templates/research-summary.md` с baseline).
 - Активные маркеры: `aidd/docs/.active_ticket`, `.active_feature`.
 
 ## Когда запускать

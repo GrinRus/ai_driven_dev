@@ -30,6 +30,10 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `claude-workflow progress`, `./gradlew test`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
+- EN prompt parity tightened: report paths use `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-prd` accepts free-form notes, tasklist ownership is clarified for research/review agents, and the prompt linter now validates `Статус:` markers.
+- RU prompt placeholders normalized to `@aidd/docs/.../<ticket>...`, EN `/implement` instructions now reference `${CLAUDE_PLUGIN_ROOT:-./aidd}`, and prompt-lint tests cover `Статус:` validation.
+- EN `/qa` now uses `${CLAUDE_PLUGIN_ROOT:-./aidd}` for the default test hook path, and implementer tools include the `format-and-test.sh` hook.
+- `tools/check_payload_sync.py` now has a standard payload path list and warns when the runtime snapshot (`aidd/`) is missing.
 - Внутренний backlog (`doc/backlog.md`) оставлен dev-only и исключён из payload/manifest; sync/check скрипты больше не ожидают каталог `doc/` и предотвращают попадание файла в релиз.
 
 ### Fixed

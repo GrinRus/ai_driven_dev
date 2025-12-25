@@ -2,8 +2,8 @@
 name: validator
 description: Verifies PRD/plan completeness and formulates questions.
 lang: en
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 tools: Read
 model: inherit
 permissionMode: default

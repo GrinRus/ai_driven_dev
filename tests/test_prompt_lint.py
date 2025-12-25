@@ -359,6 +359,19 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unknown status", result.stderr)
 
+    def test_invalid_status_ru_label_fails(self) -> None:
+        bad_status = build_command().replace(
+            "## Контекст\nText.",
+            "## Контекст\nСтатус: approved",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": bad_status})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unknown status", result.stderr)
+
     def test_tool_parity_fails(self) -> None:
         command_no_write = build_command().replace("allowed-tools: Read,Edit,Write", "allowed-tools: Read", 1)
         with tempfile.TemporaryDirectory() as tmp:

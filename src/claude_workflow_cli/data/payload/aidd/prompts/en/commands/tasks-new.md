@@ -2,8 +2,8 @@
 description: "Build aidd/docs/tasklist/<ticket>.md for the feature"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 allowed-tools: Read,Edit,Write,Grep,Glob
 model: inherit
 disable-model-invocation: false

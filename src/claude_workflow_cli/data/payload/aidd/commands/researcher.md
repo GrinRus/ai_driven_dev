@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента."
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.1.1
-source_version: 1.1.1
+prompt_version: 1.1.2
+source_version: 1.1.2
 allowed-tools:
   - Read
   - Edit

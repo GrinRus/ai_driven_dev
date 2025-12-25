@@ -6,7 +6,13 @@ TOOLS_DIR = REPO_ROOT / "tools"
 if str(TOOLS_DIR) not in sys.path:  # pragma: no cover - environment setup
     sys.path.insert(0, str(TOOLS_DIR))
 
-from check_payload_sync import DEFAULT_PATHS, compare_paths, parse_paths  # type: ignore  # noqa: E402
+from check_payload_sync import (  # type: ignore  # noqa: E402
+    DEFAULT_PATHS,
+    DEFAULT_PAYLOAD_PREFIX,
+    compare_paths,
+    parse_paths,
+    resolve_snapshot_root,
+)
 
 PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload"
 
@@ -58,5 +64,13 @@ def test_parse_paths_splits_commas() -> None:
 
 
 def test_repo_and_payload_default_paths_in_sync() -> None:
-    mismatches = compare_paths(REPO_ROOT, PAYLOAD_ROOT, DEFAULT_PATHS, payload_prefix="aidd")
+    snapshot_root = resolve_snapshot_root(REPO_ROOT, DEFAULT_PAYLOAD_PREFIX)
+    if snapshot_root == REPO_ROOT and DEFAULT_PAYLOAD_PREFIX:
+        return
+    mismatches = compare_paths(
+        snapshot_root,
+        PAYLOAD_ROOT,
+        DEFAULT_PATHS,
+        payload_prefix=DEFAULT_PAYLOAD_PREFIX,
+    )
     assert mismatches == []

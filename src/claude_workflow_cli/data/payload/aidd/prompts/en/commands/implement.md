@@ -2,9 +2,9 @@
 description: "Feature implementation + selective tests"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.1.2
-source_version: 1.1.2
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash("$CLAUDE_PROJECT_DIR/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Bash(./gradlew:*),Bash(gradle:*),Bash(git:*),Bash(git add:*)
+prompt_version: 1.1.5
+source_version: 1.1.5
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh:*),Bash(claude-workflow progress:*),Bash(./gradlew:*),Bash(gradle:*),Bash(git:*),Bash(git add:*)
 model: inherit
 disable-model-invocation: false
 ---
@@ -21,7 +21,7 @@ disable-model-invocation: false
 - After`/tasks-new`. Repeat throughout development until the feature is done.
 
 ## Automation & Hooks
--`${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`auto-runs post-write. Adjust via env vars:`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`,`TEST_CHANGED_ONLY`.
+-`${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`auto-runs post-write. Adjust via env vars:`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`,`TEST_CHANGED_ONLY`.
 - Finish with`claude-workflow progress --source implement --ticket <ticket>`; the CLI warns if no new`[x]`items exist.
 
 ## What is Edited
@@ -30,7 +30,7 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Call **implementer** with the ticket ID.
-2. Observe auto format/test results; rerun manually with`!"$CLAUDE_PROJECT_DIR"/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`when necessary.
+2. Observe auto format/test results; rerun manually with`!${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`when necessary.
 3. Update tasklist entries (switch`[ ]`to`[x]`, add timestamps/notes/links).
 4. Document any env overrides and non-default test scopes.
 5. Run`claude-workflow progress --source implement --ticket "$1"`.
@@ -47,4 +47,4 @@ disable-model-invocation: false
 
 ## CLI Examples
 -`/implement ABC-123`
--`!bash -lc 'SKIP_AUTO_TESTS=1 "$CLAUDE_PROJECT_DIR"/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh'`
+-`!bash -lc 'SKIP_AUTO_TESTS=1 ${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh'`

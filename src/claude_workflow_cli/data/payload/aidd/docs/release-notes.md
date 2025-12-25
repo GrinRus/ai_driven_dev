@@ -75,6 +75,10 @@
 - `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
 - Промпты команд/агентов унифицированы под `READY/BLOCKED/PENDING`, команды принимают свободные заметки после тикета, а `allowed-tools` синхронизирован с инструментами саб-агентов.
 - Линтер промптов проверяет дубли ключей, запрещённые статусы, HTML-эскейпы `<ticket>`, некорректные формулировки `Checkbox updated` и несоответствие `allowed-tools` ↔ `tools`.
+- EN промпты дополнительно синхронизированы с RU: пути отчётов указывают `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-prd` учитывает свободный ввод, tasklist‑ответственность закреплена за командами, линтер валидирует `Статус:`.
+- Приведены к единому виду `@aidd/docs/.../<ticket>...` placeholder-и в RU промптах, EN `/implement` использует `${CLAUDE_PLUGIN_ROOT:-./aidd}` в инструкциях, тесты линтера покрывают `Статус:`.
+- EN `/qa` теперь ссылается на `${CLAUDE_PLUGIN_ROOT:-./aidd}` в дефолтном пути тестов, а implementer получает доступ к хукe `format-and-test.sh` в инструментах.
+- `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
 - `scripts/ci-lint.sh` запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 - Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 - Внутренний backlog (`doc/backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.

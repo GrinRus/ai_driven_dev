@@ -12,7 +12,7 @@ from typing import Dict, Iterable, List, Tuple
 
 
 PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
-STATUS_RE = re.compile(r"Status:\s*([A-Za-z-]+)")
+STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru", "en"}
 

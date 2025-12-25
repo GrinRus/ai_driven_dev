@@ -1,9 +1,9 @@
 ---
-description: "Сформировать чеклист задач (aidd/docs/tasklist/`<ticket>`.md) для фичи"
+description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 allowed-tools:
   - Read
   - Edit

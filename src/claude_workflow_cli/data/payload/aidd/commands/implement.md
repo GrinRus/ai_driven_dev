@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.2
-source_version: 1.1.2
+prompt_version: 1.1.5
+source_version: 1.1.5
 allowed-tools:
   - Read
   - Edit
