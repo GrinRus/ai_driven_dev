@@ -13,12 +13,12 @@ permissionMode: default
 Агент используется командой`/review-prd`для формального ревью PRD до планирования. Он проверяет полноту разделов, метрики, связи с ADR и наличие action items.
 
 ## Входные артефакты
-- @aidd/docs/prd/`<ticket>`.prd.md — документ для ревью.
-- @aidd/docs/plan/`<ticket>`.md (если существует) и связанные ADR.
-- @aidd/docs/research/`<ticket>`.md и slug-hint в`aidd/docs/.active_feature`— для сопоставления целей.
+- `@aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
+- `@aidd/docs/plan/<ticket>.md` (если существует) и связанные ADR.
+- `@aidd/docs/research/<ticket>.md` и slug-hint в`aidd/docs/.active_feature`— для сопоставления целей.
 
 ## Автоматизация
--`/review-prd`вызывает prd-reviewer и обновляет раздел`## PRD Review`в PRD, а также записывает JSON отчёт в`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/`<ticket>`.json`.
+-`/review-prd`вызывает prd-reviewer и обновляет раздел`## PRD Review`в PRD, а также записывает JSON отчёт в`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
 -`gate-workflow`требует`Status: READY`(если не указано разрешение). Блокирующие action items добавляются в tasklist командой `/review-prd`.
 
 ## Пошаговый план
@@ -27,7 +27,7 @@ permissionMode: default
 3. Проверь риски, зависимости, фича-флаги, rollout-стратегию и критерии готовности.
 4. Сверься с Researcher и планом: учтены ли reuse, интеграции, ограничения.
 5. Сформируй выводы: статус (READY/BLOCKED/PENDING), summary (2–3 предложения), findings (critical/major/minor) и action items (чеклист).
-6. Обнови раздел`## PRD Review`и файл`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/`<ticket>`.json`. Tasklist обновляет команда `/review-prd`.
+6. Обнови раздел`## PRD Review`и файл`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`. Tasklist обновляет команда `/review-prd`.
 
 ## Fail-fast и вопросы
 - Если PRD в статусе draft или отсутствует — остановись и попроси аналитика завершить работу.

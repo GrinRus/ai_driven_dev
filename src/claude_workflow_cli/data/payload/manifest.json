@@ -153,26 +153,26 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 8080,
-      "sha256": "ece74a54c8e2095573ab97834f71dd109c0d9a20f4a137dcddad8cc4101bb398"
+      "size": 8079,
+      "sha256": "8249ded21c23727f92805415f63caafd7fc6615a44b61cd0ce1863fe0a29aa08"
     },
     {
       "path": "aidd/agents/planner.md",
       "type": "file",
-      "size": 5226,
-      "sha256": "d8cf191335f4418a1e96e35565e33d6f8aa1d245c37d1794161d492bf2030d00"
+      "size": 5224,
+      "sha256": "9b76cd4587d84eba4c62f223efe257e1b7a1a3c05ea2aa77987127bf34aab9d8"
     },
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3326,
-      "sha256": "4e2f4d4cb9b2efc5ede0550abd4b9601e49d159c440aa23c0a37a62ebc46c7bf"
+      "size": 3322,
+      "sha256": "b5705d3870e9feb4a16ec0585a79a919029f4fa80bfced4ca3cd4d0162c32484"
     },
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 5957,
-      "sha256": "45b00c2321593b3b4b9fe659af1bf6f61894ccb6887478bb3e5349e9091a0cff"
+      "size": 5947,
+      "sha256": "99854323b9deca31d724f5a2ebba1002e7fd5f981e76ee77535befa7036fb333"
     },
     {
       "path": "aidd/agents/researcher.md",
@@ -183,8 +183,8 @@
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 4086,
-      "sha256": "f30dc0c5fee8a7fb7e3f7979a844ea07a8b00d193b7f66ba743c439a06601ecf"
+      "size": 4080,
+      "sha256": "c2d8e09308d8601a6f3d06db243ade23dba16b786bdb5a7d7c1d98cc84653c4c"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -237,44 +237,44 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 4891,
-      "sha256": "6d49a78d37500caf728659159847f230c3e6a67a31f2fd5a135a6962e6283ee9"
+      "size": 4885,
+      "sha256": "8c70edd2497621452727a492be4345404fdd447632053e3ac9c9720aa939bd8e"
     },
     {
       "path": "aidd/commands/plan-new.md",
       "type": "file",
-      "size": 4704,
-      "sha256": "c930a43a02f4311a0de85b54d44b04aaaa49985e24044fd2e933011173df71fe"
+      "size": 4698,
+      "sha256": "d4c75d30185e22c4063e929c72e55d55667b61c98841e3338944e1eb2a65b955"
     },
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 4761,
-      "sha256": "6e6f581f15e3f4da152030209b2e3d91bbd90b468951e2acaba3d426c58c5f65"
+      "size": 4745,
+      "sha256": "2b9d81106ddbe9a634e9b9fdd334ee8c5bfa4ecb39e2aaa59e33c3b7043137c3"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6884,
-      "sha256": "0f699a5724ddd1f28656fa42706d1ef10673202f03fd25a64deb04c9e8884dc8"
+      "size": 6868,
+      "sha256": "e9cfad586f112b9d5095bc4db2d30ae76b02b4afb848aff737ad34e4c8083dce"
     },
     {
       "path": "aidd/commands/review-prd.md",
       "type": "file",
-      "size": 4051,
-      "sha256": "887d94e0082028123f70b4a0ddd9ab49149e44a6f76e45a3f81b7df4077605d0"
+      "size": 4039,
+      "sha256": "1f548f0597903a6741eea313dd80fa8ab24feeb8427659188b882f44c5aa5481"
     },
     {
       "path": "aidd/commands/review.md",
       "type": "file",
-      "size": 3964,
-      "sha256": "7660d14bf26ae81997ac9f09783c5ddc16d5ca9538270f1267edf39b799cdcfa"
+      "size": 3954,
+      "sha256": "3b1ecd37110b70e0f445003d046ddf6a9eba034c0bc62f9e8d85ebc3f28cab7c"
     },
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 3933,
-      "sha256": "d9bd7fd00bd0d641859c27093b7cae9e7b7cea38db0ef3541ca9cfd43d2e3769"
+      "size": 3925,
+      "sha256": "ae252d2239fc8a1dd498238bceb32e51f4e307ddfdcf6227da481d9a9997344a"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -429,98 +429,98 @@
     {
       "path": "aidd/prompts/en/agents/analyst.md",
       "type": "file",
-      "size": 5632,
-      "sha256": "fcf566d5dda0f1456f40214e7de68ce2152d00cf926979868853ce44e1f5ccd3"
+      "size": 5470,
+      "sha256": "4655093a5671521d0af92ede5a0166c198fbcd22225039a1a9e9dc33bb59b91d"
     },
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 4347,
-      "sha256": "8bc094a23276fabc085e066b12a8bf3e6d7685be4ee9b23ad5a2cfdca7a78ac3"
+      "size": 4269,
+      "sha256": "8b63c7c5e028bc9918db740fe88276dfbfc014095ba08cfc25eb4874b31515da"
     },
     {
       "path": "aidd/prompts/en/agents/planner.md",
       "type": "file",
-      "size": 2751,
-      "sha256": "41491461542a9bb62ef6d89f86941937b72519297bd7d77e792068b84920b966"
+      "size": 2722,
+      "sha256": "90e146f383d52935bf81cc79ba6aeb419b477a66ed3079d33f53cca4e67e2f19"
     },
     {
       "path": "aidd/prompts/en/agents/prd-reviewer.md",
       "type": "file",
-      "size": 1780,
-      "sha256": "3a0b15c9503170d5843ae1bc8a91c67bf78527111c3567088ef89decedae3a92"
+      "size": 1741,
+      "sha256": "d1455288b36406578bd36d029b70047137cba5ea8218a15a578b9957d858ca0a"
     },
     {
       "path": "aidd/prompts/en/agents/qa.md",
       "type": "file",
-      "size": 4097,
-      "sha256": "d105bb1ab0b73d3fa4f901f0a5a7665cda8720a108ad50271eca1e160d0cadf5"
+      "size": 3995,
+      "sha256": "eb598b6ce6c07562d74b8ffdc280788db55f0da0a8cd5ab477a7da765519c4aa"
     },
     {
       "path": "aidd/prompts/en/agents/researcher.md",
       "type": "file",
-      "size": 5097,
-      "sha256": "035ae79c45d40a99682a7355a2deb244f0054babcf6b8040f7d137ef4884de3a"
+      "size": 4973,
+      "sha256": "51b2355da6eb7d5fff3297e72034370ba78a1734b79714036ca41a8f97987b8b"
     },
     {
       "path": "aidd/prompts/en/agents/reviewer.md",
       "type": "file",
-      "size": 2191,
-      "sha256": "947cf0af0dcc0da702611983a3c07e6590602b5a4413527dfae62a122d32013d"
+      "size": 2143,
+      "sha256": "af9b68f5f8340febcb056e8b962aef7d9f61c440ab4cb4bc823507fc587ebadb"
     },
     {
       "path": "aidd/prompts/en/agents/validator.md",
       "type": "file",
-      "size": 1480,
-      "sha256": "ecf1d0ccac96d79dd7248a970cdf2acb3c1ecded3fd584aa60654da7ffc74e04"
+      "size": 1462,
+      "sha256": "68c6b88d690a16387319cd8204e441b5d895a44a143454550b595dd4da79d776"
     },
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
       "type": "file",
-      "size": 4305,
-      "sha256": "b30bb913eb8bebfd6ff2bfa4c7b6cb7623859f776449fa37e0dac3debddbc2c4"
+      "size": 4333,
+      "sha256": "b900e021eee57352226fa855f0f815a19218ffd05163ba8d1dce2a2a028df333"
     },
     {
       "path": "aidd/prompts/en/commands/implement.md",
       "type": "file",
-      "size": 2348,
-      "sha256": "4f1b45e9350355051fd6e66de10ff505c9ae0013caa4908d965c77432be6b534"
+      "size": 2494,
+      "sha256": "85cdd35c365b42bfe345ed8a95e482ea7d6b7bb84a54d492436a26e0271c2c82"
     },
     {
       "path": "aidd/prompts/en/commands/plan-new.md",
       "type": "file",
-      "size": 2267,
-      "sha256": "dcb8732f5724863f30e82f8c2a290e028d8671aae9f39fa2e7476abf193d5fd5"
+      "size": 2306,
+      "sha256": "a1a9eff30014ef65b5462669254fafd0333257f7d33cf9025724ba0c96fe07cc"
     },
     {
       "path": "aidd/prompts/en/commands/qa.md",
       "type": "file",
-      "size": 3465,
-      "sha256": "200096d1dc3eb6cda0df327a1a66183b79d64dca557f715b096059e56b5a2c66"
+      "size": 3423,
+      "sha256": "43a051e236c919dc41548b96c7c94637de628111acdbeb80d6ab8b39ec42174f"
     },
     {
       "path": "aidd/prompts/en/commands/researcher.md",
       "type": "file",
-      "size": 3511,
-      "sha256": "df8b4005a32da6573c90188722a335d804cf4106aa31ccac89f3b675ff726788"
+      "size": 3573,
+      "sha256": "268486c3476319a1b6ecef603eb690ca7ff3e94f153b647cb32c78c529f0da21"
     },
     {
       "path": "aidd/prompts/en/commands/review-prd.md",
       "type": "file",
-      "size": 1959,
-      "sha256": "a6b85e2e1ffc3d306a525a2e838a862be26692dc3786a822e8bdeac30f916fad"
+      "size": 1924,
+      "sha256": "c6035c0236565a104b871fba945393e57c7179566e167a3f97ea9be35d76a167"
     },
     {
       "path": "aidd/prompts/en/commands/review.md",
       "type": "file",
-      "size": 1884,
-      "sha256": "8775ca57d958604cb31a6b3bc23e2c17f4e6cf3af114a6d082d70edbec1aa814"
+      "size": 1968,
+      "sha256": "5e6c95657fad3b93c0f0ba1e6bba8ea1b2b1e962cf2ef3643bd7b8cfafc601b0"
     },
     {
       "path": "aidd/prompts/en/commands/tasks-new.md",
       "type": "file",
-      "size": 2218,
-      "sha256": "0d3ea44589bdbfec800cf15c71d8a5a6e1a31655404e83f14e56797a6aff8a40"
+      "size": 2251,
+      "sha256": "a6b2b4043ea982dee0587426410269ea1bba2b84fe95e8ffa90bfbdf557ce111"
     },
     {
       "path": "aidd/scripts/ci-lint.sh",

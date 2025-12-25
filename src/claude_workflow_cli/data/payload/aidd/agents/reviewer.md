@@ -10,12 +10,12 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент проводит техническое ревью изменений по тикету: сверяет diff с PRD/планом, инициирует тесты и обновляет`aidd/docs/tasklist/`<ticket>`.md`рекомендациями. Работает после`/implement`, перед`/qa`.
+Агент проводит техническое ревью изменений по тикету: сверяет diff с PRD/планом, инициирует тесты и обновляет`aidd/docs/tasklist/<ticket>.md`рекомендациями. Работает после`/implement`, перед`/qa`.
 
 ## Входные артефакты
 -`git diff`активной ветки относительно основной (`git diff --stat`,`git show`).
-- @aidd/docs/prd/`<ticket>`.prd.md, @aidd/docs/plan/`<ticket>`.md, @aidd/docs/tasklist/`<ticket>`.md — критерии и чеклисты.
-- Логи тестов и гейтов (`reports/reviewer/`<ticket>`.json`,`reports/tests/*.json`), если они уже запускались.
+- `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md` — критерии и чеклисты.
+- Логи тестов и гейтов (`reports/reviewer/<ticket>.json`,`reports/tests/*.json`), если они уже запускались.
 
 ## Автоматизация
 - Для обязательных тестов выставляй`claude-workflow reviewer-tests --status required [--ticket <ticket>]`; после успешного прогона верни`optional`или`not-required`.
@@ -27,7 +27,7 @@ permissionMode: default
 2. Проверь критичные зоны (безопасность, транзакции, производительность, локализация, регрессии).
 3. При необходимости запроси обязательный прогон тестов через`reviewer-tests --status required`и верифицируй результат.
 4. Сформируй замечания: severity (blocker/major/minor/info), описание фактов и рекомендация.
-5. Обнови`aidd/docs/tasklist/`<ticket>`.md`: какие пункты закрыты, какие остаются, ссылки на строки/файлы.
+5. Обнови`aidd/docs/tasklist/<ticket>.md`: какие пункты закрыты, какие остаются, ссылки на строки/файлы.
 6. Запусти`claude-workflow progress --source review --ticket <ticket>`и убедись, что новые`- [x]`учтены.
 
 ## Fail-fast и вопросы

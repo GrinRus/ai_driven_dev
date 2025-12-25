@@ -1,19 +1,19 @@
 ---
 description: "Feature implementation + selective tests"
-argument-hint: "<TICKET>"
+argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.1.1
-source_version: 1.1.1
-allowed-tools: Bash("$CLAUDE_PROJECT_DIR/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Read,Edit,Write,Grep,Glob
+prompt_version: 1.1.2
+source_version: 1.1.2
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash("$CLAUDE_PROJECT_DIR/${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh:*"),Bash(claude-workflow progress:*),Bash(./gradlew:*),Bash(gradle:*),Bash(git:*),Bash(git add:*)
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/implement`drives development by delegating to the implementer agent, keeping tasklist aligned with the plan, consulting PRD/research only when plan/tasklist lack detail, and running format/tests before handing results back.
+`/implement`drives development by delegating to the implementer agent, keeping tasklist aligned with the plan, consulting PRD/research only when plan/tasklist lack detail, and running format/tests before handing results back. Free-form notes after the ticket should be treated as iteration context and noted in the response.
 
 ## Input Artifacts
--`aidd/docs/plan/&lt;ticket&gt;.md`,`aidd/docs/tasklist/&lt;ticket&gt;.md`.
+-`aidd/docs/plan/<ticket>.md`,`aidd/docs/tasklist/<ticket>.md`.
 - Research/PRD for supplemental context when plan/tasklist miss details.
 - Current git diff/config.
 
@@ -22,11 +22,11 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 -`${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`auto-runs post-write. Adjust via env vars:`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`,`TEST_CHANGED_ONLY`.
-- Finish with`claude-workflow progress --source implement --ticket &lt;ticket&gt;`; the CLI warns if no new`[x]`items exist.
+- Finish with`claude-workflow progress --source implement --ticket <ticket>`; the CLI warns if no new`[x]`items exist.
 
 ## What is Edited
 - Source code, configs, docs according to the plan.
--`aidd/docs/tasklist/&lt;ticket&gt;.md`checkboxes after each iteration.
+-`aidd/docs/tasklist/<ticket>.md`checkboxes after each iteration.
 
 ## Step-by-step Plan
 1. Call **implementer** with the ticket ID.

@@ -18,12 +18,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/qa`запускает обязательную финальную проверку фичи: вызывает саб-агента **qa** через`claude-workflow qa --gate`, формирует отчёт`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/`<ticket>`.json`, обновляет раздел QA в`aidd/docs/tasklist/`<ticket>`.md`и фиксирует прогресс. Выполняется после`/review`и перед релизом. Свободный ввод после тикета используй как контекст проверки.
+Команда`/qa`запускает обязательную финальную проверку фичи: вызывает саб-агента **qa** через`claude-workflow qa --gate`, формирует отчёт`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`, обновляет раздел QA в`aidd/docs/tasklist/<ticket>.md`и фиксирует прогресс. Выполняется после`/review`и перед релизом. Свободный ввод после тикета используй как контекст проверки.
 
 ## Входные артефакты
 - Активный тикет (`aidd/docs/.active_ticket`), slug-hint (`aidd/docs/.active_feature`).
-- @aidd/docs/prd/`<ticket>`.prd.md, @aidd/docs/plan/`<ticket>`.md, @aidd/docs/tasklist/`<ticket>`.md (QA секция), логи предыдущих гейтов (`gate-tests`).
-- Diff/логи выполнения (`git diff`,`reports/reviewer/`<ticket>`.json`, тесты, демо окружение).
+- `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md` (QA секция), логи предыдущих гейтов (`gate-tests`).
+- Diff/логи выполнения (`git diff`,`reports/reviewer/<ticket>.json`, тесты, демо окружение).
 
 ## Когда запускать
 - После`/review`, перед релизом и мёржем в основную ветку.
@@ -35,13 +35,13 @@ disable-model-invocation: false
 - Зафиксируй прогресс:`!bash -lc 'claude-workflow progress --source qa --ticket "<ticket>"'`.
 
 ## Что редактируется
--`aidd/docs/tasklist/`<ticket>`.md`— отмечаются QA чекбоксы, даты прогонов, ссылки на логи/отчёт.
--`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/`<ticket>`.json`— свежий отчёт агента QA.
+-`aidd/docs/tasklist/<ticket>.md`— отмечаются QA чекбоксы, даты прогонов, ссылки на логи/отчёт.
+-`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`— свежий отчёт агента QA.
 
 ## Пошаговый план
-1. Запусти саб-агента **qa** через CLI (см. команду выше) и дождись формирования`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/`<ticket>`.json`со статусом READY/WARN/BLOCKED.
+1. Запусти саб-агента **qa** через CLI (см. команду выше) и дождись формирования`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`со статусом READY/WARN/BLOCKED.
 2. Сопоставь diff с чеклистом: какие QA пункты покрыты, какие нет; зафиксируй найденные проблемы с severity и рекомендациями.
-3. Обнови`aidd/docs/tasklist/`<ticket>`.md`: переведи релевантные пункты`- [ ] → - [x]`, добавь дату/итерацию, ссылку на отчёт и лог команд.
+3. Обнови`aidd/docs/tasklist/<ticket>.md`: переведи релевантные пункты`- [ ] → - [x]`, добавь дату/итерацию, ссылку на отчёт и лог команд.
 4. Выполни`claude-workflow progress --source qa --ticket <ticket>`и убедись, что новые`[x]`зафиксированы; при WARN перечисли known issues.
 5. В ответе укажи итоговый статус, закрытые чекбоксы (`Checkbox updated: ...`), ссылку на отчёт и следующее действие (если есть WARN/BLOCKED).
 
@@ -52,7 +52,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - Ответ начинается со строки`Checkbox updated: <перечень QA пунктов>`и содержит статус`READY|WARN|BLOCKED`.
-- Ссылка на`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/`<ticket>`.json`, summary замечаний и дальнейшие шаги.
+- Ссылка на`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`, summary замечаний и дальнейшие шаги.
 
 ## Примеры CLI
 -`/qa ABC-123`

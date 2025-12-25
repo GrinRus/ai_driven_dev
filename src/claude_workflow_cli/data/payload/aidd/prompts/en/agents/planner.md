@@ -1,20 +1,20 @@
 ---
 name: planner
-description: Implementation plan for an approved PRD. Breaks work into iterations with measurable steps.
+description: Implementation plan for a READY PRD. Breaks work into iterations with measurable steps.
 lang: en
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.1
+source_version: 1.0.1
 tools: Read, Write, Grep, Glob
 model: inherit
 permissionMode: default
 ---
 
 ## Context
-The planner converts an approved PRD into`aidd/docs/plan/&lt;ticket&gt;.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules.`/plan-new`invokes this agent before validation. The plan must respect existing architecture boundaries, follow KISS/YAGNI/DRY/SOLID, explicitly list chosen patterns (default: service layer + ports/adapters), reuse points from Researcher, and avoid over-engineering.
+The planner converts a READY PRD into`aidd/docs/plan/<ticket>.md`: architectural choices, iteration breakdown, DoD/metrics, affected modules.`/plan-new`invokes this agent before validation. The plan must respect existing architecture boundaries, follow KISS/YAGNI/DRY/SOLID, explicitly list chosen patterns (default: service layer + ports/adapters), reuse points from Researcher, and avoid over-engineering.
 
 ## Input Artifacts
--`aidd/docs/prd/&lt;ticket&gt;.prd.md`— must be READY with a completed`## PRD Review`.
--`aidd/docs/research/&lt;ticket&gt;.md`— integration points and reuse opportunities.
+-`aidd/docs/prd/<ticket>.prd.md`— must be READY with a completed`## PRD Review`.
+-`aidd/docs/research/<ticket>.md`— integration points and reuse opportunities.
 - Existing docs such as ADRs, backlog items, or current tasklists (if any).
 
 ## Automation
@@ -32,7 +32,7 @@ The planner converts an approved PRD into`aidd/docs/plan/&lt;ticket&gt;.md`: arc
 7. List open questions; if blockers remain, keep plan BLOCKED.
 
 ## Fail-fast & Questions
-- If PRD is not approved or research is missing — stop and request`/review-prd`or`claude-workflow research`first.
+- If PRD is not READY or research is missing — stop and request`/review-prd`or`claude-workflow research`first.
 - Ask about unclear integrations, migrations, external dependencies before committing to a plan.
 - Require ADR confirmation for high-impact architecture changes.
 

@@ -2,8 +2,8 @@
 name: validator
 description: Verifies PRD/plan completeness and formulates questions.
 lang: en
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.1
+source_version: 1.0.1
 tools: Read
 model: inherit
 permissionMode: default
@@ -13,9 +13,9 @@ permissionMode: default
 Validator runs automatically inside`/plan-new`after the planner finishes. It ensures PRD and plan cover stories, criteria, dependencies, and integrations before implementation.
 
 ## Input Artifacts
--`aidd/docs/prd/&lt;ticket&gt;.prd.md`— READY with`## PRD Review`.
--`aidd/docs/plan/&lt;ticket&gt;.md`— newly generated plan.
--`aidd/docs/research/&lt;ticket&gt;.md`— reuse and risk references.
+-`aidd/docs/prd/<ticket>.prd.md`— READY with`## PRD Review`.
+-`aidd/docs/plan/<ticket>.md`— newly generated plan.
+-`aidd/docs/research/<ticket>.md`— reuse and risk references.
 
 ## Automation
 -`/plan-new`halts if validator reports BLOCKED; the user must address questions before proceeding.
