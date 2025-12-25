@@ -64,7 +64,7 @@ def build_command(description: str = "test command") -> str:
         lang: ru
         prompt_version: 1.0.0
         source_version: 1.0.0
-        allowed-tools: Read,Edit
+        allowed-tools: Read,Edit,Write
         model: inherit
         disable-model-invocation: false
         ---
@@ -143,7 +143,7 @@ def build_command_en(description: str = "test command") -> str:
         lang: en
         prompt_version: 1.0.0
         source_version: 1.0.0
-        allowed-tools: Read,Edit
+        allowed-tools: Read,Edit,Write
         model: inherit
         disable-model-invocation: false
         ---
@@ -332,6 +332,50 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Missing EN command", result.stderr)
+
+    def test_duplicate_front_matter_key_fails(self) -> None:
+        duplicate_agent = build_agent("implementer").replace(
+            "prompt_version: 1.0.0",
+            "prompt_version: 1.0.0\nprompt_version: 1.0.1",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"implementer": duplicate_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("duplicate front matter key", result.stderr)
+
+    def test_invalid_status_fails(self) -> None:
+        bad_status = build_command().replace(
+            "## Контекст\nText.",
+            "## Контекст\nStatus: approved",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": bad_status})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unknown status", result.stderr)
+
+    def test_tool_parity_fails(self) -> None:
+        command_no_write = build_command().replace("allowed-tools: Read,Edit,Write", "allowed-tools: Read", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": command_no_write})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("allowed-tools missing", result.stderr)
+
+    def test_html_ticket_escape_fails(self) -> None:
+        bad_command = build_command().replace("Text.", "Text &lt;ticket&gt;.", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": bad_command})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("replace HTML escape", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

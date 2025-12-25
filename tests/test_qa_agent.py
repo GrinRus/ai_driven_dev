@@ -20,7 +20,7 @@ from .helpers import (
 
 QA_AGENT = PAYLOAD_ROOT / "scripts" / "qa-agent.py"
 
-APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: approved\n"
+APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: READY\n"
 
 
 class QaAgentTests(unittest.TestCase):

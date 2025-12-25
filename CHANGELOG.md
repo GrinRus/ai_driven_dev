@@ -28,6 +28,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `scripts/prd_review_gate.py`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
 - `scripts/ci-lint.sh` запускает линтер промптов, dry-run `scripts/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а smoke/gate-workflow проверяют синхронность RU/EN.
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `claude-workflow progress`, `./gradlew test`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
+- Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
+- Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
 - Внутренний backlog (`doc/backlog.md`) оставлен dev-only и исключён из payload/manifest; sync/check скрипты больше не ожидают каталог `doc/` и предотвращают попадание файла в релиз.
 
 ### Fixed

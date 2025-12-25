@@ -22,7 +22,7 @@
 | 1 | `/idea-new <ticket> [slug-hint]` | `analyst` | Свободная идея, вводные, ограничения | `aidd/docs/.active_ticket`, `aidd/docs/prd/<ticket>.prd.md` | PRD заполнен, статус READY/BLOCKED выставлен |
 | 2 | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` (по требованию) | `researcher` | PRD, backlog, целевые модули | `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-context.json` | Status: reviewed, пути интеграции подтверждены |
 | 3 | `/plan-new <ticket>` | `planner`, `validator` | PRD, отчёт Researcher, ответы на вопросы | `aidd/docs/plan/<ticket>.md`, протокол проверки | План покрывает модули из research, критичные риски закрыты |
-| 4 | `/review-prd <ticket>` | `prd-reviewer` | PRD, план, ADR, Researcher | Раздел `## PRD Review`, отчёт `reports/prd/<ticket>.json` | Status: approved, action items перенесены |
+| 4 | `/review-prd <ticket>` | `prd-reviewer` | PRD, план, ADR, Researcher | Раздел `## PRD Review`, отчёт `reports/prd/<ticket>.json` | Status: READY, action items перенесены |
 | 5 | `/tasks-new <ticket>` | — | Утверждённый план | Обновлённый `aidd/docs/tasklist/<ticket>.md` | Чеклисты привязаны к ticket (slug-hint) и этапам |
 | 6 | `/implement <ticket>` | `implementer` | План, `aidd/docs/tasklist/<ticket>.md`, отчёт Researcher | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
 | 7 | `/review <ticket>` | `reviewer` | Готовая ветка и артефакты | Замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
@@ -61,8 +61,8 @@
 ### prd-reviewer — контроль качества PRD
 - **Вызов:** `/review-prd <ticket>`
 - **Вход:** `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, актуальные ADR, открытые вопросы.
-- **Выход:** Раздел `## PRD Review` с `Status: approved|blocked|pending`, summary, findings и action items; отчёт `reports/prd/<ticket>.json`.
-- **Особенности:** блокирующие замечания фиксируйте как `Status: blocked` и переносите action items в `aidd/docs/tasklist/<ticket>.md`; проверяйте, что `aidd/docs/research/<ticket>.md` имеет `Status: reviewed`. Без `approved` гейт `gate-workflow` не даст менять код.
+- **Выход:** Раздел `## PRD Review` с `Status: READY|BLOCKED|PENDING`, summary, findings и action items; отчёт `reports/prd/<ticket>.json`.
+- **Особенности:** блокирующие замечания фиксируйте как `Status: BLOCKED` и переносите action items в `aidd/docs/tasklist/<ticket>.md`; проверяйте, что `aidd/docs/research/<ticket>.md` имеет `Status: reviewed`. Без `READY` гейт `gate-workflow` не даст менять код.
 
 ### tasks-new — чеклист команды
 - **Команда:** `/tasks-new <ticket>`

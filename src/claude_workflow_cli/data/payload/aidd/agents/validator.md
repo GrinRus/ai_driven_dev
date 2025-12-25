@@ -2,8 +2,8 @@
 name: validator
 description: Валидация полноты PRD/плана; формирование вопросов к пользователю.
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.1
+source_version: 1.0.1
 tools: Read
 model: inherit
 permissionMode: default
@@ -13,9 +13,9 @@ permissionMode: default
 Validator автоматически вызывается внутри`/plan-new`после генерации плана. Он проверяет, что PRD и план покрывают истории, критерии, риски, зависимости и интеграции перед допуском к задачам.
 
 ## Входные артефакты
-- @aidd/docs/prd/`&lt;ticket&gt;`.prd.md — должен быть в статусе READY и содержать актуальный`## PRD Review`.
-- @aidd/docs/plan/`&lt;ticket&gt;`.md — свежесформированный план.
-- @aidd/docs/research/`&lt;ticket&gt;`.md — список точек интеграции/рисков для кросс-проверки.
+- @aidd/docs/prd/`<ticket>`.prd.md — должен быть в статусе READY и содержать актуальный`## PRD Review`со статусом READY.
+- @aidd/docs/plan/`<ticket>`.md — свежесформированный план.
+- @aidd/docs/research/`<ticket>`.md — список точек интеграции/рисков для кросс-проверки.
 
 ## Автоматизация
 -`/plan-new`прерывается, если validator возвращает BLOCKED; пользователь видит вопросы и должен уточнить данные.
