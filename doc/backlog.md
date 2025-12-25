@@ -824,3 +824,62 @@ _Статус: новый, приоритет 1. Цель — привести R
 - [x] `README.md` / `README.en.md`: обновить TL;DR и быстрый старт под cli `claude-workflow` (init/preset/sync/upgrade/smoke), добавить компактную справку по командам (analyst-check/research/reviewer-tests/tasks-derive/qa/progress), явно подчеркнуть layout `aidd/` и синхронизировать Last sync.
 - [x] `src/claude_workflow_cli/data/payload/aidd/workflow.md`: исправить дубли `aidd/aidd` в путях, переформатировать таблицу этапов/шаги под единый `aidd/` корень и текущее прохождение гейтов/hand-off.
 - [x] `src/claude_workflow_cli/data/payload/aidd/conventions.md`: привести ссылки на артефакты к `aidd/docs/**`, сократить дубли и обновить тезисы про базовые гейты/тесты.
+
+## Wave 56
+
+_Статус: новый, приоритет 1. Цель — контекст‑GC через хуки Claude Code (Working Set + контекст‑файрвол) без ручных правок settings.json._
+
+### Конфиг и артефакты контекст‑GC
+- [x] `src/claude_workflow_cli/data/payload/aidd/config/context_gc.json`: добавить дефолтный конфиг (лимиты transcript, рабочий набор, guard'ы Bash/Read), описать переключатели `enabled`, `hard_behavior`, `ask_instead_of_deny`.
+- [x] `aidd/reports/context/`: определить структуру снапшотов (`<session_id>/working_set.md`, `precompact_meta.json`, `transcript_tail.jsonl`, `latest_working_set.md`) и гарантировать создание директорий из hook‑скриптов.
+
+### Скрипты context‑GC (плагин)
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/hooklib.py`: общий helper для чтения stdin JSON, поиска `aidd`‑root, загрузки/merge конфига, формирования ответов hook API (SessionStart/UserPromptSubmit/PreToolUse).
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/working_set_builder.py`: сбор Working Set из `.active_ticket/.active_feature`, PRD/research/tasklist, git status; лимиты на размер/кол-во задач/обрезку code blocks.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/precompact_snapshot.py`: снимать Working Set + метаданные + tail transcript до compact, писать в `aidd/reports/context`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/sessionstart_inject.py`: вставлять Working Set через `additionalContext` при `SessionStart`.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/userprompt_guard.py`: soft‑warn/hard‑block по размеру transcript (настройки из `context_gc.json`).
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/pretooluse_guard.py`: guard для Bash (wrap → log + tail) и Read (ask/deny для больших файлов), учитывать regex allow/skip.
+
+### Подключение hooks
+- [x] `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: добавить `PreCompact` и `SessionStart` (context snapshots + inject), `UserPromptSubmit` (context guard рядом с gate-workflow), `PreToolUse` (Bash|Read) без конфликта с существующим `Write|Edit`.
+- [x] Обновить описания в `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md` или `.../docs/customization.md`: что такое Working Set, где лежат отчёты, как менять лимиты/отключать guard'ы.
+
+### Упаковка, синк и тесты
+- [x] `src/claude_workflow_cli/data/payload/manifest.json`: включить новые файлы `scripts/context_gc/**` и `config/context_gc.json`; прогнать `python3 tools/check_payload_sync.py`.
+- [x] Тесты: добавить unit‑кейсы на `working_set_builder` (лимиты, сбор задач, git status), `userprompt_guard` (soft/hard thresholds) и `pretooluse_guard` (updatedInput/deny/ask).
+- [x] Smoke‑сценарий: зафиксировать ручную проверку `/compact` → снапшот → новый SessionStart с Working Set, и проверку wrapper'а для `docker logs`/`Read` больших файлов.
+
+### Контекст‑лимиты по токенам (128k)
+- [x] `src/claude_workflow_cli/data/payload/aidd/config/context_gc.json`: добавить `context_limits` (mode=tokens, max_context_tokens=128000, buffer/reserve, warn/block проценты), увеличить `working_set.max_chars` до 10–12k, `max_tasks`/`max_open_questions`, `read_guard.max_bytes`, `bash_output_guard.tail_lines`; оставить bytes‑лимиты как fallback.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/hooklib.py`: расширить `DEFAULT_CONFIG` под `context_limits` и новые дефолты.
+- [x] `src/claude_workflow_cli/data/payload/aidd/scripts/context_gc/userprompt_guard.py`: перейти на токены из последней main‑chain записи transcript (input + cache tokens), применить warn/block по `context_limits`, оставить bytes‑fallback.
+- [x] `tests/test_context_gc.py`: добавить тесты на token‑mode (warn/block), включая парсинг JSONL из transcript и fallback на bytes.
+- [x] `src/claude_workflow_cli/data/payload/aidd/CLAUDE.md`: описать token‑mode, buffer/reserve и поведение fallback на bytes.
+- [x] `src/claude_workflow_cli/data/payload/manifest.json`: обновить size/sha для изменённых файлов и прогнать `python3 tools/check_payload_sync.py`.
+
+## Wave 57
+
+_Статус: новый, приоритет 1. Цель — привести промпты агентов/команд к playbook и устранить рассинхрон статусов, инструментов и форматов._
+
+### Статусы и формат ответа
+- [ ] Единая модель статусов PRD/планов: выбрать канонический набор (`approved|blocked|pending` или `READY|BLOCKED`) и синхронизировать тексты/проверки в `src/claude_workflow_cli/data/payload/aidd/agents/planner.md`, `src/claude_workflow_cli/data/payload/aidd/agents/validator.md`, `src/claude_workflow_cli/data/payload/aidd/commands/plan-new.md`, `src/claude_workflow_cli/data/payload/aidd/commands/idea-new.md`, `src/claude_workflow_cli/data/payload/aidd/agents/analyst.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`.
+- [ ] Убрать двусмысленные статусы `READY?BLOCKED`/`BLOCKED?READY` и заменить на явные состояния с правилами перехода (`BLOCKED` с вопросами → `READY/approved` после ответов) в `src/claude_workflow_cli/data/payload/aidd/commands/idea-new.md` и `src/claude_workflow_cli/data/payload/aidd/agents/analyst.md`.
+- [ ] Привести формат ответа `Checkbox updated` к единому требованию «первая строка» в `src/claude_workflow_cli/data/payload/aidd/commands/review.md` и сверить остальные команды/агенты на соответствие playbook.
+
+### Инструменты и разрешения
+- [ ] Выровнять `allowed-tools` команд с реальными требованиями агентов (или наоборот урезать инструкции агента под доступные инструменты): `/implement`, `/qa`, `/review`, `/idea-new`, `/researcher` — файлы `src/claude_workflow_cli/data/payload/aidd/commands/*.md` и соответствующие `src/claude_workflow_cli/data/payload/aidd/agents/*.md`.
+- [ ] Исправить фронт‑маттер analyst: убрать дубли `prompt_version`/`source_version`, удалить несуществующий инструмент `Bash(claude-workflow researcher:*)` и при необходимости добавить корректный `Bash(claude-workflow research:*)` в `src/claude_workflow_cli/data/payload/aidd/agents/analyst.md`.
+
+### Плейсхолдеры, пути и синтаксис команд
+- [ ] Во всех командах предусмотреть свободный ввод помимо тикета: обновить `argument-hint`, описания в `Контекст`/`Пошаговый план`, использовать `$ARGUMENTS`/`$2` для заметок/подсказок и зафиксировать правила парсинга (без влияния на обязательный `<TICKET>`).
+- [ ] Заменить HTML‑эскейпы `&lt;ticket&gt;` на `<ticket>` в агентских промптах и привести плейсхолдеры к одному формату: `<ticket>` в агентах, `$1/$2` в командах (затрагивает `src/claude_workflow_cli/data/payload/aidd/agents/{implementer,planner,validator,researcher,prd-reviewer,qa,reviewer}.md` и команды).
+- [ ] Нормализовать пути отчётов и CLI‑вызовы: единый стиль `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/...` и `!bash -lc '...'` (например, исправить `src/claude_workflow_cli/data/payload/aidd/commands/qa.md`, `src/claude_workflow_cli/data/payload/aidd/agents/qa.md`, `src/claude_workflow_cli/data/payload/aidd/commands/review-prd.md`).
+
+### Ответственность за tasklist
+- [ ] Развести ответственность между агентом и командой: либо агент обновляет tasklist и пишет `Checkbox updated: ...`, либо это делает команда‑обёртка. Привести к одному подходу `src/claude_workflow_cli/data/payload/aidd/agents/researcher.md`, `src/claude_workflow_cli/data/payload/aidd/agents/prd-reviewer.md`, `src/claude_workflow_cli/data/payload/aidd/commands/review-prd.md`.
+
+### Линтеры, тесты, версии
+- [ ] Расширить `src/claude_workflow_cli/data/payload/aidd/scripts/lint-prompts.py`: проверка дубликатов ключей фронт‑маттера, запрет неизвестных статусов, поиск `&lt;ticket&gt;`, контроль формата `Checkbox updated` и совпадения `allowed-tools` с инструментами агента.
+- [ ] Обновить тесты `tests/test_prompt_lint.py` и/или `tests/test_prompt_versioning.py` под новые правила; добавить фикстуры на рассинхрон инструментов и дубликаты ключей.
+- [ ] После правок промптов: увеличить `prompt_version` в затронутых файлах, обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json` и прогнать `python3 tools/check_payload_sync.py`.

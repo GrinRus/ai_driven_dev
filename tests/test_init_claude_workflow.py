@@ -45,9 +45,11 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             ".claude/settings.json",
             ".claude/hooks/format-and-test.sh",
             ".claude/gradle/init-print-projects.gradle",
+            "config/context_gc.json",
             "config/conventions.json",
             "tools/set_active_feature.py",
             "docs/prd.template.md",
+            "scripts/context_gc/hooklib.py",
         ]
         for rel in expected_paths:
             with self.subTest(path=rel):
