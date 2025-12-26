@@ -2,8 +2,8 @@
 name: planner
 description: План реализации по согласованному PRD. Декомпозиция на итерации и проверяемые шаги.
 lang: ru
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 tools: Read, Write, Grep, Glob
 model: inherit
 permissionMode: default

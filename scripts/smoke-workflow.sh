@@ -6,20 +6,21 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INIT_SCRIPT="${ROOT_DIR}/init-claude-workflow.sh"
+INIT_SCRIPT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
 REPO_SRC="${ROOT_DIR}/src"
-VENDOR_PATH="${ROOT_DIR}/.claude/hooks/_vendor"
+VENDOR_PATH="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/hooks/_vendor"
 export PYTHONPATH="${REPO_SRC}:${VENDOR_PATH}:${PYTHONPATH:-}"
 export CLAUDE_WORKFLOW_PYTHON="python3"
 export CLAUDE_WORKFLOW_DEV_SRC="${REPO_SRC}"
 WORKDIR=""
+WORKSPACE_ROOT=""
 
 run_cli() {
   CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${WORKDIR:-}}"
-  CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-${WORKDIR:-}}"
+  CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-${WORKSPACE_ROOT:-${WORKDIR:-}}}"
   env CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$CLAUDE_PROJECT_DIR" \
     python3 "$CLI_HELPER" "$@"
 }
@@ -44,7 +45,7 @@ assert_gate_exit() {
   local note="$2"
   local output rc
   set +e
-  output="$(CLAUDE_PROJECT_DIR="$WORKDIR" "$WORKDIR/.claude/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+  output="$(CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" "$WORKDIR/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
   rc=$?
   set -e
   if [[ "$rc" -ne "$expected" ]]; then
@@ -67,8 +68,9 @@ run_cli init --target . --force >/dev/null 2>init.log
 grep -v "skip: .*exists" init.log | grep -v "missing payload directory" || true
 rm -f init.log
 WORKDIR="${TMP_DIR}/aidd"
+WORKSPACE_ROOT="${TMP_DIR}"
 export CLAUDE_PLUGIN_ROOT="${WORKDIR}"
-export CLAUDE_PROJECT_DIR="${WORKDIR}"
+export CLAUDE_PROJECT_DIR="${WORKSPACE_ROOT}"
 
 log "validate plugin hooks wiring"
 if [[ ! -f "$WORKDIR/hooks/hooks.json" ]]; then

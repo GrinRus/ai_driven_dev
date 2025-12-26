@@ -62,7 +62,8 @@ DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
-DEFAULT_QA_TEST_COMMAND = [["bash", ".claude/hooks/format-and-test.sh"]]
+DEFAULT_QA_TEST_COMMAND = [["bash", "hooks/format-and-test.sh"]]
+WORKSPACE_ROOT_DIRS = {".claude", ".claude-plugin"}
 
 
 def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path]:
@@ -83,10 +84,10 @@ def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Pat
 
 def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
     workspace_root, project_root = _resolve_roots(raw_target, create=False)
-    if (project_root / ".claude").exists():
+    if (project_root / ".claude").exists() or (workspace_root / ".claude").exists():
         return workspace_root, project_root
     raise FileNotFoundError(
-        f"workflow files not found at {project_root}/.claude; "
+        f"workflow files not found at {project_root}/.claude or {workspace_root}/.claude; "
         f"bootstrap via 'claude-workflow init --target {workspace_root}' "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
@@ -274,6 +275,10 @@ def _load_manifest(payload_path: Path) -> Dict[str, Dict]:
         file_path = payload_path / rel
         if not file_path.exists():
             raise PayloadError(f"Payload file listed in manifest is missing: {rel}")
+        if rel == "manifest.json":
+            # Self-referential entry: skip checksum validation to avoid infinite hash churn.
+            entries[rel] = entry
+            continue
         expected_hash = entry.get("sha256")
         actual_hash = _hash_file(file_path)
         if expected_hash != actual_hash:
@@ -512,7 +517,11 @@ def _research_command(args: argparse.Namespace) -> None:
             config_path = (target / config_path).resolve()
         else:
             config_path = config_path.resolve()
-    builder = ResearcherContextBuilder(target, config_path=config_path)
+    builder = ResearcherContextBuilder(
+        target,
+        config_path=config_path,
+        paths_relative=getattr(args, "paths_relative", None),
+    )
     scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
     scope = builder.extend_scope(
         scope,
@@ -524,9 +533,11 @@ def _research_command(args: argparse.Namespace) -> None:
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
+    base_root = builder.workspace_root if builder.paths_relative_mode == "workspace" else builder.root
+    base_label = f"{builder.paths_relative_mode}:{base_root}"
     print(
         f"[claude-workflow] researcher targets saved to {rel_targets} "
-        f"({len(scope.paths)} paths, {len(scope.docs)} docs)."
+        f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."
     )
 
     if args.targets_only:
@@ -596,6 +607,16 @@ def _research_command(args: argparse.Namespace) -> None:
         print(
             f"[claude-workflow] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
         )
+        if (
+            builder.paths_relative_mode == "aidd"
+            and builder.workspace_root != builder.root
+            and any((builder.workspace_root / name).exists() for name in ("src", "services", "modules", "apps"))
+        ):
+            print(
+                "[claude-workflow] hint: включите workspace-relative paths (--paths-relative workspace) "
+                "или добавьте ../paths — под aidd/ нет поддерживаемых файлов, но в workspace есть код.",
+                file=sys.stderr,
+            )
     if args.dry_run:
         print(json.dumps(collected_context, indent=2, ensure_ascii=False))
         return
@@ -605,7 +626,7 @@ def _research_command(args: argparse.Namespace) -> None:
     rel_output = output_path.relative_to(target).as_posix()
     reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
     call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
-    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches"
+    message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if args.deep_code:
         message += f", {reuse_count} reuse candidates"
     if args.call_graph:
@@ -979,15 +1000,23 @@ def _progress_command(args: argparse.Namespace) -> int:
         _print_items(result.code_files)
     return 0
 
+def _resolve_claude_dir(target: Path) -> Path:
+    candidate = target / ".claude"
+    if candidate.exists():
+        return candidate
+    if target.name == DEFAULT_PROJECT_SUBDIR:
+        return target.parent / ".claude"
+    return candidate
+
 def _read_template_version(target: Path) -> str | None:
-    version_file = target / ".claude" / ".template_version"
+    version_file = _resolve_claude_dir(target) / ".template_version"
     if not version_file.exists():
         return None
     return version_file.read_text(encoding="utf-8").strip() or None
 
 
 def _write_template_version(target: Path) -> None:
-    version_file = target / ".claude" / ".template_version"
+    version_file = _resolve_claude_dir(target) / ".template_version"
     version_file.parent.mkdir(parents=True, exist_ok=True)
     version_file.write_text(f"{VERSION}\n", encoding="utf-8")
 
@@ -1024,7 +1053,7 @@ def _format_ticket_label(context: FeatureIdentifiers, fallback: str = "акти�
 
 
 def _settings_path(target: Path) -> Path:
-    return target / ".claude" / "settings.json"
+    return _resolve_claude_dir(target) / "settings.json"
 
 
 def _load_settings_json(target: Path) -> dict:
@@ -1457,6 +1486,33 @@ def _is_relative_to(path: Path, ancestor: Path) -> bool:
     except ValueError:
         return False
 
+def _split_entries_by_root(
+    entries: Iterable[tuple[Path, Path]],
+) -> tuple[list[tuple[Path, Path]], list[tuple[Path, Path]]]:
+    workspace_entries: list[tuple[Path, Path]] = []
+    project_entries: list[tuple[Path, Path]] = []
+    for src, rel in entries:
+        parts = rel.parts
+        if parts and parts[0] in WORKSPACE_ROOT_DIRS:
+            workspace_entries.append((src, rel))
+        else:
+            project_entries.append((src, rel))
+    return workspace_entries, project_entries
+
+
+def _split_manifest_entries(
+    entries: Dict[str, Dict],
+) -> tuple[Dict[str, Dict], Dict[str, Dict]]:
+    workspace_entries: Dict[str, Dict] = {}
+    project_entries: Dict[str, Dict] = {}
+    for rel, entry in entries.items():
+        parts = Path(rel).parts
+        if parts and parts[0] in WORKSPACE_ROOT_DIRS:
+            workspace_entries[rel] = entry
+        else:
+            project_entries[rel] = entry
+    return workspace_entries, project_entries
+
 
 def _select_payload_entries(
     payload_path: Path,
@@ -1581,7 +1637,7 @@ def _normalise_include(value: str) -> Path:
 
 
 def _upgrade_command(args: argparse.Namespace) -> None:
-    _, project_root = _require_workflow_root(Path(args.target).resolve())
+    workspace_root, project_root = _require_workflow_root(Path(args.target).resolve())
 
     current_version = _read_template_version(project_root)
     if current_version and current_version == VERSION:
@@ -1596,14 +1652,28 @@ def _upgrade_command(args: argparse.Namespace) -> None:
         manifest_view = _strip_manifest_prefix(manifest, manifest_prefix) if manifest_prefix else manifest
         entries = _select_payload_entries(payload_path, strip_prefix=manifest_prefix)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
-        _report_manifest_diff(project_root, managed_manifest, prefix="upgrade")
+        workspace_entries, project_entries = _split_entries_by_root(entries)
+        workspace_manifest, project_manifest = _split_manifest_entries(managed_manifest)
+        _report_manifest_diff(project_root, project_manifest, prefix="upgrade")
+        if workspace_manifest:
+            _report_manifest_diff(workspace_root, workspace_manifest, prefix="upgrade:workspace")
         updated, skipped, backups = _copy_payload_entries(
             project_root,
-            entries,
+            project_entries,
             force=args.force,
             dry_run=args.dry_run,
             create_backups=True,
         )
+        ws_updated, ws_skipped, ws_backups = _copy_payload_entries(
+            workspace_root,
+            workspace_entries,
+            force=args.force,
+            dry_run=args.dry_run,
+            create_backups=True,
+        )
+        updated.extend(ws_updated)
+        skipped.extend(ws_skipped)
+        backups.extend(ws_backups)
 
     if args.dry_run:
         print(
@@ -1636,7 +1706,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
         report_lines.extend(f"  - {item}" for item in backups)
         report_lines.append("")
 
-    report_path = project_root / ".claude" / "upgrade-report.txt"
+    report_path = _resolve_claude_dir(project_root) / "upgrade-report.txt"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(report_lines), encoding="utf-8")
 
@@ -1693,15 +1763,29 @@ def _sync_command(args: argparse.Namespace) -> None:
                 manifest_view = {**manifest, **extras}
         entries = _select_payload_entries(payload_path, adjusted_includes, strip_prefix=manifest_prefix)
         managed_manifest, _ = _filter_manifest_for_entries(entries, manifest_view)
+        workspace_entries, project_entries = _split_entries_by_root(entries)
+        workspace_manifest, project_manifest = _split_manifest_entries(managed_manifest)
         prefix = f"sync:{','.join(item.as_posix() for item in includes)}"
-        _report_manifest_diff(project_root, managed_manifest, prefix=prefix)
+        _report_manifest_diff(project_root, project_manifest, prefix=prefix)
+        if workspace_manifest:
+            _report_manifest_diff(workspace_root, workspace_manifest, prefix=f"{prefix}:workspace")
         updated, skipped, backups = _copy_payload_entries(
             project_root,
-            entries,
+            project_entries,
             force=args.force,
             dry_run=args.dry_run,
             create_backups=True,
         )
+        ws_updated, ws_skipped, ws_backups = _copy_payload_entries(
+            workspace_root,
+            workspace_entries,
+            force=args.force,
+            dry_run=args.dry_run,
+            create_backups=True,
+        )
+        updated.extend(ws_updated)
+        skipped.extend(ws_skipped)
+        backups.extend(ws_backups)
 
     if args.dry_run:
         print(
@@ -1777,7 +1861,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt-locale",
         choices=("ru", "en"),
         default="ru",
-        help="Copy prompts in the specified locale into .claude/ (default: ru).",
+        help="Copy prompts in the specified locale into aidd/agents and aidd/commands (default: ru).",
     )
     init_parser.set_defaults(func=_init_command)
 
@@ -1815,7 +1899,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt-locale",
         choices=("ru", "en"),
         default="ru",
-        help="Copy prompts in the specified locale into .claude/ (default: ru).",
+        help="Copy prompts in the specified locale into aidd/agents and aidd/commands (default: ru).",
     )
     preset_parser.add_argument(
         "--dry-run",
@@ -1902,6 +1986,11 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--paths",
         help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
+    )
+    research_parser.add_argument(
+        "--paths-relative",
+        choices=("workspace", "aidd"),
+        help="Treat relative paths as workspace-rooted (default) or under aidd/. When omitted, defaults to workspace if target is aidd.",
     )
     research_parser.add_argument(
         "--keywords",

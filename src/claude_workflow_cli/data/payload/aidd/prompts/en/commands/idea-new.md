@@ -2,8 +2,8 @@
 description: "Feature initiation: analyst + (opt.) auto-research → user questions → PRD draft"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: en
-prompt_version: 1.2.2
-source_version: 1.2.2
+prompt_version: 1.2.4
+source_version: 1.2.4
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*),Bash(rg:*)
 model: inherit
 disable-model-invocation: false

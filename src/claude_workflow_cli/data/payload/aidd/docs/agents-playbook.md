@@ -3,9 +3,9 @@
 Документ помогает быстро провести фичу через цикл Claude Code, понять роли саб-агентов и поведение гейтов. Следуйте последовательности, чтобы избегать блокирующих хуков и расхождений в артефактах.
 
 > Ticket — основной идентификатор фичи, сохраняется в `aidd/docs/.active_ticket`. При необходимости указывайте slug-hint (человекочитаемый алиас) — он хранится в `aidd/docs/.active_feature` и используется в шаблонах/логах.
-> Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/хуки, EN‑локаль — в `prompts/en/**`. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
-> Требования к структуре промптов агентов и слэш-команд описаны в `aidd/docs/prompt-playbook.md`. При редактировании файлов в `.claude-plugin/agents|commands` и `.claude/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`. EN локализации синхронизируются по правилам `aidd/docs/prompt-versioning.md`.
-> Hook events определены в `aidd/.claude-plugin/hooks/hooks.json`: PreToolUse/PostToolUse (workflow/prd/qa/tests/format/lint), UserPromptSubmit/Stop/SubagentStop (повторный `gate-workflow`). Скрипты вызываются через `$CLAUDE_PROJECT_DIR/.claude/hooks/*.sh`.
+> Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/кеш, EN‑локаль — в `aidd/prompts/en/**`. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
+> Требования к структуре промптов агентов и слэш-команд описаны в `aidd/docs/prompt-playbook.md`. При редактировании файлов в `aidd/agents|commands` и `aidd/prompts/en/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`. EN локализации синхронизируются по правилам `aidd/docs/prompt-versioning.md`.
+> Hook events определены в `aidd/hooks/hooks.json`: PreToolUse/PostToolUse (workflow/prd/qa/tests/format/lint), UserPromptSubmit/Stop/SubagentStop (повторный `gate-workflow`). Скрипты вызываются через `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/*.sh`.
 > Все команды и хуки ожидают структуру `./aidd/**` (workspace = `--target .`); при запуске из другого каталога появится явная ошибка «aidd/docs not found».
 
 ## Agent-first принципы
@@ -24,7 +24,7 @@
 | 3 | `/plan-new <ticket>` | `planner`, `validator` | PRD, отчёт Researcher, ответы на вопросы | `aidd/docs/plan/<ticket>.md`, протокол проверки | План покрывает модули из research, критичные риски закрыты |
 | 4 | `/review-prd <ticket>` | `prd-reviewer` | PRD, план, ADR, Researcher | Раздел `## PRD Review`, отчёт `reports/prd/<ticket>.json` | Status: READY, action items перенесены |
 | 5 | `/tasks-new <ticket>` | — | Утверждённый план | Обновлённый `aidd/docs/tasklist/<ticket>.md` | Чеклисты привязаны к ticket (slug-hint) и этапам |
-| 6 | `/implement <ticket>` | `implementer` | План, `aidd/docs/tasklist/<ticket>.md`, отчёт Researcher | Кодовые изменения + авто запуск `.claude/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
+| 6 | `/implement <ticket>` | `implementer` | План, `aidd/docs/tasklist/<ticket>.md`, отчёт Researcher | Кодовые изменения + авто запуск `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` | Гейты разрешают правки, тесты зелёные |
 | 7 | `/review <ticket>` | `reviewer` | Готовая ветка и артефакты | Замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
 | 8 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, `aidd/docs/tasklist/<ticket>.md`, результаты гейтов | JSON-отчёт `reports/qa/<ticket>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
@@ -72,7 +72,7 @@
 ### implementer — реализация
 - **Вызов:** `/implement <ticket>`
 - **Вход:** утверждённый план, `aidd/docs/tasklist/<ticket>.md`, `aidd/docs/research/<ticket>.md`, PRD, актуальный diff.
-- **Процесс:** агент выбирает следующий пункт плана/тасклиста, читает связанные файлы и реализует минимальный diff. После каждой записи автоматически запускается `.claude/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`). Все ручные команды (`./gradlew test`, `gradle spotlessApply`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
+- **Процесс:** агент выбирает следующий пункт плана/тасклиста, читает связанные файлы и реализует минимальный diff. После каждой записи автоматически запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`). Все ручные команды (`./gradlew test`, `gradle spotlessApply`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
 - **Коммуникация:** вопросы пользователю задаются только после того, как агент перечислил проверенные артефакты (план, research, код, тесты) и пояснил, какой информации не хватает.
 - **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …`, фиксируйте дату/итерацию и запускайте `claude-workflow progress --source implement --ticket <ticket>` — команда отследит, появились ли новые `- [x]`. `gate-workflow` и `gate-tests` отображают статусы и блокируют push при нарушениях.
 
@@ -81,11 +81,11 @@
 - **Вход:** готовая ветка, PRD, план, `aidd/docs/tasklist/<ticket>.md`.
 - **Выход:** отчёт об обнаруженных проблемах и рекомендации; чеклисты обновлены состоянием READY/BLOCKED.
 - **Готовность:** все блокирующие замечания устранены, финальный статус — READY.
-- **Тесты:** используйте `claude-workflow reviewer-tests --status required [--ticket <ticket>]`, чтобы запросить автотесты. После выполнения обновите маркер на `optional`, иначе `.claude/hooks/format-and-test.sh` будет запускать тесты автоматически.
+- **Тесты:** используйте `claude-workflow reviewer-tests --status required [--ticket <ticket>]`, чтобы запросить автотесты. После выполнения обновите маркер на `optional`, иначе `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` будет запускать тесты автоматически.
 - **Прогресс:** убедитесь, что отмечены выполненные пункты `- [x]`, добавьте строку `Checkbox updated: …` с перечислением закрытых чекбоксов и при необходимости выполните `claude-workflow progress --source review --ticket <ticket>`.
 
 ### qa — финальная проверка качества
-- **Вызов:** `/qa <ticket>` (обязательная стадия после `/review`), либо `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` / `./.claude/hooks/gate-qa.sh`.
+- **Вызов:** `/qa <ticket>` (обязательная стадия после `/review`), либо `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` / `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh`.
 - **Вход:** активная фича, diff, результаты гейтов, раздел QA в `aidd/docs/tasklist/<ticket>.md`.
 - **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<ticket>.json`, обновлённый чеклист.
 - **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `aidd/docs/qa-playbook.md` для чеклистов и переменных окружения.
@@ -101,9 +101,9 @@
 
 ## Автоформатирование и тесты
 
-- Пресет `strict` запускает `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` после каждой операции записи. Скрипт анализирует diff, форматирует код и выполняет выборочные Gradle/CLI задачи.
+- Пресет `strict` запускает `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` после каждой операции записи. Скрипт анализирует diff, форматирует код и выполняет выборочные Gradle/CLI задачи.
 - Управляйте поведением через переменные окружения: `SKIP_AUTO_TESTS=1` — пауза, `FORMAT_ONLY=1` — форматирование без тестов, `TEST_SCOPE=":app:test"` — задать конкретные задачи и выключить режим changed-only, `TEST_CHANGED_ONLY=0` — форсировать полный прогон, `STRICT_TESTS=1` — падать при первых ошибках.
-- Для ручного запуска выполните `bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/format-and-test.sh` (команда учитывает те же переменные) и исправьте замечания перед продолжением работы.
+- Для ручного запуска выполните `bash "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh"` (команда учитывает те же переменные) и исправьте замечания перед продолжением работы.
 
 ## Чеклист быстрого старта фичи
 

@@ -1,3 +1,4 @@
+---
 MD013: false   # Line length
 MD022: false   # Blanks around headings
 MD031: false   # Blanks around fenced code blocks

@@ -5,12 +5,12 @@ from pathlib import Path
 from textwrap import dedent
 import unittest
 
-from .helpers import PAYLOAD_ROOT
+from .helpers import REPO_ROOT
 
 
 class PromptDiffTests(unittest.TestCase):
     def write_prompt_pair(self, root: Path, kind: str, name: str, ru_text: str, en_text: str) -> None:
-        ru_dir = root / ".claude" / ("agents" if kind == "agent" else "commands")
+        ru_dir = root / ("agents" if kind == "agent" else "commands")
         en_dir = root / "prompts" / "en" / ("agents" if kind == "agent" else "commands")
         ru_dir.mkdir(parents=True, exist_ok=True)
         en_dir.mkdir(parents=True, exist_ok=True)
@@ -87,7 +87,7 @@ class PromptDiffTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "tools" / "prompt_diff.py"),
+                    str(REPO_ROOT / "tools" / "prompt_diff.py"),
                     "--name",
                     "analyst",
                     "--kind",
@@ -192,7 +192,7 @@ class PromptDiffTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "tools" / "prompt_diff.py"),
+                    str(REPO_ROOT / "tools" / "prompt_diff.py"),
                     "--name",
                     "plan-new",
                     "--kind",

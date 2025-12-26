@@ -6,7 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 import unittest
 
-from .helpers import PAYLOAD_ROOT, REPO_ROOT
+from .helpers import REPO_ROOT
 
 
 RU_TEMPLATE_AGENT = dedent(
@@ -84,7 +84,7 @@ class PromptVersioningTests(unittest.TestCase):
         kind: str = "agent",
         lang_skip: bool = False,
     ) -> None:
-        ru_dir = root / ".claude" / ("agents" if kind == "agent" else "commands")
+        ru_dir = root / ("agents" if kind == "agent" else "commands")
         en_dir = root / "prompts" / "en" / ("agents" if kind == "agent" else "commands")
         ru_dir.mkdir(parents=True, exist_ok=True)
         en_dir.mkdir(parents=True, exist_ok=True)
@@ -187,7 +187,7 @@ class PromptVersioningTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
+                    str(REPO_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -205,7 +205,7 @@ class PromptVersioningTests(unittest.TestCase):
                 env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
+            ru_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
             en_text = (root / "prompts" / "en" / "agents" / "analyst.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.1.0", ru_text)
             self.assertIn("source_version: 1.1.0", ru_text)
@@ -222,7 +222,7 @@ class PromptVersioningTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
+                    str(REPO_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -240,7 +240,7 @@ class PromptVersioningTests(unittest.TestCase):
                 env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / ".claude" / "commands" / "plan-new.md").read_text(encoding="utf-8")
+            ru_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
             en_text = (root / "prompts" / "en" / "commands" / "plan-new.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.0.1", ru_text)
             self.assertIn("source_version: 1.0.1", en_text)
@@ -255,7 +255,7 @@ class PromptVersioningTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
+                    str(REPO_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -288,7 +288,7 @@ class PromptVersioningTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(PAYLOAD_ROOT / "scripts" / "prompt-version"),
+                    str(REPO_ROOT / "scripts" / "prompt-version"),
                     "bump",
                     "--root",
                     str(root),
@@ -306,7 +306,7 @@ class PromptVersioningTests(unittest.TestCase):
                 env=env,
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
+            ru_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.1.0", ru_text)
 
 

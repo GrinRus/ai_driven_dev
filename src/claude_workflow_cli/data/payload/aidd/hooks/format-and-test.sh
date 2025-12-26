@@ -26,9 +26,21 @@ if VENDOR_DIR.exists():
 from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
 
 LOG_PREFIX = "[format-and-test]"
-SETTINGS_PATH = Path(
-    os.environ.get("CLAUDE_SETTINGS_PATH", ROOT_DIR / ".claude" / "settings.json")
-)
+def resolve_settings_path() -> Path:
+    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
+    if env_path:
+        return Path(env_path)
+    candidates = [
+        ROOT_DIR / ".claude" / "settings.json",
+        ROOT_DIR.parent / ".claude" / "settings.json",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+SETTINGS_PATH = resolve_settings_path()
 COMMON_PATTERNS = (
     "config/",
     "gradle/libs.versions.toml",

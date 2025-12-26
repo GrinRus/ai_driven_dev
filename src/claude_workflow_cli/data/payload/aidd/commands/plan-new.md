@@ -2,8 +2,8 @@
 description: "План реализации по согласованному PRD + валидация"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 allowed-tools:
   - Read
   - Edit
@@ -20,7 +20,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус READY и заполненный`## PRD Review`со статусом READY обязательны.
 - `@aidd/docs/research/<ticket>.md` — точки интеграции и reuse.
-- @doc/backlog.md, ADR (если есть) — вспомогательные материалы.
+- ADR (если есть) — вспомогательные материалы.
 
 ## Когда запускать
 - После`/idea-new`и`/review-prd`, когда PRD READY и PRD Review READY, а также есть результаты Researcher.

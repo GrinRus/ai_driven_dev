@@ -42,7 +42,7 @@ Usage: bash init-claude-workflow.sh [options]
   --enable-ci          add GitHub Actions workflow (manual trigger)
   --force              overwrite existing files
   --dry-run            show planned actions without writing files
-  --prompt-locale LOCALE   ru | en (default: ru) — copy соответствующие промпты в .claude/agents и .claude/commands
+  --prompt-locale LOCALE   ru | en (default: ru) — copy соответствующие промпты в agents и commands
   --preset NAME        generate demo artifacts for preset (feature-prd|feature-plan|feature-impl|feature-design|feature-release)
   --ticket VALUE       ticket identifier to use with --preset (legacy alias: --feature)
   --feature SLUG       deprecated alias for --ticket
@@ -252,15 +252,15 @@ apply_prompt_locale() {
       log_info "Applying prompt locale: en"
       local previous_force="$FORCE"
       FORCE=1
-      copy_payload_dir "prompts/en/agents" ".claude/agents"
-      copy_payload_dir "prompts/en/commands" ".claude/commands"
+      copy_payload_dir "prompts/en/agents" "agents"
+      copy_payload_dir "prompts/en/commands" "commands"
       FORCE="$previous_force"
       ;;
   esac
 }
 
 ensure_hook_permissions() {
-  local hooks_dir="$ROOT_DIR/.claude/hooks"
+  local hooks_dir="$ROOT_DIR/hooks"
   [[ -d "$hooks_dir" ]] || return 0
   while IFS= read -r -d '' hook; do
     local rel="${hook#"$ROOT_DIR"/}"
@@ -552,10 +552,7 @@ ${goals_block}
 
 generate_directories() {
   log_info "Ensuring directory structure"
-  local dirs=(
-    ".claude"
-    ".claude/cache"
-    ".claude-plugin"
+  local plugin_dirs=(
     "commands"
     "agents"
     "hooks"
@@ -566,8 +563,16 @@ generate_directories() {
     "reports/qa"
     "reports/research"
   )
-  for dir in "${dirs[@]}"; do
+  local workspace_dirs=(
+    ".claude"
+    ".claude/cache"
+    ".claude-plugin"
+  )
+  for dir in "${plugin_dirs[@]}"; do
     ensure_directory "$ROOT_DIR/$dir"
+  done
+  for dir in "${workspace_dirs[@]}"; do
+    ensure_directory "$WORKSPACE_ROOT/$dir"
   done
 }
 
@@ -588,15 +593,7 @@ generate_prompt_references() {
 }
 
 generate_claude_settings() {
-  local primary_settings="$PAYLOAD_ROOT/../.claude/settings.json"
-  local fallback_settings="$PAYLOAD_ROOT/.claude/settings.json"
-  if [[ ! -f "$primary_settings" && -f "$fallback_settings" ]]; then
-    primary_settings="$fallback_settings"
-  fi
-  copy_payload_file "$primary_settings" "$ROOT_DIR/.claude/settings.json"
-  copy_payload_dir ".claude/hooks"
-  copy_payload_dir ".claude/cache"
-  ensure_hook_permissions
+  copy_payload_dir "../.claude" "$WORKSPACE_ROOT/.claude"
   embed_project_dir_in_settings
 }
 
@@ -614,22 +611,17 @@ generate_plugin() {
 
 generate_plugin_hooks() {
   copy_payload_dir "hooks" "hooks"
+  ensure_hook_permissions
 }
 
 copy_workspace_plugin_files() {
-  local settings_src="$PAYLOAD_ROOT/../.claude/settings.json"
-  local settings_fallback="$PAYLOAD_ROOT/.claude/settings.json"
   local marketplace_src="$PAYLOAD_ROOT/../.claude-plugin/marketplace.json"
   local marketplace_fallback="$PAYLOAD_ROOT/.claude-plugin/marketplace.json"
-  if [[ ! -f "$settings_src" && -f "$settings_fallback" ]]; then
-    settings_src="$settings_fallback"
-  fi
   if [[ ! -f "$marketplace_src" && -f "$marketplace_fallback" ]]; then
     marketplace_src="$marketplace_fallback"
   fi
 
   local destinations=(
-    "$settings_src::$WORKSPACE_ROOT/.claude/settings.json"
     "$marketplace_src::$WORKSPACE_ROOT/.claude-plugin/marketplace.json"
   )
 
@@ -657,7 +649,7 @@ copy_workspace_plugin_files() {
 }
 
 generate_gradle_helpers() {
-  copy_payload_dir ".claude/gradle"
+  :
 }
 
 generate_config_and_scripts() {
@@ -678,7 +670,7 @@ generate_config_and_scripts() {
 }
 
 embed_project_dir_in_settings() {
-  local settings_path="$ROOT_DIR/.claude/settings.json"
+  local settings_path="$WORKSPACE_ROOT/.claude/settings.json"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log_info "[dry-run] rewrite hook commands in .claude/settings.json"
     return
@@ -687,7 +679,7 @@ embed_project_dir_in_settings() {
     return
   fi
   local replacements
-  replacements="$(python3 - "$settings_path" "$ROOT_DIR" <<'PY'
+  replacements="$(python3 - "$settings_path" "$WORKSPACE_ROOT" <<'PY'
 import json
 import pathlib
 import sys
@@ -758,7 +750,7 @@ Open the project in Claude Code and try:
   /tasks-new checkout-discounts
   /implement checkout-discounts
   /review checkout-discounts
-  ./.claude/hooks/format-and-test.sh
+  ./aidd/hooks/format-and-test.sh
 EOF
   log_info "Preset catalog available at claude-presets/ (advanced presets live under claude-presets/advanced/)."
   if [[ -n "$PRESET_NAME" && "$DRY_RUN" -eq 0 ]]; then

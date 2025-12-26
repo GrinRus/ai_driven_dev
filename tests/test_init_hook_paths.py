@@ -25,7 +25,7 @@ class InitHookCommandTest(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            settings_path = project_root / ".claude" / "settings.json"
+            settings_path = Path(tmpdir) / ".claude" / "settings.json"
             self.assertTrue(settings_path.exists(), ".claude/settings.json must be created")
             data = json.loads(settings_path.read_text(encoding="utf-8"))
 

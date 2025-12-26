@@ -4,7 +4,15 @@ import unittest
 
 
 class SettingsPolicyTest(unittest.TestCase):
-    SETTINGS_PATH = Path(__file__).resolve().parents[1] / ".claude" / "settings.json"
+    SETTINGS_PATH = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "claude_workflow_cli"
+        / "data"
+        / "payload"
+        / ".claude"
+        / "settings.json"
+    )
 
     @classmethod
     def setUpClass(cls):

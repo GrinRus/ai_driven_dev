@@ -10,7 +10,7 @@ allowed-tools:
   - Write
   - Grep
   - Glob
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
   - "Bash(./gradlew:*)"
   - "Bash(gradle:*)"
@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда`/implement`запускает саб-агента **implementer**, который работает по `@aidd/docs/plan/<ticket>.md` и `@aidd/docs/tasklist/<ticket>.md`, при необходимости сверяется с PRD/research для уточнений, обновляет tasklist и следит за запуском`${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`перед итоговым ответом. Свободный ввод после тикета используй как дополнительный контекст для итерации.
+Команда`/implement`запускает саб-агента **implementer**, который работает по `@aidd/docs/plan/<ticket>.md` и `@aidd/docs/tasklist/<ticket>.md`, при необходимости сверяется с PRD/research для уточнений, обновляет tasklist и следит за запуском`${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh`перед итоговым ответом. Свободный ввод после тикета используй как дополнительный контекст для итерации.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — итерации и DoD.
@@ -32,7 +32,7 @@ disable-model-invocation: false
 - Повторять на каждой итерации разработки до завершения тикета.
 
 ## Автоматические хуки и переменные
--`${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`запускается после каждой записи; управляй`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`при необходимости и фиксируй изменения.
+-`${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh`запускается после каждой записи; управляй`SKIP_AUTO_TESTS`,`FORMAT_ONLY`,`TEST_SCOPE`,`STRICT_TESTS`при необходимости и фиксируй изменения.
 -`claude-workflow progress --source implement --ticket <ticket>`должен срабатывать перед завершением команды.
 
 ## Что редактируется
@@ -41,7 +41,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Вызови саб-агента **implementer**: он сверится с планом/тасклистом и выполнит следующий шаг.
-2. После каждой правки наблюдай за автозапуском`${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`; при необходимости вручную запусти`!${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`.
+2. После каждой правки наблюдай за автозапуском`${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh`; при необходимости вручную запусти`!${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh`.
 3. Обнови`aidd/docs/tasklist/<ticket>.md`: переведи соответствующие чекбоксы`- [ ] → - [x]`, добавь дату/итерацию/результат.
 4. Если нужна избирательность тестов, настрой`TEST_SCOPE`,`TEST_CHANGED_ONLY`, либо временно установи`SKIP_AUTO_TESTS=1`(обязательно задокументируй).
 5. Перед завершением итерации выполни`!bash -lc 'claude-workflow progress --source implement --ticket "$1"'`. Если команда сообщает об отсутствии новых`[x]`, вернись к tasklist и зафиксируй прогресс.
@@ -59,4 +59,4 @@ disable-model-invocation: false
 
 ## Примеры CLI
 -`/implement ABC-123`
--`!bash -lc 'SKIP_AUTO_TESTS=1 ${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh'`
+-`!bash -lc 'SKIP_AUTO_TESTS=1 ${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh'`

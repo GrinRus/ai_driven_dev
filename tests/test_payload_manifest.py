@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 
-DEV_ONLY_PATHS = ["doc/backlog.md"]
+DEV_ONLY_PATHS = ["doc/dev/backlog.md"]
 
 
 def _hash_file(path: Path) -> str:

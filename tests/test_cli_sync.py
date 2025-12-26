@@ -31,8 +31,8 @@ def test_sync_materialises_claude(tmp_path):
     args = SimpleNamespace(target=str(workspace), include=None, force=False, dry_run=False, release=None, cache_dir=None)
     cli._sync_command(args)
 
-    settings = project_root / ".claude" / "settings.json"
-    version = project_root / ".claude" / ".template_version"
+    settings = workspace / ".claude" / "settings.json"
+    version = workspace / ".claude" / ".template_version"
 
     assert settings.exists(), "sync should copy .claude/settings.json"
     assert version.exists(), "sync should record template version when .claude included"
@@ -70,7 +70,7 @@ def test_sync_custom_include(tmp_path):
 
     preset = project_root / "claude-presets" / "feature-prd.yaml"
     assert preset.exists(), "sync should copy requested payload fragments"
-    template_version = project_root / ".claude" / ".template_version"
+    template_version = workspace / ".claude" / ".template_version"
     assert not template_version.exists(), "template version should not update when .claude not synced"
 
 

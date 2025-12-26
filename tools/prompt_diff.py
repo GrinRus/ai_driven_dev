@@ -34,11 +34,38 @@ def load(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines(keepends=True)
 
 
+def resolve_ru_base(root: Path, kind: str) -> Path:
+    subdir = "agents" if kind == "agent" else "commands"
+    candidates = [
+        root / subdir,
+        root / "aidd" / subdir,
+        root / ".claude" / subdir,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def resolve_en_base(root: Path, kind: str) -> Path:
+    subdir = "agents" if kind == "agent" else "commands"
+    candidates = [
+        root / "prompts" / "en" / subdir,
+        root / "aidd" / "prompts" / "en" / subdir,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 def main() -> int:
     args = parse_args()
     root = args.root
-    ru_path = root / ".claude" / ("agents" if args.kind == "agent" else "commands") / f"{args.name}.md"
-    en_path = root / "prompts" / "en" / ("agents" if args.kind == "agent" else "commands") / f"{args.name}.md"
+    ru_base = resolve_ru_base(root, args.kind)
+    en_base = resolve_en_base(root, args.kind)
+    ru_path = ru_base / f"{args.name}.md"
+    en_path = en_base / f"{args.name}.md"
 
     try:
         ru_lines = load(ru_path)

@@ -63,12 +63,12 @@ LANG_SECTION_TITLES = {
 
 LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
     "ru": {
-        "agent": [Path("agents"), Path(".claude/agents"), Path(".claude-plugin/agents")],
-        "command": [Path("commands"), Path(".claude/commands"), Path(".claude-plugin/commands")],
+        "agent": [Path("agents"), Path("aidd/agents"), Path(".claude/agents")],
+        "command": [Path("commands"), Path("aidd/commands"), Path(".claude/commands")],
     },
     "en": {
-        "agent": [Path("prompts/en/agents")],
-        "command": [Path("prompts/en/commands")],
+        "agent": [Path("prompts/en/agents"), Path("aidd/prompts/en/agents")],
+        "command": [Path("prompts/en/commands"), Path("aidd/prompts/en/commands")],
     },
 }
 
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
         "--root",
         default=Path(__file__).resolve().parents[1],
         type=Path,
-        help="Repository root containing .claude/",
+        help="Workflow root containing agents/commands and prompts/en",
     )
     return parser.parse_args()
 
@@ -355,8 +355,8 @@ def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> Lis
         for agent_name, command_name in PAIRINGS:
             agent = agents.get(agent_name)
             command = commands.get(command_name)
-            agent_prefix = "prompts/en/agents" if lang == "en" else ".claude/agents"
-            command_prefix = "prompts/en/commands" if lang == "en" else ".claude/commands"
+            agent_prefix = "prompts/en/agents" if lang == "en" else "agents"
+            command_prefix = "prompts/en/commands" if lang == "en" else "commands"
             parity_skip = parity_skipped(
                 agent,
                 command,
@@ -365,10 +365,24 @@ def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> Lis
             )
             if agent is None:
                 if not parity_skip:
-                    errors.append(f"{agent_prefix}/{agent_name}.md: missing agent for `{command_name}`")
+                    if lang == "en":
+                        errors.append(
+                            f"{agent_prefix}/{agent_name}.md: missing agent for `{command_name}`"
+                        )
+                    else:
+                        errors.append(
+                            f"{agent_prefix}/{agent_name}.md: missing agent for `{command_name}` (or aidd/{agent_prefix}/{agent_name}.md)"
+                        )
             if command is None:
                 if not parity_skip:
-                    errors.append(f"{command_prefix}/{command_name}.md: missing command for `{agent_name}`")
+                    if lang == "en":
+                        errors.append(
+                            f"{command_prefix}/{command_name}.md: missing command for `{agent_name}`"
+                        )
+                    else:
+                        errors.append(
+                            f"{command_prefix}/{command_name}.md: missing command for `{agent_name}` (or aidd/{command_prefix}/{command_name}.md)"
+                        )
             if agent and command:
                 if agent.front_matter.get("prompt_version") != command.front_matter.get("prompt_version"):
                     errors.append(
@@ -408,12 +422,16 @@ def validate_locale_pairs(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) ->
             if parity_skipped(ru_prompt, en_prompt):
                 continue
             if ru_prompt is None:
-                ru_path = f".claude/{'agents' if kind == 'agent' else 'commands'}/{name}.md"
-                errors.append(f"Missing RU {kind} for `{name}` → add {ru_path} or mark Lang-Parity: skip")
+                ru_dir = "agents" if kind == "agent" else "commands"
+                ru_path = f"{ru_dir}/{name}.md"
+                errors.append(
+                    f"Missing RU {kind} for `{name}` → add {ru_path} (or aidd/{ru_path}) or mark Lang-Parity: skip"
+                )
                 continue
             if en_prompt is None:
+                en_path = f"prompts/en/{kind}s/{name}.md"
                 errors.append(
-                    f"Missing EN {kind} for `{name}` → add prompts/en/{kind}s/{name}.md or mark Lang-Parity: skip"
+                    f"Missing EN {kind} for `{name}` → add {en_path} (or aidd/{en_path}) or mark Lang-Parity: skip"
                 )
                 continue
             ru_version = ru_prompt.front_matter.get("prompt_version")

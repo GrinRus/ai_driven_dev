@@ -2,8 +2,8 @@
 name: planner
 description: Implementation plan for a READY PRD. Breaks work into iterations with measurable steps.
 lang: en
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 tools: Read, Write, Grep, Glob
 model: inherit
 permissionMode: default
