@@ -63,8 +63,8 @@
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 5939,
-      "sha256": "428a4a507cd464d9fde132b66da01f25cd1b97b658dd41ae244544c74fbf6c53"
+      "size": 5947,
+      "sha256": "42911c6c42a31c7fa8abbdafd501abca7bb4736bd8770c355abc309e33fa080b"
     },
     {
       "path": "aidd/agents/researcher.md",
@@ -141,8 +141,8 @@
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 4737,
-      "sha256": "11d2e11e4d1c3823bdc8489499498f79eccb5ea9e76ba1b680cfe2f91d7e3f79"
+      "size": 4740,
+      "sha256": "3a7aa75641d36ea35414c445458fa7fef9de9962e2811ef93380470b9b546a4a"
     },
     {
       "path": "aidd/commands/researcher.md",
@@ -219,8 +219,8 @@
     {
       "path": "aidd/docs/customization.md",
       "type": "file",
-      "size": 16474,
-      "sha256": "f75fbceb0ed05490eb0f9bbfc90b4de0b63fed99d1aa8ef204ac2d180f34022b"
+      "size": 16527,
+      "sha256": "4a8b5c9308b1eb9e19c0577c088b5b601c445ec6243d5af8b4b655a9854e7739"
     },
     {
       "path": "aidd/docs/design/feature-presets.md",
@@ -231,8 +231,8 @@
     {
       "path": "aidd/docs/feature-cookbook.md",
       "type": "file",
-      "size": 4979,
-      "sha256": "57c1a11788cee0518450f23fa7daf7698a938102e79524346e71c09b35a3fefd"
+      "size": 4951,
+      "sha256": "f626a51c4a9c03cfe8463c761829184fd61c8e15cdd09af302f225bac5362e51"
     },
     {
       "path": "aidd/docs/migration-aidd.md",
@@ -267,8 +267,8 @@
     {
       "path": "aidd/docs/prompt-versioning.md",
       "type": "file",
-      "size": 5971,
-      "sha256": "63093bd2c1d25da193e90311577956b83d984e52abeb3d554863a54f1aebc255"
+      "size": 5959,
+      "sha256": "2d0d5c2d74a01751e60d392b3d47453dcf3cd3d35a4f3bcac716de60e926fc6d"
     },
     {
       "path": "aidd/docs/qa-playbook.md",
@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/release-notes.md",
       "type": "file",
-      "size": 11686,
-      "sha256": "112beeac6e5808b64eb1e1271e35d2654d60cba098da74f8aed9619e501acc2b"
+      "size": 11747,
+      "sha256": "94e50f169d2718b3b6f376bc14be8d8ecf93cc655e6b3f3a4dcb57413d017238"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -447,8 +447,8 @@
     {
       "path": "aidd/prompts/en/agents/qa.md",
       "type": "file",
-      "size": 3995,
-      "sha256": "eb598b6ce6c07562d74b8ffdc280788db55f0da0a8cd5ab477a7da765519c4aa"
+      "size": 4003,
+      "sha256": "9fcd5e806adea6b64cc536e0ac9008f020fbef99a49322c8ab4fae84df010f09"
     },
     {
       "path": "aidd/prompts/en/agents/researcher.md",
@@ -489,8 +489,8 @@
     {
       "path": "aidd/prompts/en/commands/qa.md",
       "type": "file",
-      "size": 3458,
-      "sha256": "ccda668e6dcecb0afba45f97b632a5788ce9f83b81d124f21d2bf37f71b355bd"
+      "size": 3461,
+      "sha256": "013b80b4576dce0b10e0f5f1fd7ef1821ef05d4220ffd325e145f8010c31a4d0"
     },
     {
       "path": "aidd/prompts/en/commands/researcher.md",
@@ -515,12 +515,6 @@
       "type": "file",
       "size": 2251,
       "sha256": "88cc22e05ff776cd0519ad0985bfed4d6f6a4c4ccdd0e2305fe57d115fb697f7"
-    },
-    {
-      "path": "aidd/scripts/ci-lint.sh",
-      "type": "file",
-      "size": 3463,
-      "sha256": "6d3ad0f0daca3f269c64e4105d6e528deec5333bae815b3ebef22d6f2d4fec1f"
     },
     {
       "path": "aidd/scripts/context_gc/hooklib.py",

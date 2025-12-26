@@ -707,6 +707,7 @@ _Статус: новый, приоритет 3. Цель — аудит и уп
 - [x] Обновить gitignore/manifest/payload sync так, чтобы корневые dev-only файлы не попадали в релизы и установки; добавить чек в `tools/check_payload_sync.py` или новый `scripts/check-root-audit.sh`.
 - [x] Документация: README/README.en/CONTRIBUTING — раздел «Состав репозитория» с явным перечислением, что остаётся в корне, что ставится пользователю, куда смотреть dev-доки.
 - [x] Repo-only tooling: вынести `sync-payload.sh`, `lint-prompts.py`, `prompt-version`, `check_payload_sync.py`, `prompt_diff.py`, `payload_audit.py` из payload, обновить docs/tests/manifest и дефолтный sync.
+- [x] Repo-only tooling: убрать `aidd/scripts/ci-lint.sh` из payload, перенести его проверки в корневой `scripts/ci-lint.sh`, обновить упоминания в доках/промптах, manifest и проверки payload.
 - [x] Удалить корневой `init-claude-workflow.sh`, обновить примеры установки и `examples/apply-demo.sh` на запуск из payload.
 
 ## Wave 49

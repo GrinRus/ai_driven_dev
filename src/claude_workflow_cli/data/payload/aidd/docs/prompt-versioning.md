@@ -36,7 +36,7 @@
 - `scripts/lint-prompts.py` — валидирует фронт-маттер, обязательные секции, пары агент↔команда и RU↔EN.
 - `tools/prompt_diff.py --root <workflow-root> --kind command --name plan-new` — быстрый diff между локалями.
 - `scripts/prompt-version bump --root <workflow-root> --prompts analyst --kind agent --lang ru,en --part minor` — повышает версии и обновляет `source_version`. Используйте `--dry-run` для проверки.
-- `scripts/prompt-version` интегрирован в `scripts/ci-lint.sh` (dry-run) и `gate-workflow` вызывает `lint-prompts`, поэтому несогласованные локали блокируют commit.
+- `scripts/prompt-version` интегрирован в CI lint (dry-run), а `gate-workflow` вызывает `lint-prompts`, поэтому несогласованные локали блокируют commit.
 
 ## 6. Release checklist
 - Перед релизом убедитесь, что все правки промптов имеют согласованные версии:

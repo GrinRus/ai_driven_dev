@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PAYLOAD_SCRIPT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/scripts/ci-lint.sh"
+PAYLOAD_LINT_ROOT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd"
 
 STATUS=0
 export PYTHONDONTWRITEBYTECODE=1
@@ -93,6 +93,119 @@ run_payload_audit() {
   fi
 }
 
+run_shellcheck() {
+  local root="$1"
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    warn "shellcheck not found; skipping shell script lint"
+    return
+  fi
+  local SH_FILES=()
+  while IFS= read -r -d '' file; do
+    SH_FILES+=("$file")
+  done < <(find "$root" -type f \( -name "*.sh" -o -name "*.bash" \) -print0)
+
+  local FILTERED=()
+  for file in "${SH_FILES[@]}"; do
+    if head -n1 "$file" | grep -qE '^#!/usr/bin/env python3'; then
+      continue
+    fi
+    FILTERED+=("$file")
+  done
+
+  if ((${#FILTERED[@]} == 0)); then
+    log "no shell scripts detected for shellcheck (root: ${root})"
+    return
+  fi
+
+  log "running shellcheck on ${#FILTERED[@]} files (root: ${root})"
+  if ! shellcheck -x -P "$root" "${FILTERED[@]}"; then
+    err "shellcheck reported issues"
+    STATUS=1
+  fi
+}
+
+run_markdownlint() {
+  local root="$1"
+  if ! command -v markdownlint >/dev/null 2>&1; then
+    warn "markdownlint not found; skipping markdown lint"
+    return
+  fi
+  local MD_FILES=()
+  while IFS= read -r -d '' file; do
+    MD_FILES+=("$file")
+  done < <(find "$root" -type f -name "*.md" ! -path "*/node_modules/*" -print0)
+  if ((${#MD_FILES[@]} == 0)); then
+    log "no markdown files detected (root: ${root})"
+    return
+  fi
+  log "running markdownlint on ${#MD_FILES[@]} files (root: ${root})"
+  local md_config="${root}/.markdownlint.yaml"
+  if [[ -f "$md_config" ]]; then
+    if ! markdownlint --config "$md_config" "${MD_FILES[@]}"; then
+      err "markdownlint reported issues"
+      STATUS=1
+    fi
+    return
+  fi
+  if ! markdownlint "${MD_FILES[@]}"; then
+    err "markdownlint reported issues"
+    STATUS=1
+  fi
+}
+
+run_yamllint() {
+  local root="$1"
+  if ! command -v yamllint >/dev/null 2>&1; then
+    warn "yamllint not found; skipping yaml lint"
+    return
+  fi
+  local YML_FILES=()
+  while IFS= read -r -d '' file; do
+    YML_FILES+=("$file")
+  done < <(find "$root" -type f \( -name "*.yml" -o -name "*.yaml" \) -print0)
+  if ((${#YML_FILES[@]} == 0)); then
+    log "no yaml files detected (root: ${root})"
+    return
+  fi
+  log "running yamllint on ${#YML_FILES[@]} files (root: ${root})"
+  if ! yamllint "${YML_FILES[@]}"; then
+    err "yamllint reported issues"
+    STATUS=1
+  fi
+}
+
+run_answer_pattern_check() {
+  local root="$1"
+  if ! command -v rg >/dev/null 2>&1; then
+    warn "ripgrep not found; skipping Answer-pattern check"
+    return
+  fi
+  local answer_literal="Answer "
+  answer_literal+="1"
+  if rg -n --no-ignore --hidden --fixed-strings "$answer_literal" "$root" >/dev/null 2>&1; then
+    err "found forbidden literal '${answer_literal}' (legacy manual Q&A instruction)"
+    STATUS=1
+    return
+  fi
+  if rg -n --no-ignore --hidden "Answer [0-9]" "$root" >/dev/null 2>&1; then
+    err "found forbidden pattern 'Answer [0-9]' (legacy manual Q&A instruction)"
+    STATUS=1
+    return
+  fi
+  log "no forbidden Answer-pattern strings detected (root: ${root})"
+}
+
+run_payload_linters() {
+  if [[ ! -d "${PAYLOAD_LINT_ROOT}" ]]; then
+    warn "payload lint root not found: ${PAYLOAD_LINT_ROOT}; skipping payload linters"
+    return
+  fi
+  run_shellcheck "${PAYLOAD_LINT_ROOT}"
+  run_markdownlint "${PAYLOAD_LINT_ROOT}"
+  run_yamllint "${PAYLOAD_LINT_ROOT}"
+  run_answer_pattern_check "${PAYLOAD_LINT_ROOT}"
+}
+
 run_python_tests() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping tests"
@@ -115,18 +228,7 @@ run_prompt_lint
 run_prompt_version_check
 run_payload_sync_check
 run_payload_audit
-
-if [[ ! -x "${PAYLOAD_SCRIPT}" ]]; then
-  err "payload ci-lint script not found: ${PAYLOAD_SCRIPT}"
-  exit 1
-fi
-
-log "running payload ci-lint"
-export CLAUDE_PROJECT_DIR="${ROOT_DIR}"
-if ! "${PAYLOAD_SCRIPT}" "$@"; then
-  err "payload ci-lint failed"
-  STATUS=1
-fi
+run_payload_linters
 
 run_python_tests
 

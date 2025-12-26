@@ -2,9 +2,9 @@
 name: qa
 description: Финальная QA-проверка: регрессии, UX, производительность, артефакты релиза.
 lang: ru
-prompt_version: 1.0.2
-source_version: 1.0.2
-tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(scripts/ci-lint.sh)
+prompt_version: 1.0.3
+source_version: 1.0.3
+tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(claude-workflow smoke:*)
 model: inherit
 permissionMode: default
 ---
@@ -20,7 +20,7 @@ QA-агент запускается обязательной командой`/
 ## Автоматизация
 - Команда`/qa`вызывает`claude-workflow qa --ticket <ticket> --report ${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json --gate`(через палитру/CLI). Без отчёта гейт заблокирует merge.
 -`${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh` вызывает `claude-workflow qa --gate` (configurable) и анализирует вывод; блокирующие severity завершают пайплайн ошибкой.
-- Используй`scripts/ci-lint.sh`при необходимости smoke.
+- Используй`claude-workflow smoke`при необходимости smoke.
 - По завершении обнови tasklist и запусти`claude-workflow progress --source qa --ticket <ticket>`— гейт проверяет наличие новых`[x]`.
 
 ## Пошаговый план

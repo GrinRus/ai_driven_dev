@@ -10,7 +10,6 @@
     "aidd/conventions.md",
     "aidd/init-claude-workflow.sh",
     "aidd/workflow.md",
-    "aidd/scripts/ci-lint.sh",
     "aidd/scripts/migrate-tasklist.py",
     "aidd/scripts/prd-review-agent.py",
     "aidd/scripts/prd_review_gate.py",

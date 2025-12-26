@@ -36,7 +36,7 @@
 - [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
 - [ ] Обновить демо (`examples/gradle-demo/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
-- [ ] Выполнить `scripts/ci-lint.sh` локально.
+- [ ] Выполнить локальный прогон CI lint (см. `.github/workflows/ci.yml`).
 - [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --root <workflow-root> --kind agent --name <name>` точечно.
 - [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
 - [ ] Проверить состав payload: `python3 tools/payload_audit.py`.
@@ -82,7 +82,7 @@
 - Приведены к единому виду `@aidd/docs/.../<ticket>...` placeholder-и в RU промптах, EN `/implement` использует `${CLAUDE_PLUGIN_ROOT:-./aidd}` в инструкциях, тесты линтера покрывают `Статус:`.
 - EN `/qa` теперь ссылается на `${CLAUDE_PLUGIN_ROOT:-./aidd}` в дефолтном пути тестов, а implementer получает доступ к хукe `format-and-test.sh` в инструментах.
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
-- `scripts/ci-lint.sh` запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
+- CI lint запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 - Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 - Внутренний backlog (`doc/backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
 
@@ -90,4 +90,4 @@
 - Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `aidd/docs/.active_ticket` (если отсутствует) и дополнить `aidd/docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
 - Обновите payload/шаблоны: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, затем скопируйте свежие `aidd/agents|commands` и `aidd/prompts/en/**`.
 - Для активных тикетов перезапустите `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
-- Запустите `scripts/ci-lint.sh` и smoke-тесты, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.
+- Запустите smoke-тесты (`claude-workflow smoke`) и общий прогон CI lint, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.

@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 allowed-tools:
   - Read
   - Edit
@@ -12,7 +12,7 @@ allowed-tools:
   - Glob
   - "Bash(claude-workflow qa:*)"
   - "Bash(claude-workflow progress:*)"
-  - "Bash(scripts/ci-lint.sh:*)"
+  - "Bash(claude-workflow smoke:*)"
 model: inherit
 disable-model-invocation: false
 ---

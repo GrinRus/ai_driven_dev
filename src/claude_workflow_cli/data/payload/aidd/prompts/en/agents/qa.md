@@ -2,9 +2,9 @@
 name: qa
 description: Final QA gate: regressions, UX, performance, release artifacts.
 lang: en
-prompt_version: 1.0.2
-source_version: 1.0.2
-tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh:*), Bash(scripts/ci-lint.sh), Bash(claude-workflow progress:*)
+prompt_version: 1.0.3
+source_version: 1.0.3
+tools: Read, Grep, Glob, Bash(claude-workflow qa:*), Bash(${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh:*), Bash(claude-workflow smoke:*), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default
 ---
@@ -22,7 +22,7 @@ QA agent is triggered by mandatory`/qa`after`/review`and before release. It comp
 -`gate-qa.sh`calls`claude-workflow qa --gate`(configurable); blocker/critical findings set exit code 1.
 - QA stage auto-runs tests (see`config/gates.json: qa.tests`); logs go to`reports/qa/<ticket>-tests*.log`, summary to report (`tests_summary`,`tests_executed`). Without`CLAUDE_QA_ALLOW_NO_TESTS=1`, missing tests block the gate.
 - Update`aidd/docs/tasklist/<ticket>.md`with QA results, derive handoff tasks, and run`claude-workflow progress --source qa --ticket <ticket>`.
-- Use`scripts/ci-lint.sh`or other runners for smoke tests when needed.
+- Use`claude-workflow smoke`or other runners for smoke tests when needed.
 
 ## Step-by-step Plan
 1. Map diff to tasklist criteria; confirm QA checklist items are present.

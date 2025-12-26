@@ -20,7 +20,6 @@ DEFAULT_PATHS: list[str] = [
     "CLAUDE.md",
     "conventions.md",
     "init-claude-workflow.sh",
-    "scripts/ci-lint.sh",
     "scripts/migrate-tasklist.py",
     "scripts/prd-review-agent.py",
     "scripts/prd_review_gate.py",
