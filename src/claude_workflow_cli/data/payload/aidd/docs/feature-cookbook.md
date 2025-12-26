@@ -19,6 +19,8 @@
 - Во время реализации держите `reports/research/<ticket>-context.json` в актуальном состоянии (`claude-workflow research --ticket <ticket> --auto --deep-code` без `--dry-run`). Это обеспечит прохождение `gate-workflow` и напомнит команде о согласованных точках интеграции.
 
 ## Миграция на agent-first
+> Repo-only: `scripts/sync-payload.sh` и `tools/check_payload_sync.py` доступны только в корне репозитория.
+
 1. Выполните `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, чтобы новые шаблоны PRD/tasklist/research и команда `/idea-new` попали в рабочее дерево и в payload CLI.
-2. Скопируйте обновлённые `${CLAUDE_PROJECT_DIR}/.claude/agents|commands` и `prompts/en/**`, затем прогоните `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>` для каждой активной фичи — это подтянет baseline, отчёты и PRD к новым секциям «Commands/Reports».
+2. Скопируйте обновлённые `aidd/agents|commands` и `aidd/prompts/en/**`, затем прогоните `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>` для каждой активной фичи — это подтянет baseline, отчёты и PRD к новым секциям «Commands/Reports».
 3. Tasklist должен содержать поля `Reports/Commands`, а в ответах агентов перечисляются запущенные CLI. Smoke-тест `scripts/smoke-workflow.sh` и `scripts/ci-lint.sh` помогут убедиться, что миграция завершена.

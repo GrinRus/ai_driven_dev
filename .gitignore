@@ -12,6 +12,8 @@ dist/
 .idea/
 .vscode/
 .claude/
+/.claude-plugin/
+/aidd/
 claude-presets/
 config/
 docs/

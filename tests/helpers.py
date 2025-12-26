@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROJECT_SUBDIR = "aidd"
 PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
-HOOKS_DIR = PAYLOAD_ROOT / ".claude" / "hooks"
+HOOKS_DIR = PAYLOAD_ROOT / "hooks"
 SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / ".claude" / "settings.json"
 os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
 os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
@@ -109,15 +109,16 @@ def run_hook(
 ) -> subprocess.CompletedProcess[str]:
     """Execute the given hook inside tmp_path and capture output."""
     project_root = _project_root(tmp_path)
+    workspace_root = project_root.parent if project_root.name == PROJECT_SUBDIR else project_root
     project_root.mkdir(parents=True, exist_ok=True)
     (project_root / "docs").mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env["CLAUDE_PROJECT_DIR"] = str(project_root)
+    env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
     env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
     if extra_env:
         env.update(extra_env)
     src_path = REPO_ROOT / "src"
-    vendor_path = PAYLOAD_ROOT / ".claude" / "hooks" / "_vendor"
+    vendor_path = PAYLOAD_ROOT / "hooks" / "_vendor"
     existing = env.get("PYTHONPATH")
     path_value = str(src_path)
     if vendor_path.exists():
@@ -139,7 +140,7 @@ def run_hook(
             if not dest.exists():
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(file, dest)
-    settings_dst = project_root / ".claude" / "settings.json"
+    settings_dst = workspace_root / ".claude" / "settings.json"
     if SETTINGS_SRC.exists() and not settings_dst.exists():
         settings_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SETTINGS_SRC, settings_dst)
@@ -181,7 +182,9 @@ def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[st
 def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
     """Ensure workspace has the expected project subdirectory with .claude stub."""
     project_root = root / PROJECT_SUBDIR
-    (project_root / ".claude").mkdir(parents=True, exist_ok=True)
+    workspace_root = root if root.name != PROJECT_SUBDIR else root.parent
+    (workspace_root / ".claude").mkdir(parents=True, exist_ok=True)
+    project_root.mkdir(parents=True, exist_ok=True)
     return project_root
 
 

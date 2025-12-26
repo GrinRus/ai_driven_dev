@@ -90,53 +90,6 @@ run_yamllint() {
   fi
 }
 
-run_prompt_lint() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping prompt lint"
-    return
-  fi
-  if [[ ! -f "scripts/lint-prompts.py" ]]; then
-    warn "scripts/lint-prompts.py missing; skipping prompt lint"
-    return
-  fi
-  log "running prompt lint"
-  if ! python3 scripts/lint-prompts.py; then
-    err "prompt lint failed"
-    STATUS=1
-  fi
-}
-
-run_prompt_version_check() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping prompt-version dry-run"
-    return
-  fi
-  if [[ ! -x "scripts/prompt-version" ]]; then
-    warn "scripts/prompt-version missing; skipping"
-    return
-  fi
-  log "running prompt-version dry-run"
-  if ! python3 scripts/prompt-version bump --prompts analyst --kind agent --lang ru,en --part patch --dry-run >/dev/null; then
-    err "prompt-version dry-run failed"
-    STATUS=1
-  fi
-}
-
-run_payload_sync_check() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping payload sync check"
-    return
-  fi
-  if [[ ! -f "tools/check_payload_sync.py" ]]; then
-    warn "tools/check_payload_sync.py missing; skipping payload sync check"
-    return
-  fi
-  log "validating payload vs repository snapshots"
-  if ! python3 tools/check_payload_sync.py; then
-    err "payload sync check failed"
-    STATUS=1
-  fi
-}
 
 run_answer_pattern_check() {
   if ! command -v rg >/dev/null 2>&1; then
@@ -177,9 +130,6 @@ run_python_tests() {
 run_shellcheck
 run_markdownlint
 run_yamllint
-run_prompt_lint
-run_prompt_version_check
-run_payload_sync_check
 run_answer_pattern_check
 run_python_tests
 

@@ -7,7 +7,7 @@ from typing import Optional
 
 from .helpers import PAYLOAD_ROOT, REPO_ROOT, cli_cmd, git_init, write_active_feature, write_file
 
-HOOK = PAYLOAD_ROOT / ".claude/hooks/format-and-test.sh"
+HOOK = PAYLOAD_ROOT / "hooks" / "format-and-test.sh"
 
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:
@@ -170,7 +170,9 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     }
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
-    write_file(project, ".claude/settings.json", json.dumps(settings, indent=2))
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     write_active_feature(project, "demo")
     env = os.environ.copy()
     python_path = str(REPO_ROOT / "src")

@@ -22,39 +22,41 @@ def test_payload_includes_dotfiles(tmp_path):
     wheels = sorted(dist_dir.glob("claude_workflow_cli-*.whl"))
     assert wheels, "wheel build should produce at least one wheel"
     wheel = wheels[-1]
-    prefix = "claude_workflow_cli/data/payload/aidd"
+    payload_prefix = "claude_workflow_cli/data/payload"
+    plugin_prefix = f"{payload_prefix}/aidd"
     with zipfile.ZipFile(wheel) as z:
         names = set(z.namelist())
         for expected in [
-            f"{prefix}/CLAUDE.md",
-            f"{prefix}/conventions.md",
-            f"{prefix}/workflow.md",
-            f"{prefix}/config/conventions.json",
-            f"{prefix}/config/gates.json",
-            f"{prefix}/config/allowed-deps.txt",
-            f"{prefix}/config/context_gc.json",
-            f"{prefix}/.claude/settings.json",
-            f"{prefix}/.claude/hooks/lib.sh",
-            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/__init__.py",
-            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/feature_ids.py",
-            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/progress.py",
-            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
-            f"{prefix}/.claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-            f"{prefix}/scripts/context_gc/hooklib.py",
-            f"{prefix}/scripts/context_gc/precompact_snapshot.py",
-            f"{prefix}/scripts/context_gc/pretooluse_guard.py",
-            f"{prefix}/scripts/context_gc/sessionstart_inject.py",
-            f"{prefix}/scripts/context_gc/userprompt_guard.py",
-            f"{prefix}/scripts/context_gc/working_set_builder.py",
-            f"{prefix}/.claude/cache/.gitkeep",
-            f"{prefix}/docs/plan/.gitkeep",
-            f"{prefix}/docs/adr/.gitkeep",
-            f"{prefix}/docs/prd/.gitkeep",
-            "claude_workflow_cli/data/payload/manifest.json",
+            f"{payload_prefix}/.claude/settings.json",
+            f"{payload_prefix}/.claude/cache/.gitkeep",
+            f"{payload_prefix}/.claude-plugin/marketplace.json",
+            f"{plugin_prefix}/CLAUDE.md",
+            f"{plugin_prefix}/conventions.md",
+            f"{plugin_prefix}/workflow.md",
+            f"{plugin_prefix}/config/conventions.json",
+            f"{plugin_prefix}/config/gates.json",
+            f"{plugin_prefix}/config/allowed-deps.txt",
+            f"{plugin_prefix}/config/context_gc.json",
+            f"{plugin_prefix}/hooks/lib.sh",
+            f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/__init__.py",
+            f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/feature_ids.py",
+            f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/progress.py",
+            f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
+            f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+            f"{plugin_prefix}/scripts/context_gc/hooklib.py",
+            f"{plugin_prefix}/scripts/context_gc/precompact_snapshot.py",
+            f"{plugin_prefix}/scripts/context_gc/pretooluse_guard.py",
+            f"{plugin_prefix}/scripts/context_gc/sessionstart_inject.py",
+            f"{plugin_prefix}/scripts/context_gc/userprompt_guard.py",
+            f"{plugin_prefix}/scripts/context_gc/working_set_builder.py",
+            f"{plugin_prefix}/docs/plan/.gitkeep",
+            f"{plugin_prefix}/docs/adr/.gitkeep",
+            f"{plugin_prefix}/docs/prd/.gitkeep",
+            f"{payload_prefix}/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"
         for dev_only in [
-            "claude_workflow_cli/data/payload/doc/backlog.md",
+            "claude_workflow_cli/data/payload/doc/dev/backlog.md",
         ]:
             assert dev_only not in names, f"dev-only file should not be packaged: {dev_only}"
 

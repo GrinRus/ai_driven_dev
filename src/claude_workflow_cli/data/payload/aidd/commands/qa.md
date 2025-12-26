@@ -31,7 +31,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - Обязательный вызов:`!bash -lc 'claude-workflow qa --ticket "<ticket>" --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate --emit-json'`.
-- Гейт`${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/gate-qa.sh` использует`config/gates.json: qa.command`(по умолчанию`claude-workflow qa --gate`), блокирует merge при`blocker/critical`и отсутствии отчёта`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
+- Гейт`${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh` использует`config/gates.json: qa.command`(по умолчанию`claude-workflow qa --gate`), блокирует merge при`blocker/critical`и отсутствии отчёта`${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
 - Зафиксируй прогресс:`!bash -lc 'claude-workflow progress --source qa --ticket "<ticket>"'`.
 
 ## Что редактируется

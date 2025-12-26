@@ -26,10 +26,10 @@
             "Grep",
             "Glob",
             "Find",
-            "Bash(git add:*)",
             "Bash(find:*)"
           ],
           "ask": [
+            "Bash(git add:*)",
             "Bash(git commit:*)"
           ],
           "deny": [
@@ -55,10 +55,9 @@
             "Bash(git diff:*)",
             "Bash(git rev-parse:*)",
             "Bash(git checkout:*)",
-            "Bash(git add:*)",
             "Bash(./gradlew:*)",
             "Bash(gradle:*)",
-            "Bash(.claude/hooks/:*)",
+            "Bash(aidd/hooks/:*)",
             "Bash(find:*)",
             "Bash(python3:*)",
             "Bash(python3 scripts/:*)",
@@ -74,6 +73,7 @@
             "SlashCommand(/feature-dev-aidd:qa:*)"
           ],
           "ask": [
+            "Bash(git add:*)",
             "Bash(git commit:*)",
             "Bash(git push:*)"
           ],
@@ -99,10 +99,9 @@
       "Bash(git diff:*)",
       "Bash(git rev-parse:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)",
       "Bash(./gradlew:*)",
       "Bash(gradle:*)",
-      "Bash(.claude/hooks/:*)",
+      "Bash(aidd/hooks/:*)",
       "Bash(find:*)",
       "Bash(python3:*)",
       "Bash(python3 scripts/:*)",
@@ -118,6 +117,7 @@
       "SlashCommand(/feature-dev-aidd:qa:*)"
     ],
     "ask": [
+      "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)"
     ],

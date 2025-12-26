@@ -31,7 +31,7 @@ def test_compare_paths_ok(tmp_path: Path) -> None:
     _prepare_tree(repo, "docs", {"readme.md": "hello"})
     _prepare_tree(payload, "docs", {"readme.md": "hello"})
 
-    mismatches = compare_paths(repo, payload, ["docs"], payload_prefix="")
+    mismatches = compare_paths(repo, payload, repo, ["docs"], payload_prefix="")
 
     assert mismatches == []
 
@@ -42,7 +42,7 @@ def test_compare_paths_detects_hash_difference(tmp_path: Path) -> None:
     _prepare_tree(repo, "docs", {"readme.md": "hello"})
     _prepare_tree(payload, "docs", {"readme.md": "bye"})
 
-    mismatches = compare_paths(repo, payload, ["docs"], payload_prefix="")
+    mismatches = compare_paths(repo, payload, repo, ["docs"], payload_prefix="")
 
     assert "docs/readme.md: hash mismatch" in mismatches
 
@@ -53,7 +53,7 @@ def test_compare_paths_detects_missing_side(tmp_path: Path) -> None:
     _prepare_tree(repo, "docs", {"readme.md": "hello"})
     _prepare_tree(payload, "docs", {"readme.md": "hello", "extra.md": "??"})
 
-    mismatches = compare_paths(repo, payload, ["docs"], payload_prefix="")
+    mismatches = compare_paths(repo, payload, repo, ["docs"], payload_prefix="")
 
     assert "docs/extra.md: exists only in payload snapshot" in mismatches
 
@@ -68,8 +68,9 @@ def test_repo_and_payload_default_paths_in_sync() -> None:
     if snapshot_root == REPO_ROOT and DEFAULT_PAYLOAD_PREFIX:
         return
     mismatches = compare_paths(
-        snapshot_root,
+        REPO_ROOT,
         PAYLOAD_ROOT,
+        snapshot_root,
         DEFAULT_PATHS,
         payload_prefix=DEFAULT_PAYLOAD_PREFIX,
     )

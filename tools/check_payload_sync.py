@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that repository root snapshots mirror the packaged payload."""
+"""Validate that repository snapshots mirror the packaged payload."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Sequence
 
 DEFAULT_PATHS: list[str] = [
     ".claude",
+    ".claude-plugin",
     "claude-presets",
     "config",
     "docs",
@@ -28,6 +29,8 @@ DEFAULT_PATHS: list[str] = [
 ]
 
 DEFAULT_PAYLOAD_PREFIX = "aidd"
+WORKSPACE_ROOT_DIRS = {".claude", ".claude-plugin"}
+DEV_ONLY_PATHS = ["doc/dev", "doc/dev/backlog.md"]
 
 
 def hash_file(path: Path) -> str:
@@ -67,6 +70,11 @@ def collect_entries(base: Path, relative: str, *, prefix: str = "") -> Dict[str,
     return entries
 
 
+def is_workspace_path(relative: str) -> bool:
+    parts = Path(relative).parts
+    return bool(parts) and parts[0] in WORKSPACE_ROOT_DIRS
+
+
 def _guess_repo_root(marker: str = "pyproject.toml") -> Path:
     path = Path(__file__).resolve()
     for parent in path.parents:
@@ -92,6 +100,7 @@ def has_any_snapshot_paths(root: Path, paths: Sequence[str]) -> bool:
 def compare_paths(
     repo_root: Path,
     payload_root: Path,
+    snapshot_root: Path,
     paths: Sequence[str],
     *,
     payload_prefix: str = DEFAULT_PAYLOAD_PREFIX,
@@ -101,8 +110,12 @@ def compare_paths(
         relative = relative.strip()
         if not relative:
             continue
-        repo_entries = collect_entries(repo_root, relative)
-        payload_entries = collect_entries(payload_root, relative, prefix=payload_prefix)
+        if is_workspace_path(relative):
+            repo_entries = collect_entries(repo_root, relative)
+            payload_entries = collect_entries(payload_root, relative)
+        else:
+            repo_entries = collect_entries(snapshot_root, relative)
+            payload_entries = collect_entries(payload_root, relative, prefix=payload_prefix)
         if repo_entries is None and payload_entries is None:
             mismatches.append(f"{relative}: missing in repo and payload snapshots")
             continue
@@ -123,6 +136,15 @@ def compare_paths(
             elif repo_hash != payload_hash:
                 mismatches.append(f"{key}: hash mismatch")
     return mismatches
+
+
+def find_dev_only_in_payload(payload_root: Path, dev_only: Sequence[str]) -> List[str]:
+    hits: List[str] = []
+    for relative in dev_only:
+        candidate = payload_root / relative
+        if candidate.exists():
+            hits.append(f"{relative}: dev-only path present in payload")
+    return hits
 
 
 def parse_paths(raw: Iterable[str] | None) -> List[str]:
@@ -184,11 +206,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     mismatches = compare_paths(
-        snapshot_root,
+        repo_root,
         payload_root,
+        snapshot_root,
         paths,
         payload_prefix=payload_prefix,
     )
+    dev_only_hits = find_dev_only_in_payload(payload_root, DEV_ONLY_PATHS)
+    mismatches.extend(dev_only_hits)
     if mismatches:
         print("[payload-sync] detected mismatches:")
         for item in mismatches:

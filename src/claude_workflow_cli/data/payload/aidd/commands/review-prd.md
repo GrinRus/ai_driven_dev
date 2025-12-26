@@ -2,8 +2,8 @@
 description: "Ревью PRD и фиксация статуса готовности"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.2
-source_version: 1.0.2
+prompt_version: 1.0.3
+source_version: 1.0.3
 allowed-tools:
   - Read
   - Edit
@@ -22,7 +22,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — основной документ.
 - `@aidd/docs/plan/<ticket>.md` (если есть) и ADR.
-- `@aidd/docs/research/<ticket>.md`, @doc/backlog.md — контекст.
+- `@aidd/docs/research/<ticket>.md` — контекст.
 
 ## Когда запускать
 - После`/idea-new`и обновления PRD, перед`/plan-new`.

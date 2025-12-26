@@ -11,10 +11,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEMO_SOURCE="$SCRIPT_DIR/gradle-demo"
-INIT_SCRIPT="$REPO_ROOT/init-claude-workflow.sh"
+INIT_SCRIPT="$REPO_ROOT/src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh"
 
 if [[ ! -f "$INIT_SCRIPT" ]]; then
-  echo "[ERROR] init-claude-workflow.sh not found in repository root" >&2
+  echo "[ERROR] init-claude-workflow.sh not found in payload: $INIT_SCRIPT" >&2
   exit 1
 fi
 
@@ -41,7 +41,6 @@ copy_demo() {
     rm -rf "${TARGET_DIR:?}"/*
     cp -R "$DEMO_SOURCE/." "$TARGET_DIR/"
   fi
-  cp "$INIT_SCRIPT" "$TARGET_DIR/"
 }
 
 print_tree() {
@@ -60,9 +59,13 @@ print_tree "Structure before init"
 
 pushd "$TARGET_DIR" >/dev/null
 
+mkdir -p "$TARGET_DIR/aidd"
+
 echo
 echo ">>> Running init-claude-workflow.sh --enable-ci --force"
-bash ./init-claude-workflow.sh --enable-ci --force
+pushd "$TARGET_DIR/aidd" >/dev/null
+bash "$INIT_SCRIPT" --enable-ci --force
+popd >/dev/null
 
 print_tree "Structure after init"
 

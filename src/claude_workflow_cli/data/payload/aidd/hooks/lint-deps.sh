@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.claude/hooks/lib.sh
+# shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
 [[ "$(hook_config_get_bool config/gates.json deps_allowlist)" == "1" ]] || exit 0
