@@ -2,6 +2,51 @@
   "feature_ticket_source": "docs/.active_ticket",
   "feature_slug_hint_source": "docs/.active_feature",
   "tests_required": "soft",
+  "tests_gate": {
+    "source_roots": [
+      "src/main",
+      "src",
+      "app",
+      "apps",
+      "packages",
+      "services",
+      "service",
+      "lib",
+      "libs",
+      "backend",
+      "frontend"
+    ],
+    "source_extensions": [
+      ".kt",
+      ".java",
+      ".kts",
+      ".groovy",
+      ".py",
+      ".js",
+      ".jsx",
+      ".ts",
+      ".tsx",
+      ".go",
+      ".rb",
+      ".rs",
+      ".cs",
+      ".php"
+    ],
+    "test_patterns": [
+      "src/test/{rel_dir}/{base}Test{ext}",
+      "src/test/{rel_dir}/{base}Tests{ext}",
+      "tests/{rel_dir}/test_{base}{ext}",
+      "tests/{rel_dir}/{base}_test{ext}",
+      "tests/{rel_dir}/{base}.test{ext}",
+      "tests/{rel_dir}/{base}.spec{ext}",
+      "test/{rel_dir}/test_{base}{ext}",
+      "test/{rel_dir}/{base}_test{ext}",
+      "spec/{rel_dir}/{base}_spec{ext}",
+      "spec/{rel_dir}/{base}Spec{ext}",
+      "__tests__/{rel_dir}/{base}.test{ext}",
+      "__tests__/{rel_dir}/{base}.spec{ext}"
+    ]
+  },
   "deps_allowlist": false,
   "prd_review": {
     "enabled": true,
@@ -80,6 +125,7 @@
       "qa",
       "--gate"
     ],
+    "debounce_minutes": 10,
     "timeout": 600,
     "report": "reports/qa/{ticket}.json",
     "block_on": [

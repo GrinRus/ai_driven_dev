@@ -3,7 +3,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && -d "$ROOT_DIR/aidd/hooks" ]]; then
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
   echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
@@ -25,20 +25,60 @@ fi
 
 cd "$ROOT_DIR"
 
+collect_changed_files() {
+  local files=()
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    while IFS= read -r path; do
+      [[ -n "$path" ]] && files+=("$path")
+    done < <(git diff --name-only HEAD)
+  fi
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && files+=("$path")
+  done < <(git ls-files --others --exclude-standard)
+  if ((${#files[@]} == 0)); then
+    return 0
+  fi
+  printf '%s\n' "${files[@]}" | awk '!seen[$0]++'
+}
+
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
 current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
-if [[ "$file_path" =~ (^|/)(agents|commands)/ ]] || [[ "$file_path" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
-  # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
-  ru_path="$file_path"
-  if [[ "$ru_path" =~ ^prompts/en/agents/ ]]; then
-    ru_path="agents/${ru_path#prompts/en/agents/}"
-  elif [[ "$ru_path" =~ ^prompts/en/commands/ ]]; then
-    ru_path="commands/${ru_path#prompts/en/commands/}"
-  fi
-  en_path="prompts/en/${ru_path}"
-  skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
+changed_files=()
+if [[ -n "$file_path" ]]; then
+  changed_files+=("$file_path")
+fi
+while IFS= read -r path; do
+  [[ -n "$path" ]] && changed_files+=("$path")
+done < <(collect_changed_files || true)
+
+if ((${#changed_files[@]} > 0)); then
+  deduped=()
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && deduped+=("$path")
+  done < <(printf '%s\n' "${changed_files[@]}" | awk '!seen[$0]++')
+  changed_files=("${deduped[@]}")
+fi
+
+if ((${#changed_files[@]} > 0)); then
+  prompt_candidates=()
+  for candidate in "${changed_files[@]}"; do
+    if [[ "$candidate" =~ (^|/)(agents|commands)/ ]] || [[ "$candidate" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
+      prompt_candidates+=("$candidate")
+    fi
+  done
+  if ((${#prompt_candidates[@]} > 0)); then
+    for prompt_path in "${prompt_candidates[@]}"; do
+      # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
+      ru_path="$prompt_path"
+      if [[ "$ru_path" =~ ^prompts/en/agents/ ]]; then
+        ru_path="agents/${ru_path#prompts/en/agents/}"
+      elif [[ "$ru_path" =~ ^prompts/en/commands/ ]]; then
+        ru_path="commands/${ru_path#prompts/en/commands/}"
+      fi
+      en_path="prompts/en/${ru_path}"
+      skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
 from pathlib import Path
 import sys
 
@@ -66,14 +106,14 @@ if has_skip(ru) or has_skip(en):
     print("skip")
 PY
 )"
-  if [[ "$skip_lang_parity" == "skip" ]]; then
-    exit 0
-  fi
-  if [[ ! -f "$ru_path" || ! -f "$en_path" ]]; then
-    echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
-    exit 2
-  fi
-  if ! python3 - "$ru_path" "$en_path" <<'PY'
+      if [[ "$skip_lang_parity" == "skip" ]]; then
+        continue
+      fi
+      if [[ ! -f "$ru_path" || ! -f "$en_path" ]]; then
+        echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
+        exit 2
+      fi
+      if ! python3 - "$ru_path" "$en_path" <<'PY'
 import sys
 from pathlib import Path
 
@@ -95,10 +135,48 @@ if ru_v and en_v and ru_v != en_v:
     print("BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер.")
     raise SystemExit(2)
 PY
-  then
-    exit 2
+      then
+        exit 2
+      fi
+    done
   fi
-  exit 0
+fi
+
+if [[ -z "$file_path" && ${#changed_files[@]} -gt 0 ]]; then
+  for candidate in "${changed_files[@]}"; do
+    if [[ "$candidate" =~ (^|/)src/ ]]; then
+      file_path="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$file_path" ]]; then
+    file_path="${changed_files[0]}"
+  fi
+fi
+
+has_src_changes=0
+for candidate in "${changed_files[@]}"; do
+  if [[ "$candidate" =~ (^|/)src/ ]]; then
+    has_src_changes=1
+    break
+  fi
+done
+
+if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
+  active_stage="$(hook_resolve_stage || true)"
+  if [[ -n "$active_stage" ]]; then
+    case "$active_stage" in
+      implement|review|qa)
+        : ;;
+      *)
+        if [[ "$has_src_changes" -eq 1 ]]; then
+          echo "BLOCK: активная стадия '$active_stage' не разрешает правки кода. Переключитесь на /implement (или установите стадию вручную)." >&2
+          exit 2
+        fi
+        exit 0
+        ;;
+    esac
+  fi
 fi
 
 ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
@@ -120,7 +198,7 @@ slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 [[ -n "$ticket" ]] || exit 0
 
 # Если правится не код, пропускаем
-if [[ ! "$file_path" =~ (^|/)src/ ]]; then
+if [[ "$has_src_changes" -ne 1 ]]; then
   exit 0
 fi
 

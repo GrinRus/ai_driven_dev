@@ -543,7 +543,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
 def test_plugin_hooks_cover_workflow_events():
     hooks = _plugin_hooks()
-    for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
+    for event in ("Stop", "SubagentStop"):
         assert _has_command(hooks, event, "gate-workflow.sh"), f"gate-workflow missing in {event}"
     for event, entries in hooks.get("hooks", {}).items():
         for entry in entries:

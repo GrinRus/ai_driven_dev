@@ -377,12 +377,53 @@ def determine_project_dir() -> Path:
     return settings_parent.resolve()
 
 
+def resolve_project_root(raw: Path) -> Path:
+    cwd = raw.resolve()
+    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
+    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    candidates: list[Path] = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser().resolve())
+    if cwd.name == "aidd":
+        candidates.append(cwd)
+    candidates.append(cwd / "aidd")
+    candidates.append(cwd)
+    if project_dir:
+        candidates.append(Path(project_dir).expanduser().resolve())
+    for candidate in candidates:
+        if (candidate / "docs").is_dir():
+            return candidate
+    return cwd
+
+def read_active_stage(project_root: Path) -> str:
+    override = os.environ.get("CLAUDE_ACTIVE_STAGE")
+    if override:
+        return override.strip().lower()
+    stage_path = project_root / "docs" / ".active_stage"
+    if not stage_path.exists():
+        return ""
+    try:
+        return stage_path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
+
+
 def main() -> int:
     os.chdir(determine_project_dir())
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
+
+    if not env_flag("CLAUDE_SKIP_STAGE_CHECKS"):
+        project_root = resolve_project_root(Path.cwd())
+        stage = read_active_stage(project_root)
+        if stage and stage != "implement":
+            log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
+            return 0
+        if not stage:
+            log("Активная стадия не задана — форматирование/тесты пропущены.")
+            return 0
 
     config = load_config()
     if config is None:

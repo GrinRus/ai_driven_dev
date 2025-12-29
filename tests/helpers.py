@@ -18,6 +18,51 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
     "feature_slug_hint_source": "docs/.active_feature",
     "tests_required": "soft",
+    "tests_gate": {
+        "source_roots": [
+            "src/main",
+            "src",
+            "app",
+            "apps",
+            "packages",
+            "services",
+            "service",
+            "lib",
+            "libs",
+            "backend",
+            "frontend",
+        ],
+        "source_extensions": [
+            ".kt",
+            ".java",
+            ".kts",
+            ".groovy",
+            ".py",
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".go",
+            ".rb",
+            ".rs",
+            ".cs",
+            ".php",
+        ],
+        "test_patterns": [
+            "src/test/{rel_dir}/{base}Test{ext}",
+            "src/test/{rel_dir}/{base}Tests{ext}",
+            "tests/{rel_dir}/test_{base}{ext}",
+            "tests/{rel_dir}/{base}_test{ext}",
+            "tests/{rel_dir}/{base}.test{ext}",
+            "tests/{rel_dir}/{base}.spec{ext}",
+            "test/{rel_dir}/test_{base}{ext}",
+            "test/{rel_dir}/{base}_test{ext}",
+            "spec/{rel_dir}/{base}_spec{ext}",
+            "spec/{rel_dir}/{base}Spec{ext}",
+            "__tests__/{rel_dir}/{base}.test{ext}",
+            "__tests__/{rel_dir}/{base}.spec{ext}",
+        ],
+    },
     "deps_allowlist": False,
     "prd_review": {
         "enabled": True,
@@ -55,6 +100,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "branches": ["feature/*", "release/*", "hotfix/*"],
         "skip_branches": ["docs/*"],
         "command": ["claude-workflow", "qa", "--gate"],
+        "debounce_minutes": 10,
         "report": "reports/qa/{ticket}.json",
         "allow_missing_report": False,
         "block_on": ["blocker", "critical"],
@@ -115,6 +161,7 @@ def run_hook(
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
     env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     if extra_env:
         env.update(extra_env)
     src_path = REPO_ROOT / "src"
@@ -177,6 +224,11 @@ def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[st
     write_file(project_root, "docs/.active_ticket", ticket)
     hint = ticket if slug_hint is None else slug_hint
     write_file(project_root, "docs/.active_feature", hint)
+
+
+def write_active_stage(root: pathlib.Path, stage: str) -> None:
+    project_root = _project_root(root)
+    write_file(project_root, "docs/.active_stage", stage)
 
 
 def ensure_project_root(root: pathlib.Path) -> pathlib.Path:

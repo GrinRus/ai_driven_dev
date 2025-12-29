@@ -40,19 +40,19 @@
       "path": "aidd/agents/analyst.md",
       "type": "file",
       "size": 5242,
-      "sha256": "6d8adf9206b59442637aa30d8386f741ac0f5205fd715bf981ef17f67320419d"
+      "sha256": "81e53d8a2236564e020948739d860d04a691fe0822a95d50902e695182c14abe"
     },
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
       "size": 8119,
-      "sha256": "ffd404ebcf8068d66742ffbc9ff15a23afd49b287b453bec7ef950b569dc8833"
+      "sha256": "14b1f0a9edcfdd72c5462769a59962d8ee41a251f68c71e02d59576c127bbbbd"
     },
     {
       "path": "aidd/agents/planner.md",
       "type": "file",
       "size": 5224,
-      "sha256": "7d99e2f407ec1b14b271ecacf1558a53c0abdf83abb5b77a27b20eef0dd9a9b1"
+      "sha256": "fb7e57529df752dacad80d5eec82d5f5d8007c3f13b3928f35b0d853bfaf4729"
     },
     {
       "path": "aidd/agents/prd-reviewer.md",
@@ -70,13 +70,13 @@
       "path": "aidd/agents/researcher.md",
       "type": "file",
       "size": 8973,
-      "sha256": "ad944dc4e03db4443f0b7d7dfc872e329a077e6c0b7e31b3e1e763a254289f4a"
+      "sha256": "8c6f667f67a37e99555947562927419323b98966d999d6b32278dc89b73d91f8"
     },
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
       "size": 4072,
-      "sha256": "d0e2a2d37ed4356d0114bb630258cb46ccda66c749c7b681fc1c17cc236c7b02"
+      "sha256": "064900c85e16f9c884f80815586b701421ba3888c3a403981ec139392cb823fe"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -123,50 +123,50 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 7389,
-      "sha256": "e5b64e9d130c408a0c815077e7dbdb293e47c901ccd34039e15ebb6d9ac9fb68"
+      "size": 7875,
+      "sha256": "652dd15864cbae314acf205fd4824ae5020fcf44318be5bbfa82436f0f25174b"
     },
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 4837,
-      "sha256": "7a3e9c63471cd241346f0288b1dd83f95652e8af1f49d84012588fce4f9679b5"
+      "size": 5266,
+      "sha256": "0ffb70feb9b154187368a5ba5eb99578f7db3921fadf56a3608166d46344f1ca"
     },
     {
       "path": "aidd/commands/plan-new.md",
       "type": "file",
-      "size": 4681,
-      "sha256": "34af175ca9d24620a5523120ecbd3df55d99cf0293ebc3d8e6437c806350a554"
+      "size": 5077,
+      "sha256": "33015c601bb1d56a516d23fc63c873f6032673629f44cbfa11f589157565568c"
     },
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 4740,
-      "sha256": "3a7aa75641d36ea35414c445458fa7fef9de9962e2811ef93380470b9b546a4a"
+      "size": 5050,
+      "sha256": "2ad1b8a19d7ae548d3c8380c281a8fb67f622d2961ad5e405d7901541f60505e"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 6868,
-      "sha256": "0ae732ae185ac7b964efdc159618b1b649e66942c04009ae0644d48f72a5e83e"
+      "size": 7215,
+      "sha256": "97834804fcbfd69683fb12d2e60134c106459faff7333e3f41e714334dd44ba8"
     },
     {
       "path": "aidd/commands/review-prd.md",
       "type": "file",
-      "size": 4022,
-      "sha256": "fb7d35c72f73992c77c487ba71e8c41eb582502748f0befa982b237e059ecbc0"
+      "size": 4051,
+      "sha256": "7dafcbc2d7ef80b8b1249cdf1faa46a79e9cec2f71e5e53c38d6293f7ae30dca"
     },
     {
       "path": "aidd/commands/review.md",
       "type": "file",
-      "size": 3954,
-      "sha256": "3b1ecd37110b70e0f445003d046ddf6a9eba034c0bc62f9e8d85ebc3f28cab7c"
+      "size": 4275,
+      "sha256": "6d277c0d1a4039a04c215517cccd3be661a6b8fbc3c2c71a1fc0c72660f0c364"
     },
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 3925,
-      "sha256": "9d03093b1afeb1fc19711b5eb41bdae839c77afd51980cc6525317fcfd4fb2f5"
+      "size": 4253,
+      "sha256": "0559d4f1a500ce40425e9d1b89fcafd3ecb5c5cacb7b8be816f370b28be61f01"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -177,8 +177,8 @@
     {
       "path": "aidd/config/context_gc.json",
       "type": "file",
-      "size": 944,
-      "sha256": "8d0eebdaa246fee783471fbec0497294701bd768bbe6ea60ba79c1a64879e4cb"
+      "size": 1321,
+      "sha256": "23390f3c04ff8bc94416a42d96404c0e0863d41fc8e6872a48267c6585a09a41"
     },
     {
       "path": "aidd/config/conventions.json",
@@ -189,8 +189,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 2827,
-      "sha256": "a42e61dcf07ef0a03f58fe09e8f8be0f4ff605d37ed8a6c9bbd103fed8bb9bbe"
+      "size": 3844,
+      "sha256": "1aea781eee982662f38f0d4904cedd3bc000d93ffe6f54c45caaaed903aa11f9"
     },
     {
       "path": "aidd/conventions.md",
@@ -213,14 +213,14 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 21383,
-      "sha256": "35e49e9cf446c33248ea40202d06bfee1cd3d3fa76ec4e79c4bff18681c0d13d"
+      "size": 21918,
+      "sha256": "4b9d78a4d8aef033d40190a368cd64867391226995cff4da4a0a8f446a4ddd83"
     },
     {
       "path": "aidd/docs/customization.md",
       "type": "file",
-      "size": 16527,
-      "sha256": "4a8b5c9308b1eb9e19c0577c088b5b601c445ec6243d5af8b4b655a9854e7739"
+      "size": 17018,
+      "sha256": "c6c925f5890c1c56481c581a1edc9fba4b5d6deb88fa9d12b41db22e4c5452cf"
     },
     {
       "path": "aidd/docs/design/feature-presets.md",
@@ -261,8 +261,8 @@
     {
       "path": "aidd/docs/prompt-playbook.md",
       "type": "file",
-      "size": 15076,
-      "sha256": "2783a744e6949dba870a0d295a0be6215bbd69318b3d9b71123a7b82e13f8ce2"
+      "size": 15109,
+      "sha256": "b46cada59ced1d81c35e0bbd23ce5fab74c56402958d8cbc8a35a78a87324d27"
     },
     {
       "path": "aidd/docs/prompt-versioning.md",
@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/release-notes.md",
       "type": "file",
-      "size": 11747,
-      "sha256": "94e50f169d2718b3b6f376bc14be8d8ecf93cc655e6b3f3a4dcb57413d017238"
+      "size": 11753,
+      "sha256": "8f353c6333a4e9db731a9be589d43b9ee5a9617a8705da97a04ce16e73cb2141"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -357,8 +357,8 @@
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 19959,
-      "sha256": "55f670595b7a88dd45543c9348ff2ab693e0358f55de24fab41756fd46af3f39"
+      "size": 21470,
+      "sha256": "d78aa7afed60e43e47ab9d714cce64dda18dd6d762d67761763b39ff8148ff86"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -381,38 +381,38 @@
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 12089,
-      "sha256": "51dc091e4a6f2457ee065adf3c3e53183322171639f0a4fcc37cf1337075f609"
+      "size": 13898,
+      "sha256": "9a79a36bde88cb1860b2f64ffd3b55b939169b0d9d54af57f55c5db813fd175e"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 5781,
-      "sha256": "88e298729ac1168b9cce1bb703988646e7075567eef0aed4ea15755d71289bc6"
+      "size": 13184,
+      "sha256": "fde84338db182bbdf2be46da4e609fd20f5d6335454316d4426b161ab02ca8e0"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 16744,
-      "sha256": "f7de4293eecc9d736b5724ac9105d8eff6140728cebd240e6d236e97d26c4147"
+      "size": 18987,
+      "sha256": "8dd43333295b762a76e33549471791fe67b844ebbb8e9d8d1ec43bad47093815"
     },
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 4254,
-      "sha256": "5964371a8a9f0f15beb0f293ad91b0f5e4360dd10b6e4de8e7b38db5317155ad"
+      "size": 3026,
+      "sha256": "1355ac037fac86a2db85d43e5e8d92ddd49c8bfcbf0c4e6bc24723bb872f5257"
     },
     {
       "path": "aidd/hooks/lib.sh",
       "type": "file",
-      "size": 4741,
-      "sha256": "9f31426f1b89acdbca9a9a8d2c55473fff52d19ff947eeada373070caaaf2106"
+      "size": 5754,
+      "sha256": "f0e6b80fb22c7a34251630a6cc47d48a0154df9758653a5a1bfbad3a452d7f8a"
     },
     {
       "path": "aidd/hooks/lint-deps.sh",
       "type": "file",
-      "size": 1257,
-      "sha256": "d7b800fbf1635edb50e15670634844d123b445cfd4d550cb504156802cead690"
+      "size": 1545,
+      "sha256": "8afe8065bacb3294af5109ff2a639d4ac547c4851b0401fb6b6122e7c28c32f8"
     },
     {
       "path": "aidd/init-claude-workflow.sh",
@@ -424,19 +424,19 @@
       "path": "aidd/prompts/en/agents/analyst.md",
       "type": "file",
       "size": 5470,
-      "sha256": "71f1791107da1cebf76158eb7aa72a41c639fc961bb6af974cf05eaa3715fabc"
+      "sha256": "adf53148bf556e5a788945251dd75580027582fa6f5a56652a9959c270a6b26d"
     },
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
       "size": 4295,
-      "sha256": "962eca805d51e84b3e8ac698206a13e420cbb2d5fd4d59bf0ae6ba0719314fd0"
+      "sha256": "d280a6ad0a79e6bdc327b7fd33e5b272446400860e808679adc9e6cae97fa681"
     },
     {
       "path": "aidd/prompts/en/agents/planner.md",
       "type": "file",
       "size": 2722,
-      "sha256": "2e0037e35e40bcb022f0ae49bede5db62b2caf85c95c6390449dd2b992ef56a3"
+      "sha256": "f743400353a07fc440c2ffd331657139dc8d692fdad6882620e67aaf1b38fd34"
     },
     {
       "path": "aidd/prompts/en/agents/prd-reviewer.md",
@@ -454,13 +454,13 @@
       "path": "aidd/prompts/en/agents/researcher.md",
       "type": "file",
       "size": 4904,
-      "sha256": "aa05a5ffd4dd4026ad38394cdb54e376e40d19abae405511e21fb9f1475d6196"
+      "sha256": "66755f369a6d745804c7da1878d9b76736647e7fe8973e707cf8f574f2545122"
     },
     {
       "path": "aidd/prompts/en/agents/reviewer.md",
       "type": "file",
       "size": 2143,
-      "sha256": "af9b68f5f8340febcb056e8b962aef7d9f61c440ab4cb4bc823507fc587ebadb"
+      "sha256": "940962fc6a17d5e46877f8fffa62a60001f6329fb27ab96e2b53bd85e9e2ccd3"
     },
     {
       "path": "aidd/prompts/en/agents/validator.md",
@@ -471,56 +471,56 @@
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
       "type": "file",
-      "size": 4333,
-      "sha256": "47f79e7151c1f88035eac1528943fb0036639f49a050b7310d1f44bc919da2f4"
+      "size": 4617,
+      "sha256": "6f41d5388baf9932be0ffe283105426a8dbdf05198b9e53c0b84a9458ccee60b"
     },
     {
       "path": "aidd/prompts/en/commands/implement.md",
       "type": "file",
-      "size": 2460,
-      "sha256": "000e5dada9247a7d205e16e321f707fe93f76441be14fc508af03b9f44db783b"
+      "size": 2730,
+      "sha256": "f7e2b58267335c4406bc263865b554b8cf85ad43b9fc0fd97684b206901c0911"
     },
     {
       "path": "aidd/prompts/en/commands/plan-new.md",
       "type": "file",
-      "size": 2292,
-      "sha256": "70aa762537a9ee1c7ce8243a51fbf63c5e6968ea4c81cf7c0017042c00491c48"
+      "size": 2524,
+      "sha256": "58c696a2ad4e7b0864f1038ef3d2b693a2207252475034374312052e9fa6eb8c"
     },
     {
       "path": "aidd/prompts/en/commands/qa.md",
       "type": "file",
-      "size": 3461,
-      "sha256": "013b80b4576dce0b10e0f5f1fd7ef1821ef05d4220ffd325e145f8010c31a4d0"
+      "size": 3678,
+      "sha256": "259f0388e5fee371f674189a27aa4e66aee54a4e0660584ddc5b3d46cdcc803d"
     },
     {
       "path": "aidd/prompts/en/commands/researcher.md",
       "type": "file",
-      "size": 3573,
-      "sha256": "20fe87aaf2192b39878ae31a2f9c91d7dd12ac334614f9465024b6ff067abb86"
+      "size": 3821,
+      "sha256": "bf628bf85c091f005a030c0db8c11d09b2be09fff818441cf4d8368a28ae86c4"
     },
     {
       "path": "aidd/prompts/en/commands/review-prd.md",
       "type": "file",
-      "size": 2196,
-      "sha256": "7a76517ac6cc425e03aad3e9c7789e5024d4d153f546edbcdd1572f2e147c9fc"
+      "size": 2222,
+      "sha256": "f6d7928c38c39dd47a8b2b224ada24b805dbc2db16a1876d08e9b175c68ffa54"
     },
     {
       "path": "aidd/prompts/en/commands/review.md",
       "type": "file",
-      "size": 1968,
-      "sha256": "5e6c95657fad3b93c0f0ba1e6bba8ea1b2b1e962cf2ef3643bd7b8cfafc601b0"
+      "size": 2179,
+      "sha256": "0b790bbd751c9d070c3f92e0850992d51ebe75a250498a252c4b33c8ff343627"
     },
     {
       "path": "aidd/prompts/en/commands/tasks-new.md",
       "type": "file",
-      "size": 2251,
-      "sha256": "88cc22e05ff776cd0519ad0985bfed4d6f6a4c4ccdd0e2305fe57d115fb697f7"
+      "size": 2472,
+      "sha256": "fc3ebfcfa0d17202eeb6881db8857684c28c8f2661dd88a18b875f20a13171ed"
     },
     {
       "path": "aidd/scripts/context_gc/hooklib.py",
       "type": "file",
-      "size": 5468,
-      "sha256": "ff6130a16f65d687683af8de6a01a3d5dc567504f0a1e59d9845baccdf6f3050"
+      "size": 5908,
+      "sha256": "03cc95085799de30516aba87f07058ae041023c873222c0bd362bcfc99a6badf"
     },
     {
       "path": "aidd/scripts/context_gc/precompact_snapshot.py",
@@ -531,8 +531,8 @@
     {
       "path": "aidd/scripts/context_gc/pretooluse_guard.py",
       "type": "file",
-      "size": 5080,
-      "sha256": "712dc41c1137b8d04a4f93859ec44497f86c6459b5ef35e208bc18cc7586c8a5"
+      "size": 7460,
+      "sha256": "53eca8c2842a4b9d3eacd790c3768124c7237a0f3fafe4b5a1a7fb9f045c39b2"
     },
     {
       "path": "aidd/scripts/context_gc/sessionstart_inject.py",
@@ -585,8 +585,8 @@
     {
       "path": "aidd/scripts/smoke-workflow.sh",
       "type": "file",
-      "size": 14995,
-      "sha256": "eaeda559a24c90cba3aca780f665e3cd31b8646b10a17efe8b4961b88e0ab1e4"
+      "size": 15870,
+      "sha256": "bd4d152835094ffca1ee78348258f0019a5d1d605165160f0c973687e525443d"
     },
     {
       "path": "aidd/templates/git-hooks/README.md",
@@ -655,10 +655,16 @@
       "sha256": "010a5381b121d1e496ce1bb88b1074b8d9d38593cb7161bef80ba59251ab5f22"
     },
     {
+      "path": "aidd/tools/set_active_stage.py",
+      "type": "file",
+      "size": 2504,
+      "sha256": "8d4ca108fa903ae37ce36391acbb5f66d529a94446d51f1a5a66ad2df2baeb7c"
+    },
+    {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 18507,
-      "sha256": "437632c4c24e9a04d7836a74db57f773a71f35eae6f3f26d2b3cc24ab10a0d44"
+      "size": 20434,
+      "sha256": "85d5b6096adbdba84dc8d7aa806fe89d148dfc16e23fa6d4a4714685ca329545"
     }
   ]
 }

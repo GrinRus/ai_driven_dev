@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && -d "$ROOT_DIR/aidd/hooks" ]]; then
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
   echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
@@ -16,6 +16,29 @@ fi
 source "${SCRIPT_DIR}/lib.sh"
 
 cd "$ROOT_DIR"
+
+collect_changed_files() {
+  local files=()
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    while IFS= read -r path; do
+      [[ -n "$path" ]] && files+=("$path")
+    done < <(git diff --name-only HEAD)
+  fi
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && files+=("$path")
+  done < <(git ls-files --others --exclude-standard 2>/dev/null || true)
+  if ((${#files[@]} == 0)); then
+    return 0
+  fi
+  printf '%s\n' "${files[@]}" | awk '!seen[$0]++'
+}
+
+if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
+  active_stage="$(hook_resolve_stage || true)"
+  if [[ "$active_stage" != "implement" ]]; then
+    exit 0
+  fi
+fi
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
@@ -84,24 +107,162 @@ mode="$(hook_config_get_str config/gates.json tests_required disabled)"
 mode="$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
 [[ "$mode" == "disabled" ]] && exit 0
 
-# интересует только src/main и *.kt|*.java
-if [[ ! "$file_path" =~ (^|/)src/main/ ]] || [[ ! "$file_path" =~ \.(kt|java)$ ]]; then
-  exit 0
-fi
+CONFIG_PATH="config/gates.json"
+TESTS_CFG=()
+while IFS= read -r line; do
+  TESTS_CFG+=("$line")
+done < <(
+  python3 - "$CONFIG_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
 
-# выведем ожидаемые имена тестов (Kotlin/Java)
-rel="${file_path#*src/main/}"
-test1="src/test/${rel%.*}Test.${file_path##*.}"
-test2="src/test/${rel%.*}Tests.${file_path##*.}"
-has_tests=0
-if [[ -f "$test1" || -f "$test2" ]]; then
-  has_tests=1
-fi
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except Exception:
+    data = {}
+
+cfg = data.get("tests_gate")
+if not isinstance(cfg, dict):
+    cfg = {}
+
+DEFAULT_SOURCE_ROOTS = [
+    "src/main",
+    "src",
+    "app",
+    "apps",
+    "packages",
+    "services",
+    "service",
+    "lib",
+    "libs",
+    "backend",
+    "frontend",
+]
+DEFAULT_SOURCE_EXTS = [
+    ".kt",
+    ".java",
+    ".kts",
+    ".groovy",
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".go",
+    ".rb",
+    ".rs",
+    ".cs",
+    ".php",
+]
+DEFAULT_TEST_PATTERNS = [
+    "src/test/{rel_dir}/{base}Test{ext}",
+    "src/test/{rel_dir}/{base}Tests{ext}",
+    "tests/{rel_dir}/test_{base}{ext}",
+    "tests/{rel_dir}/{base}_test{ext}",
+    "tests/{rel_dir}/{base}.test{ext}",
+    "tests/{rel_dir}/{base}.spec{ext}",
+    "test/{rel_dir}/test_{base}{ext}",
+    "test/{rel_dir}/{base}_test{ext}",
+    "spec/{rel_dir}/{base}_spec{ext}",
+    "spec/{rel_dir}/{base}Spec{ext}",
+    "__tests__/{rel_dir}/{base}.test{ext}",
+    "__tests__/{rel_dir}/{base}.spec{ext}",
+]
+
+def norm_list(value, default):
+    if value is None:
+        value = default
+    if isinstance(value, str):
+        value = [value]
+    elif not isinstance(value, (list, tuple)):
+        value = default
+    items = []
+    for raw in value:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.lstrip("./")
+        text = text.rstrip("/")
+        if not text:
+            continue
+        items.append(text)
+    return items
+
+def norm_exts(value, default):
+    if value is None:
+        value = default
+    if isinstance(value, str):
+        value = [value]
+    elif not isinstance(value, (list, tuple)):
+        value = default
+    items = []
+    for raw in value:
+        text = str(raw).strip()
+        if not text:
+            continue
+        if not text.startswith("."):
+            text = f".{text}"
+        items.append(text.lower())
+    return items
+
+def unique(seq):
+    seen = set()
+    out = []
+    for item in seq:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+source_roots = unique(norm_list(cfg.get("source_roots"), DEFAULT_SOURCE_ROOTS))
+source_roots.sort(key=len, reverse=True)
+source_exts = unique(norm_exts(cfg.get("source_extensions"), DEFAULT_SOURCE_EXTS))
+test_patterns = unique(norm_list(cfg.get("test_patterns"), DEFAULT_TEST_PATTERNS))
+test_exts = unique(norm_exts(cfg.get("test_extensions"), []))
+
+SEP = "\x1f"
+
+def emit(name, values):
+    print(f"{name}=" + SEP.join(values))
+
+emit("SOURCE_ROOTS", source_roots)
+emit("SOURCE_EXTS", source_exts)
+emit("TEST_PATTERNS", test_patterns)
+emit("TEST_EXTS", test_exts)
+PY
+) || true
+
+source_roots=()
+source_exts=()
+test_patterns=()
+test_exts=()
+list_sep=$'\x1f'
+
+for line in "${TESTS_CFG[@]}"; do
+  case "$line" in
+    SOURCE_ROOTS=*)
+      IFS="$list_sep" read -r -a source_roots <<< "${line#SOURCE_ROOTS=}"
+      ;;
+    SOURCE_EXTS=*)
+      IFS="$list_sep" read -r -a source_exts <<< "${line#SOURCE_EXTS=}"
+      ;;
+    TEST_PATTERNS=*)
+      IFS="$list_sep" read -r -a test_patterns <<< "${line#TEST_PATTERNS=}"
+      ;;
+    TEST_EXTS=*)
+      IFS="$list_sep" read -r -a test_exts <<< "${line#TEST_EXTS=}"
+      ;;
+  esac
+done
 
 emit_research_hint() {
-  [[ -z "$ticket" ]] && return 0
+  local target_path="$1"
+  [[ -z "$ticket" || -z "$target_path" ]] && return 0
   local message
-  message="$(python3 - "$file_path" "$ticket" "$slug_hint" <<'PY'
+  message="$(python3 - "$target_path" "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -151,17 +312,147 @@ PY
   fi
 }
 
-if [[ "$has_tests" -eq 1 ]]; then
-  emit_research_hint
+changed_files=()
+if [[ -n "$file_path" ]]; then
+  changed_files+=("$file_path")
+fi
+while IFS= read -r path; do
+  [[ -n "$path" ]] && changed_files+=("$path")
+done < <(collect_changed_files || true)
+if ((${#changed_files[@]} > 0)); then
+  deduped=()
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && deduped+=("$path")
+  done < <(printf '%s\n' "${changed_files[@]}" | awk '!seen[$0]++')
+  changed_files=("${deduped[@]}")
+fi
+
+target_files=()
+target_roots=()
+for candidate in "${changed_files[@]}"; do
+  ext_raw="${candidate##*.}"
+  if [[ -z "$ext_raw" || "$ext_raw" == "$candidate" ]]; then
+    continue
+  fi
+  ext_raw="$(printf '%s' "$ext_raw" | tr '[:upper:]' '[:lower:]')"
+  ext=".${ext_raw}"
+  matched_ext=0
+  for allowed in "${source_exts[@]}"; do
+    if [[ "$ext" == "$allowed" ]]; then
+      matched_ext=1
+      break
+    fi
+  done
+  (( matched_ext == 1 )) || continue
+  match_root=""
+  for root in "${source_roots[@]}"; do
+    if [[ "$candidate" == "$root/"* ]]; then
+      match_root="$root"
+      break
+    fi
+  done
+  [[ -n "$match_root" ]] || continue
+  target_files+=("$candidate")
+  target_roots+=("$match_root")
+done
+
+# интересует только code paths из tests_gate
+if ((${#target_files[@]} == 0)); then
+  exit 0
+fi
+
+missing_files=()
+missing_tests=()
+for i in "${!target_files[@]}"; do
+  path="${target_files[$i]}"
+  root="${target_roots[$i]}"
+  rel="${path#"${root}"/}"
+  rel_dir="$(dirname "$rel")"
+  [[ "$rel_dir" == "." ]] && rel_dir=""
+  base="${rel##*/}"
+  base="${base%.*}"
+  ext_raw="${path##*.}"
+  ext_raw="$(printf '%s' "$ext_raw" | tr '[:upper:]' '[:lower:]')"
+  ext=".${ext_raw}"
+
+  expected_paths=()
+  for pattern in "${test_patterns[@]}"; do
+    [[ -z "$pattern" ]] && continue
+    use_test_ext=0
+    if [[ "$pattern" == *"{test_ext}"* ]]; then
+      use_test_ext=1
+    fi
+    if (( use_test_ext == 1 )) && ((${#test_exts[@]} > 0)); then
+      ext_candidates=("${test_exts[@]}")
+    else
+      ext_candidates=("$ext")
+    fi
+    for test_ext in "${ext_candidates[@]}"; do
+      candidate_path="$pattern"
+      candidate_path="${candidate_path//\{rel_dir\}/$rel_dir}"
+      candidate_path="${candidate_path//\{rel_path\}/$rel}"
+      candidate_path="${candidate_path//\{base\}/$base}"
+      candidate_path="${candidate_path//\{ext\}/$ext}"
+      candidate_path="${candidate_path//\{test_ext\}/$test_ext}"
+      while [[ "$candidate_path" == *"//"* ]]; do
+        candidate_path="${candidate_path//\/\//\/}"
+      done
+      candidate_path="${candidate_path#./}"
+      expected_paths+=("$candidate_path")
+    done
+  done
+
+  if ((${#expected_paths[@]} > 0)); then
+    deduped=()
+    while IFS= read -r candidate; do
+      [[ -n "$candidate" ]] && deduped+=("$candidate")
+    done < <(printf '%s\n' "${expected_paths[@]}" | awk '!seen[$0]++')
+    expected_paths=("${deduped[@]}")
+  fi
+
+  has_tests=0
+  for candidate_path in "${expected_paths[@]}"; do
+    if [[ -f "$candidate_path" ]]; then
+      has_tests=1
+      break
+    fi
+  done
+
+  if [[ "$has_tests" -eq 1 ]]; then
+    emit_research_hint "$path"
+    continue
+  fi
+
+  hint=""
+  if ((${#expected_paths[@]} == 1)); then
+    hint="${expected_paths[0]}"
+  elif ((${#expected_paths[@]} >= 2)); then
+    hint="${expected_paths[0]} или ${expected_paths[1]}"
+    if ((${#expected_paths[@]} > 2)); then
+      hint="${hint} (и ещё $(( ${#expected_paths[@]} - 2 )))"
+    fi
+  else
+    hint="(не настроены шаблоны тестов)"
+  fi
+
+  missing_files+=("$path")
+  missing_tests+=("$hint")
+done
+
+if ((${#missing_files[@]} == 0)); then
   exit 0
 fi
 
 if [[ "$mode" == "soft" ]]; then
-  echo "WARN: отсутствует тест для ${file_path}. Рекомендуется создать ${test1}." 1>&2
-  emit_research_hint
+  for i in "${!missing_files[@]}"; do
+    echo "WARN: отсутствует тест для ${missing_files[$i]}. Рекомендуется создать ${missing_tests[$i]}." 1>&2
+    emit_research_hint "${missing_files[$i]}"
+  done
   exit 0
 fi
 
-echo "BLOCK: нет теста для ${file_path}. Создайте ${test1} (или ${test2}) либо переведите tests_required в config/gates.json в soft/disabled." 1>&2
-emit_research_hint
+for i in "${!missing_files[@]}"; do
+  echo "BLOCK: нет теста для ${missing_files[$i]}. Создайте ${missing_tests[$i]} либо переведите tests_required в config/gates.json в soft/disabled." 1>&2
+  emit_research_hint "${missing_files[$i]}"
+done
 exit 2

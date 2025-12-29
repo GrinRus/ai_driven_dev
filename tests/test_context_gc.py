@@ -11,6 +11,8 @@ from pathlib import Path
 
 from tests.helpers import PAYLOAD_ROOT, git_config_user, git_init, write_active_feature, write_file, write_json
 
+sys.dont_write_bytecode = True
+
 SCRIPTS_ROOT = PAYLOAD_ROOT / "scripts" / "context_gc"
 if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
@@ -28,6 +30,7 @@ def _env_for_workspace(root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(root)
     env["CLAUDE_PLUGIN_ROOT"] = str(root / "aidd")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
 
@@ -540,6 +543,88 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Read",
                 "tool_input": {"file_path": "aidd/docs/large.txt"},
+            }
+            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "deny")
+
+    def test_pretooluse_guard_dangerous_bash_asks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "dangerous_bash_guard": {
+                        "enabled": True,
+                        "mode": "ask",
+                        "patterns": ["rm\\s+-rf"],
+                    }
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "rm -rf /tmp/demo"},
+            }
+            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "ask")
+
+    def test_pretooluse_guard_dangerous_bash_denies(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "dangerous_bash_guard": {
+                        "enabled": True,
+                        "mode": "deny",
+                        "patterns": ["git\\s+reset\\s+--hard"],
+                    }
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "git reset --hard HEAD~1"},
+            }
+            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "deny")
+
+    def test_pretooluse_guard_dangerous_bash_runs_when_output_guard_disabled(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "bash_output_guard": {"enabled": False},
+                    "dangerous_bash_guard": {
+                        "enabled": True,
+                        "mode": "deny",
+                        "patterns": ["rm\\s+-rf"],
+                    },
+                },
+            )
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "rm -rf /tmp/demo"},
             }
             result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
 

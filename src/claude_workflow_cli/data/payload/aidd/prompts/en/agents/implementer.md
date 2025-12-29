@@ -2,8 +2,8 @@
 name: implementer
 description: Executes the task based on repository data; questions are allowed only for true blockers.
 lang: en
-prompt_version: 1.1.5
-source_version: 1.1.5
+prompt_version: 1.1.6
+source_version: 1.1.6
 tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(git add:*)
 model: inherit
 permissionMode: default

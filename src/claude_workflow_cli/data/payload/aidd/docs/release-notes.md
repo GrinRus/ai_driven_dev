@@ -40,7 +40,7 @@
 - [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --root <workflow-root> --kind agent --name <name>` точечно.
 - [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
 - [ ] Проверить состав payload: `python3 tools/payload_audit.py`.
-- [ ] Убедиться, что dev-only артефакты (например, `doc/backlog.md`) не попали в payload/manifest; каталог `doc/` исключён из sync по умолчанию.
+- [ ] Убедиться, что dev-only артефакты (например, `backlog.md` в корне) не попали в payload/manifest; каталог `doc/` исключён из sync по умолчанию.
 
 ## Migration: legacy root installs → `./aidd` (Wave 51)
 - CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
@@ -84,7 +84,7 @@
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
 - CI lint запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 - Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
-- Внутренний backlog (`doc/backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
+- Внутренний backlog (`backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
 
 ### Migration
 - Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `aidd/docs/.active_ticket` (если отсутствует) и дополнить `aidd/docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.

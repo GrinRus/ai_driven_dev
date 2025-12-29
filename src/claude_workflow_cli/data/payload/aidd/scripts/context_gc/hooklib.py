@@ -35,6 +35,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "tail_lines": 400,
         "log_dir": "aidd/reports/logs",
+        "min_interval_seconds": 5,
         "only_for_regex": r"(docker\s+logs|kubectl\s+logs|journalctl|gradlew|mvn|npm|pnpm|pytest|go\s+test|cat\s+)",
         "skip_if_regex": r"(--tail\s+|\|\s*tail\b|>\s*\S+|2>\s*\S+|--quiet\b|--silent\b)",
     },
@@ -42,6 +43,19 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "max_bytes": 350_000,
         "ask_instead_of_deny": True,
+        "log_dir": "aidd/reports/logs",
+        "min_interval_seconds": 5,
+    },
+    "dangerous_bash_guard": {
+        "enabled": True,
+        "mode": "ask",  # ask | deny
+        "patterns": [
+            r"\brm\s+-rf\b",
+            r"\brm\s+-fr\b",
+            r"\bgit\s+reset\s+--hard\b",
+            r"\bgit\s+push\b.*\s--force\b",
+            r"\bgit\s+push\b.*\s--force-with-lease\b",
+        ],
     },
 }
 

@@ -18,7 +18,8 @@
     "aidd/tools/migrate_ticket.py",
     "aidd/tools/researcher_context.py",
     "aidd/tools/run_cli.py",
-    "aidd/tools/set_active_feature.py"
+    "aidd/tools/set_active_feature.py",
+    "aidd/tools/set_active_stage.py"
   ],
   "allow_globs": [
     "aidd/agents/*.md",
