@@ -381,8 +381,8 @@
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 13919,
-      "sha256": "22850a794dcf644e65daf6a0d79ee9ec86dcd7326e1c04dc1b0a63d709cd1299"
+      "size": 14137,
+      "sha256": "f15c8ee22a449ca5bb63b5abf64e1606bd8b1d2aa0ef52fc47c2c56d889e3f66"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",

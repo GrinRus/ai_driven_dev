@@ -90,6 +90,36 @@ def test_skip_env_allows(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_debounce_stamp_written_only_on_success(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["false"],
+                "allow_missing_report": False,
+                "report": "reports/qa/{ticket}.json",
+                "debounce_minutes": 10,
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-fail")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+
+    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
+    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    try:
+        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    finally:
+        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+
+    assert result.returncode != 0
+    stamp_path = tmp_path / "aidd" / "reports" / "qa" / ".gate-qa.qa-fail.stamp"
+    assert not stamp_path.exists()
+
+
 def test_plugin_hooks_include_qa_gate():
     hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     stop_hooks = hooks.get("hooks", {}).get("Stop", [])

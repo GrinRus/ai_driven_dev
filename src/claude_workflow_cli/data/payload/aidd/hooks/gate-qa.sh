@@ -393,6 +393,8 @@ if [[ -n "$report_path" ]]; then
   runner+=("--report" "$report_path")
 fi
 
+debounce_minutes=0
+stamp_path=""
 if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
   debounce_minutes="$qa_debounce"
   if [[ -n "${CLAUDE_QA_DEBOUNCE_MINUTES:-}" ]]; then
@@ -416,8 +418,6 @@ if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
         fi
       fi
     fi
-    mkdir -p "$stamp_dir" 2>/dev/null || true
-    printf '%s\n' "$now_ts" > "$stamp_path" 2>/dev/null || true
   fi
 fi
 
@@ -461,6 +461,13 @@ if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
     echo "[gate-qa] ERROR: отчёт QA не создан: $report_path" >&2
     (( status == 0 )) && status=1
   fi
+fi
+
+if (( status == 0 )) && (( dry_run == 0 )) && [[ -n "$stamp_path" ]] && [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
+  now_ts="$(date +%s)"
+  stamp_dir="$(dirname "$stamp_path")"
+  mkdir -p "$stamp_dir" 2>/dev/null || true
+  printf '%s\n' "$now_ts" > "$stamp_path" 2>/dev/null || true
 fi
 
 if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]]; then
