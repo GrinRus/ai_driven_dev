@@ -14,7 +14,7 @@
       "docs/*"
     ],
     "approved_statuses": [
-      "approved"
+      "ready"
     ],
     "blocking_statuses": [
       "blocked"

@@ -49,7 +49,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 # Demo
 
                 ## PRD Review
-                Status: approved
+                Status: READY
                 - [ ] sync metrics with ops
                 """
             ),
@@ -57,7 +57,7 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         report = self.prd_review_agent.analyse_prd("demo-feature", prd)
 
-        self.assertEqual(report.status, "approved")
+        self.assertEqual(report.status, "ready")
         self.assertEqual(report.recommended_status, "pending")
         self.assertEqual(report.action_items, ["- [ ] sync metrics with ops"])
         self.assertFalse(any(f.severity == "critical" for f in report.findings))
@@ -107,7 +107,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 # Demo
 
                 ## PRD Review
-                Status: approved
+                Status: READY
                 """
             ),
         )
@@ -138,8 +138,8 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         payload = json.loads(report_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["ticket"], "demo-feature")
-        self.assertEqual(payload["status"], "approved")
-        self.assertEqual(payload["recommended_status"], "approved")
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["recommended_status"], "ready")
 
     def test_cli_default_report_path_under_plugin_root(self):
         workspace = self.tmp_path / "workspace"
@@ -147,7 +147,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         prd = project_root / "docs" / "prd" / "demo-feature.prd.md"
         prd.parent.mkdir(parents=True, exist_ok=True)
         prd.write_text(
-            "# Demo\n\n## PRD Review\nStatus: approved\n",
+            "# Demo\n\n## PRD Review\nStatus: READY\n",
             encoding="utf-8",
         )
 
@@ -178,7 +178,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(report_path.exists(), "default report path should be under plugin root")
         payload = json.loads(report_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["ticket"], "demo-feature")
-        self.assertEqual(payload["status"], "approved")
+        self.assertEqual(payload["status"], "ready")
         self.assertIn("[prd-review] report saved to reports/prd/demo-feature.json", result.stderr)
 
 

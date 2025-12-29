@@ -1,19 +1,19 @@
 ---
 description: "Feature initiation: analyst + (opt.) auto-research → user questions → PRD draft"
-argument-hint: "<TICKET> [slug-hint]"
+argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: en
-prompt_version: 1.2.0
-source_version: 1.2.0
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*)
+prompt_version: 1.2.2
+source_version: 1.2.2
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*),Bash(rg:*)
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/idea-new` is a single run: records the active ticket, runs the analyst, optionally triggers research when context is thin, drafts the PRD and surfaces user questions. READY is set only after answers and up-to-date research; the command finishes in BLOCKED/READY?BLOCKED with questions for the user.
+`/idea-new` is a single run: records the active ticket, runs the analyst, optionally triggers research when context is thin, drafts the PRD and surfaces user questions. READY is set only after answers and up-to-date research; the command finishes in PENDING/BLOCKED with questions for the user.
 
 ## Input Artifacts
-- Slug-hint / user notes (`[slug-hint]`, `rg <ticket> aidd/docs/**`).
+- Slug-hint / user notes (`[slug-hint]`, `rg <ticket> aidd/docs/**`, `[note...]`).
 - `aidd/docs/prd.template.md` — scaffolds PRD (Status: draft, `## Диалог analyst`).
 - `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-(context|targets).json` — auto-created/updated; baseline from `aidd/docs/templates/research-summary.md` if missing.
 - Active markers: `aidd/docs/.active_ticket`, `.active_feature` (use `--target aidd` if running from repo root without `docs/`).

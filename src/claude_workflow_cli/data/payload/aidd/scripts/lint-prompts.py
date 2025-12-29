@@ -12,6 +12,8 @@ from typing import Dict, Iterable, List, Tuple
 
 
 PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
+ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru", "en"}
 
 LANG_SECTION_TITLES = {
@@ -86,8 +88,9 @@ class PromptFile:
     path: Path
     kind: str  # "agent" or "command"
     lang: str
-    front_matter: Dict[str, str]
+    front_matter: Dict[str, str | list[str]]
     sections: List[str]
+    body: str
 
     @property
     def stem(self) -> str:  # pragma: no cover - trivial
@@ -120,26 +123,47 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
         return None, errors
 
     front_lines = lines[1:closing]
-    front: Dict[str, str] = {}
+    front: Dict[str, str | list[str]] = {}
+    current_list_key: str | None = None
     for idx, raw in enumerate(front_lines, start=2):
-        line = raw.strip()
-        if not line or line.startswith("-"):
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
             continue
-        if ":" not in line:
+        if stripped.startswith("-"):
+            if not current_list_key or not isinstance(front.get(current_list_key), list):
+                errors.append(f"{path}:{idx}: unexpected list item without a list key")
+                continue
+            item = stripped.lstrip("-").strip().strip('"').strip("'")
+            if item:
+                front[current_list_key].append(item)
+            continue
+        current_list_key = None
+        if ":" not in stripped:
             errors.append(f"{path}:{idx}: invalid front matter line (expected key: value)")
             continue
-        key, value = line.split(":", 1)
+        key, value = stripped.split(":", 1)
+        key = key.strip()
+        if key in front:
+            errors.append(f"{path}:{idx}: duplicate front matter key `{key}`")
+            continue
         clean_value = value.strip().strip('"').strip("'")
-        front[key.strip()] = clean_value
+        if clean_value == "":
+            front[key] = []
+            current_list_key = key
+        else:
+            front[key] = clean_value
 
-    body = lines[closing + 1 :]
+    body_lines = lines[closing + 1 :]
+    body = "\n".join(body_lines)
     sections: List[str] = []
-    for raw in body:
+    for raw in body_lines:
         striped = raw.strip()
         if striped.startswith("## "):
             sections.append(striped[3:].strip())
 
-    lang = front.get("lang", "").strip()
+    lang_value = front.get("lang", "")
+    lang = lang_value.strip() if isinstance(lang_value, str) else ""
     if lang and lang not in VALID_LANGS:
         errors.append(f"{path}: unsupported lang `{lang}` (expected ru/en)")
     if expected_lang and lang and lang != expected_lang:
@@ -147,7 +171,17 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
             f"{path}: lang `{lang}` does not match expected `{expected_lang}` based on directory"
         )
 
-    return PromptFile(path=path, kind=kind, lang=lang or expected_lang, front_matter=front, sections=sections), errors
+    return (
+        PromptFile(
+            path=path,
+            kind=kind,
+            lang=lang or expected_lang,
+            front_matter=front,
+            sections=sections,
+            body=body,
+        ),
+        errors,
+    )
 
 
 def ensure_keys(info: PromptFile, keys: Iterable[str]) -> List[str]:
@@ -174,6 +208,54 @@ def ensure_sections(info: PromptFile, required: List[str]) -> List[str]:
                 f"{info.path}: section `## {section}` out of order (expected after previous sections)"
             )
         current_index = idx
+    return errors
+
+
+def _as_string(value: str | list[str] | None) -> str:
+    if isinstance(value, list):
+        return ""
+    return value or ""
+
+
+def _as_list(value: str | list[str] | None) -> List[str]:
+    if isinstance(value, list):
+        return [item.strip() for item in value if item.strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def _normalize_tool_list(value: str | list[str] | None) -> List[str]:
+    items = _as_list(value)
+    cleaned: List[str] = []
+    for item in items:
+        text = item.strip().strip('"').strip("'")
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def validate_statuses(info: PromptFile) -> List[str]:
+    errors: List[str] = []
+    for match in STATUS_RE.finditer(info.body):
+        status = match.group(1).strip().lower()
+        if status and status not in ALLOWED_STATUSES:
+            errors.append(f"{info.path}: unknown status `{status}` in body (allowed: {sorted(ALLOWED_STATUSES)})")
+    return errors
+
+
+def validate_placeholders(info: PromptFile) -> List[str]:
+    if "&lt;ticket&gt;" in info.body:
+        return [f"{info.path}: replace HTML escape `&lt;ticket&gt;` with `<ticket>`"]
+    return []
+
+
+def validate_checkbox_guidance(info: PromptFile) -> List[str]:
+    errors: List[str] = []
+    for line in info.body.splitlines():
+        lower = line.lower()
+        if "checkbox updated" in lower and ("заканч" in lower or "в конце" in lower):
+            errors.append(f"{info.path}: `Checkbox updated` should be the first line, not last")
     return errors
 
 
@@ -211,7 +293,7 @@ def validate_prompt(info: PromptFile) -> List[str]:
             )
         )
 
-    lang = front.get("lang") or info.lang
+    lang = _as_string(front.get("lang")) or info.lang
     sections_required = LANG_SECTION_TITLES.get(info.kind, {}).get(lang or "ru")
     if sections_required:
         errors.extend(ensure_sections(info, sections_required))
@@ -219,12 +301,20 @@ def validate_prompt(info: PromptFile) -> List[str]:
         errors.append(f"{info.path}: unsupported lang `{lang}` (expected ru/en)")
 
     version = front.get("prompt_version")
-    if version and not PROMPT_VERSION_RE.match(version):
+    if isinstance(version, list):
+        errors.append(f"{info.path}: prompt_version must be a scalar value")
+    elif version and not PROMPT_VERSION_RE.match(version):
         errors.append(f"{info.path}: prompt_version `{version}` must match X.Y.Z")
 
     source_version = front.get("source_version")
-    if source_version and not PROMPT_VERSION_RE.match(source_version):
+    if isinstance(source_version, list):
+        errors.append(f"{info.path}: source_version must be a scalar value")
+    elif source_version and not PROMPT_VERSION_RE.match(source_version):
         errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
+
+    errors.extend(validate_statuses(info))
+    errors.extend(validate_placeholders(info))
+    errors.extend(validate_checkbox_guidance(info))
 
     return errors
 
@@ -283,6 +373,13 @@ def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> Lis
                 if agent.front_matter.get("prompt_version") != command.front_matter.get("prompt_version"):
                     errors.append(
                         f"Pair {agent_name}/{command_name} ({lang}): prompt_version mismatch `{agent.front_matter.get('prompt_version')}` vs `{command.front_matter.get('prompt_version')}`"
+                    )
+                agent_tools = set(_normalize_tool_list(agent.front_matter.get("tools")))
+                command_tools = set(_normalize_tool_list(command.front_matter.get("allowed-tools")))
+                missing = sorted(agent_tools - command_tools)
+                if missing:
+                    errors.append(
+                        f"Pair {agent_name}/{command_name} ({lang}): allowed-tools missing {missing}"
                     )
     return errors
 

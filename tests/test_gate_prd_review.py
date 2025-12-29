@@ -33,7 +33,7 @@ def setup_base(tmp_path) -> None:
         {
             "prd_review": {
                 "enabled": True,
-                "approved_statuses": ["approved"],
+                "approved_statuses": ["ready"],
                 "blocking_statuses": ["blocked"],
                 "allow_missing_section": False,
                 "require_action_items_closed": True,
@@ -63,11 +63,11 @@ def test_skips_for_non_code_paths(tmp_path):
 
 def test_blocks_when_status_pending(tmp_path):
     setup_base(tmp_path)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("pending"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "не утверждён" in (result.stdout + result.stderr)
+    assert "не READY" in (result.stdout + result.stderr)
 
 
 def test_blocks_when_dialog_status_draft(tmp_path):
@@ -75,7 +75,7 @@ def test_blocks_when_dialog_status_draft(tmp_path):
     write_file(
         tmp_path,
         "docs/prd/demo-checkout.prd.md",
-        make_prd("approved", dialog_status="draft"),
+        make_prd("READY", dialog_status="draft"),
     )
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
@@ -88,7 +88,7 @@ def test_blocks_when_action_items_open(tmp_path):
     write_file(
         tmp_path,
         "docs/prd/demo-checkout.prd.md",
-        make_prd("approved", "- [ ] sync metrics"),
+        make_prd("READY", "- [ ] sync metrics"),
     )
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
@@ -98,7 +98,7 @@ def test_blocks_when_action_items_open(tmp_path):
 
 def test_allows_when_review_approved(tmp_path):
     setup_base(tmp_path)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("approved"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
     write_json(
         tmp_path,
         "reports/prd/demo-checkout.json",
@@ -111,7 +111,7 @@ def test_allows_when_review_approved(tmp_path):
 
 def test_skips_for_direct_prd_edit(tmp_path):
     setup_base(tmp_path)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("pending"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
 
     result = run_hook(tmp_path, "gate-prd-review.sh", PRD_PAYLOAD)
     assert result.returncode == 0, result.stderr
@@ -119,7 +119,7 @@ def test_skips_for_direct_prd_edit(tmp_path):
 
 def test_blocks_when_report_missing(tmp_path):
     setup_base(tmp_path)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("approved"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -128,7 +128,7 @@ def test_blocks_when_report_missing(tmp_path):
 
 def test_blocks_on_blocking_severity(tmp_path):
     setup_base(tmp_path)
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("approved"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
     write_json(
         tmp_path,
         "reports/prd/demo-checkout.json",
@@ -153,7 +153,7 @@ def test_allows_when_report_missing_but_allowed(tmp_path):
             }
         },
     )
-    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("approved"))
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
