@@ -163,7 +163,7 @@ for candidate in "${changed_files[@]}"; do
 done
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage || true)"
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
   if [[ -n "$active_stage" ]]; then
     case "$active_stage" in
       implement|review|qa)

@@ -381,20 +381,20 @@
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 13898,
-      "sha256": "9a79a36bde88cb1860b2f64ffd3b55b939169b0d9d54af57f55c5db813fd175e"
+      "size": 13919,
+      "sha256": "22850a794dcf644e65daf6a0d79ee9ec86dcd7326e1c04dc1b0a63d709cd1299"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 13184,
-      "sha256": "fde84338db182bbdf2be46da4e609fd20f5d6335454316d4426b161ab02ca8e0"
+      "size": 13205,
+      "sha256": "d6d172cb2925893109cd8038d04ad94b6321e9f57aa1047283999743726b2270"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 18987,
-      "sha256": "8dd43333295b762a76e33549471791fe67b844ebbb8e9d8d1ec43bad47093815"
+      "size": 19008,
+      "sha256": "a6232d768d8b6f0c6e38e5cf4e6b69e428d0f0103f5d309520dd3be76da4da99"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -411,8 +411,8 @@
     {
       "path": "aidd/hooks/lint-deps.sh",
       "type": "file",
-      "size": 1545,
-      "sha256": "8afe8065bacb3294af5109ff2a639d4ac547c4851b0401fb6b6122e7c28c32f8"
+      "size": 1566,
+      "sha256": "abb3cd8bb29bf26736bcc3d5047675d68f1b0feeb0517ed7a67032c0857b2cb5"
     },
     {
       "path": "aidd/init-claude-workflow.sh",

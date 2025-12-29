@@ -70,6 +70,29 @@ run_payload_sync_check() {
     warn "tools/check_payload_sync.py missing; skipping payload sync check"
     return
   fi
+  local needs_snapshot=0
+  for rel in ".claude" ".claude-plugin" "aidd"; do
+    if [[ ! -e "${ROOT_DIR}/${rel}" ]]; then
+      needs_snapshot=1
+      break
+    fi
+  done
+  if (( needs_snapshot == 1 )); then
+    if [[ "${CI:-}" == "true" || "${CI:-}" == "1" || "${CLAUDE_SYNC_PAYLOAD_ON_LINT:-}" == "1" ]]; then
+      if [[ -f "scripts/sync-payload.sh" ]]; then
+        log "runtime snapshot missing; syncing payload to repo root"
+        if ! scripts/sync-payload.sh --direction=to-root; then
+          err "payload sync (to-root) failed"
+          STATUS=1
+          return
+        fi
+      else
+        warn "scripts/sync-payload.sh missing; skipping payload sync"
+      fi
+    else
+      warn "runtime snapshot missing; run scripts/sync-payload.sh --direction=to-root before checking"
+    fi
+  fi
   log "validating payload vs repository snapshots"
   if ! python3 tools/check_payload_sync.py; then
     err "payload sync check failed"

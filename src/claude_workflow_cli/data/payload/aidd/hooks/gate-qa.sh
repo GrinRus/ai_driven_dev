@@ -98,7 +98,7 @@ dry_run=0
 cd "$ROOT_DIR"
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage || true)"
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
   if [[ "$active_stage" != "qa" ]]; then
     exit 0
   fi

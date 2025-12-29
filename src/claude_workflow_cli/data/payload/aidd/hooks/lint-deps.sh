@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage || true)"
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
   if [[ "$active_stage" != "implement" ]]; then
     exit 0
   fi
