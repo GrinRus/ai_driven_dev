@@ -25,7 +25,7 @@ CRITICAL_FILES: Iterable[str] = (
     "scripts/context_gc/sessionstart_inject.py",
     "scripts/context_gc/userprompt_guard.py",
     "scripts/context_gc/working_set_builder.py",
-    "CLAUDE.md",
+    "AGENTS.md",
     "conventions.md",
 )
 

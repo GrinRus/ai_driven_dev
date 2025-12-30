@@ -17,7 +17,6 @@ DEFAULT_PATHS: list[str] = [
     "templates",
     "tools",
     "workflow.md",
-    "CLAUDE.md",
     "conventions.md",
     "init-claude-workflow.sh",
     "scripts/migrate-tasklist.py",

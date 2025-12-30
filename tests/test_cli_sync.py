@@ -74,7 +74,7 @@ def test_sync_custom_include(tmp_path):
     assert not template_version.exists(), "template version should not update when .claude not synced"
 
 
-def test_sync_supports_claude_include(tmp_path):
+def test_sync_supports_agents_include(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     project_root = workspace / "aidd"
@@ -82,7 +82,7 @@ def test_sync_supports_claude_include(tmp_path):
     _clean_payload_pycache()
     args = SimpleNamespace(
         target=str(workspace),
-        include=["CLAUDE.md"],
+        include=["AGENTS.md"],
         force=False,
         dry_run=False,
         release=None,
@@ -90,5 +90,5 @@ def test_sync_supports_claude_include(tmp_path):
     )
     cli._sync_command(args)
 
-    claude_doc = project_root / "CLAUDE.md"
-    assert claude_doc.exists(), "sync should copy CLAUDE.md when explicitly requested"
+    agents_doc = project_root / "AGENTS.md"
+    assert agents_doc.exists(), "sync should copy AGENTS.md when explicitly requested"

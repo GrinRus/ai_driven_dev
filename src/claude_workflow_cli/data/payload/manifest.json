@@ -37,12 +37,6 @@
       "sha256": "40e919b85a2ae6466e8450b48e5a44d570912132bef802813a08d689212e3fb0"
     },
     {
-      "path": "aidd/CLAUDE.md",
-      "type": "file",
-      "size": 5019,
-      "sha256": "a15ff22fef649489d1bec1bff51aeef3cdb695335f78e0b21162b8cee58f6df0"
-    },
-    {
       "path": "aidd/agents/analyst.md",
       "type": "file",
       "size": 3424,
@@ -453,8 +447,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 22045,
-      "sha256": "fc04a10d63262c245460f7110c8cd6ff1a83492eac8c6baf10a57450bdf1168d"
+      "size": 21996,
+      "sha256": "cbe55f32e9f8c258c7a1b1c4b752f6a427769c76d64afd2d70f108d843d0352a"
     },
     {
       "path": "aidd/prompts/en/agents/analyst.md",

@@ -7,7 +7,6 @@
     "aidd/.claude-plugin/plugin.json",
     "aidd/.markdownlint.yaml",
     "aidd/AGENTS.md",
-    "aidd/CLAUDE.md",
     "aidd/conventions.md",
     "aidd/init-claude-workflow.sh",
     "aidd/workflow.md",
