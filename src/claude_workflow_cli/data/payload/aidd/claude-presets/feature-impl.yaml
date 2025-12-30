@@ -23,9 +23,9 @@ context:
   instructions:
     - >-
       Работай итерациями: перед описанием шага перечитай план, tasklist,
-      research и отчёты, перечисли затронутые файлы и команды (`<test-runner> …`,
-      `.claude/hooks/format-and-test.sh`, `claude-workflow progress --source
-      implement --ticket {{feature}}`).
+      research и отчёты, перечисли затронутые файлы и команды:
+      `<test-runner> …`, `.claude/hooks/format-and-test.sh`,
+      `claude-workflow progress` (source=implement, ticket={{feature}}).
     - >-
       Обновляй docs/tasklist/{{feature}}.md после каждой итерации, указывая
       ссылки на diff/логи и фиксируя команды, которые запускал. Если
