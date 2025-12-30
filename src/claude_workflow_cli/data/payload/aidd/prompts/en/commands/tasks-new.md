@@ -1,52 +1,54 @@
 ---
-description: "Build aidd/docs/tasklist/<ticket>.md for the feature"
+description: "Generate the tasklist (`aidd/docs/tasklist/<ticket>.md`)"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_stage.py:*)
+prompt_version: 1.0.4
+source_version: 1.0.4
+allowed-tools:
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/tasks-new` converts the plan into a detailed checklist (`aidd/docs/tasklist/<ticket>.md`) across analytics, implementation, QA, release, and post-release stages. Include any free-form notes after the ticket in the checklist context.
+`/tasks-new` creates or rebuilds `aidd/docs/tasklist/<ticket>.md` from the plan/PRD/reviews. Tasklist drives `/implement`, `/review`, `/qa`. Free-form notes after the ticket should be included as a tasklist note.
 
 ## Input Artifacts
-- `aidd/docs/plan/<ticket>.md`— source of iterations/DoD.
-- `aidd/docs/prd/<ticket>.prd.md`+`## PRD Review` action items.
-- `aidd/docs/research/<ticket>.md`.
-- `templates/tasklist.md`/`claude-presets/feature-impl.yaml` for baseline structure.
+- `@aidd/docs/plan/<ticket>.md`.
+- `@aidd/docs/prd/<ticket>.prd.md` + `## PRD Review`.
+- `@aidd/docs/research/<ticket>.md`.
+- Template `@templates/tasklist.md` if creating from scratch.
 
 ## When to Run
-- After `/plan-new` succeeds. Rerun when plan/PRD receives significant updates.
+- After `review-plan` and `review-prd`, before `/implement`.
+- Re-run after plan/PRD changes.
 
 ## Automation & Hooks
-- `gate-workflow` requires tasklist entries before code edits.
-- `feature-impl` preset can populate default sections for Wave 7 tasks.
-- `python3 tools/set_active_stage.py tasklist` records the `tasklist` stage.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py tasklist` sets stage `tasklist`.
+- `gate-workflow` checks tasklist presence and new `- [x]`.
 
 ## What is Edited
-- `aidd/docs/tasklist/<ticket>.md`— front matter (Ticket, Slug hint, Feature, Status, PRD/Plan/Research links, Updated date) and sections 1–6 + “How to track progress”.
+- `aidd/docs/tasklist/<ticket>.md` — front matter + `Next 3` + `Handoff inbox`.
 
 ## Step-by-step Plan
-1. Record the `tasklist` stage: `python3 tools/set_active_stage.py tasklist`.
-2. Create/open `aidd/docs/tasklist/<ticket>.md`; copy from template if new.
-3. Update front matter with current ticket info and date.
-4. Migrate plan iterations into the relevant sections (analytics, build, QA, release, post-release).
-5. Copy all approved action items from PRD Review into explicit checkboxes.
-6. Add the “How to track progress” guide (change `- [ ] → - [x]`, include date/iteration/links).
-7. Expand `feature-impl` preset if you need demo wave tasks.
-8. Summarize top-priority checkboxes in your response and set `Checkbox updated: tasklist drafted` when ready.
+1. Set stage `tasklist`.
+2. Create/open the tasklist; if missing, copy `templates/tasklist.md`.
+3. Update front matter (Ticket/Slug/Status/PRD/Plan/Research/Updated).
+4. Map plan iterations and PRD Review action items into checklists.
+5. Fill `Next 3` and `Handoff inbox`.
 
 ## Fail-fast & Questions
-- Missing plan or PRD — pause until earlier steps are complete.
-- If owners or dependencies are unknown, ask before finalizing.
+- Missing plan/reviews — stop and request prerequisites.
+- If owners are unclear, ask for clarification.
 
 ## Expected Output
-- Updated `aidd/docs/tasklist/<ticket>.md` aligned with plan/PRD, including action items and progress instructions.
-- Response lists key checkboxes to tackle first.
+- Updated `aidd/docs/tasklist/<ticket>.md` with `Next 3` and `Handoff inbox`.
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## CLI Examples
 - `/tasks-new ABC-123`
-- `!bash -lc 'claude-workflow preset feature-impl --ticket "ABC-123"'`

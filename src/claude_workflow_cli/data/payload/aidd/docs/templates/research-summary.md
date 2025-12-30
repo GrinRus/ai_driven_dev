@@ -9,6 +9,18 @@ Artifacts:
   PRD: aidd/docs/prd/{{ticket}}.prd.md
   Tasklist: aidd/docs/tasklist/{{ticket}}.md
 
+## Context Pack (TL;DR)
+- **Entry points:** {{entry_points}}
+- **Reuse candidates:** {{reuse_candidates}}
+- **Integration points:** {{integration_points}}
+- **Test pointers:** {{test_pointers}}
+- **Top risks:** {{risks_top5}}
+
+## Definition of reviewed
+- Найдены ≥ 1 точки интеграции или явно указан baseline.
+- Указаны тесты/контракты или явно зафиксирован риск «нет тестов».
+- Зафиксированы команды/пути сканирования и ссылки на отчёты.
+
 ## Контекст
 - **Цель фичи:** {{goal}}
 - **Scope изменений:** {{scope}}

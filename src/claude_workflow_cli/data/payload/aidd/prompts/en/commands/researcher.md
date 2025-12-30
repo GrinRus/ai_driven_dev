@@ -1,52 +1,59 @@
 ---
-description: "Research report prep: collect context + run agent"
+description: "Prepare Researcher report: collect context and run agent"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: en
-prompt_version: 1.1.3
-source_version: 1.1.3
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(claude-workflow research:*),Bash(python3 tools/set_active_feature.py:*),Bash(python3 tools/set_active_stage.py:*),Bash(claude-workflow preset:*),Bash(find:*),Bash(python:*),Bash(rg:*)
+prompt_version: 1.1.4
+source_version: 1.1.4
+allowed-tools:
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow research:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/researcher` ensures every feature has an up-to-date research report. It reuses the CLI scan, updates `aidd/docs/research/<ticket>.md`, and syncs links with PRD/tasklist. Free-form notes after the ticket should be recorded in the report.
+`/researcher` gathers codebase context: runs `claude-workflow research`, then updates `aidd/docs/research/<ticket>.md` via the `researcher` agent. Free-form notes after the ticket should be stored in the report.
 
 ## Input Artifacts
-- Active ticket (`aidd/docs/.active_ticket` or CLI arg).
-- PRD, plan, tasklist (if present).
-- `aidd/docs/templates/research-summary.md` for new reports.
+- `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
+- `@aidd/docs/prd/<ticket>.prd.md`.
+- `@aidd/docs/templates/research-summary.md`.
+- `aidd/reports/research/<ticket>-context.json`.
 
 ## When to Run
 - After `/idea-new`, before `/plan-new`.
-- Re-run when architecture changes or codebase diverges significantly.
+- Re-run when modules/risks change.
 
 ## Automation & Hooks
-- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]` populates `reports/research/<ticket>-context.json` with `code_index`,`reuse_candidates`, and a focused `call_graph`/`import_graph`(supported languages, tree-sitter when available). The full graph is saved to `reports/research/<ticket>-call-graph-full.json`; defaults: filter =`<ticket>|<keywords>`, limit = 300 edges.
-- `--dry-run` writes only JSON;`--targets-only` refreshes target paths without scanning;`--reuse-only` focuses on reuse candidates;`--langs` filters deep-code languages;`--graph-langs` narrows call graph to kt/kts/java;`--graph-filter/--graph-limit` tune focus graph;`--no-agent` skips launching the Claude agent.
-- After a successful report, derive implementer tasks: call `claude-workflow tasks-derive --source research --append --ticket <ticket>` so `aidd/docs/tasklist/<ticket>.md` contains `- [ ] Research ... (source: reports/research/<ticket>-context.json)` entries.
-- `python3 tools/set_active_stage.py research` records the `research` stage.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py research` sets stage `research`.
+- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` updates JSON context.
+- Optionally append handoff tasks via `claude-workflow tasks-derive --source research --append --ticket <ticket>`.
 
 ## What is Edited
-- `aidd/docs/research/<ticket>.md`(per template) and references in PRD/tasklist.
+- `aidd/docs/research/<ticket>.md`.
+- PRD/tasklist links to the report.
 
 ## Step-by-step Plan
-1. Ensure active ticket matches `$1`; run `/idea-new` or `python3 tools/set_active_feature.py` if needed.
-2. Record the `research` stage: `python3 tools/set_active_stage.py research`.
-3. Execute `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [extra options like --langs/--graph-langs/--reuse-only]`.
-4. If no matches are found, scaffold `aidd/docs/research/$1.md` and mark the baseline.
-5. Launch **researcher** with the generated JSON, use the `call_graph`/`import_graph`(supported languages) and refine in Claude Code, then fill reuse/patterns/anti-patterns, gaps, notes.
-6. Set status to `reviewed` once the team approved recommendations; otherwise `pending` with TODOs.
-7. Verify PRD (`## Analyst dialog`) and tasklist reference the report; add `- [ ] Research ...` handoff items (source: reports/research/$1-context.json) or run `claude-workflow tasks-derive --source research --append --ticket "$1"`.
+1. Ensure the active ticket is set; use `set_active_feature` if needed.
+2. Set stage `research`.
+3. Run `claude-workflow research ...` and update JSON context.
+4. Invoke `researcher` and update `aidd/docs/research/<ticket>.md`.
+5. Add handoff tasks if needed.
 
 ## Fail-fast & Questions
-- No active ticket or PRD? Pause until `/idea-new` runs.
-- Missing paths/keywords? Request them so the scan is meaningful.
-- Report `pending` states and next steps when context is incomplete.
+- Missing active ticket or PRD → stop and request `/idea-new`.
+- If report stays `pending`, return questions and conditions for `reviewed`.
 
 ## Expected Output
-- Updated research doc, context JSON, and references in PRD/tasklist.
+- Updated `aidd/docs/research/<ticket>.md` (status `pending|reviewed`).
+- Fresh `aidd/reports/research/<ticket>-context.json`.
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## CLI Examples
-- `/researcher ABC-123 --paths src/service:src/lib --keywords "checkout,pay" --deep-code --langs py,kt`
-- `!bash -lc 'claude-workflow research --ticket "ABC-123" --auto --deep-code --note "Reuse checkout facade" --reuse-only'`
+- `/researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --deep-code`

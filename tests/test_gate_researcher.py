@@ -44,7 +44,11 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     )
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", prd_body)
     write_json(tmp_path, f"reports/prd/{ticket}.json", {"status": "ready", "findings": []})
-    write_file(tmp_path, f"docs/plan/{ticket}.md", "# Plan\n\n## Architecture & Patterns\n- service layer\n")
+    write_file(
+        tmp_path,
+        f"docs/plan/{ticket}.md",
+        "# Plan\n\n## Architecture & Patterns\n- service layer\n\n## Plan Review\nStatus: READY\n",
+    )
     write_file(
         tmp_path,
         f"docs/tasklist/{ticket}.md",

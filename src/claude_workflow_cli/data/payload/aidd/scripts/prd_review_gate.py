@@ -2,7 +2,8 @@
 """Shared PRD review gate logic for Claude workflow hooks.
 
 The script checks that `docs/prd/<ticket>.prd.md` contains a `## PRD Review`
-section with a READY status and no unresolved action items. Behaviour is
+section with a READY status and no unresolved action items. Review runs after
+plan review and blocks implementation until ready. Behaviour is
 configured through `config/gates.json` (see the `prd_review` section).
 
 Exit codes:
@@ -181,7 +182,7 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     human_status = (status or "PENDING").upper()
     if kind == "missing_section":
         return (
-            f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-prd {label}"
+            f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-prd {label} (после /review-plan)"
         )
     if kind == "missing_prd":
         return (

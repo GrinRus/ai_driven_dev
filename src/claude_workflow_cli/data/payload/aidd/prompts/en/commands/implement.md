@@ -1,52 +1,55 @@
 ---
-description: "Feature implementation + selective tests"
+description: "Implement feature by plan + selective tests"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.1.6
-source_version: 1.1.6
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_stage.py:*),Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh:*),Bash(claude-workflow progress:*),Bash(git:*),Bash(git add:*)
+prompt_version: 1.1.7
+source_version: 1.1.7
+allowed-tools:
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
+  - "Bash(claude-workflow progress:*)"
+  - "Bash(git:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/implement` drives development by delegating to the implementer agent, keeping tasklist aligned with the plan, consulting PRD/research only when plan/tasklist lack detail, and running format/tests before handing results back. Free-form notes after the ticket should be treated as iteration context and noted in the response.
+`/implement` invokes **implementer** to execute the next iteration from the plan/tasklist. Free-form notes after the ticket are iteration context.
 
 ## Input Artifacts
-- `aidd/docs/plan/<ticket>.md`, `aidd/docs/tasklist/<ticket>.md`.
-- Research/PRD for supplemental context when plan/tasklist miss details.
-- Current git diff/config.
+- `@aidd/docs/plan/<ticket>.md`.
+- `@aidd/docs/tasklist/<ticket>.md`.
+- `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/research/<ticket>.md` as needed.
 
 ## When to Run
-- After `/tasks-new`. Repeat throughout development until the feature is done.
+- After `/tasks-new`, when plan/reviews are ready.
+- Repeat per iteration.
 
 ## Automation & Hooks
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh` auto-runs post-write. Adjust via env vars: `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `TEST_CHANGED_ONLY`.
-- Finish with `claude-workflow progress --source implement --ticket <ticket>`; the CLI warns if no new `[x]` items exist.
-- `python3 tools/set_active_stage.py implement` records the `implement` stage (rerun when returning to implementation).
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py implement` sets stage `implement`.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` runs on Stop/SubagentStop.
+- `claude-workflow progress --source implement --ticket <ticket>` confirms new `- [x]`.
 
 ## What is Edited
-- Source code, configs, docs according to the plan.
-- `aidd/docs/tasklist/<ticket>.md` checkboxes after each iteration.
+- Code/config + `aidd/docs/tasklist/<ticket>.md`.
 
 ## Step-by-step Plan
-1. Record the `implement` stage: `python3 tools/set_active_stage.py implement`.
-2. Call **implementer** with the ticket ID.
-3. Observe auto format/test results; rerun manually with `!${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh` when necessary.
-4. Update tasklist entries (switch `[ ]` to `[x]`, add timestamps/notes/links).
-5. Document any env overrides and non-default test scopes.
-6. Run `claude-workflow progress --source implement --ticket "$1"`.
-7. Report closed checkboxes, remaining work, and test status.
+1. Set stage `implement`.
+2. Invoke **implementer** with the iteration context.
+3. Ensure tasklist is updated and progress confirmed.
 
 ## Fail-fast & Questions
-- No plan/tasklist — request `/plan-new`/`/tasks-new` first.
-- Unclear requirements/integrations/migrations — stop and ask.
-- Tests failing? Do not proceed without resolution or explicit approval to skip.
+- Missing plan/tasklist or reviews — stop and request prerequisites.
+- Failing tests/blockers → stop before continuing.
 
 ## Expected Output
-- Updated code + tasklist with `Checkbox updated: …` in the final response.
-- Clear status of tests and next steps.
+- Updated code + tasklist.
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## CLI Examples
 - `/implement ABC-123`
-- `!bash -lc 'SKIP_AUTO_TESTS=1 ${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh'`

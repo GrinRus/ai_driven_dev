@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
 
-QUESTION_RE = re.compile(r"^\s*Вопрос\s+(\d+)\s*:", re.MULTILINE)
+QUESTION_RE = re.compile(r"^\s*Вопрос\s+(\d+)\b.*:", re.MULTILINE)
 ANSWER_RE = re.compile(r"^\s*Ответ\s+(\d+)\s*:", re.MULTILINE)
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"

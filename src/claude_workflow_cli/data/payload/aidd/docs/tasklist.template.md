@@ -29,6 +29,14 @@ Updated: YYYY-MM-DD
 - Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "&lt;ticket&gt;"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
 - После отчётов QA/Review/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|review|research> --append --ticket "&lt;ticket&gt;"`; новые `- [ ]` должны ссылаться на соответствующий `reports/<source>/...`.
 
+## Next 3 (фокус)
+- [ ] <первый приоритетный чекбокс>
+- [ ] <второй приоритетный чекбокс>
+- [ ] <третий приоритетный чекбокс>
+
+## Handoff inbox
+- [ ] <handoff из QA/Review/Research со ссылкой на report>
+
 ## 1. Аналитика и дизайн
 - [ ] PRD и дизайн синхронизированы, риски зафиксированы (`docs/prd/&lt;ticket&gt;.prd.md`, макеты).
 - [ ] Метрики успеха и ограничения подтверждены артефактами (`docs/.active_feature`, `reports/research/&lt;ticket&gt;-context.json`).
@@ -43,6 +51,7 @@ Updated: YYYY-MM-DD
 - [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
 - [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи тест-раннера, `claude-workflow qa --gate`).
 - [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
+- [ ] Traceability: для каждого acceptance criteria из PRD указано, как проверено (ссылка на тест/лог/шаг).
 
 ## 4. Интеграция с гейтами
 - [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.

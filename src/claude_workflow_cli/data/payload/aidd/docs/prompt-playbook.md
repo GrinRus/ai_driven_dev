@@ -8,6 +8,7 @@
 - Минимизировать дублирование инструкций (например, правила `Checkbox updated`) и держать их в одном месте.
 - Задать единый словарь терминов (ticket, slug, plan, PRD, tasklist) и порядок ссылок на артефакты.
 - Обеспечить **agent-first** подход: агент по умолчанию использует данные из репозитория (backlog, reports, tests) и запускает разрешённые команды; вопросы пользователю разрешены только когда в артефактах нет ответа и это явно задокументировано.
+- Базовые правила — `aidd/AGENTS.md`, порядок стадий — `aidd/docs/sdlc-flow.md`, статусы — `aidd/docs/status-machine.md`.
 
 ## 2. Структура промпта
 
@@ -31,11 +32,12 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
 - `prompt_version` повышается при любых правках текста (см. раздел 7).
 - Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
+- Для поиска используйте один способ: `rg` через `Bash(rg:*)` (Grep не добавляйте).
 - Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; свободный ввод после тикета должен быть предусмотрен и описан. Для агентов поле `name` обязательно.
 
 ### 2.2 Обязательные разделы
 После фронт-маттера соблюдайте блоки в указанном порядке:
-1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@aidd/docs/...`). В этом блоке явно укажите философию agent-first: какие данные агент обязан собрать самостоятельно и какие действия автоматизированы.
+1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@aidd/docs/...`). Добавьте MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`. В этом блоке явно укажите философию agent-first: какие данные агент обязан собрать самостоятельно и какие действия автоматизированы.
 2. **Входные артефакты** — маркированный список (`- PRD: aidd/docs/prd/<ticket>.prd.md`). Указывайте обязательность и fallback (например, «если отчёт research отсутствует → попроси запустить команду»).
 3. **Автоматизация** — что делает CLA `gate-*`, какие переменные окружения поддерживаются, как реагировать на автозапуск `format-and-test`. Здесь же перечислите разрешённые команды (например, `<test-runner>`, `rg pattern`, `claude-workflow progress`) и ожидаемый формат фиксации их вывода.
 4. **Пошаговый план** — пронумерованный список действий агента/команды. Для команд допускается блок «Когда запускать / Что модифицируем / Ожидаемый вывод».
@@ -59,22 +61,32 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Всегда начинайте блок статуса строкой `Checkbox updated: <список>` или `Checkbox updated: none`.
 - Формат списка: идентификатор чекбокса (`1.1 – Аналитика`) или ссылку на файл (`aidd/docs/tasklist/ABC-123.md: QA #3`).
 - Команды/агенты, которые не обновляют tasklist, должны явно указывать `Checkbox updated: not-applicable`.
-- Любые дополнения (например, краткий отчёт) следуют после строки `Checkbox updated: ...`.
+- Далее добавляйте строки: `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
+- Любые дополнения (например, краткий отчёт) следуют после этих строк.
 
 ## 4. Fail-fast и эскалация
 - Если обязательный вход отсутствует → немедленно завершайте ответ со статусом `BLOCKED` и перечисляйте, какую команду запустить (`/idea-new`, `claude-workflow research ...`).
 - При сомнениях по архитектуре или миграциям формируйте список вопросов в конце ответа и не продолжайте реализацию.
 - Для слэш-команд описывайте, как проверять готовность (например, `!bash -lc 'claude-workflow progress ...'`).
+- Формат вопросов обязателен:
+  ```
+  Вопрос N (Blocker|Clarification): ...
+  Зачем: ...
+  Варианты: A) ... B) ...
+  Default: ...
+  ```
 
 ## 5. Матрица «роль → артефакты/хуки»
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-prd-review`, `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
-| `planner` / `/plan-new` | PRD (Status: READY), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
+| `planner` / `/plan-new` | PRD READY, research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
+| `plan-reviewer` / `/review-plan` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
+| `prd-reviewer` / `/review-prd` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
-| `qa` | Tasklist, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
+| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 

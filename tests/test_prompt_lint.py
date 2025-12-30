@@ -13,6 +13,7 @@ from .helpers import REPO_ROOT
 REQUIRED_AGENT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
+    ("plan-reviewer", "review-plan"),
     ("implementer", "implement"),
     ("reviewer", "review"),
     ("researcher", "researcher"),
@@ -21,38 +22,50 @@ REQUIRED_AGENT_PAIRS = [
 
 
 def build_agent(name: str) -> str:
-    return dedent(
-        f"""
-        ---
-        name: {name}
-        description: test agent
-        lang: ru
-        prompt_version: 1.0.0
-        source_version: 1.0.0
-        tools: Read, Write
-        model: inherit
-        permissionMode: inherit
-        ---
+    question = ""
+    if name in {"analyst", "validator"}:
+        question = (
+            "\n        Вопрос N (Blocker|Clarification): ...\n"
+            "        Зачем: ...\n"
+            "        Варианты: A) ... B) ...\n"
+            "        Default: ...\n"
+        )
+    return (
+        dedent(
+            f"""
+            ---
+            name: {name}
+            description: test agent
+            lang: ru
+            prompt_version: 1.0.0
+            source_version: 1.0.0
+            tools: Read, Write
+            model: inherit
+            permissionMode: inherit
+            ---
 
-        ## Контекст
-        Text.
+            ## Контекст
+            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md.
+            Text.
 
-        ## Входные артефакты
-        - item
+            ## Входные артефакты
+            - item
 
-        ## Автоматизация
-        Text.
+            ## Автоматизация
+            Text.
 
-        ## Пошаговый план
-        1. step
+            ## Пошаговый план
+            1. step
 
-        ## Fail-fast и вопросы
-        Text.
+            ## Fail-fast и вопросы
+            Text.{question}
 
-        ## Формат ответа
-        Text.
-        """
-    ).strip() + "\n"
+            ## Формат ответа
+            Text.
+            """
+        ).strip()
+        + "\n"
+    )
 
 
 def build_command(description: str = "test command") -> str:
@@ -100,38 +113,50 @@ def build_command(description: str = "test command") -> str:
 
 
 def build_agent_en(name: str) -> str:
-    return dedent(
-        f"""
-        ---
-        name: {name}
-        description: test agent en
-        lang: en
-        prompt_version: 1.0.0
-        source_version: 1.0.0
-        tools: Read, Write
-        model: inherit
-        permissionMode: inherit
-        ---
+    question = ""
+    if name in {"analyst", "validator"}:
+        question = (
+            "\n        Question N (Blocker|Clarification): ...\n"
+            "        Why: ...\n"
+            "        Options: A) ... B) ...\n"
+            "        Default: ...\n"
+        )
+    return (
+        dedent(
+            f"""
+            ---
+            name: {name}
+            description: test agent en
+            lang: en
+            prompt_version: 1.0.0
+            source_version: 1.0.0
+            tools: Read, Write
+            model: inherit
+            permissionMode: inherit
+            ---
 
-        ## Context
-        Text.
+            ## Context
+            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md.
+            Text.
 
-        ## Input Artifacts
-        - item
+            ## Input Artifacts
+            - item
 
-        ## Automation
-        Text.
+            ## Automation
+            Text.
 
-        ## Step-by-step Plan
-        1. step
+            ## Step-by-step Plan
+            1. step
 
-        ## Fail-fast & Questions
-        Text.
+            ## Fail-fast & Questions
+            Text.{question}
 
-        ## Response Format
-        Text.
-        """
-    ).strip() + "\n"
+            ## Response Format
+            Text.
+            """
+        ).strip()
+        + "\n"
+    )
 
 
 def build_command_en(description: str = "test command") -> str:

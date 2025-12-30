@@ -2,56 +2,55 @@
 description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 allowed-tools:
   - Read
   - Edit
   - Write
-  - Grep
   - Glob
+  - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/tasks-new` создаёт рабочий чеклист `aidd/docs/tasklist/<ticket>.md` на основе утверждённого плана. Tasklist фиксирует критерии прогресса для `/implement`,`/review`,`/qa` и контролируется `gate-workflow`. Свободный ввод после тикета включи как примечание/контекст в чеклист.
+Команда `/tasks-new` создаёт или пересобирает `aidd/docs/tasklist/<ticket>.md` на основе плана, PRD и ревью. Tasklist — основной источник для `/implement`, `/review`, `/qa`. Свободный ввод после тикета включи как примечание в чеклист.
 
 ## Входные артефакты
-- `@aidd/docs/plan/<ticket>.md` — список итераций, DoD, зависимостей.
-- `@aidd/docs/prd/<ticket>.prd.md` + раздел `## PRD Review`(action items).
+- `@aidd/docs/plan/<ticket>.md` — итерации и DoD.
+- `@aidd/docs/prd/<ticket>.prd.md` + `## PRD Review`.
 - `@aidd/docs/research/<ticket>.md` — reuse и риски.
-- Шаблон @templates/tasklist.md (если файл создаётся с нуля).
+- Шаблон `@templates/tasklist.md` (если файл создаётся с нуля).
 
 ## Когда запускать
-- Сразу после `/plan-new`(validator PASS). Повторно — когда нужно пересобрать чеклист после изменения плана/PRD.
+- После `review-plan` и `review-prd`, перед `/implement`.
+- Повторно — если план/PRD изменились.
 
 ## Автоматические хуки и переменные
-- `gate-workflow` проверяет, что tasklist существует и содержит актуальные `- [x]`.
-- Пресет `feature-impl`(`claude-presets/feature-impl.yaml`) может заполнить типовые задачи.
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py tasklist` фиксирует стадию `tasklist`.
+- `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
+- Пресет `feature-impl` может заполнить типовые задачи.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md`: фронт-маттер (Ticket, Slug hint, Feature, Status, PRD/Plan/Research ссылки, Updated), разделы 1–6 и памятка «Как отмечать прогресс».
+- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `Next 3`, `Handoff inbox`, чеклисты по этапам.
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py tasklist`.
-2. Создай/открой `aidd/docs/tasklist/<ticket>.md`. При отсутствии файла скопируй `templates/tasklist.md`.
-3. Обнови фронт-маттер Данными тикета и текущей даты (`Updated`).
-4. Перенеси этапы из плана: аналитика, реализация, QA, релиз, пострелиз. Добавь конкретные чекбоксы с владельцами и результатами.
-5. Вынеси все action items из `## PRD Review` в отдельные чекбоксы.
-6. Добавь памятку «Как отмечать прогресс» (как в шаблоне) — опиши перевод `- [ ] → - [x]` с датой/итерацией и ссылкой на изменения.
-7. При необходимости разверни `feature-impl` для дополнений (Wave 7 задачи).
-8. Начни ответ со строки `Checkbox updated: tasklist drafted`, затем перечисли ключевые чекбоксы, которые нужно закрыть первыми.
+2. Создай/открой tasklist; при отсутствии скопируй `templates/tasklist.md`.
+3. Обнови фронт-маттер (Ticket/Slug/Status/PRD/Plan/Research/Updated).
+4. Перенеси шаги из плана в чеклист, добавь action items из PRD Review.
+5. Заполни `Next 3` (первые три пункта фокуса) и `Handoff inbox`.
+6. При необходимости разверни `feature-impl`.
 
 ## Fail-fast и вопросы
-- Нет плана/PRD Review READY — остановись и попроси выполнить предыдущие шаги.
-- Если непонятно, кто владеет action items, запроси владельцев до фиксации чеклистов.
+- Нет plan/review-plan/review-prd READY — остановись и попроси завершить предыдущие шаги.
+- Если непонятны владельцы/сроки — запроси уточнения.
 
 ## Ожидаемый вывод
-- Актуальный `aidd/docs/tasklist/<ticket>.md` с фронт-маттером, чеклистами по этапам, переносом action items из PRD Review и памяткой по прогрессу.
-- Ответ начинается со строки `Checkbox updated: tasklist drafted` и содержит список приоритетных чекбоксов.
+- Актуальный `aidd/docs/tasklist/<ticket>.md` с `Next 3` и `Handoff inbox`.
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
 - `/tasks-new ABC-123`

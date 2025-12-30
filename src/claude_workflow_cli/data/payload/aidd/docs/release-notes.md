@@ -67,6 +67,10 @@
 ## vNext — YYYY-MM-DD
 
 ### Added
+- Новый этап `/review-plan` с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
+- Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
+- `aidd/AGENTS.md` + корневой `AGENTS.md` как основной вход для агентного контекста.
+- Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
 - Двуязычные промпты: EN-варианты в `aidd/prompts/en/**`, линтер синхронизирует RU/EN, добавлены `aidd/docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
@@ -74,6 +78,11 @@
 - Agent-first шаблоны и команды: обновлены `aidd/docs/prd.template.md`, `aidd/docs/tasklist.template.md`, `aidd/docs/templates/research-summary.md`, `/idea-new`, `templates/prompt-agent.md` и `templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md` описывают новые правила.
 
 ### Changed
+- Канонический SDLC обновлён: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
+- Команды стали “тонкими”, а агенты содержат алгоритмы и stop-conditions; формат вопросов стандартизирован (`Вопрос N (Blocker|Clarification)` + `Зачем/Варианты/Default`).
+- Output-контракт унифицирован (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), поиск стандартизирован на `rg`.
+- Шаблоны research/tasklist/QA обновлены: Context Pack и Definition of reviewed, секции `Next 3` и `Handoff inbox`, traceability к acceptance criteria.
+- `gate-workflow` теперь проверяет `review-plan` перед PRD review и tasklist; smoke/тесты синхронизированы с новым порядком.
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
 - `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
 - Промпты команд/агентов унифицированы под `READY/BLOCKED/PENDING`, команды принимают свободные заметки после тикета, а `allowed-tools` синхронизирован с инструментами саб-агентов.
