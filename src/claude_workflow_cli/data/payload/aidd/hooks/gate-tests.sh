@@ -170,6 +170,17 @@ DEFAULT_TEST_PATTERNS = [
     "__tests__/{rel_dir}/{base}.test{ext}",
     "__tests__/{rel_dir}/{base}.spec{ext}",
 ]
+DEFAULT_EXCLUDE_DIRS = [
+    "test",
+    "tests",
+    "spec",
+    "specs",
+    "__tests__",
+    "androidTest",
+    "integrationTest",
+    "functionalTest",
+    "testFixtures",
+]
 
 def norm_list(value, default):
     if value is None:
@@ -222,6 +233,9 @@ source_roots.sort(key=len, reverse=True)
 source_exts = unique(norm_exts(cfg.get("source_extensions"), DEFAULT_SOURCE_EXTS))
 test_patterns = unique(norm_list(cfg.get("test_patterns"), DEFAULT_TEST_PATTERNS))
 test_exts = unique(norm_exts(cfg.get("test_extensions"), []))
+exclude_dirs = unique(
+    norm_list(cfg.get("exclude_dirs") or cfg.get("source_exclude_dirs"), DEFAULT_EXCLUDE_DIRS)
+)
 
 SEP = "\x1f"
 
@@ -232,6 +246,7 @@ emit("SOURCE_ROOTS", source_roots)
 emit("SOURCE_EXTS", source_exts)
 emit("TEST_PATTERNS", test_patterns)
 emit("TEST_EXTS", test_exts)
+emit("EXCLUDE_DIRS", exclude_dirs)
 PY
 ) || true
 
@@ -239,6 +254,7 @@ source_roots=()
 source_exts=()
 test_patterns=()
 test_exts=()
+exclude_dirs=()
 list_sep=$'\x1f'
 
 for line in "${TESTS_CFG[@]}"; do
@@ -254,6 +270,9 @@ for line in "${TESTS_CFG[@]}"; do
       ;;
     TEST_EXTS=*)
       IFS="$list_sep" read -r -a test_exts <<< "${line#TEST_EXTS=}"
+      ;;
+    EXCLUDE_DIRS=*)
+      IFS="$list_sep" read -r -a exclude_dirs <<< "${line#EXCLUDE_DIRS=}"
       ;;
   esac
 done
@@ -312,6 +331,27 @@ PY
   fi
 }
 
+is_excluded_path() {
+  local path="$1"
+  local part exclude parts
+  for exclude in "${exclude_dirs[@]}"; do
+    [[ -z "$exclude" ]] && continue
+    if [[ "$exclude" == *"/"* ]]; then
+      if [[ "$path" == "$exclude" || "$path" == "$exclude/"* ]]; then
+        return 0
+      fi
+      continue
+    fi
+    IFS='/' read -r -a parts <<< "$path"
+    for part in "${parts[@]}"; do
+      if [[ "$part" == "$exclude" ]]; then
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
 changed_files=()
 if [[ -n "$file_path" ]]; then
   changed_files+=("$file_path")
@@ -344,6 +384,9 @@ for candidate in "${changed_files[@]}"; do
     fi
   done
   (( matched_ext == 1 )) || continue
+  if ((${#exclude_dirs[@]} > 0)) && is_excluded_path "$candidate"; then
+    continue
+  fi
   match_root=""
   for root in "${source_roots[@]}"; do
     if [[ "$candidate" == "$root/"* ]]; then

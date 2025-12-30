@@ -62,6 +62,17 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
             "__tests__/{rel_dir}/{base}.test{ext}",
             "__tests__/{rel_dir}/{base}.spec{ext}",
         ],
+        "exclude_dirs": [
+            "test",
+            "tests",
+            "spec",
+            "specs",
+            "__tests__",
+            "androidTest",
+            "integrationTest",
+            "functionalTest",
+            "testFixtures",
+        ],
     },
     "deps_allowlist": False,
     "prd_review": {

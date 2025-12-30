@@ -189,8 +189,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 3844,
-      "sha256": "1aea781eee982662f38f0d4904cedd3bc000d93ffe6f54c45caaaed903aa11f9"
+      "size": 4041,
+      "sha256": "5436ac561d9081a103d73f495f8b0cd146cff124ae823cf9dfaad556d01de68c"
     },
     {
       "path": "aidd/conventions.md",
@@ -219,8 +219,8 @@
     {
       "path": "aidd/docs/customization.md",
       "type": "file",
-      "size": 17018,
-      "sha256": "c6c925f5890c1c56481c581a1edc9fba4b5d6deb88fa9d12b41db22e4c5452cf"
+      "size": 17185,
+      "sha256": "bfb72e8e08c965d05a6882f41d27e7ff694f09cd09617cb7ce703faaf7d109b3"
     },
     {
       "path": "aidd/docs/design/feature-presets.md",
@@ -387,8 +387,8 @@
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 13205,
-      "sha256": "d6d172cb2925893109cd8038d04ad94b6321e9f57aa1047283999743726b2270"
+      "size": 14222,
+      "sha256": "1efefaa9d394be737450bf6ade48d38d0a9e31c91b5127deeefe4cee71d5e6e3"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",

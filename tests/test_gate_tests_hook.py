@@ -66,6 +66,16 @@ def test_non_source_paths_not_checked(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_skips_test_directories(tmp_path):
+    ensure_gates_config(tmp_path, {"tests_required": "hard"})
+    write_active_stage(tmp_path, "implement")
+    write_file(tmp_path, "src/test/kotlin/service/RuleEngineTest.kt", "class RuleEngineTest")
+
+    payload = '{"tool_input":{"file_path":"src/test/kotlin/service/RuleEngineTest.kt"}}'
+    result = run_hook(tmp_path, "gate-tests.sh", payload)
+    assert result.returncode == 0, result.stderr
+
+
 def test_warns_when_reviewer_requests_tests(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "soft"})
     write_active_feature(tmp_path, "demo")
