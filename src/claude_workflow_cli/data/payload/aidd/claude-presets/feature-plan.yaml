@@ -28,7 +28,7 @@ context:
       и существующие точки интеграции.
     - >-
       Сформируй план итерациями, ссылаясь на файлы/команды (например,
-      `.claude/hooks/format-and-test.sh`, `./gradlew :service:test`). План
+      `.claude/hooks/format-and-test.sh`, `<test-runner> <args>`). План
       должен указывать, какие шаги уже покрыты шаблонами и что нужно открыть
       в tasklist.
     - docs/customization.md

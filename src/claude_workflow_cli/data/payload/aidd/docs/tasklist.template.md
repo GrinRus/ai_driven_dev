@@ -16,7 +16,7 @@ Reports:
   QA: reports/qa/&lt;ticket&gt;.json
 Commands:
   Progress: claude-workflow progress --source &lt;stage&gt; --ticket "&lt;ticket&gt;"
-  Tests: ./gradlew test --tests &lt;pattern&gt;
+  Tests: &lt;test-runner&gt; &lt;args&gt;
 Updated: YYYY-MM-DD
 ---
 
@@ -37,11 +37,11 @@ Updated: YYYY-MM-DD
 ## 2. Реализация
 - [ ] Код реализован в целевых модулях, тесты покрывают новые ветви (укажите путь к diff и лог тестов).
 - [ ] Учтены негативные сценарии, feature flags/конфиги обновлены (`config/*.json`, `settings/*.yaml`).
-- [ ] `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` и ручные команды (`./gradlew …`) выполняются без ошибок (приложите выдержки).
+- [ ] `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` и ручные команды (например, `pytest`, `npm test`, `go test`) выполняются без ошибок (приложите выдержки).
 
 ## 3. QA / Проверки
 - [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
-- [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи `./gradlew test`, `pytest`, `claude-workflow qa --gate`).
+- [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи тест-раннера, `claude-workflow qa --gate`).
 - [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
 
 ## 4. Интеграция с гейтами

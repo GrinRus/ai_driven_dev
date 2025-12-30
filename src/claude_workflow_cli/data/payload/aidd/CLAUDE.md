@@ -13,7 +13,7 @@
 ## Хуки и гейты
 - `aidd/hooks/gate-workflow.sh` — не даёт редактировать `src/**`, пока не готовы PRD, план и `aidd/docs/tasklist/<ticket>.md`.
 - `aidd/hooks/gate-tests.sh` — опционально требует наличие юнит-тестов для изменённых исходников (`tests_required=soft|hard`).
-- `aidd/hooks/format-and-test.sh` — форматирует код и запускает выборочные Gradle-тесты после каждой записи (отключается `SKIP_AUTO_TESTS=1`).
+- `aidd/hooks/format-and-test.sh` — форматирует код и запускает выборочные тесты через настроенный runner после каждой записи (отключается `SKIP_AUTO_TESTS=1`).
 - `aidd/hooks/lint-deps.sh` — напоминает про allowlist зависимостей.
 
 Дополнительные проверки настраиваются в `config/gates.json`. Пресеты разрешений и хуков описаны в `.claude/settings.json`, правила веток/коммитов — в `config/conventions.json`.

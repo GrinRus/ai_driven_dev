@@ -2039,7 +2039,7 @@ def build_parser() -> argparse.ArgumentParser:
     research_parser.add_argument(
         "--call-graph",
         action="store_true",
-        help="Build call/import graph (Java/Kotlin via tree-sitter if available).",
+        help="Build call/import graph (supported languages via tree-sitter if available).",
     )
     research_parser.add_argument(
         "--graph-engine",

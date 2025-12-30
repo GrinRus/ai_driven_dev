@@ -27,7 +27,7 @@ context:
       ограничения (какие сервисы/скрипты уже существуют).
     - >-
       Предложи архитектурные шаги с привязкой к файлам и командам (например,
-      `./gradlew :service-checkout:test`, `rg "{{feature}}" src/`), чтобы
+      `<test-runner> <args>`, `rg "{{feature}}" src/`), чтобы
       downstream-агенты могли воспроизвести решения.
     - docs/research/{{feature}}.md
     - >-

@@ -23,7 +23,7 @@ context:
   instructions:
     - >-
       Работай итерациями: перед описанием шага перечитай план, tasklist,
-      research и отчёты, перечисли затронутые файлы и команды (`./gradlew …`,
+      research и отчёты, перечисли затронутые файлы и команды (`<test-runner> …`,
       `.claude/hooks/format-and-test.sh`, `claude-workflow progress --source
       implement --ticket {{feature}}`).
     - >-

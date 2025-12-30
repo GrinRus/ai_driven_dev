@@ -4,7 +4,7 @@ argument-hint: "<TICKET> [note...]"
 lang: en
 prompt_version: 1.0.2
 source_version: 1.0.2
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*),Bash(python3 tools/set_active_stage.py:*),Bash(claude-workflow reviewer-tests:*),Bash(claude-workflow progress:*),Bash(./gradlew:*),Bash(gradle:*)
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(git diff:*),Bash(python3 tools/set_active_stage.py:*),Bash(claude-workflow reviewer-tests:*),Bash(claude-workflow progress:*)
 model: inherit
 disable-model-invocation: false
 ---

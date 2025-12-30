@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Предупреждает о зависимостях вне allowlist при изменении Gradle файлов (не блокирует)
+# Предупреждает о зависимостях вне allowlist при изменении Gradle-манифестов (не блокирует)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +22,7 @@ while IFS= read -r line; do
 done < <(grep -Ev '^\s*(#|$)' config/allowed-deps.txt | sed 's/[[:space:]]//g')
 is_allowed() { local ga="$1"; for a in "${allowed[@]}"; do [[ "$ga" == "$a" ]] && return 0; done; return 1; }
 
-# Смотрим добавленные строки в Gradle файлах
+# Смотрим добавленные строки в Gradle-манифестах
 added=()
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
   while IFS= read -r line; do

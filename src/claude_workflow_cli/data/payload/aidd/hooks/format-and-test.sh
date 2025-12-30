@@ -438,13 +438,13 @@ def main() -> int:
     ]
 
     tests_cfg = automation.get("tests", {})
-    runner_cfg = tests_cfg.get("runner", "./gradlew")
+    runner_cfg = tests_cfg.get("runner", "bash")
     if isinstance(runner_cfg, list):
         test_runner = [str(part) for part in runner_cfg]
     else:
         test_runner = [str(runner_cfg)]
 
-    default_tasks = [str(task) for task in tests_cfg.get("defaultTasks", [":test"])]
+    default_tasks = [str(task) for task in tests_cfg.get("defaultTasks", [])]
     fallback_tasks = [str(task) for task in tests_cfg.get("fallbackTasks", [])]
     module_matrix = [
         {

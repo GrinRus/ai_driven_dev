@@ -4,7 +4,7 @@ description: Code review agent. Checks quality, safety, tests, and feeds finding
 lang: en
 prompt_version: 1.0.2
 source_version: 1.0.2
-tools: Read, Grep, Glob, Bash(git diff:*), Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default
 ---

@@ -55,8 +55,6 @@
             "Bash(git diff:*)",
             "Bash(git rev-parse:*)",
             "Bash(git checkout:*)",
-            "Bash(./gradlew:*)",
-            "Bash(gradle:*)",
             "Bash(aidd/hooks/:*)",
             "Bash(find:*)",
             "Bash(python3:*)",
@@ -99,8 +97,6 @@
       "Bash(git diff:*)",
       "Bash(git rev-parse:*)",
       "Bash(git checkout:*)",
-      "Bash(./gradlew:*)",
-      "Bash(gradle:*)",
       "Bash(aidd/hooks/:*)",
       "Bash(find:*)",
       "Bash(python3:*)",
@@ -132,7 +128,7 @@
   "automation": {
     "format": {
       "commands": [],
-      "notes": "Добавьте сюда массив команд (например, [ [\"./gradlew\", \"spotlessApply\"] ]) или укажите SKIP_FORMAT=1.",
+      "notes": "Добавьте сюда массив команд (например, [ [\"npm\", \"run\", \"format\"] ]) или укажите SKIP_FORMAT=1.",
       "env": {
         "SKIP_FORMAT": "1 — пропустить форматирование;",
         "FORMAT_ONLY": "1 — выполнить только форматирование без тестов."
@@ -166,7 +162,7 @@
       },
       "env": {
         "SKIP_AUTO_TESTS": "1 — временно отключить автоматический запуск форматирования и выборочных тестов.",
-        "TEST_SCOPE": "Список задач через запятую (например, :app:test,:lib:test).",
+        "TEST_SCOPE": "Список задач через запятую (например, unit,lint).",
         "TEST_CHANGED_ONLY": "0 — запускать полный набор задач независимо от diff.",
         "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать.",
         "FORCE_TESTS": "1 — запустить тесты независимо от статуса reviewer.",
