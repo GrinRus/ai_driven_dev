@@ -95,7 +95,7 @@ claude:
 
 ### Slash-команды
 
-Обновить `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md`:
+Обновить `aidd/commands/*.md`:
 - `/idea-new` → указать, что пресет `feature-prd` формирует PRD.
 - `/plan-new` → добавить шаг вызова `feature-plan`.
 - `/tasks-new`, `/implement`, `/review` → ссылаться на соответствующие пресеты и ожидаемые файлы.

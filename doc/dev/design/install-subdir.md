@@ -9,8 +9,13 @@
 ## Целевая структура
 ```
 <workspace>/
+  .claude/
+  .claude-plugin/
   aidd/
-    .claude/
+    .claude-plugin/
+    agents/
+    commands/
+    hooks/
     claude-presets/
     config/
     docs/
@@ -27,7 +32,7 @@
 - Дефолт: `claude-workflow init --target .` создаёт `<cwd>/aidd/` по manifest (префикс `aidd/` внутри ресурса).
 - `--target` задаёт корень установки; внутри него всегда создаётся поддиректория `aidd/` (перемещённые fallback/зеркалирование в корень убраны).
 - `sync/upgrade` работают только с вложенным payload; dry-run не создаёт каталог и показывает diff по manifest.
-- При наличии старого `.claude` в корне CLI предупреждает и предлагает миграцию; существующий `aidd/` обновляется на месте с бэкапом изменённых файлов.
+- При наличии старых `.claude/` и `.claude-plugin/` в корне CLI предупреждает и предлагает миграцию; существующий `aidd/` обновляется на месте с бэкапом изменённых файлов.
 - Smoke из CLI (`claude-workflow smoke`) и bash-скрипт `aidd/scripts/smoke-workflow.sh` используют тот же payload и запускают e2e в tmp-каталоге из текущего git checkout, без скачивания внешних артефактов.
 
 ## Сценарии установки
@@ -55,7 +60,7 @@
 
 ## Миграция из корня
 1. Зафиксировать локальные правки (при необходимости `scripts/sync-payload.sh --direction=from-root` для отражения в payload).
-2. Удалить dev-снапшоты из корня (`.claude`, `claude-presets`, `config`, `docs`, `prompts`, `scripts`, `templates`, `tools`, `workflow.md`), оставить продуктовые файлы.
+2. Удалить dev-снапшоты из корня (`.claude`, `.claude-plugin`, `claude-presets`, `config`, `docs`, `prompts`, `scripts`, `templates`, `tools`, `workflow.md`), оставить продуктовые файлы.
 3. Запустить `claude-workflow init --target .` (или с `CLAUDE_TEMPLATE_DIR=...` для локальной ветки) — создаст `aidd/`.
 4. Прогнать `claude-workflow smoke` (или `aidd/scripts/smoke-workflow.sh`) — e2e на tmp-каталоге из текущей ветки.
 5. Обновить CI шаги: init/smoke должны указывать `--target .` и работать с `aidd/`.

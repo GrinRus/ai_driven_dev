@@ -6,14 +6,19 @@
 - Создавайте issue перед крупными доработками.
 - Работайте из веток `feature/<ticket>` или `feat/<scope>` в зависимости от активной конвенции.
 - Обновляйте документацию на двух языках: `README.md` (RU) и `README.en.md` (EN).
-- Перед PR запустите `./.claude/hooks/format-and-test.sh`.
+- Перед PR запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` в установленном workspace).
+
+## Состав репозитория
+- **Runtime (у пользователя):** `aidd/**` + корневые `.claude/` и `.claude-plugin/` после `claude-workflow init`.
+- **Dev-only:** `doc/dev/`, `tests/`, `examples/`, `tools/`, `scripts/`, `.github/`, `.dev/`, `.tmp-debug/`, `build/`.
 
 ## Процесс работы
 1. **Обсуждение.** Подготовьте issue или ссылку на ADR/PRD, если изменение затрагивает архитектуру.
 2. **Ветка.** Создайте ветку командой `git checkout -b feature/<TICKET>` (или по другому паттерну из `config/conventions.json`).
 3. **Коммиты.** Формируйте сообщения вручную (`git commit`), сверяясь с шаблонами в `config/conventions.json`. Для строгой проверки подключите git-хук из `docs/customization.md`.
-4. **Тесты и форматирование.** Запустите `.claude/hooks/format-and-test.sh`. Для строгого режима выставьте `STRICT_TESTS=1`.
-5. **Payload как единственный источник.** Правьте `.claude/`, `docs/`, шаблоны и хуки только в `src/claude_workflow_cli/data/payload`. Перед правками выполните `scripts/sync-payload.sh --direction=to-root`, после правок — `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py` (или `pre-commit run payload-sync-check`). Это гарантирует, что пакет `claude-workflow-cli` и runtime snapshot остаются в одном состоянии.
+4. **Тесты и форматирование.** Запустите `aidd/hooks/format-and-test.sh` (или `scripts/ci-lint.sh`, если работаете над CLI/payload). Для строгого режима выставьте `STRICT_TESTS=1`.
+5. **Payload как единственный источник.** Правьте `.claude/`, `.claude-plugin/`, `aidd/**`, шаблоны и хуки только в `src/claude_workflow_cli/data/payload`. Перед правками выполните `scripts/sync-payload.sh --direction=to-root`, после правок — `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py` (или `pre-commit run payload-sync-check`). Это гарантирует, что пакет `claude-workflow-cli` и runtime snapshot остаются в одном состоянии.
+   Дополнительно запустите `python3 tools/payload_audit.py`, чтобы проверить состав дистрибутива по allowlist/denylist.
 6. **Документация.** Обновите связанные файлы в `docs/`, `README.md` и `README.en.md`. Если меняется поведение скриптов, обновите `docs/customization.md` и `workflow.md`.
 7. **Pull request.** Используйте шаблон PR, приложите ссылки на связанные задачи и укажите, как проверяли изменения локально.
 

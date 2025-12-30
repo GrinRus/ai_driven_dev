@@ -24,6 +24,7 @@ EOF
 direction="to-root"
 dry_run=0
 custom_paths=()
+paths_override=0
 
 trim() {
   local value="$1"
@@ -47,9 +48,11 @@ while [[ $# -gt 0 ]]; do
     --paths)
       shift
       IFS=',' read -r -a custom_paths <<< "${1:-}"
+      paths_override=1
       ;;
     --paths=*)
       IFS=',' read -r -a custom_paths <<< "${1#*=}"
+      paths_override=1
       ;;
     -h|--help)
       usage
@@ -86,21 +89,8 @@ esac
 
 default_paths=(
   ".claude"
-  "claude-presets"
-  "config"
-  "docs"
-  "templates"
-  "tools"
-  "workflow.md"
-  "CLAUDE.md"
-  "conventions.md"
-  "init-claude-workflow.sh"
-  "scripts/ci-lint.sh"
-  "scripts/migrate-tasklist.py"
-  "scripts/prd-review-agent.py"
-  "scripts/prd_review_gate.py"
-  "scripts/qa-agent.py"
-  "scripts/smoke-workflow.sh"
+  ".claude-plugin"
+  "aidd"
 )
 
 if [[ ${#custom_paths[@]} -gt 0 ]]; then
@@ -118,7 +108,12 @@ else
   sync_paths=("${default_paths[@]}")
 fi
 
-rsync_base=(rsync -a --human-readable --itemize-changes)
+rsync_base=(
+  rsync -a --human-readable --itemize-changes
+  --exclude=__pycache__/
+  --exclude=*.pyc
+  --exclude=*.pyo
+)
 if [[ ${dry_run} -eq 1 ]]; then
   rsync_base+=("--dry-run")
 fi
@@ -135,17 +130,41 @@ sync_path() {
 
   if [[ -d "${source_path}" ]]; then
     mkdir -p "${target_path}"
-    "${rsync_base[@]}" --delete "${source_path}/" "${target_path}/"
+    "${rsync_base[@]}" --delete --delete-excluded "${source_path}/" "${target_path}/"
   else
     mkdir -p "$(dirname "${target_path}")"
     "${rsync_base[@]}" "${source_path}" "${target_path}"
   fi
 }
 
+cleanup_legacy_paths() {
+  local legacy_paths=(
+    "claude-presets"
+    "config"
+    "docs"
+    "templates"
+    "workflow.md"
+    "CLAUDE.md"
+    "conventions.md"
+    "init-claude-workflow.sh"
+  )
+  for legacy in "${legacy_paths[@]}"; do
+    local target="${repo_root}/${legacy}"
+    if [[ -e "${target}" ]]; then
+      echo "[cleanup] removing legacy path ${legacy}"
+      rm -rf "${target}"
+    fi
+  done
+}
+
 echo "[sync] ${direction} (${src_base} → ${dst_base})"
 for path in "${sync_paths[@]}"; do
   sync_path "${path}"
 done
+
+if [[ "${direction}" == "to-root" && ${dry_run} -eq 0 && ${paths_override} -eq 0 ]]; then
+  cleanup_legacy_paths
+fi
 
 if [[ ${dry_run} -eq 1 ]]; then
   echo "[dry-run] No files were modified."

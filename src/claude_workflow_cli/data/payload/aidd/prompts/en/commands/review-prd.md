@@ -2,8 +2,8 @@
 description: "PRD review and readiness status"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.2
-source_version: 1.0.2
+prompt_version: 1.0.3
+source_version: 1.0.3
 allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 ${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py:*)
 model: inherit
 disable-model-invocation: false

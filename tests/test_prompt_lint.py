@@ -7,7 +7,7 @@ from textwrap import dedent
 import unittest
 from typing import Dict, Optional
 
-from .helpers import PAYLOAD_ROOT, REPO_ROOT
+from .helpers import REPO_ROOT
 
 
 REQUIRED_AGENT_PAIRS = [
@@ -184,7 +184,7 @@ class PromptLintTests(unittest.TestCase):
         pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
         env["PYTHONPATH"] = pythonpath
         return subprocess.run(
-            [sys.executable, str(PAYLOAD_ROOT / "scripts" / "lint-prompts.py"), "--root", str(root)],
+            [sys.executable, str(REPO_ROOT / "scripts" / "lint-prompts.py"), "--root", str(root)],
             text=True,
             capture_output=True,
             env=env,
@@ -203,12 +203,12 @@ class PromptLintTests(unittest.TestCase):
         command_override = command_override or {}
         en_command_override = en_command_override or {}
         for agent_name, command_name in REQUIRED_AGENT_PAIRS:
-            agent_path = root / ".claude" / "agents" / f"{agent_name}.md"
+            agent_path = root / "agents" / f"{agent_name}.md"
             agent_path.parent.mkdir(parents=True, exist_ok=True)
             content = agent_override.get(agent_name, build_agent(agent_name))
             agent_path.write_text(content, encoding="utf-8")
 
-            command_path = root / ".claude" / "commands" / f"{command_name}.md"
+            command_path = root / "commands" / f"{command_name}.md"
             command_path.parent.mkdir(parents=True, exist_ok=True)
             command_content = command_override.get(command_name, build_command(command_name))
             command_path.write_text(command_content, encoding="utf-8")

@@ -30,18 +30,21 @@
 Секции «Migration» и «Breaking changes» заполняются только при необходимости.
 
 ## Подготовка релиза
+> Repo-only: чеклист рассчитан на работу в репозитории; скрипты `scripts/*` и `tools/*` не входят в установленный payload.
+
 - [ ] Обновить `README.md` и `README.en.md` (TL;DR, список фич, ссылки на новые документы).
 - [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
 - [ ] Обновить демо (`examples/gradle-demo/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
-- [ ] Выполнить `scripts/ci-lint.sh` локально.
-- [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --kind agent --name <name>` точечно.
+- [ ] Выполнить локальный прогон CI lint (см. `.github/workflows/ci.yml`).
+- [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --root <workflow-root> --kind agent --name <name>` точечно.
 - [ ] Синхронизировать payload: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py && pytest tests/test_init_hook_paths.py`. Только после этого публикуйте пакет/релиз.
+- [ ] Проверить состав payload: `python3 tools/payload_audit.py`.
 - [ ] Убедиться, что dev-only артефакты (например, `doc/backlog.md`) не попали в payload/manifest; каталог `doc/` исключён из sync по умолчанию.
 
 ## Migration: legacy root installs → `./aidd` (Wave 51)
 - CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
-- Для старых установок: удалите корневые снапшоты `.claude/`, `config/`, `docs/`, `prompts/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
+- Для старых установок: удалите корневые снапшоты `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `prompts/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
 - Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `aidd/docs/migration-aidd.md`.
 - [ ] Зафиксировать изменения в `aidd/docs/release-notes.md`.
 
@@ -66,8 +69,8 @@
 ### Added
 - `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Двуязычные промпты: EN-варианты в `prompts/en/**`, линтер синхронизирует RU/EN, добавлены `aidd/docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
-- Добавлен флаг `--prompt-locale en` для `init-claude-workflow.sh`/`claude-workflow init`, который устанавливает EN-вариант `.claude/agents|commands`, а в проект копируется каталог `prompts/en/**` для дальнейшей синхронизации.
+- Двуязычные промпты: EN-варианты в `aidd/prompts/en/**`, линтер синхронизирует RU/EN, добавлены `aidd/docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
+- Добавлен флаг `--prompt-locale en` для `init-claude-workflow.sh`/`claude-workflow init`, который устанавливает EN-вариант `aidd/agents|commands`, а в проект копируется каталог `aidd/prompts/en/**` для дальнейшей синхронизации.
 - Agent-first шаблоны и команды: обновлены `aidd/docs/prd.template.md`, `aidd/docs/tasklist.template.md`, `aidd/docs/templates/research-summary.md`, `/idea-new`, `templates/prompt-agent.md` и `templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md` описывают новые правила.
 
 ### Changed
@@ -79,12 +82,12 @@
 - Приведены к единому виду `@aidd/docs/.../<ticket>...` placeholder-и в RU промптах, EN `/implement` использует `${CLAUDE_PLUGIN_ROOT:-./aidd}` в инструкциях, тесты линтера покрывают `Статус:`.
 - EN `/qa` теперь ссылается на `${CLAUDE_PLUGIN_ROOT:-./aidd}` в дефолтном пути тестов, а implementer получает доступ к хукe `format-and-test.sh` в инструментах.
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
-- `scripts/ci-lint.sh` запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
+- CI lint запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 - Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 - Внутренний backlog (`doc/backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
 
 ### Migration
 - Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `aidd/docs/.active_ticket` (если отсутствует) и дополнить `aidd/docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
-- Обновите payload/шаблоны: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, затем скопируйте свежие `.claude/agents|commands` и `prompts/en/**`.
+- Обновите payload/шаблоны: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, затем скопируйте свежие `aidd/agents|commands` и `aidd/prompts/en/**`.
 - Для активных тикетов перезапустите `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
-- Запустите `scripts/ci-lint.sh` и smoke-тесты, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.
+- Запустите smoke-тесты (`claude-workflow smoke`) и общий прогон CI lint, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.

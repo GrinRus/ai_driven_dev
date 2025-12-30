@@ -2,10 +2,10 @@
 
 Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит семь этапов: **идея → research → план → PRD review → задачи → реализация → ревью**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии.
 
-> **Плагин AIDD.** Команды/агенты/хуки живут в `aidd/{commands,agents,hooks}` с манифестом `aidd/.claude-plugin/plugin.json`; runtime `.claude/` содержит только настройки/хуки проекта. Marketplace для автоподключения — корневой `.claude-plugin/marketplace.json`, root `.claude/settings.json` включает `feature-dev-aidd`. Запускайте Claude из корня: плагин подхватится автоматически.
+> **Плагин AIDD.** Команды/агенты/хуки живут в `aidd/{commands,agents,hooks}` с манифестом `aidd/.claude-plugin/plugin.json`; runtime `.claude/` в workspace содержит только настройки/кеш. Marketplace для автоподключения — корневой `.claude-plugin/marketplace.json`, root `.claude/settings.json` включает `feature-dev-aidd`. Запускайте Claude из корня: плагин подхватится автоматически.
 > Ticket — основной идентификатор фичи (`aidd/docs/.active_ticket`), slug-hint при необходимости сохраняется в `aidd/docs/.active_feature` и используется в шаблонах и логах.
 > Payload обновляйте через CLI: `claude-workflow init --target .` (bootstrap), `claude-workflow preset <name>`, `claude-workflow sync|upgrade` для подтяжки шаблонов и `claude-workflow smoke` для быстрой проверки гейтов.
-> **Важно:** `.claude/`, `.claude-plugin/`, `aidd/docs/`, `templates/` и скрипты в корне — это развернутый snapshot. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
+> **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/templates/scripts/tools/commands/agents/hooks) — это развернутый snapshot. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 ## Обзор этапов
 
 | Этап | Команда | Саб-агент | Основные артефакты |
@@ -53,7 +53,7 @@
 
 ### 6. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана, учитывает выводы `aidd/docs/research/<ticket>.md` и PRD и вносит изменения малыми итерациями, опираясь на данные репозитория.
-- После каждой правки автоматически запускается `.claude/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`). Любые ручные команды (`./gradlew test`, `gradle lint`, `claude-workflow progress --source implement --ticket <ticket>`) нужно перечислять в ответе с кратким результатом.
+- После каждой правки автоматически запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`). Любые ручные команды (`./gradlew test`, `gradle lint`, `claude-workflow progress --source implement --ticket <ticket>`) нужно перечислять в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `aidd/docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
 - Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`.
 - После отчётов QA/Review/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
@@ -72,8 +72,8 @@
 
 ## Автоматизация и гейты
 
-- Хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) описаны в `hooks/hooks.json` и вызывают `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/*`; `.claude/settings.json` хранит только permissions/automation и включает плагин.
-- `aidd/hooks/hooks.json` описывает hook events: PreToolUse (workflow/prd/qa/tests), PostToolUse (format/test/lint-deps), а также UserPromptSubmit/Stop/SubagentStop — все вызывают `gate-workflow` перед записью. Пути свернуты через `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/...`.
+- Хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) описаны в `hooks/hooks.json` и вызывают `${CLAUDE_PLUGIN_ROOT}/hooks/*`; `.claude/settings.json` хранит только permissions/automation и включает плагин.
+- `aidd/hooks/hooks.json` описывает hook events: PreToolUse (workflow/prd/qa/tests), PostToolUse (format/test/lint-deps), а также UserPromptSubmit/Stop/SubagentStop — все вызывают `gate-workflow` перед записью. Пути свернуты через `${CLAUDE_PLUGIN_ROOT}/hooks/...`.
 - `config/gates.json` управляет дополнительными проверками:
   - дополнительные гейты конфигурируются в `config/gates.json` (см. `tests_required`, `qa`).
   - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `reports/prd/<ticket>.json`.
@@ -85,7 +85,7 @@
   - `feature_ticket_source` — путь к файлу с активным ticket (по умолчанию `aidd/docs/.active_ticket`); `feature_slug_hint_source` управляет slug-хинтом (`aidd/docs/.active_feature`).
   - `tasklist_progress` — гарантирует, что при изменениях в коде появляются новые `- [x]` в `aidd/docs/tasklist/<ticket>.md`. Гейт активен для `/implement`, `/qa`, `/review` и хука `gate-workflow.sh`; при технических задачах можно настроить `skip_branches` или временно выставить `CLAUDE_SKIP_TASKLIST_PROGRESS=1`.
 - `SKIP_AUTO_TESTS=1` временно отключает форматирование и выборочные тесты.
-- `STRICT_TESTS=1` заставляет `.claude/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
+- `STRICT_TESTS=1` заставляет `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` завершаться ошибкой при падении тестов.
 
 ## Роли и ответственность команды
 

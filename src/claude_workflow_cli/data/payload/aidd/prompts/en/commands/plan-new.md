@@ -2,8 +2,8 @@
 description: "Implementation plan + validation"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.2
+source_version: 1.0.2
 allowed-tools: Read,Edit,Write,Grep,Glob
 model: inherit
 disable-model-invocation: false
@@ -15,7 +15,7 @@ disable-model-invocation: false
 ## Input Artifacts
 -`aidd/docs/prd/<ticket>.prd.md`— READY with`## PRD Review`.
 -`aidd/docs/research/<ticket>.md`— integration/risks.
-- ADRs/backlog notes referenced by the PRD.
+- ADRs referenced by the PRD.
 
 ## When to Run
 - Immediately after`/idea-new`/`/review-prd`.

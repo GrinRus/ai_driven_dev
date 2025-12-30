@@ -12,7 +12,7 @@ def test_cli_init_creates_aidd_under_workspace(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert (tmp_path / "aidd" / ".claude" / "settings.json").is_file()
+    assert (tmp_path / ".claude" / "settings.json").is_file()
 
 
 def test_cli_command_errors_when_workflow_missing(tmp_path):

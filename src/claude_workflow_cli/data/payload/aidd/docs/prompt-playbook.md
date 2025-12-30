@@ -12,7 +12,7 @@
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `.claude-plugin/agents/*.md`, `${CLAUDE_PROJECT_DIR}/.claude/agents/*.md`, `.claude-plugin/commands/*.md` и `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md` начинается с блока:
+Каждый файл `aidd/agents/*.md`, `aidd/commands/*.md` и их EN-версии в `aidd/prompts/en/**` начинается с блока:
 
 ```yaml
 ---
@@ -50,8 +50,8 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
 
 ### 2.3 Локализация
-- RU-файлы используются рантаймом (`${CLAUDE_PROJECT_DIR}/.claude/agents/*.md`, `${CLAUDE_PROJECT_DIR}/.claude/commands/*.md`), EN-хранилище — `prompts/en/agents/*.md`, `prompts/en/commands/*.md`.
-- Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `prompts/en/**`).
+- RU-файлы используются рантаймом (`aidd/agents/*.md`, `aidd/commands/*.md`), EN-хранилище — `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`.
+- Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `aidd/prompts/en/**`).
 - Добавьте `Lang-Parity: skip` в фронт-маттер только когда одну локаль намеренно пропускают (например, черновик); после синхронизации уберите.
 - Версионные правила и workflow описаны в `aidd/docs/prompt-versioning.md`.
 
@@ -74,7 +74,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 | `planner` / `/plan-new` | PRD (Status: READY), research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План с DoD/метриками | `aidd/docs/plan/.template` |
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
-| `qa` | Tasklist, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
+| `qa` | Tasklist, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 
@@ -82,26 +82,29 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Ссылайтесь на переменные окружения из `.claude/settings.json` (например, `SKIP_AUTO_TESTS`, `TEST_SCOPE`).
 - Для команд, которые вызывают дополнительные скрипты, описывайте формат `!bash -lc '...'` и ожидаемые побочные эффекты.
 - Если агент должен запускаться из палитры (например, `qa`), напишите явное указание «Запусти через Claude: Run agent → qa».
-- Hook events: `aidd/.claude-plugin/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `"$CLAUDE_PROJECT_DIR"/.claude/hooks/<name>.sh`.
+- Hook events: `aidd/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/<name>.sh`.
 
 ## 7. Процесс изменений и версионирование
+> Repo-only: `scripts/prompt-version`, `scripts/lint-prompts.py`, `tools/prompt_diff.py` доступны только в репозитории и не входят в установленный payload.
+> `<workflow-root>` — каталог, где лежат `agents/`, `commands/`, `prompts/en` (например, `./aidd` или `src/claude_workflow_cli/data/payload/aidd`).
+
 - Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).
 - EN-файл обязан держать `prompt_version`, равный RU, а `source_version` = текущей RU-версии; детали в `aidd/docs/prompt-versioning.md`.
-- Используйте `scripts/prompt-version bump --prompts <name> --kind agent|command --lang ru,en --part <...>` и `tools/prompt_diff.py` для контроля изменений.
+- Используйте `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru,en --part <...>` и `tools/prompt_diff.py --root <workflow-root>` для контроля изменений.
 - После обновления промпта обязательно опишите изменения в `aidd/docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
 
 ## 8. Минимальный чеклист перед публикацией
 1. Проверить фронт-маттер (`lang`, `prompt_version`, инструменты).
 2. Убедиться, что все обязательные блоки присутствуют и оформлены.
 3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
-4. Запустить `scripts/lint-prompts.py` и убедиться, что проверки пройдены.
+4. Запустить `scripts/lint-prompts.py --root <workflow-root>` и убедиться, что проверки пройдены.
 5. Обновить внутренний wave backlog (dev-only, `doc/backlog.md` не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
 
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 
 ## 9. Шаблоны и автоматизация
 - Используйте `templates/prompt-agent.md` и `templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
-- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target ${CLAUDE_PROJECT_DIR}/.claude/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
-- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path ${CLAUDE_PROJECT_DIR}/.claude/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
-- Проверяйте локализации: `python3 scripts/lint-prompts.py`, `tools/prompt_diff.py --kind command --name plan-new`, `scripts/prompt-version bump --prompts plan-new --kind command --lang ru,en --part patch --dry-run`.
+- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target aidd/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
+- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path aidd/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
+- Проверяйте локализации: `python3 scripts/lint-prompts.py --root <workflow-root>`, `tools/prompt_diff.py --root <workflow-root> --kind command --name plan-new`, `scripts/prompt-version bump --root <workflow-root> --prompts plan-new --kind command --lang ru,en --part patch --dry-run`.
 - После генерации обязательно вручную заполните все блоки и обновите `prompt_version`/`source_version`, если правки вносились вручную или делался перевод.

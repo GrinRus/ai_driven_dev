@@ -46,9 +46,38 @@ def bump_version(version: str, part: str) -> str:
     return f"{major}.{minor}.{patch}"
 
 
-def process_prompt(root: Path, name: str, kind: str, langs: set[str], part: str) -> int:
-    ru_path = root / ".claude" / ("agents" if kind == "agent" else "commands") / f"{name}.md"
-    en_path = root / "prompts" / "en" / ("agents" if kind == "agent" else "commands") / f"{name}.md"
+def resolve_ru_base(root: Path, kind: str) -> Path:
+    subdir = "agents" if kind == "agent" else "commands"
+    candidates = [
+        root / subdir,
+        root / "aidd" / subdir,
+        root / ".claude" / subdir,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def resolve_en_base(root: Path, kind: str) -> Path:
+    subdir = "agents" if kind == "agent" else "commands"
+    candidates = [
+        root / "prompts" / "en" / subdir,
+        root / "aidd" / "prompts" / "en" / subdir,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def process_prompt(
+    root: Path, name: str, kind: str, langs: set[str], part: str, *, dry_run: bool
+) -> int:
+    ru_base = resolve_ru_base(root, kind)
+    en_base = resolve_en_base(root, kind)
+    ru_path = ru_base / f"{name}.md"
+    en_path = en_base / f"{name}.md"
     if not ru_path.exists():
         print(f"[prompt-version] RU prompt missing: {ru_path}", file=sys.stderr)
         return 1
@@ -70,12 +99,14 @@ def process_prompt(root: Path, name: str, kind: str, langs: set[str], part: str)
             en_text = replace_field(en_text, "source_version", new_version)
         elif "ru" in langs:
             en_text = replace_field(en_text, "source_version", new_version)
-        en_path.write_text(en_text, encoding="utf-8")
+        if not dry_run:
+            en_path.write_text(en_text, encoding="utf-8")
     elif "en" in langs and not lang_parity_skip:
         print(f"[prompt-version] EN prompt missing: {en_path}", file=sys.stderr)
         return 1
 
-    ru_path.write_text(ru_text, encoding="utf-8")
+    if not dry_run:
+        ru_path.write_text(ru_text, encoding="utf-8")
     return 0
 
 
@@ -83,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bump prompt_version/source_version for prompts.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     bump = subparsers.add_parser("bump", help="Bump prompt versions for selected prompts.")
-    bump.add_argument("--root", required=True, help="Workspace root containing .claude/prompts folders.")
+    bump.add_argument("--root", required=True, help="Workflow root containing agents/commands and prompts/en.")
     bump.add_argument("--prompts", required=True, help="Comma-separated prompt names.")
     bump.add_argument("--kind", choices=("agent", "command"), required=True)
     bump.add_argument("--lang", default="ru,en", help="Comma-separated languages to bump (default: ru,en).")
@@ -96,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         prompts = [p.strip() for p in args.prompts.split(",") if p.strip()]
         langs = {lang.strip() for lang in args.lang.split(",") if lang.strip()}
         for name in prompts:
-            rc = process_prompt(root, name, args.kind, langs, args.part)
+            rc = process_prompt(root, name, args.kind, langs, args.part, dry_run=args.dry_run)
             if rc != 0:
                 return rc
         return 0

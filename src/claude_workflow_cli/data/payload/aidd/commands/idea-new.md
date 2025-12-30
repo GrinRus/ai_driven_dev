@@ -2,8 +2,8 @@
 description: "Инициация фичи: аналитик + (опц.) auto-research → вопросы пользователю → PRD draft"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.2.2
-source_version: 1.2.2
+prompt_version: 1.2.4
+source_version: 1.2.4
 allowed-tools:
   - Read
   - Edit

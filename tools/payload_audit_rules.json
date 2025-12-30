@@ -1,0 +1,40 @@
+{
+  "allow_files": [
+    "manifest.json",
+    ".claude/settings.json",
+    ".claude/cache/.gitkeep",
+    ".claude-plugin/marketplace.json",
+    "aidd/.claude-plugin/plugin.json",
+    "aidd/.markdownlint.yaml",
+    "aidd/CLAUDE.md",
+    "aidd/conventions.md",
+    "aidd/init-claude-workflow.sh",
+    "aidd/workflow.md",
+    "aidd/scripts/migrate-tasklist.py",
+    "aidd/scripts/prd-review-agent.py",
+    "aidd/scripts/prd_review_gate.py",
+    "aidd/scripts/qa-agent.py",
+    "aidd/scripts/smoke-workflow.sh",
+    "aidd/tools/migrate_ticket.py",
+    "aidd/tools/researcher_context.py",
+    "aidd/tools/run_cli.py",
+    "aidd/tools/set_active_feature.py"
+  ],
+  "allow_globs": [
+    "aidd/agents/*.md",
+    "aidd/commands/*.md",
+    "aidd/hooks/**",
+    "aidd/config/**",
+    "aidd/docs/**",
+    "aidd/templates/**",
+    "aidd/claude-presets/**",
+    "aidd/prompts/**",
+    "aidd/scripts/context_gc/**",
+    "aidd/scripts/gradle/**"
+  ],
+  "deny_globs": [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo"
+  ]
+}

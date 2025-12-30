@@ -2,9 +2,9 @@
 description: "Final QA gate for the feature"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
-allowed-tools: Bash(claude-workflow qa:*),Bash(claude-workflow progress:*),Bash(scripts/ci-lint.sh:*),Read,Grep,Glob,Write,Edit
+prompt_version: 1.0.4
+source_version: 1.0.4
+allowed-tools: Bash(claude-workflow qa:*),Bash(claude-workflow progress:*),Bash(claude-workflow smoke:*),Read,Grep,Glob,Write,Edit
 model: inherit
 disable-model-invocation: false
 ---

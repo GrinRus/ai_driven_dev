@@ -10,16 +10,15 @@ from .helpers import PAYLOAD_ROOT, PROJECT_SUBDIR
 # Represent key artefacts that must match payload byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
     "commands/idea-new.md",
-    ".claude/hooks/gate-workflow.sh",
-    ".claude/hooks/gate-qa.sh",
-    ".claude/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+    "hooks/gate-workflow.sh",
+    "hooks/gate-qa.sh",
+    "hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
     "config/context_gc.json",
     "config/conventions.json",
     "claude-presets/feature-prd.yaml",
     "claude-presets/advanced/feature-design.yaml",
     "docs/customization.md",
     "docs/prd.template.md",
-    "scripts/ci-lint.sh",
     "scripts/context_gc/hooklib.py",
     "scripts/context_gc/precompact_snapshot.py",
     "scripts/context_gc/pretooluse_guard.py",
@@ -30,14 +29,18 @@ CRITICAL_FILES: Iterable[str] = (
     "conventions.md",
 )
 
-REQUIRED_DIRECTORIES = (
-    ".claude/hooks",
+PROJECT_DIRECTORIES = (
+    "hooks",
     "claude-presets",
     "config",
     "docs",
     "scripts",
     "scripts/context_gc",
     "tools",
+)
+WORKSPACE_DIRECTORIES = (
+    ".claude",
+    ".claude-plugin",
 )
 
 
@@ -98,8 +101,10 @@ def test_bootstrap_copies_payload_files_and_directories():
         _run_bootstrap(target)
         project_root = target / PROJECT_SUBDIR
 
-        for directory in REQUIRED_DIRECTORIES:
+        for directory in PROJECT_DIRECTORIES:
             assert (project_root / directory).is_dir(), f"{directory} must exist after bootstrap"
+        for directory in WORKSPACE_DIRECTORIES:
+            assert (target / directory).is_dir(), f"{directory} must exist after bootstrap"
 
         for relative in CRITICAL_FILES:
             payload_file = PAYLOAD_ROOT / relative
@@ -109,7 +114,7 @@ def test_bootstrap_copies_payload_files_and_directories():
             assert _hash_file(payload_file) == _hash_file(project_file), f"{relative} mismatch vs payload"
 
         # settings.json must exist, enable the plugin, and avoid $CLAUDE_PROJECT_DIR placeholders.
-        settings_path = project_root / ".claude" / "settings.json"
+        settings_path = target / ".claude" / "settings.json"
         data = json.loads(settings_path.read_text(encoding="utf-8"))
         assert data.get("enabledPlugins", {}).get("feature-dev-aidd@aidd-local"), "plugin should be enabled"
         assert "$CLAUDE_PROJECT_DIR" not in settings_path.read_text(encoding="utf-8"), "placeholders must be rewritten"
@@ -121,13 +126,13 @@ def test_bootstrap_force_overwrites_modified_files():
         _run_bootstrap(target)
 
         project_root = target / PROJECT_SUBDIR
-        gate_workflow = project_root / ".claude" / "hooks" / "gate-workflow.sh"
+        gate_workflow = project_root / "hooks" / "gate-workflow.sh"
         gate_workflow.write_text("# modified\n", encoding="utf-8")
         assert "modified" in gate_workflow.read_text(encoding="utf-8")
 
         _run_bootstrap(target, "--force")
 
-        payload_gate = PAYLOAD_ROOT / ".claude" / "hooks" / "gate-workflow.sh"
+        payload_gate = PAYLOAD_ROOT / "hooks" / "gate-workflow.sh"
         assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore payload version"
 
 
@@ -137,7 +142,7 @@ def test_bootstrap_prompt_locale_en():
         _run_bootstrap(target, "--prompt-locale", "en")
         project_root = target / PROJECT_SUBDIR
 
-        analyst = (project_root / ".claude" / "agents" / "analyst.md").read_text(encoding="utf-8")
-        idea = (project_root / ".claude" / "commands" / "idea-new.md").read_text(encoding="utf-8")
+        analyst = (project_root / "agents" / "analyst.md").read_text(encoding="utf-8")
+        idea = (project_root / "commands" / "idea-new.md").read_text(encoding="utf-8")
         assert "lang: en" in analyst
         assert "lang: en" in idea
