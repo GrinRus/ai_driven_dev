@@ -19,6 +19,7 @@ CRITICAL_FILES: Iterable[str] = (
     "claude-presets/advanced/feature-design.yaml",
     "docs/customization.md",
     "docs/prd.template.md",
+    "commands/review-spec.md",
     "scripts/context_gc/hooklib.py",
     "scripts/context_gc/precompact_snapshot.py",
     "scripts/context_gc/pretooluse_guard.py",

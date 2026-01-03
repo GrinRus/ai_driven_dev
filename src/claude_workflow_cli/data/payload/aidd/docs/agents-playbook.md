@@ -117,7 +117,7 @@
 ## Чеклист быстрого старта фичи
 
 1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — команда зафиксирует ticket в `aidd/docs/.active_ticket`, при необходимости сохранит slug-хинт в `aidd/docs/.active_feature` **и автоматически создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, который нужно довести до READY.**
-2. Выполните `/plan-new`, затем `/review-plan` и `/review-prd`, после чего запустите `/tasks-new`, пока артефакты не получат статус READY.
+2. Выполните `/plan-new`, затем `/review-plan` и `/review-prd` (или объединённую `/review-spec`), после чего запустите `/tasks-new`, пока артефакты не получат статус READY.
 3. При необходимости включите дополнительные гейты (`config/gates.json`) и подготовьте связанные артефакты: миграции, OpenAPI, дополнительные тесты.
 4. Реализуйте фичу через `/implement`, следя за сообщениями `gate-workflow` и выбранных гейтов; фиксируйте прогресс в `aidd/docs/tasklist/<ticket>.md`.
 5. Запросите `/review`, когда чеклисты закрыты, автотесты зелёные и артефакты синхронизированы.

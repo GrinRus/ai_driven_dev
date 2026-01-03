@@ -21,6 +21,8 @@
 | Ревью | `/review <ticket>` | `reviewer` | замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус |
 | QA | `/qa <ticket>` | `qa` | `aidd/docs/tasklist/<ticket>.md` (QA блок), `reports/qa/<ticket>.json` |
 
+> Можно запускать объединённую команду `/review-spec <ticket>`, которая выполняет review-plan и review-prd последовательно.
+
 На каждом шаге действует правило **agent-first**: агент обязан собрать максимум информации из репозитория (PRD, research, backlog, reports, тесты) и запустить разрешённые команды (`rg`, `claude-workflow progress`, тесты/линтеры проекта — например, `pytest`, `npm test`, `go test`) прежде чем обращаться к пользователю. Любой вопрос сопровождается перечислением изученных артефактов и форматом ответа.
 
 ## Подробности по шагам

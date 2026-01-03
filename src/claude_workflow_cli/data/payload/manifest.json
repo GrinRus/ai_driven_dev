@@ -169,6 +169,12 @@
       "sha256": "5754d5fbfd13d461cd5ecd94405ecef4475776ab9b97477845d678a39bc2e16a"
     },
     {
+      "path": "aidd/commands/review-spec.md",
+      "type": "file",
+      "size": 3719,
+      "sha256": "7fc3001929996f667cac4de9049eebccf5e149dda58c0836ed84a197bd26f20f"
+    },
+    {
       "path": "aidd/commands/review.md",
       "type": "file",
       "size": 2489,
@@ -225,8 +231,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 23007,
-      "sha256": "4e6ba9336b5e80748fccde0ca9b76a416bb121bf0c5e508718c65abdf9c105d1"
+      "size": 23056,
+      "sha256": "963f1842f2f6325e505d7cd0844b5199b0f673eddf21d9bba240e28f40aec337"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -279,8 +285,8 @@
     {
       "path": "aidd/docs/prompt-playbook.md",
       "type": "file",
-      "size": 16073,
-      "sha256": "f007849d6413145a61107b53754dc6d816e8594b8961476ea8c14b3685f36ffa"
+      "size": 16217,
+      "sha256": "c4a328fa8cd3eeb1d8e8b69259d7a7278a59ed7651dabf63597eed73f76c251d"
     },
     {
       "path": "aidd/docs/prompt-versioning.md",
@@ -309,8 +315,8 @@
     {
       "path": "aidd/docs/sdlc-flow.md",
       "type": "file",
-      "size": 2304,
-      "sha256": "e649459a88f088a1121898292e0a461cad7a681129209d8039138138b4091ec7"
+      "size": 2470,
+      "sha256": "09a96f8c9146d1d7a9bd3e2e45fd0751c9bbfc1d3370a569c0ae883bde7275ce"
     },
     {
       "path": "aidd/docs/status-machine.md",
@@ -547,6 +553,12 @@
       "sha256": "5da76e909be1bc1b09e5d35683793f60aa282d88ef0cc3af311c90eb1ad77bca"
     },
     {
+      "path": "aidd/prompts/en/commands/review-spec.md",
+      "type": "file",
+      "size": 2805,
+      "sha256": "d04d4de374eec0e2c0331396206e658c153e671a1e52d68ae917dfab3867b8dd"
+    },
+    {
       "path": "aidd/prompts/en/commands/review.md",
       "type": "file",
       "size": 1712,
@@ -711,8 +723,8 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 21598,
-      "sha256": "8b54939f105f9f64ca89026787161d518fc02dc1f1721f6987f642006d9c087d"
+      "size": 21788,
+      "sha256": "1919c30dce9cfce9a73a73c860070f54697fcbb9e3d844c1f8c5eb8572cdc841"
     }
   ]
 }
