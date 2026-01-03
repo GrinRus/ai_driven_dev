@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6421,
-      "sha256": "feca0a7ec0b9d231072bde3a9c127f2592e0ebca5beade8ac8a8b15479a6c77e"
+      "size": 6499,
+      "sha256": "fb94f49cb2bee45806d0b50a4dcf2f948c54bc9668085d0b30ee7241b8aca729"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -45,8 +45,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 2836,
-      "sha256": "fac5368ee6ae6ba2260d34b1f019e9cd3aacce6f1508bc435b19b01972a06f0b"
+      "size": 2898,
+      "sha256": "66c1b0869266db4bc00529bec4790ed4795b7b7e277ef8cf1e9ff96c29b90150"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
@@ -453,8 +453,8 @@
     {
       "path": "aidd/prompts/en/agents/implementer.md",
       "type": "file",
-      "size": 1822,
-      "sha256": "c33826ff9675729595c705faae24d5b480644de6a295967e7b2cb3dc36d16d60"
+      "size": 1884,
+      "sha256": "9a2ef106c9798d3622003f93dfbd283141dde86c72b052073324a8758a446a0c"
     },
     {
       "path": "aidd/prompts/en/agents/plan-reviewer.md",
