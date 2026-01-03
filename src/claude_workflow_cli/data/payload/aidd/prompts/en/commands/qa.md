@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
   - "Bash(claude-workflow qa:*)"
   - "Bash(claude-workflow progress:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---

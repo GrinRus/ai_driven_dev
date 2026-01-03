@@ -4,7 +4,7 @@ description: Implement by plan/tasklist in small iterations; questions only for 
 lang: en
 prompt_version: 1.1.10
 source_version: 1.1.10
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

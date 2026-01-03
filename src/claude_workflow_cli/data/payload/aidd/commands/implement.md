@@ -18,6 +18,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
   - "Bash(git:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---

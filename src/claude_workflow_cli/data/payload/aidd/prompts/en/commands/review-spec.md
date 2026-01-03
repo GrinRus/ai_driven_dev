@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash(claude-workflow progress:*)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---

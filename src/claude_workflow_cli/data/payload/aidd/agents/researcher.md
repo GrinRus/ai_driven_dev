@@ -4,7 +4,7 @@ description: Исследует кодовую базу перед внедре�
 lang: ru
 prompt_version: 1.1.5
 source_version: 1.1.5
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

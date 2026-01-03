@@ -4,7 +4,7 @@ description: Explore codebase before implementation: integration points, reuse, 
 lang: en
 prompt_version: 1.1.5
 source_version: 1.1.5
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

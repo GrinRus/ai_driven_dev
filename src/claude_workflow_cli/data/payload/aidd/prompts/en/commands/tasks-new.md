@@ -11,6 +11,7 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---

@@ -4,7 +4,7 @@ description: Код-ревью по плану/PRD. Выявление риск�
 lang: ru
 prompt_version: 1.0.4
 source_version: 1.0.4
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

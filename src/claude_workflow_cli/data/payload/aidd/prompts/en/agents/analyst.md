@@ -4,7 +4,7 @@ description: Gather initial idea → analysis/auto-research → PRD draft + ques
 lang: en
 prompt_version: 1.2.7
 source_version: 1.2.7
-tools: Read, Write, Glob, Bash(claude-workflow research:*), Bash(claude-workflow analyst-check:*), Bash(rg:*)
+tools: Read, Write, Glob, Bash(claude-workflow research:*), Bash(claude-workflow analyst-check:*), Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

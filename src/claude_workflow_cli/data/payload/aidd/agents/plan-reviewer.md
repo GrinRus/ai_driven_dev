@@ -4,7 +4,7 @@ description: Ревью плана реализации: исполняемос�
 lang: ru
 prompt_version: 1.0.6
 source_version: 1.0.6
-tools: Read, Write, Glob, Bash(rg:*)
+tools: Read, Write, Glob, Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

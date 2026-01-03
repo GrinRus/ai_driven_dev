@@ -4,7 +4,7 @@ description: Валидация исполняемости плана по PRD/R
 lang: ru
 prompt_version: 1.0.4
 source_version: 1.0.4
-tools: Read
+tools: Read, Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

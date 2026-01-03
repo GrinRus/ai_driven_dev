@@ -4,7 +4,7 @@ description: План реализации по PRD и research. Декомпо�
 lang: ru
 prompt_version: 1.0.8
 source_version: 1.0.8
-tools: Read, Edit, Write, Glob, Bash(rg:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---

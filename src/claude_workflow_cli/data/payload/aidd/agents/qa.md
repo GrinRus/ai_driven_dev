@@ -4,7 +4,7 @@ description: Финальная QA-проверка с отчётом по sever
 lang: ru
 prompt_version: 1.0.6
 source_version: 1.0.6
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow qa:*), Bash(claude-workflow progress:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---
