@@ -369,8 +369,8 @@
     {
       "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
       "type": "file",
-      "size": 14582,
-      "sha256": "c940d0affed039252290d10ddcbb5ca7065835943ec7bdd856ece0e0762698e7"
+      "size": 14816,
+      "sha256": "20ed050f9a6fd59239fd465f573056e9866a9a7e9c7052c04b48360d66035ed1"
     },
     {
       "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/researcher_context.py",

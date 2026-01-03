@@ -67,6 +67,23 @@ def test_validate_prd_passes_when_ready(tmp_path):
     assert summary.answered_count == 1
 
 
+def test_markdown_questions_allowed(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\n### **Вопрос 1 (Blocker):** Что уточнить?\n**Ответ 1**: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 1
+    assert summary.answered_count == 1
+
+
 def test_missing_answer_blocks_validation(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
