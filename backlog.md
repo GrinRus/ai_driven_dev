@@ -1003,3 +1003,26 @@ _Статус: новый, приоритет 1. Цель — довести lan
 
 ### Tests
 - [ ] Добавить тесты/смоук для новых config‑ключей (`format-and-test`, `lint-deps`, init‑скрипт) и обновить `tests/test_init_claude_workflow.py`/`src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` при необходимости.
+
+## Wave 62
+
+_Статус: новый, приоритет 1. Цель — добавить единую оркестрацию флоу через `/flow` (команда‑композиция с human‑in‑the‑loop)._
+
+### Спецификация поведения /flow
+- [ ] Зафиксировать decision‑tree `/flow`: источники `ticket/slug` (аргументы → `.active_*`), маппинг `stage → next command`, режимы `spec|full|next`, лимит на число шагов за запуск, правила остановки при `PENDING/BLOCKED` и обязательные READY‑артефакты; оформить в `src/claude_workflow_cli/data/payload/aidd/workflow.md`.
+- [ ] Обновить контракт команд в `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`: добавить `/flow` в матрицу (входы/выходы), описать политику `SlashCommand` и handoff‑правила.
+
+### Промпты /flow (payload)
+- [ ] Создать RU‑команду `src/claude_workflow_cli/data/payload/aidd/commands/flow.md` по шаблону playbook: `argument-hint`, `allowed-tools` (Read/Glob/`Bash(rg:*)`/`Bash(cat:*)`/`SlashCommand`), алгоритм выбора следующей стадии и секция блокировки с вопросами.
+- [ ] Создать EN‑версию `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/flow.md` с синхронным `prompt_version` и `source_version`.
+
+### Интеграция и реестр команд
+- [ ] Подключить `/flow` в `src/claude_workflow_cli/data/payload/aidd/.claude-plugin/plugin.json`.
+- [ ] Обновить краткий гайд команд в `src/claude_workflow_cli/data/payload/aidd/workflow.md` (пример запуска `/flow`, режимы и handoff).
+
+### Optional: checkpoint‑handoff
+- [ ] Опционально: добавить маркер `aidd/docs/.flow_checkpoint` при блокировке (для auto‑resume) и описать правило в `src/claude_workflow_cli/data/payload/aidd/AGENTS.md`.
+
+### Governance и синхронизация
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json` после добавления команды.
+- [ ] Прогнать `python3 scripts/lint-prompts.py --root src/claude_workflow_cli/data/payload/aidd` и `python3 tools/check_payload_sync.py`, затем синхронизировать payload → root: `scripts/sync-payload.sh --direction=to-root`.
