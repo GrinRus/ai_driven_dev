@@ -31,6 +31,8 @@
 | 8 | `/review <ticket>` | `reviewer` | Готовая ветка и артефакты | Замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус | Все блокеры сняты, чеклисты закрыты |
 | 9 | `Claude: Run agent → qa` / `gate-qa.sh` | `qa` | Diff, `aidd/docs/tasklist/<ticket>.md`, результаты гейтов | JSON-отчёт `reports/qa/<ticket>.json`, статус READY/WARN/BLOCKED | Нет блокеров, warnings зафиксированы |
 
+> Для удобства используйте `/review-spec <ticket>` — команда выполняет review-plan и review-prd последовательно.
+
 ## Агенты и ожидаемые результаты
 
 ### analyst — аналитика идеи
@@ -59,16 +61,16 @@
 - **Вызов:** автоматически внутри `/plan-new`.
 - **Вход:** черновой план.
 - **Выход:** статус READY/BLOCKED/PENDING, список уточняющих вопросов и рисков.
-- **Готовность:** все критичные вопросы закрыты или перенесены в backlog; рекомендации Researcher учтены, план можно отдавать на review-plan.
+- **Готовность:** все критичные вопросы закрыты или перенесены в backlog; рекомендации Researcher учтены, план можно отдавать на `/review-spec` (или `/review-plan`).
 
 ### plan-reviewer — ревью плана
-- **Вызов:** `/review-plan <ticket>`
+- **Вызов:** `/review-plan <ticket>` (или `/review-spec <ticket>`)
 - **Вход:** `aidd/docs/plan/<ticket>.md`, PRD, research, ADR (если есть).
 - **Выход:** Раздел `## Plan Review` с `Status: READY|BLOCKED|PENDING`.
-- **Особенности:** фиксируй исполняемость, корректность границ модулей, тестовую стратегию и риски; блокеры устраняются до `review-prd` и `tasks-new`.
+- **Особенности:** фиксируй исполняемость, корректность границ модулей, тестовую стратегию и риски; блокеры устраняются до `/review-prd` (или `/review-spec`) и `/tasks-new`.
 
 ### prd-reviewer — контроль качества PRD
-- **Вызов:** `/review-prd <ticket>`
+- **Вызов:** `/review-prd <ticket>` (или `/review-spec <ticket>`)
 - **Вход:** `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, актуальные ADR, открытые вопросы.
 - **Выход:** Раздел `## PRD Review` с `Status: READY|BLOCKED|PENDING`, summary, findings и action items; отчёт `reports/prd/<ticket>.json`.
 - **Особенности:** блокирующие замечания фиксируйте как `Status: BLOCKED` и переносите action items в `aidd/docs/tasklist/<ticket>.md`; проверяйте, что `aidd/docs/research/<ticket>.md` имеет `Status: reviewed`. Без `READY` гейт `gate-workflow` не даст менять код.
@@ -117,7 +119,7 @@
 ## Чеклист быстрого старта фичи
 
 1. Создайте ветку (`git checkout -b feature/<TICKET>`) и запустите `/idea-new <ticket> [slug-hint]` — команда зафиксирует ticket в `aidd/docs/.active_ticket`, при необходимости сохранит slug-хинт в `aidd/docs/.active_feature` **и автоматически создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, который нужно довести до READY.**
-2. Выполните `/plan-new`, затем `/review-plan` и `/review-prd` (или объединённую `/review-spec`), после чего запустите `/tasks-new`, пока артефакты не получат статус READY.
+2. Выполните `/plan-new`, затем `/review-spec` (или `/review-plan` и `/review-prd`), после чего запустите `/tasks-new`, пока артефакты не получат статус READY.
 3. При необходимости включите дополнительные гейты (`config/gates.json`) и подготовьте связанные артефакты: миграции, OpenAPI, дополнительные тесты.
 4. Реализуйте фичу через `/implement`, следя за сообщениями `gate-workflow` и выбранных гейтов; фиксируйте прогресс в `aidd/docs/tasklist/<ticket>.md`.
 5. Запросите `/review`, когда чеклисты закрыты, автотесты зелёные и артефакты синхронизированы.

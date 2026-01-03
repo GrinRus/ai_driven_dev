@@ -231,8 +231,8 @@
     {
       "path": "aidd/docs/agents-playbook.md",
       "type": "file",
-      "size": 23056,
-      "sha256": "963f1842f2f6325e505d7cd0844b5199b0f673eddf21d9bba240e28f40aec337"
+      "size": 23320,
+      "sha256": "7549a955648c6c9e1ee70cc8378c6912b588791872ce470d86c30ede528e5962"
     },
     {
       "path": "aidd/docs/customization.md",
@@ -249,8 +249,8 @@
     {
       "path": "aidd/docs/feature-cookbook.md",
       "type": "file",
-      "size": 5308,
-      "sha256": "173c5a156c088c27430c4a009c7ffaf80a1ded91fa4ed15c107f9b85265e6241"
+      "size": 5382,
+      "sha256": "5929c9273cbbfb8b15e94b1ef4ea1c50ccae0f4376def22912fb852258c3ceb3"
     },
     {
       "path": "aidd/docs/migration-aidd.md",
@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/prd.template.md",
       "type": "file",
-      "size": 6420,
-      "sha256": "23169e0100514f79e7ed80fdaf46171a30b88fcd6024286b51a02b0afa655769"
+      "size": 6451,
+      "sha256": "b82e262d03489f17909aaaee536f543168eb4bdbea2d48c00fb0d1326d151642"
     },
     {
       "path": "aidd/docs/prompt-playbook.md",
@@ -303,8 +303,8 @@
     {
       "path": "aidd/docs/release-notes.md",
       "type": "file",
-      "size": 13257,
-      "sha256": "7c54c5b97bdd0d04f381b6906b099c74f27345afbe1d8b05b3e16f12a0e2d413"
+      "size": 13462,
+      "sha256": "63b7aa82b0ae264d2808048f387961af4ced5fd5b4e9e184ddcffc48b5379c14"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -315,14 +315,14 @@
     {
       "path": "aidd/docs/sdlc-flow.md",
       "type": "file",
-      "size": 2470,
-      "sha256": "09a96f8c9146d1d7a9bd3e2e45fd0751c9bbfc1d3370a569c0ae883bde7275ce"
+      "size": 2621,
+      "sha256": "d4515f6eec587ddfa4d007b05fc2e74ded3dee9e7f490702d7a64d6f4ad1928a"
     },
     {
       "path": "aidd/docs/status-machine.md",
       "type": "file",
-      "size": 3397,
-      "sha256": "1d4b5516e559e41ddf9bd812cbf4797fff595361a8f65583532fc4a507a28073"
+      "size": 3465,
+      "sha256": "9cb4bdf2f50e9c8db3aadc1f14f7042e53599148055e467324656741b8ca821d"
     },
     {
       "path": "aidd/docs/tasklist/.gitkeep",
@@ -723,8 +723,8 @@
     {
       "path": "aidd/workflow.md",
       "type": "file",
-      "size": 21788,
-      "sha256": "1919c30dce9cfce9a73a73c860070f54697fcbb9e3d844c1f8c5eb8572cdc841"
+      "size": 21927,
+      "sha256": "301df23a9ebe92fad78fbfd96085ef9abd4714311ca932eada1a82bd24bdcbc8"
     }
   ]
 }

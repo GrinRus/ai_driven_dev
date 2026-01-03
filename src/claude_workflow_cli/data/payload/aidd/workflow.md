@@ -1,6 +1,6 @@
 # Workflow Claude Code
 
-Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит девять этапов: **идея → research → план → review-plan → review-prd → задачи → реализация → ревью → QA**. На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии. Канонический порядок стадий — `aidd/docs/sdlc-flow.md`, статусы — `aidd/docs/status-machine.md`.
+Документ описывает целевой процесс работы команды после запуска `init-claude-workflow.sh`. Цикл строится вокруг идеи и проходит девять этапов: **идея → research → план → review-plan → review-prd → задачи → реализация → ревью → QA** (review-plan + review-prd можно выполнить одной командой `/review-spec`). На каждом шаге задействованы специализированные саб-агенты Claude Code и защитные хуки, которые помогают удерживать кодовую базу в рабочем состоянии. Канонический порядок стадий — `aidd/docs/sdlc-flow.md`, статусы — `aidd/docs/status-machine.md`.
 
 > **Плагин AIDD.** Команды/агенты/хуки живут в `aidd/{commands,agents,hooks}` с манифестом `aidd/.claude-plugin/plugin.json`; runtime `.claude/` в workspace содержит только настройки/кеш. Marketplace для автоподключения — корневой `.claude-plugin/marketplace.json`, root `.claude/settings.json` включает `feature-dev-aidd`. Запускайте Claude из корня: плагин подхватится автоматически.
 > Ticket — основной идентификатор фичи (`aidd/docs/.active_ticket`), slug-hint при необходимости сохраняется в `aidd/docs/.active_feature` и используется в шаблонах и логах.
@@ -48,7 +48,7 @@
 ### 4. Review плана (`/review-plan`)
 - Саб-агент **plan-reviewer** сверяет план с PRD/research, проверяет исполняемость, границы модулей, тестовую стратегию и риски.
 - Результат фиксируется в разделе `## Plan Review` в плане.
-- Блокирующие замечания должны быть закрыты до `/review-prd` и `/tasks-new`.
+- Блокирующие замечания должны быть закрыты до `/review-prd` (или `/review-spec`) и `/tasks-new`.
 
 ### 5. PRD Review (`/review-prd`)
 - Саб-агент **prd-reviewer** проверяет полноту PRD, метрики, риски и соответствие ADR.
@@ -64,7 +64,7 @@
 - Саб-агент **implementer** следует шагам плана, учитывает выводы `aidd/docs/research/<ticket>.md` и PRD и вносит изменения малыми итерациями, опираясь на данные репозитория.
 - В конце итерации (Stop/SubagentStop) запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только на стадии implement**. Управление через `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`; все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляйте в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `aidd/docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
-- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh` (включая review-plan и PRD review), `gate-qa.sh`, `gate-tests.sh`, `lint-deps.sh`.
+- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh` (включая review-plan/PRD review и `/review-spec`), `gate-qa.sh`, `gate-tests.sh`, `lint-deps.sh`.
 - После отчётов QA/Review/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 ### 8. Ревью (`/review`)
