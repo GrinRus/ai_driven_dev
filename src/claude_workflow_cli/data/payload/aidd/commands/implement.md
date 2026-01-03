@@ -2,14 +2,18 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.9
-source_version: 1.1.9
+prompt_version: 1.1.10
+source_version: 1.1.10
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(sed:*)"
+  - "Bash(cat:*)"
+  - "Bash(xargs:*)"
+  - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"

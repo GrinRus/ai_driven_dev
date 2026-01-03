@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6097,
-      "sha256": "7ffe1dd6aac002372d67d8cc0a1ad7a9876f187d0f1594e5d11cb2fe5fcb5b66"
+      "size": 6421,
+      "sha256": "feca0a7ec0b9d231072bde3a9c127f2592e0ebca5beade8ac8a8b15479a6c77e"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -135,8 +135,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 2943,
-      "sha256": "142b9c6de537843ec214179affb5094afb0b7336ee09b29cfaa7e4f7c012c6a3"
+      "size": 3025,
+      "sha256": "0920d6e7ba197eab11eb3be58c230a92e449dfa34c986e3207d258a61730f987"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -507,8 +507,8 @@
     {
       "path": "aidd/prompts/en/commands/implement.md",
       "type": "file",
-      "size": 1833,
-      "sha256": "4349ea60ee6ef677ca1b607278f3269b2a1a65d7d3a374cd3e2e53fe428bea7b"
+      "size": 1915,
+      "sha256": "8e90beaa02a4c2da46838bf6b4064db1c7487924dfbcb68affe667dce50d5c29"
     },
     {
       "path": "aidd/prompts/en/commands/plan-new.md",
