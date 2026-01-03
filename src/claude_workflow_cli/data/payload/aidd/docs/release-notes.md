@@ -67,7 +67,7 @@
 ## vNext — YYYY-MM-DD
 
 ### Added
-- Новый этап `/review-plan` с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
+- Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
 - Команда `/review-spec`, объединяющая review-plan и review-prd в один шаг.
 - Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
 - `aidd/AGENTS.md` + корневой `AGENTS.md` как основной вход для агентного контекста.
@@ -88,7 +88,7 @@
 - `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
 - Промпты команд/агентов унифицированы под `READY/BLOCKED/PENDING`, команды принимают свободные заметки после тикета, а `allowed-tools` синхронизирован с инструментами саб-агентов.
 - Линтер промптов проверяет дубли ключей, запрещённые статусы, HTML-эскейпы `<ticket>`, некорректные формулировки `Checkbox updated` и несоответствие `allowed-tools` ↔ `tools`.
-- EN промпты дополнительно синхронизированы с RU: пути отчётов указывают `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-prd` учитывает свободный ввод, tasklist‑ответственность закреплена за командами, линтер валидирует `Статус:`.
+- EN промпты дополнительно синхронизированы с RU: пути отчётов указывают `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-spec` учитывает свободный ввод, tasklist‑ответственность закреплена за командами, линтер валидирует `Статус:`.
 - Приведены к единому виду `@aidd/docs/.../<ticket>...` placeholder-и в RU промптах, EN `/implement` использует `${CLAUDE_PLUGIN_ROOT:-./aidd}` в инструкциях, тесты линтера покрывают `Статус:`.
 - EN `/qa` теперь ссылается на `${CLAUDE_PLUGIN_ROOT:-./aidd}` в дефолтном пути тестов, а implementer получает доступ к хукe `format-and-test.sh` в инструментах.
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.

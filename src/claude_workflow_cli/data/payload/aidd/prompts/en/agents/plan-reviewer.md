@@ -2,15 +2,15 @@
 name: plan-reviewer
 description: Plan review for execution readiness, risks, and test strategy before PRD review.
 lang: en
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.6
+source_version: 1.0.6
 tools: Read, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Context
-This agent runs via `/review-plan` after `/plan-new` and before `/review-prd`. The goal is to validate plan executability: module touchpoints, iterations/DoD, test strategy, migrations/flags, and observability. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
+This agent runs via `/review-spec` on the `review-plan` stage after `/plan-new` and before PRD review. The goal is to validate plan executability: module touchpoints, iterations/DoD, test strategy, migrations/flags, and observability. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Input Artifacts
 - `@aidd/docs/plan/<ticket>.md` — plan to review.
@@ -19,8 +19,8 @@ This agent runs via `/review-plan` after `/plan-new` and before `/review-prd`. T
 - ADRs (if present).
 
 ## Automation
-- `/review-plan` sets stage `review-plan` and updates `## Plan Review` in the plan.
-- `gate-workflow` blocks `review-prd`/`tasks-new` until `Status: READY` is set in `## Plan Review`.
+- `/review-spec` sets stage `review-plan` and updates `## Plan Review` in the plan.
+- `gate-workflow` blocks PRD review/`tasks-new` until `Status: READY` is set in `## Plan Review`.
 - Use `rg` only for targeted validation of modules/risks mentioned in plan/PRD.
 
 ## Step-by-step Plan

@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
@@ -16,7 +16,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, вызывает `planner` и `validator`. Следующий шаг — `/review-plan`. Свободный ввод после тикета используйте как уточнения для плана.
+Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Следующий шаг — `/review-spec`. Свободный ввод после тикета используйте как уточнения для плана.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
@@ -29,7 +29,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` фиксирует стадию `plan`.
-- Команда вызывает `planner` и затем `validator`; при статусе `BLOCKED` возвращает вопросы.
+- Команда должна запускать саб-агентов `planner` и `validator` (Claude: Run agent → planner/validator); при статусе `BLOCKED` возвращает вопросы.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
 ## Что редактируется
@@ -39,8 +39,8 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `plan`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan`.
 2. Проверь, что PRD `Status: READY` и research актуален; если нет — остановись.
-3. Вызови `planner` для генерации/обновления плана.
-4. Сразу запусти `validator`; при `BLOCKED` верни вопросы пользователю.
+3. Запусти саб-агента `planner` для генерации/обновления плана.
+4. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.
 5. Убедись, что план содержит нужные секции (модули/файлы, итерации, тесты, риски).
 
 ## Fail-fast и вопросы
@@ -49,7 +49,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - `aidd/docs/plan/<ticket>.md` обновлён и валидирован.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (следующий шаг — `/review-plan`).
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (следующий шаг — `/review-spec`).
 
 ## Примеры CLI
 - `/plan-new ABC-123`

@@ -12,7 +12,7 @@ _Last sync with `README.md`: 2026-01-03._  <!-- update when EN catches up -->
 ## TL;DR
 - `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) bootstraps `/idea-new (analyst) → research when needed → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow preset|sync|upgrade|smoke` cover demo assets, payload refresh, and smoke.
 - Formatting and selective checks (`aidd/hooks/format-and-test.sh`) run only during the `implement` stage and only on Stop/SubagentStop (`SKIP_AUTO_TESTS=1` to pause); `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
-- The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/review-plan`, `/review-prd`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
+- The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs/templates/prompts.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - The payload lives in `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`, `aidd/prompts`); all artifacts/reports stay under `aidd/`. Workspace settings live at the root (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
@@ -83,7 +83,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 | Path | Purpose | Highlights |
 | --- | --- | --- |
 | `.claude/settings.json` | Access & automation policies | `start`/`strict` presets, allow/ask/deny, automation; pre/post hooks live in the plugin (`hooks/hooks.json`) |
-| `aidd/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/researcher`, `/plan-new`, `/review-spec`, `/review-plan`, `/review-prd`, `/tasks-new`, `/implement`, `/review`, `/qa` with `allowed-tools` and inline shell steps |
+| `aidd/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/researcher`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa` with `allowed-tools` and inline shell steps |
 | `aidd/agents/` | Sub-agent playbooks | Roles for analyst, researcher, planner, plan-reviewer, prd-reviewer, validator, implementer, reviewer, qa |
 | `aidd/prompts/en/` | EN prompt variants | `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`, synced with `aidd/agents|commands` (see `aidd/docs/prompt-versioning.md`) |
 | `aidd/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
@@ -135,7 +135,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 - `aidd/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `aidd/docs/research/<ticket>.md`.
 - `aidd/commands/plan-new.md` — chains `planner` and `validator`, enforcing PRD `Status: READY` before plan creation.
 - `aidd/commands/review-spec.md` — runs plan review then PRD review, updates both `## Plan Review` and `## PRD Review`, and writes `reports/prd/<ticket>.json`.
-- `aidd/commands/review-prd.md` — calls `prd-reviewer`, writes the structured review block, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
+- `aidd/commands/review-spec.md` — runs plan + PRD review, writes both review blocks, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
 - `aidd/commands/tasks-new.md` — syncs `aidd/docs/tasklist/<ticket>.md` with the plan and migrates PRD Review action items with the proper slug hint/front matter.
 - `aidd/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
 - `aidd/commands/review.md` — compiles review feedback, statuses, and checklist completion.
@@ -198,7 +198,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 - The `automation` section drives formatting/test runners; adjust `format`/`tests` to match your stack.
 - `config/gates.json` centralises `prd_review`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`); the `prd_review` section exposes `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches`, and `branches`.
 - `aidd/docs/.active_stage` stores the current stage and scopes gate execution; override with `CLAUDE_SKIP_STAGE_CHECKS=1` or `CLAUDE_ACTIVE_STAGE` when needed.
-- Combined `gate-*` hooks inside `aidd/hooks/` (invoked via the plugin) enforce the workflow: blocking code without plan/review-plan/PRD review/tasklist (`aidd/docs/tasklist/<ticket>.md`); run `/review-spec` for the review stages, require migrations/tests, and validate OpenAPI specs.
+- Combined `gate-*` hooks inside `aidd/hooks/` (invoked via the plugin) enforce the workflow: blocking code without plan/Plan Review/PRD Review/tasklist (`aidd/docs/tasklist/<ticket>.md`); run `/review-spec` for the review stages, require migrations/tests, and validate OpenAPI specs.
 
 ## Docs & templates
 - `aidd/workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `aidd/docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
@@ -289,7 +289,7 @@ Research defaults to workspace-relative paths (parent of `aidd/`); the CLI print
 ## Feature kickoff checklist
 
 1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `aidd/docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.** It also records `aidd/docs/.active_stage=idea` (rerun the relevant command when requirements change). Answer every analyst prompt as `Answer N: …`; if context is thin, trigger research (`/researcher` or `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), then return to the analyst until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
-2. Generate discovery artifacts: `/idea-new`, research when needed (`claude-workflow research --ticket <ticket> --auto --deep-code --call-graph` + `/researcher`), `/plan-new`, `/review-spec` (or `/review-plan` + `/review-prd`), `/tasks-new` until the status becomes READY (the ticket is already in place after step 1 and verified via `analyst-check`).
+2. Generate discovery artifacts: `/idea-new`, research when needed (`claude-workflow research --ticket <ticket> --auto --deep-code --call-graph` + `/researcher`), `/plan-new`, `/review-spec`, `/tasks-new` until the status becomes READY (the ticket is already in place after step 1 and verified via `analyst-check`).
    > Call graph (via tree-sitter language pack) defaults to filter `<ticket>|<keywords>` and limit 300 edges in the context; the full graph is saved separately at `reports/research/<ticket>-call-graph-full.json`. Tune with `--graph-filter/--graph-limit/--graph-langs`.
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
@@ -308,9 +308,7 @@ Commands and agents ship as the `feature-dev-aidd` plugin in `aidd/.claude-plugi
 | `/idea-new` | Gather inputs and scaffold PRD (Status: draft → READY). Inputs: @aidd/docs/prd.template.md, @aidd/docs/research/<ticket>.md | `STORE-123 checkout-discounts` |
 | `/researcher` | Use Researcher context to clarify scope and modules | `STORE-123` |
 | `/plan-new` | Prepare plan and validation. Inputs: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-plan` | Review plan executability. Inputs: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-spec` | Combined review-plan + review-prd. Inputs: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-prd` | Run structured PRD review and log status. Inputs: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
+| `/review-spec` | Run review-plan + review-prd. Inputs: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
 | `/tasks-new` | Refresh `aidd/docs/tasklist/<ticket>.md` from the plan. Inputs: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
 | `/implement` | Execute the plan with auto tests. Inputs: @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md | `checkout-discounts` |
 | `/review` | Final code review and status sync. Inputs: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md | `checkout-discounts` |

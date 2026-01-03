@@ -2,8 +2,8 @@
 name: planner
 description: Implementation plan based on PRD + research. Iterations and executable steps.
 lang: en
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.8
+source_version: 1.0.8
 tools: Read, Edit, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default

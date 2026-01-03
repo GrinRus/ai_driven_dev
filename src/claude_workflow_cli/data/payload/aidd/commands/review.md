@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 allowed-tools:
   - Read
   - Edit
@@ -31,6 +31,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review` фиксирует стадию `review`.
+- Команда должна запускать саб-агента **reviewer** (Claude: Run agent → reviewer).
 - `claude-workflow reviewer-tests --status required|optional|clear` управляет обязательностью тестов.
 - `claude-workflow progress --source review --ticket <ticket>` фиксирует новые `[x]`.
 
@@ -39,7 +40,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `review`.
-2. Вызови **reviewer** и обнови tasklist.
+2. Запусти саб-агента **reviewer** и обнови tasklist.
 3. При необходимости запроси автотесты через `reviewer-tests`.
 4. Подтверди прогресс через `claude-workflow progress`.
 

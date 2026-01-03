@@ -235,7 +235,7 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else
-      echo "BLOCK: Plan Review не готов → выполните /review-plan $ticket"
+      echo "BLOCK: Plan Review не готов → выполните /review-spec $ticket"
     fi
     exit 2
   fi
@@ -246,7 +246,7 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else
-      echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+      echo "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
     fi
     exit 2
   fi

@@ -7,7 +7,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ## [Unreleased]
 
 ### Added
-- New `/review-plan` stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
+- New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` plus root `AGENTS.md` as the primary agent entrypoint.
 - Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
@@ -39,7 +39,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `claude-workflow progress`, `<test-runner> <args>`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
-- EN prompt parity tightened: report paths use `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-prd` accepts free-form notes, tasklist ownership is clarified for research/review agents, and the prompt linter now validates `Статус:` markers.
+- EN prompt parity tightened: report paths use `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-spec` accepts free-form notes, tasklist ownership is clarified for research/review agents, and the prompt linter now validates `Статус:` markers.
 - RU prompt placeholders normalized to `@aidd/docs/.../<ticket>...`, EN `/implement` instructions now reference `${CLAUDE_PLUGIN_ROOT:-./aidd}`, and prompt-lint tests cover `Статус:` validation.
 - EN `/qa` now uses `${CLAUDE_PLUGIN_ROOT:-./aidd}` for the default test hook path, and implementer tools include the `format-and-test.sh` hook.
 - `tools/check_payload_sync.py` now has a standard payload path list and warns when the runtime snapshot (`aidd/`) is missing.

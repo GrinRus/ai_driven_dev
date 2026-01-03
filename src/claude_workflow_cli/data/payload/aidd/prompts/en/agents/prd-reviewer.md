@@ -2,15 +2,15 @@
 name: prd-reviewer
 description: Structured PRD review after plan review. Check completeness, risks, metrics.
 lang: en
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.6
+source_version: 1.0.6
 tools: Read, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Context
-Runs via `/review-prd` after `review-plan`. Validates PRD completeness, metrics, and linkage to plan/ADRs. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Runs via `/review-spec` on the `review-prd` stage after plan review. Validates PRD completeness, metrics, and linkage to plan/ADRs. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Input Artifacts
 - `@aidd/docs/prd/<ticket>.prd.md`.
@@ -18,8 +18,8 @@ Runs via `/review-prd` after `review-plan`. Validates PRD completeness, metrics,
 - `@aidd/docs/research/<ticket>.md` and slug-hint.
 
 ## Automation
-- `/review-prd` updates `## PRD Review` and writes JSON report to `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
-- `gate-workflow` requires `Status: READY`; blocking items are moved to tasklist by `/review-prd`.
+- `/review-spec` updates `## PRD Review` and writes JSON report to `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
+- `gate-workflow` requires `Status: READY`; blocking items are moved to tasklist by `/review-spec`.
 
 ## Step-by-step Plan
 1. Read PRD and related ADR/plan.

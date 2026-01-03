@@ -2,8 +2,8 @@
 description: "Implementation plan + validation"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
@@ -16,7 +16,7 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/plan-new` builds the implementation plan from PRD + research, sets stage `plan`, and invokes `planner` then `validator`. The next step is `/review-plan`. Free-form notes after the ticket should be folded into the plan.
+`/plan-new` builds the implementation plan from PRD + research, sets stage `plan`, and runs sub-agents `planner` then `validator`. The next step is `/review-spec`. Free-form notes after the ticket should be folded into the plan.
 
 ## Input Artifacts
 - `@aidd/docs/prd/<ticket>.prd.md` — must be `Status: READY`.
@@ -29,7 +29,7 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` sets stage `plan`.
-- The command calls `planner` and then `validator`; `BLOCKED` returns questions.
+- The command must **invoke the sub-agents** `planner` and `validator` (Claude: Run agent → planner/validator); `BLOCKED` returns questions.
 - `gate-workflow` requires a plan before code changes.
 
 ## What is Edited
@@ -39,8 +39,8 @@ disable-model-invocation: false
 ## Step-by-step Plan
 1. Set stage `plan`.
 2. Verify PRD is READY and research is current.
-3. Invoke `planner` to create/update the plan.
-4. Invoke `validator`; if `BLOCKED`, return questions.
+3. Run sub-agent `planner` to create/update the plan.
+4. Run sub-agent `validator`; if `BLOCKED`, return questions.
 5. Ensure required sections exist (files/modules, iterations, tests, risks).
 
 ## Fail-fast & Questions
@@ -49,7 +49,7 @@ disable-model-invocation: false
 
 ## Expected Output
 - Updated and validated `aidd/docs/plan/<ticket>.md`.
-- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (next step: `/review-plan`).
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (next step: `/review-spec`).
 
 ## CLI Examples
 - `/plan-new ABC-123`

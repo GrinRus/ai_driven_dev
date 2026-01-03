@@ -2,8 +2,8 @@
 name: analyst
 description: Gather initial idea → analysis/auto-research → PRD draft + questions (READY after answers).
 lang: en
-prompt_version: 1.2.6
-source_version: 1.2.6
+prompt_version: 1.2.7
+source_version: 1.2.7
 tools: Read, Write, Glob, Bash(claude-workflow research:*), Bash(claude-workflow analyst-check:*), Bash(rg:*)
 model: inherit
 permissionMode: default

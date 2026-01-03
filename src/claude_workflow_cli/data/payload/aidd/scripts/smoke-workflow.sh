@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly and via `claude-workflow smoke`.
-# Creates a temporary project, runs init script, mimics the idea→plan→review-plan→review-prd→tasks cycle,
+# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→tasks cycle,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
 

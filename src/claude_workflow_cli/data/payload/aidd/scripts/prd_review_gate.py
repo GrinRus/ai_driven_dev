@@ -182,35 +182,35 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     human_status = (status or "PENDING").upper()
     if kind == "missing_section":
         return (
-            f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-prd {label} (после /review-plan)"
+            f"BLOCK: нет раздела '## PRD Review' в aidd/docs/prd/{ticket}.prd.md → выполните /review-spec {label} после review-plan"
         )
     if kind == "missing_prd":
         return (
-            f"BLOCK: PRD не найден или не заполнен → откройте docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-prd {label or ticket}."
+            f"BLOCK: PRD не найден или не заполнен → откройте docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-spec {label or ticket}."
         )
     if kind == "blocking_status":
         return (
-            f"BLOCK: PRD Review помечен как '{human_status}' → устраните блокеры и обновите статус через /review-prd {label or ticket}"
+            f"BLOCK: PRD Review помечен как '{human_status}' → устраните блокеры и обновите статус через /review-spec {label or ticket}"
         )
     if kind == "not_approved":
-        return f"BLOCK: PRD Review не READY (Status: {human_status}) → выполните /review-prd {label or ticket}"
+        return f"BLOCK: PRD Review не READY (Status: {human_status}) → выполните /review-spec {label or ticket}"
     if kind == "open_actions":
         return (
             f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в docs/tasklist/{ticket}.md и отметьте выполнение."
         )
     if kind == "missing_report":
-        return f"BLOCK: нет отчёта PRD Review (reports/prd/{ticket}.json) → перезапустите /review-prd {label or ticket}"
+        return f"BLOCK: нет отчёта PRD Review (reports/prd/{ticket}.json) → перезапустите /review-spec {label or ticket}"
     if kind == "report_corrupted":
-        return f"BLOCK: отчёт PRD Review повреждён → пересоздайте через /review-prd {label or ticket}"
+        return f"BLOCK: отчёт PRD Review повреждён → пересоздайте через /review-spec {label or ticket}"
     if kind == "blocking_finding":
         return (
             f"BLOCK: отчёт PRD Review содержит критичные findings → устраните замечания и обновите отчёт для {label or ticket}."
         )
     if kind == "draft_dialog":
         return (
-            f"BLOCK: PRD в статусе draft → заполните раздел '## Диалог analyst', обновите Status: READY и только затем запускайте /review-prd {label or ticket}."
+            f"BLOCK: PRD в статусе draft → заполните раздел '## Диалог analyst', обновите Status: READY и только затем запускайте /review-spec {label or ticket}."
         )
-    return f"BLOCK: PRD Review не готов → выполните /review-prd {label or ticket}"
+    return f"BLOCK: PRD Review не готов → выполните /review-spec {label or ticket}"
 
 
 def detect_project_root() -> Path:
@@ -282,7 +282,7 @@ def main() -> None:
     prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
     if not prd_path.is_file():
         expected = prd_path.as_posix()
-        print(f"BLOCK: нет PRD (ожидается {expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-prd {feature_label(ticket, slug_hint) or ticket}.")
+        print(f"BLOCK: нет PRD (ожидается {expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-spec {feature_label(ticket, slug_hint) or ticket}.")
         raise SystemExit(1)
 
     allow_missing = bool(gate.get("allow_missing_section", False))
@@ -343,7 +343,7 @@ def main() -> None:
                 if severity and severity in blocking_severities:
                     label = feature_label(ticket, slug_hint)
                     print(
-                        f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /review-prd {label or ticket}."
+                        f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /review-spec {label or ticket}."
                     )
                     raise SystemExit(1)
     else:
@@ -352,7 +352,7 @@ def main() -> None:
                 message = format_message("missing_report", ticket, slug_hint)
             else:
                 label = feature_label(ticket, slug_hint)
-                message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-prd {label or ticket}"
+                message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-spec {label or ticket}"
             print(message)
             raise SystemExit(1)
 

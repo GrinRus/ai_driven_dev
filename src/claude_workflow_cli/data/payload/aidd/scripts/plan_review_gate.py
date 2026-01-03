@@ -144,18 +144,18 @@ def main() -> None:
     if not found:
         if allow_missing:
             raise SystemExit(0)
-        print(f"BLOCK: нет раздела '## Plan Review' в docs/plan/{ticket}.md → выполните /review-plan {ticket}")
+        print(f"BLOCK: нет раздела '## Plan Review' в docs/plan/{ticket}.md → выполните /review-spec {ticket}")
         raise SystemExit(1)
 
     approved: Set[str] = {str(item).lower() for item in gate.get("approved_statuses", DEFAULT_APPROVED)}
     blocking: Set[str] = {str(item).lower() for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
 
     if status in blocking:
-        print(f"BLOCK: Plan Review помечен как '{status.upper()}' → устраните блокеры через /review-plan {ticket}")
+        print(f"BLOCK: Plan Review помечен как '{status.upper()}' → устраните блокеры через /review-spec {ticket}")
         raise SystemExit(1)
 
     if approved and status not in approved:
-        print(f"BLOCK: Plan Review не READY (Status: {status.upper() or 'PENDING'}) → выполните /review-plan {ticket}")
+        print(f"BLOCK: Plan Review не READY (Status: {status.upper() or 'PENDING'}) → выполните /review-spec {ticket}")
         raise SystemExit(1)
 
     if bool(gate.get("require_action_items_closed", True)):

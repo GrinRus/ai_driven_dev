@@ -2,15 +2,15 @@
 name: validator
 description: Валидация исполняемости плана по PRD/Research; формирование вопросов.
 lang: ru
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 tools: Read
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Validator вызывается внутри `/plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/review-plan` и `/tasks-new`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Validator вызывается внутри `/plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/review-spec` и `/tasks-new`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.

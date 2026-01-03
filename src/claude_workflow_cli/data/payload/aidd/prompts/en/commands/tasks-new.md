@@ -2,8 +2,8 @@
 description: "Generate the tasklist (`aidd/docs/tasklist/<ticket>.md`)"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 allowed-tools:
   - Read
   - Edit
@@ -25,7 +25,7 @@ disable-model-invocation: false
 - Template `@templates/tasklist.md` if creating from scratch.
 
 ## When to Run
-- After `review-plan` and `review-prd`, before `/implement`.
+- After `/review-spec`, before `/implement`.
 - Re-run after plan/PRD changes.
 
 ## Automation & Hooks
@@ -43,7 +43,7 @@ disable-model-invocation: false
 5. Fill `Next 3` and `Handoff inbox`.
 
 ## Fail-fast & Questions
-- Missing plan/reviews — stop and request prerequisites.
+- Missing plan/Plan Review/PRD Review READY — stop and request `/review-spec`.
 - If owners are unclear, ask for clarification.
 
 ## Expected Output

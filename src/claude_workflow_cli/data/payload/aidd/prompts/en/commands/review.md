@@ -2,8 +2,8 @@
 description: "Code review and feedback into tasklist"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 allowed-tools:
   - Read
   - Edit
@@ -31,6 +31,7 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review` sets stage `review`.
+- The command must **invoke the sub-agent** **reviewer** (Claude: Run agent → reviewer).
 - `claude-workflow reviewer-tests --status required|optional|clear` toggles test requirement.
 - `claude-workflow progress --source review --ticket <ticket>` records new `[x]`.
 
@@ -39,7 +40,7 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Set stage `review`.
-2. Invoke **reviewer** and update the tasklist.
+2. Run sub-agent **reviewer** and update the tasklist.
 3. Request tests if needed via `reviewer-tests`.
 4. Confirm progress via `claude-workflow progress`.
 

@@ -2,8 +2,8 @@
 description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 allowed-tools:
   - Read
   - Edit
@@ -25,7 +25,7 @@ disable-model-invocation: false
 - Шаблон `@templates/tasklist.md` (если файл создаётся с нуля).
 
 ## Когда запускать
-- После `review-plan` и `review-prd`, перед `/implement`.
+- После `/review-spec`, перед `/implement`.
 - Повторно — если план/PRD изменились.
 
 ## Автоматические хуки и переменные
@@ -45,7 +45,7 @@ disable-model-invocation: false
 6. При необходимости разверни `feature-impl`.
 
 ## Fail-fast и вопросы
-- Нет plan/review-plan/review-prd READY — остановись и попроси завершить предыдущие шаги.
+- Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/review-spec`.
 - Если непонятны владельцы/сроки — запроси уточнения.
 
 ## Ожидаемый вывод

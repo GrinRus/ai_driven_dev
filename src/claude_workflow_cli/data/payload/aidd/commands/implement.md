@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.7
-source_version: 1.1.7
+prompt_version: 1.1.9
+source_version: 1.1.9
 allowed-tools:
   - Read
   - Edit
@@ -27,11 +27,12 @@ disable-model-invocation: false
 - `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/research/<ticket>.md` — при необходимости.
 
 ## Когда запускать
-- После `/tasks-new`, когда plan/review-plan/review-prd готовы.
+- После `/tasks-new`, когда план и оба ревью готовы (Plan Review + PRD Review через `/review-spec`).
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py implement` фиксирует стадию `implement`.
+- Команда должна запускать саб-агента **implementer** (Claude: Run agent → implementer).
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`).
 - `claude-workflow progress --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
 
@@ -40,7 +41,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `implement`.
-2. Вызови **implementer** и передай контекст итерации.
+2. Запусти саб-агента **implementer** и передай контекст итерации.
 3. Убедись, что tasklist обновлён и прогресс подтверждён через `claude-workflow progress`.
 
 ## Fail-fast и вопросы

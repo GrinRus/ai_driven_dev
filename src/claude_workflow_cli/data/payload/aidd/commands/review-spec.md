@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.6
+source_version: 1.0.6
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/review-spec` объединяет `/review-plan` и `/review-prd`: сначала фиксирует исполняемость плана, затем проводит PRD review. Она обновляет `## Plan Review` в плане, затем `## PRD Review` в PRD и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
+Команда `/review-spec` объединяет ревью плана и PRD и **последовательно запускает саб-агентов** `plan-reviewer` → `prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — план реализации.
@@ -27,7 +27,7 @@ disable-model-invocation: false
 - ADR (если есть).
 
 ## Когда запускать
-- После `/plan-new`, вместо последовательных `/review-plan` и `/review-prd`.
+- После `/plan-new`, чтобы пройти review-plan и review-prd одним шагом.
 - Повторять после существенных правок плана или PRD.
 
 ## Автоматические хуки и переменные
@@ -35,6 +35,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review-prd` фиксирует стадию `review-prd` перед PRD review.
 - `gate-workflow` требует `Status: READY` в `## Plan Review` и `## PRD Review` перед кодом.
 - Скрипт `python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
+- Команда должна **запускать саб-агентов** `plan-reviewer` и `prd-reviewer` (Claude: Run agent → …).
 
 ## Что редактируется
 - `aidd/docs/plan/<ticket>.md` — раздел `## Plan Review`.
@@ -43,9 +44,9 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json` — отчёт PRD review.
 
 ## Пошаговый план
-1. Зафиксируй стадию `review-plan`, вызови `plan-reviewer` и обнови `## Plan Review`.
+1. Зафиксируй стадию `review-plan`, запусти саб-агента `plan-reviewer` и обнови `## Plan Review`.
 2. Если план в статусе `BLOCKED` — остановись и верни вопросы.
-3. Зафиксируй стадию `review-prd`, вызови `prd-reviewer` и обнови `## PRD Review`.
+3. Зафиксируй стадию `review-prd`, запусти саб-агента `prd-reviewer` и обнови `## PRD Review`.
 4. Перенеси блокирующие action items в tasklist и сохрани отчёт через `prd-review-agent.py`.
 
 ## Fail-fast и вопросы

@@ -17,7 +17,7 @@ model: inherit
 
 ## Когда запускать
 - Опишите стадии workflow, в которых команда применяется, и кто инициирует запуск.
-- Уточните ограничения (например, только после `/review-prd` или при статусе READY).
+- Уточните ограничения (например, только после `/review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
 - Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 tools/set_active_feature.py`, `claude-workflow research`, `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).

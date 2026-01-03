@@ -5,7 +5,7 @@
 ## TL;DR
 - `claude-workflow init --target .` (или `aidd/init-claude-workflow.sh` из payload) разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow preset|sync|upgrade|smoke` покрывают демо-артефакты, обновление payload и e2e-smoke.
 - Автоформат и выборочные проверки (`aidd/hooks/format-and-test.sh`) запускаются только на стадии `implement` и только на Stop/SubagentStop (`SKIP_AUTO_TESTS=1` временно отключает); артефакты защищены хуками `gate-*`.
-- Стадия фичи хранится в `aidd/docs/.active_stage` и обновляется слэш-командами (`/idea-new`, `/plan-new`, `/review-plan`, `/review-prd`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); можно откатываться к любому этапу.
+- Стадия фичи хранится в `aidd/docs/.active_stage` и обновляется слэш-командами (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); можно откатываться к любому этапу.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации/промптов.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
 - Payload ставится в поддиректорию `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`, `aidd/prompts`); все артефакты и отчёты (`aidd/reports/**`) живут там же. Workspace‑настройки лежат в корне (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
@@ -80,7 +80,7 @@
 | Каталог/файл | Назначение | Ключевые детали |
 | --- | --- | --- |
 | `.claude/settings.json` | Политики доступа и автоматизации | Пресеты `start`/`strict`, allow/ask/deny, automation; pre/post-хуки живут в плагине (`hooks/hooks.json`) |
-| `aidd/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-spec`, `/review-plan`, `/review-prd`, `/tasks-new`, `/implement`, `/review`, `/qa` с `allowed-tools` и встроенными shell-шагами |
+| `aidd/commands/` | Инструкция для слэш-команд | Маршруты `/idea-new`, `/researcher`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa` с `allowed-tools` и встроенными shell-шагами |
 | `aidd/agents/` | Playbook саб-агентов | Роли `analyst`, `planner`, `plan-reviewer`, `prd-reviewer`, `validator`, `implementer`, `reviewer`, `qa` |
 | `aidd/prompts/en/` | EN-версии промптов | `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`, синхронизированы с `aidd/agents|commands` (см. `aidd/docs/prompt-versioning.md`) |
 | `aidd/hooks/` | Защитные и утилитарные хуки | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
@@ -318,7 +318,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 ## Чеклист запуска фичи
 
 1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `aidd/docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Также фиксируется `aidd/docs/.active_stage=idea` (при смене требований просто перезапустите нужную команду). Ответьте аналитике в формате `Ответ N: …`; если контекста не хватает, инициируйте research (`/researcher` или `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), затем вернитесь к аналитику и доведите PRD до READY (`claude-workflow analyst-check --ticket <ticket>`).
-2. Соберите артефакты аналитики: `/idea-new`, при необходимости `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, затем `/plan-new`, `/review-spec` (или `/review-plan` + `/review-prd`), `/tasks-new` до статуса READY (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `aidd/docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
+2. Соберите артефакты аналитики: `/idea-new`, при необходимости `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, затем `/plan-new`, `/review-spec`, `/tasks-new` до статуса READY (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `aidd/docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 
    > Call graph (через tree-sitter language pack) по умолчанию фильтруется по `<ticket>|<keywords>` и ограничивается 300 рёбрами (focus) в контексте; полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`. Настройка: `--graph-filter/--graph-limit/--graph-langs`.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
@@ -338,9 +338,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 | `/idea-new` | Собрать вводные и автосоздать PRD (Status: draft → READY) — входы: @aidd/docs/prd.template.md, @aidd/docs/research/<ticket>.md | `STORE-123 checkout-discounts` |
 | `/researcher` | Использовать отчёт Researcher и контекст для уточнения области работ | `STORE-123` |
 | `/plan-new` | Подготовить план + валидацию — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-plan` | Проверить исполняемость плана — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-spec` | Объединить review-plan + review-prd — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
-| `/review-prd` | Провести ревью PRD и зафиксировать статус — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
+| `/review-spec` | Выполнить review-plan + review-prd — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
 | `/tasks-new` | Обновить `aidd/docs/tasklist/<ticket>.md` по плану — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
 | `/implement` | Реализация по плану с автотестами — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md | `checkout-discounts` |
 | `/review` | Финальное ревью и фиксация статуса — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md | `checkout-discounts` |

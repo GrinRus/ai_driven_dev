@@ -35,7 +35,7 @@ if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ti
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"
   else
-    echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+    echo "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
   fi
   exit 2
 fi

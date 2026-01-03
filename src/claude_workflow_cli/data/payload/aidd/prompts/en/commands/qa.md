@@ -2,8 +2,8 @@
 description: "Final QA check"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/qa` runs the final check: invokes **qa** via `claude-workflow qa --gate`, updates tasklist QA section, and records progress. Runs after `/review`.
+`/qa` runs the final check: runs sub-agent **qa** via `claude-workflow qa --gate`, updates tasklist QA section, and records progress. Runs after `/review`.
 
 ## Input Artifacts
 - `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
@@ -32,6 +32,7 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa` sets stage `qa`.
+- The command must **invoke the sub-agent** **qa** (Claude: Run agent → qa) via `claude-workflow qa --gate`.
 - `claude-workflow qa --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate` writes the report.
 - `claude-workflow progress --source qa --ticket <ticket>` records new `[x]`.
 
@@ -41,7 +42,7 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Set stage `qa`.
-2. Run `claude-workflow qa --gate` and read the report.
+2. Run sub-agent **qa** via `claude-workflow qa --gate` and read the report.
 3. Update QA section in tasklist with traceability to acceptance criteria.
 4. Confirm progress via `claude-workflow progress`.
 

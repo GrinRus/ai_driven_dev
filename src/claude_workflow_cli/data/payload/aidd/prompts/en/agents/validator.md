@@ -2,15 +2,15 @@
 name: validator
 description: Validate plan executability against PRD/Research; produce questions.
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 tools: Read
 model: inherit
 permissionMode: default
 ---
 
 ## Context
-Validator runs inside `/plan-new` after the plan draft. It checks plan executability before `/review-plan` and `/tasks-new`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Validator runs inside `/plan-new` after the plan draft. It checks plan executability before `/review-spec` and `/tasks-new`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Input Artifacts
 - `@aidd/docs/prd/<ticket>.prd.md` — `Status: READY` required.

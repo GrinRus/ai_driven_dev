@@ -2,8 +2,8 @@
 description: "Prepare Researcher report: collect context and run agent"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: en
-prompt_version: 1.1.4
-source_version: 1.1.4
+prompt_version: 1.1.5
+source_version: 1.1.5
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/researcher` gathers codebase context: runs `claude-workflow research`, then updates `aidd/docs/research/<ticket>.md` via the `researcher` agent. Free-form notes after the ticket should be stored in the report.
+`/researcher` gathers codebase context: runs `claude-workflow research`, then runs sub-agent `researcher` to update `aidd/docs/research/<ticket>.md`. Free-form notes after the ticket should be stored in the report.
 
 ## Input Artifacts
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
@@ -33,6 +33,7 @@ disable-model-invocation: false
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py research` sets stage `research`.
 - `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` updates JSON context.
+- The command must **invoke the sub-agent** `researcher` (Claude: Run agent → researcher).
 - Optionally append handoff tasks via `claude-workflow tasks-derive --source research --append --ticket <ticket>`.
 
 ## What is Edited
@@ -43,7 +44,7 @@ disable-model-invocation: false
 1. Ensure the active ticket is set; use `set_active_feature` if needed.
 2. Set stage `research`.
 3. Run `claude-workflow research ...` and update JSON context.
-4. Invoke `researcher` and update `aidd/docs/research/<ticket>.md`.
+4. Run sub-agent `researcher` and update `aidd/docs/research/<ticket>.md`.
 5. Add handoff tasks if needed.
 
 ## Fail-fast & Questions

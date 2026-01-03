@@ -2,7 +2,7 @@
 
 Этот конспект дополняет `workflow.md` и помогает быстро свериться со стадиями
 фичи. Перед тем как переходить к планированию или реализации, убедитесь, что
-исследование завершено, план сформирован и review-plan/PRD review пройдены (или выполнена команда `/review-spec`).
+исследование завершено, план сформирован и review-plan/PRD review пройдены (через `/review-spec`).
 
 ## Idea → Research
 - Запустите `/idea-new <ticket> [slug-hint]`: команда фиксирует активный тикет, сохраняет slug-hint пользователя в `aidd/docs/.active_feature`, автогенерирует `aidd/docs/prd/<ticket>.prd.md` и вызывает `claude-workflow research --ticket <ticket> --auto --deep-code [--langs ... --reuse-only]`. Аналитик начинает со slug-hint, затем читает `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (`code_index`/`reuse_candidates`), фиксирует источники в PRD и только при нехватке данных запускает Q&A по формату `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default` (ответы: `Ответ N: ...`).
@@ -16,7 +16,7 @@
 
 ## Plan → Review-spec → Implementation
 - Проверяйте, что план покрывает все директории из `reports/research/<ticket>-targets.json`, содержит секцию «Architecture & Patterns» (KISS/YAGNI/DRY/SOLID, service layer + adapters/ports), reuse-точки и ссылки на research.
-- Используйте `/review-spec` (или `/review-plan` перед `/review-prd`): блокеры должны быть закрыты, иначе `tasks-new` и `implement` недоступны.
+- Используйте `/review-spec`: блокеры должны быть закрыты, иначе `tasks-new` и `implement` недоступны.
 - Во время реализации держите `reports/research/<ticket>-context.json` в актуальном состоянии (`claude-workflow research --ticket <ticket> --auto --deep-code` без `--dry-run`). Это обеспечит прохождение `gate-workflow` и напомнит команде о согласованных точках интеграции.
 
 ## Миграция на agent-first

@@ -14,14 +14,14 @@
 | Аналитика идеи | `/idea-new <ticket> [slug-hint]` | `analyst` | `aidd/docs/prd/<ticket>.prd.md`, активная фича |
 | Research | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` | `researcher` | `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-targets.json` |
 | Планирование | `/plan-new <ticket>` | `planner`, `validator` | `aidd/docs/plan/<ticket>.md`, уточнённые вопросы |
-| Review планa | `/review-plan <ticket>` | `plan-reviewer` | `aidd/docs/plan/<ticket>.md` |
-| PRD review | `/review-prd <ticket>` | `prd-reviewer` | `aidd/docs/prd/<ticket>.prd.md`, отчёт `reports/prd/<ticket>.json` |
+| Review планa | `/review-spec <ticket>` | `plan-reviewer` | `aidd/docs/plan/<ticket>.md` |
+| PRD review | `/review-spec <ticket>` | `prd-reviewer` | `aidd/docs/prd/<ticket>.prd.md`, отчёт `reports/prd/<ticket>.json` |
 | Тасклист | `/tasks-new <ticket>` | — | `aidd/docs/tasklist/<ticket>.md` (обновлённые чеклисты) |
 | Реализация | `/implement <ticket>` | `implementer` | кодовые изменения, актуальные тесты |
 | Ревью | `/review <ticket>` | `reviewer` | замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус |
 | QA | `/qa <ticket>` | `qa` | `aidd/docs/tasklist/<ticket>.md` (QA блок), `reports/qa/<ticket>.json` |
 
-> Можно запускать объединённую команду `/review-spec <ticket>`, которая выполняет review-plan и review-prd последовательно.
+> Команда `/review-spec <ticket>` выполняет review-plan и review-prd последовательно.
 
 На каждом шаге действует правило **agent-first**: агент обязан собрать максимум информации из репозитория (PRD, research, backlog, reports, тесты) и запустить разрешённые команды (`rg`, `claude-workflow progress`, тесты/линтеры проекта — например, `pytest`, `npm test`, `go test`) прежде чем обращаться к пользователю. Любой вопрос сопровождается перечислением изученных артефактов и форматом ответа.
 
@@ -45,12 +45,12 @@
 - Саб-агент **validator** проверяет полноту; найденные вопросы возвращаются продукту.
 - Все открытые вопросы синхронизируются между PRD и планом.
 
-### 4. Review плана (`/review-plan`)
+### 4. Review плана (`/review-spec`, этап review-plan)
 - Саб-агент **plan-reviewer** сверяет план с PRD/research, проверяет исполняемость, границы модулей, тестовую стратегию и риски.
 - Результат фиксируется в разделе `## Plan Review` в плане.
-- Блокирующие замечания должны быть закрыты до `/review-prd` (или `/review-spec`) и `/tasks-new`.
+- Блокирующие замечания должны быть закрыты до PRD review и `/tasks-new`.
 
-### 5. PRD Review (`/review-prd`)
+### 5. PRD Review (`/review-spec`, этап review-prd)
 - Саб-агент **prd-reviewer** проверяет полноту PRD, метрики, риски и соответствие ADR.
 - Результат фиксируется в разделе `## PRD Review` (статус, summary, findings, action items) и в отчёте `reports/prd/<ticket>.json`.
 - Блокирующие action items и открытые вопросы синхронизируются с планом и `aidd/docs/tasklist/<ticket>.md`.

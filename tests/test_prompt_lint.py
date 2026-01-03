@@ -13,11 +13,11 @@ from .helpers import REPO_ROOT
 REQUIRED_AGENT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
-    ("plan-reviewer", "review-plan"),
+    ("plan-reviewer", "review-spec"),
     ("implementer", "implement"),
     ("reviewer", "review"),
     ("researcher", "researcher"),
-    ("prd-reviewer", "review-prd"),
+    ("prd-reviewer", "review-spec"),
 ]
 
 

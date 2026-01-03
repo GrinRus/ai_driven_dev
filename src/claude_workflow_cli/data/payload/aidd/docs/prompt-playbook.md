@@ -82,10 +82,10 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 | --- | --- | --- | --- | --- |
 | `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD READY, research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
-| `plan-reviewer` / `/review-plan` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
-| `prd-reviewer` / `/review-prd` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
+| `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
+| `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
 
-> `/review-spec` — объединённая команда, последовательно запускающая review-plan и review-prd.
+> `/review-spec` — единая команда для review-plan и review-prd.
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
 | `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |

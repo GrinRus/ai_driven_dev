@@ -2,8 +2,8 @@
 name: implementer
 description: Implement by plan/tasklist in small iterations; questions only for blockers.
 lang: en
-prompt_version: 1.1.7
-source_version: 1.1.7
+prompt_version: 1.1.9
+source_version: 1.1.9
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*)
 model: inherit
 permissionMode: default

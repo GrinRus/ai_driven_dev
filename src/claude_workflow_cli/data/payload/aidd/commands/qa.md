@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/qa` запускает финальную проверку: вызывает агента **qa** через `claude-workflow qa --gate`, обновляет QA секцию tasklist и фиксирует прогресс. Выполняется после `/review`.
+Команда `/qa` запускает финальную проверку: запускает саб-агента **qa** через `claude-workflow qa --gate`, обновляет QA секцию tasklist и фиксирует прогресс. Выполняется после `/review`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
@@ -32,6 +32,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa` фиксирует стадию `qa`.
+- Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `claude-workflow qa --gate`.
 - `claude-workflow qa --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate` формирует отчёт.
 - `claude-workflow progress --source qa --ticket <ticket>` фиксирует новые `[x]`.
 
@@ -41,7 +42,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.
-2. Запусти `claude-workflow qa --gate` и получи отчёт.
+2. Запусти саб-агента **qa** через `claude-workflow qa --gate` и получи отчёт.
 3. Обнови QA секцию tasklist, добавь traceability к acceptance criteria.
 4. Подтверди прогресс через `claude-workflow progress`.
 

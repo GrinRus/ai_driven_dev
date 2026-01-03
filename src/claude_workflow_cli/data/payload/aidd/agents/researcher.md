@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.1.4
-source_version: 1.1.4
+prompt_version: 1.1.5
+source_version: 1.1.5
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*)
 model: inherit
 permissionMode: default

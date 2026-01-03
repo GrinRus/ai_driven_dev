@@ -2,8 +2,8 @@
 name: reviewer
 description: Code review against plan/PRD; report risks without cosmetic refactors.
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
+prompt_version: 1.0.4
+source_version: 1.0.4
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default

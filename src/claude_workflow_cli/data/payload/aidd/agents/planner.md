@@ -2,8 +2,8 @@
 name: planner
 description: План реализации по PRD и research. Декомпозиция на итерации и исполняемые шаги.
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.8
+source_version: 1.0.8
 tools: Read, Edit, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default
@@ -21,7 +21,7 @@ permissionMode: default
 ## Автоматизация
 - `/plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
 - `gate-workflow` требует готовый план перед правками `src/**`.
-- План — источник для `/review-plan` и `/tasks-new`.
+- План — источник для `/review-spec` и `/tasks-new`.
 
 ## Пошаговый план
 1. Прочитай PRD: цели, сценарии, ограничения, acceptance criteria, риски.

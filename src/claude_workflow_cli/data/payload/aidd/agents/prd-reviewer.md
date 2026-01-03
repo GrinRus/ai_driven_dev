@@ -2,15 +2,15 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.6
+source_version: 1.0.6
 tools: Read, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент используется командой `/review-prd` после `review-plan`. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Агент используется командой `/review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
@@ -18,8 +18,8 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
-- `/review-prd` обновляет раздел `## PRD Review` и пишет JSON отчёт в `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
-- `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/review-prd`.
+- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
+- `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/review-spec`.
 
 ## Пошаговый план
 1. Прочитай PRD и связанные ADR/план.

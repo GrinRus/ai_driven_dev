@@ -48,7 +48,7 @@
 - `BLOCKED` — план требует доработки.
 - `READY` — план прошёл ревью.
 
-Кто выставляет: `plan-reviewer` (через `/review-plan` или `/review-spec`).
+Кто выставляет: `plan-reviewer` (через `/review-spec`).
 
 ## PRD Review (`## PRD Review` + report)
 
@@ -57,7 +57,7 @@
 - `BLOCKED` — есть критичные замечания.
 - `READY` — PRD готов к реализации.
 
-Кто выставляет: `prd-reviewer` (через `/review-prd` или `/review-spec`).
+Кто выставляет: `prd-reviewer` (через `/review-spec`).
 
 ## Tasklist (`aidd/docs/tasklist/<ticket>.md`)
 
@@ -79,5 +79,5 @@
 ## Инварианты
 
 - Без `PRD READY` и `Research reviewed` нельзя переходить к планированию.
-- Без `Plan READY` и `Plan Review READY` нельзя начинать `review-prd` (или `/review-spec`) и `tasks`.
+- Без `Plan READY` и `Plan Review READY` нельзя начинать `review-prd` (через `/review-spec`) и `tasks`.
 - Без `PRD Review READY` и `Tasklist READY` нельзя менять код (`implement/review/qa`).

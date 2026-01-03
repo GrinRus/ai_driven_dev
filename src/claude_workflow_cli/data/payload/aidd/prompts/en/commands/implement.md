@@ -2,8 +2,8 @@
 description: "Implement feature by plan + selective tests"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.1.7
-source_version: 1.1.7
+prompt_version: 1.1.9
+source_version: 1.1.9
 allowed-tools:
   - Read
   - Edit
@@ -32,6 +32,7 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py implement` sets stage `implement`.
+- The command must **invoke the sub-agent** **implementer** (Claude: Run agent → implementer).
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` runs on Stop/SubagentStop.
 - `claude-workflow progress --source implement --ticket <ticket>` confirms new `- [x]`.
 
@@ -40,7 +41,7 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Set stage `implement`.
-2. Invoke **implementer** with the iteration context.
+2. Run sub-agent **implementer** with the iteration context.
 3. Ensure tasklist is updated and progress confirmed.
 
 ## Fail-fast & Questions

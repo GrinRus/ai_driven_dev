@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.2.6
-source_version: 1.2.6
+prompt_version: 1.2.7
+source_version: 1.2.7
 allowed-tools:
   - Read
   - Edit
@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает аналитика и формирует PRD draft с вопросами. READY ставится только после ответов пользователя и актуального research. Свободный ввод после тикета используется как заметка для PRD.
+`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. READY ставится только после ответов пользователя и актуального research. Свободный ввод после тикета используется как заметка для PRD.
 
 ## Входные артефакты
 - `@aidd/docs/prd.template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
@@ -33,6 +33,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py` синхронизирует `.active_*` и scaffold'ит PRD.
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py idea` фиксирует стадию `idea`.
+- Команда должна запускать саб-агента **analyst** (Claude: Run agent → analyst).
 - Аналитик инициирует `claude-workflow research --ticket <ticket> --auto` при нехватке контекста (если `--no-research` не задан).
 - `claude-workflow analyst-check --ticket <ticket>` — проверка диалога/статуса после ответов.
 
@@ -44,7 +45,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py idea`.
 2. Обнови активный тикет/slug: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py "$1" [--slug-note "$2"]`.
-3. Запусти аналитика; при нехватке контекста он инициирует research и обновляет PRD.
+3. Запусти саб-агента **analyst**; при нехватке контекста он инициирует research и обновляет PRD.
 4. Верни список вопросов и статус PRD.
 
 ## Fail-fast и вопросы

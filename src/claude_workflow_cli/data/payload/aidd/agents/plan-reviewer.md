@@ -2,15 +2,15 @@
 name: plan-reviewer
 description: Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review.
 lang: ru
-prompt_version: 1.0.1
-source_version: 1.0.1
+prompt_version: 1.0.6
+source_version: 1.0.6
 tools: Read, Write, Glob, Bash(rg:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент запускается командой `/review-plan` после `plan-new` и до `review-prd`. Цель — подтвердить исполняемость плана: привязку к модулям, итерации, тестовую стратегию, миграции/флаги и наблюдаемость. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
+Агент запускается командой `/review-spec` на этапе `review-plan` после `plan-new` и перед PRD review. Цель — подтвердить исполняемость плана: привязку к модулям, итерации, тестовую стратегию, миграции/флаги и наблюдаемость. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — основной документ для ревью.
@@ -19,8 +19,8 @@ permissionMode: default
 - ADR (если есть) — архитектурные решения и ограничения.
 
 ## Автоматизация
-- `/review-plan` фиксирует стадию `review-plan` и обновляет раздел `## Plan Review` в плане.
-- `gate-workflow` блокирует переход к `review-prd`/`tasks-new`, если `Status: READY` в `## Plan Review` не выставлен.
+- `/review-spec` фиксирует стадию `review-plan` и обновляет раздел `## Plan Review` в плане.
+- `gate-workflow` блокирует переход к PRD review/`tasks-new`, если `Status: READY` в `## Plan Review` не выставлен.
 - Используй `rg` только для точечных проверок упоминаний модулей/рисков в плане и PRD.
 
 ## Пошаговый план

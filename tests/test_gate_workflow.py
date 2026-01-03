@@ -26,11 +26,11 @@ IDEA_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt","ticket":"de
 PROMPT_PAIRS = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
-    ("plan-reviewer", "review-plan"),
+    ("plan-reviewer", "review-spec"),
     ("implementer", "implement"),
     ("reviewer", "review"),
     ("researcher", "researcher"),
-    ("prd-reviewer", "review-prd"),
+    ("prd-reviewer", "review-spec"),
 ]
 REVIEW_REPORT = {"summary": "", "findings": []}
 

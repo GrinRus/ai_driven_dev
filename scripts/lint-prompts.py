@@ -76,11 +76,11 @@ LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
 PAIRINGS: List[Tuple[str, str]] = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
-    ("plan-reviewer", "review-plan"),
+    ("plan-reviewer", "review-spec"),
     ("implementer", "implement"),
     ("reviewer", "review"),
     ("researcher", "researcher"),
-    ("prd-reviewer", "review-prd"),
+    ("prd-reviewer", "review-spec"),
 ]
 
 REQUIRED_AGENT_REFERENCES = [
