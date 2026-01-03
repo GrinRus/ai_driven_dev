@@ -1,14 +1,14 @@
 {
   "name": "feature-dev-aidd",
   "version": "0.1.0",
-  "description": "AI-driven development workflow: idea → research → plan → tasks → implement → review → QA.",
+  "description": "AI-driven development workflow: idea → research → plan → review-spec → tasks → implement → review → QA.",
   "commands": [
     "./commands/idea-new.md",
     "./commands/researcher.md",
     "./commands/plan-new.md",
+    "./commands/review-spec.md",
     "./commands/tasks-new.md",
     "./commands/implement.md",
-    "./commands/review-prd.md",
     "./commands/review.md",
     "./commands/qa.md"
   ],
@@ -16,11 +16,12 @@
     "./agents/analyst.md",
     "./agents/researcher.md",
     "./agents/planner.md",
+    "./agents/validator.md",
+    "./agents/plan-reviewer.md",
     "./agents/prd-reviewer.md",
     "./agents/implementer.md",
     "./agents/reviewer.md",
-    "./agents/qa.md",
-    "./agents/validator.md"
+    "./agents/qa.md"
   ],
   "hooks": "./hooks/hooks.json"
 }

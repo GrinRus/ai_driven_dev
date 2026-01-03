@@ -120,7 +120,7 @@
 
 ### Git-хуки и автоматизация
 - `aidd/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, анализирует `git diff`, активный ticket (и slug-хинт) из `aidd/docs/.active_ticket`/`.active_feature`, умеет переключать selective/full run и подбирает задачи через `moduleMatrix`, `defaultTasks`, `fallbackTasks`. Запускается на Stop/SubagentStop и только при стадии `implement`.
-- `aidd/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного ticket нет PRD, плана или новых `- [x]` в `aidd/docs/tasklist/<ticket>.md` (гейт `tasklist_progress`), игнорирует изменения в документации/шаблонах.
+- `aidd/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного ticket нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) или новых `- [x]` в `aidd/docs/tasklist/<ticket>.md` (гейт `tasklist_progress`), игнорирует изменения в документации/шаблонах.
 - `aidd/hooks/gate-tests.sh` — опциональная проверка из `config/gates.json`: контролирует наличие сопутствующих тестов (`disabled|soft|hard`), по умолчанию игнорирует тестовые директории (`exclude_dirs`), выводит подсказки по разблокировке.
 - `aidd/hooks/gate-qa.sh` — вызывает `scripts/qa-agent.py`, формирует `reports/qa/<ticket>.json`, маркирует `blocker/critical` как блокирующие; см. `aidd/docs/qa-playbook.md`.
 - `aidd/hooks/lint-deps.sh` — отслеживает изменения зависимостей, сверяет их с allowlist `config/allowed-deps.txt` и сигнализирует при расхождениях.
@@ -128,6 +128,8 @@
 ### Саб-агенты Claude Code
 - `aidd/agents/analyst.md` — формализует идею в PRD со статусом READY/BLOCKED, задаёт уточняющие вопросы, фиксирует риски/допущения и обновляет `aidd/docs/prd/<ticket>.prd.md`.
 - `aidd/agents/planner.md` — строит пошаговый план (`aidd/docs/plan/<ticket>.md`) с DoD и зависимостями; `aidd/agents/validator.md` проверяет план и записывает вопросы для продуктов/архитекторов.
+- `aidd/agents/plan-reviewer.md` — проверяет исполняемость плана, обновляет `## Plan Review`, выставляет READY/BLOCKED и фиксирует блокеры.
+- `aidd/agents/prd-reviewer.md` — проверяет PRD, обновляет `## PRD Review`, сохраняет отчёт `reports/prd/<ticket>.json` и фиксирует action items.
 - `aidd/agents/implementer.md` — ведёт реализацию малыми итерациями, отслеживает гейты, обновляет чеклист (`Checkbox updated: …`, передаёт новые `- [x]`) и вызывает `claude-workflow progress --source implement`.
 - `aidd/agents/reviewer.md` — оформляет код-ревью, проверяет чеклисты, ставит статусы READY/BLOCKED, фиксирует follow-up в `aidd/docs/tasklist/<ticket>.md` и запускает `claude-workflow progress --source review`.
 - `aidd/agents/qa.md` — финальная QA-проверка; готовит отчёт с severity, обновляет `aidd/docs/tasklist/<ticket>.md`, запускает `claude-workflow progress --source qa` и взаимодействует с `gate-qa.sh`.
@@ -137,9 +139,11 @@
 - `aidd/commands/idea-new.md` — фиксирует ticket (и при необходимости slug-хинт) в `aidd/docs/.active_ticket`/`.active_feature`, запускает `analyst` (research — по требованию), **создаёт черновик `aidd/docs/prd/<ticket>.prd.md` (Status: draft)** и открытые вопросы.
 - `aidd/commands/researcher.md` — собирает контекст (CLI `claude-workflow research`) и оформляет отчёт `aidd/docs/research/<ticket>.md`.
 - `aidd/commands/plan-new.md` — подключает `planner` и `validator`, обновляет план и протокол проверки.
+- `aidd/commands/review-spec.md` — выполняет review-plan + review-prd, запускает `plan-reviewer` → `prd-reviewer`, обновляет `## Plan Review` и `## PRD Review`.
 - `aidd/commands/tasks-new.md` — синхронизирует `aidd/docs/tasklist/<ticket>.md` с планом, распределяя задачи по этапам и заполняя slug-хинт/артефакты.
 - `aidd/commands/implement.md` — фиксирует шаги реализации, напоминает про гейты и автоматические тесты.
 - `aidd/commands/review.md` — оформляет ревью, обновляет чеклисты и статус READY/BLOCKED.
+- `aidd/commands/qa.md` — запускает QA-проверку и сохраняет отчёт `reports/qa/<ticket>.json`.
 - Сообщения коммитов формируйте вручную (`git commit`), сверяясь со схемами в `config/conventions.json`.
 
 ### Конфигурация и политики
@@ -177,7 +181,7 @@
 - **`aidd/init-claude-workflow.sh`** — валидирует `bash/git/python3`, генерирует `.claude/`, `.claude-plugin/` и `aidd/**`, перезаписывает артефакты по `--force`, выводит dry-run и настраивает режим коммитов.
 - **`aidd/hooks/format-and-test.sh`** — анализирует `git diff`, собирает задачи из `automation.tests` (`changedOnly`, `moduleMatrix`), уважает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS` и умеет подстраивать полный прогон при изменении общих файлов; запускается на стадии `implement`.
 - **`gate-prd-review.sh`** — вызывает `scripts/prd_review_gate.py`, который требует наличие `aidd/docs/prd/<ticket>.prd.md`, секции `## PRD Review` со статусом из `approved_statuses`, закрытые action items и JSON-отчёт (`reports/prd/<ticket>.json` по умолчанию); блокирующие статусы, `- [ ]` и findings с severity из `blocking_severities` завершают проверку ошибкой, а флаги `skip_branches`, `allow_missing_section`, `allow_missing_report` и шаблон `report_path` задаются в `config/gates.json`.
-- **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока не создана цепочка PRD/план/tasklist для активной фичи (`aidd/docs/.active_ticket`) и не появилось новых `- [x]` в `aidd/docs/tasklist/<ticket>.md`.
+- **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока для активной фичи нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) и новых `- [x]` в `aidd/docs/tasklist/<ticket>.md`.
 - **`gate-tests.sh`** — опциональный гейт: при включении проверяет наличие тестов для изменённых исходников (режимы задаёт `config/gates.json`), игнорирует тестовые каталоги через `exclude_dirs`.
 - **`lint-deps.sh`** — напоминает про allowlist зависимостей из `config/allowed-deps.txt` и анализирует изменения манифестов/конфигов зависимостей.
 - **`scripts/ci-lint.sh`** — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, используется локально и в GitHub Actions.

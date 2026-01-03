@@ -124,6 +124,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 ### Claude Code sub-agents
 - `aidd/agents/analyst.md` — turns raw ideas into PRDs, asks clarifying questions, tracks risks/assumptions, and updates `aidd/docs/prd/<ticket>.prd.md` with READY/BLOCKED status.
 - `aidd/agents/planner.md` — produces `aidd/docs/plan/<ticket>.md` with DoD and dependencies; `aidd/agents/validator.md` audits the plan and records follow-up questions for product/architecture.
+- `aidd/agents/plan-reviewer.md` — checks plan executability, updates `## Plan Review`, sets READY/BLOCKED, and records blockers.
 - `aidd/agents/prd-reviewer.md` — performs structured PRD audits, verifies metrics/risks, fills `## PRD Review` (status, summary, findings, action items), and hands blockers back to product.
 - `aidd/agents/implementer.md` — guides iterative delivery, tracks gate status, updates tasklists (`Checkbox updated: …`, new `- [x]`), and calls `claude-workflow progress --source implement` in between iterations.
 - `aidd/agents/reviewer.md` — summarizes review findings, checks tasklists, flips READY/BLOCKED, records follow-up tasks in `aidd/docs/tasklist/<ticket>.md`, and runs `claude-workflow progress --source review` before handing off.
@@ -134,11 +135,11 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 - `aidd/commands/idea-new.md` — persists the ticket (and optional slug hint) in `aidd/docs/.active_ticket`/`.active_feature`, invokes `analyst` (research on demand), assembles the PRD, and captures outstanding questions **starting from an auto-generated `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.**
 - `aidd/commands/researcher.md` — prepares research context via `claude-workflow research`, gathers targets and updates `aidd/docs/research/<ticket>.md`.
 - `aidd/commands/plan-new.md` — chains `planner` and `validator`, enforcing PRD `Status: READY` before plan creation.
-- `aidd/commands/review-spec.md` — runs plan review then PRD review, updates both `## Plan Review` and `## PRD Review`, and writes `reports/prd/<ticket>.json`.
-- `aidd/commands/review-spec.md` — runs plan + PRD review, writes both review blocks, stores `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
+- `aidd/commands/review-spec.md` — runs plan + PRD review via `plan-reviewer` → `prd-reviewer`, updates `## Plan Review` and `## PRD Review`, writes `reports/prd/<ticket>.json`, and exports blockers to the tasklist.
 - `aidd/commands/tasks-new.md` — syncs `aidd/docs/tasklist/<ticket>.md` with the plan and migrates PRD Review action items with the proper slug hint/front matter.
 - `aidd/commands/implement.md` — streamlines implementation steps, nudging to run tests and respect gates.
 - `aidd/commands/review.md` — compiles review feedback, statuses, and checklist completion.
+- `aidd/commands/qa.md` — runs the QA checks and stores `reports/qa/<ticket>.json`.
 - Craft commits with `git commit`, aligning messages to the schemes described in `config/conventions.json`.
 
 ### Configuration & policy
@@ -175,7 +176,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 ## Key scripts and hooks
 - **`aidd/init-claude-workflow.sh`** — verifies `bash/git/python3`, generates `.claude/`, `.claude-plugin/`, and `aidd/**`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change; runs only in the `implement` stage.
-- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: READY`), plan, and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
+- **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, Plan Review + PRD Review (via `/review-spec`), and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
 - **`gate-prd-review.sh`** — funnels to `scripts/prd_review_gate.py`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`, and ignores test folders via `exclude_dirs`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `aidd/docs/qa-playbook.md`.
@@ -201,7 +202,7 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 - Combined `gate-*` hooks inside `aidd/hooks/` (invoked via the plugin) enforce the workflow: blocking code without plan/Plan Review/PRD Review/tasklist (`aidd/docs/tasklist/<ticket>.md`); run `/review-spec` for the review stages, require migrations/tests, and validate OpenAPI specs.
 
 ## Docs & templates
-- `aidd/workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `aidd/docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
+- `aidd/workflow.md` outlines the end-to-end idea → research → plan → review-plan → review-prd → tasklist → implementation → review loop (or `/review-spec`); `aidd/docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
 - `aidd/workflow.md` and `aidd/docs/customization.md` cover bootstrap walkthroughs, `.claude/settings.json` tuning, gates, and command templates.
 - `aidd/docs/release-notes.md` tracks release cadence and the roadmap.
 - PRD/ADR/tasklist templates (`aidd/docs/*.template.md`, `templates/tasklist.md`) plus git-hook samples (`templates/git-hooks/*.sample`) streamline onboarding.
