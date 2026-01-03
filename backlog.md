@@ -953,6 +953,14 @@ _Статус: новый, приоритет 1. Цель — зафиксиро
 - [x] Обновить smoke/regression под новый flow: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`, `tests/test_prompt_versioning.py`.
 - [x] После правок: bump `prompt_version` (RU/EN), обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
 
+### Унификация путей и root-resolution
+- [ ] Ввести единый helper `hook_project_root` в `src/claude_workflow_cli/data/payload/aidd/hooks/lib.sh` с приоритетом: `AIDD_ROOT` → `CLAUDE_PROJECT_DIR` → `CLAUDE_PLUGIN_ROOT` → `git -C "$PWD" rev-parse --show-toplevel` → поиск вверх `aidd/docs`; возвращать абсолютный путь (realpath) и пустое значение при провале.
+- [ ] Привести все hook‑скрипты к одному резолверу и абсолютным путям (без `cd`): `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-tests.sh,gate-qa.sh,lint-deps.sh}`; все git‑команды только через `git -C "$ROOT_DIR" ...`; если root не найден — мягкий exit без блокировки.
+- [ ] Унифицировать резолвинг путей в runtime‑скриптах и tools: добавить `--root`/`AIDD_ROOT` и единый helper `get_root()` в `src/claude_workflow_cli/data/payload/aidd/scripts/{qa-agent.py,prd-review-agent.py,plan_review_gate.py,prd_review_gate.py}` и `src/claude_workflow_cli/data/payload/aidd/tools/{set_active_stage.py,set_active_feature.py,run_cli.py}`; исключить относительные `./aidd` пути.
+- [ ] Обновить документацию об источнике root и запуске CLI: `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (правило: хуки и CLI работают от workspace root; `AIDD_ROOT` как override).
+- [ ] Добавить тесты на резолвинг root: эмуляция `AIDD_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT` (cache path), запуск hook из чужого cwd; отдельный кейс non‑git — ожидается мягкий exit. Файлы: `tests/test_gate_workflow.py`, `tests/helpers.py`.
+- [ ] После унификации: обновить `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+
 ## Wave 60
 
 _Статус: новый, приоритет 1. Цель — token‑efficient reports + anchors/attention (AGENTS.md‑first, pack‑first YAML + columnar, JSONL events, TOON optional)._
