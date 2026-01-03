@@ -21,8 +21,8 @@
     {
       "path": "aidd/.claude-plugin/plugin.json",
       "type": "file",
-      "size": 762,
-      "sha256": "cb8c4816fa74151e02293e062ffc7465ed1a98be3f90c81a16a9eebc73701d37"
+      "size": 729,
+      "sha256": "e7ab7f6b1427e71ad91bdc15aa757d9450884dbdf9adf9e7e7b4fa9392f869d2"
     },
     {
       "path": "aidd/.markdownlint.yaml",

@@ -22,6 +22,5 @@
     "./agents/implementer.md",
     "./agents/reviewer.md",
     "./agents/qa.md"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
