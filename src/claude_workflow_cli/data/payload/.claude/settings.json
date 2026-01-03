@@ -26,7 +26,10 @@
             "Grep",
             "Glob",
             "Find",
-            "Bash(find:*)"
+            "Bash(find:*)",
+            "Bash(rg:*)",
+            "Bash(./aidd/tools/set_active_stage.py:*)",
+            "Bash(./aidd/tools/set_active_feature.py:*)"
           ],
           "ask": [
             "Bash(git add:*)",
@@ -57,6 +60,9 @@
             "Bash(git checkout:*)",
             "Bash(aidd/hooks/:*)",
             "Bash(find:*)",
+            "Bash(rg:*)",
+            "Bash(./aidd/tools/set_active_stage.py:*)",
+            "Bash(./aidd/tools/set_active_feature.py:*)",
             "Bash(python3:*)",
             "Bash(python3 scripts/:*)",
             "Bash(python3 aidd/tools/:*)",
@@ -66,7 +72,7 @@
             "SlashCommand(/feature-dev-aidd:plan-new:*)",
             "SlashCommand(/feature-dev-aidd:tasks-new:*)",
             "SlashCommand(/feature-dev-aidd:implement:*)",
-            "SlashCommand(/feature-dev-aidd:review-prd:*)",
+            "SlashCommand(/feature-dev-aidd:review-spec:*)",
             "SlashCommand(/feature-dev-aidd:review:*)",
             "SlashCommand(/feature-dev-aidd:qa:*)"
           ],
@@ -99,6 +105,9 @@
       "Bash(git checkout:*)",
       "Bash(aidd/hooks/:*)",
       "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(./aidd/tools/set_active_stage.py:*)",
+      "Bash(./aidd/tools/set_active_feature.py:*)",
       "Bash(python3:*)",
       "Bash(python3 scripts/:*)",
       "Bash(python3 aidd/tools/:*)",
@@ -108,7 +117,7 @@
       "SlashCommand(/feature-dev-aidd:plan-new:*)",
       "SlashCommand(/feature-dev-aidd:tasks-new:*)",
       "SlashCommand(/feature-dev-aidd:implement:*)",
-      "SlashCommand(/feature-dev-aidd:review-prd:*)",
+      "SlashCommand(/feature-dev-aidd:review-spec:*)",
       "SlashCommand(/feature-dev-aidd:review:*)",
       "SlashCommand(/feature-dev-aidd:qa:*)"
     ],
