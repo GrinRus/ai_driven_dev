@@ -20,7 +20,8 @@
     "aidd/tools/researcher_context.py",
     "aidd/tools/run_cli.py",
     "aidd/tools/set_active_feature.py",
-    "aidd/tools/set_active_stage.py"
+    "aidd/tools/set_active_stage.py",
+    "aidd/reports/prd/.gitkeep"
   ],
   "allow_globs": [
     "aidd/agents/*.md",

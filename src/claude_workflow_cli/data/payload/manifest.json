@@ -58,7 +58,7 @@
       "path": "aidd/agents/planner.md",
       "type": "file",
       "size": 3295,
-      "sha256": "655d6cf352d23352dfb9acaaf8ab805896f9966f09610354c3b387bed17cd859"
+      "sha256": "2300a914f83d54ea3a19cbf1389e0a4e34d0a221eefe31524098450f02208810"
     },
     {
       "path": "aidd/agents/prd-reviewer.md",
@@ -472,7 +472,7 @@
       "path": "aidd/prompts/en/agents/planner.md",
       "type": "file",
       "size": 1963,
-      "sha256": "9bbdb65f156e629efa40defb4b960094a99745e6a260173cf22ad45211235c73"
+      "sha256": "80699373184ca9a48ac19f83189518cdce54aed78001d9c9d91bae5541c0961d"
     },
     {
       "path": "aidd/prompts/en/agents/prd-reviewer.md",
