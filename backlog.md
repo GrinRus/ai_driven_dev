@@ -1119,22 +1119,23 @@ _Статус: новый, приоритет 1. Цель — поддержка
 _Статус: новый, приоритет 1. Цель — ускорить /implement и уменьшить частоту тяжёлых тестов через профили, бюджет и дедуп._
 
 ### Промпты /implement и implementer
-- [ ] Обновить RU/EN `/implement` (`aidd/commands/implement.md`, `aidd/prompts/en/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/implement.md`): убрать требование ручного запуска `format-and-test.sh`, добавить Test policy (FAST/TARGETED/FULL + decision-matrix), задокументировать default=fast и флаг `--test fast|targeted|full`, повысить `prompt_version`/`source_version`.
-- [ ] Обновить RU/EN `implementer` (`aidd/agents/implementer.md`, `aidd/prompts/en/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/agents/implementer.md`): лимит итерации (1 чекбокс/2 связанных), decision matrix тестов, test budget (не повторять без diff), вывести `Iteration scope`/`Test profile`/`Tests run`/`Why`, переписать шаг 4 на «проверки по профилю», обновить версии.
+- [ ] Обновить RU/EN `/implement` (`aidd/commands/implement.md`, `aidd/prompts/en/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/implement.md`): обновить описание на “малые итерации + управляемые проверки”, `argument-hint` с `test=...`, `tests=...`, `tasks=...`; добавить Test policy (FAST/TARGETED/FULL/NONE + decision-matrix), default=fast; описать контракт `aidd/.cache/test-policy.env` (AIDD_TEST_PROFILE/FILTERS/TASKS); явный шаг `set_active_feature`; ожидаемый вывод с `Test profile`/`Tests run` и запретом ручного дубля `format-and-test.sh`; повысить `prompt_version`/`source_version`.
+- [ ] Обновить RU/EN `implementer` (`aidd/agents/implementer.md`, `aidd/prompts/en/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/agents/implementer.md`): лимит итерации (1 чекбокс/2 связанных), test budget (не повторять без diff), decision matrix; обязать писать `aidd/.cache/test-policy.env` и создавать `aidd/.cache`; добавить примеры Gradle `--tests` + `AIDD_TEST_TASKS`, выводить `Iteration scope`/`Test profile`/`Tests run`/`Why`, переписать шаг 4 на «проверки по профилю», обновить версии.
 
 ### Автотесты и профили
-- [ ] Добавить в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh` профили `fast|targeted|full` (env `TEST_PROFILE`/`AIDD_TEST_PROFILE`) с маппингом на `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY` и задачи раннера; default = fast, ручные override сохраняют приоритет.
-- [ ] Реализовать dedupe/budget в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: хранить хэш diff+профиля(+stage/ticket), пропускать повторный успешный запуск при неизменном diff, повторять только после фейла или изменения.
-- [ ] Обновить `.claude/settings.json` и `src/claude_workflow_cli/data/payload/.claude/settings.json`: описать профили (fast/targeted/full), дешёвые default‑таски и targeted/full наборы (при необходимости `moduleMatrix`), синхронизировать параметры с docs.
+- [ ] Добавить в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh` чтение `aidd/.cache/test-policy.env` и поддержку профилей `fast|targeted|full|none` (env `AIDD_TEST_PROFILE`, `AIDD_TEST_FILTERS`, `AIDD_TEST_TASKS`, `AIDD_TEST_FORCE`) с маппингом на `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY` и задачи раннера; default = fast, manual scope/filters имеют приоритет.
+- [ ] Реализовать dedupe/budget в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: fingerprint diff+профиля+таргетов, кеш в `aidd/.cache/format-and-test.last.json`, пропускать повторный запуск при неизменном diff, повторять только после фейла или изменения.
+- [ ] Обновить `.claude/settings.json` и `src/claude_workflow_cli/data/payload/.claude/settings.json`: добавить `fastTasks`, `fullTasks`, `targetedTask`, рекомендованный `moduleMatrix` под Gradle‑монорепо (module → `:module:testClasses`), оставить `defaultTasks/fallbackTasks` для FULL, синхронизировать параметры с docs.
+- [ ] Обновить `.gitignore`: убедиться, что `aidd/.cache/` игнорируется (если нужно, добавить явное правило).
 
 ### Документация и шаблоны
-- [ ] Обновить `aidd/docs/agents-playbook.md` и `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`: новая политика тестов, лимит итерации, правила повторного прогона.
-- [ ] Обновить `aidd/docs/customization.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: новые env/config ключи профилей и dedupe/budget.
+- [ ] Обновить `aidd/docs/agents-playbook.md` и `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`: новая политика тестов, лимит итерации, `test-policy.env`, примеры Gradle `--tests`, правила повторного прогона.
+- [ ] Обновить `aidd/docs/customization.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: новые env/config ключи (`AIDD_TEST_PROFILE`, `AIDD_TEST_FILTERS`, `AIDD_TEST_TASKS`, `AIDD_TEST_FORCE`, `fastTasks/fullTasks/targetedTask`), `aidd/.cache/test-policy.env` примеры, dedupe/budget.
 - [ ] Обновить `aidd/docs/tasklist.template.md` и `src/claude_workflow_cli/data/payload/aidd/docs/tasklist.template.md`: фиксировать `Test profile` и команды тестов в чеклисте реализации.
 - [ ] Добавить запись в `aidd/docs/release-notes.md`, `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` о новой политике тестов/итераций.
 
 ### Тесты и синхронизация
-- [ ] Расширить `tests/test_format_and_test.py`: покрыть `TEST_PROFILE` (fast/targeted/full), dedupe‑скип, default fast, новый конфиг профилей.
+- [ ] Расширить `tests/test_format_and_test.py`: покрыть `AIDD_TEST_PROFILE` (fast/targeted/full/none), чтение `test-policy.env`, `AIDD_TEST_FILTERS/TASKS`, dedupe‑скип, default fast, новый конфиг профилей.
 - [ ] Финал: `scripts/prompt-version` (bump RU/EN), `scripts/lint-prompts.py --root <root>`, `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.
 
 ## Wave 67
