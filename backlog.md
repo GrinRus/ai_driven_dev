@@ -1113,3 +1113,26 @@ _Статус: новый, приоритет 1. Цель — поддержка
 - [ ] Обновить `README.md` и `README.en.md`: примеры команд `claude-workflow init --type claude-code-plugin` и `--type open-code`, структура файлов (`.claude*` vs `.opencode*`).
 - [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/workflow.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: описать OpenCode‑режим, plugin‑гейты, и ограничения (stage‑aware checks).
 - [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`: добавить заметку о thin‑wrappers в OpenCode и едином source‑of‑truth в `aidd/**`.
+
+## Wave 66
+
+_Статус: новый, приоритет 1. Цель — ускорить /implement и уменьшить частоту тяжёлых тестов через профили, бюджет и дедуп._
+
+### Промпты /implement и implementer
+- [ ] Обновить RU/EN `/implement` (`aidd/commands/implement.md`, `aidd/prompts/en/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/implement.md`): убрать требование ручного запуска `format-and-test.sh`, добавить Test policy (FAST/TARGETED/FULL + decision-matrix), задокументировать default=fast и флаг `--test fast|targeted|full`, повысить `prompt_version`/`source_version`.
+- [ ] Обновить RU/EN `implementer` (`aidd/agents/implementer.md`, `aidd/prompts/en/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/agents/implementer.md`): лимит итерации (1 чекбокс/2 связанных), decision matrix тестов, test budget (не повторять без diff), вывести `Iteration scope`/`Test profile`/`Tests run`/`Why`, переписать шаг 4 на «проверки по профилю», обновить версии.
+
+### Автотесты и профили
+- [ ] Добавить в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh` профили `fast|targeted|full` (env `TEST_PROFILE`/`AIDD_TEST_PROFILE`) с маппингом на `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY` и задачи раннера; default = fast, ручные override сохраняют приоритет.
+- [ ] Реализовать dedupe/budget в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: хранить хэш diff+профиля(+stage/ticket), пропускать повторный успешный запуск при неизменном diff, повторять только после фейла или изменения.
+- [ ] Обновить `.claude/settings.json` и `src/claude_workflow_cli/data/payload/.claude/settings.json`: описать профили (fast/targeted/full), дешёвые default‑таски и targeted/full наборы (при необходимости `moduleMatrix`), синхронизировать параметры с docs.
+
+### Документация и шаблоны
+- [ ] Обновить `aidd/docs/agents-playbook.md` и `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`: новая политика тестов, лимит итерации, правила повторного прогона.
+- [ ] Обновить `aidd/docs/customization.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: новые env/config ключи профилей и dedupe/budget.
+- [ ] Обновить `aidd/docs/tasklist.template.md` и `src/claude_workflow_cli/data/payload/aidd/docs/tasklist.template.md`: фиксировать `Test profile` и команды тестов в чеклисте реализации.
+- [ ] Добавить запись в `aidd/docs/release-notes.md`, `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` о новой политике тестов/итераций.
+
+### Тесты и синхронизация
+- [ ] Расширить `tests/test_format_and_test.py`: покрыть `TEST_PROFILE` (fast/targeted/full), dedupe‑скип, default fast, новый конфиг профилей.
+- [ ] Финал: `scripts/prompt-version` (bump RU/EN), `scripts/lint-prompts.py --root <root>`, `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.
