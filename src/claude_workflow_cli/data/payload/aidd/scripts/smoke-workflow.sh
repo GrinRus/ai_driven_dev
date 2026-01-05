@@ -163,6 +163,10 @@ if not prd_path.exists():
         f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
         "Вопрос 1: Какие ограничения по среде?\n"
         "Ответ 1: TBD\n\n"
+        "## Research Hints\n"
+        "- **Paths**: src/main\n"
+        "- **Keywords**: checkout\n"
+        "- **Notes**: smoke baseline\n\n"
         "## PRD Review\n"
         "Status: pending\n",
         encoding="utf-8",
@@ -171,7 +175,7 @@ if not research_path.exists():
     research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
 PY
 
-log "auto-collect research context after idea-new (thin context → auto)"
+log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
@@ -208,6 +212,9 @@ if targets_path.exists():
     data["docs"] = docs
     targets_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 PY
+
+log "research-check must pass"
+run_cli research-check --ticket "$TICKET" --target . >/dev/null
 
 log "expect block while PRD draft / research handoff pending"
 assert_gate_exit 2 "draft PRD"

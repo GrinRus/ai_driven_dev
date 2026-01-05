@@ -3,16 +3,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && -d "$ROOT_DIR/aidd/hooks" ]]; then
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
   echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
 if [[ ! -d "$ROOT_DIR/docs" ]]; then
   echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
   exit 2
-fi
-if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
-  ROOT_DIR="$ROOT_DIR/aidd"
 fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"

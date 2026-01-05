@@ -67,6 +67,22 @@ def test_validate_prd_passes_when_ready(tmp_path):
     assert summary.answered_count == 1
 
 
+def test_validate_prd_allows_missing_research_doc(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Какие этапы checkout нужно покрыть?\nОтвет 1: Используем happy-path и неуспешную оплату.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    _write_prd(project, slug, prd)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 1
+    assert summary.answered_count == 1
+
+
 def test_markdown_questions_allowed(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)

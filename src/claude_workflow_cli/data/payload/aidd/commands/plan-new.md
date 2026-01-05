@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.1.0
+source_version: 1.1.0
 allowed-tools:
   - Read
   - Edit
@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow research-check:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -21,7 +22,7 @@ disable-model-invocation: false
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
-- `@aidd/docs/research/<ticket>.md` — статус `reviewed` (или baseline по правилам гейтов).
+- `@aidd/docs/research/<ticket>.md` — проверяется через `claude-workflow research-check`.
 - ADR (если есть) — архитектурные решения/ограничения.
 
 ## Когда запускать
@@ -31,6 +32,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` фиксирует стадию `plan`.
 - Команда должна запускать саб-агентов `planner` и `validator` (Claude: Run agent → planner/validator); при статусе `BLOCKED` возвращает вопросы.
+- Перед запуском planner выполни `claude-workflow research-check --ticket <ticket>`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
 ## Что редактируется
@@ -39,13 +41,13 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `plan`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan`.
-2. Проверь, что PRD `Status: READY` и research актуален; если нет — остановись.
+2. Проверь, что PRD `Status: READY`; затем запусти `claude-workflow research-check --ticket <ticket>` и остановись при ошибке.
 3. Запусти саб-агента `planner` для генерации/обновления плана.
 4. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.
 5. Убедись, что план содержит нужные секции (модули/файлы, итерации, тесты, риски).
 
 ## Fail-fast и вопросы
-- Нет READY PRD или research — остановись и попроси завершить предыдущие шаги.
+- Нет READY PRD или `research-check` падает — остановись и попроси завершить предыдущие шаги.
 - При `BLOCKED` от validator верни вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 
 ## Ожидаемый вывод

@@ -3,7 +3,7 @@
 Канонический порядок стадий (variant B):
 
 1. **idea** → `/idea-new` → `analyst`
-2. **research** → `/researcher` → `researcher` (при необходимости)
+2. **research** → `/researcher` → `researcher` (обязателен перед планированием)
 3. **plan** → `/plan-new` → `planner` → `validator`
 4. **review-plan** → `/review-spec` → `plan-reviewer`
 5. **review-prd** → `/review-spec` → `prd-reviewer`
@@ -18,9 +18,9 @@
 
 | Stage | Команда | Агент | Входы | Выходы | Гейт/условия |
 | --- | --- | --- | --- | --- | --- |
-| idea | `/idea-new` | `analyst` | PRD template, research (если есть) | PRD draft + вопросы | Нет перехода в plan без ответов |
+| idea | `/idea-new` | `analyst` | PRD template, research (если есть) | PRD draft + вопросы + Research Hints | Нет перехода в plan без ответов |
 | research | `/researcher` | `researcher` | PRD, репозиторий | Research report (reviewed/pending) | `gate-workflow` требует reviewed |
-| plan | `/plan-new` | `planner` + `validator` | PRD READY, research | План + статус validator | Без plan нет tasklist |
+| plan | `/plan-new` | `planner` + `validator` | PRD READY, research | План + статус validator | `research-check` обязателен перед планом |
 | review-plan | `/review-spec` | `plan-reviewer` | План + research | `## Plan Review` в плане | Блокирует PRD review/`tasks` при BLOCKED |
 | review-prd | `/review-spec` | `prd-reviewer` | PRD + plan + research | `## PRD Review` + report | Блокирует `tasks`/код при BLOCKED |
 | tasklist | `/tasks-new` | — | План + PRD | Tasklist READY | Без tasklist нет implement |

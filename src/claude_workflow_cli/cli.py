@@ -31,6 +31,11 @@ from claude_workflow_cli.tools.analyst_guard import (
     load_settings as _load_analyst_settings,
     validate_prd as _validate_analyst_prd,
 )
+from claude_workflow_cli.tools.research_guard import (
+    ResearchValidationError,
+    load_settings as _load_research_settings,
+    validate_research as _validate_research,
+)
 from claude_workflow_cli.tools.researcher_context import (
     ResearcherContextBuilder,
     _DEFAULT_GRAPH_LIMIT,
@@ -499,6 +504,40 @@ def _analyst_check_command(args: argparse.Namespace) -> None:
     label = _format_ticket_label(context, fallback=ticket)
     print(f"[claude-workflow] analyst dialog ready for `{label}` "
           f"(status: {summary.status}, questions: {summary.question_count}).")
+
+
+def _research_check_command(args: argparse.Namespace) -> None:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    settings = _load_research_settings(target)
+    try:
+        summary = _validate_research(
+            target,
+            ticket,
+            settings=settings,
+            branch=args.branch,
+        )
+    except ResearchValidationError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    if summary.status is None:
+        if summary.skipped_reason:
+            print(f"[claude-workflow] research gate skipped ({summary.skipped_reason}).")
+        else:
+            print("[claude-workflow] research gate disabled; nothing to validate.")
+        return
+
+    label = _format_ticket_label(context, fallback=ticket)
+    details = [f"status: {summary.status}"]
+    if summary.path_count is not None:
+        details.append(f"paths: {summary.path_count}")
+    if summary.age_days is not None:
+        details.append(f"age: {summary.age_days}d")
+    print(f"[claude-workflow] research gate OK for `{label}` ({', '.join(details)}).")
 
 
 def _research_command(args: argparse.Namespace) -> None:
@@ -1958,6 +1997,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override minimum number of questions expected from analyst.",
     )
     analyst_parser.set_defaults(func=_analyst_check_command)
+
+    research_check_parser = subparsers.add_parser(
+        "research-check",
+        help="Validate the Researcher report (docs/research + reports/research).",
+    )
+    research_check_parser.add_argument(
+        "--ticket",
+        "--feature",
+        dest="ticket",
+        help="Ticket identifier to validate (defaults to docs/.active_ticket).",
+    )
+    research_check_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for messaging (defaults to docs/.active_feature if present).",
+    )
+    research_check_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    research_check_parser.add_argument(
+        "--branch",
+        help="Current Git branch used to evaluate config.gates researcher branch rules.",
+    )
+    research_check_parser.set_defaults(func=_research_check_command)
 
     research_parser = subparsers.add_parser(
         "research",

@@ -80,8 +80,8 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md` | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
-| `planner` / `/plan-new` | PRD READY, research, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
+| `planner` / `/plan-new` | PRD READY, `research-check`, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
 | `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
 | `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
 
