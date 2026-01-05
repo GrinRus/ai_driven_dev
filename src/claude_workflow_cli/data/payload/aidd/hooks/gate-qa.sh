@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && -d "$ROOT_DIR/aidd/hooks" ]]; then
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
   echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
@@ -80,7 +80,8 @@ if ((${#filters[@]} > 0)); then
     IFS=', ' read -r -a parts <<< "$raw"
     for token in "${parts[@]}"; do
       [[ -z "$token" ]] && continue
-      if [[ "${token,,}" == "qa" ]]; then
+      token_norm="$(printf '%s' "$token" | tr '[:upper:]' '[:lower:]')"
+      if [[ "$token_norm" == "qa" ]]; then
         should_run=1
         break 2
       fi
@@ -95,6 +96,13 @@ dry_run=0
 (( manual_dry == 1 )) && dry_run=1
 
 cd "$ROOT_DIR"
+
+if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
+  if [[ "$active_stage" != "qa" ]]; then
+    exit 0
+  fi
+fi
 
 CONFIG_PATH="config/gates.json"
 if [[ ! -f "$CONFIG_PATH" ]]; then
@@ -133,8 +141,10 @@ def norm_list(value):
         return [str(item) for item in value if str(item)]
     return []
 
+SEP = "\x1f"
+
 def emit(name, values):
-    print(f"{name}=" + "\0".join(values))
+    print(f"{name}=" + SEP.join(values))
 
 enabled = bool(qa.get("enabled", True))
 print(f"ENABLED={'1' if enabled else '0'}")
@@ -148,6 +158,8 @@ report = qa.get("report", "reports/qa/latest.json")
 print(f"REPORT={report}")
 timeout = int(qa.get("timeout", 600) or 0)
 print(f"TIMEOUT={timeout}")
+debounce = int(qa.get("debounce_minutes", 0) or 0)
+print(f"DEBOUNCE={debounce}")
 allow_missing = bool(qa.get("allow_missing_report", False))
 print(f"ALLOW_MISSING={'1' if allow_missing else '0'}")
 handoff = bool(qa.get("handoff", False))
@@ -169,6 +181,8 @@ qa_block=()
 qa_warn=()
 qa_requires=()
 qa_handoff=0
+qa_debounce=0
+list_sep=$'\x1f'
 
 for line in "${QA_CFG[@]}"; do
   case "$line" in
@@ -185,6 +199,9 @@ for line in "${QA_CFG[@]}"; do
     TIMEOUT=*)
       qa_timeout="${line#TIMEOUT=}"
       ;;
+    DEBOUNCE=*)
+      qa_debounce="${line#DEBOUNCE=}"
+      ;;
     ALLOW_MISSING=*)
       qa_allow_missing="${line#ALLOW_MISSING=}"
       ;;
@@ -195,42 +212,42 @@ for line in "${QA_CFG[@]}"; do
       raw="${line#BRANCHES=}"
       qa_branches=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_branches <<< "$raw"
+        IFS="$list_sep" read -r -a qa_branches <<< "$raw"
       fi
       ;;
     SKIP=*)
       raw="${line#SKIP=}"
       qa_skip=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_skip <<< "$raw"
+        IFS="$list_sep" read -r -a qa_skip <<< "$raw"
       fi
       ;;
     COMMAND=*)
       raw="${line#COMMAND=}"
       qa_command=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_command <<< "$raw"
+        IFS="$list_sep" read -r -a qa_command <<< "$raw"
       fi
       ;;
     BLOCK=*)
       raw="${line#BLOCK=}"
       qa_block=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_block <<< "$raw"
+        IFS="$list_sep" read -r -a qa_block <<< "$raw"
       fi
       ;;
     WARN=*)
       raw="${line#WARN=}"
       qa_warn=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_warn <<< "$raw"
+        IFS="$list_sep" read -r -a qa_warn <<< "$raw"
       fi
       ;;
     REQUIRES=*)
       raw="${line#REQUIRES=}"
       qa_requires=()
       if [[ -n "$raw" ]]; then
-        IFS=$'\0' read -r -a qa_requires <<< "$raw"
+        IFS="$list_sep" read -r -a qa_requires <<< "$raw"
       fi
       ;;
   esac
@@ -288,9 +305,11 @@ slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 if ((${#qa_requires[@]} > 0)); then
   tests_mode="$(hook_config_get_str config/gates.json tests_required disabled)"
   for req in "${qa_requires[@]}"; do
-    case "${req,,}" in
+    req_norm="$(printf '%s' "$req" | tr '[:upper:]' '[:lower:]')"
+    case "$req_norm" in
       gate-tests)
-        if [[ "${tests_mode,,}" == "disabled" ]]; then
+        tests_mode_norm="$(printf '%s' "$tests_mode" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$tests_mode_norm" == "disabled" ]]; then
           echo "[gate-qa] WARN: qa.requires содержит gate-tests, но tests_required=disabled." >&2
         fi
         ;;
@@ -349,7 +368,17 @@ fi
 block_arg="$(IFS=','; printf '%s' "${qa_block[*]}")"
 warn_arg="$(IFS=','; printf '%s' "${qa_warn[*]}")"
 
-runner=("${cmd[@]}" "--gate" "--block-on" "$block_arg" "--warn-on" "$warn_arg")
+has_gate=0
+for part in "${cmd[@]}"; do
+  if [[ "$part" == "--gate" ]]; then
+    has_gate=1
+    break
+  fi
+done
+
+runner=("${cmd[@]}")
+((has_gate == 1)) || runner+=("--gate")
+runner+=("--block-on" "$block_arg" "--warn-on" "$warn_arg")
 if [[ -n "$ticket" ]]; then
   runner+=("--ticket" "$ticket")
   if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
@@ -362,6 +391,34 @@ report_path="$qa_report"
 if [[ -n "$report_path" ]]; then
   report_path="$(replace_placeholders "$report_path")"
   runner+=("--report" "$report_path")
+fi
+
+debounce_minutes=0
+stamp_path=""
+if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
+  debounce_minutes="$qa_debounce"
+  if [[ -n "${CLAUDE_QA_DEBOUNCE_MINUTES:-}" ]]; then
+    debounce_minutes="${CLAUDE_QA_DEBOUNCE_MINUTES}"
+  fi
+  if [[ "$debounce_minutes" =~ ^[0-9]+$ ]] && (( debounce_minutes > 0 )); then
+    now_ts="$(date +%s)"
+    stamp_dir="reports/qa"
+    if [[ -n "$report_path" ]]; then
+      stamp_dir="$(dirname "$report_path")"
+    fi
+    stamp_dir="${stamp_dir:-reports/qa}"
+    stamp_path="${stamp_dir}/.gate-qa.${ticket:-unknown}.stamp"
+    if [[ -f "$stamp_path" ]]; then
+      last_ts="$(cat "$stamp_path" 2>/dev/null || true)"
+      if [[ "$last_ts" =~ ^[0-9]+$ ]]; then
+        delta=$(( now_ts - last_ts ))
+        if (( delta < debounce_minutes * 60 )); then
+          echo "[gate-qa] debounce: QA пропущен (${delta}s < ${debounce_minutes}m)." >&2
+          exit 0
+        fi
+      fi
+    fi
+  fi
 fi
 
 ((dry_run == 1)) && runner+=("--dry-run")
@@ -404,6 +461,13 @@ if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
     echo "[gate-qa] ERROR: отчёт QA не создан: $report_path" >&2
     (( status == 0 )) && status=1
   fi
+fi
+
+if (( status == 0 )) && (( dry_run == 0 )) && [[ -n "$stamp_path" ]] && [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
+  now_ts="$(date +%s)"
+  stamp_dir="$(dirname "$stamp_path")"
+  mkdir -p "$stamp_dir" 2>/dev/null || true
+  printf '%s\n' "$now_ts" > "$stamp_path" 2>/dev/null || true
 fi
 
 if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]]; then

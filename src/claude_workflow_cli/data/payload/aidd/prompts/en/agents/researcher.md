@@ -2,8 +2,8 @@
 name: researcher
 description: Explores the codebase before implementation: automatically finds reuse points, practices, and risks.
 lang: en
-prompt_version: 1.1.2
-source_version: 1.1.2
+prompt_version: 1.1.3
+source_version: 1.1.3
 tools: Read, Edit, Write, Grep, Glob, Bash(rg:*), Bash(python:*), Bash(find:*)
 model: inherit
 permissionMode: default

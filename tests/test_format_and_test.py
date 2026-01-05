@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .helpers import PAYLOAD_ROOT, REPO_ROOT, cli_cmd, git_init, write_active_feature, write_file
+from .helpers import PAYLOAD_ROOT, REPO_ROOT, cli_cmd, git_init, write_active_feature, write_active_stage, write_file
 
 HOOK = PAYLOAD_ROOT / "hooks" / "format-and-test.sh"
 
@@ -67,6 +67,7 @@ def test_module_matrix_tasks_logged(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
+    write_active_stage(project, "implement")
     (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
     (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
@@ -81,6 +82,7 @@ def test_common_change_forces_full_suite(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
+    write_active_stage(project, "implement")
     (project / "config").mkdir(parents=True, exist_ok=True)
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
@@ -97,6 +99,7 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
+    write_active_stage(project, "implement")
     (project / "config").mkdir(parents=True, exist_ok=True)
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
@@ -117,6 +120,7 @@ def test_skip_auto_tests_env(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
+    write_active_stage(project, "implement")
 
     result = run_hook(project, settings, env={"SKIP_AUTO_TESTS": "1"})
 
@@ -129,6 +133,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
+    write_active_stage(project, "implement")
     payload = json.loads(settings.read_text(encoding="utf-8"))
     payload["automation"]["tests"]["reviewerGate"].update(
         {

@@ -4,6 +4,7 @@
 
 > **Плагин AIDD.** Команды/агенты/хуки живут в `aidd/{commands,agents,hooks}` с манифестом `aidd/.claude-plugin/plugin.json`; runtime `.claude/` в workspace содержит только настройки/кеш. Marketplace для автоподключения — корневой `.claude-plugin/marketplace.json`, root `.claude/settings.json` включает `feature-dev-aidd`. Запускайте Claude из корня: плагин подхватится автоматически.
 > Ticket — основной идентификатор фичи (`aidd/docs/.active_ticket`), slug-hint при необходимости сохраняется в `aidd/docs/.active_feature` и используется в шаблонах и логах.
+> Текущая стадия фиксируется в `aidd/docs/.active_stage` (`idea/research/plan/tasklist/implement/review/qa`); команды обновляют маркер и допускают откат на любой этап.
 > Payload обновляйте через CLI: `claude-workflow init --target .` (bootstrap), `claude-workflow preset <name>`, `claude-workflow sync|upgrade` для подтяжки шаблонов и `claude-workflow smoke` для быстрой проверки гейтов.
 > **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/templates/scripts/tools/commands/agents/hooks) — это развернутый snapshot. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 ## Обзор этапов
@@ -53,9 +54,9 @@
 
 ### 6. Реализация (`/implement`)
 - Саб-агент **implementer** следует шагам плана, учитывает выводы `aidd/docs/research/<ticket>.md` и PRD и вносит изменения малыми итерациями, опираясь на данные репозитория.
-- После каждой правки автоматически запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`). Любые ручные команды (`./gradlew test`, `gradle lint`, `claude-workflow progress --source implement --ticket <ticket>`) нужно перечислять в ответе с кратким результатом.
+- В конце итерации (Stop/SubagentStop) запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только на стадии implement**. Управление через `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`; все ручные команды (`./gradlew test`, `gradle lint`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляйте в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `aidd/docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
-- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh`, `gate-prd-review.sh`, `gate-qa.sh`, `gate-tests.sh`.
+- Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh` (включая PRD review), `gate-qa.sh`, `gate-tests.sh`, `lint-deps.sh`.
 - После отчётов QA/Review/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 ### 7. Ревью (`/review`)
@@ -73,7 +74,20 @@
 ## Автоматизация и гейты
 
 - Хуки (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) описаны в `hooks/hooks.json` и вызывают `${CLAUDE_PLUGIN_ROOT}/hooks/*`; `.claude/settings.json` хранит только permissions/automation и включает плагин.
-- `aidd/hooks/hooks.json` описывает hook events: PreToolUse (workflow/prd/qa/tests), PostToolUse (format/test/lint-deps), а также UserPromptSubmit/Stop/SubagentStop — все вызывают `gate-workflow` перед записью. Пути свернуты через `${CLAUDE_PLUGIN_ROOT}/hooks/...`.
+- `aidd/hooks/hooks.json` определяет лёгкие PreToolUse-guards (Bash/Read) и UserPromptSubmit guard, а тяжёлые гейты запускает на Stop/SubagentStop: `gate-workflow`, `gate-tests`, `gate-qa`, `format-and-test`, `lint-deps`. Это снижает нагрузку и запускает проверки после завершения итерации.
+- Матчинг стадий и гейтов: `format-and-test`, `gate-tests`, `lint-deps` работают только при `aidd/docs/.active_stage=implement`, `gate-qa` — только при `qa`, `gate-workflow` блокирует правки кода вне `implement/review/qa` (если стадия задана). Для разового обхода используйте `CLAUDE_SKIP_STAGE_CHECKS=1` или задайте `CLAUDE_ACTIVE_STAGE`.
+
+### Ревизия hook-событий (Wave 58)
+
+| Событие | Хуки | Назначение | Статус |
+| --- | --- | --- | --- |
+| `SessionStart` | `scripts/context_gc/sessionstart_inject.py` | Добавить working set в контекст сессии | нужно |
+| `PreCompact` | `scripts/context_gc/precompact_snapshot.py` | Снимок контекста перед компактом | нужно |
+| `PreToolUse` | `scripts/context_gc/pretooluse_guard.py` (Bash/Read) | Лёгкие guard'ы: wrap output, size/read, safety | условно (только лёгкие проверки) |
+| `UserPromptSubmit` | `scripts/context_gc/userprompt_guard.py` | Контроль промптов перед отправкой | условно |
+| `Stop`/`SubagentStop` | `gate-workflow`, `gate-tests`, `gate-qa`, `format-and-test`, `lint-deps` | Тяжёлые проверки после завершения итерации | нужно |
+| `PostToolUse` | — | Убрано, чтобы не запускать тяжёлые гейты на каждый шаг | лишнее |
+
 - `config/gates.json` управляет дополнительными проверками:
   - дополнительные гейты конфигурируются в `config/gates.json` (см. `tests_required`, `qa`).
   - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `reports/prd/<ticket>.json`.

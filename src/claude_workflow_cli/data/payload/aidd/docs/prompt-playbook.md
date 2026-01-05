@@ -98,7 +98,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 2. Убедиться, что все обязательные блоки присутствуют и оформлены.
 3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
 4. Запустить `scripts/lint-prompts.py --root <workflow-root>` и убедиться, что проверки пройдены.
-5. Обновить внутренний wave backlog (dev-only, `doc/backlog.md` не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
+5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
 
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 

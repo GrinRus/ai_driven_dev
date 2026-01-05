@@ -2,9 +2,9 @@
 description: "Feature initiation: analyst + (opt.) auto-research → user questions → PRD draft"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: en
-prompt_version: 1.2.4
-source_version: 1.2.4
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*),Bash(rg:*)
+prompt_version: 1.2.5
+source_version: 1.2.5
+allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_feature.py:*),Bash(python3 tools/set_active_stage.py:*),Bash(claude-workflow analyst:*),Bash(claude-workflow analyst-check:*),Bash(claude-workflow research:*),Bash(rg:*)
 model: inherit
 disable-model-invocation: false
 ---
@@ -24,6 +24,7 @@ disable-model-invocation: false
 
 ## Automation & Hooks
 - `python3 tools/set_active_feature.py <ticket> [--slug-note ...] [--target <root>]` writes `aidd/docs/.active_*` (fallback to `aidd/docs`), scaffolds PRD and research stub if missing.
+- `python3 tools/set_active_stage.py idea` records the `idea` stage (can be reset when restarting the flow).
 - Inside `/idea-new` the **analyst** runs automatically; when context is thin, it triggers `claude-workflow research --ticket <ticket> --auto [--paths ... --keywords ...]` (or asks the user if `--no-research`).
 - Flags: `--auto-research` (default on), `--no-research` to skip auto research.
 - `claude-workflow analyst-check --ticket <ticket>` validates dialog/status after answers.
@@ -35,10 +36,11 @@ disable-model-invocation: false
 - Auto-generated `reports/research/<ticket>-(context|targets).json`.
 
 ## Step-by-step Plan
-1. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"] [--target <root>]` — updates `.active_*`, scaffolds PRD and research stub.
-2. Auto-run **analyst**: reads slug-hint/artifacts; if context is thin, triggers `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]` (or asks the user if `--no-research`).
-3. After research (if any), analyst updates PRD, logs sources, and builds “Questions for the user” in `## Диалог analyst`. Do not set READY until answers and research reviewed (baseline allowed for empty repos).
-4. Finish with explicit questions/blockers. User replies as `Ответ N: ...`; after answers run `claude-workflow analyst-check --ticket "$1"` and rerun analyst if needed to reach READY.
+1. Run `python3 tools/set_active_stage.py idea` — record the `idea` stage (allow rollbacks and restarts when requirements change).
+2. Run `python3 tools/set_active_feature.py "$1" [--slug-note "$2"] [--target <root>]` — updates `.active_*`, scaffolds PRD and research stub.
+3. Auto-run **analyst**: reads slug-hint/artifacts; if context is thin, triggers `claude-workflow research --ticket "$1" --auto [--paths ... --keywords ...]` (or asks the user if `--no-research`).
+4. After research (if any), analyst updates PRD, logs sources, and builds “Questions for the user” in `## Диалог analyst`. Do not set READY until answers and research reviewed (baseline allowed for empty repos).
+5. Finish with explicit questions/blockers. User replies as `Ответ N: ...`; after answers run `claude-workflow analyst-check --ticket "$1"` and rerun analyst if needed to reach READY.
 
 ## Fail-fast & Questions
 - Missing ticket/slug — stop and request it; avoid overwriting PRD without `--force`.

@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация задачи. Основан на данных из репозитория, вопросы пользователю — только по блокерам.
 lang: ru
-prompt_version: 1.1.5
-source_version: 1.1.5
+prompt_version: 1.1.6
+source_version: 1.1.6
 tools: Read, Edit, Write, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*)
 model: inherit
 permissionMode: default

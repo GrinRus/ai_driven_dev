@@ -18,7 +18,20 @@ if mode == "extract_path":
     except json.JSONDecodeError:
         print("")
         raise SystemExit(0)
-    print(data.get("tool_input", {}).get("file_path", ""))
+    tool_input = data.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    for key in ("file_path", "path", "filename", "file"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value:
+            print(value)
+            raise SystemExit(0)
+    for key in ("file_path", "path", "filename", "file"):
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            print(value)
+            raise SystemExit(0)
+    print("")
 elif mode == "config_get":
     cfg_path = Path(os.environ.get("HOOK_CFG_PATH", ""))
     key = os.environ.get("HOOK_CFG_KEY", "")
@@ -114,6 +127,28 @@ hook_read_ticket() {
     slug_env="$slug_path"
   fi
   HOOK_TICKET_PATH="$ticket_env" HOOK_SLUG_PATH="$slug_env" _hook_python read_ticket
+}
+
+hook_read_stage() {
+  local stage_path="${1:-docs/.active_stage}"
+  [[ -f "$stage_path" ]] || return 1
+  local value
+  value="$(tr -d '\r' <"$stage_path" | tr -d '\n')"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+  if [[ -n "$value" ]]; then
+    printf '%s\n' "$value"
+    return 0
+  fi
+  return 1
+}
+
+hook_resolve_stage() {
+  local override="${CLAUDE_ACTIVE_STAGE:-}"
+  if [[ -n "$override" ]]; then
+    printf '%s\n' "$(printf '%s' "$override" | tr '[:upper:]' '[:lower:]')"
+    return 0
+  fi
+  hook_read_stage "${1:-docs/.active_stage}"
 }
 
 run_cli_or_hint() {

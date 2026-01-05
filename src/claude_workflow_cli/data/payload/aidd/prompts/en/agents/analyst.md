@@ -2,8 +2,8 @@
 name: analyst
 description: Intake → repository analysis → PRD. Ask the user only when repo data is insufficient.
 lang: en
-prompt_version: 1.2.4
-source_version: 1.2.4
+prompt_version: 1.2.5
+source_version: 1.2.5
 tools: Read, Write, Grep, Glob, Bash(claude-workflow research:*), Bash(claude-workflow analyst-check:*), Bash(rg:*)
 model: inherit
 permissionMode: default

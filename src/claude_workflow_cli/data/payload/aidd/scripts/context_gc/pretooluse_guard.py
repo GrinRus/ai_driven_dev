@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -39,13 +40,89 @@ def _wrap_with_log_and_tail(log_dir: Path, tail_lines: int, original_cmd: str) -
     return f"bash -lc {shlex.quote(wrapped)}"
 
 
-def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:
-    guard = cfg.get("bash_output_guard", {})
+def _handle_dangerous_bash(cmd: str, guard: Dict[str, Any]) -> bool:
     if not guard.get("enabled", True):
-        return
+        return False
 
+    patterns = guard.get("patterns") or []
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if not isinstance(patterns, (list, tuple)):
+        return False
+
+    for raw in patterns:
+        pattern = str(raw).strip()
+        if not pattern:
+            continue
+        try:
+            if not re.search(pattern, cmd):
+                continue
+        except re.error:
+            continue
+
+        mode = str(guard.get("mode", "ask")).strip().lower()
+        decision = "deny" if mode == "deny" else "ask"
+        pretooluse_decision(
+            permission_decision=decision,
+            reason="Context GC: detected potentially destructive Bash command.",
+            system_message=(
+                "Context GC: detected potentially destructive Bash command. "
+                "Confirm explicitly if this is intended."
+            ),
+        )
+        return True
+
+    return False
+
+
+def _should_rate_limit(
+    guard: Dict[str, Any],
+    project_dir: Path,
+    aidd_root: Optional[Path],
+    guard_name: str,
+) -> bool:
+    min_interval = guard.get("min_interval_seconds", 0)
+    try:
+        min_interval = int(min_interval)
+    except (TypeError, ValueError):
+        min_interval = 0
+    if min_interval <= 0:
+        return False
+
+    log_dir_raw = str(guard.get("log_dir", "aidd/reports/logs"))
+    log_dir = _resolve_log_dir(project_dir, aidd_root, log_dir_raw)
+    stamp_path = log_dir / f".context-gc-{guard_name}.stamp"
+
+    try:
+        last_seen = float(stamp_path.read_text(encoding="utf-8").strip() or 0)
+    except Exception:
+        last_seen = 0.0
+
+    now = time.time()
+    if last_seen and (now - last_seen) < min_interval:
+        return True
+
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        stamp_path.write_text(str(now), encoding="utf-8")
+    except Exception:
+        # If we can't persist the stamp, keep running the guard.
+        return False
+
+    return False
+
+
+def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:
     cmd = tool_input.get("command")
     if not isinstance(cmd, str) or not cmd.strip():
+        return
+
+    dangerous_guard = cfg.get("dangerous_bash_guard", {})
+    if _handle_dangerous_bash(cmd, dangerous_guard):
+        return
+
+    guard = cfg.get("bash_output_guard", {})
+    if not guard.get("enabled", True):
         return
 
     only_for = re.compile(str(guard.get("only_for_regex", ""))) if guard.get("only_for_regex") else None
@@ -54,6 +131,9 @@ def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
     if only_for and not only_for.search(cmd):
         return
     if skip_if and skip_if.search(cmd):
+        return
+
+    if _should_rate_limit(guard, project_dir, aidd_root, "bash_output"):
         return
 
     tail_lines = int(guard.get("tail_lines", 200))
@@ -110,6 +190,8 @@ def handle_read(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
 
     max_bytes = int(guard.get("max_bytes", 200_000))
     if size <= max_bytes:
+        return
+    if _should_rate_limit(guard, project_dir, aidd_root, "read_guard"):
         return
 
     ask = bool(guard.get("ask_instead_of_deny", True))
