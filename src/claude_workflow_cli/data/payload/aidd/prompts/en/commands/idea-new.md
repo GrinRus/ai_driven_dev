@@ -2,8 +2,8 @@
 description: "Feature kickoff: set ticket/slug → analyst → PRD draft + questions"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: en
-prompt_version: 1.3.0
-source_version: 1.3.0
+prompt_version: 1.3.1
+source_version: 1.3.1
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/idea-new` sets the active ticket/slug, marks stage `idea`, runs sub-agent **analyst**, and produces a PRD draft with questions. The command does not run `claude-workflow research`: the analyst records context and fills `## Research Hints` in the PRD, while research itself happens in `/researcher`. READY is set after user answers (research is validated separately before planning). Free-form notes after the ticket should be stored in the PRD.
+`/idea-new` sets the active ticket/slug, marks stage `idea`, runs sub-agent **analyst**, and produces a PRD draft with questions. The analyst records context and fills `## Research Hints` in the PRD. After user answers, the next mandatory step is `/researcher <ticket>`; READY is set after answers. Free-form notes after the ticket should be stored in the PRD.
 
 ## Input Artifacts
 - `@aidd/docs/prd.template.md` — PRD template (Status: draft, `## Диалог analyst`).
@@ -38,7 +38,6 @@ disable-model-invocation: false
 ## What is Edited
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/research/<ticket>.md` and `aidd/reports/research/*` — only via `/researcher`.
 
 ## Step-by-step Plan
 1. Set stage `idea`.
@@ -53,7 +52,6 @@ disable-model-invocation: false
 ## Expected Output
 - Active ticket/slug set in `aidd/docs/.active_*`.
 - `aidd/docs/prd/<ticket>.prd.md` created/updated (PENDING/BLOCKED until answers).
-- Research runs as a separate `/researcher` command.
 - Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## CLI Examples

@@ -39,8 +39,8 @@
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 3619,
-      "sha256": "2f6a49f2738129ba79089f1d0059b8ae0b25aa4f6291bd86dc0dd95079296bec"
+      "size": 3402,
+      "sha256": "fd545fade479bdf293be4778d5bb745cc93a72b7714b6d15bafbd788086c36b7"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -129,8 +129,8 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 4065,
-      "sha256": "66dc0e779dc09f85d7d2041d1fa6eedc3986cea71cdd6a3f40b316947755aedf"
+      "size": 3768,
+      "sha256": "a79db13cf04ac635590add80b048d678a7cf9c43f6572922c5c7e15980400052"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -453,8 +453,8 @@
     {
       "path": "aidd/prompts/en/agents/analyst.md",
       "type": "file",
-      "size": 2459,
-      "sha256": "f094adba63e767d6565fee3f043a47648bec012a3da1285d7f53a56083a7bee4"
+      "size": 2318,
+      "sha256": "2fc86c238d0da2901f482dfcf83d3cece82cbbe4751351fcb204fd3749470ca2"
     },
     {
       "path": "aidd/prompts/en/agents/implementer.md",
@@ -507,8 +507,8 @@
     {
       "path": "aidd/prompts/en/commands/idea-new.md",
       "type": "file",
-      "size": 2825,
-      "sha256": "37eb3f19c5180efa8d6e773ee79f2a858313985b908be39c7eb98abd806c02c9"
+      "size": 2593,
+      "sha256": "8ea4b238bf885a94d8172bc8611a3d9229b3395d10615a438a49d6fe1039c512"
     },
     {
       "path": "aidd/prompts/en/commands/implement.md",

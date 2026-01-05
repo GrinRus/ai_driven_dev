@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.3.0
-source_version: 1.3.0
+prompt_version: 1.3.1
+source_version: 1.3.1
 allowed-tools:
   - Read
   - Edit
@@ -18,7 +18,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Команда не запускает `claude-workflow research`: аналитик фиксирует контекст и заполняет `## Research Hints` в PRD, а сам research выполняется через `/researcher`. READY ставится после ответов пользователя (research проверяется отдельно перед планом). Свободный ввод после тикета используется как заметка для PRD.
+`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## Research Hints` в PRD. После ответов пользователя следующий обязательный шаг — `/researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
 
 ## Входные артефакты
 - `@aidd/docs/prd.template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
@@ -38,7 +38,6 @@ disable-model-invocation: false
 ## Что редактируется
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/research/<ticket>.md` и `aidd/reports/research/*` — только через `/researcher`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py idea`.
@@ -53,7 +52,6 @@ disable-model-invocation: false
 ## Ожидаемый вывод
 - Активный ticket/slug зафиксирован в `aidd/docs/.active_*`.
 - `aidd/docs/prd/<ticket>.prd.md` создан/обновлён (PENDING/BLOCKED до ответов).
-- Research выполняется отдельной командой `/researcher`.
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
