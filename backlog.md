@@ -1078,3 +1078,38 @@ _Статус: новый, приоритет 1. Цель — унификаци
 - [ ] Обновить документацию об источнике root и запуске CLI: `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (правило: хуки и CLI работают от workspace root; `AIDD_ROOT` как override).
 - [ ] Добавить тесты на резолвинг root: эмуляция `AIDD_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT` (cache path), запуск hook из чужого cwd; отдельный кейс non‑git — ожидается мягкий exit. Файлы: `tests/test_gate_workflow.py`, `tests/helpers.py`.
 - [ ] После унификации: обновить `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+
+## Wave 65
+
+_Статус: новый, приоритет 1. Цель — поддержка dual‑deploy: Claude Code plugin + OpenCode (opencode.ai) с единым ядром `aidd/**`._
+
+### CLI/init: выбор формата установки
+- [ ] Добавить `--type {claude-code-plugin|open-code|both}` в `claude-workflow init` (default: `claude-code-plugin`) и прокинуть в bootstrap‑скрипт; обновить help/usage. Файлы: `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh`.
+- [ ] В init‑скрипте разделить генерацию overlay: Claude Code (`.claude/`, `.claude-plugin/`) vs OpenCode (`opencode.json`, `.opencode/**`); при `--type open-code` не создавать `.claude*` (если не выбран `both`). Файл: `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh`.
+
+### OpenCode overlay (payload)
+- [ ] Добавить `opencode.json` в payload root с `instructions: ["aidd/AGENTS.md"]`, `permission` (ask/allow/deny), `tools` и опциональным `model`/`default_agent`; зафиксировать JSON‑schema `$schema: https://opencode.ai/config.json`. Файл: `src/claude_workflow_cli/data/payload/opencode.json`.
+- [ ] Создать `.opencode/command/*.md` как thin‑wrappers на `@aidd/commands/<name>.md` для: `idea-new`, `researcher`, `plan-new`, `review-spec`, `tasks-new`, `implement`, `review`, `qa`; frontmatter: `description`, `agent`, `model`. Файлы: `src/claude_workflow_cli/data/payload/.opencode/command/*.md`.
+- [ ] Создать `.opencode/agent/*.md` как thin‑wrappers на `@aidd/agents/<name>.md` для: `analyst`, `researcher`, `planner`, `validator`, `plan-reviewer`, `prd-reviewer`, `implementer`, `reviewer`, `qa`; frontmatter: `description`, `mode: subagent`, `model`, `tools`/`permission`. Файлы: `src/claude_workflow_cli/data/payload/.opencode/agent/*.md`.
+
+### OpenCode plugin: гейты и авто‑проверки
+- [ ] Реализовать `.opencode/plugin/aidd-workflow.ts`: хук `tool.execute.before` блокирует `edit/write/bash` на `src/**` вне разрешённых стадий; хук `session.idle` (или `tool.execute.after`) запускает `aidd/hooks/{gate-workflow,gate-tests,gate-qa,format-and-test,lint-deps}.sh`, передавая `AIDD_ROOT`/`CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`. Файл: `src/claude_workflow_cli/data/payload/.opencode/plugin/aidd-workflow.ts`.
+- [ ] Определить политику errors/exit‑codes для OpenCode plugin (soft/hard блокировка), оформить константы и сообщения в стиле существующих hook‑скриптов. Файл: `src/claude_workflow_cli/data/payload/.opencode/plugin/aidd-workflow.ts`.
+
+### Automation config для OpenCode
+- [ ] Зафиксировать источник `automation` для `format-and-test.sh` в open‑code режиме: либо разрешить fallback на `aidd/config/automation.json`, либо генерировать минимальный `.claude/settings.json` даже при `--type open-code`; обновить `format-and-test.sh` и docs. Файлы: `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`, `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`, `src/claude_workflow_cli/data/payload/opencode.json`.
+
+### Packaging/sync/audit
+- [ ] Обновить `src/claude_workflow_cli/data/payload/manifest.json` на новые файлы: `opencode.json`, `.opencode/**`.
+- [ ] Расширить allowlist: `tools/payload_audit_rules.json` (добавить `opencode.json`, `.opencode/**`).
+- [ ] Обновить `scripts/sync-payload.sh`: добавить `opencode.json` и `.opencode/` в default paths + (опционально) alias `--include opencode`.
+- [ ] Расширить `tools/check_payload_sync.py` под новые root‑файлы (`opencode.json`) и директорию `.opencode/`.
+
+### Tests
+- [ ] Добавить тесты init `--type open-code`: создаются `opencode.json`, `.opencode/{command,agent,plugin}`, а `.claude/` и `.claude-plugin/` не создаются без `both`. Файлы: `tests/test_init_claude_workflow.py` (или новый `tests/test_init_open_code.py`).
+- [ ] Обновить `tests/test_package_payload.py` на ожидание `opencode.json` и `.opencode/**` внутри package payload.
+
+### Документация
+- [ ] Обновить `README.md` и `README.en.md`: примеры команд `claude-workflow init --type claude-code-plugin` и `--type open-code`, структура файлов (`.claude*` vs `.opencode*`).
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/workflow.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: описать OpenCode‑режим, plugin‑гейты, и ограничения (stage‑aware checks).
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`: добавить заметку о thin‑wrappers в OpenCode и едином source‑of‑truth в `aidd/**`.
