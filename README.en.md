@@ -1,17 +1,18 @@
-# Claude Code Workflow — Java/Kotlin Monorepo Template
+# Claude Code Workflow — Language-agnostic Workflow Template
 
-> Turn a plain Gradle repository into a Claude Code powered workspace with slash commands, safe hooks, and selective Gradle runs.
+> Turn any repository into a Claude Code powered workspace with slash commands, safe hooks, stage-aware gates, and configurable checks (formatting/tests/linters).
 
 ## Sync Guide
 - Always edit `README.md` (RU) first, then update this translation in the same commit.
 - Mirror section structure, headlines, and links. Leave a note if a Russian-only section has no equivalent.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2025-12-26._  <!-- update when EN catches up -->
+_Last sync with `README.md`: 2025-12-30._  <!-- update when EN catches up -->
 
 ## TL;DR
 - `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) bootstraps `/idea-new (analyst) → research when needed → /plan-new → /review-prd → /tasks-new → /implement → /review`; `claude-workflow preset|sync|upgrade|smoke` cover demo assets, payload refresh, and smoke.
-- Formatting and selective Gradle tests (`aidd/hooks/format-and-test.sh`) run automatically after each edit (`SKIP_AUTO_TESTS=1` to pause); `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
+- Formatting and selective checks (`aidd/hooks/format-and-test.sh`) run only during the `implement` stage and only on Stop/SubagentStop (`SKIP_AUTO_TESTS=1` to pause); `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
+- The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs/templates/prompts.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - The payload lives in `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/claude-presets`, `aidd/templates`, `aidd/tools`, `aidd/scripts`, `aidd/prompts`); all artifacts/reports stay under `aidd/`. Workspace settings live at the root (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
@@ -39,7 +40,7 @@ _Last sync with `README.md`: 2025-12-26._  <!-- update when EN catches up -->
 - [Feature kickoff checklist](#feature-kickoff-checklist)
 - [Slash commands](#slash-commands)
 - [Branch & commit modes](#branch--commit-modes)
-- [Selective Gradle tests](#selective-gradle-tests)
+- [Selective tests](#selective-tests)
 - [Additional resources](#additional-resources)
 - [Migration to agent-first](#migration-to-agent-first)
 - [Contribution & license](#contribution--license)
@@ -59,7 +60,7 @@ _Last sync with `README.md`: 2025-12-26._  <!-- update when EN catches up -->
 ## What you get
 - Claude Code slash commands and sub-agents to bootstrap PRD/ADR/Tasklist docs, generate updates, and validate commits.
 - A multi-stage workflow (idea → research → plan → PRD review → tasks → implementation → review → QA) powered by `analyst/researcher/planner/prd-reviewer/validator/implementer/reviewer/qa` sub-agents; additional gates are toggled via `config/gates.json`.
-- Git hooks for auto-formatting, selective Gradle runs, and workflow guards.
+- Git hooks for auto-formatting, selective tests, and workflow guards (stage-aware by default).
 - Commit convention presets (`ticket-prefix`, `conventional`, `mixed`) with documented templates for messages and branch names.
 - Documentation pack, issue/PR templates, and optional CI workflow.
 - Zero dependency on Spec Kit or BMAD — everything runs locally.
@@ -68,12 +69,12 @@ _Last sync with `README.md`: 2025-12-26._  <!-- update when EN catches up -->
 1. `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) scaffolds workspace `.claude/` and `.claude-plugin/`, and lays out the payload under `aidd/`.
 2. Slash commands drive the multi-stage process (see `aidd/workflow.md`): idea, plan, PRD review, tasklist, implementation, and review with dedicated sub-agents.
 3. The `feature-dev-aidd` plugin from `.claude-plugin/marketplace.json` wires pre/post hooks (`gate-*`, `format-and-test.sh`); `.claude/settings.json` only keeps permissions/automation and enables the plugin.
-4. `aidd/hooks/format-and-test.sh` performs formatting and selective Gradle runs; full suites trigger automatically when shared assets change.
+4. `aidd/hooks/format-and-test.sh` performs formatting and selective tests via `.claude/settings.json` and runs only during the `implement` stage (Stop/SubagentStop).
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
 
 ## Agent-first principles
-- **Slug-hint and repository first, questions later.** Analyst starts with the slug-hint stored in `aidd/docs/.active_feature`, then reads `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (`code_index`/`reuse_candidates`), and existing plans before creating any Q&A. Researcher records every command (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) and builds the call/import graph with Claude Code; implementer updates the tasklist plus lists executed `./gradlew` / `claude-workflow progress` runs before pinging the user.
-- **Commands & logs are part of the answer.** Prompts and templates now require documenting allowed CLI invocations (Gradle, `rg`, `claude-workflow`) and attaching logs/paths so downstream agents can reproduce the steps. Tasklist and research templates include explicit `Commands/Reports` sections.
+- **Slug-hint and repository first, questions later.** Analyst starts with the slug-hint stored in `aidd/docs/.active_feature`, then reads `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (`code_index`/`reuse_candidates`), and existing plans before creating any Q&A. Researcher records every command (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) and builds the call/import graph with Claude Code; implementer updates the tasklist plus lists executed test/lint commands and `claude-workflow progress` runs before pinging the user.
+- **Commands & logs are part of the answer.** Prompts and templates now require documenting allowed CLI invocations (your test runner, `rg`, `claude-workflow`) and attaching logs/paths so downstream agents can reproduce the steps. Tasklist and research templates include explicit `Commands/Reports` sections.
 - **Auto-generated artifacts.** `/idea-new` scaffolds PRD, triggers the analyst (research is on-demand when context is thin), and instructs the analyst to mine repository data. The `templates/prompt-agent.md` / `templates/prompt-command.md` presets describe how to document inputs, gates, commands, and fail-fast rules in an agent-first style.
 
 Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/customization.md`.
@@ -86,11 +87,12 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 | `aidd/agents/` | Sub-agent playbooks | Roles for analyst, planner, prd-reviewer, validator, implementer, reviewer, qa |
 | `aidd/prompts/en/` | EN prompt variants | `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`, synced with `aidd/agents|commands` (see `aidd/docs/prompt-versioning.md`) |
 | `aidd/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
+| `aidd/scripts/` | Runtime scripts | Context helpers, agent scripts, and optional test‑runner helpers |
 | `config/gates.json` | Gate toggles | Controls `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` (uses `aidd/docs/.active_*`) |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
 | `aidd/docs/` | Guides & templates | `customization.md`, `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, PRD/ADR/tasklist templates and feature artefacts |
-| `examples/` | Demo assets | `apply-demo.sh` and the placeholder Gradle monorepo `gradle-demo/` |
+| `examples/` | Demo assets | `apply-demo.sh` and baseline examples |
 | `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `prd-review-agent.py` (heuristic PRD reviewer), `qa-agent.py` (heuristic QA agent) |
 | `templates/` | Copyable templates | Git hooks (`commit-msg`, `pre-push`, `prepare-commit-msg`) and the extended `aidd/docs/tasklist/<ticket>.md` template |
 | `tests/` | Python unit tests | Cover init bootstrap, hooks, selective tests, and settings policy |
@@ -106,19 +108,18 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 ## Deep dive into components
 
 ### Bootstrap & utilities
-- `aidd/init-claude-workflow.sh` — modular bootstrap with strict prerequisite checks (`bash/git/python3`, Gradle/ktlint), `--commit-mode/--enable-ci/--force/--dry-run`, generation of `.claude/`, `.claude-plugin/`, and `aidd/**`, plus automatic commit-mode updates.
+- `aidd/init-claude-workflow.sh` — modular bootstrap with strict prerequisite checks (`bash/git/python3`), `--commit-mode/--enable-ci/--force/--dry-run`, generation of `.claude/`, `.claude-plugin/`, and `aidd/**`, plus automatic commit-mode updates.
 - `scripts/ci-lint.sh` — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`; gracefully skips missing linters and is wired into CI.
 - `scripts/smoke-workflow.sh` — E2E smoke scenario: spins a temp project, runs the bootstrap, walks the ticket-first loop (`ticket → PRD → plan → PRD review → tasklist`), and asserts `gate-workflow.sh`/`tasklist_progress` behaviour (changes without new `- [x]` are blocked).
-- `examples/apply-demo.sh` — demonstrates applying the bootstrap to a Gradle monorepo, prints before/after trees, and runs `gradlew test` when the wrapper is available.
-- The bootstrap provisions `aidd/hooks/*`, documentation, and the Gradle helper `aidd/scripts/gradle/init-print-projects.gradle`; branch and commit flows rely on native git commands guided by `config/conventions.json`.
+- `examples/apply-demo.sh` — demonstrates applying the bootstrap to a demo project, prints before/after trees, and runs checks when configured.
+- The bootstrap provisions `aidd/hooks/*` and documentation; branch and commit flows rely on native git commands guided by `config/conventions.json`.
 
 ### Hooks & automation
-- `aidd/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active ticket/slug hint, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`.
+- `aidd/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active ticket/slug hint, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`. Runs on Stop/SubagentStop and only during the `implement` stage.
 - `aidd/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active ticket has PRD, `## PRD Review` with `Status: READY`, plan, and fresh `- [x]` entries in `aidd/docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
 - `aidd/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
-- `aidd/hooks/gate-tests.sh` — optional check driven by `config/gates.json`, validating the presence of matching tests (`disabled|soft|hard`) with actionable hints.
+- `aidd/hooks/gate-tests.sh` — optional check driven by `config/gates.json`, validating the presence of matching tests (`disabled|soft|hard`) with actionable hints; test folders are excluded by default via `exclude_dirs`.
 - `aidd/hooks/lint-deps.sh` — monitors dependency changes, validates them against `config/allowed-deps.txt`, and reports drift.
-- `aidd/scripts/gradle/init-print-projects.gradle` — helper Gradle script that registers `ccPrintProjectDirs` for selective runner module caching.
 
 ### Claude Code sub-agents
 - `aidd/agents/analyst.md` — turns raw ideas into PRDs, asks clarifying questions, tracks risks/assumptions, and updates `aidd/docs/prd/<ticket>.prd.md` with READY/BLOCKED status.
@@ -160,27 +161,27 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 - `tools/payload_audit.py` — audits payload contents against allowlist/denylist (guards against accidental dev-only files in the distro).
 
 ### Demos & extensions
-- `examples/gradle-demo/` — two-service Gradle monorepo (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5) used to validate selective testing.
+- `examples/` — optional demo projects and scripts.
 - `claude-workflow-extensions.patch` — patch file bundling agent, command, and gate extensions ready to apply to blank repositories.
 
 ## Architecture & relationships
 - The bootstrap (`aidd/init-claude-workflow.sh`) generates `.claude/settings.json`, `.claude-plugin/marketplace.json`, and lays out the payload in `aidd/`; the `feature-dev-aidd` plugin attaches the hook pipeline.
-- Pre/post hooks (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) live in `aidd/hooks/hooks.json` and point to `${CLAUDE_PLUGIN_ROOT}/hooks/*`.
+- Pre/post hooks (`gate-*`, `format-and-test.sh`, `lint-deps.sh`) live in `aidd/hooks/hooks.json` and point to `${CLAUDE_PLUGIN_ROOT}/hooks/*` (core checks run on Stop/SubagentStop).
 - Gate scripts (`gate-*`) consume `config/gates.json` and artefacts in `aidd/docs/**`, enforcing the `/idea-new → research (when needed) → /plan-new → /review-prd → /tasks-new` lifecycle; enable extra checks (`researcher`, `prd_review`, `tests_required`) as your process demands.
-- `aidd/hooks/format-and-test.sh` relies on the Gradle helper `init-print-projects.gradle`, the active ticket/slug hint, and `moduleMatrix` to decide between selective and full test runs.
+- Stages are tracked in `aidd/docs/.active_stage`: `format-and-test`, `gate-tests`, `lint-deps` run only during `implement`, `gate-qa` only during `qa`, and `gate-workflow` restricts code edits outside `implement/review/qa` when a stage is set.
 - The Python test suite uses `tests/helpers.py` to emulate git/filesystem state, covering dry-run scenarios, tracked/untracked changes, and hook behaviour.
 
 ## Key scripts and hooks
-- **`aidd/init-claude-workflow.sh`** — verifies `bash/git/python3`, detects Gradle or kotlin linters, generates `.claude/`, `.claude-plugin/`, and `aidd/**`, honours `--force`, prints dry-run plans, and persists the commit mode.
-- **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change.
+- **`aidd/init-claude-workflow.sh`** — verifies `bash/git/python3`, generates `.claude/`, `.claude-plugin/`, and `aidd/**`, honours `--force`, prints dry-run plans, and persists the commit mode.
+- **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change; runs only in the `implement` stage.
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, PRD Review (`Status: READY`), plan, and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
 - **`gate-prd-review.sh`** — funnels to `scripts/prd_review_gate.py`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
-- **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`.
+- **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`, and ignores test folders via `exclude_dirs`.
 - **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `aidd/docs/qa-playbook.md`.
-- **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky Gradle changes.
+- **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky dependency manifest changes.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → research (when needed) → /plan-new → /review-prd → /tasks-new` gate sequence.
-- **`examples/apply-demo.sh`** — applies the bootstrap to a Gradle project step by step, handy for workshops and demos.
+- **`examples/apply-demo.sh`** — applies the bootstrap to a demo project step by step, handy for workshops and demos.
 
 ## Test toolkit
 - `tests/helpers.py` centralises helpers for file generation, git init/config, `config/gates.json` creation, and hook execution.
@@ -193,20 +194,21 @@ Advanced customization tips are covered in `aidd/workflow.md` and `aidd/docs/cus
 
 ## Access policies & gates
 - `.claude/settings.json` contains `start` and `strict` presets: the former keeps minimal permissions, the latter expands allow/ask/deny; hooks come from the `feature-dev-aidd` plugin (`hooks/hooks.json`).
-- The `automation` section drives formatting/test runners; adjust `format`/`tests` there to align with your Gradle setup.
+- The `automation` section drives formatting/test runners; adjust `format`/`tests` to match your stack.
 - `config/gates.json` centralises `prd_review`, `tests_required`, `deps_allowlist`, and `qa` flags alongside ticket/slug-hint paths (`feature_ticket_source`, `feature_slug_hint_source`); the `prd_review` section exposes `approved_statuses`, `blocking_statuses`, `blocking_severities`, `allow_missing_section`, `allow_missing_report`, `report_path`, `skip_branches`, and `branches`.
+- `aidd/docs/.active_stage` stores the current stage and scopes gate execution; override with `CLAUDE_SKIP_STAGE_CHECKS=1` or `CLAUDE_ACTIVE_STAGE` when needed.
 - Combined `gate-*` hooks inside `aidd/hooks/` (invoked via the plugin) enforce the workflow: blocking code without PRD review/plan/tasklist (`aidd/docs/tasklist/<ticket>.md`), requiring migrations/tests, and validating OpenAPI specs.
 
 ## Docs & templates
 - `aidd/workflow.md` outlines the end-to-end idea → research → plan → tasks → implementation → review loop; `aidd/docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
-- `aidd/workflow.md` also carries the Gradle bootstrap walkthrough, while `aidd/docs/customization.md` covers tuning `.claude/settings.json`, gates, and command templates.
+- `aidd/workflow.md` and `aidd/docs/customization.md` cover bootstrap walkthroughs, `.claude/settings.json` tuning, gates, and command templates.
 - `aidd/docs/release-notes.md` tracks release cadence and the roadmap.
 - PRD/ADR/tasklist templates (`aidd/docs/*.template.md`, `templates/tasklist.md`) plus git-hook samples (`templates/git-hooks/*.sample`) streamline onboarding.
 - Keep `README.md` and `README.en.md` in sync and update the _Last sync_ stamp whenever content changes.
 
 ## Examples & demos
-- `examples/gradle-demo/` ships a two-service monorepo (Kotlin 1.9.22, `jvmToolchain(17)`, JUnit 5) illustrating the target module layout for selective testing.
-- `examples/apply-demo.sh` applies the bootstrap to a Gradle workspace step by step, handy for workshops and demos.
+- `examples/` contains optional demo projects (safe to delete if you do not need them).
+- `examples/apply-demo.sh` applies the bootstrap to a demo workspace step by step, handy for workshops and demos.
 - `scripts/smoke-workflow.sh` plus `aidd/workflow.md` provide a living example: the script automates the flow, the doc explains expected outcomes and troubleshooting tips.
 
 ## Installation
@@ -260,8 +262,7 @@ git add -A && git commit -m "chore: bootstrap Claude Code workflow"
 ## Prerequisites
 - `bash`, `git`, `python3`;
 - `uv` (https://github.com/astral-sh/uv) or `pipx` to install the CLI (optional but handy);
-- Gradle wrapper (`./gradlew`) or a local Gradle installation;
-- optional: `ktlint` and/or Spotless.
+- build/test/formatting tools for your stack (optional).
 
 Supports macOS/Linux. Use WSL or Git Bash on Windows.
 
@@ -276,19 +277,18 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 /tasks-new checkout-discounts
 /implement checkout-discounts
 /review checkout-discounts
-./aidd/hooks/format-and-test.sh
 ```
 
 > The first argument is the ticket identifier; add an optional slug hint (e.g. `checkout-discounts`) as the second argument if you want a human-readable alias in `aidd/docs/.active_feature`.
 
-You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` immediately scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `aidd/hooks/format-and-test.sh` runs guarded by gates. Wrap up with `git commit` and `/review` to close the loop under the active convention.
+You’ll get the essential artefacts (PRD, PRD review, plan, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` immediately scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, the analyst records the dialog in `## Диалог analyst`, answers must follow the `Answer N:` pattern, and `aidd/hooks/format-and-test.sh` runs only during the `implement` stage on Stop/SubagentStop under gate control. Wrap up with `git commit` and `/review` to close the loop under the active convention.
 Research defaults to workspace-relative paths (parent of `aidd/`); the CLI prints `base=workspace:/...` and hints to use `--paths-relative workspace` or pass absolute/`../` paths if the call graph or matches are empty.
 
 ## Feature kickoff checklist
 
-1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `aidd/docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.** Answer every analyst prompt as `Answer N: …`; if context is thin, trigger research (`/researcher` or `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), then return to the analyst until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
+1. Create/switch a branch (`git checkout -b feature/<TICKET>` or manually) and run `/idea-new <ticket> [slug-hint]` — it updates `aidd/docs/.active_ticket`, adds `.active_feature` when needed, **and scaffolds `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`.** It also records `aidd/docs/.active_stage=idea` (rerun the relevant command when requirements change). Answer every analyst prompt as `Answer N: …`; if context is thin, trigger research (`/researcher` or `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), then return to the analyst until the dialog reaches `Status: READY` and `claude-workflow analyst-check --ticket <ticket>` reports success.
 2. Generate discovery artifacts: `/idea-new`, research when needed (`claude-workflow research --ticket <ticket> --auto --deep-code --call-graph` + `/researcher`), `/plan-new`, `/review-prd`, `/tasks-new` until the status becomes READY/PASS (the ticket is already in place after step 1 and verified via `analyst-check`).
-   > Call graph (Java/Kotlin via tree-sitter) defaults to filter `<ticket>|<keywords>` and limit 300 edges in the context; the full graph is saved separately at `reports/research/<ticket>-call-graph-full.json`. Tune with `--graph-filter/--graph-limit/--graph-langs`.
+   > Call graph (via tree-sitter language pack) defaults to filter `<ticket>|<keywords>` and limit 300 edges in the context; the full graph is saved separately at `reports/research/<ticket>-call-graph-full.json`. Tune with `--graph-filter/--graph-limit/--graph-langs`.
 3. Enable optional gates in `config/gates.json` when needed and prepare related artefacts (migrations, OpenAPI specs, extra tests).
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
 5. Request `/review` once `aidd/docs/tasklist/<ticket>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review --ticket <ticket>` before closing the loop.
@@ -323,15 +323,14 @@ Commands and agents ship as the `feature-dev-aidd` plugin in `aidd/.claude-plugi
 
 Update `commit.mode` manually (`ticket-prefix`/`conventional`/`mixed`) and wire up a `commit-msg` hook from `aidd/docs/customization.md` if you want automated validation.
 
-## Selective Gradle tests
+## Selective tests
 
 `aidd/hooks/format-and-test.sh`:
-1. Supports selective runs via `automation.tests.moduleMatrix`; generate module listings with `./gradlew -I aidd/scripts/gradle/init-print-projects.gradle ccPrintProjectDirs` and wire them into the matrix as needed.
-2. Filters changed files (`git diff` + untracked) to build-impacting paths.
-3. Maps them to Gradle modules, spawning tasks (`:module:clean :module:test`).
-4. Falls back to `:jvmTest` / `:testDebugUnitTest` or repository-wide `gradle test`.
-5. Runs in soft mode — export `STRICT_TESTS=1` to make failures blocking.
-6. Auto-runs after writes (`/implement`, manual edits); export `SKIP_AUTO_TESTS=1` to pause the automated formatting/test run.
+1. Reads `automation.tests` from `.claude/settings.json` (runner, `defaultTasks`, `fallbackTasks`, `moduleMatrix`).
+2. Filters changed files (`git diff` + untracked) to relevant paths.
+3. Maps paths via `moduleMatrix` to runner commands; falls back to `defaultTasks`/`fallbackTasks` when no match is found.
+4. Runs in soft mode — export `STRICT_TESTS=1` to make failures blocking.
+5. Auto-runs on Stop/SubagentStop only during the `implement` stage; export `SKIP_AUTO_TESTS=1` to pause the automated formatting/test run.
 
 Troubleshooting tips and environment tweaks live in `aidd/workflow.md` and `aidd/docs/customization.md`.
 
@@ -341,7 +340,7 @@ Troubleshooting tips and environment tweaks live in `aidd/workflow.md` and `aidd
 - Agent & gate playbook: `aidd/docs/agents-playbook.md`.
 - Configuration deep dive: `aidd/docs/customization.md`.
 - Original Russian README: `README.md`.
-- Sample Gradle monorepo & helper script: `examples/gradle-demo/`, `examples/apply-demo.sh`.
+- Demo scripts: `examples/`, `examples/apply-demo.sh`.
 - Quick reference for slash commands: `aidd/commands/`.
 
 ## Migration to agent-first

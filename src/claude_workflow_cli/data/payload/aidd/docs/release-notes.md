@@ -34,7 +34,7 @@
 
 - [ ] Обновить `README.md` и `README.en.md` (TL;DR, список фич, ссылки на новые документы).
 - [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
-- [ ] Обновить демо (`examples/gradle-demo/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
+- [ ] Обновить демо (`examples/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить локальный прогон CI lint (см. `.github/workflows/ci.yml`).
 - [ ] Синхронизировать RU/EN промпты: `./scripts/prompt-release.sh --part patch` (или `--dry-run`) — скрипт выполняет bump, lint, pytest и проверку payload/gate. При необходимости дополнительно запустите `python3 tools/prompt_diff.py --root <workflow-root> --kind agent --name <name>` точечно.
@@ -83,7 +83,7 @@
 - EN `/qa` теперь ссылается на `${CLAUDE_PLUGIN_ROOT:-./aidd}` в дефолтном пути тестов, а implementer получает доступ к хукe `format-and-test.sh` в инструментах.
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
 - CI lint запускает `scripts/lint-prompts.py`, dry-run `scripts/prompt-version`, новые юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_diff.py`, `tests/test_prompt_versioning.py`), а `scripts/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
-- Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `./gradlew test`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
+- Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `claude-workflow progress`, `<test-runner>`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 - Внутренний backlog (`backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
 
 ### Migration

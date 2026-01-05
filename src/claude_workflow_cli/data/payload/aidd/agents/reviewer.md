@@ -4,7 +4,7 @@ description: Ревью кода. Проверка качества, безоп�
 lang: ru
 prompt_version: 1.0.2
 source_version: 1.0.2
-tools: Read, Grep, Glob, Bash(./gradlew:*), Bash(gradle:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
+tools: Read, Grep, Glob, Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*)
 model: inherit
 permissionMode: default
 ---

@@ -22,7 +22,7 @@ disable-model-invocation: false
 - Re-run when architecture changes or codebase diverges significantly.
 
 ## Automation & Hooks
-- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]` populates `reports/research/<ticket>-context.json` with `code_index`,`reuse_candidates`, and a focused `call_graph`/`import_graph`(Java/Kotlin only, tree-sitter when available). The full graph is saved to `reports/research/<ticket>-call-graph-full.json`; defaults: filter =`<ticket>|<keywords>`, limit = 300 edges.
+- `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter <regex>/--graph-limit <N>/--note]` populates `reports/research/<ticket>-context.json` with `code_index`,`reuse_candidates`, and a focused `call_graph`/`import_graph`(supported languages, tree-sitter when available). The full graph is saved to `reports/research/<ticket>-call-graph-full.json`; defaults: filter =`<ticket>|<keywords>`, limit = 300 edges.
 - `--dry-run` writes only JSON;`--targets-only` refreshes target paths without scanning;`--reuse-only` focuses on reuse candidates;`--langs` filters deep-code languages;`--graph-langs` narrows call graph to kt/kts/java;`--graph-filter/--graph-limit` tune focus graph;`--no-agent` skips launching the Claude agent.
 - After a successful report, derive implementer tasks: call `claude-workflow tasks-derive --source research --append --ticket <ticket>` so `aidd/docs/tasklist/<ticket>.md` contains `- [ ] Research ... (source: reports/research/<ticket>-context.json)` entries.
 - `python3 tools/set_active_stage.py research` records the `research` stage.
@@ -35,7 +35,7 @@ disable-model-invocation: false
 2. Record the `research` stage: `python3 tools/set_active_stage.py research`.
 3. Execute `claude-workflow research --ticket "$1" --auto --deep-code --call-graph [extra options like --langs/--graph-langs/--reuse-only]`.
 4. If no matches are found, scaffold `aidd/docs/research/$1.md` and mark the baseline.
-5. Launch **researcher** with the generated JSON, use the `call_graph`/`import_graph`(Java/Kotlin) and refine in Claude Code, then fill reuse/patterns/anti-patterns, gaps, notes.
+5. Launch **researcher** with the generated JSON, use the `call_graph`/`import_graph`(supported languages) and refine in Claude Code, then fill reuse/patterns/anti-patterns, gaps, notes.
 6. Set status to `reviewed` once the team approved recommendations; otherwise `pending` with TODOs.
 7. Verify PRD (`## Analyst dialog`) and tasklist reference the report; add `- [ ] Research ...` handoff items (source: reports/research/$1-context.json) or run `claude-workflow tasks-derive --source research --append --ticket "$1"`.
 

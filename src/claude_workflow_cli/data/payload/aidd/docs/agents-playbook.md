@@ -12,7 +12,7 @@
 ## Agent-first принципы
 
 - Каждый агент сначала **использует данные репозитория** (backlog, PRD, research, reports, tests, конфиги) и только потом задаёт вопросы пользователю. Вопросы фиксируются формально («что проверено → чего не хватает → формат ответа»).
-- В промптах и документации явно указывайте, какие команды доступны (`rg`, `pytest`, `./gradlew`, `claude-workflow progress`) и как агент должен логировать результаты (пути, вывод команд, ссылки на отчёты).
+- В промптах и документации явно указывайте, какие команды доступны (`rg`, `pytest`, `npm test`, `claude-workflow progress`) и как агент должен логировать результаты (пути, вывод команд, ссылки на отчёты).
 - Любое действие должно приводить к обновлению артефакта: PRD, research, план, tasklist, diff, отчёт. Агент всегда сообщает, где записан результат.
 - Если агент не имеет нужных прав (например, нет Bash-доступа к `rg`), он обязан перечислить альтернативы (поиск через `Grep`, чтение JSON) и ссылаться на проверенные файлы перед тем, как объявить блокер.
 
@@ -42,8 +42,8 @@
 
 ### researcher — исследование кодовой базы
 - **Вызов:** `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--note]`, затем агент `/researcher <ticket>`.
-- **Вход:** PRD, slug-hint, `reports/research/<ticket>-targets.json`, `reports/research/<ticket>-context.json` (`code_index`, `reuse_candidates`, `call_graph` только для Java/Kotlin, `import_graph`), связанные ADR/PR, тестовые каталоги.
-- **Процесс:** исследователь обновляет JSON-контекст, использует `code_index` и `call_graph`/`import_graph` (tree-sitter для Java/Kotlin; при отсутствии движка граф пуст с предупреждением), при необходимости дорасшифровывает связи в Claude Code, обходит каталоги с помощью `rg/find/python`, фиксирует сервисы, API, тесты, миграции. Call graph в контексте — focus (по умолчанию фильтр `<ticket>|<keywords>`, лимит 300 рёбер), полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`. Все находки сопровождаются ссылками на строки/команды; отсутствие тестов — отдельный риск. Вопросы пользователю формулируются только после перечисления просмотренных артефактов.
+- **Вход:** PRD, slug-hint, `reports/research/<ticket>-targets.json`, `reports/research/<ticket>-context.json` (`code_index`, `reuse_candidates`, `call_graph` для поддерживаемых языков, `import_graph`), связанные ADR/PR, тестовые каталоги.
+- **Процесс:** исследователь обновляет JSON-контекст, использует `code_index` и `call_graph`/`import_graph` (tree-sitter language pack для поддерживаемых языков; при отсутствии грамматики граф пуст с предупреждением), при необходимости дорасшифровывает связи в Claude Code, обходит каталоги с помощью `rg/find/python`, фиксирует сервисы, API, тесты, миграции. Call graph в контексте — focus (по умолчанию фильтр `<ticket>|<keywords>`, лимит 300 рёбер), полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`. Все находки сопровождаются ссылками на строки/команды; отсутствие тестов — отдельный риск. Вопросы пользователю формулируются только после перечисления просмотренных артефактов.
 - **Выход:** `aidd/docs/research/<ticket>.md` со статусом `Status: reviewed` (или `pending` с baseline), заполненными секциями «где встроить», «что переиспользуем» (как/риски/тесты/контракты), «паттерны/анти-паттерны», графом вызовов/импортов (если применимо) и рекомендациями, импортированными в план/тасклист.
 - **Готовность:** отчёт описывает точки интеграции, reuse и риски; action items перенесены в план/тасклист; `reports/research/<ticket>-context.json` свежий, baseline помечен текстом «Контекст пуст, требуется baseline» и список недостающих данных понятен.
 
@@ -73,7 +73,7 @@
 ### implementer — реализация
 - **Вызов:** `/implement <ticket>`
 - **Вход:** утверждённый план, `aidd/docs/tasklist/<ticket>.md`, `aidd/docs/research/<ticket>.md`, PRD, актуальный diff.
-- **Процесс:** агент выбирает следующий пункт плана/тасклиста, читает связанные файлы и реализует минимальный diff. На Stop/SubagentStop запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только при стадии `implement`** (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`). Все ручные команды (`./gradlew test`, `gradle spotlessApply`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
+- **Процесс:** агент выбирает следующий пункт плана/тасклиста, читает связанные файлы и реализует минимальный diff. На Stop/SubagentStop запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только при стадии `implement`** (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`). Все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
 - **Коммуникация:** вопросы пользователю задаются только после того, как агент перечислил проверенные артефакты (план, research, код, тесты) и пояснил, какой информации не хватает.
 - **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …`, фиксируйте дату/итерацию и запускайте `claude-workflow progress --source implement --ticket <ticket>` — команда отследит, появились ли новые `- [x]`. `gate-workflow` и `gate-tests` отображают статусы и блокируют push при нарушениях.
 
@@ -102,8 +102,8 @@
 
 ## Автоформатирование и тесты
 
-- Пресет `strict` запускает `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` на Stop/SubagentStop **и только при стадии `implement`**. Скрипт анализирует diff, форматирует код и выполняет выборочные Gradle/CLI задачи.
-- Управляйте поведением через переменные окружения: `SKIP_AUTO_TESTS=1` — пауза, `FORMAT_ONLY=1` — форматирование без тестов, `TEST_SCOPE=":app:test"` — задать конкретные задачи и выключить режим changed-only, `TEST_CHANGED_ONLY=0` — форсировать полный прогон, `STRICT_TESTS=1` — падать при первых ошибках. Для обхода stage check используйте `CLAUDE_SKIP_STAGE_CHECKS=1`.
+- Пресет `strict` запускает `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` на Stop/SubagentStop **и только при стадии `implement`**. Скрипт анализирует diff, форматирует код и выполняет выборочные задачи тест-раннера/CLI.
+- Управляйте поведением через переменные окружения: `SKIP_AUTO_TESTS=1` — пауза, `FORMAT_ONLY=1` — форматирование без тестов, `TEST_SCOPE="task1,task2"` — задать конкретные задачи и выключить режим changed-only, `TEST_CHANGED_ONLY=0` — форсировать полный прогон, `STRICT_TESTS=1` — падать при первых ошибках. Для обхода stage check используйте `CLAUDE_SKIP_STAGE_CHECKS=1`.
 - Для ручного запуска выполните `bash "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh"` (команда учитывает те же переменные) и исправьте замечания перед продолжением работы.
 
 ## Чеклист быстрого старта фичи

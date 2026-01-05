@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # init-claude-workflow.sh
-# Bootstraps Claude Code workflow for Java/Kotlin monorepos.
+# Bootstraps Claude Code workflow for language-agnostic repos.
 # Creates .claude commands/agents/hooks, commit/branch conventions,
-# Gradle selective-tests logic, and basic docs (PRD/ADR templates).
+# optional build-system helpers, and basic docs (PRD/ADR templates).
 #
 # Usage:
 #   bash init-claude-workflow.sh [--commit-mode MODE] [--enable-ci] [--force] [--dry-run]
@@ -113,15 +113,15 @@ check_dependencies() {
   fi
 
   if [[ "$has_gradle" -eq 1 ]]; then
-    log_info "Gradle detected"
+    log_info "Gradle detected (optional helpers enabled)"
   else
-    log_warn "Gradle not found (expect ./gradlew or gradle). Selective tests will be unavailable until installed."
+    log_warn "Gradle not found (expect ./gradlew or gradle). Gradle-specific selective tests will be unavailable until installed."
   fi
 
   if command -v ktlint >/dev/null 2>&1; then
-    log_info "ktlint detected"
+    log_info "ktlint detected (optional formatter)"
   else
-    log_warn "ktlint not found. Formatting step will be skipped if Spotless is absent."
+    log_warn "ktlint not found. Formatting step will be skipped unless another formatter is configured."
   fi
 }
 
