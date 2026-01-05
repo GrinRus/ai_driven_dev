@@ -1136,3 +1136,27 @@ _Статус: новый, приоритет 1. Цель — ускорить /
 ### Тесты и синхронизация
 - [ ] Расширить `tests/test_format_and_test.py`: покрыть `TEST_PROFILE` (fast/targeted/full), dedupe‑скип, default fast, новый конфиг профилей.
 - [ ] Финал: `scripts/prompt-version` (bump RU/EN), `scripts/lint-prompts.py --root <root>`, `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.
+
+## Wave 67
+
+_Статус: новый, приоритет 1. Цель — упростить payload (без пресетов и EN‑промптов), нормализовать шаблоны и пересмотреть необходимость крупных гайдов._
+
+### Инвентаризация и политика payload
+- [ ] Зафиксировать карту установки (uv tool install → `claude_workflow_cli/data/payload/**` → `claude-workflow init`): обновить `doc/dev/distro-audit.md` и таблицу “core vs dev-only”, без упоминания пресетов и EN‑промптов.
+- [ ] Удалить `claude-presets/**` из payload, `init-claude-workflow.sh`, `manifest.json`, `tools/payload_audit_rules.json`, `scripts/sync-payload.sh`; убрать `claude-workflow preset` и `--preset/--feature` из CLI/доков; обновить тесты и README.
+- [ ] Удалить `prompts/en/**`: убрать `--prompt-locale` из CLI и init‑скрипта, удалить паритет‑проверки из `gate-workflow.sh`, пересмотреть `scripts/lint-prompts.py`, обновить `docs/prompt-versioning.md` и `docs/prompt-playbook.md`, удалить упоминания из README/тестов.
+- [ ] Аудит необходимости `aidd/docs/customization.md` и `aidd/workflow.md`: либо сохранить как core user‑guides, либо перенести в `doc/dev/**` и удалить из payload/manifest/tests.
+
+### Нормализация шаблонов (templates)
+- [ ] Перенести шаблоны артефактов в соответствующие подпапки: `docs/prd.template.md` → `docs/prd/template.md`, `docs/adr.template.md` → `docs/adr/template.md`, `docs/tasklist.template.md` → `docs/tasklist/template.md`, `docs/templates/research-summary.md` → `docs/research/template.md`; обновить ссылки в `workflow.md`, `agents/commands`, `init-claude-workflow.sh`, README и тестах.
+- [ ] Убрать дублирование tasklist‑шаблона: перейти на единый источник (предпочтительно `docs/tasklist/template.md`), обновить `init-claude-workflow.sh` (`render_tasklist_template`) и удалить `templates/tasklist.md` после миграции.
+- [ ] Определить финальное место для `templates/prompt-agent.md` и `templates/prompt-command.md` (например, `agents/templates/` и `commands/templates/` или `docs/templates/prompts/`), перенести и обновить `scripts/scaffold_prompt.py`, `docs/prompt-playbook.md`, README.
+
+### Docs: runtime vs dev-only
+- [ ] Разделить maintainer‑инструкции: вынести repo-only шаги из `aidd/docs/release-notes.md`, `aidd/docs/prompt-versioning.md`, `aidd/docs/prompt-playbook.md` в `doc/dev/**`; в payload оставить user‑facing версии без ссылок на `scripts/*` и `tools/*` из корня.
+- [ ] Если `aidd/docs/customization.md` и `aidd/workflow.md` остаются в payload: заменить repo-only команды на CLI аналоги или пометки “repo-only”; убедиться, что payload‑доки не ссылаются на отсутствующие файлы.
+- [ ] Обязательно обновить `README.md` и `README.en.md` под удаление пресетов/EN‑промптов и новые пути шаблонов/доков.
+
+### Инсталляция/пакетирование/тесты
+- [ ] Обновить `src/claude_workflow_cli/data/payload/manifest.json`, `tools/payload_audit_rules.json`, `tools/check_payload_sync.py`, `scripts/sync-payload.sh` под новые пути шаблонов/доков.
+- [ ] Обновить тесты (`tests/test_package_payload.py`, `tests/test_bootstrap_e2e.py`, `tests/test_gate_workflow.py` при необходимости) под новые пути и удалённые каталоги; добавить регрессию на отсутствие repo-only ссылок в payload docs.
