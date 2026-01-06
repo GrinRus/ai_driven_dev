@@ -3,7 +3,7 @@
 Инструкции для существующих установок, где payload развёрнут в корне репозитория.
 
 1. Зафиксируйте локальные изменения (коммиты/бэкапы).
-2. Удалите служебные снапшоты из корня: `.claude/`, `.claude-plugin/`, `claude-presets/`, `config/`, `docs/`, `prompts/`, `scripts/`, `templates/`, `tools/`, `workflow.md`. Продуктовый код и ваши артефакты оставьте.
+2. Удалите служебные снапшоты из корня: `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `scripts/`, `templates/`, `tools/`. Продуктовый код и ваши артефакты оставьте.
 3. Запустите `claude-workflow init --target . --commit-mode ticket-prefix` (добавьте `--enable-ci` по необходимости). Payload развернётся в `./aidd`.
 4. Перенесите активные маркеры/артефакты:
    - `docs/.active_ticket` → `aidd/docs/.active_ticket`

@@ -32,7 +32,6 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{payload_prefix}/.claude-plugin/marketplace.json",
             f"{plugin_prefix}/AGENTS.md",
             f"{plugin_prefix}/conventions.md",
-            f"{plugin_prefix}/workflow.md",
             f"{plugin_prefix}/config/conventions.json",
             f"{plugin_prefix}/config/gates.json",
             f"{plugin_prefix}/config/allowed-deps.txt",
@@ -52,6 +51,9 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/docs/plan/.gitkeep",
             f"{plugin_prefix}/docs/adr/.gitkeep",
             f"{plugin_prefix}/docs/prd/.gitkeep",
+            f"{plugin_prefix}/docs/prd/template.md",
+            f"{plugin_prefix}/docs/tasklist/template.md",
+            f"{plugin_prefix}/docs/research/template.md",
             f"{payload_prefix}/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"

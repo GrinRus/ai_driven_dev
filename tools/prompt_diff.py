@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Show differences between RU and EN prompt files."""
+"""Show differences between RU and EN prompt files (EN optional)."""
 
 from __future__ import annotations
 
@@ -72,11 +72,10 @@ def main() -> int:
     except FileNotFoundError:
         print(f"[prompt-diff] missing RU file: {ru_path}", file=sys.stderr)
         return 1
-    try:
-        en_lines = load(en_path)
-    except FileNotFoundError:
-        print(f"[prompt-diff] missing EN file: {en_path}", file=sys.stderr)
-        return 1
+    if not en_path.exists():
+        print(f"[prompt-diff] EN prompt missing; skipping diff ({en_path})")
+        return 0
+    en_lines = load(en_path)
 
     diff = list(
         difflib.unified_diff(

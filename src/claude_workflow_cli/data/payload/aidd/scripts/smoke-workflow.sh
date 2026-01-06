@@ -271,8 +271,10 @@ run_cli analyst-check --ticket "$TICKET" --target . >/dev/null
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
-log "apply preset feature-plan"
-bash "$INIT_SCRIPT" --preset feature-plan --ticket "$TICKET" >/dev/null
+log "ensure plan template exists"
+if [[ ! -f "docs/plan/${TICKET}.md" ]]; then
+  cp "docs/plan/template.md" "docs/plan/${TICKET}.md"
+fi
 log "ensure plan содержит Architecture & Patterns и reuse"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
@@ -332,8 +334,10 @@ PY
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
 
-log "apply preset feature-impl"
-bash "$INIT_SCRIPT" --preset feature-impl --ticket "$TICKET" >/dev/null
+log "ensure tasklist template exists"
+if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
+  cp "docs/tasklist/template.md" "docs/tasklist/${TICKET}.md"
+fi
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 

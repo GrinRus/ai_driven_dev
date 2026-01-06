@@ -42,272 +42,100 @@ RU_TEMPLATE_AGENT = dedent(
 ).strip() + "\n"
 
 
-EN_TEMPLATE_AGENT = dedent(
-    """
-    ---
-    name: {name}
-    description: en
-    lang: en
-    prompt_version: {version}
-    source_version: {source}
-    tools: Read
-    model: inherit
-    ---
+def write_prompt(root: Path, name: str, version: str = "1.0.0", kind: str = "agent") -> None:
+    ru_dir = root / ("agents" if kind == "agent" else "commands")
+    ru_dir.mkdir(parents=True, exist_ok=True)
+    if kind == "agent":
+        ru_text = RU_TEMPLATE_AGENT.format(name=name, version=version)
+    else:
+        ru_text = dedent(
+            f"""
+            ---
+            description: "{name}"
+            argument-hint: "<TICKET>"
+            lang: ru
+            prompt_version: {version}
+            source_version: {version}
+            allowed-tools: Read
+            model: inherit
+            ---
 
-    ## Context
-    text
+            ## Контекст
+            text
 
-    ## Input Artifacts
-    - item
+            ## Входные артефакты
+            - item
 
-    ## Automation
-    text
+            ## Когда запускать
+            text
 
-    ## Step-by-step Plan
-    1. step
+            ## Автоматические хуки и переменные
+            text
 
-    ## Fail-fast & Questions
-    text
+            ## Что редактируется
+            text
 
-    ## Response Format
-    text
-    """
-).strip() + "\n"
+            ## Пошаговый план
+            1. step
+
+            ## Fail-fast и вопросы
+            text
+
+            ## Ожидаемый вывод
+            text
+
+            ## Примеры CLI
+            - `/cmd`
+            """
+        ).strip() + "\n"
+    (ru_dir / f"{name}.md").write_text(ru_text, encoding="utf-8")
 
 
 class PromptVersioningTests(unittest.TestCase):
-    def write_pair(
-        self,
-        root: Path,
-        name: str,
-        version: str = "1.0.0",
-        kind: str = "agent",
-        lang_skip: bool = False,
-    ) -> None:
-        ru_dir = root / ("agents" if kind == "agent" else "commands")
-        en_dir = root / "prompts" / "en" / ("agents" if kind == "agent" else "commands")
-        ru_dir.mkdir(parents=True, exist_ok=True)
-        en_dir.mkdir(parents=True, exist_ok=True)
-        if kind == "agent":
-            ru_text = RU_TEMPLATE_AGENT.format(name=name, version=version)
-            en_text = EN_TEMPLATE_AGENT.format(name=name, version=version, source=version)
-        else:
-            ru_text = dedent(
-                f"""
-                ---
-                description: "{name}"
-                argument-hint: "<TICKET>"
-                lang: ru
-                prompt_version: {version}
-                source_version: {version}
-                allowed-tools: Read
-                model: inherit
-                ---
+    def run_prompt_version(self, root: Path, name: str, kind: str, part: str) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
+        env["PYTHONPATH"] = pythonpath
+        return subprocess.run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "prompt-version"),
+                "bump",
+                "--root",
+                str(root),
+                "--prompts",
+                name,
+                "--kind",
+                kind,
+                "--lang",
+                "ru",
+                "--part",
+                part,
+            ],
+            text=True,
+            capture_output=True,
+            env=env,
+        )
 
-                ## Контекст
-                text
-
-                ## Входные артефакты
-                - item
-
-                ## Когда запускать
-                text
-
-                ## Автоматические хуки и переменные
-                text
-
-                ## Что редактируется
-                text
-
-                ## Пошаговый план
-                1. step
-
-                ## Fail-fast и вопросы
-                text
-
-                ## Ожидаемый вывод
-                text
-
-                ## Примеры CLI
-                - `/cmd`
-                """
-            ).strip() + "\n"
-            en_text = dedent(
-                f"""
-                ---
-                description: "{name}"
-                argument-hint: "<TICKET>"
-                lang: en
-                prompt_version: {version}
-                source_version: {version}
-                allowed-tools: Read
-                model: inherit
-                ---
-
-                ## Context
-                text
-
-                ## Input Artifacts
-                - item
-
-                ## When to Run
-                text
-
-                ## Automation & Hooks
-                text
-
-                ## What is Edited
-                text
-
-                ## Step-by-step Plan
-                1. step
-
-                ## Fail-fast & Questions
-                text
-
-                ## Expected Output
-                text
-
-                ## CLI Examples
-                - `/cmd`
-                """
-            ).strip() + "\n"
-        if lang_skip:
-            ru_text = ru_text.replace("model: inherit", "model: inherit\nLang-Parity: skip", 1)
-        (ru_dir / f"{name}.md").write_text(ru_text, encoding="utf-8")
-        (en_dir / f"{name}.md").write_text(en_text, encoding="utf-8")
-
-    def test_bump_updates_ru_and_en_agent(self) -> None:
+    def test_bump_updates_ru_agent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_pair(root, "analyst")
-            env = os.environ.copy()
-            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
-            env["PYTHONPATH"] = pythonpath
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(REPO_ROOT / "scripts" / "prompt-version"),
-                    "bump",
-                    "--root",
-                    str(root),
-                    "--prompts",
-                    "analyst",
-                    "--kind",
-                    "agent",
-                    "--lang",
-                    "ru,en",
-                    "--part",
-                    "minor",
-                ],
-                text=True,
-                capture_output=True,
-                env=env,
-            )
+            write_prompt(root, "analyst")
+            result = self.run_prompt_version(root, "analyst", "agent", "minor")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             ru_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
-            en_text = (root / "prompts" / "en" / "agents" / "analyst.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.1.0", ru_text)
             self.assertIn("source_version: 1.1.0", ru_text)
-            self.assertIn("prompt_version: 1.1.0", en_text)
-            self.assertIn("source_version: 1.1.0", en_text)
 
-    def test_bump_updates_commands(self) -> None:
+    def test_bump_updates_ru_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_pair(root, "plan-new", kind="command")
-            env = os.environ.copy()
-            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
-            env["PYTHONPATH"] = pythonpath
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(REPO_ROOT / "scripts" / "prompt-version"),
-                    "bump",
-                    "--root",
-                    str(root),
-                    "--prompts",
-                    "plan-new",
-                    "--kind",
-                    "command",
-                    "--lang",
-                    "ru,en",
-                    "--part",
-                    "patch",
-                ],
-                text=True,
-                capture_output=True,
-                env=env,
-            )
+            write_prompt(root, "plan-new", kind="command")
+            result = self.run_prompt_version(root, "plan-new", "command", "patch")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             ru_text = (root / "commands" / "plan-new.md").read_text(encoding="utf-8")
-            en_text = (root / "prompts" / "en" / "commands" / "plan-new.md").read_text(encoding="utf-8")
             self.assertIn("prompt_version: 1.0.1", ru_text)
-            self.assertIn("source_version: 1.0.1", en_text)
-
-    def test_lang_specific_bump_updates_source_only(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self.write_pair(root, "analyst")
-            env = os.environ.copy()
-            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
-            env["PYTHONPATH"] = pythonpath
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(REPO_ROOT / "scripts" / "prompt-version"),
-                    "bump",
-                    "--root",
-                    str(root),
-                    "--prompts",
-                    "analyst",
-                    "--kind",
-                    "agent",
-                    "--lang",
-                    "ru",
-                    "--part",
-                    "patch",
-                ],
-                text=True,
-                capture_output=True,
-                env=env,
-            )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-            en_text = (root / "prompts" / "en" / "agents" / "analyst.md").read_text(encoding="utf-8")
-            self.assertIn("source_version: 1.0.1", en_text)
-            self.assertIn("prompt_version: 1.0.0", en_text)
-
-    def test_bump_respects_lang_parity_skip(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self.write_pair(root, "analyst", lang_skip=True)
-            (root / "prompts" / "en" / "agents" / "analyst.md").unlink()
-            env = os.environ.copy()
-            pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), env.get("PYTHONPATH")]))
-            env["PYTHONPATH"] = pythonpath
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(REPO_ROOT / "scripts" / "prompt-version"),
-                    "bump",
-                    "--root",
-                    str(root),
-                    "--prompts",
-                    "analyst",
-                    "--kind",
-                    "agent",
-                    "--lang",
-                    "ru",
-                    "--part",
-                    "minor",
-                ],
-                text=True,
-                capture_output=True,
-                env=env,
-            )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-            ru_text = (root / "agents" / "analyst.md").read_text(encoding="utf-8")
-            self.assertIn("prompt_version: 1.1.0", ru_text)
+            self.assertIn("source_version: 1.0.1", ru_text)
 
 
 if __name__ == "__main__":  # pragma: no cover

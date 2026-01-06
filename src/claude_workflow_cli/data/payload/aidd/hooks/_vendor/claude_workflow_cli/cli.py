@@ -363,7 +363,7 @@ def _payload_root(
 ) -> Iterable[Path]:
     """
     Yields a concrete filesystem path that contains the bundled bootstrap
-    payload (shell scripts, templates, presets, etc.).  The context manager
+    payload (shell scripts, templates, etc.).  The context manager
     ensures compatibility with zipped installations where resources can only be
     accessed via a temporary directory.
     """
@@ -454,21 +454,6 @@ def _init_command(args: argparse.Namespace) -> None:
         script_args.append("--force")
     if args.dry_run:
         script_args.append("--dry-run")
-    if getattr(args, "prompt_locale", None):
-        script_args.extend(["--prompt-locale", args.prompt_locale])
-    _run_init(Path(args.target).resolve(), script_args)
-
-
-def _preset_command(args: argparse.Namespace) -> None:
-    script_args: List[str] = ["--preset", args.name]
-    if getattr(args, "ticket", None):
-        script_args.extend(["--ticket", args.ticket])
-    if args.force:
-        script_args.append("--force")
-    if args.dry_run:
-        script_args.append("--dry-run")
-    if getattr(args, "prompt_locale", None):
-        script_args.extend(["--prompt-locale", args.prompt_locale])
     _run_init(Path(args.target).resolve(), script_args)
 
 
@@ -1475,7 +1460,7 @@ def _ensure_research_doc(
     *,
     template_overrides: Optional[Dict[str, str]] = None,
 ) -> tuple[Optional[Path], bool]:
-    template = target / "docs" / "templates" / "research-summary.md"
+    template = target / "docs" / "research" / "template.md"
     destination = target / "docs" / "research" / f"{ticket}.md"
     if not template.exists():
         return None, False
@@ -1857,7 +1842,7 @@ def _sync_command(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="claude-workflow",
-        description="Bootstrap and manage the Claude Code workflow presets.",
+        description="Bootstrap and manage the Claude Code workflow.",
     )
     parser.add_argument(
         "--version",
@@ -1896,56 +1881,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Log actions without modifying files.",
     )
-    init_parser.add_argument(
-        "--prompt-locale",
-        choices=("ru", "en"),
-        default="ru",
-        help="Copy prompts in the specified locale into aidd/agents and aidd/commands (default: ru).",
-    )
     init_parser.set_defaults(func=_init_command)
-
-    preset_parser = subparsers.add_parser(
-        "preset", help="Apply a feature preset to an existing workflow."
-    )
-    preset_parser.add_argument(
-        "name",
-        choices=(
-            "feature-prd",
-            "feature-plan",
-            "feature-impl",
-            "feature-design",
-            "feature-release",
-        ),
-        help="Name of the preset to apply.",
-    )
-    preset_parser.add_argument(
-        "--ticket",
-        "--feature",
-        dest="ticket",
-        help="Ticket identifier to use when generating artefacts (legacy alias: --feature).",
-    )
-    preset_parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    preset_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing preset artefacts.",
-    )
-    preset_parser.add_argument(
-        "--prompt-locale",
-        choices=("ru", "en"),
-        default="ru",
-        help="Copy prompts in the specified locale into aidd/agents and aidd/commands (default: ru).",
-    )
-    preset_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Log actions without modifying files.",
-    )
-    preset_parser.set_defaults(func=_preset_command)
 
     smoke_parser = subparsers.add_parser(
         "smoke", help="Run the bundled smoke test to validate the workflow bootstrap."
@@ -1963,7 +1899,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyst_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to validate (defaults to docs/.active_ticket).",
     )
@@ -2004,7 +1939,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     research_check_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to validate (defaults to docs/.active_ticket).",
     )
@@ -2030,7 +1964,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     research_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to analyse (defaults to docs/.active_ticket).",
     )
@@ -2144,7 +2077,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewer_tests_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to use (defaults to docs/.active_ticket).",
     )
@@ -2190,7 +2122,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tasks_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to use (defaults to docs/.active_ticket).",
     )
@@ -2226,7 +2157,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     qa_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to use (defaults to docs/.active_ticket).",
     )
@@ -2300,7 +2230,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     progress_parser.add_argument(
         "--ticket",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to check (defaults to docs/.active_ticket).",
     )

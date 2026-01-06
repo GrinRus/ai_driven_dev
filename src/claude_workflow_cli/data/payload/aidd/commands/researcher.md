@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.0
-source_version: 1.2.0
+prompt_version: 1.2.1
+source_version: 1.2.1
 allowed-tools:
   - Read
   - Edit
@@ -23,7 +23,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `@aidd/docs/prd/<ticket>.prd.md` (раздел `## Research Hints`).
-- `@aidd/docs/templates/research-summary.md` — шаблон.
+- `@aidd/docs/research/template.md` — шаблон.
 - `aidd/reports/research/<ticket>-context.json` — формируется CLI.
 
 ## Когда запускать

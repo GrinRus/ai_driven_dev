@@ -13,15 +13,15 @@
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `aidd/agents/*.md`, `aidd/commands/*.md` и их EN-версии в `aidd/prompts/en/**` начинается с блока:
+Каждый файл `aidd/agents/*.md` и `aidd/commands/*.md` начинается с блока:
 
 ```yaml
 ---
 name: <agent-name>          # для команд поле `name` опционально, но требуется `description`
 description: ...            # короткое назначение (≤120 символов)
-lang: ru                    # ru или en; при добавлении EN версии поле обязательно
+lang: ru                    # текущая локаль
 prompt_version: 1.0.0       # major.minor.patch
-source_version: 1.0.0       # если документ локализован, укажите версию оригинала
+source_version: 1.0.0       # для RU-файла совпадает с prompt_version
 tools: Read, Write, ...     # только разрешённые инструменты
 model: inherit | opus       # при необходимости фиксируйте модель
 permissionMode: default     # для агентов (acceptEdits/bypassPermissions/plan/ignore/default)
@@ -29,7 +29,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 ```
 
 Требования:
-- Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
+- Поля `lang`, `prompt_version`, `description`, `source_version` обязательны. `source_version` совпадает с `prompt_version`.
 - `prompt_version` повышается при любых правках текста (см. раздел 7).
 - Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
 - Для поиска используйте один способ: `rg` через `Bash(rg:*)` (Grep не добавляйте).
@@ -44,18 +44,12 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 5. **Fail-fast & вопросы** — что считать блокером, как задавать вопросы пользователю (формат, обязательные ответы). Подчеркните, что вопросы задаются только после того, как агент перечислил проверенные артефакты/команды.
 6. **Формат ответа** — чёткие требования к финальному сообщению (статус, блоки, `Checkbox updated`).
 
-Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. aidd/docs/agents-playbook.md`).
+Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. doc/dev/agents-playbook.md`).
 
-### 2.4 Agent-first обязательства
+### 2.3 Agent-first обязательства
 - Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
 - Разрешённый Q&A с пользователем всегда идёт в формате «перечислены изученные артефакты → сформулирован недостающий ответ → приложен требуемый формат ответа».
 - Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
-
-### 2.3 Локализация
-- RU-файлы используются рантаймом (`aidd/agents/*.md`, `aidd/commands/*.md`), EN-хранилище — `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`.
-- Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `aidd/prompts/en/**`).
-- Добавьте `Lang-Parity: skip` в фронт-маттер только когда одну локаль намеренно пропускают (например, черновик); после синхронизации уберите.
-- Версионные правила и workflow описаны в `aidd/docs/prompt-versioning.md`.
 
 ## 3. Правила `Checkbox updated`
 - Всегда начинайте блок статуса строкой `Checkbox updated: <список>` или `Checkbox updated: none`.
@@ -80,15 +74,15 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `doc/dev/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD READY, `research-check`, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
 | `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
-| `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
+| `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd/template.md` |
 
 > `/review-spec` — единая команда для review-plan и review-prd.
-| `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
-| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
-| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
+| `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `aidd/docs/tasklist/template.md` |
+| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `doc/dev/agents-playbook.md` |
+| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `doc/dev/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 
@@ -99,26 +93,24 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 - Hook events: `aidd/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/<name>.sh`.
 
 ## 7. Процесс изменений и версионирование
-> Repo-only: `scripts/prompt-version`, `scripts/lint-prompts.py`, `tools/prompt_diff.py` доступны только в репозитории и не входят в установленный payload.
-> `<workflow-root>` — каталог, где лежат `agents/`, `commands/`, `prompts/en` (например, `./aidd` или `src/claude_workflow_cli/data/payload/aidd`).
+> Repo-only: `scripts/prompt-version`, `scripts/lint-prompts.py` доступны только в репозитории и не входят в установленный payload.
+> `<workflow-root>` — каталог, где лежат `agents/`, `commands/` (например, `./aidd` или `src/claude_workflow_cli/data/payload/aidd`).
 
 - Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).
-- EN-файл обязан держать `prompt_version`, равный RU, а `source_version` = текущей RU-версии; детали в `aidd/docs/prompt-versioning.md`.
-- Используйте `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru,en --part <...>` и `tools/prompt_diff.py --root <workflow-root>` для контроля изменений.
-- После обновления промпта обязательно опишите изменения в `aidd/docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
+- Используйте `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <...>` для контроля версий.
+- После обновления промпта обязательно опишите изменения в `doc/dev/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
 
 ## 8. Минимальный чеклист перед публикацией
 1. Проверить фронт-маттер (`lang`, `prompt_version`, инструменты).
 2. Убедиться, что все обязательные блоки присутствуют и оформлены.
 3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
 4. Запустить `scripts/lint-prompts.py --root <workflow-root>` и убедиться, что проверки пройдены.
-5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
+5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, `doc/dev/agents-playbook.md`) при необходимости.
 
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 
 ## 9. Шаблоны и автоматизация
-- Используйте `templates/prompt-agent.md` и `templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
-- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target aidd/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
-- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path aidd/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
-- Проверяйте локализации: `python3 scripts/lint-prompts.py --root <workflow-root>`, `tools/prompt_diff.py --root <workflow-root> --kind command --name plan-new`, `scripts/prompt-version bump --root <workflow-root> --prompts plan-new --kind command --lang ru,en --part patch --dry-run`.
-- После генерации обязательно вручную заполните все блоки и обновите `prompt_version`/`source_version`, если правки вносились вручную или делался перевод.
+- Используйте `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
+- Для быстрого старта скопируйте шаблон в `aidd/agents/<name>.md` или `aidd/commands/<name>.md` и заполните фронт-маттер вручную.
+- Проверяйте промпты: `python3 scripts/lint-prompts.py --root <workflow-root>`, `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part patch --dry-run`.
+- После генерации обязательно заполните все блоки и обновите `prompt_version`/`source_version`.

@@ -7,7 +7,7 @@ from typing import Optional
 
 ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
-PRD_TEMPLATE_FILE = Path("docs") / "prd.template.md"
+PRD_TEMPLATE_FILE = Path("docs") / "prd" / "template.md"
 PRD_DIR = Path("docs") / "prd"
 
 

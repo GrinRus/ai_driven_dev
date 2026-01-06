@@ -11,7 +11,6 @@
 ## Что читать прежде всего
 - `aidd/docs/sdlc-flow.md`
 - `aidd/docs/status-machine.md`
-- `aidd/docs/prompt-playbook.md`
 
 ## Что нельзя делать
 - Менять файлы вне согласованного плана/тасклиста.

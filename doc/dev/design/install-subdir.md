@@ -1,7 +1,7 @@
 # Установка workflow в поддиректорию `aidd/`
 
 ## Зачем
-- Изолировать служебные артефакты (команды, агенты, хуки, пресеты, шаблоны, конфиги) от корня продуктового репо.
+- Изолировать служебные артефакты (команды, агенты, хуки, шаблоны, конфиги) от корня продуктового репо.
 - Облегчить обновление payload через `claude-workflow init/sync/upgrade` без коллизий с пользовательскими файлами.
 - Поддержать сценарии многопроектной установки (несколько `aidd/` в одном воркспейсе).
 - Дать предсказуемый runtime в smoke/pytest: всё берётся из одного payload-префикса, без корневых снапшотов.
@@ -16,16 +16,12 @@
     agents/
     commands/
     hooks/
-    claude-presets/
     config/
     docs/
-    etc/
-    prompts/
     reports/
     scripts/
     templates/
     tools/
-    workflow.md
 ```
 
 ## Поведение CLI
@@ -60,7 +56,7 @@
 
 ## Миграция из корня
 1. Зафиксировать локальные правки (при необходимости `scripts/sync-payload.sh --direction=from-root` для отражения в payload).
-2. Удалить dev-снапшоты из корня (`.claude`, `.claude-plugin`, `claude-presets`, `config`, `docs`, `prompts`, `scripts`, `templates`, `tools`, `workflow.md`), оставить продуктовые файлы.
+2. Удалить dev-снапшоты из корня (`.claude`, `.claude-plugin`, `config`, `docs`, `scripts`, `templates`, `tools`), оставить продуктовые файлы.
 3. Запустить `claude-workflow init --target .` (или с `CLAUDE_TEMPLATE_DIR=...` для локальной ветки) — создаст `aidd/`.
 4. Прогнать `claude-workflow smoke` (или `aidd/scripts/smoke-workflow.sh`) — e2e на tmp-каталоге из текущей ветки.
 5. Обновить CI шаги: init/smoke должны указывать `--target .` и работать с `aidd/`.
@@ -68,4 +64,4 @@
 ## To-do
 - Добавить схемы путей (`--target`, `CLAUDE_TEMPLATE_DIR`, `PYTHONPATH` в smoke).
 - Зафиксировать политику для нескольких `aidd/` в одном repo (порядок поиска target).
-- Финализировать user-facing walkthrough в `workflow.md`/`README*` с примерами команд под новую структуру.
+- Финализировать user-facing walkthrough в `doc/dev/workflow.md`/`README*` с примерами команд под новую структуру.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Claude prompt files in RU/EN locales."""
+"""Validate Claude prompt files."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Tuple
 PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
-VALID_LANGS = {"ru", "en"}
+VALID_LANGS = {"ru"}
 
 LANG_SECTION_TITLES = {
     "agent": {
@@ -25,14 +25,6 @@ LANG_SECTION_TITLES = {
             "Пошаговый план",
             "Fail-fast и вопросы",
             "Формат ответа",
-        ],
-        "en": [
-            "Context",
-            "Input Artifacts",
-            "Automation",
-            "Step-by-step Plan",
-            "Fail-fast & Questions",
-            "Response Format",
         ],
     },
     "command": {
@@ -47,17 +39,6 @@ LANG_SECTION_TITLES = {
             "Ожидаемый вывод",
             "Примеры CLI",
         ],
-        "en": [
-            "Context",
-            "Input Artifacts",
-            "When to Run",
-            "Automation & Hooks",
-            "What is Edited",
-            "Step-by-step Plan",
-            "Fail-fast & Questions",
-            "Expected Output",
-            "CLI Examples",
-        ],
     },
 }
 
@@ -65,10 +46,6 @@ LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
     "ru": {
         "agent": [Path("agents"), Path("aidd/agents"), Path(".claude/agents")],
         "command": [Path("commands"), Path("aidd/commands"), Path(".claude/commands")],
-    },
-    "en": {
-        "agent": [Path("prompts/en/agents"), Path("aidd/prompts/en/agents")],
-        "command": [Path("prompts/en/commands"), Path("aidd/prompts/en/commands")],
     },
 }
 
@@ -91,7 +68,6 @@ REQUIRED_AGENT_REFERENCES = [
 
 QUESTION_TEMPLATE = {
     "ru": "Вопрос N (Blocker|Clarification)",
-    "en": "Question N (Blocker|Clarification)",
 }
 
 
@@ -115,7 +91,7 @@ def parse_args() -> argparse.Namespace:
         "--root",
         default=Path(__file__).resolve().parents[1],
         type=Path,
-        help="Workflow root containing agents/commands and prompts/en",
+        help="Workflow root containing agents/commands",
     )
     return parser.parse_args()
 
@@ -180,7 +156,7 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
     lang_value = front.get("lang", "")
     lang = lang_value.strip() if isinstance(lang_value, str) else ""
     if lang and lang not in VALID_LANGS:
-        errors.append(f"{path}: unsupported lang `{lang}` (expected ru/en)")
+        errors.append(f"{path}: unsupported lang `{lang}` (expected ru)")
     if expected_lang and lang and lang != expected_lang:
         errors.append(
             f"{path}: lang `{lang}` does not match expected `{expected_lang}` based on directory"
@@ -333,7 +309,7 @@ def validate_prompt(info: PromptFile) -> List[str]:
     if sections_required:
         errors.extend(ensure_sections(info, sections_required))
     if lang and lang not in VALID_LANGS:
-        errors.append(f"{info.path}: unsupported lang `{lang}` (expected ru/en)")
+        errors.append(f"{info.path}: unsupported lang `{lang}` (expected ru)")
 
     version = front.get("prompt_version")
     if isinstance(version, list):
@@ -377,115 +353,36 @@ def lint_prompts(root: Path) -> Tuple[List[str], Dict[str, Dict[str, Dict[str, P
                     files.setdefault(lang, {}).setdefault(kind, {})[info.stem] = info
                     errors.extend(validate_prompt(info))
     errors.extend(validate_pairings(files))
-    errors.extend(validate_locale_pairs(files))
     return errors, files
 
 
 def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> List[str]:
     errors: List[str] = []
-    for lang, kinds in files.items():
-        agents = kinds.get("agent", {})
-        commands = kinds.get("command", {})
-        other_lang = "en" if lang == "ru" else "ru"
-        other_agents = files.get(other_lang, {}).get("agent", {})
-        other_commands = files.get(other_lang, {}).get("command", {})
-        for agent_name, command_name in PAIRINGS:
-            agent = agents.get(agent_name)
-            command = commands.get(command_name)
-            agent_prefix = "prompts/en/agents" if lang == "en" else "agents"
-            command_prefix = "prompts/en/commands" if lang == "en" else "commands"
-            parity_skip = parity_skipped(
-                agent,
-                command,
-                other_agents.get(agent_name),
-                other_commands.get(command_name),
+    kinds = files.get("ru", {})
+    agents = kinds.get("agent", {})
+    commands = kinds.get("command", {})
+    for agent_name, command_name in PAIRINGS:
+        agent = agents.get(agent_name)
+        command = commands.get(command_name)
+        if agent is None:
+            errors.append(
+                f"agents/{agent_name}.md: missing agent for `{command_name}` (or aidd/agents/{agent_name}.md)"
             )
-            if agent is None:
-                if not parity_skip:
-                    if lang == "en":
-                        errors.append(
-                            f"{agent_prefix}/{agent_name}.md: missing agent for `{command_name}`"
-                        )
-                    else:
-                        errors.append(
-                            f"{agent_prefix}/{agent_name}.md: missing agent for `{command_name}` (or aidd/{agent_prefix}/{agent_name}.md)"
-                        )
-            if command is None:
-                if not parity_skip:
-                    if lang == "en":
-                        errors.append(
-                            f"{command_prefix}/{command_name}.md: missing command for `{agent_name}`"
-                        )
-                    else:
-                        errors.append(
-                            f"{command_prefix}/{command_name}.md: missing command for `{agent_name}` (or aidd/{command_prefix}/{command_name}.md)"
-                        )
-            if agent and command:
-                if agent.front_matter.get("prompt_version") != command.front_matter.get("prompt_version"):
-                    errors.append(
-                        f"Pair {agent_name}/{command_name} ({lang}): prompt_version mismatch `{agent.front_matter.get('prompt_version')}` vs `{command.front_matter.get('prompt_version')}`"
-                    )
-                agent_tools = set(_normalize_tool_list(agent.front_matter.get("tools")))
-                command_tools = set(_normalize_tool_list(command.front_matter.get("allowed-tools")))
-                missing = sorted(agent_tools - command_tools)
-                if missing:
-                    errors.append(
-                        f"Pair {agent_name}/{command_name} ({lang}): allowed-tools missing {missing}"
-                    )
-    return errors
-
-
-def parity_skipped(*prompts: PromptFile | None) -> bool:
-    for prompt in prompts:
-        if not prompt:
-            continue
-        value = prompt.front_matter.get("Lang-Parity") or ""
-        if value.strip().lower() == "skip":
-            return True
-    return False
-
-
-def validate_locale_pairs(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> List[str]:
-    errors: List[str] = []
-    ru_prompts = files.get("ru", {})
-    en_prompts = files.get("en", {})
-    for kind in ("agent", "command"):
-        ru_items = ru_prompts.get(kind, {})
-        en_items = en_prompts.get(kind, {})
-        all_names = set(ru_items) | set(en_items)
-        for name in sorted(all_names):
-            ru_prompt = ru_items.get(name)
-            en_prompt = en_items.get(name)
-            if parity_skipped(ru_prompt, en_prompt):
-                continue
-            if ru_prompt is None:
-                ru_dir = "agents" if kind == "agent" else "commands"
-                ru_path = f"{ru_dir}/{name}.md"
+        if command is None:
+            errors.append(
+                f"commands/{command_name}.md: missing command for `{agent_name}` (or aidd/commands/{command_name}.md)"
+            )
+        if agent and command:
+            if agent.front_matter.get("prompt_version") != command.front_matter.get("prompt_version"):
                 errors.append(
-                    f"Missing RU {kind} for `{name}` → add {ru_path} (or aidd/{ru_path}) or mark Lang-Parity: skip"
+                    f"Pair {agent_name}/{command_name}: prompt_version mismatch `{agent.front_matter.get('prompt_version')}` vs `{command.front_matter.get('prompt_version')}`"
                 )
-                continue
-            if en_prompt is None:
-                en_path = f"prompts/en/{kind}s/{name}.md"
+            agent_tools = set(_normalize_tool_list(agent.front_matter.get("tools")))
+            command_tools = set(_normalize_tool_list(command.front_matter.get("allowed-tools")))
+            missing = sorted(agent_tools - command_tools)
+            if missing:
                 errors.append(
-                    f"Missing EN {kind} for `{name}` → add {en_path} (or aidd/{en_path}) or mark Lang-Parity: skip"
-                )
-                continue
-            ru_version = ru_prompt.front_matter.get("prompt_version")
-            en_version = en_prompt.front_matter.get("prompt_version")
-            if ru_version != en_version:
-                errors.append(
-                    f"Prompt `{name}` ({kind}) has mismatched prompt_version: ru={ru_version}, en={en_version}"
-                )
-            ru_source = ru_prompt.front_matter.get("source_version")
-            en_source = en_prompt.front_matter.get("source_version")
-            if ru_source != ru_version:
-                errors.append(
-                    f"RU prompt `{name}` should set source_version equal to prompt_version ({ru_version})"
-                )
-            if en_source != ru_version:
-                errors.append(
-                    f"EN prompt `{name}` must set source_version to RU prompt_version ({ru_version})"
+                    f"Pair {agent_name}/{command_name}: allowed-tools missing {missing}"
                 )
     return errors
 

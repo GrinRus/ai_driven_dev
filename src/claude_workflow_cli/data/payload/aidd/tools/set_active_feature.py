@@ -188,7 +188,7 @@ def _run_cli_research_targets(
 
 def _scaffold_prd_manual(root: Path, ticket: str) -> bool:
     docs_dir = root / "docs"
-    template_path = docs_dir / "prd.template.md"
+    template_path = docs_dir / "prd" / "template.md"
     prd_path = docs_dir / "prd" / f"{ticket}.prd.md"
     if not template_path.exists() or prd_path.exists():
         return False

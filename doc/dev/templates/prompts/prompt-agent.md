@@ -35,6 +35,6 @@ model: inherit
   ```
 
 ## Формат ответа
-- Всегда начинайте с `Checkbox updated: ...` (см. `aidd/docs/prompt-playbook.md`).
+- Всегда начинайте с `Checkbox updated: ...`.
 - Далее укажите `Status: ...`, `Artifacts updated: ...`, `Next actions: ...` и ссылки на файлы/команды.
 - Если статус BLOCKED, перечислите конкретные вопросы, список проверенных артефактов и следующие шаги.

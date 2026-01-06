@@ -9,7 +9,6 @@
     "aidd/AGENTS.md",
     "aidd/conventions.md",
     "aidd/init-claude-workflow.sh",
-    "aidd/workflow.md",
     "aidd/scripts/migrate-tasklist.py",
     "aidd/scripts/plan_review_gate.py",
     "aidd/scripts/prd-review-agent.py",
@@ -29,9 +28,6 @@
     "aidd/hooks/**",
     "aidd/config/**",
     "aidd/docs/**",
-    "aidd/templates/**",
-    "aidd/claude-presets/**",
-    "aidd/prompts/**",
     "aidd/scripts/context_gc/**",
     "aidd/scripts/gradle/**"
   ],

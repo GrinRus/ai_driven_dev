@@ -2,15 +2,15 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.0
-source_version: 1.2.0
+prompt_version: 1.2.1
+source_version: 1.2.1
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/templates/research-summary.md`.
+Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/research/template.md`.
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` (раздел `## Research Hints`), `aidd/docs/plan/<ticket>.md` (если есть), `aidd/docs/tasklist/<ticket>.md`.
@@ -19,7 +19,7 @@ permissionMode: default
 
 ## Автоматизация
 - Запускай `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ...]`, используя `## Research Hints` из PRD.
-- Если сканирование пустое, используй шаблон `aidd/docs/templates/research-summary.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
+- Если сканирование пустое, используй шаблон `aidd/docs/research/template.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.
 
 ## Пошаговый план

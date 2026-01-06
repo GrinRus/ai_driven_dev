@@ -21,10 +21,7 @@
 | `aidd/hooks/` | Gate/format/hooks | hooks.json | runtime |
 | `aidd/hooks/_vendor/` | Вендорные Python-модули | хуки | runtime |
 | `aidd/config/` | Конвенции/гейты | хуки/CLI | runtime |
-| `aidd/docs/` | Гайды/шаблоны | пользователи | docs |
-| `aidd/templates/` | Шаблоны PRD/tasklist/git-hooks | CLI/presets | runtime/docs |
-| `aidd/claude-presets/` | Preset YAML | CLI preset | runtime |
-| `aidd/prompts/en/` | EN-промпты | prompt-locale | runtime |
+| `aidd/docs/` | Core docs + шаблоны артефактов (sdlc/status + `docs/*/template.md`) | пользователи | docs |
 | `aidd/scripts/context_gc/` | Context GC hooks | hooks.json | runtime |
 | `aidd/scripts/gradle/init-print-projects.gradle` | Selective tests | format-and-test | runtime |
 | `aidd/scripts/qa-agent.py` | QA агент | gate-qa/`/qa` | runtime |
@@ -39,6 +36,9 @@
 ## Наблюдения
 - Workspace `.claude/` и `.claude-plugin/` живут вне `aidd/`, поэтому audit/sync должен учитывать два корня.
 - Repo-only tooling: `scripts/sync-payload.sh`, `scripts/lint-prompts.py`, `scripts/prompt-version`, `tools/check_payload_sync.py`, `tools/prompt_diff.py`, `tools/payload_audit.py` вынесены в корень репозитория.
+- Крупные playbook/гайд‑документы перенесены в `doc/dev/` и не входят в payload.
+- Git hook samples перенесены в `doc/dev/templates/git-hooks` (dev-only).
+- Prompt templates перенесены в `doc/dev/templates/prompts` (dev-only).
 
 ## Решение
 - Payload содержит только runtime/docs артефакты; repo-only tooling живёт в корне и не входит в дистрибутив.
