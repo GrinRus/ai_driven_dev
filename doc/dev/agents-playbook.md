@@ -6,7 +6,7 @@
 > Текущая стадия фиксируется в `aidd/docs/.active_stage` (`idea/research/plan/review-plan/review-prd/tasklist/implement/review/qa`); команды обновляют маркер и позволяют возвращаться к любому этапу.
 > Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/кеш. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
 > Базовые правила — в `aidd/AGENTS.md`; порядок стадий — в `aidd/docs/sdlc-flow.md`, статусы — в `aidd/docs/status-machine.md`.
-> Требования к структуре промптов агентов и слэш-команд описаны в `aidd/docs/prompt-playbook.md`. При редактировании файлов в `aidd/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`.
+> Требования к структуре промптов агентов и слэш-команд описаны в `doc/dev/prompt-playbook.md`. При редактировании файлов в `aidd/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`.
 > Hook events определены в `aidd/hooks/hooks.json`: PreToolUse (context GC для Bash/Read), UserPromptSubmit (prompt guard), Stop/SubagentStop (`gate-workflow`, `gate-tests`, `gate-qa`, `format-and-test`, `lint-deps`). Скрипты вызываются через `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/*.sh`.
 > Все команды и хуки ожидают структуру `./aidd/**` (workspace = `--target .`); при запуске из другого каталога появится явная ошибка «aidd/docs not found».
 
@@ -99,7 +99,7 @@
 - **Вызов:** `/qa <ticket>` (обязательная стадия после `/review`), либо `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate` / `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh`.
 - **Вход:** активная фича, diff, результаты гейтов, раздел QA в `aidd/docs/tasklist/<ticket>.md`.
 - **Выход:** структурированный отчёт (severity, scope, рекомендации), JSON `reports/qa/<ticket>.json`, обновлённый чеклист.
-- **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `aidd/docs/qa-playbook.md` для чеклистов и переменных окружения.
+- **Особенности:** гейт `gate-qa.sh` блокирует релиз при `blocker`/`critical`, см. `doc/dev/qa-playbook.md` для чеклистов и переменных окружения.
 - **Handoff:** после статуса READY/WARN вызовите `claude-workflow tasks-derive --source qa --append --ticket <ticket>` — новые `- [ ]` в tasklist должны содержать ссылку на `reports/qa/<ticket>.json`.
 - **Прогресс:** после каждой регрессии фиксируйте, какие чекбоксы закрыты (`Checkbox updated: …`), и запускайте `claude-workflow progress --source qa --ticket <ticket>`, чтобы хук `gate-workflow.sh` не блокировал правки.
 

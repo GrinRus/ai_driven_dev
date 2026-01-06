@@ -11,21 +11,21 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - PRD template section `## Research Hints` for passing paths/keywords to `/researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
-- `aidd/AGENTS.md` plus root `AGENTS.md` as the primary agent entrypoint.
+- `aidd/AGENTS.md` as the primary agent entrypoint.
 - Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
 - Payload manifest (`manifest.json`) with per-file checksums enforced at runtime.
 - `claude-workflow sync/upgrade --release` for fetching payloads from GitHub Releases with caching and bundled fallback.
 - Release packaging script (`scripts/package_payload_archive.py`) that produces versioned payload zip, manifest copy and checksum files for publication.
-- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `claude-workflow qa`, `aidd/docs/qa-playbook.md`, and `aidd/agents/qa.md` with severity guidance.
+- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `claude-workflow qa`, `doc/dev/qa-playbook.md`, and `aidd/agents/qa.md` with severity guidance.
 - CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `aidd/agents/analyst.md`, PRD template with `## Диалог analyst`, new CLI command `claude-workflow analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 - Progress tracking: CLI command `claude-workflow progress`, new `tasklist_progress` gate in `config/gates.json`, gate-workflow integration, smoke coverage, and unit tests validating missing/updated checkboxes.
-- Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`) reflecting the mandatory tasklist sync.
+- Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`) reflecting the mandatory tasklist sync.
 - Migration helper `claude-workflow migrate-ticket` for converting legacy slug-based repositories to the ticket-first layout.
 - Auto PRD scaffolding: `claude-workflow set-active-feature` and `claude_workflow_cli.feature_ids` now create `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, so agents/gates always work against an existing artefact.
 - CLI-first workflow tools: `claude-workflow prd-review`, `plan-review-gate`, `prd-review-gate`, `migrate-tasklist`, `researcher-context`, and `context-gc`.
 - Release helper `scripts/prompt-release.sh` автоматизирует цепочку `prompt-version bump → lint → pytest → payload sync → gate-tests` перед публикацией payload/релиза.
-- Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md`, `aidd/docs/agents-playbook.md`, ensuring agents log repository inputs and CLI commands before asking the user.
+- Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `doc/dev/feature-cookbook.md`, `aidd/docs/customization.md`, `doc/dev/agents-playbook.md`, ensuring agents log repository inputs and CLI commands before asking the user.
 
 ### Changed
 - `/idea-new` no longer triggers research; analyst captures `Research Hints`, research is run in `/researcher`.
@@ -37,7 +37,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Research/tasklist/QA templates updated with Context Pack, Next 3, Handoff inbox, and QA traceability to acceptance criteria.
 - `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
 - Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; добавлена CLI-миграция через `claude-workflow migrate-tasklist` и автоперенос в `claude-workflow set-active-feature`.
-- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/qa-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md` и шаблоны tasklist.
+- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `aidd/docs/customization.md` и шаблоны tasklist.
 - `claude-workflow prd-review-gate`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
 - Payload hooks now call `claude-workflow` directly; legacy `aidd/scripts` and `aidd/tools` copies are removed from the payload.
 - `scripts/ci-lint.sh` запускает линтер промптов, dry-run `scripts/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.

@@ -66,7 +66,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 
 ## Workflow architecture
 1. `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) scaffolds workspace `.claude/` and `.claude-plugin/`, and lays out the payload under `aidd/`.
-2. Slash commands drive the multi-stage process (see `aidd/docs/sdlc-flow.md` and `aidd/docs/agents-playbook.md`): idea, research, plan, review-plan, review-prd (or `/review-spec`), tasklist, implementation, and review with dedicated sub-agents.
+2. Slash commands drive the multi-stage process (see `aidd/docs/sdlc-flow.md`, maintainer details in `doc/dev/agents-playbook.md`): idea, research, plan, review-plan, review-prd (or `/review-spec`), tasklist, implementation, and review with dedicated sub-agents.
 3. The `feature-dev-aidd` plugin from `.claude-plugin/marketplace.json` wires pre/post hooks (`gate-*`, `format-and-test.sh`); `.claude/settings.json` only keeps permissions/automation and enables the plugin.
 4. `aidd/hooks/format-and-test.sh` performs formatting and selective tests via `.claude/settings.json` and runs only during the `implement` stage (Stop/SubagentStop).
 5. Policies and branch/commit presets are managed via `.claude/settings.json` and `config/conventions.json`.
@@ -88,10 +88,10 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 | `config/gates.json` | Gate toggles | Controls `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` (uses `aidd/docs/.active_*`) |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
-| `aidd/docs/` | Guides & templates | `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, `prompt-playbook.md`, `prompt-versioning.md`, `sdlc-flow.md`, `status-machine.md`, `docs/*/template.md`, feature artefacts |
+| `aidd/docs/` | Core docs & templates | `sdlc-flow.md`, `status-machine.md`, `docs/*/template.md`, feature artefacts |
 | `examples/` | Demo assets | `apply-demo.sh` and baseline examples |
-| `doc/dev/` | Dev-only docs | Workflow walkthrough, customization, audits, design notes |
-| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `sync-payload.sh` (payload sync), `package_payload_archive.py` (payload archive) |
+| `doc/dev/` | Dev-only docs | Workflow walkthrough, playbooks (agents/qa/prompt), customization, audits, design notes |
+| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `sync-payload.sh` (payload sync), `prompt-version`/`lint-prompts.py` (prompt tooling), `package_payload_archive.py` (payload archive) |
 | `templates/` | Copyable templates | Git hooks (`commit-msg`, `pre-push`, `prepare-commit-msg`) |
 | `tests/` | Python unit tests | Cover init bootstrap, hooks, selective tests, and settings policy |
 | `.github/workflows/ci.yml` | CI pipeline | Installs linters and runs `scripts/ci-lint.sh` |
@@ -100,7 +100,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 ## Repository composition
 - **Runtime (user workspace):** `aidd/**` plus root `.claude/` and `.claude-plugin/` after `claude-workflow init`.
 - **Dev-only (this repo):** `doc/dev/`, `tests/`, `examples/`, `tools/`, `scripts/`, `.github/`, `.dev/`, `.tmp-debug/`, `build/` — excluded from the payload.
-- **Where to look:** user-facing guides live in `aidd/docs/**`, dev planning lives in `doc/dev/`.
+- **Where to look:** core runtime docs/templates live in `aidd/docs/**`, detailed playbooks live in `doc/dev/`.
 
 ## Deep dive into components
 
@@ -146,11 +146,9 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - `config/allowed-deps.txt` — comment-friendly `group:artifact` allowlist consumed by `lint-deps.sh`.
 
 ### Docs & templates
-- `aidd/docs/agents-playbook.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md` — cover the idea→research→plan→review lifecycle, stage/status rules, and sub-agent responsibilities.
-- `doc/dev/workflow.md`, `doc/dev/customization.md` — dev-only bootstrap walkthrough plus `.claude/settings.json` tuning, gates, and command templates.
-- `aidd/docs/prd/template.md`, `aidd/docs/adr/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md` — enriched artefact templates with prompts, checklists, and change logs.
-- `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — ready-to-copy `commit-msg`, `prepare-commit-msg`, `pre-push` hooks with setup guidance and env toggles.
-- `aidd/docs/release-notes.md` — release governance to steer the roadmap.
+- **Runtime (LLM/agents)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
+- **Dev-only docs**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
+- **Other templates**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
 
 ### Tests & quality
 - `tests/helpers.py` — helper utilities to create files, initialise git, generate `config/gates.json`, and run hooks.
@@ -177,7 +175,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, Plan Review + PRD Review (via `/review-spec`), and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
 - **`gate-prd-review.sh`** — calls `claude-workflow prd-review-gate`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`, and ignores test folders via `exclude_dirs`.
-- **`gate-qa.sh`** — runs `claude-workflow qa` (or the command from `config/gates.json`), writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `aidd/docs/qa-playbook.md`.
+- **`gate-qa.sh`** — runs `claude-workflow qa` (or the command from `config/gates.json`), writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `doc/dev/qa-playbook.md`.
 - **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky dependency manifest changes.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → research (when needed) → /plan-new → /review-spec → /tasks-new` gate sequence.
@@ -200,12 +198,9 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - Combined `gate-*` hooks inside `aidd/hooks/` (invoked via the plugin) enforce the workflow: blocking code without plan/Plan Review/PRD Review/tasklist (`aidd/docs/tasklist/<ticket>.md`); run `/review-spec` for the review stages, require migrations/tests, and validate OpenAPI specs.
 
 ## Docs & templates
-- `doc/dev/workflow.md` outlines the end-to-end idea → research → plan → review-plan → review-prd → tasklist → implementation → review loop (or `/review-spec`); `aidd/docs/agents-playbook.md` maps sub-agent responsibilities and deliverables.
-- `doc/dev/workflow.md` and `doc/dev/customization.md` cover bootstrap walkthroughs, `.claude/settings.json` tuning, gates, and command templates.
-- `aidd/docs/release-notes.md` tracks release cadence and the roadmap.
-- `aidd/docs/prompt-playbook.md` and `aidd/docs/prompt-versioning.md` define prompt structure and version rules.
-- `aidd/agents/templates/prompt-agent.md` and `aidd/commands/templates/prompt-command.md` are the base prompt templates.
-- PRD/ADR/tasklist/research templates (`aidd/docs/prd/template.md`, `aidd/docs/adr/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`) plus git-hook samples (`templates/git-hooks/*.sample`) streamline onboarding.
+- **Runtime (LLM/agents)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
+- **Dev-only docs**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
+- **Other templates**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
 - Keep `README.md` and `README.en.md` in sync and update the _Last sync_ stamp whenever content changes.
 
 ## Examples & demos
@@ -297,7 +292,7 @@ Research defaults to workspace-relative paths (parent of `aidd/`); the CLI print
 6. Before release, run `/qa <ticket>` or `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, update the QA section in the tasklist, and confirm progress via `claude-workflow progress --source qa --ticket <ticket>`.
 7. After QA/Review/Research reports, derive implementer tasks via `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` so new `- [ ]` link back to the reports in `aidd/docs/tasklist/<ticket>.md`; if needed, verify with `claude-workflow progress --source handoff --ticket <ticket>`.
 
-A detailed agent/gate playbook lives in `aidd/docs/agents-playbook.md`.
+A detailed agent/gate playbook lives in `doc/dev/agents-playbook.md`.
 
 ## Slash commands
 
@@ -339,7 +334,7 @@ Troubleshooting tips and environment tweaks live in `doc/dev/workflow.md` and `d
 ## Additional resources
 - Step-by-step walkthrough with before/after structure: `examples/apply-demo.sh` and the "Stage overview" section in `doc/dev/workflow.md`.
 - Workflow and gate overview: `doc/dev/workflow.md`.
-- Agent & gate playbook: `aidd/docs/agents-playbook.md`.
+- Agent & gate playbook: `doc/dev/agents-playbook.md`.
 - Configuration deep dive: `doc/dev/customization.md`.
 - Original Russian README: `README.md`.
 - Demo scripts: `examples/`, `examples/apply-demo.sh`.

@@ -33,8 +33,8 @@
     {
       "path": "aidd/AGENTS.md",
       "type": "file",
-      "size": 1444,
-      "sha256": "40e919b85a2ae6466e8450b48e5a44d570912132bef802813a08d689212e3fb0"
+      "size": 1411,
+      "sha256": "e2883648149d5688289e70c6f3b3f051621f189ac5b4b665eda4d9e498c140f3"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -87,8 +87,8 @@
     {
       "path": "aidd/agents/templates/prompt-agent.md",
       "type": "file",
-      "size": 3462,
-      "sha256": "2ad649cf9025c85a886e90af42785750b06d45425f398b56d37069d1361ee3eb"
+      "size": 3423,
+      "sha256": "63d0ac8bc9797e9cd058a3a23a54e61035d65122281f538166b39077860f5400"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -147,8 +147,8 @@
     {
       "path": "aidd/commands/templates/prompt-command.md",
       "type": "file",
-      "size": 4392,
-      "sha256": "12baef4c334696456cf117f042c5f9fe829073a7b462b5a3eedaae2880dc7c9f"
+      "size": 4360,
+      "sha256": "053f86e89014546ea154c3a62825d86150d3e44423723d780cd0f9bfa6f19511"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -193,28 +193,10 @@
       "sha256": "58fb09d121fdb60c0931226bb7b9e6e2ee73c360694b5ce12f0d162341bccc2b"
     },
     {
-      "path": "aidd/docs/agents-playbook.md",
-      "type": "file",
-      "size": 22835,
-      "sha256": "7bd4a2ca253bef3516b492456da8e2861644fb3bd4038313dab1d3ccfe8ff648"
-    },
-    {
       "path": "aidd/docs/cli-migration.md",
       "type": "file",
       "size": 1854,
       "sha256": "b5b2931aaae7aeb7cf1280b495f753ad47c414653ca7dcf446b3d56561454ab2"
-    },
-    {
-      "path": "aidd/docs/feature-cookbook.md",
-      "type": "file",
-      "size": 4659,
-      "sha256": "749a108952dd4a1fc6510aa1f13a5ad4f68e9b17f975584428c4c2ff4fdf6984"
-    },
-    {
-      "path": "aidd/docs/migration-aidd.md",
-      "type": "file",
-      "size": 1648,
-      "sha256": "58ba568095471ee1bc554d89ff75ea9bc7de03552c86bf8a6319bb93237a02b0"
     },
     {
       "path": "aidd/docs/plan/.gitkeep",
@@ -239,30 +221,6 @@
       "type": "file",
       "size": 6633,
       "sha256": "c6c37b56d7e852026f439736d48252d77da35cc47431c36a17dacb2947ff6d05"
-    },
-    {
-      "path": "aidd/docs/prompt-playbook.md",
-      "type": "file",
-      "size": 9344,
-      "sha256": "37fbf456f4a8f9d88939cad2340b6a3007709c61bc536f821a1d6da346dc613b"
-    },
-    {
-      "path": "aidd/docs/prompt-versioning.md",
-      "type": "file",
-      "size": 1303,
-      "sha256": "166f68689ae78c47958a0b0e868f254a1ef0f0c4757542255ebff68965bf9e24"
-    },
-    {
-      "path": "aidd/docs/qa-playbook.md",
-      "type": "file",
-      "size": 6177,
-      "sha256": "78acba7a9ae4b989fe7f69f329d5f8f7e7253539278e53c469eb3da67c6c1c1e"
-    },
-    {
-      "path": "aidd/docs/release-notes.md",
-      "type": "file",
-      "size": 797,
-      "sha256": "54178cd29c55219d23e5f8ec54570e18af950e2b842e4e821a6681bd1713bea3"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -297,8 +255,8 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6527,
-      "sha256": "bec9aee9d717380f21ba3c515723b244a4bd23e10ebb73a608bec3dc35c3c133"
+      "size": 6561,
+      "sha256": "5cefec6a8f675f96cc0f64b22e67190373c495d78df34e95b7a5c8b9a75f7e6a"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",

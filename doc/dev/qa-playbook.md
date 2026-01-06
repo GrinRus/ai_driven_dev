@@ -2,7 +2,7 @@
 
 Документ описывает, как готовить входные данные, запускать QA-агента и
 интерпретировать результаты гейта (`gate-qa.sh`). Используйте его вместе с
-`aidd/docs/agents-playbook.md` и шаблоном `aidd/docs/tasklist/<ticket>.md`.
+`doc/dev/agents-playbook.md` и шаблоном `aidd/docs/tasklist/<ticket>.md`.
 
 > Ticket — основной идентификатор фичи; при необходимости указывайте slug-hint (сохраняется в `aidd/docs/.active_feature`).
 

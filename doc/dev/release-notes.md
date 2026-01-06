@@ -45,8 +45,8 @@
 ## Migration: legacy root installs → `./aidd` (Wave 51)
 - CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
 - Для старых установок: удалите корневые снапшоты `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
-- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `aidd/docs/migration-aidd.md`.
-- [ ] Зафиксировать изменения в `aidd/docs/release-notes.md`.
+- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `doc/dev/migration-aidd.md`.
+- [ ] Зафиксировать изменения в `doc/dev/release-notes.md`.
 
 ## Публикация релиза
 - [ ] Проставить тег `vX.Y.Z` (annotated tag).
@@ -62,7 +62,7 @@
 - [ ] Проверить, что `.claude/settings.json` соответствует политике доступа.
 - [ ] Обновить Wave backlog: перенести оставшиеся задачи в следующую волну.
 
-Храните заметки в одном файле (`aidd/docs/release-notes.md`), добавляя записи в обратном хронологическом порядке.
+Храните заметки в одном файле (`doc/dev/release-notes.md`), добавляя записи в обратном хронологическом порядке.
 
 ## vNext — YYYY-MM-DD
 
@@ -72,11 +72,11 @@
 - Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
 - Команда `/review-spec`, объединяющая review-plan и review-prd в один шаг.
 - Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
-- `aidd/AGENTS.md` + корневой `AGENTS.md` как основной вход для агентного контекста.
+- `aidd/AGENTS.md` как основной вход для агентного контекста.
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
-- `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
-- Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
+- `claude-workflow migrate-ticket` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
+- Автосоздание PRD: `claude-workflow set-active-feature` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
 - Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
@@ -89,7 +89,7 @@
 - Шаблоны research/tasklist/QA обновлены: Context Pack и Definition of reviewed, секции `Next 3` и `Handoff inbox`, traceability к acceptance criteria.
 - `gate-workflow` теперь проверяет `review-plan` перед PRD review и tasklist; для удобства есть `/review-spec`, smoke/тесты синхронизированы с новым порядком.
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
-- `scripts/prd_review_gate.py` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
+- `claude-workflow prd-review-gate` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
 - Промпты команд/агентов унифицированы под `READY/BLOCKED/PENDING`, команды принимают свободные заметки после тикета, а `allowed-tools` синхронизирован с инструментами саб-агентов.
 - Линтер промптов проверяет дубли ключей, запрещённые статусы, HTML-эскейпы `<ticket>`, некорректные формулировки `Checkbox updated` и несоответствие `allowed-tools` ↔ `tools`.
 - `tools/check_payload_sync.py` использует стандартный список путей payload и предупреждает, если runtime snapshot (`aidd/`) не развернут.
@@ -98,7 +98,7 @@
 - Внутренний backlog (`backlog.md`) оставлен только для разработки и исключён из payload/manifest; sync/check скрипты игнорируют `doc/` по умолчанию.
 
 ### Migration
-- Выполните `python3 tools/migrate_ticket.py` в корне проекта, чтобы создать `aidd/docs/.active_ticket` (если отсутствует) и дополнить `aidd/docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
+- Выполните `claude-workflow migrate-ticket` в корне проекта, чтобы создать `aidd/docs/.active_ticket` (если отсутствует) и дополнить `aidd/docs/tasklist/*.md` полями `Ticket` и `Slug hint`. После миграции повторите smoke-тест `scripts/smoke-workflow.sh`.
 - Обновите payload/шаблоны: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, затем скопируйте свежие `aidd/agents|commands`.
 - Для активных тикетов перезапустите `claude-workflow research --ticket <ticket> --auto` и `claude-workflow analyst-check --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
 - Запустите smoke-тесты (`claude-workflow smoke`) и общий прогон CI lint, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.

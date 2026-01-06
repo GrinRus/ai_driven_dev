@@ -62,8 +62,8 @@
 - Локальная, прозрачная установка без зависимости от Spec Kit или BMAD.
 
 ## Архитектура workflow
-1. `claude-workflow init --target .` (или `aidd/init-claude-workflow.sh` из payload) разворачивает workspace‑настройки `.claude/` и `.claude-plugin/`, а payload — в `aidd/` (команды/агенты/хуки/доки).
-2. Slash-команды Claude Code запускают многошаговый процесс (см. `aidd/docs/sdlc-flow.md` и `aidd/docs/agents-playbook.md`): от идеи и плана до реализации и ревью, подключая специализированных саб-агентов.
+1. `claude-workflow init --target .` (или `aidd/init-claude-workflow.sh` из payload) разворачивает workspace‑настройки `.claude/` и `.claude-plugin/`, а payload — в `aidd/` (команды/агенты/хуки/доки/скрипты).
+2. Slash-команды Claude Code запускают многошаговый процесс (см. `aidd/docs/sdlc-flow.md`, детали для maintainers — `doc/dev/agents-playbook.md`): от идеи и плана до реализации и ревью, подключая специализированных саб-агентов.
 3. Плагин `feature-dev-aidd` из `.claude-plugin/marketplace.json` вешает pre-/post-хуки (`gate-*`, `format-and-test.sh`); `.claude/settings.json` хранит только разрешения/automation и включает плагин.
 4. Хук `format-and-test.sh` выполняет форматирование и выборочные тесты через `automation` в `.claude/settings.json`, и работает только на стадии `implement` (Stop/SubagentStop).
 5. Политики доступа и режимы веток/коммитов управляются через `.claude/settings.json` и `config/conventions.json`.
@@ -85,10 +85,10 @@
 | `config/gates.json` | Параметры гейтов | Управляет `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` (использует `aidd/docs/.active_*`) |
 | `config/conventions.json` | Режимы веток и коммитов | Расписаны шаблоны `ticket-prefix`, `conventional`, `mixed`, правила ветвления и ревью |
 | `config/allowed-deps.txt` | Allowlist зависимостей | Формат `group:artifact`; предупреждения выводит `lint-deps.sh` |
-| `aidd/docs/` | Руководства и шаблоны | `agents-playbook.md`, `qa-playbook.md`, `feature-cookbook.md`, `release-notes.md`, `prompt-playbook.md`, `prompt-versioning.md`, `sdlc-flow.md`, `status-machine.md`, шаблоны `docs/*/template.md`, артефакты фич |
+| `aidd/docs/` | Core docs и шаблоны | `sdlc-flow.md`, `status-machine.md`, шаблоны `docs/*/template.md`, артефакты фич |
 | `examples/` | Демо-материалы | Сценарий `apply-demo.sh` и базовые примеры структуры |
-| `doc/dev/` | Dev-only документация | Workflow walkthrough, customization, дизайны и аудиты |
-| `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke-сценарий gate-workflow), `bootstrap-local.sh` (локальное dogfooding payload) |
+| `doc/dev/` | Dev-only документация | Workflow walkthrough, playbooks (agents/qa/prompt), customization, дизайны и аудиты |
+| `scripts/` | CLI и вспомогательные сценарии | `ci-lint.sh` (линтеры + тесты), `smoke-workflow.sh` (E2E smoke сценарий gate-workflow), `sync-payload.sh` (payload sync), `prompt-version`/`lint-prompts.py` (инструменты промптов), `package_payload_archive.py` (архив payload) |
 | `templates/` | Шаблоны вендорных артефактов | Git-хуки (`commit-msg`, `pre-push`, `prepare-commit-msg`) |
 | `tests/` | Python-юнит-тесты | Проверяют init-скрипт, хуки, selective tests и настройки доступа |
 | `.github/workflows/ci.yml` | CI pipeline | Запускает `scripts/ci-lint.sh`, ставит `shellcheck`, `markdownlint`, `yamllint` |
@@ -101,7 +101,7 @@
 ## Состав репозитория
 - **Runtime (у пользователя):** `aidd/**` + корневые `.claude/` и `.claude-plugin/` после `claude-workflow init`.
 - **Dev-only (в этом репозитории):** `doc/dev/`, `tests/`, `examples/`, `tools/`, `scripts/`, `.github/`, `.dev/`, `.tmp-debug/`, `build/` — не входят в payload.
-- **Где смотреть документацию:** user-facing гайды живут в `aidd/docs/**`, dev‑планирование — в `doc/dev/`.
+- **Где смотреть документацию:** core runtime docs и шаблоны живут в `aidd/docs/**`, подробные playbook/процессы — в `doc/dev/`.
 
 > `aidd/init-claude-workflow.sh` разворачивает `aidd/hooks/*` и документацию. Ветки и сообщения коммитов настраиваются стандартными git-командами по правилам `config/conventions.json`.
 
@@ -110,8 +110,7 @@
 ### Скрипты установки и утилиты
 - `aidd/init-claude-workflow.sh` — модульный bootstrap со строгими проверками (`bash/git/python3`), режимами `--commit-mode/--enable-ci/--force/--dry-run` и потоковой синхронизацией артефактов из `src/claude_workflow_cli/data/payload/` (без heredoc-вставок), включая обновление `config/conventions.json`.
 - `scripts/ci-lint.sh` — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, интегрированная с CI и корректно пропускающая отсутствующие линтеры с предупреждением.
-- `scripts/smoke-workflow.sh` — E2E smoke-сценарий: поднимает временный проект, запускает bootstrap, воспроизводит ticket-first цикл (`ticket → PRD → план → review-spec → tasklist`) и проверяет, что `gate-workflow.sh`/`tasklist_progress` блокируют правки без новых `- [x]` (CLI-first).
-- `scripts/bootstrap-local.sh` — копирует `src/claude_workflow_cli/data/payload/` в `.dev/.claude-example/` (workspace по умолчанию; workflow всегда в поддиректории `aidd/`) для быстрой проверки payload без публикации новой версии CLI.
+- `scripts/smoke-workflow.sh` — E2E smoke-сценарий: поднимает временный проект, запускает bootstrap, воспроизводит ticket-first цикл (`ticket → PRD → план → review-spec → tasklist`) и проверяет, что `gate-workflow.sh`/`tasklist_progress` блокируют правки без новых `- [x]`.
 - `claude-workflow sync` / `claude-workflow upgrade` — поддерживают режим `--release <tag|owner/repo@tag|latest>` для скачивания payload из GitHub Releases (кешируется в `~/.cache/claude-workflow`, переопределяется `--cache-dir` или `CLAUDE_WORKFLOW_CACHE`). CLI сверяет контрольные суммы из `manifest.json`, перед синхронизацией выводит diff и при недоступности сети откатывается к встроенному payload.
 - `examples/apply-demo.sh` — демонстрирует применение шаблона к демо-проекту, печатает дерево каталогов до/после и запускает проверки, если они настроены.
 
@@ -119,7 +118,7 @@
 - `aidd/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, анализирует `git diff`, активный ticket (и slug-хинт) из `aidd/docs/.active_ticket`/`.active_feature`, умеет переключать selective/full run и подбирает задачи через `moduleMatrix`, `defaultTasks`, `fallbackTasks`. Запускается на Stop/SubagentStop и только при стадии `implement`.
 - `aidd/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного ticket нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) или новых `- [x]` в `aidd/docs/tasklist/<ticket>.md` (гейт `tasklist_progress`), игнорирует изменения в документации/шаблонах.
 - `aidd/hooks/gate-tests.sh` — опциональная проверка из `config/gates.json`: контролирует наличие сопутствующих тестов (`disabled|soft|hard`), по умолчанию игнорирует тестовые директории (`exclude_dirs`), выводит подсказки по разблокировке.
-- `aidd/hooks/gate-qa.sh` — вызывает `claude-workflow qa` (или команду из `config/gates.json`), формирует `reports/qa/<ticket>.json`, маркирует `blocker/critical` как блокирующие; см. `aidd/docs/qa-playbook.md`.
+- `aidd/hooks/gate-qa.sh` — запускает `claude-workflow qa` (или команду из `config/gates.json`), формирует `reports/qa/<ticket>.json`, маркирует `blocker/critical` как блокирующие; см. `doc/dev/qa-playbook.md`.
 - `aidd/hooks/lint-deps.sh` — отслеживает изменения зависимостей, сверяет их с allowlist `config/allowed-deps.txt` и сигнализирует при расхождениях.
 
 ### Саб-агенты Claude Code
@@ -150,11 +149,9 @@
 - `config/allowed-deps.txt` — allowlist `group:artifact`, поддерживает комментарии, используется `lint-deps.sh`.
 
 ### Документация и шаблоны
-- `aidd/docs/agents-playbook.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md` — описывают процесс idea→research→review, правила стадий/статусов и роли саб-агентов.
-- `doc/dev/workflow.md`, `doc/dev/customization.md` — dev-only walkthrough установки и детали настройки `.claude/settings.json`, гейтов и шаблонов команд.
-- `aidd/docs/prd/template.md`, `aidd/docs/adr/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md` — шаблоны с подсказками, чеклистами, секциями истории изменений и примерами заполнения.
-- `templates/git-hooks/*.sample`, `templates/git-hooks/README.md` — готовые `commit-msg`, `prepare-commit-msg`, `pre-push` с инструкциями, переменными окружения и советами по развёртыванию.
-- `aidd/docs/release-notes.md` — регламент релизов и checklist обновлений (используется для планирования roadmap и changelog).
+- **Runtime (LLM/агенты)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
+- **Dev-only документация**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
+- **Прочие шаблоны**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
 
 ### Тесты и контроль качества
 - `tests/helpers.py` — утилиты: генерация файлов, git init/config, создание `config/gates.json`, запуск хуков.
@@ -181,6 +178,7 @@
 - **`gate-prd-review.sh`** — вызывает `claude-workflow prd-review-gate`, который требует наличие `aidd/docs/prd/<ticket>.prd.md`, секции `## PRD Review` со статусом из `approved_statuses`, закрытые action items и JSON-отчёт (`reports/prd/<ticket>.json` по умолчанию); блокирующие статусы, `- [ ]` и findings с severity из `blocking_severities` завершают проверку ошибкой, а флаги `skip_branches`, `allow_missing_section`, `allow_missing_report` и шаблон `report_path` задаются в `config/gates.json`.
 - **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока для активной фичи нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) и новых `- [x]` в `aidd/docs/tasklist/<ticket>.md`.
 - **`gate-tests.sh`** — опциональный гейт: при включении проверяет наличие тестов для изменённых исходников (режимы задаёт `config/gates.json`), игнорирует тестовые каталоги через `exclude_dirs`.
+- **`gate-qa.sh`** — запускает `claude-workflow qa` (или команду из `config/gates.json`), формирует `reports/qa/<ticket>.json`, маркирует `blocker/critical` как блокирующие; см. `doc/dev/qa-playbook.md`.
 - **`lint-deps.sh`** — напоминает про allowlist зависимостей из `config/allowed-deps.txt` и анализирует изменения манифестов/конфигов зависимостей.
 - **`scripts/ci-lint.sh`** — единая точка для `shellcheck`, `markdownlint`, `yamllint` и `python -m unittest`, используется локально и в GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — поднимает временной проект, гоняет init-скрипт и проверяет прохождение `gate-workflow` по шагам `/idea-new → /plan-new → /review-spec → /tasks-new`.
@@ -211,13 +209,9 @@
 - Комбинация хуков `gate-*` в `aidd/hooks/` (вызываются через plugin hooks/hooks.json) реализует согласованную политику: блокировка кода без артефактов, требование миграций и тестов, контроль API-контрактов.
 
 ## Документация и шаблоны
-- `aidd/docs/agents-playbook.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md` — описывают целевой цикл idea→review, роли саб-агентов и правила стадий/статусов.
-- `doc/dev/workflow.md`, `doc/dev/customization.md` — dev-only walkthrough применения bootstrap и подробности настройки `.claude/settings.json`, гейтов, шаблонов команд.
-- `aidd/docs/release-notes.md` — регламент релизов и планирование roadmap.
-- `aidd/docs/prompt-playbook.md` — единые правила оформления промптов агентов/команд (обязательные секции, `Checkbox updated`, Fail-fast, ссылки на артефакты и матрица ролей).
-- `aidd/docs/prompt-versioning.md` — правила `prompt_version`/`source_version` для RU-промптов и порядок фиксации изменений.
-- `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md` — базовые шаблоны для новых промптов.
-- Шаблоны PRD/ADR/tasklist/research (`aidd/docs/prd/template.md`, `aidd/docs/adr/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`) и git-хуки (`templates/git-hooks/*.sample`) — расширенные заготовки с подсказками и чеклистами.
+- **Runtime (LLM/агенты)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
+- **Dev-only документация**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
+- **Прочие шаблоны**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
 - `README.en.md` — синхронизированный перевод; при правках обновляйте обе версии и поле Last sync.
 
 ## Примеры и демо
@@ -242,7 +236,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 - `--target` всегда указывает на workspace; payload разворачивается только в `./aidd`. Запуск CLI/хуков вне `aidd/` приведёт к понятной ошибке «aidd/docs not found».
 - первый шаг устанавливает CLI `claude-workflow` в изолированную среду `uv`;
 - команда `claude-workflow init` запускает тот же bootstrap, что и `aidd/init-claude-workflow.sh`, копируя шаблоны и гейты в текущий проект;
-- хуки вызывают установленный `claude-workflow` напрямую, поэтому убедитесь, что CLI доступен в PATH (через `uv` или `pipx`);
+- CLI разворачивает необходимые Python-модули прямо в `aidd/hooks/_vendor`, поэтому хуки, которые вызывают `python3 -m claude_workflow_cli ...`, работают сразу без отдельного `pip install`;
 - для точечной ресинхронизации используйте `claude-workflow sync` (по умолчанию обновляет `.claude/` и `.claude-plugin/`; чтобы подтянуть свежий payload из GitHub Releases, укажите `--release latest` или конкретный тег).
 - если инициализируете повторно, запустите команду в каталоге без старых `.claude/` и `.claude-plugin/` или добавьте `--force`, чтобы перезаписать артефакты.
 - для обновления CLI используйте `uv tool upgrade claude-workflow-cli`.
@@ -325,7 +319,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
 7. После отчётов QA/Review/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
-Детальный playbook агентов и барьеров описан в `aidd/docs/agents-playbook.md`.
+Детальный playbook агентов и барьеров описан в `doc/dev/agents-playbook.md`.
 
 ## Слэш-команды
 
@@ -367,7 +361,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 ## Дополнительно
 - Пошаговый пример использования и снимки до/после: `examples/apply-demo.sh` и раздел «Обзор этапов» в `doc/dev/workflow.md`.
 - Подробный обзор цикла и гейтов: `doc/dev/workflow.md`.
-- Playbook агентов и барьеров: `aidd/docs/agents-playbook.md`.
+- Playbook агентов и барьеров: `doc/dev/agents-playbook.md`.
 - Руководство по настройке `.claude/settings.json`, `config/conventions.json`, хуков и вспомогательных скриптов: `doc/dev/customization.md`.
 - Англоязычная версия README с правилами синхронизации: `README.en.md`.
 - Демо-сценарии и скрипт применения: `examples/`, `examples/apply-demo.sh`.
@@ -378,7 +372,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 2. **Обновите `aidd/agents|commands`.** Скопируйте свежие версии в свой проект или переустановите workflow; убедитесь, что `aidd/agents/templates/prompt-agent.md`/`prompt-command.md` совпадают, чтобы новые агенты сразу работали в стиле agent-first.
 3. **Освежите активные тикеты.** Для каждой фичи выполните `claude-workflow research --ticket <ticket> --auto` (пересоберёт `reports/research/*.json` и шаблон research), затем `claude-workflow analyst-check --ticket <ticket>` — это подтвердит, что PRD и research соответствуют новым требованиям. При необходимости вручную перенесите разделы «Автоматизация»/«Команды» из обновлённых шаблонов в уже существующие артефакты.
 4. **Проверьте тесты и гейты.** Запустите `scripts/ci-lint.sh` и smoke-сценарии (`scripts/smoke-workflow.sh`) — они проверят, что tasklist содержит новые поля `Reports/Commands`, а промпты не содержат устаревших `Answer N` инструкций.
-5. **Документируйте миграцию.** Добавьте заметку в `aidd/docs/release-notes.md`/`CHANGELOG.md` вашего проекта, чтобы команда знала о новых правилах вопросов, логах команд и репозиторных источниках.
+5. **Документируйте миграцию.** Добавьте заметку в `doc/dev/release-notes.md`/`CHANGELOG.md` вашего проекта, чтобы команда знала о новых правилах вопросов, логах команд и репозиторных источниках.
 
 ## Релизы CLI
 - Версия берётся из `pyproject.toml`; пуш в `main` автоматически создаёт тег `v<версия>` (`.github/workflows/autotag.yml`), если такого ещё нет.
