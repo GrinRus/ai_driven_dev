@@ -542,6 +542,30 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _identifiers_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+    if args.json:
+        payload = {
+            "ticket": identifiers.ticket,
+            "slug_hint": identifiers.slug_hint,
+            "resolved_ticket": identifiers.resolved_ticket,
+        }
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0
+
+    ticket = identifiers.resolved_ticket or ""
+    hint = (identifiers.slug_hint or "").strip()
+    if hint and hint != ticket:
+        if ticket:
+            print(f"{ticket} ({hint})")
+        else:
+            print(hint)
+    else:
+        print(ticket)
+    return 0
+
+
 def _prd_review_command(args: argparse.Namespace) -> int:
     return _prd_review.run(args)
 
@@ -1613,9 +1637,9 @@ def _ensure_research_doc(
 
 
 def _iter_payload_files(root: Path) -> Iterable[Path]:
-    for path in root.rglob("*"):
-        if path.is_file():
-            yield path
+    for dirpath, _, filenames in os.walk(root):
+        for name in filenames:
+            yield Path(dirpath) / name
 
 
 def _ensure_unique_backup(path: Path) -> Path:
@@ -1674,7 +1698,9 @@ def _select_payload_entries(
         prefix_path = Path(strip_prefix.strip("/"))
         include_rel = []
         for inc in include_list:
-            if inc.parts and inc.parts[0] == prefix_path.name:
+            if inc.parts and inc.parts[0] in WORKSPACE_ROOT_DIRS:
+                include_rel.append(inc)
+            elif inc.parts and inc.parts[0] == prefix_path.name:
                 include_rel.append(inc)
             else:
                 include_rel.append(prefix_path / inc)
@@ -1690,9 +1716,12 @@ def _select_payload_entries(
         if include_rel and not any(_is_relative_to(rel, inc) for inc in include_rel):
             continue
         if normalized_prefix:
-            if not rel_posix.startswith(normalized_prefix):
+            if rel_posix.startswith(normalized_prefix):
+                stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
+            elif rel.parts and rel.parts[0] in WORKSPACE_ROOT_DIRS:
+                stripped_rel = rel
+            else:
                 continue
-            stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
         else:
             if rel.parts and rel.parts[0] == DEFAULT_PROJECT_SUBDIR:
                 stripped_rel = Path(*rel.parts[1:])
@@ -2059,6 +2088,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip automatic docs/prd/<ticket>.prd.md scaffold creation.",
     )
     set_active_feature_parser.set_defaults(func=_set_active_feature_command)
+
+    identifiers_parser = subparsers.add_parser(
+        "identifiers",
+        help="Resolve active feature identifiers (ticket and slug hint).",
+    )
+    identifiers_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    identifiers_parser.add_argument(
+        "--ticket",
+        help="Optional ticket override (defaults to docs/.active_ticket).",
+    )
+    identifiers_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    identifiers_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit identifiers as JSON for automation.",
+    )
+    identifiers_parser.set_defaults(func=_identifiers_command)
 
     set_active_stage_parser = subparsers.add_parser(
         "set-active-stage",
