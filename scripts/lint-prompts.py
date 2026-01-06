@@ -76,11 +76,23 @@ LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
 PAIRINGS: List[Tuple[str, str]] = [
     ("analyst", "idea-new"),
     ("planner", "plan-new"),
+    ("plan-reviewer", "review-spec"),
     ("implementer", "implement"),
     ("reviewer", "review"),
     ("researcher", "researcher"),
-    ("prd-reviewer", "review-prd"),
+    ("prd-reviewer", "review-spec"),
 ]
+
+REQUIRED_AGENT_REFERENCES = [
+    "aidd/AGENTS.md",
+    "aidd/docs/sdlc-flow.md",
+    "aidd/docs/status-machine.md",
+]
+
+QUESTION_TEMPLATE = {
+    "ru": "Вопрос N (Blocker|Clarification)",
+    "en": "Question N (Blocker|Clarification)",
+}
 
 
 @dataclass
@@ -116,9 +128,12 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
         errors.append(f"{path}: missing YAML front matter (start with ---)")
         return None, errors
 
-    try:
-        closing = lines.index("---", 1)
-    except ValueError:
+    closing = None
+    for idx, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            closing = idx
+            break
+    if closing is None:
         errors.append(f"{path}: missing closing --- for front matter")
         return None, errors
 
@@ -259,6 +274,26 @@ def validate_checkbox_guidance(info: PromptFile) -> List[str]:
     return errors
 
 
+def validate_agent_references(info: PromptFile) -> List[str]:
+    if info.kind != "agent":
+        return []
+    missing = [ref for ref in REQUIRED_AGENT_REFERENCES if ref not in info.body]
+    if missing:
+        return [f"{info.path}: missing references {missing}"]
+    return []
+
+
+def validate_question_template(info: PromptFile) -> List[str]:
+    if info.kind != "agent":
+        return []
+    if info.stem not in {"analyst", "validator"}:
+        return []
+    template = QUESTION_TEMPLATE.get(info.lang or "ru", "")
+    if template and template not in info.body:
+        return [f"{info.path}: missing question template `{template}`"]
+    return []
+
+
 def validate_prompt(info: PromptFile) -> List[str]:
     errors: List[str] = []
     front = info.front_matter
@@ -315,6 +350,8 @@ def validate_prompt(info: PromptFile) -> List[str]:
     errors.extend(validate_statuses(info))
     errors.extend(validate_placeholders(info))
     errors.extend(validate_checkbox_guidance(info))
+    errors.extend(validate_agent_references(info))
+    errors.extend(validate_question_template(info))
 
     return errors
 

@@ -143,7 +143,7 @@ def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
     write_file(project_root, "src/main/App.kt", "class App")
     write_file(project_root, "docs/tasklist/demo.md", "- [ ] QA")
     write_file(project_root, "docs/prd/demo.prd.md", "# PRD\n\n## PRD Review\nStatus: READY\n")
-    write_file(project_root, "docs/plan/demo.md", "# Plan")
+    write_file(project_root, "docs/plan/demo.md", "# Plan\n\n## Plan Review\nStatus: READY\n")
     write_file(project_root, "docs/research/demo.md", "# Research\nStatus: reviewed\n")
     write_file(project_root, "reports/qa/demo.json", '{"status": "ready"}\n')
 

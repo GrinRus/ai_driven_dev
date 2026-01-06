@@ -17,6 +17,7 @@ context:
     - "{{design_path}}"
     - docs/prd/{{feature}}.prd.md
     - docs/research/{{feature}}.md
+    - docs/plan/template.md
     - docs/tasklist.template.md
     - reports/research/{{feature}}-context.json
     - reports/research/{{feature}}-targets.json
@@ -34,6 +35,9 @@ context:
     - docs/customization.md
     - >-
       Составь пошаговый план реализации фичи {{feature}}.
+    - >-
+      Обязательные секции: Files & Modules touched, Iterations+DoD,
+      Test strategy per iteration, feature flags/migrations, observability.
     - >-
       Определи зависимости, риски и контрольные точки.
     - >-

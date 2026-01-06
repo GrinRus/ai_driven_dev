@@ -577,7 +577,7 @@ generate_directories() {
 }
 
 generate_core_docs() {
-  copy_template "CLAUDE.md" "CLAUDE.md" "append"
+  copy_template "AGENTS.md" "AGENTS.md" "append"
   copy_template "conventions.md" "conventions.md"
   copy_template "workflow.md" "workflow.md"
 }

@@ -2,51 +2,55 @@
 description: "Implementation plan + validation"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.3
-source_version: 1.0.3
-allowed-tools: Read,Edit,Write,Grep,Glob,Bash(python3 tools/set_active_stage.py:*)
+prompt_version: 1.0.8
+source_version: 1.0.8
+allowed-tools:
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/plan-new` transforms a READY PRD into `aidd/docs/plan/<ticket>.md` using the planner and validator agents. Run it before `/tasks-new` or any implementation work. The plan must include architecture & patterns (KISS/YAGNI/DRY/SOLID, default service layer + adapters/ports), reuse points from Researcher, and avoid over-engineering. Free-form notes after the ticket should be folded into the plan requirements.
+`/plan-new` builds the implementation plan from PRD + research, sets stage `plan`, and runs sub-agents `planner` then `validator`. The next step is `/review-spec`. Free-form notes after the ticket should be folded into the plan.
 
 ## Input Artifacts
-- `aidd/docs/prd/<ticket>.prd.md`— READY with `## PRD Review`.
-- `aidd/docs/research/<ticket>.md`— integration/risks.
-- ADRs referenced by the PRD.
+- `@aidd/docs/prd/<ticket>.prd.md` — must be `Status: READY`.
+- `@aidd/docs/research/<ticket>.md` — reviewed (or baseline allowed by gates).
+- ADRs (if any).
 
 ## When to Run
-- Immediately after `/idea-new`/`/review-prd`.
-- Repeat when the PRD changes materially and the plan must be updated.
+- After `/idea-new` and `/researcher` (if needed).
+- Re-run when requirements change materially.
 
 ## Automation & Hooks
-- Planner agent writes `aidd/docs/plan/<ticket>.md`.
-- Validator agent checks the plan and returns PASS/BLOCKED.
-- `claude-presets/feature-plan.yaml` can prefill iterations for known waves.
-- `python3 tools/set_active_stage.py plan` records the `plan` stage (can be rerun when replanning).
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` sets stage `plan`.
+- The command must **invoke the sub-agents** `planner` and `validator` (Claude: Run agent → planner/validator); `BLOCKED` returns questions.
+- `gate-workflow` requires a plan before code changes.
 
 ## What is Edited
 - `aidd/docs/plan/<ticket>.md`.
-- “Open questions” sections in PRD/plan — action items from PRD Review must be synced.
+- Sync open questions/risks with PRD if needed.
 
 ## Step-by-step Plan
-1. Record the `plan` stage: `python3 tools/set_active_stage.py plan`.
-2. Verify PRD status = READY; otherwise run `/review-prd <ticket>`.
-3. Call **planner** to generate the plan (Architecture & Patterns section: boundaries, chosen patterns, reuse points; iterations/DoD/references; minimal viable scope).
-4. Invoke **validator**. If BLOCKED, collect questions, resolve them, rerun planner/validator.
-5. Copy action items/open questions from PRD Review into the plan (and PRD’s section if needed).
-6. Optionally expand `feature-plan` preset.
+1. Set stage `plan`.
+2. Verify PRD is READY and research is current.
+3. Run sub-agent `planner` to create/update the plan.
+4. Run sub-agent `validator`; if `BLOCKED`, return questions.
+5. Ensure required sections exist (files/modules, iterations, tests, risks).
 
 ## Fail-fast & Questions
-- Missing PRD/research — stop and request prerequisites.
-- Unknown dependencies/integrations — ask before finalizing the plan.
+- Missing READY PRD or research — stop and request prerequisites.
+- If validator returns `BLOCKED`, ask questions in the required format.
 
 ## Expected Output
-- `aidd/docs/plan/<ticket>.md` filled with Architecture & Patterns (boundaries/patterns/reuse, minimal viable scope), iterations, DoD, risks, metrics.
-- Validator PASS; otherwise the list of blocking questions.
+- Updated and validated `aidd/docs/plan/<ticket>.md`.
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (next step: `/review-spec`).
 
 ## CLI Examples
 - `/plan-new ABC-123`
-- `!bash -lc 'claude-workflow preset feature-plan --ticket "ABC-123"'`

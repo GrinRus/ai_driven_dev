@@ -13,6 +13,8 @@ VALID_STAGES = {
     "idea",
     "research",
     "plan",
+    "review-plan",
+    "review-prd",
     "tasklist",
     "implement",
     "review",
@@ -24,7 +26,13 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Write the provided stage to docs/.active_stage (under aidd/)."
     )
-    parser.add_argument("stage", help="Stage name (idea/research/plan/tasklist/implement/review/qa).")
+    parser.add_argument(
+        "stage",
+        help=(
+            "Stage name (idea/research/plan/review-plan/review-prd/"
+            "tasklist/implement/review/qa)."
+        ),
+    )
     parser.add_argument(
         "--target",
         default="aidd",

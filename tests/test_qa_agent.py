@@ -158,7 +158,7 @@ Updated: 2024-01-01
 """,
         )
         write_file(self.project_root, f"docs/prd/{slug}.prd.md", APPROVED_PRD)
-        write_file(self.project_root, f"docs/plan/{slug}.md", "# Plan")
+        write_file(self.project_root, f"docs/plan/{slug}.md", "# Plan\n\n## Plan Review\nStatus: READY\n")
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
 
         subprocess.run(["git", "add", "."], cwd=self.project_root, check=True, capture_output=True)

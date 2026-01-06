@@ -78,7 +78,7 @@ class InitClaudeWorkflowTests(unittest.TestCase):
     def test_force_overwrites_existing_files(self):
         workdir = self.make_tempdir()
         project_root = workdir / PROJECT_SUBDIR
-        target = project_root / "CLAUDE.md"
+        target = project_root / "AGENTS.md"
 
         project_root.mkdir(parents=True, exist_ok=True)
         target.write_text("custom placeholder", encoding="utf-8")
@@ -87,8 +87,8 @@ class InitClaudeWorkflowTests(unittest.TestCase):
         result_no_force = self.run_script(workdir)
         combined_output = result_no_force.stderr + result_no_force.stdout
         self.assertTrue(
-            "appended: CLAUDE.md" in combined_output or "copied: CLAUDE.md" in combined_output,
-            "bootstrap should log touching CLAUDE.md",
+            "appended: AGENTS.md" in combined_output or "copied: AGENTS.md" in combined_output,
+            "bootstrap should log touching AGENTS.md",
         )
         content = target.read_text(encoding="utf-8")
         self.assertTrue(content.startswith("custom placeholder"))
@@ -96,7 +96,7 @@ class InitClaudeWorkflowTests(unittest.TestCase):
         # run with force: file should be reset to template contents
         self.run_script(workdir, "--force")
         content = target.read_text(encoding="utf-8")
-        payload_content = (PAYLOAD_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        payload_content = (PAYLOAD_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertEqual(content, payload_content)
 
     def test_prompt_locale_en_switches_prompts(self):

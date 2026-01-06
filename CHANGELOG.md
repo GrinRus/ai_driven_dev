@@ -7,6 +7,10 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ## [Unreleased]
 
 ### Added
+- New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
+- SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
+- `aidd/AGENTS.md` plus root `AGENTS.md` as the primary agent entrypoint.
+- Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
 - Payload manifest (`manifest.json`) with per-file checksums enforced at runtime.
 - `claude-workflow sync/upgrade --release` for fetching payloads from GitHub Releases with caching and bundled fallback.
 - Release packaging script (`scripts/package_payload_archive.py`) that produces versioned payload zip, manifest copy and checksum files for publication.
@@ -23,6 +27,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md`, `aidd/docs/agents-playbook.md`, ensuring agents log repository inputs and CLI commands before asking the user.
 
 ### Changed
+- Canonical flow now includes plan review: idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa.
+- Commands are thin orchestrators; agents carry algorithms/stop-conditions with a unified question format (Blocker/Clarification + rationale/options/default).
+- Output contract standardized (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), search unified on `rg`.
+- Research/tasklist/QA templates updated with Context Pack, Next 3, Handoff inbox, and QA traceability to acceptance criteria.
+- `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
 - Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI пресеты, гейты, тесты и документация; добавлен скрипт миграции `scripts/migrate-tasklist.py` и автоперенос в `set_active_feature.py`.
 - Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/qa-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md`, дизайн-пресеты и шаблоны tasklist.
 - `scripts/prd_review_gate.py`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
@@ -30,7 +39,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `claude-workflow progress`, `<test-runner> <args>`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
-- EN prompt parity tightened: report paths use `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-prd` accepts free-form notes, tasklist ownership is clarified for research/review agents, and the prompt linter now validates `Статус:` markers.
+- EN prompt parity tightened: report paths use `${CLAUDE_PLUGIN_ROOT:-./aidd}`, `/review-spec` accepts free-form notes, tasklist ownership is clarified for research/review agents, and the prompt linter now validates `Статус:` markers.
 - RU prompt placeholders normalized to `@aidd/docs/.../<ticket>...`, EN `/implement` instructions now reference `${CLAUDE_PLUGIN_ROOT:-./aidd}`, and prompt-lint tests cover `Статус:` validation.
 - EN `/qa` now uses `${CLAUDE_PLUGIN_ROOT:-./aidd}` for the default test hook path, and implementer tools include the `format-and-test.sh` hook.
 - `tools/check_payload_sync.py` now has a standard payload path list and warns when the runtime snapshot (`aidd/`) is missing.

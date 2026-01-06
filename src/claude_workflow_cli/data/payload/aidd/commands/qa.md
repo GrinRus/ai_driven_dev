@@ -2,61 +2,58 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.5
-source_version: 1.0.5
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
   - Write
-  - Grep
   - Glob
+  - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
   - "Bash(claude-workflow qa:*)"
   - "Bash(claude-workflow progress:*)"
-  - "Bash(claude-workflow smoke:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/qa` запускает обязательную финальную проверку фичи: вызывает саб-агента **qa** через `claude-workflow qa --gate`, формирует отчёт `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`, обновляет раздел QA в `aidd/docs/tasklist/<ticket>.md` и фиксирует прогресс. Выполняется после `/review` и перед релизом. Свободный ввод после тикета используй как контекст проверки.
+Команда `/qa` запускает финальную проверку: запускает саб-агента **qa** через `claude-workflow qa --gate`, обновляет QA секцию tasklist и фиксирует прогресс. Выполняется после `/review`.
 
 ## Входные артефакты
-- Активный тикет (`aidd/docs/.active_ticket`), slug-hint (`aidd/docs/.active_feature`).
-- `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md` (QA секция), логи предыдущих гейтов (`gate-tests`).
-- Diff/логи выполнения (`git diff`,`reports/reviewer/<ticket>.json`, тесты, демо окружение).
+- `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
+- `@aidd/docs/plan/<ticket>.md`.
+- `@aidd/docs/tasklist/<ticket>.md`.
+- Логи тестов/гейтов (если есть).
 
 ## Когда запускать
-- После `/review`, перед релизом и мёржем в основную ветку.
-- Повторяй при новых коммитах или изменении QA чеков.
+- После `/review`, перед релизом.
+- Повторять при новых изменениях.
 
 ## Автоматические хуки и переменные
-- Обязательный вызов:`!bash -lc 'claude-workflow qa --ticket "<ticket>" --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate --emit-json'`.
-- Гейт `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh` использует `config/gates.json: qa.command`(по умолчанию `claude-workflow qa --gate`), блокирует merge при `blocker/critical` и отсутствии отчёта `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
-- Зафиксируй прогресс:`!bash -lc 'claude-workflow progress --source qa --ticket "<ticket>"'`.
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa` фиксирует стадию `qa`.
+- Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `claude-workflow qa --gate`.
+- `claude-workflow qa --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate` формирует отчёт.
+- `claude-workflow progress --source qa --ticket <ticket>` фиксирует новые `[x]`.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md`— отмечаются QA чекбоксы, даты прогонов, ссылки на логи/отчёт.
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`— свежий отчёт агента QA.
+- `aidd/docs/tasklist/<ticket>.md`.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
 
 ## Пошаговый план
-1. Зафиксируй стадию `qa`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa`.
-2. Запусти саб-агента **qa** через CLI (см. команду выше) и дождись формирования `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json` со статусом READY/WARN/BLOCKED.
-3. Сопоставь diff с чеклистом: какие QA пункты покрыты, какие нет; зафиксируй найденные проблемы с severity и рекомендациями.
-4. Обнови `aidd/docs/tasklist/<ticket>.md`: переведи релевантные пункты `- [ ] → - [x]`, добавь дату/итерацию, ссылку на отчёт и лог команд.
-5. Выполни `claude-workflow progress --source qa --ticket <ticket>` и убедись, что новые `[x]` зафиксированы; при WARN перечисли known issues.
-6. В ответе укажи итоговый статус, закрытые чекбоксы (`Checkbox updated: ...`), ссылку на отчёт и следующее действие (если есть WARN/BLOCKED).
+1. Зафиксируй стадию `qa`.
+2. Запусти саб-агента **qa** через `claude-workflow qa --gate` и получи отчёт.
+3. Обнови QA секцию tasklist, добавь traceability к acceptance criteria.
+4. Подтверди прогресс через `claude-workflow progress`.
 
 ## Fail-fast и вопросы
-- Нет активного тикета/QA чеклиста? Попроси оформить `/tasks-new` или обновить `aidd/docs/.active_ticket`.
-- Отчёт не записался? Перезапусти CLI команду и приложи stderr; без отчёта гейт заблокирует merge.
-- Нет автотестов/логов среды — запроси у команды или зафиксируй объём непокрытых зон.
+- Нет tasklist/PRD — остановись и попроси обновить артефакты.
+- Отчёт не записался — перезапусти CLI команду и приложи stderr.
 
 ## Ожидаемый вывод
-- Ответ начинается со строки `Checkbox updated: <перечень QA пунктов>` и содержит статус `READY|WARN|BLOCKED`.
-- Ссылка на `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`, summary замечаний и дальнейшие шаги.
+- Обновлённый tasklist и отчёт QA.
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
 - `/qa ABC-123`
-- `!bash -lc 'claude-workflow qa --ticket "ABC-123" --branch "$(git rev-parse --abbrev-ref HEAD)" --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/ABC-123.json" --gate'`

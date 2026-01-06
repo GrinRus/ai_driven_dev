@@ -85,6 +85,13 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "blocking_severities": ["critical"],
         "report_path": "reports/prd/{ticket}.json",
     },
+    "plan_review": {
+        "enabled": True,
+        "approved_statuses": ["ready"],
+        "blocking_statuses": ["blocked"],
+        "allow_missing_section": False,
+        "require_action_items_closed": True,
+    },
     "researcher": {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],

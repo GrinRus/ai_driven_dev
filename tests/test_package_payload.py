@@ -30,7 +30,7 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{payload_prefix}/.claude/settings.json",
             f"{payload_prefix}/.claude/cache/.gitkeep",
             f"{payload_prefix}/.claude-plugin/marketplace.json",
-            f"{plugin_prefix}/CLAUDE.md",
+            f"{plugin_prefix}/AGENTS.md",
             f"{plugin_prefix}/conventions.md",
             f"{plugin_prefix}/workflow.md",
             f"{plugin_prefix}/config/conventions.json",

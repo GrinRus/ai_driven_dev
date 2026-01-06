@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ "$(basename "$ROOT_DIR")" != "aidd" && -d "$ROOT_DIR/aidd/hooks" ]]; then
   echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
   ROOT_DIR="$ROOT_DIR/aidd"
@@ -35,7 +35,7 @@ if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ti
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"
   else
-    echo "BLOCK: PRD Review не готов → выполните /review-prd $ticket"
+    echo "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
   fi
   exit 2
 fi

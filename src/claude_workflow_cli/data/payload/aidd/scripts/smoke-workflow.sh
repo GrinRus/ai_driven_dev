@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly and via `claude-workflow smoke`.
-# Creates a temporary project, runs init script, mimics the idea→plan→tasks cycle,
+# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→tasks cycle,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
 
@@ -261,27 +261,6 @@ PY
 log "analyst-check must pass"
 run_cli analyst-check --ticket "$TICKET" --target . >/dev/null
 
-log "expect block until PRD review READY"
-assert_gate_exit 2 "pending PRD review"
-
-log "mark PRD review as READY"
-python3 - "$TICKET" <<'PY'
-from pathlib import Path
-import sys
-
-ticket = sys.argv[1]
-path = Path("docs/prd") / f"{ticket}.prd.md"
-content = path.read_text(encoding="utf-8")
-if "## PRD Review" not in content:
-    raise SystemExit("PRD Review section missing in smoke scenario")
-if "Status: READY" not in content:
-    if "Status: PENDING" in content:
-        content = content.replace("Status: PENDING", "Status: READY", 1)
-    else:
-        content = content.replace("Status: pending", "Status: READY", 1)
-path.write_text(content, encoding="utf-8")
-PY
-
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
 
@@ -305,6 +284,42 @@ if "Architecture & Patterns" not in text:
 elif "service layer" not in text.lower():
     text += "\n- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
 path.write_text(text, encoding="utf-8")
+PY
+
+log "mark Plan Review as READY"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/plan") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+if "## Plan Review" not in text:
+    text += "\n## Plan Review\nStatus: READY\n"
+elif "Status: READY" not in text:
+    text = text.replace("Status: PENDING", "Status: READY", 1)
+path.write_text(text, encoding="utf-8")
+PY
+
+log "expect block until PRD review READY"
+assert_gate_exit 2 "pending PRD review"
+
+log "mark PRD review as READY"
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/prd") / f"{ticket}.prd.md"
+content = path.read_text(encoding="utf-8")
+if "## PRD Review" not in content:
+    raise SystemExit("PRD Review section missing in smoke scenario")
+if "Status: READY" not in content:
+    if "Status: PENDING" in content:
+        content = content.replace("Status: PENDING", "Status: READY", 1)
+    else:
+        content = content.replace("Status: pending", "Status: READY", 1)
+path.write_text(content, encoding="utf-8")
 PY
 
 log "expect block until tasks recorded"

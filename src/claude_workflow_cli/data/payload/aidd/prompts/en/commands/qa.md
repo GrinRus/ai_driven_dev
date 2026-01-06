@@ -1,54 +1,59 @@
 ---
-description: "Final QA gate for the feature"
+description: "Final QA check"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.5
-source_version: 1.0.5
-allowed-tools: Bash(claude-workflow qa:*),Bash(claude-workflow progress:*),Bash(claude-workflow smoke:*),Bash(python3 tools/set_active_stage.py:*),Read,Grep,Glob,Write,Edit
+prompt_version: 1.0.7
+source_version: 1.0.7
+allowed-tools:
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow qa:*)"
+  - "Bash(claude-workflow progress:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Context
-`/qa` runs the mandatory QA stage after `/review`: it invokes the **qa** sub-agent via `claude-workflow qa --gate`, produces `reports/qa/<ticket>.json`, updates the QA section in `aidd/docs/tasklist/<ticket>.md`, and records progress before release. Treat any free-form notes after the ticket as QA scope hints.
+`/qa` runs the final check: runs sub-agent **qa** via `claude-workflow qa --gate`, updates tasklist QA section, and records progress. Runs after `/review`.
 
 ## Input Artifacts
-- Active ticket (`aidd/docs/.active_ticket`), slug hint (`aidd/docs/.active_feature`).
-- `aidd/docs/prd/<ticket>.prd.md`,`aidd/docs/plan/<ticket>.md`,`aidd/docs/tasklist/<ticket>.md`(QA section), logs from previous gates (`gate-tests`).
-- Diff/logs (`git diff`,`reports/reviewer/<ticket>.json`, test outputs, demo/staging info).
+- `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
+- `@aidd/docs/plan/<ticket>.md`.
+- `@aidd/docs/tasklist/<ticket>.md`.
+- Test/gate logs.
 
 ## When to Run
-- After `/review`, before release/merge.
-- Re-run whenever new commits land or QA checks change.
+- After `/review`, before release.
+- Re-run after new changes.
 
 ## Automation & Hooks
-- Required call:`!("claude-workflow" qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate --emit-json)`.
-- QA auto-runs tests from `config/gates.json: qa.tests`(default `${CLAUDE_PLUGIN_ROOT:-./aidd}/.claude/hooks/format-and-test.sh`); logs to `reports/qa/<ticket>-tests*.log`, summary in report (`tests_summary`,`tests_executed`). Overrides:`--skip-tests`/`--allow-no-tests` or env `CLAUDE_QA_SKIP_TESTS`/`CLAUDE_QA_ALLOW_NO_TESTS`.
-- Gate `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-qa.sh` uses `config/gates.json: qa.command`(default `claude-workflow qa --gate`), blocks merge on `blocker/critical` or missing `reports/qa/<ticket>.json`, checks tasklist progress (`progress --source qa|handoff`), and runs `tasks-derive --source qa --append` when `handoff=true`.
-- Record progress:`!("claude-workflow" progress --source qa --ticket "<ticket>")`.
-- `python3 tools/set_active_stage.py qa` records the `qa` stage.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa` sets stage `qa`.
+- The command must **invoke the sub-agent** **qa** (Claude: Run agent → qa) via `claude-workflow qa --gate`.
+- `claude-workflow qa --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate` writes the report.
+- `claude-workflow progress --source qa --ticket <ticket>` records new `[x]`.
 
 ## What is Edited
-- `aidd/docs/tasklist/<ticket>.md`— QA checkboxes, run dates, links to logs/report.
-- `reports/qa/<ticket>.json`— fresh QA report.
+- `aidd/docs/tasklist/<ticket>.md`.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
 
 ## Step-by-step Plan
-1. Record the `qa` stage: `python3 tools/set_active_stage.py qa`.
-2. Run **qa** sub-agent via CLI (see command above); ensure `reports/qa/<ticket>.json` is written with READY/WARN/BLOCKED and test logs are captured.
-3. Map diff to the QA checklist; capture findings with severity and recommendations.
-4. Update `aidd/docs/tasklist/<ticket>.md`: switch relevant items `- [ ] → - [x]`, add date/iteration, link to report and test logs (`reports/qa/<ticket>-tests*.log`).
-5. Execute `claude-workflow progress --source qa --ticket <ticket>` and confirm new `[x]` entries; add handoff `- [ ] ... (source: reports/qa/<ticket>.json)` or run `claude-workflow tasks-derive --source qa --append`.
-6. Reply with status,`Checkbox updated: ...`, link to report/test logs, and next steps if WARN/BLOCKED.
+1. Set stage `qa`.
+2. Run sub-agent **qa** via `claude-workflow qa --gate` and read the report.
+3. Update QA section in tasklist with traceability to acceptance criteria.
+4. Confirm progress via `claude-workflow progress`.
 
 ## Fail-fast & Questions
-- No active ticket/QA checklist? Ask to run `/tasks-new` or set `aidd/docs/.active_ticket`.
-- Report missing? Rerun the CLI and include stderr; gate requires the report.
-- Missing tests/env logs — request them or document uncovered scope explicitly.
+- Missing tasklist/PRD → stop and request updates.
+- If the report is missing, rerun the CLI command and capture stderr.
 
 ## Expected Output
-- `Checkbox updated: <QA items>` and `Status: READY|WARN|BLOCKED`.
-- Link to `reports/qa/<ticket>.json`, summary of findings, next actions.
+- Updated tasklist + QA report.
+- Response includes `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## CLI Examples
 - `/qa ABC-123`
-- `!bash -lc 'claude-workflow qa --ticket "ABC-123" --branch "$(git rev-parse --abbrev-ref HEAD)" --report "reports/qa/ABC-123.json" --gate'`

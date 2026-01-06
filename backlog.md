@@ -927,31 +927,39 @@ _Статус: новый, приоритет 1. Цель — оптимизир
 _Статус: новый, приоритет 1. Цель — зафиксировать SDLC‑контракт, устранить рассинхроны порядка стадий/статусов и переработать промпты под thin‑commands + rich‑agents._
 
 ### SDLC контракт и статусы
-- [ ] Инвентаризировать текущие preconditions/postconditions команд и агентов (команда/агент → входы → выходы → статус → гейты) по файлам `src/claude_workflow_cli/data/payload/aidd/{commands,agents}/*.md`, `src/claude_workflow_cli/data/payload/aidd/hooks/gate-workflow.sh`, `src/claude_workflow_cli/data/payload/aidd/config/gates.json`.
-- [ ] Зафиксировать канонический порядок стадий (вариант B) с разделением ревью на `/review-plan` → `/review-prd`: `idea → research → plan → review-plan → review-prd → tasks → implement → review → qa`, описать в `src/claude_workflow_cli/data/payload/aidd/docs/sdlc-flow.md` (таблица/диаграмма + ссылки на артефакты).
-- [ ] Добавить отдельный этап `review-plan`: новый агент/команда (`plan-reviewer` + `/review-plan`), критерии готовности плана и точки отказа до PRD review.
-- [ ] Создать `src/claude_workflow_cli/data/payload/aidd/docs/status-machine.md`: статусы PRD/Research/Plan/Review/QA, кто выставляет, обязательные артефакты и условия переходов.
-- [ ] Синхронизировать порядок стадий и ссылки на статусы во всех документах: `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `AGENTS.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/feature-cookbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (ссылки на `sdlc-flow.md` и `status-machine.md`).
-- [ ] Обновить контракт гейтов под новый flow и `review-plan`: `src/claude_workflow_cli/data/payload/aidd/hooks/gate-workflow.sh`, `src/claude_workflow_cli/data/payload/aidd/config/gates.json`, `src/claude_workflow_cli/data/payload/aidd/scripts/prd_review_gate.py`; скорректировать smoke/тесты под новый порядок стадий.
-- [ ] Ввести `AGENTS.md` в корень репозитория как основной entrypoint; убрать `CLAUDE.md` из целевых артефактов и ссылок в документации/промптах.
+- [x] Инвентаризировать текущие preconditions/postconditions команд и агентов (команда/агент → входы → выходы → статус → гейты) по файлам `src/claude_workflow_cli/data/payload/aidd/{commands,agents}/*.md`, `src/claude_workflow_cli/data/payload/aidd/hooks/gate-workflow.sh`, `src/claude_workflow_cli/data/payload/aidd/config/gates.json`.
+- [x] Зафиксировать канонический порядок стадий (вариант B) с разделением ревью на `/review-plan` → `/review-prd`: `idea → research → plan → review-plan → review-prd → tasks → implement → review → qa`, описать в `src/claude_workflow_cli/data/payload/aidd/docs/sdlc-flow.md` (таблица/диаграмма + ссылки на артефакты).
+- [x] Добавить отдельный этап `review-plan`: новый агент/команда (`plan-reviewer` + `/review-plan`), критерии готовности плана и точки отказа до PRD review.
+- [x] Создать `src/claude_workflow_cli/data/payload/aidd/docs/status-machine.md`: статусы PRD/Research/Plan/Review/QA, кто выставляет, обязательные артефакты и условия переходов.
+- [x] Синхронизировать порядок стадий и ссылки на статусы во всех документах: `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `AGENTS.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/feature-cookbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (ссылки на `sdlc-flow.md` и `status-machine.md`).
+- [x] Обновить контракт гейтов под новый flow и `review-plan`: `src/claude_workflow_cli/data/payload/aidd/hooks/gate-workflow.sh`, `src/claude_workflow_cli/data/payload/aidd/config/gates.json`, `src/claude_workflow_cli/data/payload/aidd/scripts/prd_review_gate.py`; скорректировать smoke/тесты под новый порядок стадий.
+- [x] Ввести `AGENTS.md` в корень репозитория как основной entrypoint; убрать `CLAUDE.md` из целевых артефактов и ссылок в документации/промптах.
 
 ### Промпты: thin commands, rich agents
-- [ ] Сделать команды «тонкими» (оркестрация + контракт) без дублирования алгоритма: `src/claude_workflow_cli/data/payload/aidd/commands/{idea-new,researcher,plan-new,review-plan,review-prd,tasks-new,implement,review,qa}.md` (RU/EN).
-- [ ] Перенести алгоритм и stop‑conditions в агентов: `src/claude_workflow_cli/data/payload/aidd/agents/{analyst,researcher,planner,plan-reviewer,prd-reviewer,validator,implementer,reviewer,qa}.md` (RU/EN), добавить блоки MUST READ/MUST NOT и границы плана.
-- [ ] Стандартизировать вопросы пользователю (Blocker|Clarification → зачем → варианты → default) в `analyst`, `validator` (и при необходимости `planner`); обновить `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`.
-- [ ] Нормализовать output‑контракт: единый формат `Checkbox updated` + `Status` + `Artifacts updated` + `Next actions` во всех командах/агентах.
-- [ ] Рационализировать allowed‑tools (единый способ поиска: Grep или `rg` через Bash) и сузить allowlist для review/qa.
+- [x] Сделать команды «тонкими» (оркестрация + контракт) без дублирования алгоритма: `src/claude_workflow_cli/data/payload/aidd/commands/{idea-new,researcher,plan-new,review-plan,review-prd,tasks-new,implement,review,qa}.md` (RU/EN).
+- [x] Перенести алгоритм и stop‑conditions в агентов: `src/claude_workflow_cli/data/payload/aidd/agents/{analyst,researcher,planner,plan-reviewer,prd-reviewer,validator,implementer,reviewer,qa}.md` (RU/EN), добавить блоки MUST READ/MUST NOT и границы плана.
+- [x] Стандартизировать вопросы пользователю (Blocker|Clarification → зачем → варианты → default) в `analyst`, `validator` (и при необходимости `planner`); обновить `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`.
+- [x] Нормализовать output‑контракт: единый формат `Checkbox updated` + `Status` + `Artifacts updated` + `Next actions` во всех командах/агентах.
+- [x] Рационализировать allowed‑tools (единый способ поиска: Grep или `rg` через Bash) и сузить allowlist для review/qa.
 
 ### Handoff‑артефакты и исполняемость
-- [ ] Research TL;DR: добавить `Context Pack (TL;DR)` и Definition of reviewed в `src/claude_workflow_cli/data/payload/aidd/docs/templates/research-summary.md` и синхронизировать `src/claude_workflow_cli/data/payload/aidd/agents/researcher.md`.
-- [ ] Plan «исполняемый»: добавить обязательные секции (Files/modules touched, test strategy per iteration, feature flags/migrations, observability) в `src/claude_workflow_cli/data/payload/aidd/agents/planner.md`, `src/claude_workflow_cli/data/payload/aidd/agents/validator.md`, `src/claude_workflow_cli/data/payload/aidd/claude-presets/feature-plan.yaml`.
-- [ ] Tasklist фокус: добавить `Next 3 checkboxes` и `Handoff inbox` в `src/claude_workflow_cli/data/payload/aidd/docs/tasklist.template.md` и `src/claude_workflow_cli/data/payload/aidd/templates/tasklist.md`; обновить `/tasks-new`.
-- [ ] Traceability: связать PRD acceptance criteria с QA‑проверками в `src/claude_workflow_cli/data/payload/aidd/agents/qa.md`, `src/claude_workflow_cli/data/payload/aidd/docs/qa-playbook.md`, при необходимости — в `src/claude_workflow_cli/data/payload/aidd/docs/prd.template.md`.
+- [x] Research TL;DR: добавить `Context Pack (TL;DR)` и Definition of reviewed в `src/claude_workflow_cli/data/payload/aidd/docs/templates/research-summary.md` и синхронизировать `src/claude_workflow_cli/data/payload/aidd/agents/researcher.md`.
+- [x] Plan «исполняемый»: добавить обязательные секции (Files/modules touched, test strategy per iteration, feature flags/migrations, observability) в `src/claude_workflow_cli/data/payload/aidd/agents/planner.md`, `src/claude_workflow_cli/data/payload/aidd/agents/validator.md`, `src/claude_workflow_cli/data/payload/aidd/claude-presets/feature-plan.yaml`.
+- [x] Tasklist фокус: добавить `Next 3 checkboxes` и `Handoff inbox` в `src/claude_workflow_cli/data/payload/aidd/docs/tasklist.template.md` и `src/claude_workflow_cli/data/payload/aidd/templates/tasklist.md`; обновить `/tasks-new`.
+- [x] Traceability: связать PRD acceptance criteria с QA‑проверками в `src/claude_workflow_cli/data/payload/aidd/agents/qa.md`, `src/claude_workflow_cli/data/payload/aidd/docs/qa-playbook.md`, при необходимости — в `src/claude_workflow_cli/data/payload/aidd/docs/prd.template.md`.
 
 ### Governance и проверки
-- [ ] Расширить `scripts/lint-prompts.py`: контроль ссылок на `status-machine.md`/`sdlc-flow.md`, проверка шаблона вопросов в ключевых агентах; обновить `tests/test_prompt_lint.py`.
-- [ ] Обновить smoke/regression под новый flow: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`, `tests/test_prompt_versioning.py`.
-- [ ] После правок: bump `prompt_version` (RU/EN), обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+- [x] Расширить `scripts/lint-prompts.py`: контроль ссылок на `status-machine.md`/`sdlc-flow.md`, проверка шаблона вопросов в ключевых агентах; обновить `tests/test_prompt_lint.py`.
+- [x] Обновить smoke/regression под новый flow: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`, `tests/test_prompt_versioning.py`.
+- [x] После правок: bump `prompt_version` (RU/EN), обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+
+### Унификация путей и root-resolution
+- [ ] Ввести единый helper `hook_project_root` в `src/claude_workflow_cli/data/payload/aidd/hooks/lib.sh` с приоритетом: `AIDD_ROOT` → `CLAUDE_PROJECT_DIR` → `CLAUDE_PLUGIN_ROOT` → `git -C "$PWD" rev-parse --show-toplevel` → поиск вверх `aidd/docs`; возвращать абсолютный путь (realpath) и пустое значение при провале.
+- [ ] Привести все hook‑скрипты к одному резолверу и абсолютным путям (без `cd`): `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-tests.sh,gate-qa.sh,lint-deps.sh}`; все git‑команды только через `git -C "$ROOT_DIR" ...`; если root не найден — мягкий exit без блокировки.
+- [ ] Унифицировать резолвинг путей в runtime‑скриптах и tools: добавить `--root`/`AIDD_ROOT` и единый helper `get_root()` в `src/claude_workflow_cli/data/payload/aidd/scripts/{qa-agent.py,prd-review-agent.py,plan_review_gate.py,prd_review_gate.py}` и `src/claude_workflow_cli/data/payload/aidd/tools/{set_active_stage.py,set_active_feature.py,run_cli.py}`; исключить относительные `./aidd` пути.
+- [ ] Обновить документацию об источнике root и запуске CLI: `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (правило: хуки и CLI работают от workspace root; `AIDD_ROOT` как override).
+- [ ] Добавить тесты на резолвинг root: эмуляция `AIDD_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT` (cache path), запуск hook из чужого cwd; отдельный кейс non‑git — ожидается мягкий exit. Файлы: `tests/test_gate_workflow.py`, `tests/helpers.py`.
+- [ ] После унификации: обновить `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
 
 ## Wave 60
 
@@ -995,3 +1003,63 @@ _Статус: новый, приоритет 1. Цель — довести lan
 
 ### Tests
 - [ ] Добавить тесты/смоук для новых config‑ключей (`format-and-test`, `lint-deps`, init‑скрипт) и обновить `tests/test_init_claude_workflow.py`/`src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` при необходимости.
+
+## Wave 62
+
+_Статус: новый, приоритет 1. Цель — добавить единую оркестрацию флоу через `/flow` (команда‑композиция с human‑in‑the‑loop)._
+
+### Спецификация поведения /flow
+- [ ] Зафиксировать decision‑tree `/flow`: источники `ticket/slug` (аргументы → `.active_*`), маппинг `stage → next command`, режимы `spec|full|next`, лимит на число шагов за запуск, правила остановки при `PENDING/BLOCKED` и обязательные READY‑артефакты; оформить в `src/claude_workflow_cli/data/payload/aidd/workflow.md`.
+- [ ] Обновить контракт команд в `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`: добавить `/flow` в матрицу (входы/выходы), описать политику `SlashCommand` и handoff‑правила.
+
+### Промпты /flow (payload)
+- [ ] Создать RU‑команду `src/claude_workflow_cli/data/payload/aidd/commands/flow.md` по шаблону playbook: `argument-hint`, `allowed-tools` (Read/Glob/`Bash(rg:*)`/`Bash(cat:*)`/`SlashCommand`), алгоритм выбора следующей стадии и секция блокировки с вопросами.
+- [ ] Создать EN‑версию `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/flow.md` с синхронным `prompt_version` и `source_version`.
+
+### Интеграция и реестр команд
+- [ ] Подключить `/flow` в `src/claude_workflow_cli/data/payload/aidd/.claude-plugin/plugin.json`.
+- [ ] Обновить краткий гайд команд в `src/claude_workflow_cli/data/payload/aidd/workflow.md` (пример запуска `/flow`, режимы и handoff).
+
+### Optional: checkpoint‑handoff
+- [ ] Опционально: добавить маркер `aidd/docs/.flow_checkpoint` при блокировке (для auto‑resume) и описать правило в `src/claude_workflow_cli/data/payload/aidd/AGENTS.md`.
+
+### Governance и синхронизация
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json` после добавления команды.
+- [ ] Прогнать `python3 scripts/lint-prompts.py --root src/claude_workflow_cli/data/payload/aidd` и `python3 tools/check_payload_sync.py`, затем синхронизировать payload → root: `scripts/sync-payload.sh --direction=to-root`.
+
+## Wave 63
+
+_Статус: новый, приоритет 1. Цель — CLI‑first: перенести всю кастомную автоматизацию из payload в `claude-workflow`, удалить скрипты/обвязки из payload без обратной совместимости._
+
+### Инвентаризация и карта миграции
+- [ ] Собрать реестр всех кастомных скриптов/обвязок в payload: `src/claude_workflow_cli/data/payload/aidd/tools/*.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/**`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`, плюс все упоминания в hooks/commands/agents/docs; оформить таблицу «старый путь → новая CLI‑команда → потребители» в `src/claude_workflow_cli/data/payload/aidd/docs/cli-migration.md`.
+
+### CLI‑команды: перенос логики из payload
+- [ ] Перенести `aidd/tools/set_active_feature.py` в `claude-workflow set-active-feature` (модуль в `src/claude_workflow_cli/`, CLI‑подкоманда в `src/claude_workflow_cli/cli.py`).
+- [ ] Перенести `aidd/tools/set_active_stage.py` в `claude-workflow set-active-stage`.
+- [ ] Перенести `aidd/tools/migrate_ticket.py` + `aidd/scripts/migrate-tasklist.py` в `claude-workflow migrate-ticket`/`migrate-tasklist` (или единая команда с флагами).
+- [ ] Перенести `aidd/scripts/prd-review-agent.py` в `claude-workflow review-spec` (или `claude-workflow prd-review`) с сохранением JSON‑отчёта и текстового summary.
+- [ ] Перенести `aidd/scripts/{plan_review_gate.py,prd_review_gate.py}` в `claude-workflow plan-review-gate` / `claude-workflow prd-review-gate` (используются хуками).
+- [ ] Перенести `aidd/scripts/qa-agent.py` в `claude-workflow qa` (единый генератор отчёта, exit‑codes и фильтры).
+- [ ] Перенести `aidd/tools/researcher_context.py` в `claude-workflow researcher-context` или интегрировать в `claude-workflow research` (один источник истины).
+- [ ] Перенести `aidd/scripts/context_gc/*` в `claude-workflow context-gc` (режимы `precompact`, `sessionstart`, `pretooluse`, `userprompt`).
+- [ ] Удалить `aidd/tools/run_cli.py`: все вызовы должны идти через установленный `claude-workflow` (с понятной ошибкой при отсутствии бинаря).
+
+### Обновление хуков/команд/агентов под CLI‑first
+- [ ] Обновить хуки: заменить `python3 .../scripts/*.py` и `python3 .../tools/*.py` на `claude-workflow <subcommand>` в `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-qa.sh,gate-tests.sh,lint-deps.sh}` и `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`.
+- [ ] Обновить slash‑команды и агентские промпты (RU/EN): заменить упоминания `tools/*`/`scripts/*` на `claude-workflow` во всех `src/claude_workflow_cli/data/payload/aidd/{commands,agents}/**`.
+- [ ] Обновить `.claude/settings.json`: удалить разрешения на `aidd/tools/*` и `aidd/scripts/*`, оставить `Bash(claude-workflow:*)` и нужные стандартные утилиты.
+
+### Очистка payload (без обратной совместимости)
+- [ ] Удалить из payload все кастомные скрипты/обвязки: `src/claude_workflow_cli/data/payload/aidd/tools/`, `src/claude_workflow_cli/data/payload/aidd/scripts/`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`.
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh` (не копировать удалённые файлы) и `src/claude_workflow_cli/data/payload/manifest.json`.
+
+### Тесты и CI
+- [ ] Обновить smoke: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` (или заменить на вызов `claude-workflow smoke`) без обращения к `tools/*.py`/`scripts/*.py`.
+- [ ] Переписать unit‑тесты на CLI‑first: `tests/test_init_claude_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`, `tests/test_prd_review_gate.py`, `tests/test_prompt_versioning.py` (если зависит от скриптов).
+- [ ] Добавить тесты наличия новых CLI‑подкоманд и отсутствия legacy‑файлов в payload.
+
+### Документация и релиз
+- [ ] Обновить `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` — заменить ссылки на `tools/*.py`/`scripts/*.py` на `claude-workflow`.
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` (breaking change: legacy scripts removed).
+- [ ] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`, полный прогон `scripts/ci-lint.sh`.
