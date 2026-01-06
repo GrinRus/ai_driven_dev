@@ -1006,8 +1006,13 @@ def _qa_command(args: argparse.Namespace) -> int:
             .replace("{branch}", branch or "")
         )
 
-    report = args.report or "reports/qa/{ticket}.json"
-    report = _fmt(report)
+    report_template = args.report or "reports/qa/{ticket}.json"
+    report_text = _fmt(report_template)
+    report_path = Path(report_text)
+    if not report_path.is_absolute():
+        report_path = (target / report_path).resolve()
+    else:
+        report_path = report_path.resolve()
 
     allow_no_tests = bool(
         getattr(args, "allow_no_tests", False)
@@ -1024,7 +1029,7 @@ def _qa_command(args: argparse.Namespace) -> int:
             ticket=ticket,
             slug_hint=slug_hint or None,
             branch=branch,
-            report_path=target / report,
+            report_path=report_path,
             allow_missing=allow_no_tests,
         )
         if tests_summary == "fail":
@@ -1056,8 +1061,8 @@ def _qa_command(args: argparse.Namespace) -> int:
         qa_args.extend(["--slug-hint", slug_hint])
     if branch:
         qa_args.extend(["--branch", branch])
-    if report:
-        qa_args.extend(["--report", report])
+    if report_path:
+        qa_args.extend(["--report", str(report_path)])
 
     _, allow_skip_cfg = _load_qa_tests_config(target)
     allow_no_tests_env = allow_no_tests or allow_skip_cfg

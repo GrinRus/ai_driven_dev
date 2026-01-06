@@ -218,3 +218,31 @@ Updated: 2024-01-02
         )
         self.assertEqual(result_ok.returncode, 0, msg=result_ok.stderr)
         self.assertIn("Прогресс tasklist", result_ok.stdout)
+
+    def test_cli_qa_report_resolves_target_root(self):
+        (self.project_root / "docs").mkdir(parents=True, exist_ok=True)
+        workdir = self.root / "outside"
+        workdir.mkdir(parents=True, exist_ok=True)
+        report_rel = "reports/qa/demo.json"
+
+        result = subprocess.run(
+            cli_cmd(
+                "qa",
+                "--target",
+                str(self.root),
+                "--ticket",
+                "DEMO-1",
+                "--skip-tests",
+                "--report",
+                report_rel,
+                "--format",
+                "json",
+            ),
+            cwd=workdir,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertTrue((self.project_root / report_rel).is_file())
+        self.assertFalse((workdir / report_rel).exists())
