@@ -6,8 +6,6 @@
 | --- | --- | --- |
 | `aidd/tools/set_active_feature.py` | `claude-workflow set-active-feature` | `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`, `/qa`, `/researcher`, агенты `analyst/planner/implementer/reviewer/qa/researcher/plan-reviewer/prd-reviewer/validator` |
 | `aidd/tools/set_active_stage.py` | `claude-workflow set-active-stage` | `/idea-new`, `/plan-new`, `/tasks-new`, `/implement`, `/review`, `/qa`, `/review-spec`, `/researcher`, агенты `analyst/planner/implementer/reviewer/qa/researcher/plan-reviewer/prd-reviewer/validator` |
-| `aidd/tools/migrate_ticket.py` | `claude-workflow migrate-ticket` | `aidd/docs/migration-aidd.md` |
-| `aidd/scripts/migrate-tasklist.py` | `claude-workflow migrate-tasklist` | `aidd/docs/migration-aidd.md` |
 | `aidd/scripts/prd-review-agent.py` | `claude-workflow prd-review` | `/review-spec` (`prd-reviewer`) |
 | `aidd/scripts/plan_review_gate.py` | `claude-workflow plan-review-gate` | `aidd/hooks/gate-workflow.sh` |
 | `aidd/scripts/prd_review_gate.py` | `claude-workflow prd-review-gate` | `aidd/hooks/gate-workflow.sh`, `aidd/hooks/gate-prd-review.sh` |

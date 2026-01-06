@@ -139,7 +139,7 @@ fi
 
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
-analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticket")
+analyst_cmd=(claude-workflow analyst-check --target "$ROOT_DIR" --ticket "$ticket")
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
@@ -447,7 +447,7 @@ PY
   fi
 fi
 
-progress_args=("--root" "$PWD" "--ticket" "$ticket" "--source" "gate" "--quiet-ok")
+progress_args=("--target" "$ROOT_DIR" "--ticket" "$ticket" "--source" "gate")
 if [[ -n "$slug_hint" ]]; then
   progress_args+=("--slug-hint" "$slug_hint")
 fi
@@ -455,7 +455,7 @@ if [[ -n "$current_branch" ]]; then
   progress_args+=("--branch" "$current_branch")
 fi
 set +e
-progress_output="$(python3 -m claude_workflow_cli.progress "${progress_args[@]}" 2>&1)"
+progress_output="$(claude-workflow progress "${progress_args[@]}" 2>&1)"
 progress_status=$?
 set -e
 if [[ "$progress_status" -ne 0 ]]; then

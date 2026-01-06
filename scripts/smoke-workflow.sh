@@ -10,20 +10,61 @@ INIT_SCRIPT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/init-claude-w
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_BIN="${CLAUDE_WORKFLOW_BIN:-claude-workflow}"
+CLI_PYTHON="${CLAUDE_WORKFLOW_PYTHON:-python3}"
+CLI_PYTHONPATH="${CLAUDE_WORKFLOW_PYTHONPATH:-$ROOT_DIR/src}"
+CLI_USE_PYTHON=0
 export PYTHONDONTWRITEBYTECODE="1"
 WORKDIR=""
 WORKSPACE_ROOT=""
 
+if [[ ! -d "$CLI_PYTHONPATH" ]]; then
+  CLI_PYTHONPATH=""
+fi
+
+resolve_cli() {
+  if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
+    CLI_USE_PYTHON=0
+    return 0
+  fi
+
+  local pythonpath_env=""
+  if [[ -n "$CLI_PYTHONPATH" ]]; then
+    pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
+  fi
+  if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
+import importlib
+importlib.import_module("claude_workflow_cli")
+PY
+    CLI_USE_PYTHON=1
+    echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+    return 0
+  fi
+
+  echo "[smoke] missing CLI binary (${CLI_BIN}) and python module (claude_workflow_cli)" >&2
+  echo "[smoke] install with uv/pipx or set CLAUDE_WORKFLOW_PYTHONPATH to repo src/" >&2
+  exit 1
+}
+
 run_cli() {
   CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${WORKDIR:-}}"
   CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-${WORKSPACE_ROOT:-${WORKDIR:-}}}"
-  env CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$CLAUDE_PROJECT_DIR" \
-    "$CLI_BIN" "$@"
+  if [[ "$CLI_USE_PYTHON" -eq 1 ]]; then
+    local pythonpath_env=""
+    if [[ -n "$CLI_PYTHONPATH" ]]; then
+      pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
+    fi
+    env CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$CLAUDE_PROJECT_DIR" \
+      $pythonpath_env "$CLI_PYTHON" -m claude_workflow_cli.cli "$@"
+  else
+    env CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$CLAUDE_PROJECT_DIR" \
+      "$CLI_BIN" "$@"
+  fi
 }
 
-if ! command -v "$CLI_BIN" >/dev/null 2>&1; then
-  echo "[smoke] missing CLI binary: $CLI_BIN (install via uv/pipx first)" >&2
-  exit 1
+resolve_cli
+
+if [[ "$CLI_USE_PYTHON" -eq 1 && -n "$CLI_PYTHONPATH" ]]; then
+  export PYTHONPATH="${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
 fi
 
 [[ -x "$INIT_SCRIPT" ]] || {
@@ -112,6 +153,18 @@ for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
         assert_has("context-gc userprompt", event)
 PY
 
+log "run context-gc hooks"
+run_cli context-gc precompact >/dev/null
+run_cli context-gc sessionstart >/dev/null
+run_cli context-gc pretooluse >/dev/null
+run_cli context-gc userprompt >/dev/null
+
+log "sync payload dry-run"
+run_cli sync --target . --dry-run --include .claude --include aidd >/dev/null
+
+log "upgrade payload dry-run"
+run_cli upgrade --target . --dry-run >/dev/null
+
 log "create demo source file"
 mkdir -p "$WORKDIR/src/main/kotlin"
 cat <<'KT' >"$WORKDIR/src/main/kotlin/App.kt"
@@ -129,6 +182,13 @@ log "activate feature ticket"
 run_cli set-active-feature --target . "$TICKET" >/dev/null
 [[ -f "$WORKDIR/docs/.active_ticket" ]] || {
   echo "[smoke] failed to set active ticket" >&2
+  exit 1
+}
+
+log "run researcher-context targets-only"
+run_cli researcher-context -- --target . --ticket "$TICKET" --targets-only >/dev/null
+[[ -f "$WORKDIR/reports/research/${TICKET}-targets.json" ]] || {
+  echo "[smoke] researcher-context did not create targets" >&2
   exit 1
 }
 
@@ -300,6 +360,9 @@ elif "Status: READY" not in text:
 path.write_text(text, encoding="utf-8")
 PY
 
+log "plan-review-gate passes"
+run_cli plan-review-gate --target . --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
+
 log "expect block until PRD review READY"
 assert_gate_exit 2 "pending PRD review"
 
@@ -320,6 +383,14 @@ if "Status: READY" not in content:
         content = content.replace("Status: pending", "Status: READY", 1)
 path.write_text(content, encoding="utf-8")
 PY
+
+log "run prd-review and prd-review-gate"
+run_cli prd-review --target . --ticket "$TICKET" --report "reports/prd/${TICKET}.json" --emit-text >/dev/null
+[[ -f "reports/prd/${TICKET}.json" ]] || {
+  echo "[smoke] prd-review did not create report" >&2
+  exit 1
+}
+run_cli prd-review-gate --target . --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
@@ -444,7 +515,7 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/nul
 log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
-grep -q "Demo Checkout" "docs/tasklist/${TICKET}.md"
+grep -q "Tasklist —" "docs/tasklist/${TICKET}.md"
 
 log "smoke scenario passed"
 popd >/dev/null
@@ -453,7 +524,7 @@ popd >/dev/null
 log "negative scenario: gate fails on incorrect target without aidd workflow"
 BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claude-workflow-smoke-bad-target.XXXXXX")"
 set +e
-bad_output="$(CLAUDE_PLUGIN_ROOT="$BAD_DIR" "$WORKDIR/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+bad_output="$(CLAUDE_PROJECT_DIR="$BAD_DIR" CLAUDE_PLUGIN_ROOT="$BAD_DIR" AIDD_ROOT= "$WORKDIR/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
 bad_rc=$?
 set -e
 if [[ "$bad_rc" -eq 0 ]]; then

@@ -195,8 +195,8 @@
     {
       "path": "aidd/docs/cli-migration.md",
       "type": "file",
-      "size": 1854,
-      "sha256": "b5b2931aaae7aeb7cf1280b495f753ad47c414653ca7dcf446b3d56561454ab2"
+      "size": 1644,
+      "sha256": "417b10ed48e74e7edfb16f4837ad620c7f48b45988695dd67733841364901606"
     },
     {
       "path": "aidd/docs/plan/.gitkeep",
@@ -297,8 +297,8 @@
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 17806,
-      "sha256": "d15fc2b20e1af3a88a7e45e1e9111927aac31484374109e1d02963b5bc061d48"
+      "size": 17785,
+      "sha256": "f2e2228867b0a2def198e6435f3f731387fb5d7d0e1f91fe2259a6983e8f17d2"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -357,8 +357,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 16045,
-      "sha256": "93255dd62c304f3e32b79a47e536c47a6226b08ed65dc4542f5dc2fb906fdcd4"
+      "size": 18380,
+      "sha256": "cdd55ecb0f633c7e39ac0cb57d687974f27a5b4a32dd06711f3ea4d8a39e5ea0"
     }
   ]
 }

@@ -275,7 +275,7 @@ _Статус: активный, приоритет 1. Цель — предск
 ### Перенос tasklist в контур фичи
 - [x] `docs/tasklist/<ticket>.md`, `docs/tasklist/template.md`: перенести tasklist в каталог `docs/tasklist/`, сформировать ticket-ориентированную структуру (аналогично `docs/prd/<ticket>.prd.md`), добавить front-matter с `Feature:` и ссылками на PRD/plan/research.
 - [x] `docs/tasklist/template.md`, `src/claude_workflow_cli/data/payload/docs/tasklist/template.md`: обновить шаблон и генерацию, чтобы `init-claude-workflow.sh` и CLI создавали `docs/tasklist/<ticket>.md` вместо корневого `tasklist.md`, учитывая payload-артефакты.
-- [x] `scripts/migrate-tasklist.py` (новый), `src/claude_workflow_cli/tools/set_active_feature.py`: подготовить миграцию, которая переносит legacy `tasklist.md` в новую директорию и обновляет ссылки в `.active_feature`.
+- [x] `src/claude_workflow_cli/tools/set_active_feature.py`: подготовить миграцию, которая переносит legacy `tasklist.md` в новую директорию и обновляет ссылки в `.active_feature`.
 
 ### Обновление CLI, команд и гейтов
 - [x] `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/data/payload/.claude/commands/tasks-new.md`, `.claude/commands/tasks-new.md`: научить команды работать с slug-ориентированным tasklist, синхронизировать инструкции и вывод.
@@ -323,7 +323,7 @@ _Статус: активный, приоритет 1. Цель — предск
 
 ### Документация и миграция
 - [x] `README.md`, `README.en.md`, `workflow.md`, `docs/workflow.md`, `docs/agents-playbook.md`, `docs/qa-playbook.md`: переписать walkthrough и примеры команд под модель TICKET-first, описать роль slug-хинта как пользовательского ориентира.
-- [x] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`, `tools/migrate_ticket.py` (новый), `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`: подготовить миграцию Wave 26 (скрипт преобразования slug → ticket-first), обновить релизные заметки и покрыть сценарии тестами.
+- [x] `CHANGELOG.md`, `docs/release-notes.md`, `docs/feature-cookbook.md`, `tests/test_gate_workflow.py`, `tests/test_qa_agent.py`: подготовить миграцию Wave 26 (slug → ticket-first), обновить релизные заметки и покрыть сценарии тестами.
 
 ## Wave 27
 
@@ -781,7 +781,7 @@ _Статус: новый, приоритет 1. Цель — отказатьс
 
 ### Хуки/инструменты и конфиги с обязательным `aidd/`
 - [x] `aidd/hooks/hooks.json`, `aidd/.claude/hooks/gate-workflow.sh`, `aidd/.claude/hooks/lib.sh`: убрать fallback на корневой `docs/`, зафиксировать `CLAUDE_PLUGIN_ROOT` = `<workspace>/aidd`, скорректировать `resolve_script_path/ensure_template` на единственный префикс `aidd/`, добавить WARN при чужом CWD.
-- [x] Инструменты/скрипты: `aidd/tools/set_active_feature.py`, `aidd/tools/migrate_ticket.py`, `aidd/scripts/smoke-workflow.sh`, `aidd/tools/run_cli.py` — дефолт `--target aidd`, жёсткая проверка, WARN/exit при попытке писать в корень; подправить `aidd/config/gates.json` (feature_ticket_source/slug_hint_source → `aidd/docs/.active_*` если запуск из корня).
+- [x] Инструменты/скрипты: `aidd/tools/set_active_feature.py`, `aidd/scripts/smoke-workflow.sh`, `aidd/tools/run_cli.py` — дефолт `--target aidd`, жёсткая проверка, WARN/exit при попытке писать в корень; подправить `aidd/config/gates.json` (feature_ticket_source/slug_hint_source → `aidd/docs/.active_*` если запуск из корня).
 - [x] Агенты/команды/промпты: пройти упоминания путей и подсказок `--target aidd` (idea-new/researcher/qa/analyst) на предмет любых ссылок на корневой `docs/`, синхронизировать RU/EN и quick-reference.
 
 ### Дока и DX
@@ -1040,7 +1040,7 @@ _Статус: новый, приоритет 1. Цель — CLI‑first: пе�
 ### CLI‑команды: перенос логики из payload
 - [x] Перенести `aidd/tools/set_active_feature.py` в `claude-workflow set-active-feature` (модуль в `src/claude_workflow_cli/`, CLI‑подкоманда в `src/claude_workflow_cli/cli.py`).
 - [x] Перенести `aidd/tools/set_active_stage.py` в `claude-workflow set-active-stage`.
-- [x] Перенести `aidd/tools/migrate_ticket.py` + `aidd/scripts/migrate-tasklist.py` в `claude-workflow migrate-ticket`/`migrate-tasklist` (или единая команда с флагами).
+- [x] Перенести legacy-миграции в CLI-слой без отдельных migrate-команд.
 - [x] Перенести `aidd/scripts/prd-review-agent.py` в `claude-workflow review-spec` (или `claude-workflow prd-review`) с сохранением JSON‑отчёта и текстового summary.
 - [x] Перенести `aidd/scripts/{plan_review_gate.py,prd_review_gate.py}` в `claude-workflow plan-review-gate` / `claude-workflow prd-review-gate` (используются хуками).
 - [x] Перенести `aidd/scripts/qa-agent.py` в `claude-workflow qa` (единый генератор отчёта, exit‑codes и фильтры).

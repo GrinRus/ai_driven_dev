@@ -34,7 +34,6 @@
 | `aidd/tools/run_cli.py` | Helper запуска CLI | хуки/скрипты | runtime |
 | `aidd/tools/set_active_feature.py` | Активный ticket/PRD | `/idea-new` | runtime |
 | `aidd/tools/researcher_context.py` | Контекст для research | CLI | runtime |
-| `aidd/tools/migrate_ticket.py` | Миграция legacy | пользователи | runtime/optional |
 
 ## Наблюдения
 - Workspace `.claude/` и `.claude-plugin/` живут вне `aidd/`, поэтому audit/sync должен учитывать два корня.

@@ -125,248 +125,6 @@ def _normalize_stage(value: str) -> str:
     return value.strip().lower().replace(" ", "-")
 
 
-def _slug_to_title(slug: str) -> str:
-    parts = [chunk for chunk in slug.replace("_", "-").split("-") if chunk]
-    if not parts:
-        return slug
-    return " ".join(part.capitalize() for part in parts)
-
-
-def _render_tasklist_heading(original: str, title: str) -> str:
-    lines = original.splitlines()
-    idx = next((i for i, line in enumerate(lines) if line.strip()), None)
-    if idx is None:
-        return f"# Tasklist — {title}\n"
-    first = lines[idx].strip()
-    if first.lower().startswith("# tasklist"):
-        lines[idx] = f"# Tasklist — {title}"
-    else:
-        lines.insert(idx, f"# Tasklist — {title}")
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _maybe_migrate_tasklist(root: Path, ticket: str, slug_hint: Optional[str]) -> None:
-    legacy = root / "tasklist.md"
-    if not legacy.exists():
-        return
-    destination = root / "docs" / "tasklist" / f"{ticket}.md"
-    if destination.exists():
-        return
-    try:
-        display_name = slug_hint or ticket
-        title = _slug_to_title(display_name)
-        slug_value = slug_hint or ticket
-        today = dt.date.today().isoformat()
-        legacy_text = legacy.read_text(encoding="utf-8")
-        body = _render_tasklist_heading(legacy_text, title)
-        front_matter = (
-            "---\n"
-            f"Ticket: {ticket}\n"
-            f"Slug hint: {slug_value}\n"
-            f"Feature: {title}\n"
-            "Status: draft\n"
-            f"PRD: docs/prd/{ticket}.prd.md\n"
-            f"Plan: docs/plan/{ticket}.md\n"
-            f"Research: docs/research/{ticket}.md\n"
-            f"Updated: {today}\n"
-            "---\n\n"
-        )
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(front_matter + body, encoding="utf-8")
-        legacy.unlink()
-        print(f"[tasklist] migrated legacy tasklist.md to {destination}", file=sys.stderr)
-    except Exception as exc:  # pragma: no cover - defensive logging
-        print(f"[tasklist] failed to migrate legacy tasklist.md: {exc}", file=sys.stderr)
-
-
-def _read_text(path: Path) -> Optional[str]:
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-
-def _ensure_active_ticket(root: Path, *, dry_run: bool) -> tuple[bool, Optional[str]]:
-    docs_dir = root / "docs"
-    slug_file = docs_dir / ".active_feature"
-    ticket_file = docs_dir / ".active_ticket"
-
-    slug_value = _read_text(slug_file)
-    ticket_value_raw = _read_text(ticket_file)
-    ticket_value = ticket_value_raw.strip() if ticket_value_raw else ""
-
-    if ticket_value:
-        return False, ticket_value
-
-    if not slug_value:
-        return False, None
-
-    slug_value = slug_value.strip()
-    if not slug_value:
-        return False, None
-
-    if dry_run:
-        print(f"[dry-run] write {ticket_file} ← {slug_value}")
-    else:
-        ticket_file.write_text(slug_value + "\n", encoding="utf-8")
-        print(f"[migrate] created {ticket_file} from .active_feature")
-    return True, slug_value
-
-
-def _migrate_tasklist_front_matter(path: Path, *, dry_run: bool) -> bool:
-    text = _read_text(path)
-    if text is None:
-        return False
-
-    lines = text.splitlines()
-    if len(lines) < 3 or lines[0].strip() != "---":
-        return False
-
-    end_idx = None
-    for idx in range(1, len(lines)):
-        if lines[idx].strip() == "---":
-            end_idx = idx
-            break
-    if end_idx is None:
-        return False
-
-    front = lines[1:end_idx]
-    body = lines[end_idx + 1 :]
-
-    ticket_line = next((ln for ln in front if ln.lower().startswith("ticket:")), None)
-    slug_hint_line = next((ln for ln in front if ln.lower().startswith("slug hint:")), None)
-    feature_line = next((ln for ln in front if ln.lower().startswith("feature:")), None)
-
-    filename_ticket = path.stem
-    feature_value = ""
-    if feature_line:
-        feature_value = feature_line.split(":", 1)[1].strip()
-
-    updated = False
-    new_front: list[str] = []
-
-    def append_ticket_block() -> None:
-        nonlocal ticket_line, slug_hint_line, updated
-        if ticket_line is None:
-            ticket_line = f"Ticket: {filename_ticket}"
-            new_front.append(ticket_line)
-            updated = True
-        else:
-            new_front.append(ticket_line)
-        if slug_hint_line is None:
-            slug_value = feature_value or filename_ticket
-            slug_hint_line_local = f"Slug hint: {slug_value}"
-            new_front.append(slug_hint_line_local)
-            slug_hint_line = slug_hint_line_local
-            updated = True
-        else:
-            new_front.append(slug_hint_line)
-
-    inserted = False
-    for line in front:
-        if line.lower().startswith("ticket:"):
-            new_front.append(line)
-            inserted = True
-            continue
-        if line.lower().startswith("slug hint:"):
-            if not inserted and ticket_line is None:
-                new_front.append(f"Ticket: {filename_ticket}")
-                inserted = True
-                updated = True
-            new_front.append(line)
-            continue
-        if line.lower().startswith("feature:") and not inserted:
-            append_ticket_block()
-            inserted = True
-        new_front.append(line)
-
-    if not inserted:
-        append_ticket_block()
-
-    if not updated:
-        return False
-
-    new_lines = ["---", *new_front, "---", *body]
-    new_text = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
-    if dry_run:
-        print(f"[dry-run] update front-matter in {path}")
-    else:
-        path.write_text(new_text, encoding="utf-8")
-        print(f"[migrate] updated front-matter in {path}")
-    return True
-
-
-def _migrate_tasklists(root: Path, *, dry_run: bool) -> int:
-    tasklist_dir = root / "docs" / "tasklist"
-    if not tasklist_dir.is_dir():
-        return 0
-    updated = 0
-    for candidate in sorted(tasklist_dir.glob("*.md")):
-        if _migrate_tasklist_front_matter(candidate, dry_run=dry_run):
-            updated += 1
-    return updated
-
-
-def _resolve_slug_for_tasklist(root: Path, provided: Optional[str]) -> str:
-    if provided:
-        return provided.strip()
-    active_file = root / "docs" / ".active_feature"
-    if active_file.exists():
-        raw = active_file.read_text(encoding="utf-8").strip()
-        if raw:
-            return raw
-    plan_dir = root / "docs" / "plan"
-    if plan_dir.exists():
-        plans = sorted(path.stem for path in plan_dir.glob("*.md"))
-        if len(plans) == 1:
-            return plans[0]
-    raise SystemExit("Cannot determine feature slug: use --slug or populate docs/.active_feature.")
-
-
-def _migrate_legacy_tasklist(root: Path, slug: str, force: bool) -> int:
-    legacy = root / "tasklist.md"
-    if not legacy.exists():
-        print("[tasklist] legacy tasklist.md not found; nothing to migrate.")
-        return 0
-
-    destination = root / "docs" / "tasklist" / f"{slug}.md"
-    if destination.exists() and not force:
-        print(f"[tasklist] destination {destination} already exists. Use --force to overwrite.")
-        return 1
-
-    title = _slug_to_title(slug)
-    today = dt.date.today().isoformat()
-    legacy_text = legacy.read_text(encoding="utf-8")
-    body = _render_tasklist_heading(legacy_text, title)
-    front_matter = (
-        "---\n"
-        f"Ticket: {slug}\n"
-        f"Slug hint: {slug}\n"
-        f"Feature: {title}\n"
-        "Status: draft\n"
-        f"PRD: docs/prd/{slug}.prd.md\n"
-        f"Plan: docs/plan/{slug}.md\n"
-        f"Research: docs/research/{slug}.md\n"
-        f"Updated: {today}\n"
-        "---\n\n"
-    )
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(front_matter + body, encoding="utf-8")
-    legacy.unlink()
-
-    feature_file = root / "docs" / ".active_feature"
-    feature_file.parent.mkdir(parents=True, exist_ok=True)
-    feature_file.write_text(slug + "\n", encoding="utf-8")
-
-    ticket_file = root / "docs" / ".active_ticket"
-    ticket_file.parent.mkdir(parents=True, exist_ok=True)
-    ticket_file.write_text(slug + "\n", encoding="utf-8")
-
-    print(f"[tasklist] migrated to {destination}")
-    return 0
-
-
 class PayloadError(RuntimeError):
     """Raised when the payload cannot be prepared for use."""
 
@@ -762,7 +520,6 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
     resolved_slug_hint = identifiers.slug_hint or identifiers.ticket or args.ticket
 
     print(f"active feature: {args.ticket}")
-    _maybe_migrate_tasklist(root, args.ticket, resolved_slug_hint)
 
     config_path: Optional[Path] = None
     if args.config:
@@ -785,40 +542,6 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def _migrate_ticket_command(args: argparse.Namespace) -> int:
-    root = resolve_aidd_root(Path(args.target))
-    if not root.exists():
-        print(f"[error] target directory {root} does not exist", file=sys.stderr)
-        return 1
-
-    created_ticket, ticket_value = _ensure_active_ticket(root, dry_run=args.dry_run)
-    tasklist_updates = _migrate_tasklists(root, dry_run=args.dry_run)
-
-    if args.dry_run:
-        print("[dry-run] migration completed (no files modified).")
-        return 0
-
-    if created_ticket:
-        print(f"[summary] aidd/docs/.active_ticket set to '{ticket_value}'.")
-    if tasklist_updates:
-        print(f"[summary] updated {tasklist_updates} tasklist front-matter file(s).")
-    if not created_ticket and tasklist_updates == 0:
-        print("[summary] nothing to migrate — repository already uses ticket-first layout.")
-    return 0
-
-
-def _migrate_tasklist_command(args: argparse.Namespace) -> int:
-    root = resolve_aidd_root(Path(args.target))
-    try:
-        slug = _resolve_slug_for_tasklist(root, args.slug)
-    except SystemExit as exc:
-        message = str(exc)
-        if message:
-            print(message, file=sys.stderr)
-        return 1
-    return _migrate_legacy_tasklist(root, slug, args.force)
-
-
 def _prd_review_command(args: argparse.Namespace) -> int:
     return _prd_review.run(args)
 
@@ -835,6 +558,8 @@ def _researcher_context_command(args: argparse.Namespace) -> int:
     from claude_workflow_cli.tools import researcher_context as _researcher_context
 
     argv = args.forward_args or []
+    if argv and argv[0] == "--":
+        argv = argv[1:]
     return _researcher_context.main(argv)
 
 
@@ -2027,7 +1752,15 @@ def _copy_payload_entries(
 def _detect_manifest_prefix(manifest: Dict[str, Dict]) -> str | None:
     prefix = f"{DEFAULT_PROJECT_SUBDIR}/"
     keys = list(manifest.keys())
-    if keys and all(key.startswith(prefix) for key in keys):
+    def is_prefixed(key: str) -> bool:
+        if key.startswith(prefix):
+            return True
+        parts = key.split("/", 1)
+        if len(parts) == 1:
+            return True
+        return parts[0] in WORKSPACE_ROOT_DIRS
+
+    if keys and all(is_prefixed(key) for key in keys):
         return prefix
     return None
 
@@ -2036,9 +1769,10 @@ def _strip_manifest_prefix(manifest: Dict[str, Dict], prefix: str) -> Dict[str, 
     normalized = prefix.rstrip("/") + "/"
     stripped: Dict[str, Dict] = {}
     for rel, entry in manifest.items():
-        if not rel.startswith(normalized):
-            return manifest
-        new_rel = rel[len(normalized) :]
+        if rel.startswith(normalized):
+            new_rel = rel[len(normalized) :]
+        else:
+            new_rel = rel
         updated_entry = dict(entry)
         updated_entry["path"] = new_rel
         stripped[new_rel] = updated_entry
@@ -2138,7 +1872,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
 def _sync_command(args: argparse.Namespace) -> None:
     target_path = Path(args.target).resolve()
-    workspace_root, project_root = resolve_project_root(target_path, DEFAULT_PROJECT_SUBDIR)
+    workspace_root, project_root = resolve_workspace_root(target_path, DEFAULT_PROJECT_SUBDIR)
     if project_root.exists():
         pass
     elif not args.dry_run:
@@ -2343,42 +2077,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow arbitrary stage values (skip validation).",
     )
     set_active_stage_parser.set_defaults(func=_set_active_stage_command)
-
-    migrate_ticket_parser = subparsers.add_parser(
-        "migrate-ticket",
-        help="Upgrade workflow artefacts to the ticket-first format.",
-    )
-    migrate_ticket_parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    migrate_ticket_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print actions without modifying files.",
-    )
-    migrate_ticket_parser.set_defaults(func=_migrate_ticket_command)
-
-    migrate_tasklist_parser = subparsers.add_parser(
-        "migrate-tasklist",
-        help="Move legacy tasklist.md into docs/tasklist/<slug>.md (pre-ticket).",
-    )
-    migrate_tasklist_parser.add_argument(
-        "--slug",
-        help="Feature slug to use; defaults to docs/.active_feature or single plan file.",
-    )
-    migrate_tasklist_parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    migrate_tasklist_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing docs/tasklist/<slug>.md if present.",
-    )
-    migrate_tasklist_parser.set_defaults(func=_migrate_tasklist_command)
 
     prd_review_parser = subparsers.add_parser(
         "prd-review",
