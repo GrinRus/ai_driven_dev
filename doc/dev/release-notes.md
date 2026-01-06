@@ -45,7 +45,7 @@
 ## Migration: legacy root installs → `./aidd` (Wave 51)
 - CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
 - Для старых установок: удалите корневые снапшоты `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
-- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `doc/dev/migration-aidd.md`.
+- Проверьте гейты через `scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `doc/dev/migration-aidd.md`.
 - [ ] Зафиксировать изменения в `doc/dev/release-notes.md`.
 
 ## Публикация релиза
@@ -75,7 +75,7 @@
 - `aidd/AGENTS.md` как основной вход для агентного контекста.
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - Автосоздание PRD: `claude-workflow set-active-feature` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
 - Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed

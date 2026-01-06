@@ -38,8 +38,6 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/config/allowed-deps.txt",
             f"{plugin_prefix}/config/context_gc.json",
             f"{plugin_prefix}/hooks/lib.sh",
-            f"{plugin_prefix}/agents/templates/prompt-agent.md",
-            f"{plugin_prefix}/commands/templates/prompt-command.md",
             f"{plugin_prefix}/docs/cli-migration.md",
             f"{plugin_prefix}/docs/plan/.gitkeep",
             f"{plugin_prefix}/docs/adr/.gitkeep",

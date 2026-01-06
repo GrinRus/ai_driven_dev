@@ -3,7 +3,7 @@
 Скопируйте нужные файлы из этого каталога в `.git/hooks/`, убрав суффикс `.sample`, и сделайте их исполняемыми:
 
 ```bash
-cp templates/git-hooks/commit-msg.sample .git/hooks/commit-msg
+cp doc/dev/templates/git-hooks/commit-msg.sample .git/hooks/commit-msg
 chmod +x .git/hooks/commit-msg
 ```
 
@@ -17,5 +17,5 @@ chmod +x .git/hooks/commit-msg
 
 ## Рекомендации
 - Добавьте `export PRE_PUSH_SKIP=1` или аналогичные переменные в rare-case сценариях (см. скрипты).
-- Сохраняйте хуки под контролем версий в `templates/git-hooks/`, а в `.git/hooks/` держите копии.
+- Сохраняйте хуки под контролем версий в `doc/dev/templates/git-hooks/`, а в `.git/hooks/` держите копии.
 - При обновлении шаблонов перезапишите файлы в `.git/hooks/` и снова установите бит исполнения.

@@ -15,8 +15,6 @@ CRITICAL_FILES: Iterable[str] = (
     "hooks/hooks.json",
     "config/context_gc.json",
     "config/conventions.json",
-    "agents/templates/prompt-agent.md",
-    "commands/templates/prompt-command.md",
     "docs/cli-migration.md",
     "docs/prd/template.md",
     "docs/tasklist/template.md",
@@ -27,10 +25,12 @@ CRITICAL_FILES: Iterable[str] = (
 )
 
 PROJECT_DIRECTORIES = (
+    "agents",
+    "commands",
     "hooks",
     "config",
     "docs",
-    "templates",
+    "reports",
 )
 WORKSPACE_DIRECTORIES = (
     ".claude",
