@@ -59,25 +59,11 @@ def resolve_ru_base(root: Path, kind: str) -> Path:
     return candidates[0]
 
 
-def resolve_en_base(root: Path, kind: str) -> Path:
-    subdir = "agents" if kind == "agent" else "commands"
-    candidates = [
-        root / "prompts" / "en" / subdir,
-        root / "aidd" / "prompts" / "en" / subdir,
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
-
-
 def process_prompt(
     root: Path, name: str, kind: str, langs: set[str], part: str, *, dry_run: bool
 ) -> int:
     ru_base = resolve_ru_base(root, kind)
-    en_base = resolve_en_base(root, kind)
     ru_path = ru_base / f"{name}.md"
-    en_path = en_base / f"{name}.md"
     if not ru_path.exists():
         print(f"[prompt-version] RU prompt missing: {ru_path}", file=sys.stderr)
         return 1
@@ -86,25 +72,13 @@ def process_prompt(
     ru_meta = parse_frontmatter(ru_text)
     ru_version = ru_meta.get("prompt_version", "0.0.0")
     new_version = bump_version(ru_version, part)
-    lang_parity_skip = ru_meta.get("Lang-Parity", "").lower() == "skip"
 
-    if "ru" in langs:
-        ru_text = replace_field(ru_text, "prompt_version", new_version)
-        ru_text = replace_field(ru_text, "source_version", new_version)
-
-    if en_path.exists():
-        en_text = en_path.read_text(encoding="utf-8")
-        if "en" in langs:
-            en_text = replace_field(en_text, "prompt_version", new_version)
-            en_text = replace_field(en_text, "source_version", new_version)
-        elif "ru" in langs:
-            en_text = replace_field(en_text, "source_version", new_version)
-        if not dry_run:
-            en_path.write_text(en_text, encoding="utf-8")
-    elif "en" in langs and not lang_parity_skip:
-        print(f"[prompt-version] EN prompt missing: {en_path}", file=sys.stderr)
+    if "ru" not in langs or len(langs) != 1:
+        print("[prompt-version] only 'ru' is supported in this repository", file=sys.stderr)
         return 1
 
+    ru_text = replace_field(ru_text, "prompt_version", new_version)
+    ru_text = replace_field(ru_text, "source_version", new_version)
     if not dry_run:
         ru_path.write_text(ru_text, encoding="utf-8")
     return 0
@@ -114,10 +88,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bump prompt_version/source_version for prompts.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     bump = subparsers.add_parser("bump", help="Bump prompt versions for selected prompts.")
-    bump.add_argument("--root", required=True, help="Workflow root containing agents/commands and prompts/en.")
+    bump.add_argument("--root", required=True, help="Workflow root containing agents/commands.")
     bump.add_argument("--prompts", required=True, help="Comma-separated prompt names.")
     bump.add_argument("--kind", choices=("agent", "command"), required=True)
-    bump.add_argument("--lang", default="ru,en", help="Comma-separated languages to bump (default: ru,en).")
+    bump.add_argument("--lang", default="ru", help="Comma-separated languages to bump (default: ru).")
     bump.add_argument("--part", choices=("patch", "minor"), default="patch", help="Version part to bump.")
     bump.add_argument("--dry-run", action="store_true", help="Calculate new versions without writing files.")
 

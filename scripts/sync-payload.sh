@@ -139,7 +139,6 @@ sync_path() {
 
 cleanup_legacy_paths() {
   local legacy_paths=(
-    "claude-presets"
     "config"
     "docs"
     "templates"

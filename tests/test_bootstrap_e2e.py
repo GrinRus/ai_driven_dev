@@ -15,10 +15,11 @@ CRITICAL_FILES: Iterable[str] = (
     "hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
     "config/context_gc.json",
     "config/conventions.json",
-    "claude-presets/feature-prd.yaml",
-    "claude-presets/advanced/feature-design.yaml",
-    "docs/customization.md",
-    "docs/prd.template.md",
+    "agents/templates/prompt-agent.md",
+    "commands/templates/prompt-command.md",
+    "docs/prd/template.md",
+    "docs/tasklist/template.md",
+    "docs/research/template.md",
     "commands/review-spec.md",
     "scripts/context_gc/hooklib.py",
     "scripts/context_gc/precompact_snapshot.py",
@@ -32,12 +33,12 @@ CRITICAL_FILES: Iterable[str] = (
 
 PROJECT_DIRECTORIES = (
     "hooks",
-    "claude-presets",
     "config",
     "docs",
     "scripts",
     "scripts/context_gc",
     "tools",
+    "templates",
 )
 WORKSPACE_DIRECTORIES = (
     ".claude",
@@ -135,15 +136,3 @@ def test_bootstrap_force_overwrites_modified_files():
 
         payload_gate = PAYLOAD_ROOT / "hooks" / "gate-workflow.sh"
         assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore payload version"
-
-
-def test_bootstrap_prompt_locale_en():
-    with tempfile.TemporaryDirectory(prefix="claude-workflow-en-") as tmpdir:
-        target = Path(tmpdir)
-        _run_bootstrap(target, "--prompt-locale", "en")
-        project_root = target / PROJECT_SUBDIR
-
-        analyst = (project_root / "agents" / "analyst.md").read_text(encoding="utf-8")
-        idea = (project_root / "commands" / "idea-new.md").read_text(encoding="utf-8")
-        assert "lang: en" in analyst
-        assert "lang: en" in idea

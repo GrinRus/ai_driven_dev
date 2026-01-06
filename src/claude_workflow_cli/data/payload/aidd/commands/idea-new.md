@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.3.1
-source_version: 1.3.1
+prompt_version: 1.3.2
+source_version: 1.3.2
 allowed-tools:
   - Read
   - Edit
@@ -21,7 +21,7 @@ disable-model-invocation: false
 `/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## Research Hints` в PRD. После ответов пользователя следующий обязательный шаг — `/researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
 
 ## Входные артефакты
-- `@aidd/docs/prd.template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
+- `@aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
 - `@aidd/docs/research/<ticket>.md`, `aidd/reports/research/*` — если уже есть, использовать как контекст.
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature` — активные маркеры.
 

@@ -32,7 +32,6 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{payload_prefix}/.claude-plugin/marketplace.json",
             f"{plugin_prefix}/AGENTS.md",
             f"{plugin_prefix}/conventions.md",
-            f"{plugin_prefix}/workflow.md",
             f"{plugin_prefix}/config/conventions.json",
             f"{plugin_prefix}/config/gates.json",
             f"{plugin_prefix}/config/allowed-deps.txt",
@@ -43,6 +42,8 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/progress.py",
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
+            f"{plugin_prefix}/agents/templates/prompt-agent.md",
+            f"{plugin_prefix}/commands/templates/prompt-command.md",
             f"{plugin_prefix}/scripts/context_gc/hooklib.py",
             f"{plugin_prefix}/scripts/context_gc/precompact_snapshot.py",
             f"{plugin_prefix}/scripts/context_gc/pretooluse_guard.py",
@@ -52,6 +53,9 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/docs/plan/.gitkeep",
             f"{plugin_prefix}/docs/adr/.gitkeep",
             f"{plugin_prefix}/docs/prd/.gitkeep",
+            f"{plugin_prefix}/docs/prd/template.md",
+            f"{plugin_prefix}/docs/tasklist/template.md",
+            f"{plugin_prefix}/docs/research/template.md",
             f"{payload_prefix}/manifest.json",
         ]:
             assert expected in names, f"missing {expected} in {wheel.name}"

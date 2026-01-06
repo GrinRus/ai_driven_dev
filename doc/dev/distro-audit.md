@@ -17,14 +17,14 @@
 | `.claude-plugin/marketplace.json` | Marketplace плагинов | Claude Code | runtime |
 | `aidd/.claude-plugin/plugin.json` | Манифест плагина | Claude Code | runtime |
 | `aidd/agents/` | Агентские промпты (RU) | команды/агенты | runtime |
+| `aidd/agents/templates/` | Шаблоны промптов агентов | maintainers | docs |
 | `aidd/commands/` | Слэш-команды (RU) | Claude Code | runtime |
+| `aidd/commands/templates/` | Шаблоны промптов команд | maintainers | docs |
 | `aidd/hooks/` | Gate/format/hooks | hooks.json | runtime |
 | `aidd/hooks/_vendor/` | Вендорные Python-модули | хуки | runtime |
 | `aidd/config/` | Конвенции/гейты | хуки/CLI | runtime |
 | `aidd/docs/` | Гайды/шаблоны | пользователи | docs |
-| `aidd/templates/` | Шаблоны PRD/tasklist/git-hooks | CLI/presets | runtime/docs |
-| `aidd/claude-presets/` | Preset YAML | CLI preset | runtime |
-| `aidd/prompts/en/` | EN-промпты | prompt-locale | runtime |
+| `aidd/templates/` | Git hook samples | CLI | runtime/docs |
 | `aidd/scripts/context_gc/` | Context GC hooks | hooks.json | runtime |
 | `aidd/scripts/gradle/init-print-projects.gradle` | Selective tests | format-and-test | runtime |
 | `aidd/scripts/qa-agent.py` | QA агент | gate-qa/`/qa` | runtime |

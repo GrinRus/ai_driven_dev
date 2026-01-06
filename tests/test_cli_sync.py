@@ -60,7 +60,7 @@ def test_sync_custom_include(tmp_path):
     _clean_payload_pycache()
     args = SimpleNamespace(
         target=str(workspace),
-        include=["claude-presets"],
+        include=["templates/git-hooks"],
         force=False,
         dry_run=False,
         release=None,
@@ -68,8 +68,8 @@ def test_sync_custom_include(tmp_path):
     )
     cli._sync_command(args)
 
-    preset = project_root / "claude-presets" / "feature-prd.yaml"
-    assert preset.exists(), "sync should copy requested payload fragments"
+    hook_readme = project_root / "templates" / "git-hooks" / "README.md"
+    assert hook_readme.exists(), "sync should copy requested payload fragments"
     template_version = workspace / ".claude" / ".template_version"
     assert not template_version.exists(), "template version should not update when .claude not synced"
 

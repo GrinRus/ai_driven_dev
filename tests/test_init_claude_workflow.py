@@ -46,7 +46,7 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             "config/context_gc.json",
             "config/conventions.json",
             "tools/set_active_feature.py",
-            "docs/prd.template.md",
+            "docs/prd/template.md",
             "scripts/context_gc/hooklib.py",
             "reports/prd/.gitkeep",
         ]
@@ -99,16 +99,6 @@ class InitClaudeWorkflowTests(unittest.TestCase):
         content = target.read_text(encoding="utf-8")
         payload_content = (PAYLOAD_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertEqual(content, payload_content)
-
-    def test_prompt_locale_en_switches_prompts(self):
-        workdir = self.make_tempdir()
-        self.run_script(workdir, "--prompt-locale", "en")
-        project_root = workdir / PROJECT_SUBDIR
-        analyst = (project_root / "agents" / "analyst.md").read_text(encoding="utf-8")
-        idea = (project_root / "commands" / "idea-new.md").read_text(encoding="utf-8")
-        self.assertIn("lang: en", analyst)
-        self.assertIn("lang: en", idea)
-
 
 if __name__ == "__main__":
     unittest.main()

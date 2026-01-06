@@ -61,86 +61,6 @@ if ((${#changed_files[@]} > 0)); then
   changed_files=("${deduped[@]}")
 fi
 
-if ((${#changed_files[@]} > 0)); then
-  prompt_candidates=()
-  for candidate in "${changed_files[@]}"; do
-    if [[ "$candidate" =~ (^|/)(agents|commands)/ ]] || [[ "$candidate" =~ (^|/)prompts/en/(agents|commands)/ ]]; then
-      prompt_candidates+=("$candidate")
-    fi
-  done
-  if ((${#prompt_candidates[@]} > 0)); then
-    for prompt_path in "${prompt_candidates[@]}"; do
-      # Проверяем паритет RU/EN: RU в aidd/agents|commands, EN в prompts/en/**
-      ru_path="$prompt_path"
-      if [[ "$ru_path" =~ ^prompts/en/agents/ ]]; then
-        ru_path="agents/${ru_path#prompts/en/agents/}"
-      elif [[ "$ru_path" =~ ^prompts/en/commands/ ]]; then
-        ru_path="commands/${ru_path#prompts/en/commands/}"
-      fi
-      en_path="prompts/en/${ru_path}"
-      skip_lang_parity="$(python3 - "$ru_path" "$en_path" <<'PY'
-from pathlib import Path
-import sys
-
-def has_skip(path: Path) -> bool:
-    if not path.exists():
-        return False
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception:
-        return False
-    lines = text.splitlines()
-    if lines and lines[0].strip() == "---":
-        for line in lines[1:]:
-            stripped = line.strip()
-            if stripped == "---":
-                break
-            if stripped.lower().startswith("lang-parity:"):
-                value = stripped.split(":", 1)[1].strip().lower()
-                return value == "skip"
-    return "Lang-Parity: skip" in text
-
-ru = Path(sys.argv[1])
-en = Path(sys.argv[2])
-if has_skip(ru) or has_skip(en):
-    print("skip")
-PY
-)"
-      if [[ "$skip_lang_parity" == "skip" ]]; then
-        continue
-      fi
-      if [[ ! -f "$ru_path" || ! -f "$en_path" ]]; then
-        echo "BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip'." >&2
-        exit 2
-      fi
-      if ! python3 - "$ru_path" "$en_path" <<'PY'
-import sys
-from pathlib import Path
-
-def version(path: Path) -> str:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception:
-        return ""
-    for line in text.splitlines():
-        if line.strip().startswith("prompt_version"):
-            return line.split(":", 1)[1].strip()
-    return ""
-
-ru_path = Path(sys.argv[1])
-en_path = Path(sys.argv[2])
-ru_v = version(ru_path)
-en_v = version(en_path)
-if ru_v and en_v and ru_v != en_v:
-    print("BLOCK: промпты должны обновляться синхронно (RU/EN). Обновите обе локали или добавьте 'Lang-Parity: skip' в фронт-маттер.")
-    raise SystemExit(2)
-PY
-      then
-        exit 2
-      fi
-    done
-  fi
-fi
 
 if [[ -z "$file_path" && ${#changed_files[@]} -gt 0 ]]; then
   for candidate in "${changed_files[@]}"; do
@@ -202,8 +122,8 @@ if [[ "$has_src_changes" -ne 1 ]]; then
   exit 0
 fi
 
-ensure_template "docs/templates/research-summary.md" "docs/research/$ticket.md"
-ensure_template "docs/prd.template.md" "docs/prd/$ticket.prd.md"
+ensure_template "docs/research/template.md" "docs/research/$ticket.md"
+ensure_template "docs/prd/template.md" "docs/prd/$ticket.prd.md"
 plan_path="docs/plan/$ticket.md"
 if [[ ! -f "$plan_path" ]]; then
   ensure_template "docs/plan/template.md" "$plan_path"
@@ -212,7 +132,7 @@ if [[ ! -f "$plan_path" ]]; then
 fi
 tasklist_path="docs/tasklist/$ticket.md"
 if [[ ! -f "$tasklist_path" ]]; then
-  ensure_template "docs/tasklist.template.md" "$tasklist_path"
+  ensure_template "docs/tasklist/template.md" "$tasklist_path"
   echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
   exit 2
 fi

@@ -1080,7 +1080,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ticket",
         "--slug",
-        "--feature",
         dest="ticket",
         help="Ticket identifier to analyse (defaults to docs/.active_ticket or legacy .active_feature).",
     )

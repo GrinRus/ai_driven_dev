@@ -25,10 +25,6 @@ COMMIT_MODE="ticket-prefix"
 ENABLE_CI=0
 FORCE=0
 DRY_RUN=0
-PROMPT_LOCALE="ru"
-PRESET_NAME=""
-PRESET_TICKET=""
-PRESET_RESULT_SLUG=""
 
 log_info()   { printf '[INFO] %s\n' "$*"; }
 log_warn()   { printf '[WARN] %s\n' "$*" >&2; }
@@ -42,10 +38,6 @@ Usage: bash init-claude-workflow.sh [options]
   --enable-ci          add GitHub Actions workflow (manual trigger)
   --force              overwrite existing files
   --dry-run            show planned actions without writing files
-  --prompt-locale LOCALE   ru | en (default: ru) — copy соответствующие промпты в agents и commands
-  --preset NAME        generate demo artifacts for preset (feature-prd|feature-plan|feature-impl|feature-design|feature-release)
-  --ticket VALUE       ticket identifier to use with --preset (legacy alias: --feature)
-  --feature SLUG       deprecated alias for --ticket
   -h, --help           print this help
 EOF
 }
@@ -65,19 +57,6 @@ parse_args() {
       --enable-ci) ENABLE_CI=1; shift;;
       --force)     FORCE=1; shift;;
       --dry-run)   DRY_RUN=1; shift;;
-      --prompt-locale)
-        [[ $# -ge 2 ]] || die "--prompt-locale requires a value"
-        PROMPT_LOCALE="$2"; shift 2;;
-      --preset)
-        [[ $# -ge 2 ]] || die "--preset requires a value"
-        PRESET_NAME="$2"; shift 2;;
-      --ticket)
-        [[ $# -ge 2 ]] || die "--ticket requires a value"
-        PRESET_TICKET="$2"; shift 2;;
-      --feature)
-        [[ $# -ge 2 ]] || die "--feature requires a value"
-        log_warn "--feature is deprecated; use --ticket instead."
-        PRESET_TICKET="$2"; shift 2;;
       -h|--help)   usage; exit 0;;
       *)           die "Unknown argument: $1";;
     esac
@@ -86,11 +65,6 @@ parse_args() {
   case "$COMMIT_MODE" in
     ticket-prefix|conventional|mixed) ;;
     *) die "Unsupported --commit-mode: $COMMIT_MODE";;
-  esac
-
-  case "$PROMPT_LOCALE" in
-    ru|en) ;;
-    *) die "Unsupported --prompt-locale: $PROMPT_LOCALE";;
   esac
 }
 
@@ -243,22 +217,6 @@ copy_payload_dir() {
   done < <(find "$src_path" -type f -print0)
 }
 
-apply_prompt_locale() {
-  case "$PROMPT_LOCALE" in
-    ru)
-      return
-      ;;
-    en)
-      log_info "Applying prompt locale: en"
-      local previous_force="$FORCE"
-      FORCE=1
-      copy_payload_dir "prompts/en/agents" "agents"
-      copy_payload_dir "prompts/en/commands" "commands"
-      FORCE="$previous_force"
-      ;;
-  esac
-}
-
 ensure_hook_permissions() {
   local hooks_dir="$ROOT_DIR/hooks"
   [[ -d "$hooks_dir" ]] || return 0
@@ -307,248 +265,6 @@ format_bullets() {
   fi
 }
 
-preset_default_goals() {
-  cat <<'EOF'
-- развернуть шаблон всего за один запуск скрипта;
-- понять, какие файлы и настройки добавляются;
-- проверить, что выборочные тесты и хуки работают сразу после установки;
-- пройти многошаговый цикл `/idea-new → claude-workflow research → /plan-new → /tasks-new → /implement → /review` и увидеть работу гейтов (workflow, research, миграции, тесты).
-EOF
-}
-
-slug_to_title() {
-  local slug="$1"
-  slug="${slug//_/ }"
-  slug="${slug//-/ }"
-  printf '%s\n' "$slug" | awk '{for(i=1;i<=NF;i++){ $i=toupper(substr($i,1,1)) substr($i,2) } print}'
-}
-
-copy_presets() {
-  copy_payload_dir "claude-presets"
-}
-
-tasklist_path_for_slug() {
-  local slug="$1"
-  printf 'docs/tasklist/%s.md\n' "$slug"
-}
-
-render_tasklist_template() {
-  local slug="$1"
-  local title="$2"
-  local updated="$3"
-  CLAUDE_TEMPLATE_DIR="$PAYLOAD_ROOT" python3 - "$slug" "$title" "$updated" <<'PY'
-import os
-import sys
-from pathlib import Path
-
-slug, title, updated = sys.argv[1:4]
-template_candidates = [
-    Path("templates/tasklist.md"),
-    Path(os.environ.get("CLAUDE_TEMPLATE_DIR", "")) / "templates/tasklist.md",
-]
-template_text = None
-for candidate in template_candidates:
-    if candidate.exists():
-        template_text = candidate.read_text(encoding="utf-8")
-        break
-if template_text is None:
-    template_text = """---
-Ticket: {slug}
-Slug hint: {slug}
-Feature: {title}
-Status: draft
-PRD: docs/prd/{slug}.prd.md
-Plan: docs/plan/{slug}.md
-Research: docs/research/{slug}.md
-Updated: {updated}
----
-
-# Tasklist — {title}
-
-## 1. Аналитика и дизайн
-- [ ] Обновите пункты чеклиста под свою фичу.
-"""
-
-replacements = {
-    "<slug>": slug,
-    "<ticket>": slug,
-    "<slug-hint>": slug,
-    "<slug-hint или повторите ticket>": slug,
-    "<feature name>": title,
-    "<display name>": title,
-    "<Feature title>": title,
-    "<Feature name>": title,
-    "&lt;slug&gt;": slug,
-    "&lt;ticket&gt;": slug,
-    "&lt;slug-hint&gt;": slug,
-    "&lt;slug-hint или повторите ticket&gt;": slug,
-    "&lt;feature name&gt;": title,
-    "&lt;display name&gt;": title,
-    "&lt;Feature title&gt;": title,
-    "&lt;Feature name&gt;": title,
-    "YYYY-MM-DD": updated,
-}
-
-text = template_text
-for placeholder, value in replacements.items():
-    text = text.replace(placeholder, value)
-
-print(text)
-PY
-}
-
-ensure_tasklist_file() {
-  local slug="$1"
-  local title="$2"
-  local path
-  path="$(tasklist_path_for_slug "$slug")"
-  if [[ -f "$path" && "$FORCE" -ne 1 ]]; then
-    log_info "tasklist exists: ${path}"
-    return
-  fi
-  local today
-  today="$(date +%Y-%m-%d)"
-  local content
-  content="$(render_tasklist_template "$slug" "$title" "$today")"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] write tasklist ${path}"
-    return
-  fi
-  mkdir -p "$(dirname "$path")"
-  printf '%s\n' "$content" >"$path"
-  log_info "written: ${path}"
-}
-
-append_if_missing() {
-  local path="$1"
-  local marker="$2"
-  local content="$3"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] append ${marker} to $path"
-    return
-  fi
-  mkdir -p "$(dirname "$path")"
-  if [[ -f "$path" && "$FORCE" -ne 1 ]]; then
-    if grep -Fq "$marker" "$path"; then
-      log_warn "skip append: ${marker} already present in $path (use --force to duplicate)"
-      return
-    fi
-  fi
-  printf '\n%s\n' "$content" >>"$path"
-  log_info "updated: $path (${marker})"
-}
-
-apply_preset() {
-  if [[ -z "$PRESET_NAME" ]]; then
-    return
-  fi
-
-  local slug="${PRESET_TICKET:-demo-agent-first}"
-  local title
-  title="$(slug_to_title "$slug")"
-  local goals_block
-  goals_block="$(preset_default_goals | format_bullets)"
-  local tasks_block
-  tasks_block="$(format_bullets < /dev/null)"
-  local tasks_source="${TASKS_SOURCE:-}"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] preset ${PRESET_NAME} (ticket=${slug})"
-    return
-  fi
-
-  local release_notes_path="docs/release-notes.md"
-
-  case "$PRESET_NAME" in
-    feature-prd)
-      write_template "docs/prd/${slug}.prd.md" <<EOF
-# PRD — ${title}
-
-## Контекст
-- Фича: ${title}
-- Цель: автоматизировать пресеты Claude Code для стадий фичи.
-- Источники: slug-hint пользователя, workflow.md.
-
-## Цели и метрики успеха
-${goals_block}
-
-## Основные задачи
-${tasks_block}
-
-## Открытые вопросы
-- Требуется согласовать схему интеграции пресетов с CLI.
-- Уточнить команды автозапуска smoke-сценария.
-EOF
-      ;;
-    feature-design)
-      write_template "docs/design/${slug}.md" <<EOF
-# Дизайн — ${title}
-
-## Вводные
-- PRD: docs/prd/${slug}.prd.md
-- Workflow: workflow.md
-- Preset каталог: claude-presets/
-
-## Архитектура
-${tasks_block}
-
-## Риски и ограничения
-- Пересоздание артефактов должно быть безопасным (учитываем режим overwrite/append).
-- Подбор дефолтных значений для плейсхолдеров берём из workflow.md и пользовательских вводных.
-
-## План проверки
-${goals_block}
-EOF
-      ;;
-    feature-plan)
-      write_template "docs/plan/${slug}.md" <<EOF
-# План — ${title}
-
-## Этапы реализации
-${tasks_block}
-
-## Контрольные точки
-- PRD и дизайн синхронизированы.
-- Тасклист обновляется через пресет feature-impl.
-- Smoke-сценарий проходит с использованием init-claude-workflow.sh и пресетов.
-
-## Метрики успеха
-${goals_block}
-EOF
-      ;;
-    feature-impl)
-      local section="## ${title}"
-      local checklist_block=""
-      if [[ -n "$tasks_source" ]]; then
-        while IFS= read -r line; do
-          [[ -z "$line" ]] && continue
-          checklist_block+="- [ ] ${slug} :: ${line}"$'\n'
-        done <<<"$tasks_source"
-      fi
-      if [[ -z "$checklist_block" ]]; then
-        checklist_block="- [ ] ${slug} :: Подтвердить план фичи"$'\n'
-      fi
-      local block="${section}
-${checklist_block}"
-      ensure_tasklist_file "$slug" "$title"
-      local tasklist_path
-      tasklist_path="$(tasklist_path_for_slug "$slug")"
-      append_if_missing "$tasklist_path" "$section" "$block"
-      ;;
-    feature-release)
-      local release_block="## ${title}
-- Фича: ${title}
-- Проверка пресетов: запланирована
-${goals_block}
-"
-      append_if_missing "$release_notes_path" "## ${title}" "$release_block"
-      ;;
-    *)
-      die "Unknown preset: $PRESET_NAME"
-      ;;
-  esac
-  log_info "preset ${PRESET_NAME} applied for feature ${slug}"
-  PRESET_RESULT_SLUG="$slug"
-}
 
 generate_directories() {
   log_info "Ensuring directory structure"
@@ -580,17 +296,11 @@ generate_directories() {
 generate_core_docs() {
   copy_template "AGENTS.md" "AGENTS.md" "append"
   copy_template "conventions.md" "conventions.md"
-  copy_template "workflow.md" "workflow.md"
 }
 
 generate_templates() {
   copy_payload_dir "docs"
-  copy_template "templates/tasklist.md" "templates/tasklist.md"
   copy_payload_dir "templates/git-hooks" "templates/git-hooks"
-}
-
-generate_prompt_references() {
-  copy_payload_dir "prompts/en" "prompts/en"
 }
 
 generate_claude_settings() {
@@ -738,7 +448,7 @@ PY
 
 generate_ci_workflow() {
   if [[ "$ENABLE_CI" -eq 1 ]]; then
-    log_info "CI workflow templates больше не поставляются автоматически — загляните в docs/customization.md для примера GitHub Actions."
+    log_info "CI workflow templates больше не поставляются автоматически — см. doc/dev/customization.md в репозитории."
   fi
 }
 
@@ -754,10 +464,6 @@ Open the project in Claude Code and try:
   /review checkout-discounts
   ./aidd/hooks/format-and-test.sh
 EOF
-  log_info "Preset catalog available at claude-presets/ (advanced presets live under claude-presets/advanced/)."
-  if [[ -n "$PRESET_NAME" && "$DRY_RUN" -eq 0 ]]; then
-    log_info "Preset ${PRESET_NAME} scaffolded demo artifacts for feature ${PRESET_RESULT_SLUG}."
-  fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log_info "Dry run completed. No files were written."
   fi
@@ -770,20 +476,16 @@ main() {
   generate_directories
   generate_core_docs
   generate_templates
-  generate_prompt_references
-  copy_presets
   generate_claude_settings
   generate_agents
   generate_commands
   generate_plugin
   generate_plugin_hooks
   copy_workspace_plugin_files
-  apply_prompt_locale
   generate_gradle_helpers
   generate_config_and_scripts
   replace_commit_mode
   generate_ci_workflow
-  apply_preset
   final_message
 }
 

@@ -1,7 +1,7 @@
 # conventions.md
 
 - **Стиль кода**: придерживаемся KISS/YAGNI/MVP; используем форматтеры/линтеры, настроенные в репозитории, и фиксируем исключения в `config/conventions.json`.
-- **Установка**: `claude-workflow init --target . [--commit-mode ... --enable-ci --prompt-locale en]` разворачивает payload в `./aidd`; команды/агенты читают артефакты только из этого каталога.
+- **Установка**: `claude-workflow init --target . [--commit-mode ... --enable-ci]` разворачивает payload в `./aidd`; команды/агенты читают артефакты только из этого каталога.
 - **Ветки**: создаём через `git checkout -b` по пресетам (`feature/<TICKET>`, `feat/<scope>`, `hotfix/<TICKET>`).
 - **Коммиты**: оформляем `git commit`, сообщения валидируются правилами `config/conventions.json`.
 - **Документация**: PRD (`aidd/docs/prd/<ticket>.prd.md`), план (`aidd/docs/plan/<ticket>.md`), tasklist (`aidd/docs/tasklist/<ticket>.md`), при необходимости ADR (`aidd/docs/adr/*.md`); активные маркеры — `aidd/docs/.active_*`.

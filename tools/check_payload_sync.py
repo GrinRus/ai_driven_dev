@@ -11,12 +11,10 @@ from typing import Dict, Iterable, List, Sequence
 DEFAULT_PATHS: list[str] = [
     ".claude",
     ".claude-plugin",
-    "claude-presets",
     "config",
     "docs",
     "templates",
     "tools",
-    "workflow.md",
     "conventions.md",
     "init-claude-workflow.sh",
     "scripts/migrate-tasklist.py",

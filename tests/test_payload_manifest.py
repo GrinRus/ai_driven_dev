@@ -6,6 +6,14 @@ from pathlib import Path
 
 
 DEV_ONLY_PATHS = ["doc/dev/backlog.md"]
+BANNED_DOC_SNIPPETS = [
+    "doc/dev/",
+    "scripts/sync-payload.sh",
+    "tools/check_payload_sync.py",
+    "scripts/prompt-version",
+    "tools/prompt_diff.py",
+    "scripts/lint-prompts.py",
+]
 
 
 def _hash_file(path: Path) -> str:
@@ -60,3 +68,19 @@ def test_dev_only_files_not_in_manifest_or_payload():
     for dev_path in DEV_ONLY_PATHS:
         assert dev_path not in entries, f"{dev_path} should not be shipped in payload manifest"
         assert not (payload_root / dev_path).exists(), f"{dev_path} should be dev-only and absent from payload"
+
+
+def test_payload_docs_do_not_reference_repo_only_tools():
+    project_root = Path(__file__).resolve().parents[1]
+    payload_docs = project_root / "src" / "claude_workflow_cli" / "data" / "payload" / "aidd" / "docs"
+    offenders = {}
+
+    for doc_path in payload_docs.rglob("*.md"):
+        text = doc_path.read_text(encoding="utf-8")
+        for snippet in BANNED_DOC_SNIPPETS:
+            if snippet in text:
+                offenders.setdefault(snippet, []).append(doc_path)
+
+    assert not offenders, "Repo-only references found in payload docs: " + ", ".join(
+        f"{snippet} -> {[p.as_posix() for p in paths]}" for snippet, paths in offenders.items()
+    )

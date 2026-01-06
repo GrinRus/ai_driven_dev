@@ -7,21 +7,21 @@
 - Синхронизировать ожидания по входам/выходам между агентами и командными файлами.
 - Минимизировать дублирование инструкций (например, правила `Checkbox updated`) и держать их в одном месте.
 - Задать единый словарь терминов (ticket, slug, plan, PRD, tasklist) и порядок ссылок на артефакты.
-- Обеспечить **agent-first** подход: агент по умолчанию использует данные из репозитория (backlog, reports, tests) и запускает разрешённые команды; вопросы пользователю разрешены только когда в артефактах нет ответа и это явно задокументировано.
+- Обеспечить **agent-first** подход: агент по умолчанию использует данные из репозитория и запускает разрешённые команды; вопросы пользователю разрешены только когда в артефактах нет ответа.
 - Базовые правила — `aidd/AGENTS.md`, порядок стадий — `aidd/docs/sdlc-flow.md`, статусы — `aidd/docs/status-machine.md`.
 
 ## 2. Структура промпта
 
 ### 2.1 YAML фронт-маттер
-Каждый файл `aidd/agents/*.md`, `aidd/commands/*.md` и их EN-версии в `aidd/prompts/en/**` начинается с блока:
+Каждый файл `aidd/agents/*.md` и `aidd/commands/*.md` начинается с блока:
 
 ```yaml
 ---
 name: <agent-name>          # для команд поле `name` опционально, но требуется `description`
 description: ...            # короткое назначение (≤120 символов)
-lang: ru                    # ru или en; при добавлении EN версии поле обязательно
+lang: ru                    # текущая локаль
 prompt_version: 1.0.0       # major.minor.patch
-source_version: 1.0.0       # если документ локализован, укажите версию оригинала
+source_version: 1.0.0       # для RU-файлов совпадает с prompt_version
 tools: Read, Write, ...     # только разрешённые инструменты
 model: inherit | opus       # при необходимости фиксируйте модель
 permissionMode: default     # для агентов (acceptEdits/bypassPermissions/plan/ignore/default)
@@ -29,44 +29,35 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 ```
 
 Требования:
-- Поля `lang`, `prompt_version`, `description` обязательны. `source_version` требуется для локализаций.
-- `prompt_version` повышается при любых правках текста (см. раздел 7).
-- Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён, только конкретные команды. Если агенту доступны CLI-команды (`rg`, `pytest`, `claude-workflow progress`), перечислите их точно, чтобы было понятно, чем он располагает.
+- Поля `lang`, `prompt_version`, `description` обязательны. `source_version` обязателен и равен `prompt_version`.
+- Список инструментов перечисляйте через запятую; wildcard `Bash(*)` запрещён.
 - Для поиска используйте один способ: `rg` через `Bash(rg:*)` (Grep не добавляйте).
-- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; свободный ввод после тикета должен быть предусмотрен и описан. Для агентов поле `name` обязательно.
+- Для команд обязательно добавляйте `argument-hint`, используйте позиционные `$1/$2` и `$ARGUMENTS` в теле; свободный ввод после тикета должен быть предусмотрен.
 
 ### 2.2 Обязательные разделы
 После фронт-маттера соблюдайте блоки в указанном порядке:
-1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@aidd/docs/...`). Добавьте MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`. В этом блоке явно укажите философию agent-first: какие данные агент обязан собрать самостоятельно и какие действия автоматизированы.
-2. **Входные артефакты** — маркированный список (`- PRD: aidd/docs/prd/<ticket>.prd.md`). Указывайте обязательность и fallback (например, «если отчёт research отсутствует → попроси запустить команду»).
-3. **Автоматизация** — что делает CLA `gate-*`, какие переменные окружения поддерживаются, как реагировать на автозапуск `format-and-test`. Здесь же перечислите разрешённые команды (например, `<test-runner>`, `rg pattern`, `claude-workflow progress`) и ожидаемый формат фиксации их вывода.
-4. **Пошаговый план** — пронумерованный список действий агента/команды. Для команд допускается блок «Когда запускать / Что модифицируем / Ожидаемый вывод».
-5. **Fail-fast & вопросы** — что считать блокером, как задавать вопросы пользователю (формат, обязательные ответы). Подчеркните, что вопросы задаются только после того, как агент перечислил проверенные артефакты/команды.
-6. **Формат ответа** — чёткие требования к финальному сообщению (статус, блоки, `Checkbox updated`).
+1. **Контекст** — 1–3 абзаца с ролью, основными входами и ссылками на артефакты (`@aidd/docs/...`). Добавьте MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`.
+2. **Входные артефакты** — маркированный список (`- PRD: aidd/docs/prd/<ticket>.prd.md`).
+3. **Автоматизация** — что делают `gate-*`, какие переменные окружения поддерживаются, как реагировать на автозапуск `format-and-test`.
+4. **Пошаговый план** — пронумерованный список действий агента/команды.
+5. **Fail-fast & вопросы** — что считать блокером, как задавать вопросы пользователю.
+6. **Формат ответа** — требования к финальному сообщению (статус, `Checkbox updated`).
 
 Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. aidd/docs/agents-playbook.md`).
 
-### 2.4 Agent-first обязательства
+### 2.3 Agent-first обязательства
 - Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
 - Разрешённый Q&A с пользователем всегда идёт в формате «перечислены изученные артефакты → сформулирован недостающий ответ → приложен требуемый формат ответа».
 - Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
-
-### 2.3 Локализация
-- RU-файлы используются рантаймом (`aidd/agents/*.md`, `aidd/commands/*.md`), EN-хранилище — `aidd/prompts/en/agents/*.md`, `aidd/prompts/en/commands/*.md`.
-- Заголовки разделов переводятся: `Контекст` → `Context`, `Входные артефакты` → `Input Artifacts`, `Fail-fast и вопросы` → `Fail-fast & Questions`, и т.д. (см. EN примеры в `aidd/prompts/en/**`).
-- Добавьте `Lang-Parity: skip` в фронт-маттер только когда одну локаль намеренно пропускают (например, черновик); после синхронизации уберите.
-- Версионные правила и workflow описаны в `aidd/docs/prompt-versioning.md`.
 
 ## 3. Правила `Checkbox updated`
 - Всегда начинайте блок статуса строкой `Checkbox updated: <список>` или `Checkbox updated: none`.
 - Формат списка: идентификатор чекбокса (`1.1 – Аналитика`) или ссылку на файл (`aidd/docs/tasklist/ABC-123.md: QA #3`).
 - Команды/агенты, которые не обновляют tasklist, должны явно указывать `Checkbox updated: not-applicable`.
 - Далее добавляйте строки: `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
-- Любые дополнения (например, краткий отчёт) следуют после этих строк.
 
 ## 4. Fail-fast и эскалация
 - Если обязательный вход отсутствует → немедленно завершайте ответ со статусом `BLOCKED` и перечисляйте, какую команду запустить (`/idea-new`, `claude-workflow research ...`).
-- При сомнениях по архитектуре или миграциям формируйте список вопросов в конце ответа и не продолжайте реализацию.
 - Для слэш-команд описывайте, как проверять готовность (например, `!bash -lc 'claude-workflow progress ...'`).
 - Формат вопросов обязателен:
   ```
@@ -80,13 +71,11 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd.template.md`, `aidd/docs/agents-playbook.md` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `aidd/docs/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD READY, `research-check`, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
 | `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
-| `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd.template.md` |
-
-> `/review-spec` — единая команда для review-plan и review-prd.
-| `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `templates/tasklist.md` |
+| `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd/template.md` |
+| `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `aidd/docs/tasklist/template.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
 | `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
 
@@ -94,31 +83,11 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 ## 6. Автоматизация и ссылки
 - Ссылайтесь на переменные окружения из `.claude/settings.json` (например, `SKIP_AUTO_TESTS`, `TEST_SCOPE`).
-- Для команд, которые вызывают дополнительные скрипты, описывайте формат `!bash -lc '...'` и ожидаемые побочные эффекты.
-- Если агент должен запускаться из палитры (например, `qa`), напишите явное указание «Запусти через Claude: Run agent → qa».
 - Hook events: `aidd/hooks/hooks.json` задаёт PreToolUse/PostToolUse/UserPromptSubmit/Stop/SubagentStop; команды вызывают хук скриптами вида `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/<name>.sh`.
 
-## 7. Процесс изменений и версионирование
-> Repo-only: `scripts/prompt-version`, `scripts/lint-prompts.py`, `tools/prompt_diff.py` доступны только в репозитории и не входят в установленный payload.
-> `<workflow-root>` — каталог, где лежат `agents/`, `commands/`, `prompts/en` (например, `./aidd` или `src/claude_workflow_cli/data/payload/aidd`).
+## 7. Версионирование
+- Любая правка текста или структуры требует увеличения `prompt_version`.
+- Подробные правила в `aidd/docs/prompt-versioning.md`.
 
-- Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).
-- EN-файл обязан держать `prompt_version`, равный RU, а `source_version` = текущей RU-версии; детали в `aidd/docs/prompt-versioning.md`.
-- Используйте `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru,en --part <...>` и `tools/prompt_diff.py --root <workflow-root>` для контроля изменений.
-- После обновления промпта обязательно опишите изменения в `aidd/docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
-
-## 8. Минимальный чеклист перед публикацией
-1. Проверить фронт-маттер (`lang`, `prompt_version`, инструменты).
-2. Убедиться, что все обязательные блоки присутствуют и оформлены.
-3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
-4. Запустить `scripts/lint-prompts.py --root <workflow-root>` и убедиться, что проверки пройдены.
-5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
-
-Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
-
-## 9. Шаблоны и автоматизация
-- Используйте `templates/prompt-agent.md` и `templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
-- Для быстрого старта запустите `python3 scripts/scaffold_prompt.py --type agent --target aidd/agents/<name>.md --name <name> --description "..."` (или `--type command`). Скрипт подставит фронт-маттер и создаст файл; `--force` перезаписывает существующий.
-- В IDE можно вызвать `claude-workflow preset prompt-governance --prompt_type agent --target_path aidd/agents/<name>.md --name <name>` — пресет подтянет playbook и шаблон, чтобы Claude Code сам дополнил секции.
-- Проверяйте локализации: `python3 scripts/lint-prompts.py --root <workflow-root>`, `tools/prompt_diff.py --root <workflow-root> --kind command --name plan-new`, `scripts/prompt-version bump --root <workflow-root> --prompts plan-new --kind command --lang ru,en --part patch --dry-run`.
-- После генерации обязательно вручную заполните все блоки и обновите `prompt_version`/`source_version`, если правки вносились вручную или делался перевод.
+## 8. Шаблоны
+- Используйте `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.

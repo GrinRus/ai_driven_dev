@@ -23,8 +23,8 @@ class ResearcherContextTests(unittest.TestCase):
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)
-        template_src = (PAYLOAD_ROOT / "docs" / "prd.template.md").read_text(encoding="utf-8")
-        write_file(self.root, "docs/prd.template.md", template_src)
+        template_src = (PAYLOAD_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
+        write_file(self.root, "docs/prd/template.md", template_src)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
         config_payload = {
