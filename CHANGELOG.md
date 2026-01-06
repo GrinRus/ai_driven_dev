@@ -7,6 +7,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ## [Unreleased]
 
 ### Added
+- `claude-workflow research-check` to validate research artefacts before planning.
+- PRD template section `## Research Hints` for passing paths/keywords to `/researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` plus root `AGENTS.md` as the primary agent entrypoint.
@@ -27,6 +29,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md`, `aidd/docs/agents-playbook.md`, ensuring agents log repository inputs and CLI commands before asking the user.
 
 ### Changed
+- `/idea-new` no longer triggers research; analyst captures `Research Hints`, research is run in `/researcher`.
+- `analyst-check` no longer validates research; research validation is handled by `research-check` and `gate-workflow`.
+- `/plan-new` now runs `research-check` before planning.
 - Canonical flow now includes plan review: idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa.
 - Commands are thin orchestrators; agents carry algorithms/stop-conditions with a unified question format (Blocker/Clarification + rationale/options/default).
 - Output contract standardized (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), search unified on `rg`.

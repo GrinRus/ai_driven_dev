@@ -560,6 +560,7 @@ generate_directories() {
     "config"
     "docs"
     "reports"
+    "reports/prd"
     "reports/qa"
     "reports/research"
   )
@@ -656,6 +657,7 @@ generate_config_and_scripts() {
   copy_payload_dir "config"
   copy_payload_dir "scripts"
   copy_payload_dir "tools"
+  copy_payload_dir "reports"
   local dirs=("$ROOT_DIR/scripts" "$ROOT_DIR/tools")
   for dir in "${dirs[@]}"; do
     if [[ -d "$dir" ]]; then

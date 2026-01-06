@@ -485,14 +485,14 @@ _Статус: активный, приоритет 3. Цель — zero-touch �
 
 ## Wave 36
 
-_Статус: активный, приоритет 4. Автоаналитика в `/idea-new` поверх zero-touch CLI._
+_Статус: закрыт (за ненадобностью). Автоаналитика в `/idea-new` поверх zero-touch CLI._
 
 ### Усиление agent-first для `/idea-new` и аналитика
-- [ ] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` сразу после `research --auto`, graceful fallback с INSTALL_HINT, обновлённые smoke/tests.
-- [ ] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: логирование повторных research (paths/keywords), обязательный `analyst-check` при смене статуса READY, fail-fast при отсутствии `.active_ticket`/PRD.
-- [ ] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизация с автозапуском аналитика и правилами повторного research; обновить payload-копии и примеры.
-- [ ] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты.
-- [ ] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY.
+- [x] `init-claude-workflow.sh`, `claude_workflow_cli/cli.py`: жёсткий автозапуск `claude-workflow analyst --ticket <ticket> --auto` сразу после `research --auto`, graceful fallback с INSTALL_HINT, обновлённые smoke/tests. _(закрыто за ненадобностью)_
+- [x] `.claude/agents/analyst.md`, `prompts/en/agents/analyst.md`: логирование повторных research (paths/keywords), обязательный `analyst-check` при смене статуса READY, fail-fast при отсутствии `.active_ticket`/PRD. _(закрыто за ненадобностью)_
+- [x] `.claude/commands/idea-new.md`, `prompts/en/commands/idea-new.md`: синхронизация с автозапуском аналитика и правилами повторного research; обновить payload-копии и примеры. _(закрыто за ненадобностью)_
+- [x] Тесты и smoke: добавить сценарий `/idea-new` → auto-analyst → repeat research → PRD READY; убедиться, что payload-sync/manifest покрывают новые артефакты. _(закрыто за ненадобностью)_
+- [x] Документация: README/workflow.md/agents-playbook — кратко зафиксировать автозапуск аналитика, логи повторного research и требование `analyst-check` после READY. _(закрыто за ненадобностью)_
 
 ## Wave 37
 
@@ -510,7 +510,7 @@ _Статус: активный, приоритет 4. Автоаналитик�
 - [x] `.claude/commands/researcher.md`, `src/claude_workflow_cli/data/payload/.claude/commands/researcher.md`, `prompts/en/commands/researcher.md`: обновить сценарий запуска с режимом глубокого разбора кода (флаги глубины, фильтр директорий/языков), требовать в отчёте разделы «Паттерны/антипаттерны», «Готовые модули к переиспользованию» и checklist применения; добавить пример вызова с `--deep`/`--reuse` и явную инструкцию строить call/import graph на стороне Claude Code.
 - [x] `docs/templates/research-summary.md`, `src/claude_workflow_cli/data/payload/docs/templates/research-summary.md`: расширить шаблон секциями для переиспользования (модуль/файл → как использовать → риски), перечнем найденных паттернов и обязательными ссылками на тесты/контракты, куда агент должен писать результаты.
 - [x] `src/claude_workflow_cli/tools/researcher_context.py`, `tools/researcher_context.py`, `src/claude_workflow_cli/data/payload/tools/researcher_context.py`: добавить deep-mode сборки кода (нарезка функций/классов, импорт-листы, соседние тесты, поисковая выдача похожих модулей/утилит без построения графа), агрегировать reuse-кандидатов с метрикой релевантности и отдавать агенту markdown+JSON пакет для промпта; подсветить, что построение call/import graph выполняет агент.
-- [ ] `src/claude_workflow_cli/cli.py`, `claude_workflow_cli/data/payload/.claude/hooks/lib_cli.sh`: прокинуть новые параметры контекст-сборки (`--deep-code`, `--reuse-only`, списки директорий/языков) в команду `research`, логировать путь к сгенерированному отчёту и подсвечивать найденные reuse-точки перед запуском агента.
+- [x] `src/claude_workflow_cli/cli.py`, `claude_workflow_cli/data/payload/.claude/hooks/lib_cli.sh`: прокинуть новые параметры контекст-сборки (`--deep-code`, `--reuse-only`, списки директорий/языков) в команду `research`, логировать путь к сгенерированному отчёту и подсвечивать найденные reuse-точки перед запуском агента.
 - [x] `tests/test_researcher_context.py`, `tests/test_gate_researcher.py`, `scripts/smoke-workflow.sh`: покрыть глубокий режим (поиск функций/классов, reuse-кандидаты, ссылки на тесты), негативные сценарии без совпадений и проверку, что отчёт содержит обязательные секции; убедиться, что payload-копии проходят sync/manifest проверки и что call graph делегирован агенту.
 - [x] `docs/agents-playbook.md`, `docs/workflow.md`, `docs/feature-cookbook.md`, `README.md`, `README.en.md`: описать новый формат работы Researcher (deep-code + reuse), обязательные поля отчёта, примеры интерпретации и как применять рекомендации в план/тасклист; добавить guidance по запуску с фильтрами директорий/языков и явным шагом построения графа на стороне Claude Code.
 
@@ -585,17 +585,17 @@ _Статус: активный, приоритет 3. Цель — после �
 
 ## Wave 43
 
-- [ ] CLI `analyst` (обёртка для агента, auto-mode по дефолту)
-  - [ ] `src/claude_workflow_cli/cli.py`: добавить subcommand `analyst` (поля: `--ticket/--feature`, `--slug-hint`, `--target`, `--auto`, `--note`, проброс в аналитический агент или скрипт); graceful ошибка с INSTALL_HINT при отсутствии payload/скрипта.
-  - [ ] `prompts/en/commands/idea-new.md`, `.claude/commands/idea-new.md`: синхронизировать инструкции (автозапуск analyst после research, пример CLI).
-  - [ ] Документация: README/README.en/workflow/docs/agents-playbook — обновить разделы quick-start/commands, убрать устаревшие предупреждения; отметить auto-mode и связь с `analyst-check`.
-  - [ ] Тесты/смоук: добавить сценарий `claude-workflow analyst --ticket demo --auto` (использует demo payload) в `scripts/smoke-workflow.sh` и/или unit на парсер; убедиться, что `invalid choice: 'analyst'` больше не воспроизводится.
+- [x] CLI `analyst` (обёртка для агента, auto-mode по дефолту) _(закрыто за ненадобностью)_
+  - [x] `src/claude_workflow_cli/cli.py`: добавить subcommand `analyst` (поля: `--ticket/--feature`, `--slug-hint`, `--target`, `--auto`, `--note`, проброс в аналитический агент или скрипт); graceful ошибка с INSTALL_HINT при отсутствии payload/скрипта.
+  - [x] `prompts/en/commands/idea-new.md`, `.claude/commands/idea-new.md`: синхронизировать инструкции (автозапуск analyst после research, пример CLI).
+  - [x] Документация: README/README.en/workflow/docs/agents-playbook — обновить разделы quick-start/commands, убрать устаревшие предупреждения; отметить auto-mode и связь с `analyst-check`.
+  - [x] Тесты/смоук: добавить сценарий `claude-workflow analyst --ticket demo --auto` (использует demo payload) в `scripts/smoke-workflow.sh` и/или unit на парсер; убедиться, что `invalid choice: 'analyst'` больше не воспроизводится.
 
-- [ ] CLI `tasks-new` (создание tasklist из шаблона/пресета, упоминания устранить)
-  - [ ] `src/claude_workflow_cli/cli.py`: добавить subcommand `tasks-new` (опции: `--ticket/--feature`, `--slug-hint`, `--target`, `--force`, `--template/docs/tasklist.template.md`, опционально `--preset feature-plan/impl`), генерировать `docs/tasklist/<ticket>.md` с заполнением placeholders; при конфликте — бэкап/skip и понятное сообщение.
-  - [ ] Обновить `.claude/commands/tasks-new.md`, `prompts/en/commands/tasks-new.md` под фактический CLI (аргументы, побочные эффекты, примеры), синхронизировать payload-копии/manifest.
-  - [ ] Документация: README/README.en/workflow/docs/agents-playbook — заменить упоминания ручного копирования tasklist на вызов `tasks-new`, добавить troubleshooting (если файл уже есть/отредактирован).
-  - [ ] Тесты/смоук: e2e сценарий `claude-workflow tasks-new --ticket demo` → файл создан из шаблона, повторный запуск с `--force`/без — ожидаемое поведение; unit на парсер/конфликты; проверить, что `invalid choice: 'tasks-new'` устранён.
+- [x] CLI `tasks-new` (создание tasklist из шаблона/пресета, упоминания устранить) _(закрыто за ненадобностью)_
+  - [x] `src/claude_workflow_cli/cli.py`: добавить subcommand `tasks-new` (опции: `--ticket/--feature`, `--slug-hint`, `--target`, `--force`, `--template/docs/tasklist.template.md`, опционально `--preset feature-plan/impl`), генерировать `docs/tasklist/<ticket>.md` с заполнением placeholders; при конфликте — бэкап/skip и понятное сообщение.
+  - [x] Обновить `.claude/commands/tasks-new.md`, `prompts/en/commands/tasks-new.md` под фактический CLI (аргументы, побочные эффекты, примеры), синхронизировать payload-копии/manifest.
+  - [x] Документация: README/README.en/workflow/docs/agents-playbook — заменить упоминания ручного копирования tasklist на вызов `tasks-new`, добавить troubleshooting (если файл уже есть/отредактирован).
+  - [x] Тесты/смоук: e2e сценарий `claude-workflow tasks-new --ticket demo` → файл создан из шаблона, повторный запуск с `--force`/без — ожидаемое поведение; unit на парсер/конфликты; проверить, что `invalid choice: 'tasks-new'` устранён.
 
 ## Wave 44
 
@@ -656,7 +656,7 @@ _Статус: активный, приоритет 1. Перенос из Wave 
 - [x] Проверить/уточнить пути в `aidd/.claude-plugin/plugin.json` (commands/agents/hooks с `./`), учесть размещение файлов в корне плагина.
 - [x] Обновить init/sync/upgrade: генерация marketplace и настроек при установке в `aidd/`, включить в payload manifest.
 - [x] Тесты: e2e init → marketplace+enabledPlugins; lint/manifest на marketplace; smoke с CWD=корень и плагином в `aidd/`, проверки `${CLAUDE_PLUGIN_ROOT}` в хуках.
-- [ ] Дока: README/workflow/agents-playbook — раздел про запуск из корня с плагином в `aidd/`, шаги доверия/установки marketplace.
+- [x] Дока: README/workflow/agents-playbook — раздел про запуск из корня с плагином в `aidd/`, шаги доверия/установки marketplace.
 
 ### Структура payload AIDD под схему плагина
 - [x] Перенести плагинные команды/агенты/хуки из `aidd/.claude-plugin/{commands,agents,hooks}` в корень плагина `aidd/{commands,agents,hooks}`, поправить `plugin.json` на пути `./commands/`, `./agents/`, `./hooks/hooks.json`.
@@ -952,14 +952,17 @@ _Статус: новый, приоритет 1. Цель — зафиксиро
 - [x] Расширить `scripts/lint-prompts.py`: контроль ссылок на `status-machine.md`/`sdlc-flow.md`, проверка шаблона вопросов в ключевых агентах; обновить `tests/test_prompt_lint.py`.
 - [x] Обновить smoke/regression под новый flow: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh`, `tests/test_gate_workflow.py`, `tests/test_prompt_versioning.py`.
 - [x] После правок: bump `prompt_version` (RU/EN), обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+- [x] PRD review: автоматом создавать `reports/prd/` при формировании отчётов и в гейтах (убрать требование ручного `mkdir`).
 
-### Унификация путей и root-resolution
-- [ ] Ввести единый helper `hook_project_root` в `src/claude_workflow_cli/data/payload/aidd/hooks/lib.sh` с приоритетом: `AIDD_ROOT` → `CLAUDE_PROJECT_DIR` → `CLAUDE_PLUGIN_ROOT` → `git -C "$PWD" rev-parse --show-toplevel` → поиск вверх `aidd/docs`; возвращать абсолютный путь (realpath) и пустое значение при провале.
-- [ ] Привести все hook‑скрипты к одному резолверу и абсолютным путям (без `cd`): `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-tests.sh,gate-qa.sh,lint-deps.sh}`; все git‑команды только через `git -C "$ROOT_DIR" ...`; если root не найден — мягкий exit без блокировки.
-- [ ] Унифицировать резолвинг путей в runtime‑скриптах и tools: добавить `--root`/`AIDD_ROOT` и единый helper `get_root()` в `src/claude_workflow_cli/data/payload/aidd/scripts/{qa-agent.py,prd-review-agent.py,plan_review_gate.py,prd_review_gate.py}` и `src/claude_workflow_cli/data/payload/aidd/tools/{set_active_stage.py,set_active_feature.py,run_cli.py}`; исключить относительные `./aidd` пути.
-- [ ] Обновить документацию об источнике root и запуске CLI: `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (правило: хуки и CLI работают от workspace root; `AIDD_ROOT` как override).
-- [ ] Добавить тесты на резолвинг root: эмуляция `AIDD_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT` (cache path), запуск hook из чужого cwd; отдельный кейс non‑git — ожидается мягкий exit. Файлы: `tests/test_gate_workflow.py`, `tests/helpers.py`.
-- [ ] После унификации: обновить `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+### Разделение аналитики и research + раздельные гейты
+- [x] `/idea-new` (RU/EN): убрать автозапуск `claude-workflow research`; оставить лёгкий сбор контекста (rg/доки) и явный next step `/researcher <ticket>`.
+- [x] `analyst` (RU/EN): запретить запуск research CLI; добавить блок `## Research Hints` (paths/keywords/notes) в `prd.template.md`, который использует researcher; `analyst-check` запускать только после ответов.
+- [x] `/researcher` (RU/EN): сделать запуск `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph` обязательным; подтягивать `## Research Hints` из PRD; гарантировать создание `docs/research/<ticket>.md` и `Status: reviewed|pending`.
+- [x] Разделить гейты: `analyst_guard.py` проверяет только диалог/вопросы/Status (без проверки research); ввести отдельный `claude-workflow research-check` и вызывать его в `/plan-new`, а research‑gate в `gate-workflow.sh` оставить для code‑changes.
+- [x] Обновить статус‑машину: разрешить `PRD READY` без reviewed research, но обязать research‑check перед `/plan-new`; зафиксировать правило в `status-machine.md` и enforcement через `research-check`, а не analyst‑gate.
+- [x] Документация процесса: синхронизировать `workflow.md`, `docs/feature-cookbook.md`, `docs/prompt-playbook.md` (и payload‑версии) с новым порядком idea → research → plan и раздельными гейтами.
+- [x] Smoke/тесты: обновить `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` и/или `tests/test_gate_workflow.py` под разделённые этапы и гейты.
+- [x] Версионирование промптов и релизные заметки: bump `prompt_version` в изменённых командах/агентах (RU/EN), обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md`, `CHANGELOG.md`, `src/claude_workflow_cli/data/payload/manifest.json`, затем `scripts/sync-payload.sh --direction=to-root` и `python3 tools/check_payload_sync.py`.
 
 ## Wave 60
 
@@ -1063,3 +1066,98 @@ _Статус: новый, приоритет 1. Цель — CLI‑first: пе�
 - [ ] Обновить `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` — заменить ссылки на `tools/*.py`/`scripts/*.py` на `claude-workflow`.
 - [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` (breaking change: legacy scripts removed).
 - [ ] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`, полный прогон `scripts/ci-lint.sh`.
+
+## Wave 64
+
+_Статус: новый, приоритет 1. Цель — унификация путей и root-resolution в хуках/скриптах._
+
+### Унификация путей и root-resolution
+- [ ] Ввести единый helper `hook_project_root` в `src/claude_workflow_cli/data/payload/aidd/hooks/lib.sh` с приоритетом: `AIDD_ROOT` → `CLAUDE_PROJECT_DIR` → `CLAUDE_PLUGIN_ROOT` → `git -C "$PWD" rev-parse --show-toplevel` → поиск вверх `aidd/docs`; возвращать абсолютный путь (realpath) и пустое значение при провале.
+- [ ] Привести все hook‑скрипты к одному резолверу и абсолютным путям (без `cd`): `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-tests.sh,gate-qa.sh,lint-deps.sh}`; все git‑команды только через `git -C "$ROOT_DIR" ...`; если root не найден — мягкий exit без блокировки.
+- [ ] Унифицировать резолвинг путей в runtime‑скриптах и tools: добавить `--root`/`AIDD_ROOT` и единый helper `get_root()` в `src/claude_workflow_cli/data/payload/aidd/scripts/{qa-agent.py,prd-review-agent.py,plan_review_gate.py,prd_review_gate.py}` и `src/claude_workflow_cli/data/payload/aidd/tools/{set_active_stage.py,set_active_feature.py,run_cli.py}`; исключить относительные `./aidd` пути.
+- [ ] Обновить документацию об источнике root и запуске CLI: `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` (правило: хуки и CLI работают от workspace root; `AIDD_ROOT` как override).
+- [ ] Добавить тесты на резолвинг root: эмуляция `AIDD_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT` (cache path), запуск hook из чужого cwd; отдельный кейс non‑git — ожидается мягкий exit. Файлы: `tests/test_gate_workflow.py`, `tests/helpers.py`.
+- [ ] После унификации: обновить `src/claude_workflow_cli/data/payload/manifest.json`, прогнать `python3 tools/check_payload_sync.py`, синхронизировать root через `scripts/sync-payload.sh --direction=to-root`.
+
+## Wave 65
+
+_Статус: новый, приоритет 1. Цель — поддержка dual‑deploy: Claude Code plugin + OpenCode (opencode.ai) с единым ядром `aidd/**`._
+
+### CLI/init: выбор формата установки
+- [ ] Добавить `--type {claude-code-plugin|open-code|both}` в `claude-workflow init` (default: `claude-code-plugin`) и прокинуть в bootstrap‑скрипт; обновить help/usage. Файлы: `src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh`.
+- [ ] В init‑скрипте разделить генерацию overlay: Claude Code (`.claude/`, `.claude-plugin/`) vs OpenCode (`opencode.json`, `.opencode/**`); при `--type open-code` не создавать `.claude*` (если не выбран `both`). Файл: `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh`.
+
+### OpenCode overlay (payload)
+- [ ] Добавить `opencode.json` в payload root с `instructions: ["aidd/AGENTS.md"]`, `permission` (ask/allow/deny), `tools` и опциональным `model`/`default_agent`; зафиксировать JSON‑schema `$schema: https://opencode.ai/config.json`. Файл: `src/claude_workflow_cli/data/payload/opencode.json`.
+- [ ] Создать `.opencode/command/*.md` как thin‑wrappers на `@aidd/commands/<name>.md` для: `idea-new`, `researcher`, `plan-new`, `review-spec`, `tasks-new`, `implement`, `review`, `qa`; frontmatter: `description`, `agent`, `model`. Файлы: `src/claude_workflow_cli/data/payload/.opencode/command/*.md`.
+- [ ] Создать `.opencode/agent/*.md` как thin‑wrappers на `@aidd/agents/<name>.md` для: `analyst`, `researcher`, `planner`, `validator`, `plan-reviewer`, `prd-reviewer`, `implementer`, `reviewer`, `qa`; frontmatter: `description`, `mode: subagent`, `model`, `tools`/`permission`. Файлы: `src/claude_workflow_cli/data/payload/.opencode/agent/*.md`.
+
+### OpenCode plugin: гейты и авто‑проверки
+- [ ] Реализовать `.opencode/plugin/aidd-workflow.ts`: хук `tool.execute.before` блокирует `edit/write/bash` на `src/**` вне разрешённых стадий; хук `session.idle` (или `tool.execute.after`) запускает `aidd/hooks/{gate-workflow,gate-tests,gate-qa,format-and-test,lint-deps}.sh`, передавая `AIDD_ROOT`/`CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`. Файл: `src/claude_workflow_cli/data/payload/.opencode/plugin/aidd-workflow.ts`.
+- [ ] Определить политику errors/exit‑codes для OpenCode plugin (soft/hard блокировка), оформить константы и сообщения в стиле существующих hook‑скриптов. Файл: `src/claude_workflow_cli/data/payload/.opencode/plugin/aidd-workflow.ts`.
+
+### Automation config для OpenCode
+- [ ] Зафиксировать источник `automation` для `format-and-test.sh` в open‑code режиме: либо разрешить fallback на `aidd/config/automation.json`, либо генерировать минимальный `.claude/settings.json` даже при `--type open-code`; обновить `format-and-test.sh` и docs. Файлы: `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`, `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`, `src/claude_workflow_cli/data/payload/opencode.json`.
+
+### Packaging/sync/audit
+- [ ] Обновить `src/claude_workflow_cli/data/payload/manifest.json` на новые файлы: `opencode.json`, `.opencode/**`.
+- [ ] Расширить allowlist: `tools/payload_audit_rules.json` (добавить `opencode.json`, `.opencode/**`).
+- [ ] Обновить `scripts/sync-payload.sh`: добавить `opencode.json` и `.opencode/` в default paths + (опционально) alias `--include opencode`.
+- [ ] Расширить `tools/check_payload_sync.py` под новые root‑файлы (`opencode.json`) и директорию `.opencode/`.
+
+### Tests
+- [ ] Добавить тесты init `--type open-code`: создаются `opencode.json`, `.opencode/{command,agent,plugin}`, а `.claude/` и `.claude-plugin/` не создаются без `both`. Файлы: `tests/test_init_claude_workflow.py` (или новый `tests/test_init_open_code.py`).
+- [ ] Обновить `tests/test_package_payload.py` на ожидание `opencode.json` и `.opencode/**` внутри package payload.
+
+### Документация
+- [ ] Обновить `README.md` и `README.en.md`: примеры команд `claude-workflow init --type claude-code-plugin` и `--type open-code`, структура файлов (`.claude*` vs `.opencode*`).
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/workflow.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: описать OpenCode‑режим, plugin‑гейты, и ограничения (stage‑aware checks).
+- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md`: добавить заметку о thin‑wrappers в OpenCode и едином source‑of‑truth в `aidd/**`.
+
+## Wave 66
+
+_Статус: новый, приоритет 1. Цель — ускорить /implement и уменьшить частоту тяжёлых тестов через профили, бюджет и дедуп._
+
+### Промпты /implement и implementer
+- [ ] Обновить RU/EN `/implement` (`aidd/commands/implement.md`, `aidd/prompts/en/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/commands/implement.md`): обновить описание на “малые итерации + управляемые проверки”, `argument-hint` с `test=...`, `tests=...`, `tasks=...`; добавить Test policy (FAST/TARGETED/FULL/NONE + decision-matrix), default=fast; описать контракт `aidd/.cache/test-policy.env` (AIDD_TEST_PROFILE/FILTERS/TASKS); явный шаг `set_active_feature`; ожидаемый вывод с `Test profile`/`Tests run` и запретом ручного дубля `format-and-test.sh`; повысить `prompt_version`/`source_version`.
+- [ ] Обновить RU/EN `implementer` (`aidd/agents/implementer.md`, `aidd/prompts/en/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`, `src/claude_workflow_cli/data/payload/aidd/prompts/en/agents/implementer.md`): лимит итерации (1 чекбокс/2 связанных), test budget (не повторять без diff), decision matrix; обязать писать `aidd/.cache/test-policy.env` и создавать `aidd/.cache`; добавить примеры Gradle `--tests` + `AIDD_TEST_TASKS`, выводить `Iteration scope`/`Test profile`/`Tests run`/`Why`, переписать шаг 4 на «проверки по профилю», обновить версии.
+
+### Автотесты и профили
+- [ ] Добавить в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh` чтение `aidd/.cache/test-policy.env` и поддержку профилей `fast|targeted|full|none` (env `AIDD_TEST_PROFILE`, `AIDD_TEST_FILTERS`, `AIDD_TEST_TASKS`, `AIDD_TEST_FORCE`) с маппингом на `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY` и задачи раннера; default = fast, manual scope/filters имеют приоритет.
+- [ ] Реализовать dedupe/budget в `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: fingerprint diff+профиля+таргетов, кеш в `aidd/.cache/format-and-test.last.json`, пропускать повторный запуск при неизменном diff, повторять только после фейла или изменения.
+- [ ] Обновить `.claude/settings.json` и `src/claude_workflow_cli/data/payload/.claude/settings.json`: добавить `fastTasks`, `fullTasks`, `targetedTask`, рекомендованный `moduleMatrix` под Gradle‑монорепо (module → `:module:testClasses`), оставить `defaultTasks/fallbackTasks` для FULL, синхронизировать параметры с docs.
+- [ ] Обновить `.gitignore`: убедиться, что `aidd/.cache/` игнорируется (если нужно, добавить явное правило).
+
+### Документация и шаблоны
+- [ ] Обновить `aidd/docs/agents-playbook.md` и `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`: новая политика тестов, лимит итерации, `test-policy.env`, примеры Gradle `--tests`, правила повторного прогона.
+- [ ] Обновить `aidd/docs/customization.md` и `src/claude_workflow_cli/data/payload/aidd/docs/customization.md`: новые env/config ключи (`AIDD_TEST_PROFILE`, `AIDD_TEST_FILTERS`, `AIDD_TEST_TASKS`, `AIDD_TEST_FORCE`, `fastTasks/fullTasks/targetedTask`), `aidd/.cache/test-policy.env` примеры, dedupe/budget.
+- [ ] Обновить `aidd/docs/tasklist.template.md` и `src/claude_workflow_cli/data/payload/aidd/docs/tasklist.template.md`: фиксировать `Test profile` и команды тестов в чеклисте реализации.
+- [ ] Добавить запись в `aidd/docs/release-notes.md`, `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` о новой политике тестов/итераций.
+
+### Тесты и синхронизация
+- [ ] Расширить `tests/test_format_and_test.py`: покрыть `AIDD_TEST_PROFILE` (fast/targeted/full/none), чтение `test-policy.env`, `AIDD_TEST_FILTERS/TASKS`, dedupe‑скип, default fast, новый конфиг профилей.
+- [ ] Финал: `scripts/prompt-version` (bump RU/EN), `scripts/lint-prompts.py --root <root>`, `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.
+
+## Wave 67
+
+_Статус: новый, приоритет 1. Цель — упростить payload (без пресетов и EN‑промптов), нормализовать шаблоны и пересмотреть необходимость крупных гайдов._
+
+### Инвентаризация и политика payload
+- [ ] Зафиксировать карту установки (uv tool install → `claude_workflow_cli/data/payload/**` → `claude-workflow init`): обновить `doc/dev/distro-audit.md` и таблицу “core vs dev-only”, без упоминания пресетов и EN‑промптов.
+- [ ] Удалить `claude-presets/**` из payload, `init-claude-workflow.sh`, `manifest.json`, `tools/payload_audit_rules.json`, `scripts/sync-payload.sh`; убрать `claude-workflow preset` и `--preset/--feature` из CLI/доков; обновить тесты и README.
+- [ ] Удалить `prompts/en/**`: убрать `--prompt-locale` из CLI и init‑скрипта, удалить паритет‑проверки из `gate-workflow.sh`, пересмотреть `scripts/lint-prompts.py`, обновить `docs/prompt-versioning.md` и `docs/prompt-playbook.md`, удалить упоминания из README/тестов.
+- [ ] Аудит необходимости `aidd/docs/customization.md` и `aidd/workflow.md`: либо сохранить как core user‑guides, либо перенести в `doc/dev/**` и удалить из payload/manifest/tests.
+
+### Нормализация шаблонов (templates)
+- [ ] Перенести шаблоны артефактов в соответствующие подпапки: `docs/prd.template.md` → `docs/prd/template.md`, `docs/adr.template.md` → `docs/adr/template.md`, `docs/tasklist.template.md` → `docs/tasklist/template.md`, `docs/templates/research-summary.md` → `docs/research/template.md`; обновить ссылки в `workflow.md`, `agents/commands`, `init-claude-workflow.sh`, README и тестах.
+- [ ] Убрать дублирование tasklist‑шаблона: перейти на единый источник (предпочтительно `docs/tasklist/template.md`), обновить `init-claude-workflow.sh` (`render_tasklist_template`) и удалить `templates/tasklist.md` после миграции.
+- [ ] Определить финальное место для `templates/prompt-agent.md` и `templates/prompt-command.md` (например, `agents/templates/` и `commands/templates/` или `docs/templates/prompts/`), перенести и обновить `scripts/scaffold_prompt.py`, `docs/prompt-playbook.md`, README.
+
+### Docs: runtime vs dev-only
+- [ ] Разделить maintainer‑инструкции: вынести repo-only шаги из `aidd/docs/release-notes.md`, `aidd/docs/prompt-versioning.md`, `aidd/docs/prompt-playbook.md` в `doc/dev/**`; в payload оставить user‑facing версии без ссылок на `scripts/*` и `tools/*` из корня.
+- [ ] Если `aidd/docs/customization.md` и `aidd/workflow.md` остаются в payload: заменить repo-only команды на CLI аналоги или пометки “repo-only”; убедиться, что payload‑доки не ссылаются на отсутствующие файлы.
+- [ ] Обязательно обновить `README.md` и `README.en.md` под удаление пресетов/EN‑промптов и новые пути шаблонов/доков.
+
+### Инсталляция/пакетирование/тесты
+- [ ] Обновить `src/claude_workflow_cli/data/payload/manifest.json`, `tools/payload_audit_rules.json`, `tools/check_payload_sync.py`, `scripts/sync-payload.sh` под новые пути шаблонов/доков.
+- [ ] Обновить тесты (`tests/test_package_payload.py`, `tests/test_bootstrap_e2e.py`, `tests/test_gate_workflow.py` при необходимости) под новые пути и удалённые каталоги; добавить регрессию на отсутствие repo-only ссылок в payload docs.

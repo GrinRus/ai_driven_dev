@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.1.5
-source_version: 1.1.5
+prompt_version: 1.2.0
+source_version: 1.2.0
 allowed-tools:
   - Read
   - Edit
@@ -18,11 +18,11 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/researcher` собирает кодовый контекст: запускает `claude-workflow research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
+Команда `/researcher` собирает кодовый контекст: читает `## Research Hints` из PRD, запускает `claude-workflow research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
-- `@aidd/docs/prd/<ticket>.prd.md`.
+- `@aidd/docs/prd/<ticket>.prd.md` (раздел `## Research Hints`).
 - `@aidd/docs/templates/research-summary.md` — шаблон.
 - `aidd/reports/research/<ticket>-context.json` — формируется CLI.
 
@@ -43,7 +43,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Убедись, что активный ticket задан; при необходимости вызови `set_active_feature`.
 2. Зафиксируй стадию `research`.
-3. Запусти `claude-workflow research ...` и обнови JSON контекст.
+3. Извлеки `## Research Hints` и запусти `claude-workflow research ...` с `--paths/--keywords/--note`.
 4. Запусти саб-агента `researcher` и обнови `aidd/docs/research/<ticket>.md`.
 5. При необходимости добавь handoff-задачи в tasklist.
 

@@ -16,7 +16,7 @@
 
 Переходы:
 - `draft → PENDING/BLOCKED` после первичной аналитики.
-- `PENDING/BLOCKED → READY` только после ответов пользователя и свежего research.
+- `PENDING/BLOCKED → READY` только после ответов пользователя; research проверяется отдельно перед планом (`research-check`).
 
 ## Research (`aidd/docs/research/<ticket>.md`)
 
@@ -78,6 +78,6 @@
 
 ## Инварианты
 
-- Без `PRD READY` и `Research reviewed` нельзя переходить к планированию.
+- Без `PRD READY` и успешного `research-check` нельзя переходить к планированию.
 - Без `Plan READY` и `Plan Review READY` нельзя начинать `review-prd` (через `/review-spec`) и `tasks`.
 - Без `PRD Review READY` и `Tasklist READY` нельзя менять код (`implement/review/qa`).

@@ -2,8 +2,8 @@
 description: "Implementation plan + validation"
 argument-hint: "<TICKET> [note...]"
 lang: en
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.1.0
+source_version: 1.1.0
 allowed-tools:
   - Read
   - Edit
@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow research-check:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -21,7 +22,7 @@ disable-model-invocation: false
 
 ## Input Artifacts
 - `@aidd/docs/prd/<ticket>.prd.md` — must be `Status: READY`.
-- `@aidd/docs/research/<ticket>.md` — reviewed (or baseline allowed by gates).
+- `@aidd/docs/research/<ticket>.md` — validated via `claude-workflow research-check`.
 - ADRs (if any).
 
 ## When to Run
@@ -31,6 +32,7 @@ disable-model-invocation: false
 ## Automation & Hooks
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` sets stage `plan`.
 - The command must **invoke the sub-agents** `planner` and `validator` (Claude: Run agent → planner/validator); `BLOCKED` returns questions.
+- Run `claude-workflow research-check --ticket <ticket>` before planner.
 - `gate-workflow` requires a plan before code changes.
 
 ## What is Edited
@@ -39,13 +41,13 @@ disable-model-invocation: false
 
 ## Step-by-step Plan
 1. Set stage `plan`.
-2. Verify PRD is READY and research is current.
+2. Verify PRD is READY, then run `claude-workflow research-check --ticket <ticket>` and stop on failure.
 3. Run sub-agent `planner` to create/update the plan.
 4. Run sub-agent `validator`; if `BLOCKED`, return questions.
 5. Ensure required sections exist (files/modules, iterations, tests, risks).
 
 ## Fail-fast & Questions
-- Missing READY PRD or research — stop and request prerequisites.
+- Missing READY PRD or failed `research-check` — stop and request prerequisites.
 - If validator returns `BLOCKED`, ask questions in the required format.
 
 ## Expected Output

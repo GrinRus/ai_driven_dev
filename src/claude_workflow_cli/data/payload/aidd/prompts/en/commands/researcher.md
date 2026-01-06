@@ -2,8 +2,8 @@
 description: "Prepare Researcher report: collect context and run agent"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: en
-prompt_version: 1.1.5
-source_version: 1.1.5
+prompt_version: 1.2.0
+source_version: 1.2.0
 allowed-tools:
   - Read
   - Edit
@@ -18,11 +18,11 @@ disable-model-invocation: false
 ---
 
 ## Context
-`/researcher` gathers codebase context: runs `claude-workflow research`, then runs sub-agent `researcher` to update `aidd/docs/research/<ticket>.md`. Free-form notes after the ticket should be stored in the report.
+`/researcher` gathers codebase context: reads `## Research Hints` from the PRD, runs `claude-workflow research`, then runs sub-agent `researcher` to update `aidd/docs/research/<ticket>.md`. Free-form notes after the ticket should be stored in the report.
 
 ## Input Artifacts
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
-- `@aidd/docs/prd/<ticket>.prd.md`.
+- `@aidd/docs/prd/<ticket>.prd.md` (section `## Research Hints`).
 - `@aidd/docs/templates/research-summary.md`.
 - `aidd/reports/research/<ticket>-context.json`.
 
@@ -43,7 +43,7 @@ disable-model-invocation: false
 ## Step-by-step Plan
 1. Ensure the active ticket is set; use `set_active_feature` if needed.
 2. Set stage `research`.
-3. Run `claude-workflow research ...` and update JSON context.
+3. Extract `## Research Hints` and run `claude-workflow research ...` with `--paths/--keywords/--note`.
 4. Run sub-agent `researcher` and update `aidd/docs/research/<ticket>.md`.
 5. Add handoff tasks if needed.
 

@@ -302,6 +302,7 @@ try:
 except Exception:
     print(f"BLOCK: не удалось прочитать docs/research/{ticket}.md.")
     raise SystemExit(1)
+doc_text_lower = doc_text.lower()
 for line in doc_text.splitlines():
     stripped = line.strip()
     if stripped.lower().startswith("status:"):
@@ -319,8 +320,26 @@ if required_statuses:
         raise SystemExit(1)
     if status not in required_statuses:
         if status == "pending" and allow_pending_baseline:
-            print("ALLOW_PENDING_BASELINE")
-            raise SystemExit(0)
+            baseline_ok = bool(baseline_phrase and baseline_phrase in doc_text_lower)
+            if baseline_ok:
+                try:
+                    context = json.loads(context_path.read_text(encoding="utf-8"))
+                except FileNotFoundError:
+                    print(f"BLOCK: отсутствует {context_path}; выполните claude-workflow research для {ticket}.")
+                    raise SystemExit(1)
+                except json.JSONDecodeError:
+                    print(f"BLOCK: повреждён {context_path}; пересоздайте его.")
+                    raise SystemExit(1)
+                profile = context.get("profile") or {}
+                is_new_project = bool(profile.get("is_new_project"))
+                auto_mode = bool(context.get("auto_mode"))
+                if is_new_project and auto_mode:
+                    print("ALLOW_PENDING_BASELINE")
+                    raise SystemExit(0)
+            print(
+                "BLOCK: статус Researcher `pending` допустим только для baseline (требуется отметка и auto_mode для нового проекта)."
+            )
+            raise SystemExit(1)
         else:
             print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
             raise SystemExit(1)

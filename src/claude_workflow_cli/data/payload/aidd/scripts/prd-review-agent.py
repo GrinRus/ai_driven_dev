@@ -298,7 +298,6 @@ def main() -> None:
         output_path = ROOT_DIR / "reports" / "prd" / f"{ticket}.json"
     if not output_path.is_absolute():
         output_path = ROOT_DIR / output_path
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     rel = output_path.relative_to(ROOT_DIR) if output_path.is_relative_to(ROOT_DIR) else output_path
     print(f"[prd-review] report saved to {rel}", file=sys.stderr)

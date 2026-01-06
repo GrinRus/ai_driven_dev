@@ -67,6 +67,8 @@
 ## vNext — YYYY-MM-DD
 
 ### Added
+- `claude-workflow research-check` — отдельная проверка research перед `/plan-new`.
+- `## Research Hints` в PRD-шаблоне для передачи путей/ключевых слов в `/researcher`.
 - Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
 - Команда `/review-spec`, объединяющая review-plan и review-prd в один шаг.
 - Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
@@ -77,8 +79,12 @@
 - Двуязычные промпты: EN-варианты в `aidd/prompts/en/**`, линтер синхронизирует RU/EN, добавлены `aidd/docs/prompt-versioning.md`, `tools/prompt_diff.py`, `scripts/prompt-version`, а gate-workflow блокирует несогласованные обновления.
 - Добавлен флаг `--prompt-locale en` для `init-claude-workflow.sh`/`claude-workflow init`, который устанавливает EN-вариант `aidd/agents|commands`, а в проект копируется каталог `aidd/prompts/en/**` для дальнейшей синхронизации.
 - Agent-first шаблоны и команды: обновлены `aidd/docs/prd.template.md`, `aidd/docs/tasklist.template.md`, `aidd/docs/templates/research-summary.md`, `/idea-new`, `templates/prompt-agent.md` и `templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/customization.md` описывают новые правила.
+- Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
+- `/idea-new` больше не запускает research; аналитик фиксирует подсказки, а `claude-workflow research` выполняется на стадии `/researcher`.
+- `analyst-check` больше не валидирует research; проверка вынесена в `research-check` и `gate-workflow`.
+- `/plan-new` вызывает `research-check` перед запуском planner.
 - Канонический SDLC обновлён: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa` (для ревью доступен `/review-spec`).
 - Команды стали “тонкими”, а агенты содержат алгоритмы и stop-conditions; формат вопросов стандартизирован (`Вопрос N (Blocker|Clarification)` + `Зачем/Варианты/Default`).
 - Output-контракт унифицирован (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), поиск стандартизирован на `rg`.

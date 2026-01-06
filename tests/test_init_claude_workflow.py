@@ -48,6 +48,7 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             "tools/set_active_feature.py",
             "docs/prd.template.md",
             "scripts/context_gc/hooklib.py",
+            "reports/prd/.gitkeep",
         ]
         for rel in expected_paths:
             with self.subTest(path=rel):

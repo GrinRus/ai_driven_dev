@@ -150,6 +150,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             "# Demo\n\n## PRD Review\nStatus: READY\n",
             encoding="utf-8",
         )
+        (project_root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
         env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
