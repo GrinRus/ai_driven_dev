@@ -76,7 +76,7 @@
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
 - Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed

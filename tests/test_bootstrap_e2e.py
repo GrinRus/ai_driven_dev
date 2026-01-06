@@ -15,8 +15,6 @@ CRITICAL_FILES: Iterable[str] = (
     "hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
     "config/context_gc.json",
     "config/conventions.json",
-    "agents/templates/prompt-agent.md",
-    "commands/templates/prompt-command.md",
     "docs/prd/template.md",
     "docs/tasklist/template.md",
     "docs/research/template.md",
@@ -38,7 +36,6 @@ PROJECT_DIRECTORIES = (
     "scripts",
     "scripts/context_gc",
     "tools",
-    "templates",
 )
 WORKSPACE_DIRECTORIES = (
     ".claude",

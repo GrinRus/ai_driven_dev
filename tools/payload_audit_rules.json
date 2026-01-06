@@ -24,13 +24,10 @@
   ],
   "allow_globs": [
     "aidd/agents/*.md",
-    "aidd/agents/templates/*.md",
     "aidd/commands/*.md",
-    "aidd/commands/templates/*.md",
     "aidd/hooks/**",
     "aidd/config/**",
     "aidd/docs/**",
-    "aidd/templates/**",
     "aidd/scripts/context_gc/**",
     "aidd/scripts/gradle/**"
   ],

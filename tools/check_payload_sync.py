@@ -13,7 +13,6 @@ DEFAULT_PATHS: list[str] = [
     ".claude-plugin",
     "config",
     "docs",
-    "templates",
     "tools",
     "conventions.md",
     "init-claude-workflow.sh",

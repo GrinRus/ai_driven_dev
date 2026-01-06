@@ -85,12 +85,6 @@
       "sha256": "425f8191625c1ea5bcfd02aea4bbb576a9d94c2e53dbe37bfa4096bbce913dd8"
     },
     {
-      "path": "aidd/agents/templates/prompt-agent.md",
-      "type": "file",
-      "size": 3423,
-      "sha256": "63d0ac8bc9797e9cd058a3a23a54e61035d65122281f538166b39077860f5400"
-    },
-    {
       "path": "aidd/agents/validator.md",
       "type": "file",
       "size": 2714,
@@ -143,12 +137,6 @@
       "type": "file",
       "size": 2954,
       "sha256": "b7462ab2f5f66f7274533f36964a552f26f6bd0d6850798cbb0715e73712c072"
-    },
-    {
-      "path": "aidd/commands/templates/prompt-command.md",
-      "type": "file",
-      "size": 4361,
-      "sha256": "9ba7eab6fe579e8bcdd4b3323f5e3546dc2b50e021c98e7547aa1cb93d53a1b9"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -369,8 +357,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 12988,
-      "sha256": "0a893c1600939c9c561b7138150def07cd8e66d8eb3d88c68bcc6940f71facc4"
+      "size": 12925,
+      "sha256": "13c32eafdfeb2dc33d26f3dc701d1cc0f0c98b99694a3c5b6085fb44a76d470d"
     },
     {
       "path": "aidd/reports/prd/.gitkeep",
@@ -455,30 +443,6 @@
       "type": "file",
       "size": 16603,
       "sha256": "53a0bf69a78f495dd0d3b53a6dbbdba2a03a3f12b7976dbe34602b7b8ce6340e"
-    },
-    {
-      "path": "aidd/templates/git-hooks/README.md",
-      "type": "file",
-      "size": 1513,
-      "sha256": "07497e6bc1831aac7a1b43c45d4abaf63f2fb07a0f0f9c8628e2ccb2e8f3ff9e"
-    },
-    {
-      "path": "aidd/templates/git-hooks/commit-msg.sample",
-      "type": "file",
-      "size": 1720,
-      "sha256": "1ae7824539cec08237fbde11aa2db8aac28aa8424acd66ec93d818ecc436f0a9"
-    },
-    {
-      "path": "aidd/templates/git-hooks/pre-push.sample",
-      "type": "file",
-      "size": 539,
-      "sha256": "29bb598a66fb0e1eb41b60201f3e14bbadbb94c764aeb8bfc1b846dd41929d24"
-    },
-    {
-      "path": "aidd/templates/git-hooks/prepare-commit-msg.sample",
-      "type": "file",
-      "size": 1652,
-      "sha256": "797a2eb54192f1a4d3ec4899cdc84299f7261d3ae2d0ca91042ef9ce4276a4ef"
     },
     {
       "path": "aidd/tools/migrate_ticket.py",

@@ -110,7 +110,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 
 ## 9. Шаблоны и автоматизация
-- Используйте `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
+- Используйте `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md` как базу: они уже содержат требуемые секции и подсказки.
 - Для быстрого старта скопируйте шаблон в `aidd/agents/<name>.md` или `aidd/commands/<name>.md` и заполните фронт-маттер вручную.
 - Проверяйте промпты: `python3 scripts/lint-prompts.py --root <workflow-root>`, `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part patch --dry-run`.
 - После генерации обязательно заполните все блоки и обновите `prompt_version`/`source_version`.

@@ -42,8 +42,6 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/progress.py",
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
             f"{plugin_prefix}/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-            f"{plugin_prefix}/agents/templates/prompt-agent.md",
-            f"{plugin_prefix}/commands/templates/prompt-command.md",
             f"{plugin_prefix}/scripts/context_gc/hooklib.py",
             f"{plugin_prefix}/scripts/context_gc/precompact_snapshot.py",
             f"{plugin_prefix}/scripts/context_gc/pretooluse_guard.py",

@@ -8,7 +8,7 @@
 - Стадия фичи хранится в `aidd/docs/.active_stage` и обновляется слэш-командами (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); можно откатываться к любому этапу.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации/промптов.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
-- Payload ставится в поддиректорию `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/templates`, `aidd/tools`, `aidd/scripts`); все артефакты и отчёты (`aidd/reports/**`) живут там же. Workspace‑настройки лежат в корне (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
+- Payload ставится в поддиректорию `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/tools`, `aidd/scripts`); все артефакты и отчёты (`aidd/reports/**`) живут там же. Workspace‑настройки лежат в корне (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
   Корневые служебные файлы — только `.claude/` и `.claude-plugin/`, все остальные артефакты берутся из payload `aidd/`.
 - **Troubleshooting путей:** все артефакты (PRD/Research/QA/PRD Review/Reviewer) находятся под `aidd/`. Если `Read(reports/...)` не находит файл, проверяйте `aidd/reports/...` и запускайте CLI с `${CLAUDE_PLUGIN_ROOT:-./aidd}` или `--target aidd`.
 
@@ -73,7 +73,7 @@
 ## Agent-first принципы
 - **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `aidd/docs/.active_feature` (пользовательский slug-hint), затем читает `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (включая `code_index`/`reuse_candidates`), существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) и строит call/import graph Claude Code'ом, а implementer обновляет tasklist и перечисляет запущенные команды тестов/линтеров и `claude-workflow progress` перед тем как обращаться к пользователю.
 - **Команды и логи — часть ответа.** Все промпты и шаблоны требуют указывать разрешённые CLI (например, ваш тест‑раннер, `rg`, `claude-workflow`) и прикладывать вывод/пути, чтобы downstream-агенты могли воспроизвести шаги. Tasklist и research-шаблон теперь содержат разделы «Commands/Reports».
-- **Автогенерация артефактов.** `/idea-new` автоматически создаёт PRD, обновляет отчёты Researcher и инструктирует аналитика собирать данные из репозитория. Шаблоны `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md` подсказывают, как описывать входы, гейты, команды и fail-fast блоки в стиле agent-first.
+- **Автогенерация артефактов.** `/idea-new` автоматически создаёт PRD, обновляет отчёты Researcher и инструктирует аналитика собирать данные из репозитория. Шаблоны `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md` подсказывают, как описывать входы, гейты, команды и fail-fast блоки в стиле agent-first.
 
 ## Структура репозитория
 | Каталог/файл | Назначение | Ключевые детали |
@@ -153,7 +153,7 @@
 ### Документация и шаблоны
 - **Runtime (LLM/агенты)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
 - **Dev-only документация**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
-- **Прочие шаблоны**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
+- **Прочие шаблоны**: `doc/dev/templates/prompts/prompt-agent.md`, `doc/dev/templates/prompts/prompt-command.md`, `doc/dev/templates/git-hooks/*.sample`, `doc/dev/templates/git-hooks/README.md`.
 
 ### Тесты и контроль качества
 - `tests/helpers.py` — утилиты: генерация файлов, git init/config, создание `config/gates.json`, запуск хуков.
@@ -212,7 +212,7 @@
 ## Документация и шаблоны
 - **Runtime (LLM/агенты)**: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `aidd/docs/adr/template.md`.
 - **Dev-only документация**: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/prompt-playbook.md`, `doc/dev/prompt-versioning.md`, `doc/dev/release-notes.md`, `doc/dev/workflow.md`, `doc/dev/customization.md`.
-- **Прочие шаблоны**: `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, `templates/git-hooks/*.sample`, `templates/git-hooks/README.md`.
+- **Прочие шаблоны**: `doc/dev/templates/prompts/prompt-agent.md`, `doc/dev/templates/prompts/prompt-command.md`, `doc/dev/templates/git-hooks/*.sample`, `doc/dev/templates/git-hooks/README.md`.
 - `README.en.md` — синхронизированный перевод; при правках обновляйте обе версии и поле Last sync.
 
 ## Примеры и демо
@@ -370,7 +370,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 ## Миграция на agent-first
 1. **Обновите репозиторий и payload.** Выполните `git pull`, затем `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, чтобы новые шаблоны PRD/tasklist/research и команда `/idea-new` попали в проект и CLI payload.
-2. **Обновите `aidd/agents|commands`.** Скопируйте свежие версии в свой проект или переустановите workflow; убедитесь, что `aidd/agents/templates/prompt-agent.md`/`prompt-command.md` совпадают, чтобы новые агенты сразу работали в стиле agent-first.
+2. **Обновите `aidd/agents|commands`.** Скопируйте свежие версии в свой проект или переустановите workflow; убедитесь, что `doc/dev/templates/prompts/prompt-agent.md`/`prompt-command.md` совпадают, чтобы новые агенты сразу работали в стиле agent-first.
 3. **Освежите активные тикеты.** Для каждой фичи выполните `claude-workflow research --ticket <ticket> --auto` (пересоберёт `reports/research/*.json` и шаблон research), затем `claude-workflow analyst-check --ticket <ticket>` — это подтвердит, что PRD и research соответствуют новым требованиям. При необходимости вручную перенесите разделы «Автоматизация»/«Команды» из обновлённых шаблонов в уже существующие артефакты.
 4. **Проверьте тесты и гейты.** Запустите `scripts/ci-lint.sh` и smoke-сценарии (`scripts/smoke-workflow.sh`) — они проверят, что tasklist содержит новые поля `Reports/Commands`, а промпты не содержат устаревших `Answer N` инструкций.
 5. **Документируйте миграцию.** Добавьте заметку в `doc/dev/release-notes.md`/`CHANGELOG.md` вашего проекта, чтобы команда знала о новых правилах вопросов, логах команд и репозиторных источниках.

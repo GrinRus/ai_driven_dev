@@ -300,7 +300,6 @@ generate_core_docs() {
 
 generate_templates() {
   copy_payload_dir "docs"
-  copy_payload_dir "templates/git-hooks" "templates/git-hooks"
 }
 
 generate_claude_settings() {
