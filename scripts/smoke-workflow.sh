@@ -6,7 +6,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INIT_SCRIPT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh"
+PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-${ROOT_DIR}/src/claude_workflow_cli/data/payload}"
+if [[ -n "${CLAUDE_TEMPLATE_DIR:-}" && -x "${CLAUDE_TEMPLATE_DIR}/init-claude-workflow.sh" ]]; then
+  INIT_SCRIPT="${CLAUDE_TEMPLATE_DIR}/init-claude-workflow.sh"
+else
+  INIT_SCRIPT="${PAYLOAD_ROOT}/aidd/init-claude-workflow.sh"
+fi
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_BIN="${CLAUDE_WORKFLOW_BIN:-claude-workflow}"
