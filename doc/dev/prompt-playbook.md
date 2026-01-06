@@ -44,7 +44,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 5. **Fail-fast & вопросы** — что считать блокером, как задавать вопросы пользователю (формат, обязательные ответы). Подчеркните, что вопросы задаются только после того, как агент перечислил проверенные артефакты/команды.
 6. **Формат ответа** — чёткие требования к финальному сообщению (статус, блоки, `Checkbox updated`).
 
-Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. aidd/docs/agents-playbook.md`).
+Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. doc/dev/agents-playbook.md`).
 
 ### 2.3 Agent-first обязательства
 - Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
@@ -74,15 +74,15 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `aidd/docs/agents-playbook.md` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `doc/dev/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD READY, `research-check`, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
 | `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
 | `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd/template.md` |
 
 > `/review-spec` — единая команда для review-plan и review-prd.
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `aidd/docs/tasklist/template.md` |
-| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `aidd/docs/agents-playbook.md` |
-| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `aidd/docs/qa-playbook.md` |
+| `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `doc/dev/agents-playbook.md` |
+| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `doc/dev/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 
@@ -98,14 +98,14 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 - Любая правка текста или структуры требует увеличения `prompt_version` (major — изменение секций/формата, minor — содержание, patch — уточнение формулировок/примеры).
 - Используйте `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <...>` для контроля версий.
-- После обновления промпта обязательно опишите изменения в `aidd/docs/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
+- После обновления промпта обязательно опишите изменения в `doc/dev/release-notes.md` и при необходимости добавьте запись в `CHANGELOG.md`.
 
 ## 8. Минимальный чеклист перед публикацией
 1. Проверить фронт-маттер (`lang`, `prompt_version`, инструменты).
 2. Убедиться, что все обязательные блоки присутствуют и оформлены.
 3. Добавить ссылку на соответствующую таблицу в разделе 5 (если роль новая).
 4. Запустить `scripts/lint-prompts.py --root <workflow-root>` и убедиться, что проверки пройдены.
-5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, aidd/docs/agents-playbook.md) при необходимости.
+5. Обновить внутренний wave backlog (dev-only, `backlog.md` в корне репозитория не входит в payload) и сопутствующие документы (README, `doc/dev/agents-playbook.md`) при необходимости.
 
 Следование этому плейбуку гарантирует, что агенты и команды работают консистентно в любых проектах, подключивших workflow.
 

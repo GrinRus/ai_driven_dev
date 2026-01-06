@@ -1158,6 +1158,13 @@ _Статус: новый, приоритет 1. Цель — упростить
 - [x] Если `aidd/docs/customization.md` и `aidd/workflow.md` остаются в payload: заменить repo-only команды на CLI аналоги или пометки “repo-only”; убедиться, что payload‑доки не ссылаются на отсутствующие файлы.
 - [x] Обязательно обновить `README.md` и `README.en.md` под удаление пресетов/EN‑промптов и новые пути шаблонов/доков.
 
+### Перенос playbook/гайдов в dev-only (кроме conventions.md)
+- [x] Определить dev-only местоположение и консолидировать версии: `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `aidd/docs/qa-playbook.md`, `aidd/docs/migration-aidd.md`, `aidd/docs/prompt-playbook.md`, `aidd/docs/prompt-versioning.md`, `aidd/docs/release-notes.md` → `doc/dev/**` (свести дубли, сохранить историю).
+- [x] Удалить payload-копии и заменить/удалить ссылки в payload: `aidd/AGENTS.md`, `aidd/docs/tasklist/template.md`, `aidd/agents/templates/prompt-agent.md`, `aidd/commands/templates/prompt-command.md`, а также любые упоминания в `aidd/docs/*`, чтобы payload не ссылался на dev-only файлы.
+- [x] Обновить публичные гайды: убрать ссылки на переносимые документы из `README.md` и `README.en.md`, скорректировать таблицу `aidd/docs/` и описания quick-start.
+- [x] Обновить инвентаризацию/пакетирование: `src/claude_workflow_cli/data/payload/manifest.json`, `tools/payload_audit_rules.json`, `tools/check_payload_sync.py`, `scripts/sync-payload.sh`, `doc/dev/distro-audit.md`.
+- [x] Обновить тесты пакета: `tests/test_package_payload.py`, `tests/test_bootstrap_e2e.py` (и при необходимости регрессию на отсутствие dev-only ссылок).
+
 ### Инсталляция/пакетирование/тесты
 - [x] Обновить `src/claude_workflow_cli/data/payload/manifest.json`, `tools/payload_audit_rules.json`, `tools/check_payload_sync.py`, `scripts/sync-payload.sh` под новые пути шаблонов/доков.
 - [x] Обновить тесты (`tests/test_package_payload.py`, `tests/test_bootstrap_e2e.py`, `tests/test_gate_workflow.py` при необходимости) под новые пути и удалённые каталоги; добавить регрессию на отсутствие repo-only ссылок в payload docs.

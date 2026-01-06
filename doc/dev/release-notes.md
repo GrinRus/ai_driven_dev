@@ -45,8 +45,8 @@
 ## Migration: legacy root installs → `./aidd` (Wave 51)
 - CLI и хуки больше не поддерживают произвольный `--target`; workflow всегда в `./aidd` относительно workspace.
 - Для старых установок: удалите корневые снапшоты `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `scripts/`, `templates/`, `tools/`; запустите `claude-workflow init --target .` и перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
-- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `aidd/docs/migration-aidd.md`.
-- [ ] Зафиксировать изменения в `aidd/docs/release-notes.md`.
+- Проверьте гейты через `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke`. Подробнее — `doc/dev/migration-aidd.md`.
+- [ ] Зафиксировать изменения в `doc/dev/release-notes.md`.
 
 ## Публикация релиза
 - [ ] Проставить тег `vX.Y.Z` (annotated tag).
@@ -62,7 +62,7 @@
 - [ ] Проверить, что `.claude/settings.json` соответствует политике доступа.
 - [ ] Обновить Wave backlog: перенести оставшиеся задачи в следующую волну.
 
-Храните заметки в одном файле (`aidd/docs/release-notes.md`), добавляя записи в обратном хронологическом порядке.
+Храните заметки в одном файле (`doc/dev/release-notes.md`), добавляя записи в обратном хронологическом порядке.
 
 ## vNext — YYYY-MM-DD
 
@@ -76,7 +76,7 @@
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - `tools/migrate_ticket.py` — миграция существующих slug-ориентированных установок на ticket-first layout (`aidd/docs/.active_ticket`, обновлённый front-matter tasklist).
 - Автосоздание PRD: `tools/set_active_feature.py` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `aidd/docs/agents-playbook.md`, `aidd/docs/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `aidd/agents/templates/prompt-agent.md` и `aidd/commands/templates/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
 - Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed

@@ -24,7 +24,7 @@
 1. Обновите текст промпта.
 2. Поднимите версии: `scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>`.
 3. Запустите lint: `python3 scripts/lint-prompts.py --root <workflow-root>`.
-4. Зафиксируйте изменения в `aidd/docs/release-notes.md` и при необходимости в `CHANGELOG.md`.
+4. Зафиксируйте изменения в `doc/dev/release-notes.md` и при необходимости в `CHANGELOG.md`.
 
 ## 5. Инструменты
 - `scripts/lint-prompts.py` — валидирует фронт-маттер и обязательные секции.
