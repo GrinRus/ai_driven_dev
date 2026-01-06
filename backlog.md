@@ -1035,37 +1035,37 @@ _Статус: новый, приоритет 1. Цель — добавить �
 _Статус: новый, приоритет 1. Цель — CLI‑first: перенести всю кастомную автоматизацию из payload в `claude-workflow`, удалить скрипты/обвязки из payload без обратной совместимости._
 
 ### Инвентаризация и карта миграции
-- [ ] Собрать реестр всех кастомных скриптов/обвязок в payload: `src/claude_workflow_cli/data/payload/aidd/tools/*.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/**`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`, плюс все упоминания в hooks/commands/agents/docs; оформить таблицу «старый путь → новая CLI‑команда → потребители» в `src/claude_workflow_cli/data/payload/aidd/docs/cli-migration.md`.
+- [x] Собрать реестр всех кастомных скриптов/обвязок в payload: `src/claude_workflow_cli/data/payload/aidd/tools/*.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/**`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`, плюс все упоминания в hooks/commands/agents/docs; оформить таблицу «старый путь → новая CLI‑команда → потребители» в `src/claude_workflow_cli/data/payload/aidd/docs/cli-migration.md`.
 
 ### CLI‑команды: перенос логики из payload
-- [ ] Перенести `aidd/tools/set_active_feature.py` в `claude-workflow set-active-feature` (модуль в `src/claude_workflow_cli/`, CLI‑подкоманда в `src/claude_workflow_cli/cli.py`).
-- [ ] Перенести `aidd/tools/set_active_stage.py` в `claude-workflow set-active-stage`.
-- [ ] Перенести `aidd/tools/migrate_ticket.py` + `aidd/scripts/migrate-tasklist.py` в `claude-workflow migrate-ticket`/`migrate-tasklist` (или единая команда с флагами).
-- [ ] Перенести `aidd/scripts/prd-review-agent.py` в `claude-workflow review-spec` (или `claude-workflow prd-review`) с сохранением JSON‑отчёта и текстового summary.
-- [ ] Перенести `aidd/scripts/{plan_review_gate.py,prd_review_gate.py}` в `claude-workflow plan-review-gate` / `claude-workflow prd-review-gate` (используются хуками).
-- [ ] Перенести `aidd/scripts/qa-agent.py` в `claude-workflow qa` (единый генератор отчёта, exit‑codes и фильтры).
-- [ ] Перенести `aidd/tools/researcher_context.py` в `claude-workflow researcher-context` или интегрировать в `claude-workflow research` (один источник истины).
-- [ ] Перенести `aidd/scripts/context_gc/*` в `claude-workflow context-gc` (режимы `precompact`, `sessionstart`, `pretooluse`, `userprompt`).
-- [ ] Удалить `aidd/tools/run_cli.py`: все вызовы должны идти через установленный `claude-workflow` (с понятной ошибкой при отсутствии бинаря).
+- [x] Перенести `aidd/tools/set_active_feature.py` в `claude-workflow set-active-feature` (модуль в `src/claude_workflow_cli/`, CLI‑подкоманда в `src/claude_workflow_cli/cli.py`).
+- [x] Перенести `aidd/tools/set_active_stage.py` в `claude-workflow set-active-stage`.
+- [x] Перенести `aidd/tools/migrate_ticket.py` + `aidd/scripts/migrate-tasklist.py` в `claude-workflow migrate-ticket`/`migrate-tasklist` (или единая команда с флагами).
+- [x] Перенести `aidd/scripts/prd-review-agent.py` в `claude-workflow review-spec` (или `claude-workflow prd-review`) с сохранением JSON‑отчёта и текстового summary.
+- [x] Перенести `aidd/scripts/{plan_review_gate.py,prd_review_gate.py}` в `claude-workflow plan-review-gate` / `claude-workflow prd-review-gate` (используются хуками).
+- [x] Перенести `aidd/scripts/qa-agent.py` в `claude-workflow qa` (единый генератор отчёта, exit‑codes и фильтры).
+- [x] Перенести `aidd/tools/researcher_context.py` в `claude-workflow researcher-context` или интегрировать в `claude-workflow research` (один источник истины).
+- [x] Перенести `aidd/scripts/context_gc/*` в `claude-workflow context-gc` (режимы `precompact`, `sessionstart`, `pretooluse`, `userprompt`).
+- [x] Удалить `aidd/tools/run_cli.py`: все вызовы должны идти через установленный `claude-workflow` (с понятной ошибкой при отсутствии бинаря).
 
 ### Обновление хуков/команд/агентов под CLI‑first
-- [ ] Обновить хуки: заменить `python3 .../scripts/*.py` и `python3 .../tools/*.py` на `claude-workflow <subcommand>` в `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-qa.sh,gate-tests.sh,lint-deps.sh}` и `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`.
-- [ ] Обновить slash‑команды и агентские промпты (RU/EN): заменить упоминания `tools/*`/`scripts/*` на `claude-workflow` во всех `src/claude_workflow_cli/data/payload/aidd/{commands,agents}/**`.
-- [ ] Обновить `.claude/settings.json`: удалить разрешения на `aidd/tools/*` и `aidd/scripts/*`, оставить `Bash(claude-workflow:*)` и нужные стандартные утилиты.
+- [x] Обновить хуки: заменить `python3 .../scripts/*.py` и `python3 .../tools/*.py` на `claude-workflow <subcommand>` в `src/claude_workflow_cli/data/payload/aidd/hooks/{gate-workflow.sh,gate-prd-review.sh,gate-qa.sh,gate-tests.sh,lint-deps.sh}` и `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`.
+- [x] Обновить slash‑команды и агентские промпты (RU/EN): заменить упоминания `tools/*`/`scripts/*` на `claude-workflow` во всех `src/claude_workflow_cli/data/payload/aidd/{commands,agents}/**`.
+- [x] Обновить `.claude/settings.json`: удалить разрешения на `aidd/tools/*` и `aidd/scripts/*`, оставить `Bash(claude-workflow:*)` и нужные стандартные утилиты.
 
 ### Очистка payload (без обратной совместимости)
-- [ ] Удалить из payload все кастомные скрипты/обвязки: `src/claude_workflow_cli/data/payload/aidd/tools/`, `src/claude_workflow_cli/data/payload/aidd/scripts/`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`.
-- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh` (не копировать удалённые файлы) и `src/claude_workflow_cli/data/payload/manifest.json`.
+- [x] Удалить из payload все кастомные скрипты/обвязки: `src/claude_workflow_cli/data/payload/aidd/tools/`, `src/claude_workflow_cli/data/payload/aidd/scripts/`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`.
+- [x] Обновить `src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh` (не копировать удалённые файлы) и `src/claude_workflow_cli/data/payload/manifest.json`.
 
 ### Тесты и CI
-- [ ] Обновить smoke: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` (или заменить на вызов `claude-workflow smoke`) без обращения к `tools/*.py`/`scripts/*.py`.
-- [ ] Переписать unit‑тесты на CLI‑first: `tests/test_init_claude_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`, `tests/test_prd_review_gate.py`, `tests/test_prompt_versioning.py` (если зависит от скриптов).
-- [ ] Добавить тесты наличия новых CLI‑подкоманд и отсутствия legacy‑файлов в payload.
+- [x] Обновить smoke: `src/claude_workflow_cli/data/payload/aidd/scripts/smoke-workflow.sh` (или заменить на вызов `claude-workflow smoke`) без обращения к `tools/*.py`/`scripts/*.py`.
+- [x] Переписать unit‑тесты на CLI‑first: `tests/test_init_claude_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`, `tests/test_prd_review_gate.py`, `tests/test_prompt_versioning.py` (если зависит от скриптов).
+- [x] Добавить тесты наличия новых CLI‑подкоманд и отсутствия legacy‑файлов в payload.
 
 ### Документация и релиз
-- [ ] Обновить `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` — заменить ссылки на `tools/*.py`/`scripts/*.py` на `claude-workflow`.
-- [ ] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` (breaking change: legacy scripts removed).
-- [ ] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`, полный прогон `scripts/ci-lint.sh`.
+- [x] Обновить `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md`, `src/claude_workflow_cli/data/payload/aidd/docs/agents-playbook.md`, `src/claude_workflow_cli/data/payload/aidd/docs/prompt-playbook.md` — заменить ссылки на `tools/*.py`/`scripts/*.py` на `claude-workflow`.
+- [x] Обновить `src/claude_workflow_cli/data/payload/aidd/docs/release-notes.md` и `CHANGELOG.md` (breaking change: legacy scripts removed).
+- [x] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`, полный прогон `scripts/ci-lint.sh`.
 
 ## Wave 64
 

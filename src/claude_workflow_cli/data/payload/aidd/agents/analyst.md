@@ -2,9 +2,9 @@
 name: analyst
 description: Сбор исходной идеи → анализ контекста → PRD draft + вопросы пользователю (READY после ответов).
 lang: ru
-prompt_version: 1.3.2
-source_version: 1.3.2
-tools: Read, Write, Glob, Bash(claude-workflow analyst-check:*), Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.3.3
+source_version: 1.3.3
+tools: Read, Write, Glob, Bash(claude-workflow analyst-check:*), Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

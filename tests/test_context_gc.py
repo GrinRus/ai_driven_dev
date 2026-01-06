@@ -9,21 +9,20 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import PAYLOAD_ROOT, git_config_user, git_init, write_active_feature, write_file, write_json
+from tests.helpers import REPO_ROOT, git_config_user, git_init, write_active_feature, write_file, write_json
 
 sys.dont_write_bytecode = True
 
-SCRIPTS_ROOT = PAYLOAD_ROOT / "scripts" / "context_gc"
-if str(SCRIPTS_ROOT) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-import working_set_builder  # type: ignore  # noqa: E402
+from claude_workflow_cli.context_gc import working_set_builder  # noqa: E402
 
-
-USERPROMPT_SCRIPT = SCRIPTS_ROOT / "userprompt_guard.py"
-PRETOOLUSE_SCRIPT = SCRIPTS_ROOT / "pretooluse_guard.py"
-PRECOMPACT_SCRIPT = SCRIPTS_ROOT / "precompact_snapshot.py"
-SESSIONSTART_SCRIPT = SCRIPTS_ROOT / "sessionstart_inject.py"
+USERPROMPT_MODULE = "claude_workflow_cli.context_gc.userprompt_guard"
+PRETOOLUSE_MODULE = "claude_workflow_cli.context_gc.pretooluse_guard"
+PRECOMPACT_MODULE = "claude_workflow_cli.context_gc.precompact_snapshot"
+SESSIONSTART_MODULE = "claude_workflow_cli.context_gc.sessionstart_inject"
 
 
 def _env_for_workspace(root: Path) -> dict[str, str]:
@@ -34,9 +33,9 @@ def _env_for_workspace(root: Path) -> dict[str, str]:
     return env
 
 
-def _run_hook_script(script: Path, payload: dict, env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run_hook_script(module: str, payload: dict, env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(script)],
+        [sys.executable, "-m", module],
         input=json.dumps(payload),
         text=True,
         capture_output=True,
@@ -151,7 +150,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -181,7 +180,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -226,7 +225,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -271,7 +270,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -296,7 +295,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -369,7 +368,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -414,7 +413,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -443,7 +442,7 @@ class UserPromptGuardTests(unittest.TestCase):
                 "hook_event_name": "UserPromptSubmit",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(USERPROMPT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(USERPROMPT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -466,7 +465,7 @@ class SessionStartInjectTests(unittest.TestCase):
                 {"working_set": {"include_git_status": False}},
             )
             payload = {"hook_event_name": "SessionStart"}
-            result = _run_hook_script(SESSIONSTART_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(SESSIONSTART_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -500,7 +499,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "docker logs app"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -523,7 +522,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "aidd/docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -544,7 +543,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "aidd/docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -571,7 +570,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "rm -rf /tmp/demo"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -598,7 +597,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "git reset --hard HEAD~1"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -626,7 +625,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "rm -rf /tmp/demo"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -655,7 +654,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "docker logs app"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -678,7 +677,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -700,7 +699,7 @@ class PreCompactSnapshotTests(unittest.TestCase):
                 "session_id": "session-1",
                 "transcript_path": str(transcript),
             }
-            result = _run_hook_script(PRECOMPACT_SCRIPT, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRECOMPACT_MODULE, payload, _env_for_workspace(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             session_path = root / "aidd" / "reports" / "context" / "session-1" / "working_set.md"

@@ -2,9 +2,9 @@
 name: plan-reviewer
 description: Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review.
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
-tools: Read, Write, Glob, Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.0.7
+source_version: 1.0.7
+tools: Read, Write, Glob, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

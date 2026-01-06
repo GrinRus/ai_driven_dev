@@ -2,9 +2,9 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
-tools: Read, Write, Glob, Bash(rg:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.0.7
+source_version: 1.0.7
+tools: Read, Write, Glob, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -18,7 +18,7 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
-- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json`.
+- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `reports/prd/<ticket>.json` через `claude-workflow prd-review`.
 - `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/review-spec`.
 
 ## Пошаговый план

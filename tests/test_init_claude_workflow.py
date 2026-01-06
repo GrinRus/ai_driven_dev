@@ -42,12 +42,10 @@ class InitClaudeWorkflowTests(unittest.TestCase):
         project_root = workdir / PROJECT_SUBDIR
         expected_paths = [
             "hooks/format-and-test.sh",
-            "scripts/gradle/init-print-projects.gradle",
             "config/context_gc.json",
             "config/conventions.json",
-            "tools/set_active_feature.py",
             "docs/prd/template.md",
-            "scripts/context_gc/hooklib.py",
+            "docs/cli-migration.md",
             "reports/prd/.gitkeep",
         ]
         for rel in expected_paths:

@@ -149,9 +149,8 @@ if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
   fi
   exit 2
 fi
-plan_review_gate="$(resolve_script_path "scripts/plan_review_gate.py" || true)"
 if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 "${plan_review_gate:-scripts/plan_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
+  if ! review_msg="$(claude-workflow plan-review-gate --target "$ROOT_DIR" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else
@@ -160,9 +159,8 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
     exit 2
   fi
 fi
-prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
 if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+  if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else

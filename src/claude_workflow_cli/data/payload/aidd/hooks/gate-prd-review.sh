@@ -26,12 +26,12 @@ if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
   exit 0
 fi
 ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 [[ -n "$ticket" ]] || exit 0
 
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
-prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
-if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$branch" --skip-on-prd-edit)"; then
+if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$branch" --skip-on-prd-edit)"; then
   if [[ -n "$review_msg" ]]; then
     echo "$review_msg"
   else

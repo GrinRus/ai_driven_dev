@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from hooklib import load_config, resolve_aidd_root
+from .hooklib import load_config, resolve_aidd_root
 
 
 CODE_FENCE_RE = re.compile(r"^```")

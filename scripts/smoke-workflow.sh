@@ -9,18 +9,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SCRIPT="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/init-claude-workflow.sh"
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-CLI_HELPER="${ROOT_DIR}/tools/run_cli.py"
-if [[ ! -f "$CLI_HELPER" ]]; then
-  CLI_HELPER="${ROOT_DIR}/aidd/tools/run_cli.py"
-fi
-if [[ ! -f "$CLI_HELPER" ]]; then
-  CLI_HELPER="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/tools/run_cli.py"
-fi
-REPO_SRC="${ROOT_DIR}/src"
-VENDOR_PATH="${ROOT_DIR}/src/claude_workflow_cli/data/payload/aidd/hooks/_vendor"
-export PYTHONPATH="${REPO_SRC}:${VENDOR_PATH}:${PYTHONPATH:-}"
-export CLAUDE_WORKFLOW_PYTHON="python3"
-export CLAUDE_WORKFLOW_DEV_SRC="${REPO_SRC}"
+CLI_BIN="${CLAUDE_WORKFLOW_BIN:-claude-workflow}"
 export PYTHONDONTWRITEBYTECODE="1"
 WORKDIR=""
 WORKSPACE_ROOT=""
@@ -28,13 +17,14 @@ WORKSPACE_ROOT=""
 run_cli() {
   CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${WORKDIR:-}}"
   CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-${WORKSPACE_ROOT:-${WORKDIR:-}}}"
-  if [[ ! -f "$CLI_HELPER" ]]; then
-    echo "[smoke] missing CLI helper at ${CLI_HELPER}" >&2
-    exit 1
-  fi
   env CLAUDE_PLUGIN_ROOT="$CLAUDE_PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$CLAUDE_PROJECT_DIR" \
-    python3 "$CLI_HELPER" "$@"
+    "$CLI_BIN" "$@"
 }
+
+if ! command -v "$CLI_BIN" >/dev/null 2>&1; then
+  echo "[smoke] missing CLI binary: $CLI_BIN (install via uv/pipx first)" >&2
+  exit 1
+fi
 
 [[ -x "$INIT_SCRIPT" ]] || {
   echo "[smoke] missing init script at $INIT_SCRIPT" >&2
@@ -117,9 +107,9 @@ for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
         assert_has("format-and-test.sh", event)
         assert_has("lint-deps.sh", event)
     if event == "PreToolUse":
-        assert_has("pretooluse_guard.py", event)
+        assert_has("context-gc pretooluse", event)
     if event == "UserPromptSubmit":
-        assert_has("userprompt_guard.py", event)
+        assert_has("context-gc userprompt", event)
 PY
 
 log "create demo source file"
@@ -136,7 +126,7 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKDIR" python3 "$WORKDIR/tools/set_active_feature.py" "$TICKET" >/dev/null
+run_cli set-active-feature --target . "$TICKET" >/dev/null
 [[ -f "$WORKDIR/docs/.active_ticket" ]] || {
   echo "[smoke] failed to set active ticket" >&2
   exit 1
@@ -343,7 +333,7 @@ tail -n 10 "docs/tasklist/${TICKET}.md"
 
 log "gate now allows source edits"
 CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  python3 "$WORKDIR/tools/set_active_stage.py" implement >/dev/null
+  run_cli set-active-stage --target . implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --target . --append >/dev/null
 # Skip progress gate for preset-created artifacts: no code changes yet
@@ -388,7 +378,7 @@ assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
 CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  python3 "$WORKDIR/tools/set_active_stage.py" qa >/dev/null
+  run_cli set-active-stage --target . qa >/dev/null
 # pre-mark QA checklist items to avoid false blockers from template
 python3 - "$TICKET" <<'PY'
 from pathlib import Path

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/context_gc/precompact_snapshot.py\"",
+            "command": "claude-workflow context-gc precompact",
             "timeout": 8
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/context_gc/sessionstart_inject.py\"",
+            "command": "claude-workflow context-gc sessionstart",
             "timeout": 5
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/context_gc/pretooluse_guard.py\"",
+            "command": "claude-workflow context-gc pretooluse",
             "timeout": 2
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/context_gc/userprompt_guard.py\"",
+            "command": "claude-workflow context-gc userprompt",
             "timeout": 2
           }
         ]

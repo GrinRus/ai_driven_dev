@@ -2,16 +2,16 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.3.2
-source_version: 1.3.2
+prompt_version: 1.3.3
+source_version: 1.3.3
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow analyst-check:*)"
 model: inherit
 disable-model-invocation: false
@@ -30,8 +30,8 @@ disable-model-invocation: false
 - Повторно — когда нужно обновить PRD и вопросы.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py` синхронизирует `.active_*` и scaffold'ит PRD.
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py idea` фиксирует стадию `idea`.
+- `claude-workflow set-active-feature` синхронизирует `.active_*` и scaffold'ит PRD.
+- `claude-workflow set-active-stage idea` фиксирует стадию `idea`.
 - Команда должна запускать саб-агента **analyst** (Claude: Run agent → analyst).
 - `claude-workflow analyst-check --ticket <ticket>` — проверка диалога/статуса после ответов.
 
@@ -40,8 +40,8 @@ disable-model-invocation: false
 - `aidd/docs/prd/<ticket>.prd.md`.
 
 ## Пошаговый план
-1. Зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py idea`.
-2. Обнови активный тикет/slug: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py "$1" [--slug-note "$2"]`.
+1. Зафиксируй стадию `idea`: `claude-workflow set-active-stage idea`.
+2. Обнови активный тикет/slug: `claude-workflow set-active-feature "$1" [--slug-note "$2"]`.
 3. Запусти саб-агента **analyst**; он обновит PRD и заполнит блок `## Research Hints` (пути/ключевые слова/заметки).
 4. Верни список вопросов и статус PRD; следующий шаг — `/researcher <ticket>`.
 

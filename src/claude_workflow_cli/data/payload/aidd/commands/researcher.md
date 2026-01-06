@@ -2,16 +2,16 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.1
-source_version: 1.2.1
+prompt_version: 1.2.2
+source_version: 1.2.2
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow research:*)"
 model: inherit
 disable-model-invocation: false
@@ -31,7 +31,7 @@ disable-model-invocation: false
 - Повторно — при изменениях модулей/рисков.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py research` фиксирует стадию `research`.
+- `claude-workflow set-active-stage research` фиксирует стадию `research`.
 - `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` обновляет JSON контекст.
 - Команда должна запускать саб-агента `researcher` (Claude: Run agent → researcher).
 - При необходимости добавь handoff через `claude-workflow tasks-derive --source research --append --ticket <ticket>`.
@@ -41,7 +41,7 @@ disable-model-invocation: false
 - PRD/tasklist — ссылки на отчёт.
 
 ## Пошаговый план
-1. Убедись, что активный ticket задан; при необходимости вызови `set_active_feature`.
+1. Убедись, что активный ticket задан; при необходимости вызови `claude-workflow set-active-feature`.
 2. Зафиксируй стадию `research`.
 3. Извлеки `## Research Hints` и запусти `claude-workflow research ...` с `--paths/--keywords/--note`.
 4. Запусти саб-агента `researcher` и обнови `aidd/docs/research/<ticket>.md`.

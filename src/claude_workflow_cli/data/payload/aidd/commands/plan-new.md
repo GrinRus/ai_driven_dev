@@ -2,16 +2,16 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.0
-source_version: 1.1.0
+prompt_version: 1.1.1
+source_version: 1.1.1
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
   - "Bash(claude-workflow research-check:*)"
 model: inherit
 disable-model-invocation: false
@@ -30,7 +30,7 @@ disable-model-invocation: false
 - Повторный запуск — для актуализации плана при изменениях требований.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan` фиксирует стадию `plan`.
+- `claude-workflow set-active-stage plan` фиксирует стадию `plan`.
 - Команда должна запускать саб-агентов `planner` и `validator` (Claude: Run agent → planner/validator); при статусе `BLOCKED` возвращает вопросы.
 - Перед запуском planner выполни `claude-workflow research-check --ticket <ticket>`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
@@ -40,7 +40,7 @@ disable-model-invocation: false
 - При необходимости синхронизируй открытые вопросы/риски с PRD.
 
 ## Пошаговый план
-1. Зафиксируй стадию `plan`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py plan`.
+1. Зафиксируй стадию `plan`: `claude-workflow set-active-stage plan`.
 2. Проверь, что PRD `Status: READY`; затем запусти `claude-workflow research-check --ticket <ticket>` и остановись при ошибке.
 3. Запусти саб-агента `planner` для генерации/обновления плана.
 4. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.

@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6637,
-      "sha256": "0ab4511a79f00747810cf613e53b2e7e89be0543b6ffad254813bde63245fdec"
+      "size": 6015,
+      "sha256": "639c7c13734f806c418ed6b91bc0f302856cb5048c9835fa122d7fda86f483ee"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -39,50 +39,50 @@
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 3402,
-      "sha256": "fd545fade479bdf293be4778d5bb745cc93a72b7714b6d15bafbd788086c36b7"
+      "size": 3356,
+      "sha256": "ca81531affc781d5d2381c3c6c97b0a66839d533bf44cdbe3a63ef50ed0a72b4"
     },
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 3030,
-      "sha256": "14870b6342c32b4108de419afb730a000a6de9a3525fda3df1c52d25c05e99fe"
+      "size": 2984,
+      "sha256": "ae026076b60b00f0f79b0326a4e26f97cfdd4aa62125373afe80bc6818b5ffea"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
       "type": "file",
-      "size": 3427,
-      "sha256": "632dd251966270cc571ff815d0aea7d35df6aa85b2750da01f11ec89268c069b"
+      "size": 3381,
+      "sha256": "7b4353dc27adf83c6659f641278e99a9e1c20594fc3a928447fed41a01c7e700"
     },
     {
       "path": "aidd/agents/planner.md",
       "type": "file",
-      "size": 3295,
-      "sha256": "2300a914f83d54ea3a19cbf1389e0a4e34d0a221eefe31524098450f02208810"
+      "size": 3249,
+      "sha256": "f650d78b1955e1ae1a9c86b5dcc2902e4748c80cff0a61b7c928017a71a5e59a"
     },
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 2545,
-      "sha256": "c92fa6e0b936f8c379f41eb31326d5bedc2d08c1cb309015c3a38036ba67d3b6"
+      "size": 2509,
+      "sha256": "46ae62e6df71308c150fa19f9f00e11ae172df04079e9b56e24ebd2155b132c8"
     },
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 2223,
-      "sha256": "98a06e951b7be0078a23974fdb11a7e5cdccc1ca8a999f863589324cf5c1a35b"
+      "size": 2177,
+      "sha256": "19c4f9a01ed6e6948d9fd50ad9d8f6e7963fa76f72cc38535caee376df173735"
     },
     {
       "path": "aidd/agents/researcher.md",
       "type": "file",
-      "size": 3309,
-      "sha256": "73039b36cc357a808d08675257c71d71e300722ca8c47dd05b6ef355b881bb85"
+      "size": 3263,
+      "sha256": "d57e88420337d53885ae45745c0ac14da3429fa4e562e74988f52adca861936a"
     },
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 2326,
-      "sha256": "425f8191625c1ea5bcfd02aea4bbb576a9d94c2e53dbe37bfa4096bbce913dd8"
+      "size": 2280,
+      "sha256": "04cf790a33a42e958a527cc1d17fcefc891f47782a44d2e6fc7411abb5e4a656"
     },
     {
       "path": "aidd/agents/templates/prompt-agent.md",
@@ -93,62 +93,62 @@
     {
       "path": "aidd/agents/validator.md",
       "type": "file",
-      "size": 2714,
-      "sha256": "f9b33aed5459d0511ce2ed6910382154d608b8c24d67adb70d98e3f9c1f51d8a"
+      "size": 2668,
+      "sha256": "c4292fb8da5ed4e70bb68051a8e1db3107ec173c04aa798c7ba9c97530c9fd4e"
     },
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 3768,
-      "sha256": "9d3492642f24711e39816c3c0747d8ce1daad6e90b765feb8913b3f8ce9fed53"
+      "size": 3630,
+      "sha256": "8e0dd21e70a5f9ca20cd8385ae787ab99f8c3ee135b4b5a767cf6cb1bc81bccd"
     },
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 3097,
-      "sha256": "d6778cf68210fd8fa1e2c728fcbf7521b08d653e0ca01d7b70742c3f0443488b"
+      "size": 3028,
+      "sha256": "fdb0be375eeaf331f27413d0f97b241927bc3921ca811cf28e7ec0e9f5c0f1b4"
     },
     {
       "path": "aidd/commands/plan-new.md",
       "type": "file",
-      "size": 3599,
-      "sha256": "acc9a0ab9c58ace4bc8766fa812b6a55c72cd387a33d5393d92c7108c5d838a6"
+      "size": 3507,
+      "sha256": "16afec129740288276bcad94eb40d71dc3f6fcec176ee7c4d4dec1a2e0113df3"
     },
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 2680,
-      "sha256": "a5e0f1e2325e15a99deb55984e973e929138b8ea2ac5a8a5b20653a1f5f9b1b7"
+      "size": 2551,
+      "sha256": "bfde54de1fe1ab521191a8d7263720461ac6f8c3c435e73f1008a3038ff1da5e"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 3357,
-      "sha256": "7adf65aac14698cf36ce8951a44bcf48fb05b818792ef4f58cb13eaef0fe1d19"
+      "size": 3304,
+      "sha256": "9044b39334916e7ded34d4ae3aa7d69116a3071e8ce5ba747ecebc86d61f599e"
     },
     {
       "path": "aidd/commands/review-spec.md",
       "type": "file",
-      "size": 4039,
-      "sha256": "19bb0195a72adb89c4dbb1efd8dca7b971783b9789b6d65ae35e523505720d2e"
+      "size": 3786,
+      "sha256": "22c3d738f09a1b96ff981f4093c6cf8ef75dad65b32357cb0a2407c82bdc5735"
     },
     {
       "path": "aidd/commands/review.md",
       "type": "file",
-      "size": 2699,
-      "sha256": "6816360d2e02bd9f10ebb70d130a18cccf84a76797480f6657ec88dc8d7519c0"
+      "size": 2630,
+      "sha256": "4c8ea215551febda69a2064f01ee4b9039dc2ee3fc3066a7c9838a519fc5249c"
     },
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 2954,
-      "sha256": "b7462ab2f5f66f7274533f36964a552f26f6bd0d6850798cbb0715e73712c072"
+      "size": 2862,
+      "sha256": "208de01df0299d051f0411b27889808295433c46569dcfcb92ed30f3c1966713"
     },
     {
       "path": "aidd/commands/templates/prompt-command.md",
       "type": "file",
-      "size": 4393,
-      "sha256": "cf47faf7c31b0562b65e12eea6796a88ff4e6bc109f95ad16cacc2ed4d7cdd9f"
+      "size": 4392,
+      "sha256": "12baef4c334696456cf117f042c5f9fe829073a7b462b5a3eedaae2880dc7c9f"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -199,6 +199,12 @@
       "sha256": "7bd4a2ca253bef3516b492456da8e2861644fb3bd4038313dab1d3ccfe8ff648"
     },
     {
+      "path": "aidd/docs/cli-migration.md",
+      "type": "file",
+      "size": 1854,
+      "sha256": "b5b2931aaae7aeb7cf1280b495f753ad47c414653ca7dcf446b3d56561454ab2"
+    },
+    {
       "path": "aidd/docs/feature-cookbook.md",
       "type": "file",
       "size": 4659,
@@ -207,8 +213,8 @@
     {
       "path": "aidd/docs/migration-aidd.md",
       "type": "file",
-      "size": 1688,
-      "sha256": "f36f38e70807d65bcf0182a371bdd829056b0f698cef072a8c3972428233a782"
+      "size": 1648,
+      "sha256": "58ba568095471ee1bc554d89ff75ea9bc7de03552c86bf8a6319bb93237a02b0"
     },
     {
       "path": "aidd/docs/plan/.gitkeep",
@@ -255,8 +261,8 @@
     {
       "path": "aidd/docs/release-notes.md",
       "type": "file",
-      "size": 552,
-      "sha256": "6f2fd318c2e525439d28789353b1372433b72469987c8f96cb09005b9d188aff"
+      "size": 797,
+      "sha256": "54178cd29c55219d23e5f8ec54570e18af950e2b842e4e821a6681bd1713bea3"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -295,60 +301,6 @@
       "sha256": "bec9aee9d717380f21ba3c515723b244a4bd23e10ebb73a608bec3dc35c3c133"
     },
     {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/__init__.py",
-      "type": "file",
-      "size": 81,
-      "sha256": "c120060ac8e673499deb323bbdcee0e93ffc33ae6de087c8c19a92883e3d66d4"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/cli.py",
-      "type": "file",
-      "size": 86263,
-      "sha256": "4fd93b404e3e63d7e592482bf1b3fdc68aec54ebc61608b8a70486f3960cc8dd"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/feature_ids.py",
-      "type": "file",
-      "size": 3571,
-      "sha256": "b360eb5af19708e85cc4a65b68b4a2ce7416df8ec4ede3f68237c6fb2e707174"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/progress.py",
-      "type": "file",
-      "size": 21576,
-      "sha256": "f36448abc11f65bd682dba2c680c00cb4cde5dc8a6f64df337fae01528ff376e"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/resources.py",
-      "type": "file",
-      "size": 689,
-      "sha256": "41d5d92b56d8d8f89765042938733f8fe3f63cdd5cc5919d2615dec893b21ed5"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/__init__.py",
-      "type": "file",
-      "size": 55,
-      "sha256": "875028fe3ae24587ee49a27fa177668b3975bcf27b30d6be19c49419a5dbc4dd"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/analyst_guard.py",
-      "type": "file",
-      "size": 12823,
-      "sha256": "0cf610a89f8c5c25375139fe013e1cd0d272ccbc7ca637b36175a5785a0da321"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/research_guard.py",
-      "type": "file",
-      "size": 11607,
-      "sha256": "7f1bae158746c41f61ba6ddb591c7856ae4d0e72685f85d33728f1fb6ec784e9"
-    },
-    {
-      "path": "aidd/hooks/_vendor/claude_workflow_cli/tools/researcher_context.py",
-      "type": "file",
-      "size": 49452,
-      "sha256": "8442328712d92797f80bdca8c3af0847b9f47ec664097a7789414b29a3126ba8"
-    },
-    {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
       "size": 21458,
@@ -369,14 +321,14 @@
     {
       "path": "aidd/hooks/gate-prd-review.sh",
       "type": "file",
-      "size": 1680,
-      "sha256": "77691c6d691f1c6290e5ca2d16140afe80a2240b4179ef8e626b23410b1840cc"
+      "size": 1681,
+      "sha256": "05f7a74a2b5e03e7da320bc89602b4e37b102791132c50a8378064c069dc9b85"
     },
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 14137,
-      "sha256": "bed56202a5fee85300eefb2c510ccbac0273be72812bade104c9bb2f5fc44cb9"
+      "size": 13921,
+      "sha256": "3964863534de0909ac08d07d3a00e9f7820c7e0daa37c830c76f707785c601a4"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
@@ -387,20 +339,20 @@
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 17948,
-      "sha256": "f66d63e85169e3d53203eb45a42250200f96833523590cebca179f8a96f38786"
+      "size": 17806,
+      "sha256": "d15fc2b20e1af3a88a7e45e1e9111927aac31484374109e1d02963b5bc061d48"
     },
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 3026,
-      "sha256": "1355ac037fac86a2db85d43e5e8d92ddd49c8bfcbf0c4e6bc24723bb872f5257"
+      "size": 2850,
+      "sha256": "2f70a9e76f09ed7adacb5c0b85da3ae9173fd0b4ef08c47d2645f57e536bb411"
     },
     {
       "path": "aidd/hooks/lib.sh",
       "type": "file",
-      "size": 5754,
-      "sha256": "f0e6b80fb22c7a34251630a6cc47d48a0154df9758653a5a1bfbad3a452d7f8a"
+      "size": 5110,
+      "sha256": "e20db2950493ec4abb59cddd12f5148e53a2be01fb4e3408d208665adafa9bd0"
     },
     {
       "path": "aidd/hooks/lint-deps.sh",
@@ -411,92 +363,14 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 12988,
-      "sha256": "0a893c1600939c9c561b7138150def07cd8e66d8eb3d88c68bcc6940f71facc4"
+      "size": 12599,
+      "sha256": "e9bebccf616f1ff342f9a540ba8cdef5cef121182786f9142033f7daad157a07"
     },
     {
       "path": "aidd/reports/prd/.gitkeep",
       "type": "file",
       "size": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
-    {
-      "path": "aidd/scripts/context_gc/hooklib.py",
-      "type": "file",
-      "size": 5908,
-      "sha256": "03cc95085799de30516aba87f07058ae041023c873222c0bd362bcfc99a6badf"
-    },
-    {
-      "path": "aidd/scripts/context_gc/precompact_snapshot.py",
-      "type": "file",
-      "size": 2693,
-      "sha256": "b26ed7d38854ec37c5a48d1c7407b25ae7e43fae37b01c7808250bd35eee91e4"
-    },
-    {
-      "path": "aidd/scripts/context_gc/pretooluse_guard.py",
-      "type": "file",
-      "size": 7460,
-      "sha256": "53eca8c2842a4b9d3eacd790c3768124c7237a0f3fafe4b5a1a7fb9f045c39b2"
-    },
-    {
-      "path": "aidd/scripts/context_gc/sessionstart_inject.py",
-      "type": "file",
-      "size": 709,
-      "sha256": "034857a7963def7120e8ddbfd018ecfac465b7695b021374b05e45cc867340b2"
-    },
-    {
-      "path": "aidd/scripts/context_gc/userprompt_guard.py",
-      "type": "file",
-      "size": 5063,
-      "sha256": "2e2589c945b14df8f71031b6e07906c8ed274a91bb37a52ee168034f3da5f165"
-    },
-    {
-      "path": "aidd/scripts/context_gc/working_set_builder.py",
-      "type": "file",
-      "size": 6159,
-      "sha256": "df999683e3ae95a972e98f71b4691395ff9601119fb3fd6934b505be69bd32b9"
-    },
-    {
-      "path": "aidd/scripts/gradle/init-print-projects.gradle",
-      "type": "file",
-      "size": 643,
-      "sha256": "d568e2bb2196747bb67f760fd5db4ba28459586b381ec92a8c8e150b2605553b"
-    },
-    {
-      "path": "aidd/scripts/migrate-tasklist.py",
-      "type": "file",
-      "size": 3883,
-      "sha256": "44c082d55e0dadcd83e7224e4c3c644759f940c1813e550942aeb81c987526b5"
-    },
-    {
-      "path": "aidd/scripts/plan_review_gate.py",
-      "type": "file",
-      "size": 5665,
-      "sha256": "aa2bafa37b96d5c50b76ea6e9cba04bccd2a3becc08da792957577cea14c034e"
-    },
-    {
-      "path": "aidd/scripts/prd-review-agent.py",
-      "type": "file",
-      "size": 10090,
-      "sha256": "99b20bfe67d22a654a3030d974433ad3cc99e42100cc83c3b3297b29b7bd1e55"
-    },
-    {
-      "path": "aidd/scripts/prd_review_gate.py",
-      "type": "file",
-      "size": 13387,
-      "sha256": "e0b6a6771beba549a4d5cf7a8bc63a18ebb4fd22db00527a4f4c44957ec66a94"
-    },
-    {
-      "path": "aidd/scripts/qa-agent.py",
-      "type": "file",
-      "size": 16526,
-      "sha256": "05b12d162cd430bb8bf4477d70476cb354edf68bd95b5e89a671704b1f5c3c03"
-    },
-    {
-      "path": "aidd/scripts/smoke-workflow.sh",
-      "type": "file",
-      "size": 16603,
-      "sha256": "53a0bf69a78f495dd0d3b53a6dbbdba2a03a3f12b7976dbe34602b7b8ce6340e"
     },
     {
       "path": "aidd/templates/git-hooks/README.md",
@@ -523,34 +397,10 @@
       "sha256": "797a2eb54192f1a4d3ec4899cdc84299f7261d3ae2d0ca91042ef9ce4276a4ef"
     },
     {
-      "path": "aidd/tools/migrate_ticket.py",
+      "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 5797,
-      "sha256": "1650ff375a657f3d545dde44144e8e56fb28a11d2671140400d5b1b1fe8826d3"
-    },
-    {
-      "path": "aidd/tools/researcher_context.py",
-      "type": "file",
-      "size": 51448,
-      "sha256": "e1b6338d04ba598580e02ddf69e3ecf19e8befff74925691ea6925adb8479ecb"
-    },
-    {
-      "path": "aidd/tools/run_cli.py",
-      "type": "file",
-      "size": 4444,
-      "sha256": "97184a715102af1b1a35082f2208183a7b9ae2b7e75527c82e465e3ccd8cf1a4"
-    },
-    {
-      "path": "aidd/tools/set_active_feature.py",
-      "type": "file",
-      "size": 9500,
-      "sha256": "0b2b8b1749daab019bd28845f0a68084c0c40f545dc346eac46e556103822563"
-    },
-    {
-      "path": "aidd/tools/set_active_stage.py",
-      "type": "file",
-      "size": 2626,
-      "sha256": "70556015a1e1b99521b32a8adb612caa613ca022c341e3429a82d2c1d1f06c5d"
+      "size": 16045,
+      "sha256": "93255dd62c304f3e32b79a47e536c47a6226b08ed65dc4542f5dc2fb906fdcd4"
     }
   ]
 }

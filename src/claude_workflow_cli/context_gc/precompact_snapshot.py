@@ -5,8 +5,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from hooklib import load_config, read_hook_context, resolve_aidd_root, resolve_project_dir, stat_file_bytes
-from working_set_builder import build_working_set
+from .hooklib import load_config, read_hook_context, resolve_aidd_root, resolve_project_dir, stat_file_bytes
+from .working_set_builder import build_working_set
 
 
 def _safe_mkdir(path: Path) -> None:

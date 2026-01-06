@@ -23,7 +23,7 @@ Environment:
   CLAUDE_QA_DRY_RUN=1   — не проваливать выполнение при блокерах.
   CLAUDE_GATES_ONLY=qa  — запускать гейт только при явном перечислении.
   CLAUDE_QA_COMMAND     — переопределить команду запуска агента QA.
-  QA_AGENT_DIFF_BASE    — ref/commit для сравнения diff (используется qa-agent.py).
+  QA_AGENT_DIFF_BASE    — ref/commit для сравнения diff (используется qa-agent через claude-workflow qa).
 EOF
 }
 
@@ -350,13 +350,7 @@ for part in "${qa_command[@]}"; do
   cmd+=("$(replace_placeholders "$part")")
 done
 
-# Если команда ожидает установленный CLI, используем helper run_cli для подсказки установки.
-if [[ "${cmd[0]}" == "claude-workflow" ]]; then
-  helper_path="$ROOT_DIR/tools/run_cli.py"
-  if [[ -f "$helper_path" ]]; then
-    cmd=("python3" "$helper_path" "${cmd[@]:1}")
-  fi
-fi
+# Команда должна вызывать установленный claude-workflow CLI.
 
 if ((${#qa_block[@]} == 0)); then
   qa_block=("blocker" "critical")

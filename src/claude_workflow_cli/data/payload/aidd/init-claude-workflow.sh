@@ -365,20 +365,7 @@ generate_gradle_helpers() {
 
 generate_config_and_scripts() {
   copy_payload_dir "config"
-  copy_payload_dir "scripts"
-  copy_payload_dir "tools"
   copy_payload_dir "reports"
-  local dirs=("$ROOT_DIR/scripts" "$ROOT_DIR/tools")
-  for dir in "${dirs[@]}"; do
-    if [[ -d "$dir" ]]; then
-      while IFS= read -r -d '' file; do
-        local rel="${file#"$ROOT_DIR"/}"
-        case "$rel" in
-          *.sh|*.py) set_executable "$rel" ;;
-        esac
-      done < <(find "$dir" -type f -print0)
-    fi
-  done
 }
 
 embed_project_dir_in_settings() {

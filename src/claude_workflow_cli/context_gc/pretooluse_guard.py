@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from hooklib import load_config, pretooluse_decision, read_hook_context, resolve_aidd_root, resolve_project_dir
+from .hooklib import load_config, pretooluse_decision, read_hook_context, resolve_aidd_root, resolve_project_dir
 
 
 def _resolve_log_dir(project_dir: Path, aidd_root: Optional[Path], rel_log_dir: str) -> Path:

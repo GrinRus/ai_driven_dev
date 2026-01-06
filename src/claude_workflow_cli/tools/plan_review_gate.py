@@ -9,18 +9,24 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
+
+from claude_workflow_cli.feature_ids import resolve_project_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
 REVIEW_HEADER = "## Plan Review"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate plan review readiness.")
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
     parser.add_argument("--ticket", required=True, help="Active feature ticket.")
     parser.add_argument("--file-path", default="", help="Path being modified.")
     parser.add_argument("--branch", default="", help="Current branch name.")
@@ -34,7 +40,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Return success when the plan file itself is being edited.",
     )
-    return parser.parse_args()
+    return parser.parse_args(list(argv) if argv is not None else None)
 
 
 def load_gate_config(path: Path) -> dict:
@@ -59,23 +65,8 @@ def matches(patterns: Iterable[str], value: str) -> bool:
     return False
 
 
-def detect_project_root() -> Path:
-    cwd = Path.cwd().resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_root = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_root:
-        candidates.append(Path(project_root).expanduser().resolve())
-    for candidate in candidates:
-        if (candidate / "docs").is_dir():
-            return candidate
-    return cwd
+def detect_project_root(target: Path) -> Path:
+    return resolve_project_root(target)
 
 
 def normalize_path(raw: str) -> str:
@@ -109,9 +100,8 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
     return found, status, action_items
 
 
-def main() -> None:
-    args = parse_args()
-    root = detect_project_root()
+def run_gate(args: argparse.Namespace) -> int:
+    root = detect_project_root(Path(args.target))
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -119,23 +109,23 @@ def main() -> None:
 
     enabled = bool(gate.get("enabled", True))
     if not enabled:
-        raise SystemExit(0)
+        return 0
 
     if matches(gate.get("skip_branches", []), args.branch):
-        raise SystemExit(0)
+        return 0
     branches = gate.get("branches")
     if branches and not matches(branches, args.branch):
-        raise SystemExit(0)
+        return 0
 
     ticket = args.ticket.strip()
     plan_path = root / "docs" / "plan" / f"{ticket}.md"
     if not plan_path.is_file():
         print(f"BLOCK: нет плана (docs/plan/{ticket}.md) → выполните /plan-new {ticket}")
-        raise SystemExit(1)
+        return 1
 
     normalized = normalize_path(args.file_path)
     if args.skip_on_plan_edit and normalized.endswith(f"docs/plan/{ticket}.md"):
-        raise SystemExit(0)
+        return 0
 
     content = plan_path.read_text(encoding="utf-8")
     found, status, action_items = parse_review_section(content)
@@ -143,29 +133,29 @@ def main() -> None:
     allow_missing = bool(gate.get("allow_missing_section", False))
     if not found:
         if allow_missing:
-            raise SystemExit(0)
+            return 0
         print(f"BLOCK: нет раздела '## Plan Review' в docs/plan/{ticket}.md → выполните /review-spec {ticket}")
-        raise SystemExit(1)
+        return 1
 
     approved: Set[str] = {str(item).lower() for item in gate.get("approved_statuses", DEFAULT_APPROVED)}
     blocking: Set[str] = {str(item).lower() for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
 
     if status in blocking:
         print(f"BLOCK: Plan Review помечен как '{status.upper()}' → устраните блокеры через /review-spec {ticket}")
-        raise SystemExit(1)
+        return 1
 
     if approved and status not in approved:
         print(f"BLOCK: Plan Review не READY (Status: {status.upper() or 'PENDING'}) → выполните /review-spec {ticket}")
-        raise SystemExit(1)
+        return 1
 
     if bool(gate.get("require_action_items_closed", True)):
         for item in action_items:
             if item.startswith("- [ ]"):
                 print(f"BLOCK: В Plan Review остались незакрытые action items → обновите docs/plan/{ticket}.md")
-                raise SystemExit(1)
+                return 1
 
-    raise SystemExit(0)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run_gate(parse_args()))

@@ -2,15 +2,13 @@ import json
 import subprocess
 from pathlib import Path
 
-from .helpers import PAYLOAD_ROOT, write_file
-
-SCRIPT = PAYLOAD_ROOT / "tools" / "migrate_ticket.py"
+from .helpers import cli_cmd, write_file
 
 
 def run_migration(tmp_path: Path, *extra_args: str, dry_run: bool = False) -> subprocess.CompletedProcess[str]:
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
-    args = ["python3", str(SCRIPT), "--target", str(project), *extra_args]
+    args = cli_cmd("migrate-ticket", "--target", str(project), *extra_args)
     if dry_run:
         args.append("--dry-run")
     return subprocess.run(

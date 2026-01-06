@@ -11,6 +11,6 @@
    - `docs/prd|plan|research|tasklist/*` → соответствующие каталоги под `aidd/docs/`
    - отчёты из `reports/*` → `aidd/reports/*` (по необходимости)
 5. Перегенерируйте контекст Researcher при сомнениях: `claude-workflow research --target . --ticket <ticket> --auto`.
-6. Запустите `aidd/scripts/smoke-workflow.sh` или `claude-workflow smoke` для проверки гейтов.
+6. Запустите `claude-workflow smoke` для проверки гейтов.
 
 **Если CLI не найден:** установите через `uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git` и повторите init. Все команды и хуки ожидают структуру `./aidd/**`.

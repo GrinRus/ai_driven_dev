@@ -2,9 +2,9 @@
 name: validator
 description: Валидация исполняемости плана по PRD/Research; формирование вопросов.
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
-tools: Read, Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.0.5
+source_version: 1.0.5
+tools: Read, Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

@@ -2,18 +2,18 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow qa:*)"
   - "Bash(claude-workflow progress:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -32,14 +32,14 @@ disable-model-invocation: false
 - Повторять при новых изменениях.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py qa` фиксирует стадию `qa`.
+- `claude-workflow set-active-stage qa` фиксирует стадию `qa`.
 - Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `claude-workflow qa --gate`.
-- `claude-workflow qa --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json" --gate` формирует отчёт.
+- `claude-workflow qa --ticket <ticket> --report "reports/qa/<ticket>.json" --gate` формирует отчёт.
 - `claude-workflow progress --source qa --ticket <ticket>` фиксирует новые `[x]`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md`.
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/qa/<ticket>.json`.
+- `reports/qa/<ticket>.json`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.

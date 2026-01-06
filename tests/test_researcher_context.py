@@ -12,7 +12,7 @@ if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
 
 from claude_workflow_cli.tools.researcher_context import ResearcherContextBuilder
 
-from .helpers import PAYLOAD_ROOT, write_file
+from .helpers import PAYLOAD_ROOT, cli_cmd, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -152,10 +152,9 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("score", reuse_candidates[0])
 
     def test_set_active_feature_refreshes_targets(self) -> None:
-        script = PAYLOAD_ROOT / "tools" / "set_active_feature.py"
         env = os.environ.copy()
         result = subprocess.run(
-            ["python3", str(script), "--target", str(self.root), "demo-checkout"],
+            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
             text=True,
             capture_output=True,
             env=env,
@@ -179,18 +178,16 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("docs/research/demo-checkout.md", prd_body)
 
     def test_slug_hint_persists_without_repeating_argument(self) -> None:
-        script = PAYLOAD_ROOT / "tools" / "set_active_feature.py"
         env = os.environ.copy()
         first = subprocess.run(
-            [
-                "python3",
-                str(script),
+            cli_cmd(
+                "set-active-feature",
                 "--target",
                 str(self.root),
                 "--slug-note",
                 "checkout-lite",
                 "demo-checkout",
-            ],
+            ),
             text=True,
             capture_output=True,
             env=env,
@@ -199,7 +196,7 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(first.returncode, 0, msg=first.stderr)
 
         second = subprocess.run(
-            ["python3", str(script), "--target", str(self.root), "demo-checkout"],
+            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
             text=True,
             capture_output=True,
             env=env,

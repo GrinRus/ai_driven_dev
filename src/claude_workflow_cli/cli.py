@@ -21,7 +21,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from claude_workflow_cli.feature_ids import (
     FeatureIdentifiers,
+    read_identifiers,
     resolve_identifiers,
+    resolve_project_root as resolve_aidd_root,
     write_identifiers,
 )
 
@@ -46,9 +48,19 @@ from claude_workflow_cli.tools.researcher_context import (
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
+from claude_workflow_cli.tools import plan_review_gate as _plan_review_gate
+from claude_workflow_cli.tools import prd_review as _prd_review
+from claude_workflow_cli.tools import prd_review_gate as _prd_review_gate
+from claude_workflow_cli.tools import qa_agent as _qa_agent
+from claude_workflow_cli.context_gc import (
+    precompact_snapshot as _context_precompact,
+    pretooluse_guard as _context_pretooluse,
+    sessionstart_inject as _context_sessionstart,
+    userprompt_guard as _context_userprompt,
+)
 from claude_workflow_cli.resources import (
     DEFAULT_PROJECT_SUBDIR,
-    resolve_project_root,
+    resolve_project_root as resolve_workspace_root,
 )
 
 
@@ -69,10 +81,21 @@ DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 DEFAULT_QA_TEST_COMMAND = [["bash", "hooks/format-and-test.sh"]]
 WORKSPACE_ROOT_DIRS = {".claude", ".claude-plugin"}
+VALID_STAGES = {
+    "idea",
+    "research",
+    "plan",
+    "review-plan",
+    "review-prd",
+    "tasklist",
+    "implement",
+    "review",
+    "qa",
+}
 
 
 def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path]:
-    workspace_root, project_root = resolve_project_root(raw_target, DEFAULT_PROJECT_SUBDIR)
+    workspace_root, project_root = resolve_workspace_root(raw_target, DEFAULT_PROJECT_SUBDIR)
     if project_root.exists():
         return workspace_root, project_root
     if create:
@@ -96,6 +119,252 @@ def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
         f"bootstrap via 'claude-workflow init --target {workspace_root}' "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
+
+
+def _normalize_stage(value: str) -> str:
+    return value.strip().lower().replace(" ", "-")
+
+
+def _slug_to_title(slug: str) -> str:
+    parts = [chunk for chunk in slug.replace("_", "-").split("-") if chunk]
+    if not parts:
+        return slug
+    return " ".join(part.capitalize() for part in parts)
+
+
+def _render_tasklist_heading(original: str, title: str) -> str:
+    lines = original.splitlines()
+    idx = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if idx is None:
+        return f"# Tasklist — {title}\n"
+    first = lines[idx].strip()
+    if first.lower().startswith("# tasklist"):
+        lines[idx] = f"# Tasklist — {title}"
+    else:
+        lines.insert(idx, f"# Tasklist — {title}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _maybe_migrate_tasklist(root: Path, ticket: str, slug_hint: Optional[str]) -> None:
+    legacy = root / "tasklist.md"
+    if not legacy.exists():
+        return
+    destination = root / "docs" / "tasklist" / f"{ticket}.md"
+    if destination.exists():
+        return
+    try:
+        display_name = slug_hint or ticket
+        title = _slug_to_title(display_name)
+        slug_value = slug_hint or ticket
+        today = dt.date.today().isoformat()
+        legacy_text = legacy.read_text(encoding="utf-8")
+        body = _render_tasklist_heading(legacy_text, title)
+        front_matter = (
+            "---\n"
+            f"Ticket: {ticket}\n"
+            f"Slug hint: {slug_value}\n"
+            f"Feature: {title}\n"
+            "Status: draft\n"
+            f"PRD: docs/prd/{ticket}.prd.md\n"
+            f"Plan: docs/plan/{ticket}.md\n"
+            f"Research: docs/research/{ticket}.md\n"
+            f"Updated: {today}\n"
+            "---\n\n"
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(front_matter + body, encoding="utf-8")
+        legacy.unlink()
+        print(f"[tasklist] migrated legacy tasklist.md to {destination}", file=sys.stderr)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print(f"[tasklist] failed to migrate legacy tasklist.md: {exc}", file=sys.stderr)
+
+
+def _read_text(path: Path) -> Optional[str]:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _ensure_active_ticket(root: Path, *, dry_run: bool) -> tuple[bool, Optional[str]]:
+    docs_dir = root / "docs"
+    slug_file = docs_dir / ".active_feature"
+    ticket_file = docs_dir / ".active_ticket"
+
+    slug_value = _read_text(slug_file)
+    ticket_value_raw = _read_text(ticket_file)
+    ticket_value = ticket_value_raw.strip() if ticket_value_raw else ""
+
+    if ticket_value:
+        return False, ticket_value
+
+    if not slug_value:
+        return False, None
+
+    slug_value = slug_value.strip()
+    if not slug_value:
+        return False, None
+
+    if dry_run:
+        print(f"[dry-run] write {ticket_file} ← {slug_value}")
+    else:
+        ticket_file.write_text(slug_value + "\n", encoding="utf-8")
+        print(f"[migrate] created {ticket_file} from .active_feature")
+    return True, slug_value
+
+
+def _migrate_tasklist_front_matter(path: Path, *, dry_run: bool) -> bool:
+    text = _read_text(path)
+    if text is None:
+        return False
+
+    lines = text.splitlines()
+    if len(lines) < 3 or lines[0].strip() != "---":
+        return False
+
+    end_idx = None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            end_idx = idx
+            break
+    if end_idx is None:
+        return False
+
+    front = lines[1:end_idx]
+    body = lines[end_idx + 1 :]
+
+    ticket_line = next((ln for ln in front if ln.lower().startswith("ticket:")), None)
+    slug_hint_line = next((ln for ln in front if ln.lower().startswith("slug hint:")), None)
+    feature_line = next((ln for ln in front if ln.lower().startswith("feature:")), None)
+
+    filename_ticket = path.stem
+    feature_value = ""
+    if feature_line:
+        feature_value = feature_line.split(":", 1)[1].strip()
+
+    updated = False
+    new_front: list[str] = []
+
+    def append_ticket_block() -> None:
+        nonlocal ticket_line, slug_hint_line, updated
+        if ticket_line is None:
+            ticket_line = f"Ticket: {filename_ticket}"
+            new_front.append(ticket_line)
+            updated = True
+        else:
+            new_front.append(ticket_line)
+        if slug_hint_line is None:
+            slug_value = feature_value or filename_ticket
+            slug_hint_line_local = f"Slug hint: {slug_value}"
+            new_front.append(slug_hint_line_local)
+            slug_hint_line = slug_hint_line_local
+            updated = True
+        else:
+            new_front.append(slug_hint_line)
+
+    inserted = False
+    for line in front:
+        if line.lower().startswith("ticket:"):
+            new_front.append(line)
+            inserted = True
+            continue
+        if line.lower().startswith("slug hint:"):
+            if not inserted and ticket_line is None:
+                new_front.append(f"Ticket: {filename_ticket}")
+                inserted = True
+                updated = True
+            new_front.append(line)
+            continue
+        if line.lower().startswith("feature:") and not inserted:
+            append_ticket_block()
+            inserted = True
+        new_front.append(line)
+
+    if not inserted:
+        append_ticket_block()
+
+    if not updated:
+        return False
+
+    new_lines = ["---", *new_front, "---", *body]
+    new_text = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
+    if dry_run:
+        print(f"[dry-run] update front-matter in {path}")
+    else:
+        path.write_text(new_text, encoding="utf-8")
+        print(f"[migrate] updated front-matter in {path}")
+    return True
+
+
+def _migrate_tasklists(root: Path, *, dry_run: bool) -> int:
+    tasklist_dir = root / "docs" / "tasklist"
+    if not tasklist_dir.is_dir():
+        return 0
+    updated = 0
+    for candidate in sorted(tasklist_dir.glob("*.md")):
+        if _migrate_tasklist_front_matter(candidate, dry_run=dry_run):
+            updated += 1
+    return updated
+
+
+def _resolve_slug_for_tasklist(root: Path, provided: Optional[str]) -> str:
+    if provided:
+        return provided.strip()
+    active_file = root / "docs" / ".active_feature"
+    if active_file.exists():
+        raw = active_file.read_text(encoding="utf-8").strip()
+        if raw:
+            return raw
+    plan_dir = root / "docs" / "plan"
+    if plan_dir.exists():
+        plans = sorted(path.stem for path in plan_dir.glob("*.md"))
+        if len(plans) == 1:
+            return plans[0]
+    raise SystemExit("Cannot determine feature slug: use --slug or populate docs/.active_feature.")
+
+
+def _migrate_legacy_tasklist(root: Path, slug: str, force: bool) -> int:
+    legacy = root / "tasklist.md"
+    if not legacy.exists():
+        print("[tasklist] legacy tasklist.md not found; nothing to migrate.")
+        return 0
+
+    destination = root / "docs" / "tasklist" / f"{slug}.md"
+    if destination.exists() and not force:
+        print(f"[tasklist] destination {destination} already exists. Use --force to overwrite.")
+        return 1
+
+    title = _slug_to_title(slug)
+    today = dt.date.today().isoformat()
+    legacy_text = legacy.read_text(encoding="utf-8")
+    body = _render_tasklist_heading(legacy_text, title)
+    front_matter = (
+        "---\n"
+        f"Ticket: {slug}\n"
+        f"Slug hint: {slug}\n"
+        f"Feature: {title}\n"
+        "Status: draft\n"
+        f"PRD: docs/prd/{slug}.prd.md\n"
+        f"Plan: docs/plan/{slug}.md\n"
+        f"Research: docs/research/{slug}.md\n"
+        f"Updated: {today}\n"
+        "---\n\n"
+    )
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(front_matter + body, encoding="utf-8")
+    legacy.unlink()
+
+    feature_file = root / "docs" / ".active_feature"
+    feature_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_file.write_text(slug + "\n", encoding="utf-8")
+
+    ticket_file = root / "docs" / ".active_ticket"
+    ticket_file.parent.mkdir(parents=True, exist_ok=True)
+    ticket_file.write_text(slug + "\n", encoding="utf-8")
+
+    print(f"[tasklist] migrated to {destination}")
+    return 0
 
 
 class PayloadError(RuntimeError):
@@ -430,12 +699,14 @@ def _run_init(
 
 def _run_smoke(verbose: bool) -> None:
     with _payload_root() as payload_path:
-        manifest = _load_manifest(payload_path)
-        manifest_prefix = _detect_manifest_prefix(manifest)
-        script_rel = Path("scripts/smoke-workflow.sh")
-        if manifest_prefix:
-            script_rel = Path(manifest_prefix) / script_rel
-        script = payload_path / script_rel
+        script = payload_path / "smoke-workflow.sh"
+        if not script.exists():
+            manifest = _load_manifest(payload_path)
+            manifest_prefix = _detect_manifest_prefix(manifest)
+            if manifest_prefix:
+                candidate = payload_path / manifest_prefix / "smoke-workflow.sh"
+                if candidate.exists():
+                    script = candidate
         if not script.exists():
             raise FileNotFoundError(f"smoke script not found at {script}")
         cmd = ["bash", str(script)]
@@ -459,6 +730,124 @@ def _init_command(args: argparse.Namespace) -> None:
 
 def _smoke_command(args: argparse.Namespace) -> None:
     _run_smoke(args.verbose)
+
+
+def _set_active_stage_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    stage = _normalize_stage(args.stage)
+    if not args.allow_custom and stage not in VALID_STAGES:
+        valid = ", ".join(sorted(VALID_STAGES))
+        print(f"[stage] invalid stage '{stage}'. Allowed: {valid}.", file=sys.stderr)
+        return 2
+    docs_dir = root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    stage_path = docs_dir / ".active_stage"
+    stage_path.write_text(stage + "\n", encoding="utf-8")
+    print(f"active stage: {stage}")
+    return 0
+
+
+def _set_active_feature_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    docs_dir = root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    write_identifiers(
+        root,
+        ticket=args.ticket,
+        slug_hint=args.slug_note,
+        scaffold_prd_file=not args.skip_prd_scaffold,
+    )
+    identifiers = read_identifiers(root)
+    resolved_slug_hint = identifiers.slug_hint or identifiers.ticket or args.ticket
+
+    print(f"active feature: {args.ticket}")
+    _maybe_migrate_tasklist(root, args.ticket, resolved_slug_hint)
+
+    config_path: Optional[Path] = None
+    if args.config:
+        config_path = Path(args.config)
+        if not config_path.is_absolute():
+            config_path = (root / config_path).resolve()
+        else:
+            config_path = config_path.resolve()
+
+    builder = ResearcherContextBuilder(root, config_path=config_path)
+    scope = builder.build_scope(args.ticket, slug_hint=resolved_slug_hint)
+    scope = builder.extend_scope(
+        scope,
+        extra_paths=_research_parse_paths(args.paths),
+        extra_keywords=_research_parse_keywords(args.keywords),
+    )
+    targets_path = builder.write_targets(scope)
+    rel_targets = targets_path.relative_to(root).as_posix()
+    print(f"[researcher] targets saved to {rel_targets} ({len(scope.paths)} paths, {len(scope.docs)} docs)")
+    return 0
+
+
+def _migrate_ticket_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    if not root.exists():
+        print(f"[error] target directory {root} does not exist", file=sys.stderr)
+        return 1
+
+    created_ticket, ticket_value = _ensure_active_ticket(root, dry_run=args.dry_run)
+    tasklist_updates = _migrate_tasklists(root, dry_run=args.dry_run)
+
+    if args.dry_run:
+        print("[dry-run] migration completed (no files modified).")
+        return 0
+
+    if created_ticket:
+        print(f"[summary] aidd/docs/.active_ticket set to '{ticket_value}'.")
+    if tasklist_updates:
+        print(f"[summary] updated {tasklist_updates} tasklist front-matter file(s).")
+    if not created_ticket and tasklist_updates == 0:
+        print("[summary] nothing to migrate — repository already uses ticket-first layout.")
+    return 0
+
+
+def _migrate_tasklist_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    try:
+        slug = _resolve_slug_for_tasklist(root, args.slug)
+    except SystemExit as exc:
+        message = str(exc)
+        if message:
+            print(message, file=sys.stderr)
+        return 1
+    return _migrate_legacy_tasklist(root, slug, args.force)
+
+
+def _prd_review_command(args: argparse.Namespace) -> int:
+    return _prd_review.run(args)
+
+
+def _plan_review_gate_command(args: argparse.Namespace) -> int:
+    return _plan_review_gate.run_gate(args)
+
+
+def _prd_review_gate_command(args: argparse.Namespace) -> int:
+    return _prd_review_gate.run_gate(args)
+
+
+def _researcher_context_command(args: argparse.Namespace) -> int:
+    from claude_workflow_cli.tools import researcher_context as _researcher_context
+
+    argv = args.forward_args or []
+    return _researcher_context.main(argv)
+
+
+def _context_gc_command(args: argparse.Namespace) -> None:
+    mode = args.mode
+    if mode == "precompact":
+        _context_precompact.main()
+    elif mode == "sessionstart":
+        _context_sessionstart.main()
+    elif mode == "pretooluse":
+        _context_pretooluse.main()
+    elif mode == "userprompt":
+        _context_userprompt.main()
 
 
 def _analyst_check_command(args: argparse.Namespace) -> None:
@@ -895,10 +1284,6 @@ def _qa_command(args: argparse.Namespace) -> int:
     report = args.report or "reports/qa/{ticket}.json"
     report = _fmt(report)
 
-    agent_script = target / "scripts" / "qa-agent.py"
-    if not agent_script.is_file():
-        raise FileNotFoundError(f"QA agent script not found at {agent_script}")
-
     allow_no_tests = bool(
         getattr(args, "allow_no_tests", False)
         or os.getenv("CLAUDE_QA_ALLOW_NO_TESTS", "").strip() == "1"
@@ -924,41 +1309,50 @@ def _qa_command(args: argparse.Namespace) -> int:
         else:
             print("[claude-workflow] QA tests completed.")
 
-    cmd = ["python3", str(agent_script)]
+    qa_args = ["--target", str(target)]
     if args.gate:
-        cmd.append("--gate")
+        qa_args.append("--gate")
     if args.dry_run:
-        cmd.append("--dry-run")
+        qa_args.append("--dry-run")
     if args.emit_json:
-        cmd.append("--emit-json")
+        qa_args.append("--emit-json")
     if args.format:
-        cmd.extend(["--format", args.format])
+        qa_args.extend(["--format", args.format])
     if args.block_on:
-        cmd.extend(["--block-on", args.block_on])
+        qa_args.extend(["--block-on", args.block_on])
     if args.warn_on:
-        cmd.extend(["--warn-on", args.warn_on])
+        qa_args.extend(["--warn-on", args.warn_on])
     if args.scope:
         for scope in args.scope:
-            cmd.extend(["--scope", scope])
+            qa_args.extend(["--scope", scope])
 
-    cmd.extend(["--ticket", ticket])
+    qa_args.extend(["--ticket", ticket])
     if slug_hint and slug_hint != ticket:
-        cmd.extend(["--slug-hint", slug_hint])
+        qa_args.extend(["--slug-hint", slug_hint])
     if branch:
-        cmd.extend(["--branch", branch])
+        qa_args.extend(["--branch", branch])
     if report:
-        cmd.extend(["--report", report])
+        qa_args.extend(["--report", report])
 
     _, allow_skip_cfg = _load_qa_tests_config(target)
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
 
-    env = os.environ.copy()
-    env["QA_TESTS_SUMMARY"] = tests_summary
-    env["QA_TESTS_EXECUTED"] = json.dumps(tests_executed, ensure_ascii=False)
-    env["QA_ALLOW_NO_TESTS"] = "1" if allow_no_tests_env else "0"
-
-    proc = subprocess.run(cmd, cwd=target, env=env)
-    exit_code = proc.returncode
+    old_env = {
+        "QA_TESTS_SUMMARY": os.environ.get("QA_TESTS_SUMMARY"),
+        "QA_TESTS_EXECUTED": os.environ.get("QA_TESTS_EXECUTED"),
+        "QA_ALLOW_NO_TESTS": os.environ.get("QA_ALLOW_NO_TESTS"),
+    }
+    os.environ["QA_TESTS_SUMMARY"] = tests_summary
+    os.environ["QA_TESTS_EXECUTED"] = json.dumps(tests_executed, ensure_ascii=False)
+    os.environ["QA_ALLOW_NO_TESTS"] = "1" if allow_no_tests_env else "0"
+    try:
+        exit_code = _qa_agent.main(qa_args)
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
     if tests_summary == "fail":
         exit_code = max(exit_code, 1)
@@ -1892,6 +2286,231 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit verbose logs when running the smoke scenario.",
     )
     smoke_parser.set_defaults(func=_smoke_command)
+
+    set_active_feature_parser = subparsers.add_parser(
+        "set-active-feature",
+        help="Persist the active feature ticket and refresh Researcher targets.",
+    )
+    set_active_feature_parser.add_argument("ticket", help="Feature ticket identifier to persist.")
+    set_active_feature_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    set_active_feature_parser.add_argument(
+        "--paths",
+        help="Optional colon-separated list of extra paths for Researcher scope.",
+    )
+    set_active_feature_parser.add_argument(
+        "--keywords",
+        help="Optional comma-separated keywords to seed Researcher search.",
+    )
+    set_active_feature_parser.add_argument(
+        "--config",
+        help="Path to conventions JSON with researcher section (defaults to config/conventions.json).",
+    )
+    set_active_feature_parser.add_argument(
+        "--slug-note",
+        dest="slug_note",
+        help="Optional slug hint to persist alongside the ticket.",
+    )
+    set_active_feature_parser.add_argument(
+        "--skip-prd-scaffold",
+        action="store_true",
+        help="Skip automatic docs/prd/<ticket>.prd.md scaffold creation.",
+    )
+    set_active_feature_parser.set_defaults(func=_set_active_feature_command)
+
+    set_active_stage_parser = subparsers.add_parser(
+        "set-active-stage",
+        help="Persist the active workflow stage in docs/.active_stage.",
+    )
+    set_active_stage_parser.add_argument(
+        "stage",
+        help=(
+            "Stage name (idea/research/plan/review-plan/review-prd/"
+            "tasklist/implement/review/qa)."
+        ),
+    )
+    set_active_stage_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    set_active_stage_parser.add_argument(
+        "--allow-custom",
+        action="store_true",
+        help="Allow arbitrary stage values (skip validation).",
+    )
+    set_active_stage_parser.set_defaults(func=_set_active_stage_command)
+
+    migrate_ticket_parser = subparsers.add_parser(
+        "migrate-ticket",
+        help="Upgrade workflow artefacts to the ticket-first format.",
+    )
+    migrate_ticket_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    migrate_ticket_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print actions without modifying files.",
+    )
+    migrate_ticket_parser.set_defaults(func=_migrate_ticket_command)
+
+    migrate_tasklist_parser = subparsers.add_parser(
+        "migrate-tasklist",
+        help="Move legacy tasklist.md into docs/tasklist/<slug>.md (pre-ticket).",
+    )
+    migrate_tasklist_parser.add_argument(
+        "--slug",
+        help="Feature slug to use; defaults to docs/.active_feature or single plan file.",
+    )
+    migrate_tasklist_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    migrate_tasklist_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing docs/tasklist/<slug>.md if present.",
+    )
+    migrate_tasklist_parser.set_defaults(func=_migrate_tasklist_command)
+
+    prd_review_parser = subparsers.add_parser(
+        "prd-review",
+        help="Run lightweight PRD review heuristics and emit reports/prd/<ticket>.json.",
+    )
+    prd_review_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    prd_review_parser.add_argument(
+        "--ticket",
+        help="Feature ticket to analyse (defaults to docs/.active_ticket).",
+    )
+    prd_review_parser.add_argument(
+        "--slug",
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature when available).",
+    )
+    prd_review_parser.add_argument(
+        "--prd",
+        type=Path,
+        help="Explicit path to PRD file. Defaults to docs/prd/<ticket>.prd.md.",
+    )
+    prd_review_parser.add_argument(
+        "--report",
+        type=Path,
+        help="Optional path to store JSON report. Directories are created automatically.",
+    )
+    prd_review_parser.add_argument(
+        "--emit-text",
+        action="store_true",
+        help="Print a human-readable summary in addition to JSON output.",
+    )
+    prd_review_parser.add_argument(
+        "--stdout-format",
+        choices=("json", "text", "auto"),
+        default="auto",
+        help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
+    )
+    prd_review_parser.set_defaults(func=_prd_review_command)
+
+    plan_review_gate_parser = subparsers.add_parser(
+        "plan-review-gate",
+        help="Validate plan review readiness (used by hooks).",
+    )
+    plan_review_gate_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    plan_review_gate_parser.add_argument("--ticket", required=True, help="Active feature ticket.")
+    plan_review_gate_parser.add_argument("--file-path", default="", help="Path being modified.")
+    plan_review_gate_parser.add_argument("--branch", default="", help="Current branch name.")
+    plan_review_gate_parser.add_argument(
+        "--config",
+        default="config/gates.json",
+        help="Path to gates configuration file (default: config/gates.json).",
+    )
+    plan_review_gate_parser.add_argument(
+        "--skip-on-plan-edit",
+        action="store_true",
+        help="Return success when the plan file itself is being edited.",
+    )
+    plan_review_gate_parser.set_defaults(func=_plan_review_gate_command)
+
+    prd_review_gate_parser = subparsers.add_parser(
+        "prd-review-gate",
+        help="Validate PRD review readiness (used by hooks).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--ticket",
+        "--slug",
+        dest="ticket",
+        required=True,
+        help="Active feature ticket (legacy alias: --slug).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        default="",
+        help="Optional slug hint used for messaging (defaults to docs/.active_feature).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--file-path",
+        default="",
+        help="Path being modified (used to skip checks for direct PRD edits).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--branch",
+        default="",
+        help="Current branch name for branch-based filters.",
+    )
+    prd_review_gate_parser.add_argument(
+        "--config",
+        default="config/gates.json",
+        help="Path to gates configuration file (default: config/gates.json).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--skip-on-prd-edit",
+        action="store_true",
+        help="Return success when the PRD file itself is being edited.",
+    )
+    prd_review_gate_parser.set_defaults(func=_prd_review_gate_command)
+
+    researcher_context_parser = subparsers.add_parser(
+        "researcher-context",
+        help="Run researcher context builder (pass through to module CLI).",
+    )
+    researcher_context_parser.add_argument(
+        "forward_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments forwarded to the researcher context tool.",
+    )
+    researcher_context_parser.set_defaults(func=_researcher_context_command)
+
+    context_gc_parser = subparsers.add_parser(
+        "context-gc",
+        help="Run context GC hooks (precompact/sessionstart/pretooluse/userprompt).",
+    )
+    context_gc_parser.add_argument(
+        "mode",
+        choices=("precompact", "sessionstart", "pretooluse", "userprompt"),
+        help="Context GC mode to execute.",
+    )
+    context_gc_parser.set_defaults(func=_context_gc_command)
 
     analyst_parser = subparsers.add_parser(
         "analyst-check",

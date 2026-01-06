@@ -2,9 +2,9 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.1
-source_version: 1.2.1
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.2.2
+source_version: 1.2.2
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow research:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
