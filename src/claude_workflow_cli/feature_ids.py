@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from claude_workflow_cli.paths import require_aidd_root
 
 ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
@@ -13,28 +13,8 @@ PRD_DIR = Path("docs") / "prd"
 
 
 def resolve_project_root(raw: Path) -> Path:
-    """
-    Prefer plugin root when available.
-
-    Order: CLAUDE_PLUGIN_ROOT -> cwd/aidd -> cwd -> CLAUDE_PROJECT_DIR.
-    """
-    cwd = raw.resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_dir:
-        candidates.append(Path(project_dir).expanduser().resolve())
-    for candidate in candidates:
-        docs_dir = candidate / "docs"
-        if docs_dir.is_dir():
-            return candidate
-    return cwd
+    """Resolve the workflow root using the shared resolver."""
+    return require_aidd_root(raw)
 
 
 def _read_text(path: Path) -> Optional[str]:

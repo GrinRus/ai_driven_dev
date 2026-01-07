@@ -19,7 +19,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
-from claude_workflow_cli.feature_ids import resolve_project_root
+from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -118,16 +118,19 @@ def matches(patterns: Iterable[str], value: str) -> bool:
     return False
 
 
-def _normalize_file_path(raw: str) -> str:
+def _normalize_file_path(raw: str, root: Path | None = None) -> str:
     if not raw:
         return ""
+    normalized = raw.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    if normalized.startswith("aidd/"):
+        normalized = normalized[5:]
     try:
-        rel = Path(raw).resolve().relative_to(Path.cwd().resolve())
+        base = (root or Path.cwd()).resolve()
+        rel = Path(normalized).resolve().relative_to(base)
         return str(rel).replace("\\", "/")
     except Exception:
-        normalized = raw.replace("\\", "/")
-        if normalized.startswith("./"):
-            normalized = normalized[2:]
         return normalized.lstrip("/")
 
 
@@ -219,7 +222,7 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
 
 
 def detect_project_root(target: Path) -> Path:
-    return resolve_project_root(target)
+    return require_aidd_root(target)
 
 
 def extract_dialog_status(content: str) -> str | None:
@@ -238,7 +241,11 @@ def extract_dialog_status(content: str) -> str | None:
 
 
 def run_gate(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    try:
+        root = detect_project_root(Path(args.target))
+    except AiddRootError as exc:
+        print(f"[prd-review-gate] {exc}", file=sys.stderr)
+        return 2
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -259,7 +266,7 @@ def run_gate(args: argparse.Namespace) -> int:
 
     code_prefixes = tuple(_normalize_items(gate.get("code_prefixes"), suffix="/") or DEFAULT_CODE_PREFIXES)
     code_globs = tuple(_normalize_items(gate.get("code_globs")))
-    normalized = _normalize_file_path(args.file_path)
+    normalized = _normalize_file_path(args.file_path, root)
     target_suffix = f"docs/prd/{ticket}.prd.md"
     if args.skip_on_prd_edit and normalized.endswith(target_suffix):
         return 0

@@ -4,7 +4,7 @@ description: Реализация по плану/tasklist малыми итер
 lang: ru
 prompt_version: 1.1.11
 source_version: 1.1.11
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${AIDD_ROOT:-${CLAUDE_PLUGIN_ROOT:-./aidd}}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -18,7 +18,7 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md`, `@aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
 
 ## Автоматизация
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`.
+- `${AIDD_ROOT:-${CLAUDE_PLUGIN_ROOT:-./aidd}}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`.
 - `claude-workflow progress --source implement --ticket <ticket>` подтверждает новые `- [x]`.
 
 ## Пошаговый план
