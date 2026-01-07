@@ -150,5 +150,5 @@ def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
     env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
     result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
     assert result.returncode in (0, 2)
-    combined = result.stdout + result.stderr
-    assert "/aidd" in combined
+    combined = (result.stdout + result.stderr).lower()
+    assert "root not found" not in combined

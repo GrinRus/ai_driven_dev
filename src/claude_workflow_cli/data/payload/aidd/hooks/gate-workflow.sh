@@ -2,18 +2,15 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
-  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
-  ROOT_DIR="$ROOT_DIR/aidd"
-fi
-if [[ ! -d "$ROOT_DIR/docs" ]]; then
-  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run 'claude-workflow init --target <workspace>' to install payload into ./aidd." >&2
-  exit 2
-fi
-export ROOT_DIR
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
+ROOT_DIR="$(hook_project_root)"
+if [[ -z "$ROOT_DIR" ]]; then
+  echo "[gate-workflow] WARN: aidd root not found; skipping gate." >&2
+  exit 0
+fi
+export ROOT_DIR
+ROOT_PREFIX="$(hook_root_prefix "$ROOT_DIR")"
 HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
 if [[ -d "$HOOK_VENDOR_DIR" ]]; then
   if [[ -n "${PYTHONPATH:-}" ]]; then
@@ -23,18 +20,18 @@ if [[ -d "$HOOK_VENDOR_DIR" ]]; then
   fi
 fi
 
-cd "$ROOT_DIR"
-
 collect_changed_files() {
   local files=()
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  if git -C "$ROOT_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
     while IFS= read -r path; do
+      path="$(hook_normalize_path "$ROOT_DIR" "$path" "$ROOT_PREFIX")"
       [[ -n "$path" ]] && files+=("$path")
-    done < <(git diff --name-only HEAD)
+    done < <(git -C "$ROOT_DIR" diff --name-only HEAD)
   fi
   while IFS= read -r path; do
+    path="$(hook_normalize_path "$ROOT_DIR" "$path" "$ROOT_PREFIX")"
     [[ -n "$path" ]] && files+=("$path")
-  done < <(git ls-files --others --exclude-standard)
+  done < <(git -C "$ROOT_DIR" ls-files --others --exclude-standard)
   if ((${#files[@]} == 0)); then
     return 0
   fi
@@ -43,7 +40,8 @@ collect_changed_files() {
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
-current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+file_path="$(hook_normalize_path "$ROOT_DIR" "$file_path" "$ROOT_PREFIX")"
+current_branch="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
 changed_files=()
 if [[ -n "$file_path" ]]; then
@@ -83,7 +81,7 @@ for candidate in "${changed_files[@]}"; do
 done
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
+  active_stage="$(hook_resolve_stage "$ROOT_DIR/docs/.active_stage" || true)"
   if [[ -n "$active_stage" ]]; then
     case "$active_stage" in
       implement|review|qa)
@@ -99,16 +97,22 @@ if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
   fi
 fi
 
-ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
-slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+ticket_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_ticket_source "$ROOT_DIR/docs/.active_ticket")"
+slug_hint_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_slug_hint_source "$ROOT_DIR/docs/.active_feature")"
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
   exit 0
 fi
-if [[ -n "$ticket_source" && "$ticket_source" == aidd/* && ! -f "$ticket_source" && -f "${ticket_source#aidd/}" ]]; then
-  ticket_source="${ticket_source#aidd/}"
+if [[ -n "$ticket_source" && "$ticket_source" == aidd/* ]]; then
+  ticket_source="$ROOT_DIR/${ticket_source#aidd/}"
 fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* && ! -f "$slug_hint_source" && -f "${slug_hint_source#aidd/}" ]]; then
-  slug_hint_source="${slug_hint_source#aidd/}"
+if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* ]]; then
+  slug_hint_source="$ROOT_DIR/${slug_hint_source#aidd/}"
+fi
+if [[ -n "$ticket_source" && "$ticket_source" != /* ]]; then
+  ticket_source="$ROOT_DIR/$ticket_source"
+fi
+if [[ -n "$slug_hint_source" && "$slug_hint_source" != /* ]]; then
+  slug_hint_source="$ROOT_DIR/$slug_hint_source"
 fi
 if [[ -n "$ticket_source" && ! -f "$ticket_source" ]] && [[ -n "$slug_hint_source" && ! -f "$slug_hint_source" ]]; then
   exit 0  # нет активной фичи — не блокируем
@@ -122,15 +126,15 @@ if [[ "$has_src_changes" -ne 1 ]]; then
   exit 0
 fi
 
-ensure_template "docs/research/template.md" "docs/research/$ticket.md"
-ensure_template "docs/prd/template.md" "docs/prd/$ticket.prd.md"
-plan_path="docs/plan/$ticket.md"
+ensure_template "docs/research/template.md" "$ROOT_DIR/docs/research/$ticket.md"
+ensure_template "docs/prd/template.md" "$ROOT_DIR/docs/prd/$ticket.prd.md"
+plan_path="$ROOT_DIR/docs/plan/$ticket.md"
 if [[ ! -f "$plan_path" ]]; then
   ensure_template "docs/plan/template.md" "$plan_path"
   echo "BLOCK: нет плана → запустите /plan-new $ticket"
   exit 2
 fi
-tasklist_path="docs/tasklist/$ticket.md"
+tasklist_path="$ROOT_DIR/docs/tasklist/$ticket.md"
 if [[ ! -f "$tasklist_path" ]]; then
   ensure_template "docs/tasklist/template.md" "$tasklist_path"
   echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
@@ -138,7 +142,7 @@ if [[ ! -f "$tasklist_path" ]]; then
 fi
 
 # Проверим артефакты
-[[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
+[[ -f "$ROOT_DIR/docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
 analyst_cmd=(claude-workflow analyst-check --target "$ROOT_DIR" --ticket "$ticket")
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
@@ -149,7 +153,7 @@ if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
   fi
   exit 2
 fi
-if [[ -f "docs/plan/$ticket.md" ]]; then
+if [[ -f "$ROOT_DIR/docs/plan/$ticket.md" ]]; then
   if ! review_msg="$(claude-workflow plan-review-gate --target "$ROOT_DIR" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
@@ -159,7 +163,7 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
     exit 2
   fi
 fi
-if [[ -f "docs/plan/$ticket.md" ]]; then
+if [[ -f "$ROOT_DIR/docs/plan/$ticket.md" ]]; then
   if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
@@ -170,7 +174,7 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
   fi
 fi
 
-if ! research_msg="$(python3 - "$ticket" "$current_branch" <<'PY'
+if ! research_msg="$(python3 - "$ticket" "$current_branch" "$ROOT_DIR" <<'PY'
 import datetime as dt
 import json
 import sys
@@ -179,7 +183,8 @@ from fnmatch import fnmatch
 
 ticket = sys.argv[1]
 branch = sys.argv[2] if len(sys.argv) > 2 else ""
-config_path = Path("config/gates.json")
+root = Path(sys.argv[3]) if len(sys.argv) > 3 else Path.cwd()
+config_path = root / "config" / "gates.json"
 if not config_path.exists():
     raise SystemExit(0)
 try:
@@ -202,9 +207,9 @@ if branch and isinstance(skip_branches, list):
     if any(fnmatch(branch, pattern) for pattern in skip_branches if isinstance(pattern, str)):
         raise SystemExit(0)
 
-doc_path = Path("docs/research") / f"{ticket}.md"
-context_path = Path("reports/research") / f"{ticket}-context.json"
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
+doc_path = root / "docs" / "research" / f"{ticket}.md"
+context_path = root / "reports" / "research" / f"{ticket}-context.json"
+targets_path = root / "reports" / "research" / f"{ticket}-targets.json"
 allow_missing = settings.get("allow_missing", False)
 baseline_phrase = (settings.get("baseline_phrase") or "контекст пуст").strip().lower()
 allow_pending_baseline = bool(settings.get("allow_pending_baseline", False))
@@ -319,13 +324,14 @@ if [[ "$research_msg" == "ALLOW_PENDING_BASELINE" ]]; then
   exit 0
 fi
 
-[[ -f "docs/plan/$ticket.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
-if ! python3 - "$ticket" <<'PY'
+[[ -f "$ROOT_DIR/docs/plan/$ticket.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
+if ! python3 - "$ticket" "$ROOT_DIR" <<'PY'
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
-tasklist = Path("docs") / "tasklist" / f"{ticket}.md"
+root = Path(sys.argv[2]) if len(sys.argv) > 2 else Path.cwd()
+tasklist = root / "docs" / "tasklist" / f"{ticket}.md"
 if not tasklist.exists():
     sys.exit(1)
 for raw in tasklist.read_text(encoding="utf-8").splitlines():
@@ -344,14 +350,15 @@ then
 fi
 
 if [[ -n "$ticket" ]]; then
-  reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
+  reviewer_notice="$(python3 - "$ticket" "$slug_hint" "$ROOT_DIR" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
-config_path = Path("config/gates.json")
+root = Path(sys.argv[3]) if len(sys.argv) > 3 else Path.cwd()
+config_path = root / "config" / "gates.json"
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
 except Exception:
@@ -381,6 +388,8 @@ allowed_values = set(required_values + optional_values)
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
+if not marker_path.is_absolute():
+    marker_path = root / marker_path
 if not marker_path.exists():
     if reviewer_cfg.get("warn_on_missing", True):
         print(
@@ -410,19 +419,20 @@ PY
 fi
 
 if [[ -n "$ticket" ]]; then
-  handoff_block="$(python3 - "$ticket" "$slug_hint" <<'PY'
+  handoff_block="$(python3 - "$ticket" "$slug_hint" "$ROOT_DIR" <<'PY'
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
-tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
+root = Path(sys.argv[3]) if len(sys.argv) > 3 else Path.cwd()
+tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
 if not tasklist_path.exists():
     raise SystemExit(0)
 reports = [
-    ("qa", Path("reports/qa") / f"{ticket}.json", "reports/qa/"),
-    ("review", Path("reports/review") / f"{ticket}.json", "reports/review/"),
-    ("research", Path("reports/research") / f"{ticket}-context.json", "reports/research/"),
+    ("qa", root / "reports" / "qa" / f"{ticket}.json", "reports/qa/"),
+    ("review", root / "reports" / "review" / f"{ticket}.json", "reports/review/"),
+    ("research", root / "reports" / "research" / f"{ticket}-context.json", "reports/research/"),
 ]
 try:
     lines = tasklist_path.read_text(encoding="utf-8").splitlines()
