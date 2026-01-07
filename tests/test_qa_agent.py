@@ -1,13 +1,13 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional, Dict
 
 from .helpers import (
-    PAYLOAD_ROOT,
     REPO_ROOT,
     cli_cmd,
     ensure_gates_config,
@@ -17,8 +17,6 @@ from .helpers import (
     write_active_feature,
     write_file,
 )
-
-QA_AGENT = PAYLOAD_ROOT / "scripts" / "qa-agent.py"
 
 APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: READY\n"
 
@@ -42,7 +40,7 @@ class QaAgentTests(unittest.TestCase):
         pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), run_env.get("PYTHONPATH")]))
         run_env["PYTHONPATH"] = pythonpath
         return subprocess.run(
-            ["python3", str(QA_AGENT), *argv],
+            [sys.executable, "-m", "claude_workflow_cli.tools.qa_agent", *argv],
             cwd=self.project_root,
             text=True,
             capture_output=True,
@@ -220,3 +218,31 @@ Updated: 2024-01-02
         )
         self.assertEqual(result_ok.returncode, 0, msg=result_ok.stderr)
         self.assertIn("Прогресс tasklist", result_ok.stdout)
+
+    def test_cli_qa_report_resolves_target_root(self):
+        (self.project_root / "docs").mkdir(parents=True, exist_ok=True)
+        workdir = self.root / "outside"
+        workdir.mkdir(parents=True, exist_ok=True)
+        report_rel = "reports/qa/demo.json"
+
+        result = subprocess.run(
+            cli_cmd(
+                "qa",
+                "--target",
+                str(self.root),
+                "--ticket",
+                "DEMO-1",
+                "--skip-tests",
+                "--report",
+                report_rel,
+                "--format",
+                "json",
+            ),
+            cwd=workdir,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertTrue((self.project_root / report_rel).is_file())
+        self.assertFalse((workdir / report_rel).exists())

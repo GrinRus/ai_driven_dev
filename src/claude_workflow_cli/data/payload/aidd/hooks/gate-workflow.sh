@@ -139,7 +139,7 @@ fi
 
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
-analyst_cmd=(python3 -m claude_workflow_cli.tools.analyst_guard --ticket "$ticket")
+analyst_cmd=(claude-workflow analyst-check --target "$ROOT_DIR" --ticket "$ticket")
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
@@ -149,9 +149,8 @@ if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
   fi
   exit 2
 fi
-plan_review_gate="$(resolve_script_path "scripts/plan_review_gate.py" || true)"
 if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 "${plan_review_gate:-scripts/plan_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
+  if ! review_msg="$(claude-workflow plan-review-gate --target "$ROOT_DIR" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else
@@ -160,9 +159,8 @@ if [[ -f "docs/plan/$ticket.md" ]]; then
     exit 2
   fi
 fi
-prd_review_gate="$(resolve_script_path "scripts/prd_review_gate.py" || true)"
 if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 "${prd_review_gate:-scripts/prd_review_gate.py}" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
+  if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
     if [[ -n "$review_msg" ]]; then
       echo "$review_msg"
     else
@@ -449,7 +447,7 @@ PY
   fi
 fi
 
-progress_args=("--root" "$PWD" "--ticket" "$ticket" "--source" "gate" "--quiet-ok")
+progress_args=("--target" "$ROOT_DIR" "--ticket" "$ticket" "--source" "gate")
 if [[ -n "$slug_hint" ]]; then
   progress_args+=("--slug-hint" "$slug_hint")
 fi
@@ -457,7 +455,7 @@ if [[ -n "$current_branch" ]]; then
   progress_args+=("--branch" "$current_branch")
 fi
 set +e
-progress_output="$(python3 -m claude_workflow_cli.progress "${progress_args[@]}" 2>&1)"
+progress_output="$(claude-workflow progress "${progress_args[@]}" 2>&1)"
 progress_status=$?
 set -e
 if [[ "$progress_status" -ne 0 ]]; then

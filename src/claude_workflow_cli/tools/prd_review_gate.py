@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
+from claude_workflow_cli.feature_ids import resolve_project_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -53,8 +53,13 @@ def feature_label(ticket: str, slug_hint: str | None = None) -> str:
     return ticket_value
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate PRD review readiness.")
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
     parser.add_argument(
         "--ticket",
         "--slug",
@@ -88,7 +93,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Return success when the PRD file itself is being edited.",
     )
-    return parser.parse_args()
+    return parser.parse_args(list(argv) if argv is not None else None)
 
 
 def load_gate_config(path: Path) -> dict:
@@ -213,25 +218,8 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     return f"BLOCK: PRD Review не готов → выполните /review-spec {label or ticket}"
 
 
-def detect_project_root() -> Path:
-    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
-    cwd = Path.cwd().resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_root = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_root:
-        candidates.append(Path(project_root).expanduser().resolve())
-    for candidate in candidates:
-        docs_dir = candidate / "docs"
-        if docs_dir.is_dir():
-            return candidate
-    return cwd
+def detect_project_root(target: Path) -> Path:
+    return resolve_project_root(target)
 
 
 def extract_dialog_status(content: str) -> str | None:
@@ -249,9 +237,8 @@ def extract_dialog_status(content: str) -> str | None:
     return None
 
 
-def main() -> None:
-    args = parse_args()
-    root = detect_project_root()
+def run_gate(args: argparse.Namespace) -> int:
+    root = detect_project_root(Path(args.target))
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -262,28 +249,28 @@ def main() -> None:
 
     enabled = bool(gate.get("enabled", True))
     if not enabled:
-        raise SystemExit(0)
+        return 0
 
     if matches(gate.get("skip_branches", []), args.branch):
-        raise SystemExit(0)
+        return 0
     branches = gate.get("branches")
     if branches and not matches(branches, args.branch):
-        raise SystemExit(0)
+        return 0
 
     code_prefixes = tuple(_normalize_items(gate.get("code_prefixes"), suffix="/") or DEFAULT_CODE_PREFIXES)
     code_globs = tuple(_normalize_items(gate.get("code_globs")))
     normalized = _normalize_file_path(args.file_path)
     target_suffix = f"docs/prd/{ticket}.prd.md"
     if args.skip_on_prd_edit and normalized.endswith(target_suffix):
-        raise SystemExit(0)
+        return 0
     if normalized and not _is_code_path(normalized, code_prefixes, code_globs):
-        raise SystemExit(0)
+        return 0
 
     prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
     if not prd_path.is_file():
         expected = prd_path.as_posix()
         print(f"BLOCK: нет PRD (ожидается {expected}) → откройте aidd/docs/prd/{ticket}.prd.md, допишите диалог и завершите /review-spec {feature_label(ticket, slug_hint) or ticket}.")
-        raise SystemExit(1)
+        return 1
 
     allow_missing = bool(gate.get("allow_missing_section", False))
     require_closed = bool(gate.get("require_action_items_closed", True))
@@ -294,28 +281,28 @@ def main() -> None:
     dialog_status = extract_dialog_status(content)
     if dialog_status == "draft":
         print(format_message("draft_dialog", ticket, slug_hint))
-        raise SystemExit(1)
+        return 1
     found, status, action_items = parse_review_section(content)
 
     if not found:
         if allow_missing:
-            raise SystemExit(0)
+            return 0
         print(format_message("missing_section", ticket, slug_hint))
-        raise SystemExit(1)
+        return 1
 
     if status in blocking:
         print(format_message("blocking_status", ticket, slug_hint, status))
-        raise SystemExit(1)
+        return 1
 
     if approved and status not in approved:
         print(format_message("not_approved", ticket, slug_hint, status))
-        raise SystemExit(1)
+        return 1
 
     if require_closed:
         for item in action_items:
             if item.startswith("- [ ]"):
                 print(format_message("open_actions", ticket, slug_hint, status))
-                raise SystemExit(1)
+                return 1
 
     allow_missing_report = bool(gate.get("allow_missing_report", False))
     report_template = gate.get("report_path") or "reports/prd/{ticket}.json"
@@ -329,7 +316,7 @@ def main() -> None:
             report_data = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
             print(format_message("report_corrupted", ticket, slug_hint))
-            raise SystemExit(1)
+            return 1
 
         findings = report_data.get("findings") or []
         blocking_severities: Set[str] = {
@@ -345,7 +332,7 @@ def main() -> None:
                     print(
                         f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /review-spec {label or ticket}."
                     )
-                    raise SystemExit(1)
+                    return 1
     else:
         if not allow_missing_report:
             if "{ticket}" in report_template or "{slug}" in report_template:
@@ -354,10 +341,10 @@ def main() -> None:
                 label = feature_label(ticket, slug_hint)
                 message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-spec {label or ticket}"
             print(message)
-            raise SystemExit(1)
+            return 1
 
-    raise SystemExit(0)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run_gate(parse_args()))

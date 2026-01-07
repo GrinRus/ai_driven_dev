@@ -8,12 +8,19 @@ from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
 PROJECT_SUBDIR = "aidd"
 PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
 HOOKS_DIR = PAYLOAD_ROOT / "hooks"
 SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / ".claude" / "settings.json"
 os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
-os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(REPO_ROOT / "src"))
+os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(SRC_ROOT))
+existing_pythonpath = os.environ.get("PYTHONPATH")
+if existing_pythonpath:
+    if str(SRC_ROOT) not in existing_pythonpath.split(os.pathsep):
+        os.environ["PYTHONPATH"] = os.pathsep.join([str(SRC_ROOT), existing_pythonpath])
+else:
+    os.environ["PYTHONPATH"] = str(SRC_ROOT)
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
     "feature_slug_hint_source": "docs/.active_feature",
@@ -161,6 +168,35 @@ def hook_path(name: str) -> pathlib.Path:
     return HOOKS_DIR / name
 
 
+def _ensure_cli_stub(workspace_root: pathlib.Path) -> pathlib.Path:
+    bin_dir = workspace_root / ".claude-workflow-bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    stub = bin_dir / "claude-workflow"
+    if not stub.exists():
+        stub.write_text(
+            "\n".join(
+                [
+                    "#!/usr/bin/env bash",
+                    "set -euo pipefail",
+                    'PYTHON_BIN="${CLAUDE_WORKFLOW_PYTHON:-python3}"',
+                    'DEV_SRC="${CLAUDE_WORKFLOW_DEV_SRC:-}"',
+                    'if [[ -n "$DEV_SRC" ]]; then',
+                    '  if [[ -n "${PYTHONPATH:-}" ]]; then',
+                    '    export PYTHONPATH="$DEV_SRC:$PYTHONPATH"',
+                    "  else",
+                    '    export PYTHONPATH="$DEV_SRC"',
+                    "  fi",
+                    "fi",
+                    'exec "$PYTHON_BIN" -m claude_workflow_cli.cli "$@"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        stub.chmod(stub.stat().st_mode | 0o111)
+    return bin_dir
+
+
 def _project_root(base: pathlib.Path) -> pathlib.Path:
     """Return the project root inside the workspace (always <workspace>/aidd)."""
     if base.name == PROJECT_SUBDIR:
@@ -176,35 +212,24 @@ def run_hook(
     workspace_root = project_root.parent if project_root.name == PROJECT_SUBDIR else project_root
     project_root.mkdir(parents=True, exist_ok=True)
     (project_root / "docs").mkdir(parents=True, exist_ok=True)
+    cli_bin = _ensure_cli_stub(workspace_root)
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
     env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PATH"] = f"{cli_bin}{os.pathsep}{env.get('PATH', '')}"
     if extra_env:
         env.update(extra_env)
-    src_path = REPO_ROOT / "src"
-    vendor_path = PAYLOAD_ROOT / "hooks" / "_vendor"
     existing = env.get("PYTHONPATH")
-    path_value = str(src_path)
-    if vendor_path.exists():
-        path_value = f"{vendor_path}:{path_value}"
     if existing:
-        path_value = f"{str(src_path)}:{existing}"
-    env["PYTHONPATH"] = path_value
+        env["PYTHONPATH"] = os.pathsep.join([str(SRC_ROOT), existing])
+    else:
+        env["PYTHONPATH"] = str(SRC_ROOT)
     config_src = PAYLOAD_ROOT / "config" / "gates.json"
     config_dst = project_root / "config" / "gates.json"
     if config_src.exists() and not config_dst.exists():
         config_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(config_src, config_dst)
-    scripts_src = PAYLOAD_ROOT / "scripts"
-    if scripts_src.exists():
-        for file in scripts_src.rglob("*"):
-            if not file.is_file():
-                continue
-            dest = project_root / "scripts" / file.relative_to(scripts_src)
-            if not dest.exists():
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(file, dest)
     settings_dst = workspace_root / ".claude" / "settings.json"
     if SETTINGS_SRC.exists() and not settings_dst.exists():
         settings_dst.parent.mkdir(parents=True, exist_ok=True)
@@ -304,5 +329,5 @@ def git_config_user(path: pathlib.Path) -> None:
 
 
 def cli_cmd(*args: str) -> list[str]:
-    """Build a command that invokes the installed claude-workflow CLI via helper."""
-    return [sys.executable, str(PAYLOAD_ROOT / "tools" / "run_cli.py"), *args]
+    """Build a command that invokes the CLI module directly."""
+    return [sys.executable, "-m", "claude_workflow_cli.cli", *args]

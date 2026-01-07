@@ -2,9 +2,9 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.0.7
+source_version: 1.0.7
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow qa:*), Bash(claude-workflow progress:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

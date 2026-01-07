@@ -84,3 +84,15 @@ def test_payload_docs_do_not_reference_repo_only_tools():
     assert not offenders, "Repo-only references found in payload docs: " + ", ".join(
         f"{snippet} -> {[p.as_posix() for p in paths]}" for snippet, paths in offenders.items()
     )
+
+
+def test_payload_excludes_legacy_runtime_dirs():
+    project_root = Path(__file__).resolve().parents[1]
+    payload_root = project_root / "src" / "claude_workflow_cli" / "data" / "payload"
+    for path in payload_root.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(payload_root).as_posix()
+        assert not rel.startswith("aidd/scripts/"), f"legacy scripts leaked into payload: {rel}"
+        assert not rel.startswith("aidd/tools/"), f"legacy tools leaked into payload: {rel}"
+        assert not rel.startswith("aidd/hooks/_vendor/"), f"legacy vendor copy leaked into payload: {rel}"

@@ -2,18 +2,18 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow reviewer-tests:*)"
   - "Bash(claude-workflow progress:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -31,7 +31,7 @@ disable-model-invocation: false
 - Повторять до снятия блокеров.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review` фиксирует стадию `review`.
+- `claude-workflow set-active-stage review` фиксирует стадию `review`.
 - Команда должна запускать саб-агента **reviewer** (Claude: Run agent → reviewer).
 - `claude-workflow reviewer-tests --status required|optional|clear` управляет обязательностью тестов.
 - `claude-workflow progress --source review --ticket <ticket>` фиксирует новые `[x]`.

@@ -275,9 +275,6 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
     )
     with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
         fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
-    # provide prd_review_gate stub to satisfy hook resolver
-    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
-
     result = run_hook(tmp_path, "gate-workflow.sh", AIDD_SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
@@ -335,9 +332,6 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": []})
     write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    # provide prd_review_gate stub so gate-workflow can resolve it from aidd/scripts
-    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
-
     # missing reviewed research -> should block
     result_block = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
     assert result_block.returncode == 2
@@ -403,9 +397,6 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
         f"reports/reviewer/{ticket}.json",
         {"ticket": ticket, "tests": "optional"},
     )
-    # provide prd_review_gate stub so gate-workflow can resolve it from aidd/scripts
-    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')")
-
     result = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
@@ -890,7 +881,6 @@ def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
     )
     write_research_doc(project_root, ticket, status="reviewed")
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    write_file(project_root, "scripts/prd_review_gate.py", "print('ok')\n")
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
     env = {

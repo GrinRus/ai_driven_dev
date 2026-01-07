@@ -2,9 +2,9 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)
+prompt_version: 1.0.5
+source_version: 1.0.5
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow reviewer-tests:*), Bash(claude-workflow progress:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

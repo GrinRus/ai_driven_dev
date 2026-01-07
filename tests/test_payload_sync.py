@@ -59,8 +59,8 @@ def test_compare_paths_detects_missing_side(tmp_path: Path) -> None:
 
 
 def test_parse_paths_splits_commas() -> None:
-    paths = parse_paths(["docs,templates", "scripts"])
-    assert paths == ["docs", "templates", "scripts"]
+    paths = parse_paths(["docs,templates", "hooks"])
+    assert paths == ["docs", "templates", "hooks"]
 
 
 def test_repo_and_payload_default_paths_in_sync() -> None:

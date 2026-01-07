@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import os
 import json
 import subprocess
@@ -10,25 +9,15 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
-from .helpers import PAYLOAD_ROOT
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
 
-MODULE_PATH = PAYLOAD_ROOT / "scripts" / "prd-review-agent.py"
-
-
-def _load_prd_review_agent():
-    spec = importlib.util.spec_from_file_location("prd_review_agent", MODULE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+from claude_workflow_cli.tools import prd_review as prd_review_agent  # noqa: E402
 
 
 class PRDReviewAgentTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.prd_review_agent = _load_prd_review_agent()
-
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self._tmpdir.name)
@@ -55,7 +44,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             ),
         )
 
-        report = self.prd_review_agent.analyse_prd("demo-feature", prd)
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
 
         self.assertEqual(report.status, "ready")
         self.assertEqual(report.recommended_status, "pending")
@@ -76,7 +65,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             ),
         )
 
-        report = self.prd_review_agent.analyse_prd("demo-feature", prd)
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
 
         self.assertEqual(report.status, "pending")
         self.assertTrue(any(f.severity == "major" for f in report.findings))
@@ -94,7 +83,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             ),
         )
 
-        report = self.prd_review_agent.analyse_prd("demo-feature", prd)
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
 
         self.assertEqual(report.status, "blocked")
         self.assertEqual(report.recommended_status, "blocked")
@@ -116,12 +105,13 @@ class PRDReviewAgentTests(unittest.TestCase):
         report_path.parent.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
-        pythonpath = os.pathsep.join(filter(None, [str(PAYLOAD_ROOT.parents[5] / "src"), env.get("PYTHONPATH")]))
+        pythonpath = os.pathsep.join(filter(None, [str(SRC_ROOT), env.get("PYTHONPATH")]))
         env["PYTHONPATH"] = pythonpath
         subprocess.run(
             [
                 sys.executable,
-                str(MODULE_PATH),
+                "-m",
+                "claude_workflow_cli.tools.prd_review",
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -154,13 +144,14 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         env = os.environ.copy()
         env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
-        pythonpath = os.pathsep.join(filter(None, [str(PAYLOAD_ROOT.parents[5] / "src"), env.get("PYTHONPATH")]))
+        pythonpath = os.pathsep.join(filter(None, [str(SRC_ROOT), env.get("PYTHONPATH")]))
         env["PYTHONPATH"] = pythonpath
 
         result = subprocess.run(
             [
                 sys.executable,
-                str(MODULE_PATH),
+                "-m",
+                "claude_workflow_cli.tools.prd_review",
                 "--ticket",
                 "demo-feature",
                 "--prd",

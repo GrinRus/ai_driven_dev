@@ -10,20 +10,89 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-if str(ROOT_DIR / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR / "src"))
+dev_src = ROOT_DIR / "src"
+if dev_src.exists() and str(dev_src) not in sys.path:
+    sys.path.insert(0, str(dev_src))
 HOOKS_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
+CLI_BIN = os.getenv("CLAUDE_WORKFLOW_BIN", "claude-workflow")
+CLI_PYTHON = os.getenv("CLAUDE_WORKFLOW_PYTHON", sys.executable or "python3")
+CLI_PYTHONPATH = os.getenv("CLAUDE_WORKFLOW_PYTHONPATH")
+
+
+@dataclass(frozen=True)
+class FeatureIdentifiers:
+    ticket: str | None = None
+    slug_hint: str | None = None
+
+    @property
+    def resolved_ticket(self) -> str | None:
+        return (self.ticket or self.slug_hint or "").strip() or None
+
+
+def _find_cli_bin() -> str | None:
+    if not CLI_BIN:
+        return None
+    if os.path.sep in CLI_BIN or (os.name == "nt" and ":" in CLI_BIN):
+        candidate = Path(CLI_BIN).expanduser()
+        if candidate.exists():
+            return str(candidate)
+        return None
+    return shutil.which(CLI_BIN)
+
+
+def _find_dev_src(start: Path) -> Path | None:
+    for base in (start, *start.parents):
+        candidate = base / "src" / "claude_workflow_cli" / "cli.py"
+        if candidate.exists():
+            return candidate.parent.parent
+    return None
+
+
+def _run_cli(args: List[str]) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    cli_bin = _find_cli_bin()
+    if cli_bin:
+        cmd = [cli_bin, *args]
+    else:
+        cmd = [CLI_PYTHON, "-m", "claude_workflow_cli.cli", *args]
+        pythonpath = CLI_PYTHONPATH
+        if not pythonpath:
+            dev_src = _find_dev_src(Path(__file__).resolve())
+            if dev_src:
+                pythonpath = str(dev_src)
+        if pythonpath:
+            existing = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                f"{pythonpath}{os.pathsep}{existing}" if existing else pythonpath
+            )
+    return subprocess.run(cmd, text=True, capture_output=True, env=env)
+
+
+def resolve_identifiers(root: Path) -> FeatureIdentifiers:
+    result = _run_cli(["identifiers", "--target", str(root), "--json"])
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"Failed to resolve identifiers via claude-workflow: {message}")
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Failed to parse identifiers JSON from claude-workflow.") from exc
+    return FeatureIdentifiers(
+        ticket=payload.get("ticket"),
+        slug_hint=payload.get("slug_hint"),
+    )
 
 LOG_PREFIX = "[format-and-test]"
 def resolve_settings_path() -> Path:

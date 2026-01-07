@@ -9,17 +9,7 @@
     "aidd/AGENTS.md",
     "aidd/conventions.md",
     "aidd/init-claude-workflow.sh",
-    "aidd/scripts/migrate-tasklist.py",
-    "aidd/scripts/plan_review_gate.py",
-    "aidd/scripts/prd-review-agent.py",
-    "aidd/scripts/prd_review_gate.py",
-    "aidd/scripts/qa-agent.py",
-    "aidd/scripts/smoke-workflow.sh",
-    "aidd/tools/migrate_ticket.py",
-    "aidd/tools/researcher_context.py",
-    "aidd/tools/run_cli.py",
-    "aidd/tools/set_active_feature.py",
-    "aidd/tools/set_active_stage.py",
+    "smoke-workflow.sh",
     "aidd/reports/prd/.gitkeep"
   ],
   "allow_globs": [
@@ -27,9 +17,7 @@
     "aidd/commands/*.md",
     "aidd/hooks/**",
     "aidd/config/**",
-    "aidd/docs/**",
-    "aidd/scripts/context_gc/**",
-    "aidd/scripts/gradle/**"
+    "aidd/docs/**"
   ],
   "deny_globs": [
     "**/__pycache__/**",

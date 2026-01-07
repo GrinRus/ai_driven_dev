@@ -13,14 +13,8 @@ DEFAULT_PATHS: list[str] = [
     ".claude-plugin",
     "config",
     "docs",
-    "tools",
     "conventions.md",
     "init-claude-workflow.sh",
-    "scripts/migrate-tasklist.py",
-    "scripts/prd-review-agent.py",
-    "scripts/prd_review_gate.py",
-    "scripts/qa-agent.py",
-    "scripts/smoke-workflow.sh",
 ]
 
 DEFAULT_PAYLOAD_PREFIX = "aidd"

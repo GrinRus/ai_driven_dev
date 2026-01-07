@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
@@ -11,9 +11,9 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(claude-workflow progress:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow prd-review:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -32,23 +32,23 @@ disable-model-invocation: false
 - Повторять после существенных правок плана или PRD.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review-plan` фиксирует стадию `review-plan` перед проверкой плана.
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py review-prd` фиксирует стадию `review-prd` перед PRD review.
+- `claude-workflow set-active-stage review-plan` фиксирует стадию `review-plan` перед проверкой плана.
+- `claude-workflow set-active-stage review-prd` фиксирует стадию `review-prd` перед PRD review.
 - `gate-workflow` требует `Status: READY` в `## Plan Review` и `## PRD Review` перед кодом.
-- Скрипт `python3 "${CLAUDE_PLUGIN_ROOT:-./aidd}/scripts/prd-review-agent.py" --ticket <ticket> --report "${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
+- Команда `claude-workflow prd-review --ticket <ticket> --report "reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
 - Команда должна **запускать саб-агентов** `plan-reviewer` и `prd-reviewer` (Claude: Run agent → …).
 
 ## Что редактируется
 - `aidd/docs/plan/<ticket>.md` — раздел `## Plan Review`.
 - `aidd/docs/prd/<ticket>.prd.md` — раздел `## PRD Review`.
 - `aidd/docs/tasklist/<ticket>.md` — перенос блокирующих action items (если есть).
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json` — отчёт PRD review.
+- `reports/prd/<ticket>.json` — отчёт PRD review.
 
 ## Пошаговый план
 1. Зафиксируй стадию `review-plan`, запусти саб-агента `plan-reviewer` и обнови `## Plan Review`.
 2. Если план в статусе `BLOCKED` — остановись и верни вопросы.
 3. Зафиксируй стадию `review-prd`, запусти саб-агента `prd-reviewer` и обнови `## PRD Review`.
-4. Перенеси блокирующие action items в tasklist и сохрани отчёт через `prd-review-agent.py`.
+4. Перенеси блокирующие action items в tasklist и сохрани отчёт через `claude-workflow prd-review`.
 
 ## Fail-fast и вопросы
 - Нет плана/PRD/research → остановись и попроси завершить `/plan-new` или `/researcher`.
@@ -56,7 +56,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - `## Plan Review` и `## PRD Review` обновлены и имеют статусы.
-- Отчёт `${CLAUDE_PLUGIN_ROOT:-./aidd}/reports/prd/<ticket>.json` сохранён.
+- Отчёт `reports/prd/<ticket>.json` сохранён.
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

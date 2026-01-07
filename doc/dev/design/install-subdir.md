@@ -29,7 +29,7 @@
 - `--target` задаёт корень установки; внутри него всегда создаётся поддиректория `aidd/` (перемещённые fallback/зеркалирование в корень убраны).
 - `sync/upgrade` работают только с вложенным payload; dry-run не создаёт каталог и показывает diff по manifest.
 - При наличии старых `.claude/` и `.claude-plugin/` в корне CLI предупреждает и предлагает миграцию; существующий `aidd/` обновляется на месте с бэкапом изменённых файлов.
-- Smoke из CLI (`claude-workflow smoke`) и bash-скрипт `aidd/scripts/smoke-workflow.sh` используют тот же payload и запускают e2e в tmp-каталоге из текущего git checkout, без скачивания внешних артефактов.
+- Smoke из CLI (`claude-workflow smoke`) и bash-скрипт `scripts/smoke-workflow.sh` используют тот же payload и запускают e2e в tmp-каталоге из текущего git checkout, без скачивания внешних артефактов.
 
 ## Сценарии установки
 1) Быстрый старт через uv:
@@ -58,7 +58,7 @@
 1. Зафиксировать локальные правки (при необходимости `scripts/sync-payload.sh --direction=from-root` для отражения в payload).
 2. Удалить dev-снапшоты из корня (`.claude`, `.claude-plugin`, `config`, `docs`, `scripts`, `templates`, `tools`), оставить продуктовые файлы.
 3. Запустить `claude-workflow init --target .` (или с `CLAUDE_TEMPLATE_DIR=...` для локальной ветки) — создаст `aidd/`.
-4. Прогнать `claude-workflow smoke` (или `aidd/scripts/smoke-workflow.sh`) — e2e на tmp-каталоге из текущей ветки.
+4. Прогнать `claude-workflow smoke` (или `scripts/smoke-workflow.sh`) — e2e на tmp-каталоге из текущей ветки.
 5. Обновить CI шаги: init/smoke должны указывать `--target .` и работать с `aidd/`.
 
 ## To-do

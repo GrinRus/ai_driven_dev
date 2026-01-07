@@ -152,16 +152,8 @@ hook_resolve_stage() {
 }
 
 run_cli_or_hint() {
-  local helper=""
-  if [[ -n "${ROOT_DIR:-}" ]]; then
-    helper="$ROOT_DIR/tools/run_cli.py"
-  fi
   if command -v claude-workflow >/dev/null 2>&1; then
     claude-workflow "$@"
-    return $?
-  fi
-  if [[ -n "$helper" && -f "$helper" ]]; then
-    python3 "$helper" "$@"
     return $?
   fi
   echo "[claude-workflow] CLI 'claude-workflow' не найден. Установите его командой" >&2
@@ -169,28 +161,6 @@ run_cli_or_hint() {
   echo "или" >&2
   echo "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git" >&2
   return 127
-}
-
-resolve_script_path() {
-  local relative="$1"
-  if [[ -z "$relative" ]]; then
-    return 1
-  fi
-  local candidates=()
-  if [[ -n "${ROOT_DIR:-}" ]]; then
-    candidates+=("$ROOT_DIR")
-  fi
-  if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
-    candidates+=("${CLAUDE_PLUGIN_ROOT}")
-  fi
-  local root
-  for root in "${candidates[@]}"; do
-    if [[ -f "$root/$relative" ]]; then
-      printf '%s\n' "$root/$relative"
-      return 0
-    fi
-  done
-  return 1
 }
 
 ensure_template() {

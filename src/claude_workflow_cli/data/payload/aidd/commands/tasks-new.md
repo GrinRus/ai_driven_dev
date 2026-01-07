@@ -2,16 +2,16 @@
 description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -30,14 +30,14 @@ disable-model-invocation: false
 - Повторно — если план/PRD изменились.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py tasklist` фиксирует стадию `tasklist`.
+- `claude-workflow set-active-stage tasklist` фиксирует стадию `tasklist`.
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `Next 3`, `Handoff inbox`, чеклисты по этапам.
 
 ## Пошаговый план
-1. Зафиксируй стадию `tasklist`: `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py tasklist`.
+1. Зафиксируй стадию `tasklist`: `claude-workflow set-active-stage tasklist`.
 2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 3. Обнови фронт-маттер (Ticket/Slug/Status/PRD/Plan/Research/Updated).
 4. Перенеси шаги из плана в чеклист, добавь action items из PRD Review.

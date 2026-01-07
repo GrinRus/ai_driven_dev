@@ -20,7 +20,7 @@ model: inherit
 - Уточните ограничения (например, только после `/review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 tools/set_active_feature.py`, `claude-workflow research`, `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`claude-workflow set-active-feature`, `claude-workflow research`, `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
 - Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
 
 ## Что редактируется

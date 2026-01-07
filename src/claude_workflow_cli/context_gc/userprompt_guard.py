@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from hooklib import (
+from .hooklib import (
     json_out,
     load_config,
     read_hook_context,

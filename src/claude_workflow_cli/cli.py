@@ -21,7 +21,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from claude_workflow_cli.feature_ids import (
     FeatureIdentifiers,
+    read_identifiers,
     resolve_identifiers,
+    resolve_project_root as resolve_aidd_root,
     write_identifiers,
 )
 
@@ -46,9 +48,19 @@ from claude_workflow_cli.tools.researcher_context import (
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
 )
+from claude_workflow_cli.tools import plan_review_gate as _plan_review_gate
+from claude_workflow_cli.tools import prd_review as _prd_review
+from claude_workflow_cli.tools import prd_review_gate as _prd_review_gate
+from claude_workflow_cli.tools import qa_agent as _qa_agent
+from claude_workflow_cli.context_gc import (
+    precompact_snapshot as _context_precompact,
+    pretooluse_guard as _context_pretooluse,
+    sessionstart_inject as _context_sessionstart,
+    userprompt_guard as _context_userprompt,
+)
 from claude_workflow_cli.resources import (
     DEFAULT_PROJECT_SUBDIR,
-    resolve_project_root,
+    resolve_project_root as resolve_workspace_root,
 )
 
 
@@ -69,10 +81,21 @@ DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
 DEFAULT_QA_TEST_COMMAND = [["bash", "hooks/format-and-test.sh"]]
 WORKSPACE_ROOT_DIRS = {".claude", ".claude-plugin"}
+VALID_STAGES = {
+    "idea",
+    "research",
+    "plan",
+    "review-plan",
+    "review-prd",
+    "tasklist",
+    "implement",
+    "review",
+    "qa",
+}
 
 
 def _resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path]:
-    workspace_root, project_root = resolve_project_root(raw_target, DEFAULT_PROJECT_SUBDIR)
+    workspace_root, project_root = resolve_workspace_root(raw_target, DEFAULT_PROJECT_SUBDIR)
     if project_root.exists():
         return workspace_root, project_root
     if create:
@@ -96,6 +119,10 @@ def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
         f"bootstrap via 'claude-workflow init --target {workspace_root}' "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
+
+
+def _normalize_stage(value: str) -> str:
+    return value.strip().lower().replace(" ", "-")
 
 
 class PayloadError(RuntimeError):
@@ -430,12 +457,14 @@ def _run_init(
 
 def _run_smoke(verbose: bool) -> None:
     with _payload_root() as payload_path:
-        manifest = _load_manifest(payload_path)
-        manifest_prefix = _detect_manifest_prefix(manifest)
-        script_rel = Path("scripts/smoke-workflow.sh")
-        if manifest_prefix:
-            script_rel = Path(manifest_prefix) / script_rel
-        script = payload_path / script_rel
+        script = payload_path / "smoke-workflow.sh"
+        if not script.exists():
+            manifest = _load_manifest(payload_path)
+            manifest_prefix = _detect_manifest_prefix(manifest)
+            if manifest_prefix:
+                candidate = payload_path / manifest_prefix / "smoke-workflow.sh"
+                if candidate.exists():
+                    script = candidate
         if not script.exists():
             raise FileNotFoundError(f"smoke script not found at {script}")
         cmd = ["bash", str(script)]
@@ -459,6 +488,115 @@ def _init_command(args: argparse.Namespace) -> None:
 
 def _smoke_command(args: argparse.Namespace) -> None:
     _run_smoke(args.verbose)
+
+
+def _set_active_stage_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    stage = _normalize_stage(args.stage)
+    if not args.allow_custom and stage not in VALID_STAGES:
+        valid = ", ".join(sorted(VALID_STAGES))
+        print(f"[stage] invalid stage '{stage}'. Allowed: {valid}.", file=sys.stderr)
+        return 2
+    docs_dir = root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    stage_path = docs_dir / ".active_stage"
+    stage_path.write_text(stage + "\n", encoding="utf-8")
+    print(f"active stage: {stage}")
+    return 0
+
+
+def _set_active_feature_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    docs_dir = root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    write_identifiers(
+        root,
+        ticket=args.ticket,
+        slug_hint=args.slug_note,
+        scaffold_prd_file=not args.skip_prd_scaffold,
+    )
+    identifiers = read_identifiers(root)
+    resolved_slug_hint = identifiers.slug_hint or identifiers.ticket or args.ticket
+
+    print(f"active feature: {args.ticket}")
+
+    config_path: Optional[Path] = None
+    if args.config:
+        config_path = Path(args.config)
+        if not config_path.is_absolute():
+            config_path = (root / config_path).resolve()
+        else:
+            config_path = config_path.resolve()
+
+    builder = ResearcherContextBuilder(root, config_path=config_path)
+    scope = builder.build_scope(args.ticket, slug_hint=resolved_slug_hint)
+    scope = builder.extend_scope(
+        scope,
+        extra_paths=_research_parse_paths(args.paths),
+        extra_keywords=_research_parse_keywords(args.keywords),
+    )
+    targets_path = builder.write_targets(scope)
+    rel_targets = targets_path.relative_to(root).as_posix()
+    print(f"[researcher] targets saved to {rel_targets} ({len(scope.paths)} paths, {len(scope.docs)} docs)")
+    return 0
+
+
+def _identifiers_command(args: argparse.Namespace) -> int:
+    root = resolve_aidd_root(Path(args.target))
+    identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
+    if args.json:
+        payload = {
+            "ticket": identifiers.ticket,
+            "slug_hint": identifiers.slug_hint,
+            "resolved_ticket": identifiers.resolved_ticket,
+        }
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0
+
+    ticket = identifiers.resolved_ticket or ""
+    hint = (identifiers.slug_hint or "").strip()
+    if hint and hint != ticket:
+        if ticket:
+            print(f"{ticket} ({hint})")
+        else:
+            print(hint)
+    else:
+        print(ticket)
+    return 0
+
+
+def _prd_review_command(args: argparse.Namespace) -> int:
+    return _prd_review.run(args)
+
+
+def _plan_review_gate_command(args: argparse.Namespace) -> int:
+    return _plan_review_gate.run_gate(args)
+
+
+def _prd_review_gate_command(args: argparse.Namespace) -> int:
+    return _prd_review_gate.run_gate(args)
+
+
+def _researcher_context_command(args: argparse.Namespace) -> int:
+    from claude_workflow_cli.tools import researcher_context as _researcher_context
+
+    argv = args.forward_args or []
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    return _researcher_context.main(argv)
+
+
+def _context_gc_command(args: argparse.Namespace) -> None:
+    mode = args.mode
+    if mode == "precompact":
+        _context_precompact.main()
+    elif mode == "sessionstart":
+        _context_sessionstart.main()
+    elif mode == "pretooluse":
+        _context_pretooluse.main()
+    elif mode == "userprompt":
+        _context_userprompt.main()
 
 
 def _analyst_check_command(args: argparse.Namespace) -> None:
@@ -892,12 +1030,13 @@ def _qa_command(args: argparse.Namespace) -> int:
             .replace("{branch}", branch or "")
         )
 
-    report = args.report or "reports/qa/{ticket}.json"
-    report = _fmt(report)
-
-    agent_script = target / "scripts" / "qa-agent.py"
-    if not agent_script.is_file():
-        raise FileNotFoundError(f"QA agent script not found at {agent_script}")
+    report_template = args.report or "reports/qa/{ticket}.json"
+    report_text = _fmt(report_template)
+    report_path = Path(report_text)
+    if not report_path.is_absolute():
+        report_path = (target / report_path).resolve()
+    else:
+        report_path = report_path.resolve()
 
     allow_no_tests = bool(
         getattr(args, "allow_no_tests", False)
@@ -914,7 +1053,7 @@ def _qa_command(args: argparse.Namespace) -> int:
             ticket=ticket,
             slug_hint=slug_hint or None,
             branch=branch,
-            report_path=target / report,
+            report_path=report_path,
             allow_missing=allow_no_tests,
         )
         if tests_summary == "fail":
@@ -924,41 +1063,50 @@ def _qa_command(args: argparse.Namespace) -> int:
         else:
             print("[claude-workflow] QA tests completed.")
 
-    cmd = ["python3", str(agent_script)]
+    qa_args = ["--target", str(target)]
     if args.gate:
-        cmd.append("--gate")
+        qa_args.append("--gate")
     if args.dry_run:
-        cmd.append("--dry-run")
+        qa_args.append("--dry-run")
     if args.emit_json:
-        cmd.append("--emit-json")
+        qa_args.append("--emit-json")
     if args.format:
-        cmd.extend(["--format", args.format])
+        qa_args.extend(["--format", args.format])
     if args.block_on:
-        cmd.extend(["--block-on", args.block_on])
+        qa_args.extend(["--block-on", args.block_on])
     if args.warn_on:
-        cmd.extend(["--warn-on", args.warn_on])
+        qa_args.extend(["--warn-on", args.warn_on])
     if args.scope:
         for scope in args.scope:
-            cmd.extend(["--scope", scope])
+            qa_args.extend(["--scope", scope])
 
-    cmd.extend(["--ticket", ticket])
+    qa_args.extend(["--ticket", ticket])
     if slug_hint and slug_hint != ticket:
-        cmd.extend(["--slug-hint", slug_hint])
+        qa_args.extend(["--slug-hint", slug_hint])
     if branch:
-        cmd.extend(["--branch", branch])
-    if report:
-        cmd.extend(["--report", report])
+        qa_args.extend(["--branch", branch])
+    if report_path:
+        qa_args.extend(["--report", str(report_path)])
 
     _, allow_skip_cfg = _load_qa_tests_config(target)
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
 
-    env = os.environ.copy()
-    env["QA_TESTS_SUMMARY"] = tests_summary
-    env["QA_TESTS_EXECUTED"] = json.dumps(tests_executed, ensure_ascii=False)
-    env["QA_ALLOW_NO_TESTS"] = "1" if allow_no_tests_env else "0"
-
-    proc = subprocess.run(cmd, cwd=target, env=env)
-    exit_code = proc.returncode
+    old_env = {
+        "QA_TESTS_SUMMARY": os.environ.get("QA_TESTS_SUMMARY"),
+        "QA_TESTS_EXECUTED": os.environ.get("QA_TESTS_EXECUTED"),
+        "QA_ALLOW_NO_TESTS": os.environ.get("QA_ALLOW_NO_TESTS"),
+    }
+    os.environ["QA_TESTS_SUMMARY"] = tests_summary
+    os.environ["QA_TESTS_EXECUTED"] = json.dumps(tests_executed, ensure_ascii=False)
+    os.environ["QA_ALLOW_NO_TESTS"] = "1" if allow_no_tests_env else "0"
+    try:
+        exit_code = _qa_agent.main(qa_args)
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
     if tests_summary == "fail":
         exit_code = max(exit_code, 1)
@@ -1489,9 +1637,9 @@ def _ensure_research_doc(
 
 
 def _iter_payload_files(root: Path) -> Iterable[Path]:
-    for path in root.rglob("*"):
-        if path.is_file():
-            yield path
+    for dirpath, _, filenames in os.walk(root):
+        for name in filenames:
+            yield Path(dirpath) / name
 
 
 def _ensure_unique_backup(path: Path) -> Path:
@@ -1550,7 +1698,9 @@ def _select_payload_entries(
         prefix_path = Path(strip_prefix.strip("/"))
         include_rel = []
         for inc in include_list:
-            if inc.parts and inc.parts[0] == prefix_path.name:
+            if inc.parts and inc.parts[0] in WORKSPACE_ROOT_DIRS:
+                include_rel.append(inc)
+            elif inc.parts and inc.parts[0] == prefix_path.name:
                 include_rel.append(inc)
             else:
                 include_rel.append(prefix_path / inc)
@@ -1566,9 +1716,12 @@ def _select_payload_entries(
         if include_rel and not any(_is_relative_to(rel, inc) for inc in include_rel):
             continue
         if normalized_prefix:
-            if not rel_posix.startswith(normalized_prefix):
+            if rel_posix.startswith(normalized_prefix):
+                stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
+            elif rel.parts and rel.parts[0] in WORKSPACE_ROOT_DIRS:
+                stripped_rel = rel
+            else:
                 continue
-            stripped_rel = Path(rel_posix[len(normalized_prefix) :].lstrip("/"))
         else:
             if rel.parts and rel.parts[0] == DEFAULT_PROJECT_SUBDIR:
                 stripped_rel = Path(*rel.parts[1:])
@@ -1633,7 +1786,15 @@ def _copy_payload_entries(
 def _detect_manifest_prefix(manifest: Dict[str, Dict]) -> str | None:
     prefix = f"{DEFAULT_PROJECT_SUBDIR}/"
     keys = list(manifest.keys())
-    if keys and all(key.startswith(prefix) for key in keys):
+    def is_prefixed(key: str) -> bool:
+        if key.startswith(prefix):
+            return True
+        parts = key.split("/", 1)
+        if len(parts) == 1:
+            return True
+        return parts[0] in WORKSPACE_ROOT_DIRS
+
+    if keys and all(is_prefixed(key) for key in keys):
         return prefix
     return None
 
@@ -1642,9 +1803,10 @@ def _strip_manifest_prefix(manifest: Dict[str, Dict], prefix: str) -> Dict[str, 
     normalized = prefix.rstrip("/") + "/"
     stripped: Dict[str, Dict] = {}
     for rel, entry in manifest.items():
-        if not rel.startswith(normalized):
-            return manifest
-        new_rel = rel[len(normalized) :]
+        if rel.startswith(normalized):
+            new_rel = rel[len(normalized) :]
+        else:
+            new_rel = rel
         updated_entry = dict(entry)
         updated_entry["path"] = new_rel
         stripped[new_rel] = updated_entry
@@ -1744,7 +1906,7 @@ def _upgrade_command(args: argparse.Namespace) -> None:
 
 def _sync_command(args: argparse.Namespace) -> None:
     target_path = Path(args.target).resolve()
-    workspace_root, project_root = resolve_project_root(target_path, DEFAULT_PROJECT_SUBDIR)
+    workspace_root, project_root = resolve_workspace_root(target_path, DEFAULT_PROJECT_SUBDIR)
     if project_root.exists():
         pass
     elif not args.dry_run:
@@ -1892,6 +2054,220 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit verbose logs when running the smoke scenario.",
     )
     smoke_parser.set_defaults(func=_smoke_command)
+
+    set_active_feature_parser = subparsers.add_parser(
+        "set-active-feature",
+        help="Persist the active feature ticket and refresh Researcher targets.",
+    )
+    set_active_feature_parser.add_argument("ticket", help="Feature ticket identifier to persist.")
+    set_active_feature_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    set_active_feature_parser.add_argument(
+        "--paths",
+        help="Optional colon-separated list of extra paths for Researcher scope.",
+    )
+    set_active_feature_parser.add_argument(
+        "--keywords",
+        help="Optional comma-separated keywords to seed Researcher search.",
+    )
+    set_active_feature_parser.add_argument(
+        "--config",
+        help="Path to conventions JSON with researcher section (defaults to config/conventions.json).",
+    )
+    set_active_feature_parser.add_argument(
+        "--slug-note",
+        dest="slug_note",
+        help="Optional slug hint to persist alongside the ticket.",
+    )
+    set_active_feature_parser.add_argument(
+        "--skip-prd-scaffold",
+        action="store_true",
+        help="Skip automatic docs/prd/<ticket>.prd.md scaffold creation.",
+    )
+    set_active_feature_parser.set_defaults(func=_set_active_feature_command)
+
+    identifiers_parser = subparsers.add_parser(
+        "identifiers",
+        help="Resolve active feature identifiers (ticket and slug hint).",
+    )
+    identifiers_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    identifiers_parser.add_argument(
+        "--ticket",
+        help="Optional ticket override (defaults to docs/.active_ticket).",
+    )
+    identifiers_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    identifiers_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit identifiers as JSON for automation.",
+    )
+    identifiers_parser.set_defaults(func=_identifiers_command)
+
+    set_active_stage_parser = subparsers.add_parser(
+        "set-active-stage",
+        help="Persist the active workflow stage in docs/.active_stage.",
+    )
+    set_active_stage_parser.add_argument(
+        "stage",
+        help=(
+            "Stage name (idea/research/plan/review-plan/review-prd/"
+            "tasklist/implement/review/qa)."
+        ),
+    )
+    set_active_stage_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    set_active_stage_parser.add_argument(
+        "--allow-custom",
+        action="store_true",
+        help="Allow arbitrary stage values (skip validation).",
+    )
+    set_active_stage_parser.set_defaults(func=_set_active_stage_command)
+
+    prd_review_parser = subparsers.add_parser(
+        "prd-review",
+        help="Run lightweight PRD review heuristics and emit reports/prd/<ticket>.json.",
+    )
+    prd_review_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    prd_review_parser.add_argument(
+        "--ticket",
+        help="Feature ticket to analyse (defaults to docs/.active_ticket).",
+    )
+    prd_review_parser.add_argument(
+        "--slug",
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature when available).",
+    )
+    prd_review_parser.add_argument(
+        "--prd",
+        type=Path,
+        help="Explicit path to PRD file. Defaults to docs/prd/<ticket>.prd.md.",
+    )
+    prd_review_parser.add_argument(
+        "--report",
+        type=Path,
+        help="Optional path to store JSON report. Directories are created automatically.",
+    )
+    prd_review_parser.add_argument(
+        "--emit-text",
+        action="store_true",
+        help="Print a human-readable summary in addition to JSON output.",
+    )
+    prd_review_parser.add_argument(
+        "--stdout-format",
+        choices=("json", "text", "auto"),
+        default="auto",
+        help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
+    )
+    prd_review_parser.set_defaults(func=_prd_review_command)
+
+    plan_review_gate_parser = subparsers.add_parser(
+        "plan-review-gate",
+        help="Validate plan review readiness (used by hooks).",
+    )
+    plan_review_gate_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    plan_review_gate_parser.add_argument("--ticket", required=True, help="Active feature ticket.")
+    plan_review_gate_parser.add_argument("--file-path", default="", help="Path being modified.")
+    plan_review_gate_parser.add_argument("--branch", default="", help="Current branch name.")
+    plan_review_gate_parser.add_argument(
+        "--config",
+        default="config/gates.json",
+        help="Path to gates configuration file (default: config/gates.json).",
+    )
+    plan_review_gate_parser.add_argument(
+        "--skip-on-plan-edit",
+        action="store_true",
+        help="Return success when the plan file itself is being edited.",
+    )
+    plan_review_gate_parser.set_defaults(func=_plan_review_gate_command)
+
+    prd_review_gate_parser = subparsers.add_parser(
+        "prd-review-gate",
+        help="Validate PRD review readiness (used by hooks).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--ticket",
+        "--slug",
+        dest="ticket",
+        required=True,
+        help="Active feature ticket (legacy alias: --slug).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        default="",
+        help="Optional slug hint used for messaging (defaults to docs/.active_feature).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--file-path",
+        default="",
+        help="Path being modified (used to skip checks for direct PRD edits).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--branch",
+        default="",
+        help="Current branch name for branch-based filters.",
+    )
+    prd_review_gate_parser.add_argument(
+        "--config",
+        default="config/gates.json",
+        help="Path to gates configuration file (default: config/gates.json).",
+    )
+    prd_review_gate_parser.add_argument(
+        "--skip-on-prd-edit",
+        action="store_true",
+        help="Return success when the PRD file itself is being edited.",
+    )
+    prd_review_gate_parser.set_defaults(func=_prd_review_gate_command)
+
+    researcher_context_parser = subparsers.add_parser(
+        "researcher-context",
+        help="Run researcher context builder (pass through to module CLI).",
+    )
+    researcher_context_parser.add_argument(
+        "forward_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments forwarded to the researcher context tool.",
+    )
+    researcher_context_parser.set_defaults(func=_researcher_context_command)
+
+    context_gc_parser = subparsers.add_parser(
+        "context-gc",
+        help="Run context GC hooks (precompact/sessionstart/pretooluse/userprompt).",
+    )
+    context_gc_parser.add_argument(
+        "mode",
+        choices=("precompact", "sessionstart", "pretooluse", "userprompt"),
+        help="Context GC mode to execute.",
+    )
+    context_gc_parser.set_defaults(func=_context_gc_command)
 
     analyst_parser = subparsers.add_parser(
         "analyst-check",

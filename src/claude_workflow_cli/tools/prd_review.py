@@ -14,48 +14,18 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import os
 import re
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_SRC = Path.cwd() / "src"
-for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
-    if candidate.is_dir():
-        candidate_str = str(candidate)
-        if candidate_str not in sys.path:
-            sys.path.insert(0, candidate_str)
-
-try:
-    from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
-except ImportError:  # pragma: no cover - fallback for standalone usage
-    resolve_identifiers = None  # type: ignore
-
-def detect_project_root() -> Path:
-    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
-    cwd = Path.cwd().resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_root = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_root:
-        candidates.append(Path(project_root).expanduser().resolve())
-    for candidate in candidates:
-        docs_dir = candidate / "docs"
-        if docs_dir.is_dir():
-            return candidate
-    return cwd
+from claude_workflow_cli.feature_ids import resolve_identifiers, resolve_project_root
 
 
-ROOT_DIR = detect_project_root()
+def detect_project_root(target: Optional[Path] = None) -> Path:
+    base = target or Path.cwd()
+    return resolve_project_root(base)
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
@@ -86,9 +56,14 @@ class Report:
         return payload
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Perform lightweight PRD review heuristics."
+    )
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     parser.add_argument(
         "--ticket",
@@ -96,7 +71,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--slug",
-        help="Legacy slug hint override (defaults to docs/.active_feature when available).",
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature when available).",
     )
     parser.add_argument(
         "--prd",
@@ -119,7 +96,7 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _read_optional_text(path: Path) -> Optional[str]:
@@ -130,22 +107,21 @@ def _read_optional_text(path: Path) -> Optional[str]:
     return value or None
 
 
-def detect_feature(ticket_arg: Optional[str], slug_arg: Optional[str]) -> tuple[str, str]:
+def detect_feature(root: Path, ticket_arg: Optional[str], slug_arg: Optional[str]) -> tuple[str, str]:
     ticket_candidate = (ticket_arg or "").strip() or None
     slug_candidate = (slug_arg or "").strip() or None
 
-    if resolve_identifiers is not None:
-        identifiers = resolve_identifiers(ROOT_DIR, ticket=ticket_candidate, slug_hint=slug_candidate)
-        ticket_resolved = (identifiers.resolved_ticket or "").strip()
-        slug_resolved = (identifiers.slug_hint or "").strip()
-        if ticket_resolved:
-            return ticket_resolved, slug_resolved or ticket_resolved
+    identifiers = resolve_identifiers(root, ticket=ticket_candidate, slug_hint=slug_candidate)
+    ticket_resolved = (identifiers.resolved_ticket or "").strip()
+    slug_resolved = (identifiers.slug_hint or "").strip()
+    if ticket_resolved:
+        return ticket_resolved, slug_resolved or ticket_resolved
 
     if ticket_candidate:
         return ticket_candidate, slug_candidate or ticket_candidate
 
-    ticket_file = ROOT_DIR / "docs" / ".active_ticket"
-    slug_file = ROOT_DIR / "docs" / ".active_feature"
+    ticket_file = root / "docs" / ".active_ticket"
+    slug_file = root / "docs" / ".active_feature"
     ticket_value = _read_optional_text(ticket_file)
     slug_value = _read_optional_text(slug_file)
     if ticket_value:
@@ -155,10 +131,10 @@ def detect_feature(ticket_arg: Optional[str], slug_arg: Optional[str]) -> tuple[
     return "", ""
 
 
-def locate_prd(ticket: str, explicit: Optional[Path]) -> Path:
+def locate_prd(root: Path, ticket: str, explicit: Optional[Path]) -> Path:
     if explicit:
         return explicit
-    return ROOT_DIR / "docs" / "prd" / f"{ticket}.prd.md"
+    return root / "docs" / "prd" / f"{ticket}.prd.md"
 
 
 def extract_review_section(content: str) -> tuple[str, List[str]]:
@@ -268,18 +244,26 @@ def print_text_report(report: Report) -> None:
             print(f"  • [{finding.severity}] {finding.title} — {finding.details}")
 
 
-def main() -> None:
-    args = parse_args()
-    ticket, slug_hint = detect_feature(getattr(args, "ticket", None), getattr(args, "slug", None))
+def run(args: argparse.Namespace) -> int:
+    root = detect_project_root(Path(args.target))
+    ticket, slug_hint = detect_feature(root, getattr(args, "ticket", None), getattr(args, "slug_hint", None))
     if not ticket:
-        raise SystemExit(
+        print(
             "[prd-review] Cannot determine feature ticket. "
-            "Pass --ticket or create docs/.active_ticket (legacy fallback: docs/.active_feature)."
+            "Pass --ticket or create docs/.active_ticket (legacy fallback: docs/.active_feature).",
+            file=sys.stderr,
         )
+        return 1
 
     slug = slug_hint or ticket
-    prd_path = locate_prd(ticket, args.prd)
-    report = analyse_prd(slug, prd_path, ticket=ticket)
+    prd_path = locate_prd(root, ticket, args.prd)
+    try:
+        report = analyse_prd(slug, prd_path, ticket=ticket)
+    except SystemExit as exc:
+        message = str(exc)
+        if message:
+            print(message, file=sys.stderr)
+        return 1
 
     if args.emit_text or args.stdout_format in ("text", "auto"):
         print_text = args.emit_text or args.stdout_format == "text"
@@ -295,13 +279,19 @@ def main() -> None:
 
     output_path = args.report
     if output_path is None:
-        output_path = ROOT_DIR / "reports" / "prd" / f"{ticket}.json"
+        output_path = root / "reports" / "prd" / f"{ticket}.json"
     if not output_path.is_absolute():
-        output_path = ROOT_DIR / output_path
+        output_path = root / output_path
     output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-    rel = output_path.relative_to(ROOT_DIR) if output_path.is_relative_to(ROOT_DIR) else output_path
+    rel = output_path.relative_to(root) if output_path.is_relative_to(root) else output_path
     print(f"[prd-review] report saved to {rel}", file=sys.stderr)
+    return 0
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = parse_args(argv)
+    return run(args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

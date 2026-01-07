@@ -20,38 +20,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_SRC = Path.cwd() / "src"
-for candidate in (REPO_ROOT / "src", WORKSPACE_SRC):
-    if candidate.is_dir():
-        candidate_str = str(candidate)
-        if candidate_str not in sys.path:
-            sys.path.insert(0, candidate_str)
-
-def detect_project_root() -> Path:
-    """Prefer the plugin root (aidd) even if workspace-level docs/ exist."""
-    cwd = Path.cwd().resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_root = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_root:
-        candidates.append(Path(project_root).expanduser().resolve())
-    for candidate in candidates:
-        docs_dir = candidate / "docs"
-        if docs_dir.is_dir():
-            return candidate
-    return cwd
+from claude_workflow_cli.feature_ids import resolve_identifiers, resolve_project_root
 
 
-ROOT_DIR = detect_project_root()
+def detect_project_root(target: Optional[Path] = None) -> Path:
+    return resolve_project_root(target or Path.cwd())
 
-from claude_workflow_cli.feature_ids import resolve_identifiers  # type: ignore
+
+ROOT_DIR = Path.cwd()
 
 DEFAULT_BLOCKERS = ("blocker", "critical")
 DEFAULT_WARNINGS = ("major", "minor")
@@ -86,9 +62,14 @@ class Finding:
         }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run heuristic QA checks for the current Claude workflow project."
+    )
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     parser.add_argument("--ticket", "--slug", dest="ticket", help="Active feature ticket (legacy alias: --slug).")
     parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint used for messaging.")
@@ -134,7 +115,7 @@ def parse_args() -> argparse.Namespace:
         action="append",
         help="Optional scope filters (reserved for future heuristics).",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def detect_feature(ticket_arg: Optional[str], slug_hint_arg: Optional[str]) -> tuple[Optional[str], Optional[str]]:
@@ -386,8 +367,10 @@ def write_report(report_path: Path, payload: dict) -> None:
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    args = parse_args(argv)
+    global ROOT_DIR
+    ROOT_DIR = detect_project_root(Path(args.target))
     ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
     branch = detect_branch(args.branch)
     files = collect_changed_files()

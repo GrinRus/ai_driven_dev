@@ -21,7 +21,7 @@
 - Принять вариант 2: дефолтный таргет установки — поддиректория `aidd/` в рабочем каталоге.
 - CLI (`init/sync/upgrade`) и smoke работают относительно `aidd/`, manifest содержит префикс `aidd/`.
 - Dry-run не создаёт директорию; `resolve_project_root` учитывает существующий `.claude` и префикс.
-- Smoke/e2e запускаются из текущей ветки в tmp-каталоге: `claude-workflow smoke` и `aidd/scripts/smoke-workflow.sh` не тянут внешние архивы.
+- Smoke/e2e запускаются из текущей ветки в tmp-каталоге: `claude-workflow smoke` и `scripts/smoke-workflow.sh` не тянут внешние архивы.
 - Установка через `uv tool install git+...` + `claude-workflow init --target .` — каноничный путь; локальный payload допускается через `CLAUDE_TEMPLATE_DIR`.
 
 ## Последствия

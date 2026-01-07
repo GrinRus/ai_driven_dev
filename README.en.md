@@ -15,7 +15,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 - The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and prompt templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
-- The payload lives in `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`, `aidd/tools`, `aidd/scripts`); all artifacts/reports stay under `aidd/`. Workspace settings live at the root (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
+- The payload lives in `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`); all artifacts/reports stay under `aidd/`. Workspace settings live at the root (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
 
 ## Table of Contents
 - [CLI cheatsheet](#cli-cheatsheet)
@@ -85,14 +85,13 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 | `aidd/commands/` | Slash-command definitions | Workflows for `/idea-new`, `/researcher`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa` with `allowed-tools` and inline shell steps |
 | `aidd/agents/` | Sub-agent playbooks | Roles for analyst, researcher, planner, plan-reviewer, prd-reviewer, validator, implementer, reviewer, qa |
 | `aidd/hooks/` | Guard & utility hooks | `gate-workflow.sh`, `gate-prd-review.sh`, `gate-tests.sh`, `gate-qa.sh`, `lint-deps.sh`, `format-and-test.sh` |
-| `aidd/scripts/` | Runtime scripts | Context helpers, agent scripts, and optional test‑runner helpers |
 | `config/gates.json` | Gate toggles | Controls `prd_review`, `tests_required`, `deps_allowlist`, `qa`, `feature_ticket_source`, `feature_slug_hint_source` (uses `aidd/docs/.active_*`) |
 | `config/conventions.json` | Branch/commit presets | Detailed `ticket-prefix`, `conventional`, `mixed` templates plus branch patterns and review notes |
 | `config/allowed-deps.txt` | Dependency allowlist | `group:artifact` entries inspected by `lint-deps.sh` |
 | `aidd/docs/` | Core docs & templates | `sdlc-flow.md`, `status-machine.md`, `docs/*/template.md`, feature artefacts |
 | `examples/` | Demo assets | `apply-demo.sh` and baseline examples |
 | `doc/dev/` | Dev-only docs | Workflow walkthrough, playbooks (agents/qa/prompt), customization, audits, design notes |
-| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `prd-review-agent.py` (heuristic PRD reviewer), `qa-agent.py` (heuristic QA agent) |
+| `scripts/` | CLI helpers | `ci-lint.sh` (linters + tests), `smoke-workflow.sh` (E2E smoke for gate-workflow), `sync-payload.sh` (payload sync), `prompt-version`/`lint-prompts.py` (prompt tooling), `package_payload_archive.py` (payload archive) |
 | `templates/` | Copyable templates | Git hooks (`commit-msg`, `pre-push`, `prepare-commit-msg`) |
 | `tests/` | Python unit tests | Cover init bootstrap, hooks, selective tests, and settings policy |
 | `.github/workflows/ci.yml` | CI pipeline | Installs linters and runs `scripts/ci-lint.sh` |
@@ -174,9 +173,9 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - **`aidd/init-claude-workflow.sh`** — verifies `bash/git/python3`, generates `.claude/`, `.claude-plugin/`, and `aidd/**`, honours `--force`, prints dry-run plans, and persists the commit mode.
 - **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change; runs only in the `implement` stage.
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, Plan Review + PRD Review (via `/review-spec`), and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
-- **`gate-prd-review.sh`** — funnels to `scripts/prd_review_gate.py`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
+- **`gate-prd-review.sh`** — calls `claude-workflow prd-review-gate`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`, and ignores test folders via `exclude_dirs`.
-- **`gate-qa.sh`** — runs `scripts/qa-agent.py`, writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `doc/dev/qa-playbook.md`.
+- **`gate-qa.sh`** — runs `claude-workflow qa` (or the command from `config/gates.json`), writes `reports/qa/<ticket>.json`, and treats `blocker/critical` as hard failures; see `doc/dev/qa-playbook.md`.
 - **`lint-deps.sh`** — enforces the dependency allowlist from `config/allowed-deps.txt` and highlights risky dependency manifest changes.
 - **`scripts/ci-lint.sh`** — single entrypoint for `shellcheck`, `markdownlint`, `yamllint`, and `python -m unittest`, shared across local runs and GitHub Actions.
 - **`scripts/smoke-workflow.sh`** — spins a temp project, invokes the init script, and validates the `/idea-new → research (when needed) → /plan-new → /review-spec → /tasks-new` gate sequence.
@@ -221,7 +220,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci   # work
 - `--target` always points to the workspace; the payload installs strictly under `./aidd`. Running CLI/hooks outside `aidd/` will fail with a clear “aidd/docs not found” message.
 - the first command installs the `claude-workflow` CLI via `uv`;
 - `claude-workflow init` mirrors the behaviour of `aidd/init-claude-workflow.sh`, copying hooks, docs, and templates into the current project;
-- the CLI now vendors the required Python modules into `aidd/hooks/_vendor`, so hooks that invoke `python3 -m claude_workflow_cli ...` run immediately with no extra `pip install`;
+- hooks invoke the installed `claude-workflow` binary directly, so ensure the CLI is on PATH (via `uv` or `pipx`);
 
 ### Option B — `pipx`
 

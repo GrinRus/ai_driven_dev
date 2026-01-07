@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану + выборочные тесты"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.10
-source_version: 1.1.10
+prompt_version: 1.1.11
+source_version: 1.1.11
 allowed-tools:
   - Read
   - Edit
@@ -14,11 +14,11 @@ allowed-tools:
   - "Bash(cat:*)"
   - "Bash(xargs:*)"
   - "Bash(./gradlew:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py:*)"
+  - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
   - "Bash(git:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_feature.py:*)"
+  - "Bash(claude-workflow set-active-feature:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -36,7 +36,7 @@ disable-model-invocation: false
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/tools/set_active_stage.py implement` фиксирует стадию `implement`.
+- `claude-workflow set-active-stage implement` фиксирует стадию `implement`.
 - Команда должна запускать саб-агента **implementer** (Claude: Run agent → implementer).
 - `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`).
 - `claude-workflow progress --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
