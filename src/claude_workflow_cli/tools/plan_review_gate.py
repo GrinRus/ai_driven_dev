@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
