@@ -33,8 +33,21 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
             },
         },
     }
-    # shallow merge for tests
+    automation_override = overrides.get("automation")
+    if isinstance(automation_override, dict):
+        tests_override = automation_override.get("tests")
+        if isinstance(tests_override, dict):
+            base["automation"]["tests"].update(tests_override)
+        format_override = automation_override.get("format")
+        if isinstance(format_override, dict):
+            base["automation"]["format"].update(format_override)
+        for key, value in automation_override.items():
+            if key in {"tests", "format"}:
+                continue
+            base["automation"][key] = value
     for key, value in overrides.items():
+        if key == "automation":
+            continue
         if isinstance(value, dict) and key in base:
             base[key].update(value)
         else:
@@ -73,7 +86,7 @@ def test_module_matrix_tasks_logged(tmp_path):
 
     result = run_hook(project, settings, env={"TEST_SCOPE": "module-task"})
 
-    assert "Выбранные задачи тестов: module-task" in result.stderr
+    assert "Выбранные задачи тестов (fast): module-task" in result.stderr
     assert "Запуск тестов: /bin/echo module-task" in result.stderr
 
 
@@ -81,17 +94,31 @@ def test_common_change_forces_full_suite(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
-    settings = write_settings(project, {})
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "fullTasks": ["full_task"],
+                }
+            }
+        },
+    )
     write_active_stage(project, "implement")
     (project / "config").mkdir(parents=True, exist_ok=True)
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
+    cache_dir = project / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "test-policy.env").write_text("AIDD_TEST_PROFILE=fast\n", encoding="utf-8")
     write_active_feature(project, "demo")
 
     result = run_hook(project, settings)
 
-    assert "Изменены только некодовые файлы" in result.stderr
-    assert "Запуск тестов" not in result.stderr
+    assert "Test policy detected" in result.stderr
+    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
 def test_reviewer_marker_forces_full_suite(tmp_path):
@@ -111,7 +138,7 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     result = run_hook(project, settings)
 
     assert "reviewer запросил тесты" in result.stderr
-    assert "Выбранные задачи тестов: default_task" in result.stderr
+    assert "Выбранные задачи тестов (full): default_task" in result.stderr
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 
@@ -209,3 +236,99 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     assert result_idle.returncode == 0, result_idle.stderr
     payload_idle = json.loads(marker.read_text(encoding="utf-8"))
     assert payload_idle["state"] == "idle"
+
+
+def test_profile_none_skips_tests(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "none"})
+
+    assert "AIDD_TEST_PROFILE=none" in result.stderr
+    assert "Запуск тестов" not in result.stderr
+
+
+def test_profile_full_uses_full_tasks(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "fullTasks": ["full_task"],
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "full"})
+
+    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Запуск тестов: /bin/echo full_task" in result.stderr
+
+
+def test_policy_file_tasks_and_filters(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {"automation": {"tests": {"targetedTask": "fallback_target"}}},
+    )
+    write_active_stage(project, "implement")
+    cache_dir = project / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "test-policy.env").write_text(
+        "\n".join(
+            [
+                "AIDD_TEST_PROFILE=targeted",
+                "AIDD_TEST_TASKS=policy_task",
+                "AIDD_TEST_FILTERS=FilterOne,FilterTwo",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings)
+
+    assert "Test policy detected" in result.stderr
+    assert "policy_task" in result.stderr
+    assert "--tests FilterOne" in result.stderr
+    assert "--tests FilterTwo" in result.stderr
+
+
+def test_dedupe_skips_repeat_run_and_force_overrides(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(project, {})
+    write_active_stage(project, "implement")
+    cache_dir = project / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "test-policy.env").write_text("AIDD_TEST_PROFILE=fast\n", encoding="utf-8")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    first = run_hook(project, settings)
+    assert "Запуск тестов" in first.stderr
+
+    second = run_hook(project, settings)
+    assert "Dedupe: тесты уже запускались" in second.stderr
+    assert "Запуск тестов" not in second.stderr
+
+    forced = run_hook(project, settings, env={"AIDD_TEST_FORCE": "1"})
+    assert "AIDD_TEST_FORCE=1" in forced.stderr
+    assert "Запуск тестов" in forced.stderr

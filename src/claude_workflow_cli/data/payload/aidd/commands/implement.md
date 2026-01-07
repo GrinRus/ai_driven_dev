@@ -1,9 +1,9 @@
 ---
-description: "Реализация фичи по плану + выборочные тесты"
-argument-hint: "<TICKET> [note...]"
+description: "Реализация фичи по плану: малые итерации + управляемые проверки"
+argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.11
-source_version: 1.1.11
+prompt_version: 1.1.12
+source_version: 1.1.12
 allowed-tools:
   - Read
   - Edit
@@ -24,7 +24,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/implement` запускает саб-агента **implementer** для выполнения следующей итерации по плану и tasklist. Свободный ввод после тикета используйте как контекст для текущей итерации.
+Команда `/implement` запускает саб-агента **implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md`.
@@ -36,18 +36,37 @@ disable-model-invocation: false
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные
+- `claude-workflow set-active-feature --target . <ticket>` фиксирует активную фичу.
 - `claude-workflow set-active-stage implement` фиксирует стадию `implement`.
 - Команда должна запускать саб-агента **implementer** (Claude: Run agent → implementer).
-- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`).
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
 - `claude-workflow progress --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
+- Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
+
+## Test policy (FAST/TARGETED/FULL/NONE)
+Профиль задаётся через `aidd/.cache/test-policy.env`. Правило приоритета: если `test-policy.env` создан — профиль имеет приоритет и тесты запускаются без reviewer gate; иначе действует reviewer gate.
+
+Пример файла:
+```
+AIDD_TEST_PROFILE=fast
+AIDD_TEST_TASKS=:module:test
+AIDD_TEST_FILTERS=com.acme.CheckoutTest
+```
+
+Decision matrix (default: `fast`):
+- `fast`: небольшие правки в одном модуле, низкий риск, быстрые проверки.
+- `targeted`: нужен узкий прогон (`AIDD_TEST_TASKS` и/или `AIDD_TEST_FILTERS`).
+- `full`: изменения общих конфигов/ядра/инфры, высокий риск регрессий.
+- `none`: только документация/метаданные, без кода.
 
 ## Что редактируется
 - Код/конфиги и `aidd/docs/tasklist/<ticket>.md` (прогресс и чекбоксы).
 
 ## Пошаговый план
-1. Зафиксируй стадию `implement`.
-2. Запусти саб-агента **implementer** и передай контекст итерации.
-3. Убедись, что tasklist обновлён и прогресс подтверждён через `claude-workflow progress`.
+1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
+2. Задай test policy (аргументы `test=...`, `tasks=...`, `tests=...` → `aidd/.cache/test-policy.env`).
+3. Запусти саб-агента **implementer** и передай контекст итерации.
+4. Убедись, что tasklist обновлён и прогресс подтверждён через `claude-workflow progress`.
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или ревью не готовы — остановись и попроси завершить предыдущие шаги.
@@ -55,7 +74,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - Обновлённый код и `aidd/docs/tasklist/<ticket>.md`.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Test profile`, `Tests run`, `Next actions`.
 
 ## Примеры CLI
 - `/implement ABC-123`
