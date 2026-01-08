@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from textwrap import dedent
 
@@ -70,6 +71,52 @@ def test_tasks_derive_from_qa_report(tmp_path):
     assert content.lower().find("## 3. qa") < content.lower().find("handoff:qa"), "block should be under QA section"
 
 
+def test_tasks_derive_from_qa_pack(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    pack_payload = {
+        "schema": "aidd.report.pack.v1",
+        "type": "qa",
+        "kind": "report",
+        "tests_summary": "fail",
+        "tests_executed": {
+            "cols": ["command", "status", "log", "exit_code"],
+            "rows": [["pytest", "fail", "reports/qa/demo-tests.log", 1]],
+        },
+        "findings": {
+            "cols": ["severity", "scope", "title", "details", "recommendation"],
+            "rows": [["major", "api", "Timeout", "slow response", "Add caching"]],
+        },
+    }
+    write_file(
+        project_root,
+        "reports/qa/demo-checkout.pack.yaml",
+        json.dumps(pack_payload, indent=2),
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--report",
+            "reports/qa/demo-checkout.pack.yaml",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "QA [major]" in content
+    assert "QA tests: fail" in content
+
 def test_tasks_derive_research_appends_existing_block(tmp_path):
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, "demo-checkout")
@@ -135,3 +182,54 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
     assert result.returncode == 0, result.stderr
     assert (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8") == original
     assert "QA tests:" in result.stdout
+
+
+def test_tasks_derive_prefers_pack_for_research(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-context.json",
+        {
+            "profile": {"recommendations": ["from json"]},
+            "manual_notes": [],
+            "reuse_candidates": [],
+        },
+    )
+    pack_payload = {
+        "schema": "aidd.report.pack.v1",
+        "type": "research",
+        "kind": "context",
+        "profile": {"recommendations": ["from pack"]},
+        "manual_notes": [],
+        "reuse_candidates": [],
+    }
+    write_file(
+        project_root,
+        "reports/research/demo-checkout-context.pack.yaml",
+        json.dumps(pack_payload, indent=2),
+    )
+
+    env = os.environ.copy()
+    env["AIDD_PACK_FIRST"] = "1"
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "research",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "Research: from pack" in content
+    assert "Research: from json" not in content

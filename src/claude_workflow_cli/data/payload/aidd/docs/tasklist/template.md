@@ -1,50 +1,63 @@
-# Tasklist — шаблон фичи
-
-Tasklist хранится по адресу `docs/tasklist/&lt;ticket&gt;.md` (внутри `aidd/`) и содержит фронт-маттер с основными артефактами фичи. Скопируйте блок ниже, подставьте ticket/slug-hint и ссылки, либо воспользуйтесь `/tasks-new &lt;ticket&gt;` — команда создаст файл автоматически.
-
-```markdown
 ---
-Ticket: &lt;ticket&gt;
-Slug hint: &lt;slug-hint или повторите ticket&gt;
-Feature: &lt;display name&gt;
+Ticket: <ticket>
+Slug hint: <slug-hint or repeat ticket>
+Feature: <display name>
 Status: draft
-PRD: docs/prd/&lt;ticket&gt;.prd.md
-Plan: docs/plan/&lt;ticket&gt;.md
-Research: docs/research/&lt;ticket&gt;.md
+PRD: aidd/docs/prd/<ticket>.prd.md
+Plan: aidd/docs/plan/<ticket>.md
+Research: aidd/docs/research/<ticket>.md
 Reports:
-  Research: reports/research/&lt;ticket&gt;-context.json
-  QA: reports/qa/&lt;ticket&gt;.json
+  Research: aidd/reports/research/<ticket>-context.json
+  QA: aidd/reports/qa/<ticket>.json
 Commands:
-  Progress: claude-workflow progress --source &lt;stage&gt; --ticket "&lt;ticket&gt;"
-  Tests: &lt;test-runner&gt; &lt;args&gt;
+  Progress: claude-workflow progress --source <stage> --ticket "<ticket>"
+  Tests: <test-runner> <args>
 Updated: YYYY-MM-DD
 ---
 
-# Tasklist — &lt;Feature title&gt;
+# Tasklist — <Feature title>
 
 ## Как отмечать прогресс
 - После каждого инкремента заменяйте выполненные пункты `- [ ]` на `- [x]`, добавляя в конце `— YYYY-MM-DD • итерация N` и ссылку на PR/commit или краткое описание результата.
 - Если закрываете часть большого пункта, добавляйте отдельный `- [x]` с пояснением, что именно готово (история прогресса сохраняется).
 - В ответах агентов используйте строку `Checkbox updated: …`, чтобы перечислить закрытые элементы и договорённости на следующий шаг.
-- Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "&lt;ticket&gt;"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
-- После отчётов QA/Review/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|review|research> --append --ticket "&lt;ticket&gt;"`; новые `- [ ]` должны ссылаться на соответствующий `reports/<source>/...`.
+- Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "<ticket>"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
+- После отчётов QA/Review/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|review|research> --append --ticket "<ticket>"`; новые `- [ ]` должны ссылаться на соответствующий `aidd/reports/<source>/...`.
 
-## Next 3 (фокус)
+## AIDD:NEXT_3
 - [ ] <первый приоритетный чекбокс>
 - [ ] <второй приоритетный чекбокс>
 - [ ] <третий приоритетный чекбокс>
 
-## AIDD:CONTEXT_PACK (<= 20 lines, <= 1200 chars)
-- Краткий контекст итерации: текущий фокус, активные файлы/модули, инварианты/решения.
-- Ссылки на важные секции плана (например, `plan § Iteration 2`).
-- Обновляется после каждого инкремента.
+## AIDD:CONTEXT_PACK
+- Focus: <какой чекбокс из AIDD:NEXT_3>
+- Files: <2-8 путей/модулей>
+- Invariants: <1-3 пункта>
+- Plan refs: <итерация/секция плана>
+- Next: <что дальше>
+- Limit: <= 20 lines / <= 1200 chars
 
-## Handoff inbox
+## AIDD:NON_NEGOTIABLES
+- <что нельзя нарушать>
+
+## AIDD:OPEN_QUESTIONS
+- <вопрос> → <кто отвечает> → <срок>
+
+## AIDD:RISKS_TOP5
+- <риск> → <митигация>
+
+## AIDD:DECISIONS
+- <решение> → <почему>
+
+## AIDD:INBOX_DERIVED
 - [ ] <handoff из QA/Review/Research со ссылкой на report>
 
+## AIDD:CHECKLIST
+- Используйте разделы 1–6 ниже как полный чеклист с критериями готовности.
+
 ## 1. Аналитика и дизайн
-- [ ] PRD и дизайн синхронизированы, риски зафиксированы (`docs/prd/&lt;ticket&gt;.prd.md`, макеты).
-- [ ] Метрики успеха и ограничения подтверждены артефактами (`docs/.active_feature`, `reports/research/&lt;ticket&gt;-context.json`).
+- [ ] PRD и дизайн синхронизированы, риски зафиксированы (`aidd/docs/prd/<ticket>.prd.md`, макеты).
+- [ ] Метрики успеха и ограничения подтверждены артефактами (`aidd/docs/.active_feature`, `aidd/reports/research/<ticket>-context.json`).
 - [ ] Согласован объём разработки и зависимости (ссылки на ADR/план).
 
 ## 2. Реализация
@@ -56,12 +69,16 @@ Updated: YYYY-MM-DD
 ## 3. QA / Проверки
 - [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
 - [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи тест-раннера, `claude-workflow qa --gate`).
-- [ ] Проведено ручное тестирование или UAT (протокол в `docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
+- [ ] Проведено ручное тестирование или UAT (протокол в `aidd/docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
 - [ ] Traceability: для каждого acceptance criteria из PRD указано, как проверено (ссылка на тест/лог/шаг).
 
+## AIDD:QA_TRACEABILITY
+- <AC-1> → <тест/лог/шаг>
+- <AC-2> → <тест/лог/шаг>
+
 ## 4. Интеграция с гейтами
-- [ ] READY: `docs/.active_ticket` указывает на `&lt;ticket&gt;`, чеклист READY.
-- [ ] Researcher: `docs/research/&lt;ticket&gt;.md` со статусом `Status: reviewed`.
+- [ ] READY: `aidd/docs/.active_ticket` указывает на `<ticket>`, чеклист READY.
+- [ ] Researcher: `aidd/docs/research/<ticket>.md` со статусом `Status: reviewed`.
 - [ ] API/DB: обновлены контракты и миграции, гейты зелёные.
 - [ ] Tests: включены новые тесты, `gate-tests` завершился успешно.
 
@@ -77,6 +94,6 @@ Updated: YYYY-MM-DD
 
 ## 7. Примечания
 - Свободное поле для договёрностей, ссылок, action items.
-```
 
-Обновляйте tasklist вместе с прогрессом фичи: чекбоксы помогают гейтам и команде видеть статус, а фронт-маттер обеспечивает быстрый переход ко всем связанным документам. В ответах агентов фиксируйте строку `Checkbox updated: ...` и ссылкуйте на обновлённые пункты — это упростит автоматические проверки `claude-workflow progress`.
+## AIDD:PROGRESS_LOG
+- <YYYY-MM-DD> — <что сделано> — <ссылка/лог/PR>

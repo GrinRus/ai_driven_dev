@@ -10,7 +10,8 @@
     "./commands/tasks-new.md",
     "./commands/implement.md",
     "./commands/review.md",
-    "./commands/qa.md"
+    "./commands/qa.md",
+    "./commands/status.md"
   ],
   "agents": [
     "./agents/analyst.md",

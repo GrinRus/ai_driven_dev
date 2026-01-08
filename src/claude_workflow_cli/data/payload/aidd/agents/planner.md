@@ -10,7 +10,18 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент превращает PRD в технический план (`@aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/plan-new`, далее результат проверяет `validator`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
+Агент превращает PRD в технический план (`@aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/plan-new`, далее результат проверяет `validator`.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/plan.md`
+- `AIDD:*` секции PRD и Plan
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).

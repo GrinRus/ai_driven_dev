@@ -450,6 +450,18 @@ if [[ "$status" -eq 127 ]]; then
   echo "[gate-qa] ERROR: не удалось выполнить команду QA (${runner[0]})." >&2
 fi
 
+if [[ -n "$report_path" && ! -f "$report_path" ]]; then
+  if [[ "$report_path" == *.json ]]; then
+    pack_candidate="${report_path%.json}.pack.yaml"
+    if [[ -f "$pack_candidate" ]]; then
+      report_path="$pack_candidate"
+    else
+      pack_candidate="${report_path%.json}.pack.toon"
+      [[ -f "$pack_candidate" ]] && report_path="$pack_candidate"
+    fi
+  fi
+fi
+
 if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
   if [[ ! -f "$report_path" ]]; then
     echo "[gate-qa] ERROR: отчёт QA не создан: $report_path" >&2

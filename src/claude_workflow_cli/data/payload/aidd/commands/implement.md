@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.13
-source_version: 1.1.13
+prompt_version: 1.1.12
+source_version: 1.1.12
 allowed-tools:
   - Read
   - Edit
@@ -25,7 +25,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/implement` запускает саб-агента **implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
-Перед запуском используйте working set (`aidd/reports/context/latest_working_set.md`, если есть) и `AIDD:CONTEXT_PACK` в tasklist; ориентируйтесь на stage‑anchor `docs/anchors/implement.md`.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/implement.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md`.
@@ -45,7 +45,7 @@ disable-model-invocation: false
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
-Профиль задаётся через `aidd/.cache/test-policy.env`. Правило приоритета: если `test-policy.env` создан — профиль имеет приоритет и тесты запускаются без reviewer gate; иначе действует reviewer gate.
+Профиль задаётся через `aidd/.cache/test-policy.env`. Policy управляет **чем** запускать, а reviewer gate — **обязательностью/эскалацией**. Если аргументы `test=.../tests=.../tasks=...` не переданы — не перезаписывай существующий `test-policy.env`.
 
 Пример файла:
 ```
@@ -65,8 +65,8 @@ Decision matrix (default: `fast`):
 
 ## Пошаговый план
 1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
-2. Задай test policy (аргументы `test=...`, `tasks=...`, `tests=...` → `aidd/.cache/test-policy.env`).
-3. Запусти саб-агента **implementer** и передай контекст итерации (working set + `AIDD:CONTEXT_PACK`).
+2. Если переданы аргументы `test=...`, `tasks=...`, `tests=...` — задай test policy в `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений.
+3. Запусти саб-агента **implementer** и передай контекст итерации.
 4. Убедись, что tasklist обновлён и прогресс подтверждён через `claude-workflow progress`.
 
 ## Fail-fast и вопросы

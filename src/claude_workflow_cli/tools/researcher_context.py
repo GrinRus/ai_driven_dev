@@ -1148,6 +1148,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--limit", type=int, default=_MAX_MATCHES, help="Maximum number of code/document matches to capture.")
     parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<ticket>-context.json).")
+    parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
+    )
     parser.add_argument("--targets-only", action="store_true", help="Only refresh targets JSON, skip scanning sources.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing files; prints context JSON to stdout.")
     parser.add_argument("--deep-code", action="store_true", help="Collect code symbols/imports/tests alongside keyword matches.")
@@ -1291,6 +1296,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     output_override = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, context, output=output_override)
     rel_output = output_path.relative_to(root).as_posix()
+    pack_path = None
+    try:
+        from claude_workflow_cli.tools import reports_pack as _reports_pack
+
+        pack_path = _reports_pack.write_research_context_pack(output_path, root=root)
+        try:
+            rel_pack = pack_path.relative_to(root).as_posix()
+        except ValueError:
+            rel_pack = pack_path.as_posix()
+        print(f"[researcher] pack saved to {rel_pack}.")
+    except Exception as exc:
+        print(f"[researcher] WARN: failed to generate pack: {exc}", file=sys.stderr)
     full_edges_count = 0
     if context.get("call_graph_full_path"):
         try:
@@ -1307,6 +1324,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         message += f", {graph_edges} call edges (full: {full_edges_count})"
     message += ")."
     print(message)
+    pack_only = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
+    if pack_only and pack_path and pack_path.exists():
+        try:
+            output_path.unlink()
+        except OSError:
+            pass
     return 0
 
 

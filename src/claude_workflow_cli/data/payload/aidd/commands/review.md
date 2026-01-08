@@ -20,11 +20,12 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/review` запускает саб-агента **reviewer** для проверки изменений перед QA и фиксирует замечания в tasklist. Свободный ввод после тикета используй как контекст ревью.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review.md`.
 
 ## Входные артефакты
 - Diff/PR.
 - `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md`.
-- Логи тестов/гейтов (если есть), `reports/reviewer/<ticket>.json`.
+- Логи тестов/гейтов (если есть), `aidd/reports/reviewer/<ticket>.json`.
 
 ## Когда запускать
 - После `/implement`, до `/qa`.

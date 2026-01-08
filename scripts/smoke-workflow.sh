@@ -27,15 +27,26 @@ if [[ ! -d "$CLI_PYTHONPATH" ]]; then
 fi
 
 resolve_cli() {
+  # Prefer local source when an explicit pythonpath is provided.
+  local pythonpath_env=""
+  if [[ -n "$CLI_PYTHONPATH" ]]; then
+    pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
+    if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
+import importlib
+importlib.import_module("claude_workflow_cli")
+PY
+      CLI_USE_PYTHON=1
+      echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+      return 0
+    fi
+  fi
+
   if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
     CLI_USE_PYTHON=0
     return 0
   fi
 
-  local pythonpath_env=""
-  if [[ -n "$CLI_PYTHONPATH" ]]; then
-    pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
-  fi
+  pythonpath_env=""
   if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
 import importlib
 importlib.import_module("claude_workflow_cli")

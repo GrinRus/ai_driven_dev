@@ -62,6 +62,34 @@ def test_allows_when_report_present(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_allows_when_pack_present(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": False,
+                "report": "reports/qa/{ticket}.json",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-pack")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+    write_file(tmp_path, "reports/qa/qa-pack.pack.yaml", "{}\n")
+
+    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
+    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    try:
+        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    finally:
+        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_skip_env_allows(tmp_path):
     ensure_gates_config(
         tmp_path,

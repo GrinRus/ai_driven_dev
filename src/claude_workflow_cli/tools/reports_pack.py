@@ -1,0 +1,586 @@
+#!/usr/bin/env python3
+"""Generate pack sidecars for reports."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional
+
+SCHEMA = "aidd.report.pack.v1"
+PACK_VERSION = "v1"
+
+RESEARCH_LIMITS: Dict[str, int] = {
+    "tags": 10,
+    "keywords": 10,
+    "paths": 10,
+    "docs": 10,
+    "path_samples": 4,
+    "matches": 20,
+    "match_snippet_chars": 240,
+    "reuse_candidates": 8,
+    "manual_notes": 10,
+    "recommendations": 10,
+    "call_graph": 30,
+    "import_graph": 30,
+}
+
+RESEARCH_BUDGET = {
+    "max_chars": 1200,
+    "max_lines": 60,
+}
+
+QA_LIMITS: Dict[str, int] = {
+    "findings": 20,
+    "tests_executed": 10,
+}
+
+PRD_LIMITS: Dict[str, int] = {
+    "findings": 20,
+    "action_items": 10,
+}
+
+_PACK_FORMATS = {"yaml", "toon"}
+_ESSENTIAL_FIELDS = {
+    "schema",
+    "pack_version",
+    "type",
+    "kind",
+    "ticket",
+    "slug",
+    "slug_hint",
+    "generated_at",
+    "source_path",
+}
+_ENV_LIMITS_CACHE: Dict[str, Dict[str, int]] | None = None
+
+
+def check_budget(text: str, *, max_chars: int, max_lines: int, label: str) -> List[str]:
+    errors: List[str] = []
+    char_count = len(text)
+    line_count = text.count("\n") + (1 if text else 0)
+    hint = "Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size."
+    if char_count > max_chars:
+        errors.append(
+            f"{label} pack budget exceeded: {char_count} chars > {max_chars}. {hint}"
+        )
+    if line_count > max_lines:
+        errors.append(
+            f"{label} pack budget exceeded: {line_count} lines > {max_lines}. {hint}"
+        )
+    return errors
+
+
+def _is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return len(value) == 0
+    if isinstance(value, dict):
+        return len(value) == 0
+    return False
+
+
+def _compact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        is_columnar = "cols" in value and "rows" in value
+        compacted: Dict[str, Any] = {}
+        for key, val in value.items():
+            cleaned = _compact_value(val)
+            if is_columnar and key in {"cols", "rows"}:
+                compacted[key] = cleaned if cleaned is not None else []
+                continue
+            if _is_empty(cleaned):
+                continue
+            compacted[key] = cleaned
+        return compacted
+    if isinstance(value, list):
+        cleaned_items = []
+        for item in value:
+            cleaned = _compact_value(item)
+            if _is_empty(cleaned):
+                continue
+            cleaned_items.append(cleaned)
+        return cleaned_items
+    return value
+
+
+def _compact_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    compacted: Dict[str, Any] = {}
+    for key, value in payload.items():
+        cleaned = _compact_value(value)
+        if key in _ESSENTIAL_FIELDS:
+            compacted[key] = cleaned
+            continue
+        if _is_empty(cleaned):
+            continue
+        compacted[key] = cleaned
+    return compacted
+
+
+def _serialize_pack(payload: Dict[str, Any]) -> str:
+    payload = _apply_field_filters(payload)
+    payload = _compact_payload(payload)
+    return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+
+
+def _write_pack_text(text: str, pack_path: Path) -> Path:
+    pack_path.parent.mkdir(parents=True, exist_ok=True)
+    pack_path.write_text(text, encoding="utf-8")
+    return pack_path
+
+
+def _enforce_budget() -> bool:
+    return os.getenv("AIDD_PACK_ENFORCE_BUDGET", "").strip() == "1"
+
+
+def _truncate_list(items: Iterable[Any], limit: int) -> List[Any]:
+    if limit <= 0:
+        return []
+    return list(items)[:limit]
+
+
+def _truncate_text(text: str, limit: int) -> str:
+    if limit <= 0:
+        return ""
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip()
+
+
+def _stable_id(*parts: Any) -> str:
+    digest = hashlib.sha1()
+    for part in parts:
+        digest.update(str(part).encode("utf-8"))
+        digest.update(b"|")
+    return digest.hexdigest()[:12]
+
+
+def _columnar(cols: List[str], rows: List[List[Any]]) -> Dict[str, Any]:
+    return {
+        "cols": cols,
+        "rows": rows,
+    }
+
+
+def _pack_paths(entries: Iterable[Any], limit: int, sample_limit: int) -> List[Dict[str, Any]]:
+    packed: List[Dict[str, Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        samples = entry.get("sample") or []
+        packed.append(
+            {
+                "path": entry.get("path"),
+                "type": entry.get("type"),
+                "exists": entry.get("exists"),
+                "sample": _truncate_list(samples, sample_limit),
+            }
+        )
+    return packed
+
+
+def _pack_matches(entries: Iterable[Any], limit: int, snippet_limit: int) -> Dict[str, Any]:
+    cols = ["id", "token", "file", "line", "snippet"]
+    rows: List[List[Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        token = str(entry.get("token") or "").strip()
+        file_path = str(entry.get("file") or "").strip()
+        line = entry.get("line")
+        snippet = _truncate_text(str(entry.get("snippet") or ""), snippet_limit)
+        if not file_path:
+            continue
+        rows.append([_stable_id(file_path, line, token), token, file_path, line, snippet])
+    return _columnar(cols, rows)
+
+
+def _pack_reuse(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
+    cols = ["id", "path", "language", "score", "has_tests", "top_symbols", "imports"]
+    rows: List[List[Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        path = str(entry.get("path") or "").strip()
+        if not path:
+            continue
+        score = entry.get("score")
+        rows.append(
+            [
+                _stable_id(path, score, entry.get("language")),
+                path,
+                entry.get("language"),
+                score,
+                entry.get("has_tests"),
+                _truncate_list(entry.get("top_symbols") or [], 3),
+                _truncate_list(entry.get("imports") or [], 5),
+            ]
+        )
+    return _columnar(cols, rows)
+
+
+def _pack_call_graph(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
+    cols = ["caller", "callee", "file", "line", "language"]
+    rows: List[List[Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        rows.append(
+            [
+                entry.get("caller"),
+                entry.get("callee"),
+                entry.get("file"),
+                entry.get("line"),
+                entry.get("language"),
+            ]
+        )
+    return _columnar(cols, rows)
+
+
+def _pack_import_graph(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
+    cols = ["import"]
+    rows = [[value] for value in _truncate_list(entries or [], limit)]
+    return _columnar(cols, rows)
+
+
+def _pack_findings(entries: Iterable[Any], limit: int, cols: List[str]) -> Dict[str, Any]:
+    rows: List[List[Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        rows.append([entry.get(col) for col in cols])
+    return _columnar(cols, rows)
+
+
+def _pack_format() -> str:
+    value = os.getenv("AIDD_PACK_FORMAT", "yaml").strip().lower()
+    return value if value in _PACK_FORMATS else "yaml"
+
+
+def _pack_extension() -> str:
+    return ".pack.toon" if _pack_format() == "toon" else ".pack.yaml"
+
+
+def _split_env(name: str) -> List[str]:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _apply_field_filters(payload: Dict[str, Any]) -> Dict[str, Any]:
+    allow_fields = _split_env("AIDD_PACK_ALLOW_FIELDS")
+    strip_fields = _split_env("AIDD_PACK_STRIP_FIELDS")
+    if not allow_fields and not strip_fields:
+        return payload
+
+    filtered = payload
+    if allow_fields:
+        filtered = {key: value for key, value in payload.items() if key in allow_fields or key in _ESSENTIAL_FIELDS}
+    if strip_fields:
+        filtered = dict(filtered)
+        for key in strip_fields:
+            if key in _ESSENTIAL_FIELDS:
+                continue
+            filtered.pop(key, None)
+    return filtered
+
+
+def _env_limits() -> Dict[str, Dict[str, int]]:
+    global _ENV_LIMITS_CACHE
+    if _ENV_LIMITS_CACHE is not None:
+        return _ENV_LIMITS_CACHE
+    raw = os.getenv("AIDD_PACK_LIMITS", "").strip()
+    if not raw:
+        _ENV_LIMITS_CACHE = {}
+        return _ENV_LIMITS_CACHE
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        _ENV_LIMITS_CACHE = {}
+        return _ENV_LIMITS_CACHE
+    if not isinstance(payload, dict):
+        _ENV_LIMITS_CACHE = {}
+        return _ENV_LIMITS_CACHE
+    parsed: Dict[str, Dict[str, int]] = {}
+    for key, value in payload.items():
+        if not isinstance(value, dict):
+            continue
+        limits: Dict[str, int] = {}
+        for limit_key, limit_value in value.items():
+            try:
+                limits[limit_key] = int(limit_value)
+            except (TypeError, ValueError):
+                continue
+        if limits:
+            parsed[key] = limits
+    _ENV_LIMITS_CACHE = parsed
+    return _ENV_LIMITS_CACHE
+
+
+def _pack_tests_executed(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
+    cols = ["command", "status", "log", "exit_code"]
+    rows: List[List[Any]] = []
+    for entry in _truncate_list(entries, limit):
+        if not isinstance(entry, dict):
+            continue
+        rows.append(
+            [
+                entry.get("command"),
+                entry.get("status"),
+                entry.get("log") or entry.get("log_path"),
+                entry.get("exit_code"),
+            ]
+        )
+    return _columnar(cols, rows)
+
+
+def build_research_context_pack(
+    payload: Dict[str, Any],
+    *,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    env_limits = _env_limits().get("research") or {}
+    lim = {**RESEARCH_LIMITS, **env_limits, **(limits or {})}
+
+    profile = payload.get("profile") or {}
+    recommendations = _truncate_list(profile.get("recommendations") or [], lim["recommendations"])
+    manual_notes = _truncate_list(payload.get("manual_notes") or [], lim["manual_notes"])
+
+    packed = {
+        "schema": SCHEMA,
+        "pack_version": PACK_VERSION,
+        "type": "research",
+        "kind": "context",
+        "ticket": payload.get("ticket"),
+        "slug": payload.get("slug"),
+        "slug_hint": payload.get("slug_hint"),
+        "generated_at": payload.get("generated_at"),
+        "source_path": source_path,
+        "tags": _truncate_list(payload.get("tags") or [], lim["tags"]),
+        "keywords": _truncate_list(payload.get("keywords") or [], lim["keywords"]),
+        "paths": _pack_paths(payload.get("paths") or [], lim["paths"], lim["path_samples"]),
+        "docs": _pack_paths(payload.get("docs") or [], lim["docs"], lim["path_samples"]),
+        "profile": {
+            "is_new_project": profile.get("is_new_project"),
+            "src_layers": profile.get("src_layers") or [],
+            "tests_detected": profile.get("tests_detected"),
+            "config_detected": profile.get("config_detected"),
+            "logging_artifacts": profile.get("logging_artifacts") or [],
+            "recommendations": recommendations,
+        },
+        "manual_notes": manual_notes,
+        "reuse_candidates": _pack_reuse(payload.get("reuse_candidates") or [], lim["reuse_candidates"]),
+        "matches": _pack_matches(payload.get("matches") or [], lim["matches"], lim["match_snippet_chars"]),
+        "call_graph": _pack_call_graph(payload.get("call_graph") or [], lim["call_graph"]),
+        "import_graph": _pack_import_graph(payload.get("import_graph") or [], lim["import_graph"]),
+        "call_graph_full_path": payload.get("call_graph_full_path"),
+        "call_graph_warning": payload.get("call_graph_warning"),
+        "call_graph_engine": payload.get("call_graph_engine"),
+        "call_graph_supported_languages": payload.get("call_graph_supported_languages") or [],
+        "call_graph_filter": payload.get("call_graph_filter"),
+        "call_graph_limit": payload.get("call_graph_limit"),
+        "deep_mode": payload.get("deep_mode"),
+        "auto_mode": payload.get("auto_mode"),
+        "stats": {
+            "matches": len(payload.get("matches") or []),
+            "reuse_candidates": len(payload.get("reuse_candidates") or []),
+            "call_graph": len(payload.get("call_graph") or []),
+            "import_graph": len(payload.get("import_graph") or []),
+        },
+    }
+
+    return packed
+
+
+def build_qa_pack(
+    payload: Dict[str, Any],
+    *,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    env_limits = _env_limits().get("qa") or {}
+    lim = {**QA_LIMITS, **env_limits, **(limits or {})}
+    findings = payload.get("findings") or []
+
+    packed = {
+        "schema": SCHEMA,
+        "pack_version": PACK_VERSION,
+        "type": "qa",
+        "kind": "report",
+        "ticket": payload.get("ticket"),
+        "slug_hint": payload.get("slug_hint"),
+        "generated_at": payload.get("generated_at"),
+        "status": payload.get("status"),
+        "summary": payload.get("summary"),
+        "branch": payload.get("branch"),
+        "source_path": source_path,
+        "counts": payload.get("counts") or {},
+        "findings": _pack_findings(
+            findings,
+            lim["findings"],
+            ["id", "severity", "scope", "title", "details", "recommendation"],
+        ),
+        "tests_summary": payload.get("tests_summary"),
+        "tests_executed": _pack_tests_executed(payload.get("tests_executed") or [], lim["tests_executed"]),
+        "inputs": payload.get("inputs") or {},
+        "stats": {
+            "findings": len(findings),
+        },
+    }
+    return packed
+
+
+def build_prd_pack(
+    payload: Dict[str, Any],
+    *,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    env_limits = _env_limits().get("prd") or {}
+    lim = {**PRD_LIMITS, **env_limits, **(limits or {})}
+    findings = payload.get("findings") or []
+    action_items = _truncate_list(payload.get("action_items") or [], lim["action_items"])
+
+    packed = {
+        "schema": SCHEMA,
+        "pack_version": PACK_VERSION,
+        "type": "prd",
+        "kind": "review",
+        "ticket": payload.get("ticket"),
+        "slug": payload.get("slug"),
+        "generated_at": payload.get("generated_at"),
+        "status": payload.get("status"),
+        "recommended_status": payload.get("recommended_status"),
+        "source_path": source_path,
+        "findings": _pack_findings(findings, lim["findings"], ["id", "severity", "title", "details"]),
+        "action_items": action_items,
+        "stats": {
+            "findings": len(findings),
+            "action_items": len(payload.get("action_items") or []),
+        },
+    }
+    return packed
+
+
+def _pack_path_for(json_path: Path) -> Path:
+    ext = _pack_extension()
+    if json_path.name.endswith(ext):
+        return json_path
+    if json_path.suffix == ".json":
+        return json_path.with_suffix(ext)
+    return json_path.with_name(json_path.name + ext)
+
+
+def _write_pack(payload: Dict[str, Any], pack_path: Path) -> Path:
+    text = _serialize_pack(payload)
+    return _write_pack_text(text, pack_path)
+
+
+def write_research_context_pack(
+    json_path: Path,
+    *,
+    output: Optional[Path] = None,
+    root: Optional[Path] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Path:
+    path = json_path.resolve()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    source_path = None
+    if root:
+        try:
+            source_path = path.relative_to(root).as_posix()
+        except ValueError:
+            source_path = path.as_posix()
+    else:
+        source_path = path.as_posix()
+
+    pack = build_research_context_pack(payload, source_path=source_path, limits=limits)
+    pack_path = (output or _pack_path_for(path)).resolve()
+    text = _serialize_pack(pack)
+    errors = check_budget(
+        text,
+        max_chars=RESEARCH_BUDGET["max_chars"],
+        max_lines=RESEARCH_BUDGET["max_lines"],
+        label="research",
+    )
+    if errors:
+        for error in errors:
+            print(f"[pack-budget] {error}", file=sys.stderr)
+        if _enforce_budget():
+            raise ValueError("; ".join(errors))
+    return _write_pack_text(text, pack_path)
+
+
+def write_qa_pack(
+    json_path: Path,
+    *,
+    output: Optional[Path] = None,
+    root: Optional[Path] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Path:
+    path = json_path.resolve()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    source_path = None
+    if root:
+        try:
+            source_path = path.relative_to(root).as_posix()
+        except ValueError:
+            source_path = path.as_posix()
+    else:
+        source_path = path.as_posix()
+
+    pack = build_qa_pack(payload, source_path=source_path, limits=limits)
+    pack_path = (output or _pack_path_for(path)).resolve()
+    return _write_pack(pack, pack_path)
+
+
+def write_prd_pack(
+    json_path: Path,
+    *,
+    output: Optional[Path] = None,
+    root: Optional[Path] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Path:
+    path = json_path.resolve()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    source_path = None
+    if root:
+        try:
+            source_path = path.relative_to(root).as_posix()
+        except ValueError:
+            source_path = path.as_posix()
+    else:
+        source_path = path.as_posix()
+
+    pack = build_prd_pack(payload, source_path=source_path, limits=limits)
+    pack_path = (output or _pack_path_for(path)).resolve()
+    return _write_pack(pack, pack_path)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Generate pack sidecar for research context JSON.")
+    parser.add_argument("path", help="Path to reports/research/<ticket>-context.json")
+    parser.add_argument(
+        "--output",
+        help="Optional output path (default: *.pack.yaml or *.pack.toon when AIDD_PACK_FORMAT=toon).",
+    )
+    args = parser.parse_args(argv)
+
+    json_path = Path(args.path)
+    output = Path(args.output) if args.output else None
+    pack_path = write_research_context_pack(json_path, output=output)
+    print(pack_path.as_posix())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
