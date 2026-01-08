@@ -321,8 +321,8 @@
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 35502,
-      "sha256": "62761f8ce1947816b8d6ca1b1dfcc241d885835d47b218c18429a3949a34e789"
+      "size": 35185,
+      "sha256": "878c231b3ca952ef3a8e72f004bb034e0f325158f12130cc1e7a935e9074942a"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -400,7 +400,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 12303,
-      "sha256": "863d944cefb9d3a9ed3a9e4f5871e70654650cd7dcc7608c271014d44eefd0ce"
+      "sha256": "5b685ed124021d4410485cd1afacf81f2235a7fe0d7ff87f8a0d7046764562eb"
     },
     {
       "path": "smoke-workflow.sh",

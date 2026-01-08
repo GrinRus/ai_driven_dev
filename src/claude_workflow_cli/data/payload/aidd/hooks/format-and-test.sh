@@ -568,10 +568,7 @@ def collect_changed_files() -> List[str]:
 
 
 def is_cache_artifact(path: str) -> bool:
-    normalized = path.replace("\\", "/")
-    if normalized.endswith(".cache/format-and-test.last.json"):
-        return True
-    return normalized.startswith(".cache/logs/") or "/.cache/logs/" in normalized
+    return path.endswith(".cache/format-and-test.last.json") or path.startswith(".cache/logs/")
 
 
 def append_unique(container: List[str], value: str) -> None:
@@ -961,16 +958,7 @@ def main() -> int:
         log("Не указан runner для тестов — стадия пропущена.")
         return 0
 
-    diff_text = ""
-    if git_has_head():
-        diff_text = "\n".join(
-            part
-            for part in (
-                git_output(["git", "diff", "--no-color"]),
-                git_output(["git", "diff", "--no-color", "--cached"]),
-            )
-            if part
-        )
+    diff_text = git_output(["git", "diff", "--no-color"]) if git_has_head() else ""
     untracked_files = [path for path in list_untracked_files() if not is_cache_artifact(path)]
     dedupe_meta: Dict[str, object] = {
         "profile": test_profile,
