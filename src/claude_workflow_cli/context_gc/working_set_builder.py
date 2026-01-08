@@ -14,6 +14,8 @@ from .hooklib import load_config, resolve_aidd_root
 CODE_FENCE_RE = re.compile(r"^```")
 TASK_RE = re.compile(r"^\s*-\s*\[\s*\]\s+(.*)$")
 DONE_TASK_RE = re.compile(r"^\s*-\s*\[\s*[xX]\s*\]\s+(.*)$")
+CONTEXT_PACK_RE = re.compile(r"^##\s*AIDD:CONTEXT_PACK\b", re.IGNORECASE)
+HEADING_RE = re.compile(r"^##\s+")
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,33 @@ def _extract_tasks(md: str, max_tasks: int) -> Tuple[List[str], int, int]:
     return todos, done, total
 
 
+def _extract_context_pack(md: str, max_lines: int, max_chars: int) -> Optional[str]:
+    lines = md.splitlines()
+    start = None
+    for idx, line in enumerate(lines):
+        if CONTEXT_PACK_RE.match(line.strip()):
+            start = idx + 1
+            break
+    if start is None:
+        return None
+    collected: List[str] = []
+    for line in lines[start:]:
+        if HEADING_RE.match(line) and not CONTEXT_PACK_RE.match(line.strip()):
+            break
+        collected.append(line)
+    text = "\n".join(collected).strip()
+    if not text:
+        return None
+    if max_lines > 0:
+        text_lines = text.splitlines()
+        if len(text_lines) > max_lines:
+            text_lines = text_lines[:max_lines]
+        text = "\n".join(text_lines).strip()
+    if max_chars > 0 and len(text) > max_chars:
+        text = text[:max_chars].rstrip()
+    return text or None
+
+
 def _run_git(project_dir: Path, args: List[str], timeout: float = 1.5) -> Optional[str]:
     try:
         proc = subprocess.run(
@@ -112,6 +141,8 @@ def build_working_set(project_dir: Path) -> WorkingSet:
     ws_cfg = cfg.get("working_set", {})
     max_chars = int(ws_cfg.get("max_chars", 6000))
     max_tasks = int(ws_cfg.get("max_tasks", 25))
+    pack_max_lines = int(ws_cfg.get("context_pack_max_lines", 20))
+    pack_max_chars = int(ws_cfg.get("context_pack_max_chars", 1200))
 
     ticket = None
     slug = None
@@ -160,7 +191,12 @@ def build_working_set(project_dir: Path) -> WorkingSet:
 
         if tasklist.exists():
             md = _read_text(tasklist)
+            context_pack = _extract_context_pack(md, pack_max_lines, pack_max_chars)
             todos, done, total = _extract_tasks(md, max_tasks=max_tasks)
+            if context_pack:
+                parts.append("#### Context Pack")
+                parts.append(context_pack)
+                parts.append("")
             parts.append("#### Tasklist")
             if total:
                 parts.append(f"- Progress: {done}/{total} done")

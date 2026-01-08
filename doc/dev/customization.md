@@ -91,6 +91,11 @@
 
 Значения из `defaults` будут автоматически подставлены, если пользователь не указал аргументы.
 
+## Контекст и anchors
+
+- Для короткого контекста используйте секцию `AIDD:CONTEXT_PACK` в tasklist (<= 20 lines / <= 1200 chars).
+- Политика чтения: если есть `*.pack.yaml` — читать pack; иначе начинать с anchor‑секций.
+
 ## Git-хуки
 
 ### `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh`
@@ -104,7 +109,7 @@ ${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh
 ```
 
 - Для пропуска форматирования используйте `SKIP_FORMAT=1`.
-- Логи вывода можно перенаправить в файл: `LOG_FILE=aidd/reports/logs/format.log`.
+- Полный лог тестов пишется в `aidd/.cache/logs/format-and-test.<timestamp>.log`; режим вывода — `AIDD_TEST_LOG=summary|full`, хвост при падении — `AIDD_TEST_LOG_TAIL_LINES`.
 - Для выбора профиля тестов создайте `aidd/.cache/test-policy.env`:
 
 ```bash
@@ -114,6 +119,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 ```
 
 - Для повторного прогона при неизменном diff используйте `AIDD_TEST_FORCE=1`.
+- Дефолтный профиль для автоматического запуска можно задать через `AIDD_TEST_PROFILE_DEFAULT` (например, fast на SubagentStop и targeted на Stop).
 
 ### Установка git-хуков
 

@@ -2,8 +2,8 @@
 description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
@@ -38,7 +38,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `claude-workflow set-active-stage tasklist`.
-2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
+2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`. Если секции `AIDD:CONTEXT_PACK` нет — добавь по шаблону.
 3. Обнови фронт-маттер (Ticket/Slug/Status/PRD/Plan/Research/Updated).
 4. Перенеси шаги из плана в чеклист, добавь action items из PRD Review.
 5. Заполни `Next 3` (первые три пункта фокуса) и `Handoff inbox`.

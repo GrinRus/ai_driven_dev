@@ -125,6 +125,93 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertIn("- Branch:", ws.text)
             self.assertIn("- Dirty files: 1", ws.text)
 
+    def test_working_set_builder_includes_context_pack(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "docs/tasklist/demo-ticket.md",
+                "\n".join(
+                    [
+                        "# Tasklist",
+                        "",
+                        "## AIDD:CONTEXT_PACK",
+                        "- Focus: checkout flow",
+                        "- Files: src/checkout/service.py",
+                        "",
+                        "## Next 3",
+                        "- [ ] Task A",
+                    ]
+                ),
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "working_set": {
+                        "include_git_status": False,
+                        "context_pack_max_lines": 10,
+                        "context_pack_max_chars": 200,
+                    }
+                },
+            )
+
+            ws = working_set_builder.build_working_set(root)
+
+            self.assertIn("#### Context Pack", ws.text)
+            self.assertIn("Focus: checkout flow", ws.text)
+            self.assertIn("Files: src/checkout/service.py", ws.text)
+
+    def test_context_pack_limits_applied(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            long_line = "X" * 200
+            write_file(
+                root,
+                "docs/tasklist/demo-ticket.md",
+                "\n".join(
+                    [
+                        "# Tasklist",
+                        "",
+                        "## AIDD:CONTEXT_PACK",
+                        long_line,
+                        "short line",
+                        "extra line",
+                        "",
+                        "## Next 3",
+                        "- [ ] Task A",
+                    ]
+                ),
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "working_set": {
+                        "include_git_status": False,
+                        "context_pack_max_lines": 2,
+                        "context_pack_max_chars": 80,
+                    }
+                },
+            )
+
+            ws = working_set_builder.build_working_set(root)
+            lines = ws.text.splitlines()
+            try:
+                start = lines.index("#### Context Pack") + 1
+            except ValueError:
+                self.fail("Context Pack section missing in working set")
+            collected = []
+            for line in lines[start:]:
+                if line.startswith("#### "):
+                    break
+                collected.append(line)
+            context_block = "\n".join(collected).strip()
+            self.assertLessEqual(len(context_block), 80)
+            self.assertLessEqual(len(context_block.splitlines()), 2)
+
 
 class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_soft_warning(self) -> None:

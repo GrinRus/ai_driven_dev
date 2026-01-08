@@ -33,8 +33,8 @@
     {
       "path": "aidd/AGENTS.md",
       "type": "file",
-      "size": 1411,
-      "sha256": "e2883648149d5688289e70c6f3b3f051621f189ac5b4b665eda4d9e498c140f3"
+      "size": 2325,
+      "sha256": "ca99d96a50783f6de6691c3a8b56c80eac9d6cab26fc739ab90824110280a40e"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -45,8 +45,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 4694,
-      "sha256": "0e2708af2ea8a2138af156a88a0520492e1b8e258346f930c0b15399e27b37c3"
+      "size": 5533,
+      "sha256": "0e87dd58cb5b95fc570702edf151e54386ba4956ba0ee5eee3dff78946af7c45"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
@@ -99,8 +99,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 4733,
-      "sha256": "4f62944809cc683d295124b175641cf2243e01156f210e36dd6c63b618fd8093"
+      "size": 5012,
+      "sha256": "eccc9d97e7e521106cd28281b5bb67f34d8afeced73cd862c486caba71e03942"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -135,8 +135,8 @@
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 2862,
-      "sha256": "208de01df0299d051f0411b27889808295433c46569dcfcb92ed30f3c1966713"
+      "size": 2949,
+      "sha256": "b71dc9a31372b551a5a63e72a203f2c3bf86b0db34142768b2a1f481442d14ea"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -147,8 +147,8 @@
     {
       "path": "aidd/config/context_gc.json",
       "type": "file",
-      "size": 1321,
-      "sha256": "23390f3c04ff8bc94416a42d96404c0e0863d41fc8e6872a48267c6585a09a41"
+      "size": 1391,
+      "sha256": "da06d386c5a16b472c34de7733e8e576fd4ee2c61387f3cc40f4e4b468b2bcaa"
     },
     {
       "path": "aidd/config/conventions.json",
@@ -179,6 +179,12 @@
       "type": "file",
       "size": 3345,
       "sha256": "58fb09d121fdb60c0931226bb7b9e6e2ee73c360694b5ce12f0d162341bccc2b"
+    },
+    {
+      "path": "aidd/docs/anchors/implement.md",
+      "type": "file",
+      "size": 1044,
+      "sha256": "68d3f3c02c58367b44a58d689b7790d7e179ff36d2ca17ca6fdced3c31575e92"
     },
     {
       "path": "aidd/docs/cli-migration.md",
@@ -243,14 +249,14 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6704,
-      "sha256": "9f5982c664a9611bc93e89d45104821f3db9c7caf69135d9d88fdcbedd93b4be"
+      "size": 7086,
+      "sha256": "5f91231fb6ff9339790534348899fc9cafdc1979eef1a28652968798f227d813"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 32728,
-      "sha256": "4929a30d8e70668f179155067981c94608ef54543ff80b5090aaeaa635a145ca"
+      "size": 35502,
+      "sha256": "62761f8ce1947816b8d6ca1b1dfcc241d885835d47b218c18429a3949a34e789"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -291,8 +297,8 @@
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 3254,
-      "sha256": "f259ef3589cce98d5d7573b68bc300056f61e5ab606121bdecd7a454c62793c8"
+      "size": 3320,
+      "sha256": "dc55c8ae489a81e09833f4e16387ccc2a447fb55db3ae066ab6aec277d69bc48"
     },
     {
       "path": "aidd/hooks/lib.sh",
@@ -321,8 +327,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 19767,
-      "sha256": "1d97c6c94a0b8dc391078b09a58f87c212437b02d8ccf3c55909ad3b01511346"
+      "size": 20126,
+      "sha256": "7075150336c72a783f70486c3a93041d3c070a4a98d72d6b4102b776ee8fe222"
     }
   ]
 }

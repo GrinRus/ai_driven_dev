@@ -6,6 +6,7 @@
 > Текущая стадия фиксируется в `aidd/docs/.active_stage` (`idea/research/plan/review-plan/review-prd/tasklist/implement/review/qa`); команды обновляют маркер и позволяют возвращаться к любому этапу.
 > Команды/агенты/хуки поставляются как плагин `feature-dev-aidd` (`aidd/.claude-plugin/plugin.json`, файлы в `aidd/{commands,agents,hooks}`); runtime `.claude/` содержит только настройки/кеш. Marketplace для автоподключения лежит в корне (`.claude-plugin/marketplace.json`), root `.claude/settings.json` включает плагин.
 > Базовые правила — в `aidd/AGENTS.md`; порядок стадий — в `aidd/docs/sdlc-flow.md`, статусы — в `aidd/docs/status-machine.md`.
+> Рабочий контекст обновляется `context-gc` и хранится в `aidd/reports/context/latest_working_set.md`.
 > Требования к структуре промптов агентов и слэш-команд описаны в `doc/dev/prompt-playbook.md`. При редактировании файлов в `aidd/agents|commands` сверяйтесь с плейбуком, чтобы сохранить единый формат `Контекст → Входы → Автоматизация → Пошаговый план → Fail-fast → Формат ответа` и правило `Checkbox updated`.
 > Hook events определены в `aidd/hooks/hooks.json`: PreToolUse (context GC для Bash/Read), UserPromptSubmit (prompt guard), Stop/SubagentStop (`gate-workflow`, `gate-tests`, `gate-qa`, `format-and-test`, `lint-deps`). Скрипты вызываются через `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/*.sh`.
 > Все команды и хуки ожидают структуру `./aidd/**` (workspace = `--target .`); при запуске из другого каталога появится явная ошибка «aidd/docs not found».
@@ -13,6 +14,7 @@
 ## Agent-first принципы
 
 - Каждый агент сначала **использует данные репозитория** (backlog, PRD, research, reports, tests, конфиги) и только потом задаёт вопросы пользователю. Вопросы фиксируются формально («что проверено → чего не хватает → формат ответа»).
+- Чтение по умолчанию: если есть `*.pack.yaml` — читать pack; иначе начинать с anchor‑секций и `AIDD:CONTEXT_PACK`.
 - В промптах и документации явно указывайте, какие команды доступны (`rg`, `pytest`, `npm test`, `claude-workflow progress`) и как агент должен логировать результаты (пути, вывод команд, ссылки на отчёты).
 - Любое действие должно приводить к обновлению артефакта: PRD, research, план, tasklist, diff, отчёт. Агент всегда сообщает, где записан результат.
 - Если агент не имеет нужных прав (например, нет Bash-доступа к `rg`), он обязан перечислить альтернативы (чтение JSON/папок) и ссылаться на проверенные файлы перед тем, как объявить блокер.
@@ -83,7 +85,7 @@
 ### implementer — реализация
 - **Вызов:** `/implement <ticket>`
 - **Вход:** утверждённый план, `aidd/docs/tasklist/<ticket>.md`, `aidd/docs/research/<ticket>.md`, PRD, актуальный diff.
-- **Процесс:** агент выбирает следующий пункт из `Next 3` (лимит: 1 чекбокс или 2 тесно связанных), читает связанные файлы и реализует минимальный diff. Перед правками создаёт `aidd/.cache/test-policy.env` с профилем проверок. На Stop/SubagentStop запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только при стадии `implement`** (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`). Все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
+- **Процесс:** агент выбирает следующий пункт из `Next 3` (лимит: 1 чекбокс или 2 тесно связанных), начинает с `AIDD:CONTEXT_PACK` и working set, читает связанные файлы и реализует минимальный diff. Перед правками создаёт `aidd/.cache/test-policy.env` с профилем проверок. На Stop/SubagentStop запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только при стадии `implement`** (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`). Все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляются в ответе вместе с результатом.
 - **Тесты:** по умолчанию профиль `fast`; используйте `targeted` для узких прогонов и `full` для изменений общих конфигов/ядра. Не повторяйте прогон без изменения diff; для повторного запуска используйте `AIDD_TEST_FORCE=1` и объясните причину.
 - **Коммуникация:** вопросы пользователю задаются только после того, как агент перечислил проверенные артефакты (план, research, код, тесты) и пояснил, какой информации не хватает.
 - **Прогресс:** каждую итерацию переводите релевантные пункты `- [ ] → - [x]`, добавляйте строку `Checkbox updated: …`, фиксируйте дату/итерацию и запускайте `claude-workflow progress --source implement --ticket <ticket>` — команда отследит, появились ли новые `- [x]`. `gate-workflow` и `gate-tests` отображают статусы и блокируют push при нарушениях.
@@ -115,6 +117,8 @@
 
 - Пресет `strict` запускает `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` на Stop/SubagentStop **и только при стадии `implement`**. Скрипт анализирует diff, форматирует код и выполняет выборочные задачи тест-раннера/CLI.
 - Управляйте поведением через переменные окружения: `SKIP_AUTO_TESTS=1` — пауза, `FORMAT_ONLY=1` — форматирование без тестов, `TEST_SCOPE="task1,task2"` — задать конкретные задачи и выключить режим changed-only, `TEST_CHANGED_ONLY=0` — форсировать полный прогон, `STRICT_TESTS=1` — падать при первых ошибках. Для обхода stage check используйте `CLAUDE_SKIP_STAGE_CHECKS=1`.
+- Дефолтный профиль можно задать через `AIDD_TEST_PROFILE_DEFAULT` (например, fast на SubagentStop и targeted на Stop); явная политика из `aidd/.cache/test-policy.env` имеет приоритет.
+- Логи тестов пишутся в `aidd/.cache/logs/format-and-test.<timestamp>.log`; режим вывода: `AIDD_TEST_LOG=summary|full`, хвост при падении — `AIDD_TEST_LOG_TAIL_LINES`.
 - Для ручного запуска выполните `bash "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh"` (команда учитывает те же переменные) и исправьте замечания перед продолжением работы.
 
 ## Чеклист быстрого старта фичи
