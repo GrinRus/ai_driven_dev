@@ -568,7 +568,10 @@ def collect_changed_files() -> List[str]:
 
 
 def is_cache_artifact(path: str) -> bool:
-    return path.endswith(".cache/format-and-test.last.json") or path.startswith(".cache/logs/")
+    normalized = path.replace("\\", "/")
+    if normalized.endswith(".cache/format-and-test.last.json"):
+        return True
+    return normalized.startswith(".cache/logs/") or "/.cache/logs/" in normalized
 
 
 def append_unique(container: List[str], value: str) -> None:

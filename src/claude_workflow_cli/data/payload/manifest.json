@@ -255,8 +255,8 @@
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 35185,
-      "sha256": "878c231b3ca952ef3a8e72f004bb034e0f325158f12130cc1e7a935e9074942a"
+      "size": 35296,
+      "sha256": "73fd6f64e7bfac15016c8d0063233b85433211aa5ff42b4f7850a49e97c7f9df"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
