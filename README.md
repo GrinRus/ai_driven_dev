@@ -4,7 +4,7 @@
 
 ## TL;DR
 - `claude-workflow init --target .` (или `aidd/init-claude-workflow.sh` из payload) разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow sync|upgrade|smoke` покрывают обновление payload и e2e-smoke.
-- Автоформат и выборочные проверки (`aidd/hooks/format-and-test.sh`) запускаются только на стадии `implement` и только на Stop/SubagentStop (`SKIP_AUTO_TESTS=1` временно отключает); артефакты защищены хуками `gate-*`.
+- Автоформат и выборочные проверки (`aidd/hooks/format-and-test.sh`) запускаются только на стадии `implement` и только на Stop/SubagentStop (`SKIP_AUTO_TESTS=1` временно отключает); профили тестов задаются через `aidd/.cache/test-policy.env`, артефакты защищены хуками `gate-*`.
 - Стадия фичи хранится в `aidd/docs/.active_stage` и обновляется слэш-командами (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); можно откатываться к любому этапу.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации/промптов.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
@@ -115,7 +115,7 @@
 - `examples/apply-demo.sh` — демонстрирует применение шаблона к демо-проекту, печатает дерево каталогов до/после и запускает проверки, если они настроены.
 
 ### Git-хуки и автоматизация
-- `aidd/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, анализирует `git diff`, активный ticket (и slug-хинт) из `aidd/docs/.active_ticket`/`.active_feature`, умеет переключать selective/full run и подбирает задачи через `moduleMatrix`, `defaultTasks`, `fallbackTasks`. Запускается на Stop/SubagentStop и только при стадии `implement`.
+- `aidd/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, `AIDD_TEST_PROFILE/TASKS/FILTERS/FORCE`, анализирует `git diff`, активный ticket (и slug-хинт) из `aidd/docs/.active_ticket`/`.active_feature`, выбирает профиль (fast/targeted/full/none), подбирает задачи через `fastTasks/fullTasks/targetedTask`, `moduleMatrix`, `defaultTasks`, `fallbackTasks`, кеширует fingerprint в `aidd/.cache/format-and-test.last.json`. Запускается на Stop/SubagentStop и только при стадии `implement`.
 - `aidd/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного ticket нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) или новых `- [x]` в `aidd/docs/tasklist/<ticket>.md` (гейт `tasklist_progress`), игнорирует изменения в документации/шаблонах.
 - `aidd/hooks/gate-tests.sh` — опциональная проверка из `config/gates.json`: контролирует наличие сопутствующих тестов (`disabled|soft|hard`), по умолчанию игнорирует тестовые директории (`exclude_dirs`), выводит подсказки по разблокировке.
 - `aidd/hooks/gate-qa.sh` — запускает `claude-workflow qa` (или команду из `config/gates.json`), пишет `reports/qa/<ticket>.json` и считает `blocker/critical` блокирующими; см. `doc/dev/qa-playbook.md`.
@@ -187,16 +187,16 @@
 - `tests/helpers.py` — вспомогательные функции (создание файлов, git init/config, запуск хуков) для изоляции сценариев.
 - `tests/test_init_claude_workflow.py` — проверяет чистую установку, `--dry-run`, `--force`, наличие ключевых артефактов и поведение bootstrap-скрипта.
 - `tests/test_gate_*.py` — проверяют workflow/API/DB/tests гейты: учитывают ticket/slug-хинт, tracked/untracked миграции, режимы `soft/hard/disabled` и нецелевые файлы.
-- `tests/test_format_and_test.py` — моделирует запуск Python-хука, проверяет `moduleMatrix`, реакцию на общие файлы, переменные `SKIP_AUTO_TESTS`, `TEST_SCOPE`.
+- `tests/test_format_and_test.py` — моделирует запуск Python-хука, проверяет профили, `moduleMatrix`, реакцию на общие файлы, переменные `SKIP_AUTO_TESTS`, `TEST_SCOPE`, `AIDD_TEST_*`.
 - `tests/test_settings_policy.py` — валидирует `.claude/settings.json`, гарантируя, что критичные команды (`git add/commit/push`, `curl`, запись в прод-пути) находятся в `ask/deny` и хуки остаются в плагине (не дублируются в settings).
 - `scripts/ci-lint.sh` и `.github/workflows/ci.yml` — единый entrypoint линтеров/тестов для локального запуска и GitHub Actions.
 - `scripts/smoke-workflow.sh` — E2E smoke, подтверждает, что `gate-workflow` блокирует исходники до появления PRD/плана/review-plan/PRD review/tasklist (`aidd/docs/tasklist/<ticket>.md`); для ревью используйте `/review-spec`.
 
 ## Диагностика и отладка
 - **Линтеры и тесты:** запускайте `scripts/ci-lint.sh` для полного набора (`shellcheck`, `markdownlint`, `yamllint`, `python -m unittest`) или адресно `python3 -m unittest tests/test_gate_workflow.py`.
-- **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS` управляют `aidd/hooks/format-and-test.sh`.
+- **Переменные окружения:** `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `TEST_CHANGED_ONLY`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE` управляют `aidd/hooks/format-and-test.sh`.
 - **Диагностика гейтов:** передайте payload через stdin: `echo '{"tool_input":{"file_path":"src/app.py"}}' | CLAUDE_PROJECT_DIR=$PWD aidd/hooks/gate-workflow.sh`.
-- **Selective runner:** настройте `automation.tests.moduleMatrix` в `.claude/settings.json`, чтобы сопоставлять пути и команды тест‑раннера; для отладки включайте `TEST_SCOPE` и `TEST_CHANGED_ONLY=0`.
+- **Selective runner:** настройте `automation.tests.fastTasks/fullTasks/targetedTask` и `moduleMatrix` в `.claude/settings.json`; профили задавайте через `aidd/.cache/test-policy.env`, для отладки включайте `TEST_SCOPE` и `TEST_CHANGED_ONLY=0`.
 - **Smoke-сценарий:** `scripts/smoke-workflow.sh` поднимет временной проект и проверит последовательность `/idea-new → /plan-new → /review-spec → /tasks-new`.
 - **CI-проверки:** GitHub Actions (`.github/workflows/ci.yml`) ожидает установленные `shellcheck`, `yamllint`, `markdownlint`; убедитесь, что локальная среда воспроизводит их версии при отладке.
 

@@ -11,7 +11,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 
 ## TL;DR
 - `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) bootstraps `/idea-new (analyst) → research when needed → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow sync|upgrade|smoke` cover payload refresh and smoke.
-- Formatting and selective checks (`aidd/hooks/format-and-test.sh`) run only during the `implement` stage and only on Stop/SubagentStop (`SKIP_AUTO_TESTS=1` to pause); `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
+- Formatting and selective checks (`aidd/hooks/format-and-test.sh`) run only during the `implement` stage and only on Stop/SubagentStop (`SKIP_AUTO_TESTS=1` to pause); test profiles live in `aidd/.cache/test-policy.env`; `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
 - The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and prompt templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
@@ -112,7 +112,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - The bootstrap provisions `aidd/hooks/*` and documentation; branch and commit flows rely on native git commands guided by `config/conventions.json`.
 
 ### Hooks & automation
-- `aidd/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, inspecting `git diff` plus the active ticket/slug hint, switching between selective/full runs, and resolving tasks via `moduleMatrix`, `defaultTasks`, `fallbackTasks`. Runs on Stop/SubagentStop and only during the `implement` stage.
+- `aidd/hooks/format-and-test.sh` — Python hook reading `.claude/settings.json`, honouring `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, `AIDD_TEST_PROFILE/TASKS/FILTERS/FORCE`, inspecting `git diff` plus the active ticket/slug hint, selecting a profile (fast/targeted/full/none), resolving tasks via `fastTasks/fullTasks/targetedTask`, `moduleMatrix`, `defaultTasks`, `fallbackTasks`, and caching fingerprints in `aidd/.cache/format-and-test.last.json`. Runs on Stop/SubagentStop and only during the `implement` stage.
 - `aidd/hooks/gate-workflow.sh` — blocks edits under `src/**` until the active ticket has PRD, plan, `## Plan Review`, `## PRD Review` with `Status: READY`, and fresh `- [x]` entries in `aidd/docs/tasklist/<ticket>.md` (the `tasklist_progress` gate), while ignoring documentation/template edits.
 - `aidd/hooks/gate-prd-review.sh` — enforces PRD review readiness: inspects the active PRD, ensures the review section exists, and prevents merging when blockers remain.
 - `aidd/hooks/gate-tests.sh` — optional check driven by `config/gates.json`, validating the presence of matching tests (`disabled|soft|hard`) with actionable hints; test folders are excluded by default via `exclude_dirs`.
@@ -154,7 +154,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - `tests/helpers.py` — helper utilities to create files, initialise git, generate `config/gates.json`, and run hooks.
 - `tests/test_init_claude_workflow.py` — validates bootstrap execution together with `--dry-run`, `--force`, and required artefacts.
 - `tests/test_gate_*.py` — scenarios for workflow/API/DB/test gates, covering tracked/untracked migrations and mode toggles.
-- `tests/test_format_and_test.py` — selective runner coverage with `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS`, `TEST_SCOPE`.
+- `tests/test_format_and_test.py` — selective runner coverage with profiles, `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS`, `TEST_SCOPE`, `AIDD_TEST_*`.
 - `tests/test_settings_policy.py` — ensures `permissions` stay safe and hooks are delegated to the plugin (not duplicated in settings).
 - `tools/payload_audit.py` — audits payload contents against allowlist/denylist (guards against accidental dev-only files in the distro).
 
@@ -171,7 +171,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 
 ## Key scripts and hooks
 - **`aidd/init-claude-workflow.sh`** — verifies `bash/git/python3`, generates `.claude/`, `.claude-plugin/`, and `aidd/**`, honours `--force`, prints dry-run plans, and persists the commit mode.
-- **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, and escalates to full runs when shared files change; runs only in the `implement` stage.
+- **`aidd/hooks/format-and-test.sh`** — inspects `git diff`, resolves tasks via `automation.tests` (`changedOnly`, `moduleMatrix`, `fastTasks/fullTasks/targetedTask`), honours `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, `AIDD_TEST_*`, and escalates to full runs when shared files change; runs only in the `implement` stage.
 - **`gate-workflow.sh`** — blocks edits under `src/**` until PRD, plan, Plan Review + PRD Review (via `/review-spec`), and new completed checkboxes (`- [x]` in `aidd/docs/tasklist/<ticket>.md`) exist for the active ticket (`aidd/docs/.active_ticket`).
 - **`gate-prd-review.sh`** — calls `claude-workflow prd-review-gate`, which requires `aidd/docs/prd/<ticket>.prd.md`, a `## PRD Review` section with a status from `approved_statuses`, no open `- [ ]` action items, and a JSON report (`reports/prd/{ticket}.json` by default); blocking statuses, unchecked boxes, or report findings with severities from `blocking_severities` fail the gate, while `skip_branches`, `allow_missing_section`, `allow_missing_report`, and custom `report_path` values are controlled through `config/gates.json`.
 - **`gate-tests.sh`** — optional gate: when enabled it expects matching tests as configured in `config/gates.json`, and ignores test folders via `exclude_dirs`.
@@ -185,7 +185,7 @@ Advanced customization tips are covered in `doc/dev/workflow.md` and `doc/dev/cu
 - `tests/helpers.py` centralises helpers for file generation, git init/config, `config/gates.json` creation, and hook execution.
 - `tests/test_init_claude_workflow.py` validates fresh installs, `--dry-run`, `--force`, and required artefacts emitted by the bootstrap.
 - `tests/test_gate_*.py` cover workflow/API/DB/test gates, including tracked/untracked migration detection and `soft/hard/disabled` enforcement.
-- `tests/test_format_and_test.py` exercises the Python hook, checking `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS` and `TEST_SCOPE`.
+- `tests/test_format_and_test.py` exercises the Python hook, checking profiles, `moduleMatrix`, shared-file fallbacks, and env flags such as `SKIP_AUTO_TESTS`, `TEST_SCOPE`, and `AIDD_TEST_*`.
 - `tests/test_settings_policy.py` guards `.claude/settings.json`, keeping critical commands (`git add/commit/push`, `curl`, prod writes) in `ask/deny` and asserting hooks stay delegated to the plugin.
 - `scripts/ci-lint.sh` plus `.github/workflows/ci.yml` deliver linters and the unittest suite as a single local/CI entrypoint.
 - `scripts/smoke-workflow.sh` runs an E2E smoke to ensure `gate-workflow` blocks code edits until Plan Review + PRD Review (run via `/review-spec`), the plan, and `aidd/docs/tasklist/<ticket>.md` artefacts exist.

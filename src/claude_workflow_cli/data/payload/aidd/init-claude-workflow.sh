@@ -253,6 +253,26 @@ PY
   log_info "commit mode set to $COMMIT_MODE"
 }
 
+ensure_gitignore_cache() {
+  local entry="aidd/.cache/"
+  local gitignore_path="$WORKSPACE_ROOT/.gitignore"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_info "[dry-run] ensure .gitignore contains $entry"
+    return
+  fi
+  if [[ ! -f "$gitignore_path" ]]; then
+    touch "$gitignore_path"
+  fi
+  if grep -qxF "$entry" "$gitignore_path"; then
+    return
+  fi
+  if [[ -s "$gitignore_path" ]] && [[ "$(tail -c 1 "$gitignore_path" 2>/dev/null)" != $'\n' ]]; then
+    printf '\n' >>"$gitignore_path"
+  fi
+  printf '%s\n' "$entry" >>"$gitignore_path"
+  log_info "updated .gitignore with $entry"
+}
+
 format_bullets() {
   local line has=0
   while IFS= read -r line; do
@@ -470,6 +490,7 @@ main() {
   copy_workspace_plugin_files
   generate_gradle_helpers
   generate_config_and_scripts
+  ensure_gitignore_cache
   replace_commit_mode
   generate_ci_workflow
   final_message

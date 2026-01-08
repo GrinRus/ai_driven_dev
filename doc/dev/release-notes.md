@@ -67,6 +67,8 @@
 ## vNext — YYYY-MM-DD
 
 ### Added
+- Профили тестов `FAST/TARGETED/FULL/NONE` через `aidd/.cache/test-policy.env` и переменные `AIDD_TEST_*`.
+- Дедуп тестов: кэш `aidd/.cache/format-and-test.last.json` для пропуска повторов без изменений.
 - `claude-workflow research-check` — отдельная проверка research перед `/plan-new`.
 - `## Research Hints` в PRD-шаблоне для передачи путей/ключевых слов в `/researcher`.
 - Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
@@ -79,6 +81,8 @@
 - Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
+- `/implement` и `implementer` теперь фиксируют test policy, лимит итерации и тест-бюджет, ожидаемый вывод включает `Test profile`/`Tests run`.
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` выбирает задачи через профили (`fastTasks/fullTasks/targetedTask`) и уважает `AIDD_TEST_FORCE` при повторных прогонах.
 - `/idea-new` больше не запускает research; аналитик фиксирует подсказки, а `claude-workflow research` выполняется на стадии `/researcher`.
 - `analyst-check` больше не валидирует research; проверка вынесена в `research-check` и `gate-workflow`.
 - `/plan-new` вызывает `research-check` перед запуском planner.

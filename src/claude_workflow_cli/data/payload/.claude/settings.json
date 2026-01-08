@@ -156,9 +156,25 @@
       "fallbackTasks": [
         "scripts/ci-lint.sh"
       ],
+      "fastTasks": [
+        "scripts/ci-lint.sh"
+      ],
+      "fullTasks": [
+        "scripts/ci-lint.sh"
+      ],
+      "targetedTask": "",
       "changedOnly": true,
       "strictDefault": 1,
       "moduleMatrix": [],
+      "moduleMatrixExample": [
+        {
+          "match": "modules/checkout/",
+          "tasks": [
+            ":checkout:testClasses"
+          ]
+        }
+      ],
+      "notes": "fastTasks/fullTasks/targetedTask управляют профилями; moduleMatrixExample рассчитан на Gradle (используйте runner ['./gradlew']).",
       "reviewerGate": {
         "enabled": true,
         "marker": "reports/reviewer/{slug}.json",
@@ -180,7 +196,11 @@
         "TEST_CHANGED_ONLY": "0 — запускать полный набор задач независимо от diff.",
         "STRICT_TESTS": "1 — падать при первых ошибках тестов, 0 — только предупреждать.",
         "FORCE_TESTS": "1 — запустить тесты независимо от статуса reviewer.",
-        "SKIP_TESTS": "1 — пропустить тесты даже при статусе reviewer=required (не рекомендуется)."
+        "SKIP_TESTS": "1 — пропустить тесты даже при статусе reviewer=required (не рекомендуется).",
+        "AIDD_TEST_PROFILE": "fast|targeted|full|none — выбрать профиль тестов.",
+        "AIDD_TEST_TASKS": "Список задач через запятую (например, :checkout:test).",
+        "AIDD_TEST_FILTERS": "Список фильтров через запятую (например, com.acme.Test).",
+        "AIDD_TEST_FORCE": "1 — запустить тесты независимо от dedupe."
       }
     }
   }
