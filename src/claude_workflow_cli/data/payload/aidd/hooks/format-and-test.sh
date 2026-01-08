@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
@@ -362,6 +363,56 @@ def log(message: str) -> None:
     print(f"{LOG_PREFIX} {message}", file=sys.stderr)
 
 
+def resolve_test_log_mode() -> str:
+    mode = (os.environ.get("AIDD_TEST_LOG") or "summary").strip().lower()
+    if mode not in {"summary", "full"}:
+        return "summary"
+    return mode
+
+
+def resolve_test_log_tail_lines() -> int:
+    raw = os.environ.get("AIDD_TEST_LOG_TAIL_LINES", "")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = 120
+    return max(0, value)
+
+
+def ensure_test_log_path(project_root: Path) -> Path:
+    log_dir = project_root / ".cache" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    return log_dir / f"format-and-test.{stamp}.log"
+
+
+def tail_file_lines(path: Path, max_lines: int) -> str:
+    if max_lines <= 0:
+        return ""
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            lines = deque(handle, maxlen=max_lines)
+        return "".join(lines)
+    except OSError:
+        return ""
+
+
+def run_tests_with_tee(command: List[str], log_path: Path) -> subprocess.CompletedProcess[str]:
+    with log_path.open("w", encoding="utf-8") as handle:
+        proc = subprocess.Popen(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        if proc.stdout:
+            for line in proc.stdout:
+                sys.stdout.write(line)
+                handle.write(line)
+        returncode = proc.wait()
+    return subprocess.CompletedProcess(command, returncode)
+
+
 def fail(message: str, code: int = 1) -> int:
     log(message)
     return code
@@ -516,6 +567,10 @@ def collect_changed_files() -> List[str]:
     return sorted(files)
 
 
+def is_cache_artifact(path: str) -> bool:
+    return path.endswith(".cache/format-and-test.last.json") or path.startswith(".cache/logs/")
+
+
 def append_unique(container: List[str], value: str) -> None:
     if value and value not in container:
         container.append(value)
@@ -550,9 +605,12 @@ def determine_project_dir() -> Path:
 
 def resolve_project_root(raw: Path) -> Path:
     cwd = raw.resolve()
+    aidd_root = os.getenv("AIDD_ROOT")
     env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
     project_dir = os.getenv("CLAUDE_PROJECT_DIR")
     candidates: list[Path] = []
+    if aidd_root:
+        candidates.append(Path(aidd_root).expanduser().resolve())
     if env_root:
         candidates.append(Path(env_root).expanduser().resolve())
     if cwd.name == "aidd":
@@ -650,13 +708,21 @@ def main() -> int:
     policy_env = parse_env_file(policy_path)
     profile_env = os.environ.get("AIDD_TEST_PROFILE")
     profile_file = policy_env.get("AIDD_TEST_PROFILE")
-    policy_profile_raw = (profile_env or profile_file or "").strip()
+    profile_default_env = os.environ.get("AIDD_TEST_PROFILE_DEFAULT")
+    explicit_profile_raw = (profile_env or profile_file or "").strip()
     profile_source = "default"
     if profile_env:
+        profile_raw = profile_env
         profile_source = "env"
     elif profile_file:
+        profile_raw = profile_file
         profile_source = "test-policy.env"
-    test_profile = policy_profile_raw.lower() if policy_profile_raw else "fast"
+    elif profile_default_env:
+        profile_raw = profile_default_env
+        profile_source = "default-env"
+    else:
+        profile_raw = ""
+    test_profile = profile_raw.lower() if profile_raw else "fast"
     if test_profile not in {"fast", "targeted", "full", "none"}:
         log(f"Неизвестный AIDD_TEST_PROFILE={test_profile!r}; используем fast.")
         test_profile = "fast"
@@ -666,7 +732,7 @@ def main() -> int:
     policy_force_raw = os.environ.get("AIDD_TEST_FORCE") or policy_env.get("AIDD_TEST_FORCE")
     parsed_force = parse_bool_value(policy_force_raw)
     policy_force = bool(parsed_force) if parsed_force is not None else False
-    policy_active = bool(policy_profile_raw or policy_tasks_raw or policy_filters_raw or policy_force_raw)
+    policy_active = bool(explicit_profile_raw or policy_tasks_raw or policy_filters_raw or policy_force_raw)
     if policy_path.exists():
         policy_active = True
         log(f"Test policy detected: {policy_path}")
@@ -721,11 +787,7 @@ def main() -> int:
     else:
         code_exact = normalize_code_files([code_files_raw])
 
-    changed_files = [
-        path
-        for path in collect_changed_files()
-        if not path.endswith(".cache/format-and-test.last.json")
-    ]
+    changed_files = [path for path in collect_changed_files() if not is_cache_artifact(path)]
     identifiers = resolve_identifiers(Path.cwd())
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
@@ -897,11 +959,7 @@ def main() -> int:
         return 0
 
     diff_text = git_output(["git", "diff", "--no-color"]) if git_has_head() else ""
-    untracked_files = [
-        path
-        for path in list_untracked_files()
-        if not path.endswith(".cache/format-and-test.last.json")
-    ]
+    untracked_files = [path for path in list_untracked_files() if not is_cache_artifact(path)]
     dedupe_meta: Dict[str, object] = {
         "profile": test_profile,
         "tasks": test_tasks,
@@ -924,7 +982,19 @@ def main() -> int:
 
     command = test_runner + test_tasks
     log(f"Запуск тестов: {' '.join(command)}")
-    result = subprocess.run(command, text=True)
+    test_log_mode = resolve_test_log_mode()
+    test_log_path = ensure_test_log_path(project_root)
+    log(f"Test log: {test_log_path}")
+    if test_log_mode == "full":
+        result = run_tests_with_tee(command, test_log_path)
+    else:
+        with test_log_path.open("w", encoding="utf-8") as handle:
+            result = subprocess.run(
+                command,
+                text=True,
+                stdout=handle,
+                stderr=subprocess.STDOUT,
+            )
     status = "success" if result.returncode == 0 else "failed"
     write_dedupe_state(
         cache_path,
@@ -940,6 +1010,12 @@ def main() -> int:
     if result.returncode == 0:
         log("Тесты завершились успешно.")
         return 0
+
+    if test_log_mode == "summary":
+        tail_lines = resolve_test_log_tail_lines()
+        tail = tail_file_lines(test_log_path, tail_lines)
+        if tail.strip():
+            log(f"Последние {tail_lines} строк лога тестов:\n{tail.rstrip()}")
 
     if strict_flag:
         return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result.returncode)

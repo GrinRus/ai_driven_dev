@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.12
-source_version: 1.1.12
+prompt_version: 1.1.13
+source_version: 1.1.13
 allowed-tools:
   - Read
   - Edit
@@ -25,6 +25,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/implement` запускает саб-агента **implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
+Перед запуском используйте working set (`aidd/reports/context/latest_working_set.md`, если есть) и `AIDD:CONTEXT_PACK` в tasklist; ориентируйтесь на stage‑anchor `docs/anchors/implement.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md`.
@@ -65,7 +66,7 @@ Decision matrix (default: `fast`):
 ## Пошаговый план
 1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
 2. Задай test policy (аргументы `test=...`, `tasks=...`, `tests=...` → `aidd/.cache/test-policy.env`).
-3. Запусти саб-агента **implementer** и передай контекст итерации.
+3. Запусти саб-агента **implementer** и передай контекст итерации (working set + `AIDD:CONTEXT_PACK`).
 4. Убедись, что tasklist обновлён и прогресс подтверждён через `claude-workflow progress`.
 
 ## Fail-fast и вопросы

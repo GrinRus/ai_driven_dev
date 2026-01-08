@@ -455,6 +455,17 @@ echo "$fmt_first" | grep -q "Выбранные задачи тестов (fast)
   echo "$fmt_first" >&2
   exit 1
 }
+log "verify format-and-test log created"
+log_file="$(ls -t "$WORKDIR/.cache/logs"/format-and-test.*.log 2>/dev/null | head -n 1)"
+[[ -f "$log_file" ]] || {
+  echo "[smoke] format-and-test log file not found" >&2
+  exit 1
+}
+grep -q "smoke-fast" "$log_file" || {
+  echo "[smoke] format-and-test log missing expected output" >&2
+  cat "$log_file" >&2
+  exit 1
+}
 fmt_second="$("$WORKDIR/hooks/format-and-test.sh" 2>&1)"
 echo "$fmt_second" | grep -q "Dedupe: тесты уже запускались" || {
   echo "[smoke] dedupe did not skip repeated run" >&2

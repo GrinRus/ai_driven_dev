@@ -332,3 +332,55 @@ def test_dedupe_skips_repeat_run_and_force_overrides(tmp_path):
     forced = run_hook(project, settings, env={"AIDD_TEST_FORCE": "1"})
     assert "AIDD_TEST_FORCE=1" in forced.stderr
     assert "Запуск тестов" in forced.stderr
+
+
+def test_default_profile_env_applies_when_no_policy(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "targetedTask": "target_task",
+                    "reviewerGate": {"enabled": False},
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE_DEFAULT": "targeted"})
+
+    assert "Test profile: targeted (source: default-env)." in result.stderr
+    assert "Выбранные задачи тестов (targeted): target_task" in result.stderr
+
+
+def test_summary_log_written(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "reviewerGate": {"enabled": False},
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    run_hook(project, settings, env={"AIDD_TEST_LOG": "summary"})
+
+    log_dir = project / ".cache" / "logs"
+    logs = sorted(log_dir.glob("format-and-test.*.log"))
+    assert logs, "expected summary log file to be created"
+    assert "default_task" in logs[-1].read_text(encoding="utf-8")

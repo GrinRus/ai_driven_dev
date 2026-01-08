@@ -1169,3 +1169,33 @@ _Статус: новый, приоритет 1. Цель — упростить
 ### Инсталляция/пакетирование/тесты
 - [x] Обновить `src/claude_workflow_cli/data/payload/manifest.json`, `tools/payload_audit_rules.json`, `tools/check_payload_sync.py`, `scripts/sync-payload.sh` под новые пути шаблонов/доков.
 - [x] Обновить тесты (`tests/test_package_payload.py`, `tests/test_bootstrap_e2e.py`, `tests/test_gate_workflow.py` при необходимости) под новые пути и удалённые каталоги; добавить регрессию на отсутствие repo-only ссылок в payload docs.
+
+## Wave 68
+
+_Статус: новый, приоритет 1. Цель — EP09‑MVP (anchors/attention) + снижение частоты тяжёлых тестов без потери качества._
+
+### Промпты и контекстная дисциплина (EP09‑MVP)
+- [x] Обновить `aidd/AGENTS.md` и `src/claude_workflow_cli/data/payload/aidd/AGENTS.md`: заменить “что читать прежде всего” на `MUST KNOW FIRST` + read‑once policy; добавить правило “если есть `*.pack.yaml` → читать pack, иначе anchors‑first”; добавить ссылку на working set (`aidd/reports/context/latest_working_set.md`), и указать, что `sdlc-flow` и `status-machine` читаются только при первом входе/изменениях.
+- [x] Создать stage‑anchor `aidd/docs/anchors/implement.md` и `src/claude_workflow_cli/data/payload/aidd/docs/anchors/implement.md`: цели, MUST update, MUST NOT, что читать первым, Stop etiquette, дефолты профиля тестов.
+- [x] Обновить `aidd/agents/implementer.md` и `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`: добавить секцию “Context hygiene” (anchors‑first, snippet‑first через `rg` + `sed`, read‑once policy), “Stop etiquette” (1 чекбокс или 2 связанных до Stop), обязать обновлять `AIDD:CONTEXT_PACK` в tasklist (если секции нет — добавить по шаблону).
+- [x] Обновить `aidd/commands/implement.md` и `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`: первым источником контекста считать working set + `AIDD:CONTEXT_PACK` в tasklist; запретить полные Read без необходимости; подчеркнуть, что `format-and-test.sh` запускается автоматически; ссылаться на stage‑anchor `docs/anchors/implement.md`.
+
+### Tasklist template: AIDD:CONTEXT_PACK
+- [x] Добавить секцию `## AIDD:CONTEXT_PACK (<= 20 lines, <= 1200 chars)` в `aidd/docs/tasklist/template.md` и `src/claude_workflow_cli/data/payload/aidd/docs/tasklist/template.md` с правилами заполнения (фокус, активные файлы, инварианты, ссылки на план).
+- [x] Обновить `/tasks-new` (или implementer‑fallback), чтобы при отсутствии `AIDD:CONTEXT_PACK` секция добавлялась в существующий tasklist.
+
+### Context GC: рабочий набор
+- [x] Зафиксировать канонический путь working set и использовать его в `aidd/AGENTS.md`, `src/claude_workflow_cli/context_gc/working_set_builder.py`, `doc/dev/agents-playbook.md`.
+- [x] Расширить `src/claude_workflow_cli/context_gc/working_set_builder.py`: извлекать `AIDD:CONTEXT_PACK` из tasklist и включать в working set; опционально ограничить длину блока отдельным лимитом.
+
+### Хуки и профили тестов по событию
+- [x] Обновить `aidd/hooks/hooks.json` и `src/claude_workflow_cli/data/payload/aidd/hooks/hooks.json`: передавать `AIDD_TEST_PROFILE_DEFAULT=fast` на `SubagentStop` и `AIDD_TEST_PROFILE_DEFAULT=targeted` на `Stop`; если hooks.json не поддерживает env per‑event, добавить fallback (обёртка команды или логика в `format-and-test.sh` по событию).
+- [x] Обновить `aidd/hooks/format-and-test.sh` и `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: приоритет профиля `AIDD_TEST_PROFILE` > `aidd/.cache/test-policy.env` > `AIDD_TEST_PROFILE_DEFAULT` > `fast`.
+
+### Сжатие вывода тестов
+- [x] Добавить summary‑режим в `aidd/hooks/format-and-test.sh` и `src/claude_workflow_cli/data/payload/aidd/hooks/format-and-test.sh`: полный лог писать в `aidd/.cache/logs/format-and-test.<timestamp>.log`, в stdout выводить профиль, задачи, итог и tail при fail; добавить `AIDD_TEST_LOG` и `AIDD_TEST_LOG_TAIL_LINES`.
+
+### Тесты, smoke и документация
+- [x] Обновить `tests/test_format_and_test.py` и smoke‑сценарии (`scripts/smoke-workflow.sh`, `src/claude_workflow_cli/data/payload/smoke-workflow.sh`) под дефолты Stop/SubagentStop и summary‑логи.
+- [x] Обновить `doc/dev/customization.md` и `doc/dev/agents-playbook.md`: anchors‑first/pack‑first, `AIDD:CONTEXT_PACK`, новые дефолты профиля и формат логов.
+- [x] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.

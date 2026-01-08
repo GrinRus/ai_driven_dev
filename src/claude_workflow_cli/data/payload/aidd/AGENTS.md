@@ -8,9 +8,17 @@
 - По умолчанию работаем по контракту: входные артефакты → выходные артефакты → статус.
 - Ответ агента всегда начинается с `Checkbox updated:`.
 
-## Что читать прежде всего
-- `aidd/docs/sdlc-flow.md`
-- `aidd/docs/status-machine.md`
+## MUST KNOW FIRST (read-once / read-if-changed)
+- `aidd/AGENTS.md` — read-once; перечитывать только при изменениях workflow.
+- `aidd/docs/sdlc-flow.md` — только при первом входе или при изменениях процесса.
+- `aidd/docs/status-machine.md` — только при первом входе или при изменениях статусов.
+- `aidd/reports/context/latest_working_set.md` — краткий рабочий контекст (если файл существует).
+- `aidd/docs/anchors/<stage>.md` — stage‑anchor (если есть).
+- `aidd/docs/tasklist/<ticket>.md` — сначала `AIDD:CONTEXT_PACK`, затем `Next 3`.
+
+## Политика чтения
+- Если рядом есть `*.pack.yaml` — читать pack; полный JSON только при need‑to‑know.
+- Сначала искать/читать фрагменты (`rg` → `sed`); полный `Read` — крайний случай.
 
 ## Что нельзя делать
 - Менять файлы вне согласованного плана/тасклиста.
