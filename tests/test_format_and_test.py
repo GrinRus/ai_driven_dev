@@ -5,7 +5,16 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .helpers import PAYLOAD_ROOT, REPO_ROOT, cli_cmd, git_init, write_active_feature, write_active_stage, write_file
+from .helpers import (
+    PAYLOAD_ROOT,
+    REPO_ROOT,
+    cli_cmd,
+    git_config_user,
+    git_init,
+    write_active_feature,
+    write_active_stage,
+    write_file,
+)
 
 HOOK = PAYLOAD_ROOT / "hooks" / "format-and-test.sh"
 
@@ -332,3 +341,31 @@ def test_dedupe_skips_repeat_run_and_force_overrides(tmp_path):
     forced = run_hook(project, settings, env={"AIDD_TEST_FORCE": "1"})
     assert "AIDD_TEST_FORCE=1" in forced.stderr
     assert "Запуск тестов" in forced.stderr
+
+
+def test_dedupe_includes_staged_diff(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    git_config_user(project)
+    settings = write_settings(project, {})
+    write_active_stage(project, "implement")
+    cache_dir = project / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "test-policy.env").write_text("AIDD_TEST_PROFILE=fast\n", encoding="utf-8")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    source = project / "src" / "main.py"
+    source.write_text("print('v1')", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=project, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=project, check=True, capture_output=True)
+
+    source.write_text("print('v2')", encoding="utf-8")
+    subprocess.run(["git", "add", "src/main.py"], cwd=project, check=True, capture_output=True)
+    first = run_hook(project, settings)
+    assert "Запуск тестов" in first.stderr
+
+    source.write_text("print('v3')", encoding="utf-8")
+    subprocess.run(["git", "add", "src/main.py"], cwd=project, check=True, capture_output=True)
+    second = run_hook(project, settings)
+    assert "Dedupe: тесты уже запускались" not in second.stderr
+    assert "Запуск тестов" in second.stderr
