@@ -961,7 +961,16 @@ def main() -> int:
         log("Не указан runner для тестов — стадия пропущена.")
         return 0
 
-    diff_text = git_output(["git", "diff", "--no-color"]) if git_has_head() else ""
+    diff_text = ""
+    if git_has_head():
+        diff_text = "\n".join(
+            part
+            for part in (
+                git_output(["git", "diff", "--no-color"]),
+                git_output(["git", "diff", "--no-color", "--cached"]),
+            )
+            if part
+        )
     untracked_files = [path for path in list_untracked_files() if not is_cache_artifact(path)]
     dedupe_meta: Dict[str, object] = {
         "profile": test_profile,
