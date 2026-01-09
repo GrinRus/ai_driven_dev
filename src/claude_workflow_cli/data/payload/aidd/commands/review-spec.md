@@ -36,7 +36,7 @@ disable-model-invocation: false
 - `claude-workflow set-active-stage review-plan` фиксирует стадию `review-plan` перед проверкой плана.
 - `claude-workflow set-active-stage review-prd` фиксирует стадию `review-prd` перед PRD review.
 - `gate-workflow` требует `Status: READY` в `## Plan Review` и `## PRD Review` перед кодом.
-- Команда `claude-workflow prd-review --ticket <ticket> --report "aidd/reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
+- Команда `claude-workflow prd-review --ticket <ticket> --report "reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
 - Команда должна **запускать саб-агентов** `plan-reviewer` и `prd-reviewer` (Claude: Run agent → …).
 
 ## Что редактируется

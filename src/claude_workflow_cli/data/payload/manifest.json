@@ -123,8 +123,8 @@
     {
       "path": "aidd/commands/review-spec.md",
       "type": "file",
-      "size": 3945,
-      "sha256": "0a51aee33e8350974aae2fe8a63aabe18b6b51cc14d7ac31906387a541bdb61f"
+      "size": 3940,
+      "sha256": "b5425c4c49e04935ac7889f4d528bd88359296601704602fd92c068d50b0d0bf"
     },
     {
       "path": "aidd/commands/review.md",
