@@ -150,6 +150,8 @@
     },
     "tests": {
       "runner": "bash",
+      "cadence": "on_stop",
+      "checkpointTrigger": "progress",
       "defaultTasks": [
         "scripts/ci-lint.sh"
       ],
@@ -200,7 +202,8 @@
         "AIDD_TEST_PROFILE": "fast|targeted|full|none — выбрать профиль тестов.",
         "AIDD_TEST_TASKS": "Список задач через запятую (например, :checkout:test).",
         "AIDD_TEST_FILTERS": "Список фильтров через запятую (например, com.acme.Test).",
-        "AIDD_TEST_FORCE": "1 — запустить тесты независимо от dedupe."
+        "AIDD_TEST_FORCE": "1 — запустить тесты независимо от dedupe.",
+        "AIDD_TEST_CHECKPOINT": "1 — запустить тесты при cadence=checkpoint/manual."
       }
     }
   }

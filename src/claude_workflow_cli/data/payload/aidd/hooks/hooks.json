@@ -93,31 +93,6 @@
             "type": "command",
             "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-./aidd}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" claude-workflow context-gc stop",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/gate-workflow.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/gate-tests.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/gate-qa.sh",
-            "timeout": 60
-          },
-          {
-            "type": "command",
-            "command": "AIDD_TEST_PROFILE_DEFAULT=fast \"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/format-and-test.sh",
-            "timeout": 900
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/lint-deps.sh",
-            "timeout": 10
           }
         ]
       }

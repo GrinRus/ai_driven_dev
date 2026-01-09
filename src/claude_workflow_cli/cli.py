@@ -17,7 +17,7 @@ import zipfile
 from contextlib import contextmanager
 from importlib import metadata, resources
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from claude_workflow_cli.feature_ids import (
     FeatureIdentifiers,
@@ -909,6 +909,30 @@ def _index_sync_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _context_pack_command(args: argparse.Namespace) -> int:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    agent = (args.agent or "").strip()
+    if not agent:
+        raise ValueError("agent name is required (use --agent <name>)")
+    output = Path(args.output) if args.output else None
+    from claude_workflow_cli.tools import context_pack as _context_pack
+
+    pack_path = _context_pack.write_context_pack(
+        target,
+        ticket=ticket,
+        agent=agent,
+        output=output,
+    )
+    rel = _rel_path(pack_path, target)
+    print(f"[claude-workflow] context pack saved to {rel}.")
+    return 0
+
+
 def _status_command(args: argparse.Namespace) -> int:
     _, target = _require_workflow_root(Path(args.target).resolve())
     ticket, context = _require_ticket(
@@ -920,6 +944,7 @@ def _status_command(args: argparse.Namespace) -> int:
 
     from claude_workflow_cli.tools import index_sync as _index_sync
     from claude_workflow_cli.reports import events as _events
+    from claude_workflow_cli.reports import tests_log as _tests_log
 
     index_path = target / "docs" / "index" / f"{ticket}.yaml"
     if args.refresh or not index_path.exists():
@@ -987,6 +1012,45 @@ def _status_command(args: argparse.Namespace) -> int:
             if isinstance(details, dict) and details.get("summary"):
                 line += f" — {details.get('summary')}"
             print(f"  - {line}")
+    test_events = _tests_log.read_log(target, ticket, limit=args.events)
+    if test_events:
+        print("- Tests log:")
+        for entry in test_events:
+            line = f"{entry.get('ts')} [{entry.get('status')}]"
+            details = entry.get("details")
+            if isinstance(details, dict) and details.get("summary"):
+                line += f" — {details.get('summary')}"
+            print(f"  - {line}")
+    return 0
+
+
+def _tests_log_command(args: argparse.Namespace) -> int:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    details: Dict[str, Any] = {}
+    if args.summary:
+        details["summary"] = args.summary
+    if args.details:
+        try:
+            extra = json.loads(args.details)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid --details JSON: {exc}") from exc
+        if isinstance(extra, dict):
+            details.update(extra)
+    from claude_workflow_cli.reports import tests_log as _tests_log
+
+    _tests_log.append_log(
+        target,
+        ticket=ticket,
+        slug_hint=context.slug_hint,
+        status=args.status,
+        details=details or None,
+        source=args.source,
+    )
     return 0
 
 def _reviewer_tests_command(args: argparse.Namespace) -> None:
@@ -1356,6 +1420,11 @@ def _progress_command(args: argparse.Namespace) -> int:
         )
     except Exception:
         pass
+    try:
+        if result.status == "ok":
+            _maybe_write_test_checkpoint(target, ticket, context.slug_hint, args.source)
+    except Exception:
+        pass
     _maybe_sync_index(target, ticket, context.slug_hint, reason="progress")
 
     if args.json:
@@ -1502,6 +1571,45 @@ def _load_tests_settings(target: Path) -> dict:
     automation = settings.get("automation") or {}
     tests_cfg = automation.get("tests")
     return tests_cfg if isinstance(tests_cfg, dict) else {}
+
+
+def _normalize_checkpoint_triggers(value: object) -> list[str]:
+    if value is None:
+        return ["progress"]
+    if isinstance(value, (list, tuple)):
+        items = [str(item).strip().lower() for item in value if str(item).strip()]
+    else:
+        items = [item.strip().lower() for item in str(value).replace(",", " ").split() if item.strip()]
+    return items or ["progress"]
+
+
+def _maybe_write_test_checkpoint(
+    target: Path,
+    ticket: Optional[str],
+    slug_hint: Optional[str],
+    source: str,
+) -> None:
+    if not ticket:
+        return
+    tests_cfg = _load_tests_settings(target)
+    cadence = str(tests_cfg.get("cadence") or "on_stop").strip().lower()
+    if cadence != "checkpoint":
+        return
+    triggers = _normalize_checkpoint_triggers(
+        tests_cfg.get("checkpointTrigger") or tests_cfg.get("checkpoint_trigger")
+    )
+    if "progress" not in triggers:
+        return
+    checkpoint_path = target / ".cache" / "test-checkpoint.json"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ticket": ticket,
+        "slug_hint": slug_hint or ticket,
+        "trigger": "progress",
+        "source": source,
+        "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }
+    checkpoint_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _reviewer_gate_config(target: Path) -> dict:
@@ -2838,6 +2946,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tasks_parser.set_defaults(func=_tasks_derive_command)
 
+    context_pack_parser = subparsers.add_parser(
+        "context-pack",
+        help="Build a compact context pack from AIDD anchors.",
+    )
+    context_pack_parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier (defaults to docs/.active_ticket).",
+    )
+    context_pack_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    context_pack_parser.add_argument(
+        "--agent",
+        required=True,
+        help="Agent name used in the context pack filename.",
+    )
+    context_pack_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    context_pack_parser.add_argument(
+        "--output",
+        help="Optional output path override (default: reports/context/<ticket>-<agent>.md).",
+    )
+    context_pack_parser.set_defaults(func=_context_pack_command)
+
     index_parser = subparsers.add_parser(
         "index-sync",
         help="Generate/update derived ticket index (docs/index/<ticket>.yaml).",
@@ -2898,6 +3036,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of recent events to show (default: 5).",
     )
     status_parser.set_defaults(func=_status_command)
+
+    tests_log_parser = subparsers.add_parser(
+        "tests-log",
+        help="Append entry to tests JSONL log (reports/tests/<ticket>.jsonl).",
+    )
+    tests_log_parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier (defaults to docs/.active_ticket).",
+    )
+    tests_log_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    tests_log_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    tests_log_parser.add_argument(
+        "--status",
+        required=True,
+        help="Status label for the test entry (pass|fail|skipped|...).",
+    )
+    tests_log_parser.add_argument(
+        "--summary",
+        default="",
+        help="Optional summary string stored in details.summary.",
+    )
+    tests_log_parser.add_argument(
+        "--details",
+        default="",
+        help="Optional JSON object with extra fields for details.",
+    )
+    tests_log_parser.add_argument(
+        "--source",
+        default="claude-workflow tests-log",
+        help="Optional source label stored in the log entry.",
+    )
+    tests_log_parser.set_defaults(func=_tests_log_command)
 
     qa_parser = subparsers.add_parser(
         "qa",

@@ -47,6 +47,38 @@ def _utc_timestamp() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+_CALL_GRAPH_FULL_COLS: Tuple[str, ...] = (
+    "caller",
+    "callee",
+    "file",
+    "line",
+    "language",
+    "caller_raw",
+)
+
+
+def _columnar_call_graph(edges: List[Dict[str, Any]], imports: List[Dict[str, Any]]) -> Dict[str, Any]:
+    cols = list(_CALL_GRAPH_FULL_COLS)
+    rows = [
+        [
+            edge.get("caller"),
+            edge.get("callee"),
+            edge.get("file"),
+            edge.get("line"),
+            edge.get("language"),
+            edge.get("caller_raw"),
+        ]
+        for edge in edges
+    ]
+    return {
+        "schema": "aidd.call-graph.v1",
+        "generated_at": _utc_timestamp(),
+        "cols": cols,
+        "rows": rows,
+        "imports": imports,
+    }
+
+
 def _unique(items: Iterable[str]) -> List[str]:
     seen: set[str] = set()
     result: List[str] = []
@@ -1274,6 +1306,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
             full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
             context["call_graph_full_path"] = os.path.relpath(full_path, root)
+            columnar_path = full_path.with_suffix(".cjson")
+            try:
+                columnar_payload = _columnar_call_graph(
+                    full_payload.get("edges", []),
+                    full_payload.get("imports", []),
+                )
+                columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
+                context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, root)
+            except OSError:
+                pass
         context["call_graph_filter"] = graph_filter
         context["call_graph_limit"] = graph_limit
         if graph.get("warning"):

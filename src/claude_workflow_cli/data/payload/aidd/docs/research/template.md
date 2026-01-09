@@ -34,6 +34,12 @@ Artifacts:
 ## AIDD:COMMANDS_RUN
 - {{commands_run}}
 
+## AIDD:TEST_HOOKS
+- {{test_hooks}}
+
+## AIDD:GAPS
+- {{gaps}}
+
 ## Context Pack (TL;DR)
 - **Entry points:** {{entry_points}}
 - **Reuse candidates:** {{reuse_candidates}}

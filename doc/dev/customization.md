@@ -97,6 +97,7 @@
 - Для короткого контекста используйте секцию `AIDD:CONTEXT_PACK` в tasklist (<= 20 lines / <= 1200 chars).
 - Политика чтения: если есть `*.pack.yaml` — читать pack; иначе начинать с anchor‑секций.
 - Рабочий набор хранится в `aidd/reports/context/latest_working_set.md` и читается первым, если файл существует.
+- CLI‑вариант для компактного контекста: `claude-workflow context-pack --ticket <TICKET> --agent <agent>` → `aidd/reports/context/<ticket>-<agent>.md`.
 
 ## Git-хуки
 
@@ -122,6 +123,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 
 - Для повторного прогона при неизменном diff используйте `AIDD_TEST_FORCE=1`.
 - Дефолтный профиль для автоматического запуска можно задать через `AIDD_TEST_PROFILE_DEFAULT` (например, fast на SubagentStop и targeted на Stop).
+- Автозапуск по cadence: `.claude/settings.json → automation.tests.cadence` (`on_stop|checkpoint|manual`), `checkpointTrigger=progress`.
 
 ### Установка git-хуков
 
