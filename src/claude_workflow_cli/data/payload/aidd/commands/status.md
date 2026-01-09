@@ -13,12 +13,13 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/status` показывает краткий статус тикета: stage, summary, артефакты, отчёты и последние события из JSONL. CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
+`/status` показывает краткий статус тикета: stage, summary, артефакты, отчёты, последние события и тест‑логи (JSONL). CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/<stage>.md`.
 
 ## Входные артефакты
 - `@aidd/docs/index/<ticket>.yaml` — derived‑index (обновляется автоматически при `/status` и после ключевых команд).
 - `@aidd/reports/events/<ticket>.jsonl` — последние события (если есть).
+- `@aidd/reports/tests/<ticket>.jsonl` — тест‑логи (если есть).
 - `@aidd/docs/.active_ticket`, `@aidd/docs/.active_feature`, `@aidd/docs/.active_stage` — маркеры активного тикета.
 
 ## Когда запускать

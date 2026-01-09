@@ -157,12 +157,14 @@ def assert_has(needle: str, event: str) -> None:
         raise SystemExit(f"{needle} missing in {event}: {cmds}")
 
 for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
-    if event in ("Stop", "SubagentStop"):
+    if event == "Stop":
         assert_has("gate-workflow.sh", event)
         assert_has("gate-tests.sh", event)
         assert_has("gate-qa.sh", event)
         assert_has("format-and-test.sh", event)
         assert_has("lint-deps.sh", event)
+    if event == "SubagentStop":
+        assert_has("context-gc stop", event)
     if event == "PreToolUse":
         assert_has("context-gc pretooluse", event)
     if event == "UserPromptSubmit":

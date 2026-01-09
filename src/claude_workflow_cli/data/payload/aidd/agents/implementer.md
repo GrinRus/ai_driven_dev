@@ -36,6 +36,7 @@ permissionMode: default
 - **Лимит итерации:** 1 чекбокс (или 2 тесно связанных). Больше — останавливайся и запрашивай уточнение.
 - **Test budget:** не повторяй запуск тестов без изменения diff. Для повторного прогона используй `AIDD_TEST_FORCE=1` и объясни причину.
 - **Контракт:** если `aidd/.cache/test-policy.env` уже существует (создано командой `/implement`), НЕ перезаписывай его без причины. Перезапись допустима только при повышении риска — и тогда обязательно объясни "Why".
+- **Cadence:** см. `.claude/settings.json → automation.tests.cadence` (on_stop|checkpoint|manual). При `checkpoint` тесты запускаются после `claude-workflow progress` или явного override.
 - **Decision matrix (default: fast):**
   - `fast`: небольшой diff в рамках одного модуля, низкий риск.
   - `targeted`: узкий прогон с `AIDD_TEST_TASKS` и/или `AIDD_TEST_FILTERS`.
@@ -68,7 +69,10 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 - `Status: READY|BLOCKED|PENDING`.
 - `Artifacts updated: <paths>`.
 - `Iteration scope: ...` (1 чекбокс/2 связанных).
+- `Test scope: ...` (TEST_SCOPE/AIDD_TEST_TASKS/AIDD_TEST_FILTERS или "auto").
+- `Cadence: ...` (on_stop|checkpoint|manual).
 - `Test profile: ...` (fast/targeted/full/none).
 - `Tests run: ...` (что именно запускалось/скипнуто).
 - `Why: ...` (краткое обоснование профиля/бюджета).
+- `Why skipped: ...` (если тесты не запускались).
 - `Next actions: ...` (остаток работ/вопросы/тесты).

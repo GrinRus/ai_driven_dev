@@ -81,6 +81,7 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "prd" / f"{ticket}.json",
         root / "reports" / "qa" / f"{ticket}.json",
         root / "reports" / "reviewer" / f"{ticket}.json",
+        root / "reports" / "tests" / f"{ticket}.jsonl",
     ]
     for ext in (".pack.yaml", ".pack.toon"):
         candidates.append(root / "reports" / "research" / f"{ticket}-context{ext}")

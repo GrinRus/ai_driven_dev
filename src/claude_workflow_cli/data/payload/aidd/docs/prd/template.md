@@ -51,6 +51,12 @@ Default: `<Что принять по умолчанию>`
 - `<AC-1>`
 - `<AC-2>`
 
+## AIDD:CONTRACTS
+- `<api/events/schema/compat>`
+
+## AIDD:OBSERVABILITY
+- `<logs/metrics/alerts>`
+
 ## AIDD:METRICS
 - `<metric> → <target>`
 

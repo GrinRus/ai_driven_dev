@@ -16,6 +16,7 @@ PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru"}
+MAX_COMMAND_LINES = 160
 
 LANG_SECTION_TITLES = {
     "agent": {
@@ -93,6 +94,8 @@ TEMPLATE_ANCHORS = {
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
         "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:CONTRACTS",
+        "AIDD:OBSERVABILITY",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -108,6 +111,8 @@ TEMPLATE_ANCHORS = {
         "AIDD:INTEGRATION_POINTS",
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
+        "AIDD:TEST_HOOKS",
+        "AIDD:GAPS",
     ],
     "docs/tasklist/template.md": [
         *CORE_ANCHORS,
@@ -138,6 +143,17 @@ INDEX_REQUIRED_FIELDS = [
     "risks_top5",
     "checks",
 ]
+TICKET_TEMPLATE_PATH = Path("docs/tickets/template.yaml")
+TICKET_REQUIRED_FIELDS = [
+    "ticket",
+    "slug",
+    "stage",
+    "status",
+    "owners",
+    "artifacts",
+    "tests",
+    "reports",
+]
 
 
 @dataclass
@@ -148,6 +164,7 @@ class PromptFile:
     front_matter: Dict[str, str | list[str]]
     sections: List[str]
     body: str
+    line_count: int
 
     @property
     def stem(self) -> str:  # pragma: no cover - trivial
@@ -246,6 +263,7 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
             front_matter=front,
             sections=sections,
             body=body,
+            line_count=len(lines),
         ),
         errors,
     )
@@ -379,6 +397,10 @@ def validate_prompt(info: PromptFile) -> List[str]:
                 ],
             )
         )
+        if info.line_count > MAX_COMMAND_LINES:
+            errors.append(
+                f"{info.path}: exceeds max command length ({info.line_count} > {MAX_COMMAND_LINES} lines)"
+            )
 
     lang = _as_string(front.get("lang")) or info.lang
     sections_required = LANG_SECTION_TITLES.get(info.kind, {}).get(lang or "ru")
@@ -531,6 +553,27 @@ def validate_index_schema(root: Path) -> List[str]:
     return errors
 
 
+def validate_ticket_manifest_template(root: Path) -> List[str]:
+    errors: List[str] = []
+    aidd_root = _resolve_aidd_root(root)
+    template_path = aidd_root / TICKET_TEMPLATE_PATH
+    if not template_path.exists():
+        return [f"{template_path}: missing ticket manifest template"]
+    try:
+        raw = template_path.read_text(encoding="utf-8")
+        stripped = raw.lstrip()
+        if stripped.startswith("---"):
+            lines = stripped.splitlines()
+            stripped = "\n".join(lines[1:]).lstrip()
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        return [f"{template_path}: invalid JSON/YAML ({exc})"]
+    missing = [field for field in TICKET_REQUIRED_FIELDS if field not in payload]
+    if missing:
+        errors.append(f"{template_path}: missing required fields {missing}")
+    return errors
+
+
 def main() -> int:
     args = parse_args()
     root = args.root
@@ -541,6 +584,7 @@ def main() -> int:
     errors.extend(validate_stage_anchors(root))
     errors.extend(validate_template_anchors(root))
     errors.extend(validate_index_schema(root))
+    errors.extend(validate_ticket_manifest_template(root))
     if errors:
         for msg in errors:
             print(f"[prompt-lint] {msg}", file=sys.stderr)

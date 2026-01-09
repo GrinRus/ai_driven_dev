@@ -43,6 +43,8 @@ TEMPLATE_ANCHORS = {
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
         "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:CONTRACTS",
+        "AIDD:OBSERVABILITY",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -66,6 +68,8 @@ TEMPLATE_ANCHORS = {
         "AIDD:INTEGRATION_POINTS",
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
+        "AIDD:TEST_HOOKS",
+        "AIDD:GAPS",
     ],
     "docs/tasklist/template.md": [
         "AIDD:CONTEXT_PACK",
@@ -80,6 +84,20 @@ TEMPLATE_ANCHORS = {
         "AIDD:PROGRESS_LOG",
     ],
 }
+
+TICKET_TEMPLATE_CONTENT = json.dumps(
+    {
+        "ticket": "<ticket>",
+        "slug": "<slug>",
+        "stage": "idea",
+        "status": "pending",
+        "owners": {},
+        "artifacts": {},
+        "tests": {},
+        "reports": {},
+    },
+    indent=2,
+)
 
 
 def build_agent(name: str) -> str:
@@ -218,6 +236,10 @@ class PromptLintTests(unittest.TestCase):
             for section in sections:
                 lines.append(f"## {section}")
             template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        ticket_template = root / "docs" / "tickets" / "template.yaml"
+        ticket_template.parent.mkdir(parents=True, exist_ok=True)
+        ticket_template.write_text(TICKET_TEMPLATE_CONTENT + "\n", encoding="utf-8")
 
         index_schema = root / "docs" / "index" / "schema.json"
         index_schema.parent.mkdir(parents=True, exist_ok=True)
@@ -383,6 +405,16 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("replace HTML escape", result.stderr)
+
+    def test_command_length_limit_fails(self) -> None:
+        long_tail = "\n".join([f"Extra line {idx}" for idx in range(220)])
+        long_command = build_command() + "\n" + long_tail + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": long_command})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exceeds max command length", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

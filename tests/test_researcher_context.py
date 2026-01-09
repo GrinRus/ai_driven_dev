@@ -10,7 +10,10 @@ SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools.researcher_context import ResearcherContextBuilder
+from claude_workflow_cli.tools.researcher_context import (
+    ResearcherContextBuilder,
+    _columnar_call_graph,
+)
 
 from .helpers import PAYLOAD_ROOT, cli_cmd, write_file
 
@@ -97,6 +100,21 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(scope.tags, [])
         self.assertIn("src/main", scope.paths)
         self.assertIn("docs/research", scope.docs)
+
+    def test_columnar_call_graph_format(self) -> None:
+        edges = [
+            {
+                "caller": "demo.Service",
+                "callee": "run",
+                "file": "src/main/kotlin/App.kt",
+                "line": 12,
+                "language": "kotlin",
+                "caller_raw": "Service",
+            }
+        ]
+        payload = _columnar_call_graph(edges, [{"file": "src/main/kotlin/App.kt", "imports": ["demo"]}])
+        self.assertEqual(payload.get("cols"), ["caller", "callee", "file", "line", "language", "caller_raw"])
+        self.assertEqual(payload.get("rows")[0][0], "demo.Service")
 
     def test_builder_merges_multiple_tags(self) -> None:
         config_path = self.root / "config" / "conventions.json"
