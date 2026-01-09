@@ -4,9 +4,11 @@ This document defines the minimal report contract for pack-first reading.
 
 ## Naming
 
-- Full JSON: `aidd/reports/<type>/<ticket>-<kind>.json`
-- Pack sidecar (default): `aidd/reports/<type>/<ticket>-<kind>.pack.yaml`
-- Optional TOON sidecar: `AIDD_PACK_FORMAT=toon` → `aidd/reports/<type>/<ticket>-<kind>.pack.toon`
+- Research context: `aidd/reports/research/<ticket>-context.json` + `*.pack.yaml`/`*.pack.toon`
+- Research targets: `aidd/reports/research/<ticket>-targets.json` (no pack)
+- QA report: `aidd/reports/qa/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
+- PRD review: `aidd/reports/prd/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
+- Reviewer marker (tests gate): `aidd/reports/reviewer/<ticket>.json` (not a pack report)
 
 The pack file is JSON (valid YAML) for deterministic output. When `AIDD_PACK_FORMAT=toon`,
 the output is still JSON-encoded but stored as `.pack.toon` (format is experimental).
@@ -62,7 +64,10 @@ Override budgets with `AIDD_PACK_LIMITS` (JSON), e.g.
 `AIDD_PACK_LIMITS='{"research":{"matches":10},"qa":{"findings":5}}'`.
 
 Budget enforcement runs in CI/tests; reduce top-N, trim snippets, or use `AIDD_PACK_LIMITS` when budgets are exceeded.
+QA/PRD budgets are enforced on entry counts (findings/action_items/tests_executed).
 Set `AIDD_PACK_ENFORCE_BUDGET=1` to fail pack generation on budget violations.
+Research context packs auto-trim when over budget (pack only; full JSON unchanged). Trim order:
+matches → call_graph → import_graph → reuse_candidates → manual_notes → profile.recommendations → paths.sample → docs.sample → paths → docs → drop empty columnar sections → drop stats.
 
 ## Field policy
 

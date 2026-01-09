@@ -1,5 +1,8 @@
 import json
 import os
+import tempfile
+import unittest
+from pathlib import Path
 
 from .helpers import PAYLOAD_ROOT, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 
@@ -180,3 +183,37 @@ def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
     assert result.returncode in (0, 2)
     combined = result.stdout + result.stderr
     assert "/aidd" in combined
+
+
+class GateQaEventTests(unittest.TestCase):
+    def test_gate_qa_appends_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ensure_gates_config(
+                tmp_path,
+                {
+                    "qa": {
+                        "enabled": True,
+                        "command": ["true"],
+                        "allow_missing_report": False,
+                        "report": "reports/qa/{ticket}.json",
+                    }
+                },
+            )
+            write_active_feature(tmp_path, "qa-ok")
+            write_active_stage(tmp_path, "qa")
+            write_file(tmp_path, "src/main/App.kt", "class App")
+            write_file(tmp_path, "reports/qa/qa-ok.json", "{}\n")
+
+            env = {
+                "CLAUDE_SKIP_TASKLIST_PROGRESS": "1",
+                "CLAUDE_PROJECT_DIR": str(tmp_path),
+            }
+            result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            events_path = tmp_path / "aidd" / "reports" / "events" / "qa-ok.jsonl"
+            self.assertTrue(events_path.exists())
+            last_event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(last_event.get("type"), "gate-qa")
+            self.assertEqual(last_event.get("status"), "pass")

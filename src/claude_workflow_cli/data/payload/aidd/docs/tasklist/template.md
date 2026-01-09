@@ -22,7 +22,7 @@ Updated: YYYY-MM-DD
 - Если закрываете часть большого пункта, добавляйте отдельный `- [x]` с пояснением, что именно готово (история прогресса сохраняется).
 - В ответах агентов используйте строку `Checkbox updated: …`, чтобы перечислить закрытые элементы и договорённости на следующий шаг.
 - Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "<ticket>"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
-- После отчётов QA/Review/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|review|research> --append --ticket "<ticket>"`; новые `- [ ]` должны ссылаться на соответствующий `aidd/reports/<source>/...`.
+- После отчётов QA/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|research> --append --ticket "<ticket>"`; новые `- [ ]` должны ссылаться на соответствующий `aidd/reports/<source>/...`.
 
 ## AIDD:NEXT_3
 - [ ] <первый приоритетный чекбокс>

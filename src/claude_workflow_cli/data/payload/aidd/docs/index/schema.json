@@ -16,6 +16,7 @@
   ],
   "optional": [
     "context_pack",
+    "events",
     "meta"
   ],
   "notes": "JSON is valid YAML; index files live at aidd/docs/index/<ticket>.yaml"

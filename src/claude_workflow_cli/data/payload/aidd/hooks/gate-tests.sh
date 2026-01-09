@@ -15,6 +15,12 @@ fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
+EVENT_TYPE="gate-tests"
+EVENT_STATUS=""
+EVENT_SHOULD_LOG=0
+EVENT_SOURCE="hook gate-tests"
+trap 'if [[ "${EVENT_SHOULD_LOG:-0}" == "1" ]]; then hook_append_event "$ROOT_DIR" "$EVENT_TYPE" "$EVENT_STATUS" "" "" "$EVENT_SOURCE"; fi' EXIT
+
 cd "$ROOT_DIR"
 
 collect_changed_files() {
@@ -404,6 +410,9 @@ if ((${#target_files[@]} == 0)); then
   exit 0
 fi
 
+EVENT_SHOULD_LOG=1
+EVENT_STATUS="fail"
+
 missing_files=()
 missing_tests=()
 for i in "${!target_files[@]}"; do
@@ -483,6 +492,7 @@ for i in "${!target_files[@]}"; do
 done
 
 if ((${#missing_files[@]} == 0)); then
+  EVENT_STATUS="pass"
   exit 0
 fi
 
@@ -491,6 +501,7 @@ if [[ "$mode" == "soft" ]]; then
     echo "WARN: отсутствует тест для ${missing_files[$i]}. Рекомендуется создать ${missing_tests[$i]}." 1>&2
     emit_research_hint "${missing_files[$i]}"
   done
+  EVENT_STATUS="warn"
   exit 0
 fi
 

@@ -53,7 +53,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 - `claude-workflow analyst-check --ticket <ticket>` — validate the analyst dialog/PRD status.
 - `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — collect targets, matches, and call graph.
 - `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — toggle reviewer test marker.
-- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — append handoff items to `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow tasks-derive --source qa|research --append --ticket <ticket>` — append handoff items to `aidd/docs/tasklist/<ticket>.md`.
 - `claude-workflow qa --ticket <ticket> --gate` — QA agent + gate report.
 - `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — assert new `- [x]`/handoff tasks before merging.
 
@@ -291,7 +291,7 @@ Research defaults to workspace-relative paths (parent of `aidd/`); the CLI print
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
 5. Request `/review` once `aidd/docs/tasklist/<ticket>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review --ticket <ticket>` before closing the loop.
 6. Before release, run `/qa <ticket>` or `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, update the QA section in the tasklist, and confirm progress via `claude-workflow progress --source qa --ticket <ticket>`.
-7. After QA/Review/Research reports, derive implementer tasks via `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` so new `- [ ]` link back to the reports in `aidd/docs/tasklist/<ticket>.md`; if needed, verify with `claude-workflow progress --source handoff --ticket <ticket>`.
+7. After QA/Research reports, derive implementer tasks via `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` so new `- [ ]` link back to the reports in `aidd/docs/tasklist/<ticket>.md`; if needed, verify with `claude-workflow progress --source handoff --ticket <ticket>`.
 
 A detailed agent/gate playbook lives in `doc/dev/agents-playbook.md`.
 

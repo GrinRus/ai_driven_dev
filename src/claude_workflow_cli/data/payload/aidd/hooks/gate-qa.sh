@@ -14,6 +14,13 @@ fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
+EVENT_TYPE="gate-qa"
+EVENT_STATUS=""
+EVENT_REPORT=""
+EVENT_SHOULD_LOG=0
+EVENT_SOURCE="hook gate-qa"
+trap 'if [[ "${EVENT_SHOULD_LOG:-0}" == "1" ]]; then hook_append_event "$ROOT_DIR" "$EVENT_TYPE" "$EVENT_STATUS" "" "$EVENT_REPORT" "$EVENT_SOURCE"; fi' EXIT
+
 usage() {
   cat <<'EOF'
 Usage: gate-qa.sh [--dry-run] [--only qa] [--payload <json>]
@@ -437,6 +444,9 @@ else
 fi
 ((dry_run == 1)) && echo "[gate-qa] dry-run режим: блокеры не провалят команду." >&2
 
+EVENT_SHOULD_LOG=1
+EVENT_STATUS="fail"
+
 set +e
 if ((${#timeout_cmd[@]} > 0)); then
   "${timeout_cmd[@]}" "${runner[@]}"
@@ -497,5 +507,14 @@ if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDO
     echo "[gate-qa] WARN: ticket не определён — handoff пропущен." >&2
   fi
 fi
+
+if (( dry_run == 1 )); then
+  EVENT_STATUS="skipped"
+elif (( status == 0 )); then
+  EVENT_STATUS="pass"
+else
+  EVENT_STATUS="fail"
+fi
+EVENT_REPORT="$report_path"
 
 exit "$status"

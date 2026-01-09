@@ -249,8 +249,8 @@
     {
       "path": "aidd/docs/index/schema.json",
       "type": "file",
-      "size": 371,
-      "sha256": "4cad724d818e08d98aad8cb5dc42481d1f15012a681fbd6dd2d6ec21edf67b90"
+      "size": 385,
+      "sha256": "a508e316c5b470b155d92d8f758ac6968dc7703dcc74c2e1f9ea81f43b858d28"
     },
     {
       "path": "aidd/docs/plan/.gitkeep",
@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/reports-format.md",
       "type": "file",
-      "size": 4365,
-      "sha256": "36c18f1af3149737ca49a2006865fe97997ca084d5475fc9d930e7d566e946d9"
+      "size": 4935,
+      "sha256": "14ddf080624737d73f984f70a55a576ccf134fe26b86723682256bd3da99de57"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -315,14 +315,14 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6471,
-      "sha256": "d188d0b3489f186a2cd4175c09badc0edf916baae3e926d2b715759be1a34cfa"
+      "size": 6457,
+      "sha256": "c2c66ca5049db68b9ed3036fbe23977b06c83de5d244992247a496b5201f35a7"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 35185,
-      "sha256": "878c231b3ca952ef3a8e72f004bb034e0f325158f12130cc1e7a935e9074942a"
+      "size": 37670,
+      "sha256": "589e195d1614775422f549939e3469c83223725fd704ff83d7f8326ddf18815f"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -339,26 +339,26 @@
     {
       "path": "aidd/hooks/gate-prd-review.sh",
       "type": "file",
-      "size": 1681,
-      "sha256": "05f7a74a2b5e03e7da320bc89602b4e37b102791132c50a8378064c069dc9b85"
+      "size": 1987,
+      "sha256": "7401fb1327c237e27b16451fcf8a482c0ee1a254c04d98864eb78719f0207dc8"
     },
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 14292,
-      "sha256": "5cab87a2abd9e00c48c209e53d470f7a26c98a97abbe094460ecc03db8a559b1"
+      "size": 14754,
+      "sha256": "9351b5e9449a01805b02ea856f96f8bcba5b8e0ebcf1928cfe2d8e349da3fc65"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 14222,
-      "sha256": "f0a2dc5c7459629ebc819a5251749867ed51d4bcadc471bb297023e0c1206cc8"
+      "size": 14542,
+      "sha256": "1d649eb0394aa4d7f5d3aaa1e1ede2611ab1a9b44f89fb2eda1f0ffebcadf2a5"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 17785,
-      "sha256": "f2e2228867b0a2def198e6435f3f731387fb5d7d0e1f91fe2259a6983e8f17d2"
+      "size": 18024,
+      "sha256": "7db9574f920a785d474f417020c364cd24d50645302d7939cd9e4569c9f4ed08"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -369,8 +369,8 @@
     {
       "path": "aidd/hooks/lib.sh",
       "type": "file",
-      "size": 5110,
-      "sha256": "e20db2950493ec4abb59cddd12f5148e53a2be01fb4e3408d208665adafa9bd0"
+      "size": 7390,
+      "sha256": "a6df09c822e0097b45bc91544f5d6856a02089274268d24300727d5d4137ee54"
     },
     {
       "path": "aidd/hooks/lint-deps.sh",
@@ -400,7 +400,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 12303,
-      "sha256": "5b685ed124021d4410485cd1afacf81f2235a7fe0d7ff87f8a0d7046764562eb"
+      "sha256": "ad57e59f213bf9ebd6d6781202feaa3696ec3d38a9b4fc33e9ccd8d946eefb9f"
     },
     {
       "path": "smoke-workflow.sh",

@@ -1,6 +1,9 @@
 import json
 import os
 import subprocess
+import tempfile
+import unittest
+from pathlib import Path
 from textwrap import dedent
 
 from .helpers import cli_cmd, ensure_project_root, write_active_feature, write_file, write_json
@@ -233,3 +236,20 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert "Research: from pack" in content
     assert "Research: from json" not in content
+
+
+class TasksDeriveArgsTests(unittest.TestCase):
+    def test_tasks_derive_rejects_review_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = ensure_project_root(Path(tmpdir))
+            write_active_feature(project_root, "demo-checkout")
+
+            result = subprocess.run(
+                cli_cmd("tasks-derive", "--source", "review", "--ticket", "demo-checkout"),
+                cwd=project_root,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid choice", (result.stderr or ""))

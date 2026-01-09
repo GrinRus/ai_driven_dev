@@ -1,5 +1,7 @@
 import json
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 from textwrap import dedent
 
@@ -85,3 +87,35 @@ def test_index_sync_includes_pack_variants(tmp_path):
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None
     assert qa_check.get("status") == "warn"
+
+
+class IndexSyncEventTests(unittest.TestCase):
+    def test_index_sync_includes_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = ensure_project_root(Path(tmpdir))
+            write_active_feature(project_root, "DEMO-3")
+            write_active_stage(project_root, "implement")
+            write_file(
+                project_root,
+                "docs/tasklist/DEMO-3.md",
+                "## AIDD:CONTEXT_PACK\n- Demo\n",
+            )
+            write_file(project_root, "docs/prd/DEMO-3.prd.md", "# Demo PRD\n")
+            write_file(
+                project_root,
+                "reports/events/DEMO-3.jsonl",
+                "\n".join(
+                    [
+                        json.dumps({"ts": "2024-01-01T00:00:00Z", "ticket": "DEMO-3", "type": "qa", "status": "pass"}),
+                        json.dumps({"ts": "2024-01-02T00:00:00Z", "ticket": "DEMO-3", "type": "progress"}),
+                    ]
+                )
+                + "\n",
+            )
+
+            index_path = index_sync.write_index(project_root, "DEMO-3", "DEMO-3")
+            payload = json.loads(index_path.read_text(encoding="utf-8"))
+
+            events = payload.get("events") or []
+            self.assertEqual(len(events), 2)
+            self.assertEqual(events[0].get("type"), "qa")

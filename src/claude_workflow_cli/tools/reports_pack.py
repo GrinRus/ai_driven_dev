@@ -57,22 +57,28 @@ _ESSENTIAL_FIELDS = {
     "source_path",
 }
 _ENV_LIMITS_CACHE: Dict[str, Dict[str, int]] | None = None
+_BUDGET_HINT = "Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size."
 
 
 def check_budget(text: str, *, max_chars: int, max_lines: int, label: str) -> List[str]:
     errors: List[str] = []
     char_count = len(text)
     line_count = text.count("\n") + (1 if text else 0)
-    hint = "Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size."
     if char_count > max_chars:
         errors.append(
-            f"{label} pack budget exceeded: {char_count} chars > {max_chars}. {hint}"
+            f"{label} pack budget exceeded: {char_count} chars > {max_chars}. {_BUDGET_HINT}"
         )
     if line_count > max_lines:
         errors.append(
-            f"{label} pack budget exceeded: {line_count} lines > {max_lines}. {hint}"
+            f"{label} pack budget exceeded: {line_count} lines > {max_lines}. {_BUDGET_HINT}"
         )
     return errors
+
+
+def _check_count_budget(label: str, *, field: str, actual: int, limit: int) -> List[str]:
+    if actual <= limit:
+        return []
+    return [f"{label} pack budget exceeded: {field} {actual} > {limit}. {_BUDGET_HINT}"]
 
 
 def _is_empty(value: Any) -> bool:
@@ -138,6 +144,105 @@ def _write_pack_text(text: str, pack_path: Path) -> Path:
 
 def _enforce_budget() -> bool:
     return os.getenv("AIDD_PACK_ENFORCE_BUDGET", "").strip() == "1"
+
+
+def _trim_columnar_rows(payload: Dict[str, Any], key: str) -> bool:
+    section = payload.get(key)
+    if not isinstance(section, dict):
+        return False
+    rows = section.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return False
+    rows.pop()
+    return True
+
+
+def _trim_list_field(payload: Dict[str, Any], key: str) -> bool:
+    items = payload.get(key)
+    if not isinstance(items, list) or not items:
+        return False
+    items.pop()
+    return True
+
+
+def _trim_profile_recommendations(payload: Dict[str, Any]) -> bool:
+    profile = payload.get("profile")
+    if not isinstance(profile, dict):
+        return False
+    recs = profile.get("recommendations")
+    if not isinstance(recs, list) or not recs:
+        return False
+    recs.pop()
+    return True
+
+
+def _trim_path_samples(payload: Dict[str, Any], key: str) -> bool:
+    entries = payload.get(key)
+    if not isinstance(entries, list) or not entries:
+        return False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        samples = entry.get("sample")
+        if isinstance(samples, list) and samples:
+            samples.pop()
+            return True
+    return False
+
+
+def _drop_columnar_if_empty(payload: Dict[str, Any], key: str) -> bool:
+    section = payload.get(key)
+    if not isinstance(section, dict):
+        return False
+    rows = section.get("rows")
+    if not isinstance(rows, list) or rows:
+        return False
+    payload.pop(key, None)
+    return True
+
+
+def _drop_field(payload: Dict[str, Any], key: str) -> bool:
+    if key not in payload:
+        return False
+    payload.pop(key, None)
+    return True
+
+
+def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines: int) -> tuple[str, List[str], List[str]]:
+    text = _serialize_pack(payload)
+    errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="research")
+    if not errors:
+        return text, [], []
+
+    trimmed_counts: Dict[str, int] = {}
+    steps = [
+        ("matches", lambda: _trim_columnar_rows(payload, "matches")),
+        ("call_graph", lambda: _trim_columnar_rows(payload, "call_graph")),
+        ("import_graph", lambda: _trim_columnar_rows(payload, "import_graph")),
+        ("reuse_candidates", lambda: _trim_columnar_rows(payload, "reuse_candidates")),
+        ("manual_notes", lambda: _trim_list_field(payload, "manual_notes")),
+        ("profile.recommendations", lambda: _trim_profile_recommendations(payload)),
+        ("paths.sample", lambda: _trim_path_samples(payload, "paths")),
+        ("docs.sample", lambda: _trim_path_samples(payload, "docs")),
+        ("paths", lambda: _trim_list_field(payload, "paths")),
+        ("docs", lambda: _trim_list_field(payload, "docs")),
+        ("drop.matches", lambda: _drop_columnar_if_empty(payload, "matches")),
+        ("drop.call_graph", lambda: _drop_columnar_if_empty(payload, "call_graph")),
+        ("drop.import_graph", lambda: _drop_columnar_if_empty(payload, "import_graph")),
+        ("drop.reuse_candidates", lambda: _drop_columnar_if_empty(payload, "reuse_candidates")),
+        ("drop.stats", lambda: _drop_field(payload, "stats")),
+    ]
+
+    for name, action in steps:
+        while errors and action():
+            trimmed_counts[name] = trimmed_counts.get(name, 0) + 1
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="research")
+        if not errors:
+            break
+
+    trimmed = [f"{name}(-{count})" for name, count in trimmed_counts.items()]
+    return text, trimmed, errors
 
 
 def _truncate_list(items: Iterable[Any], limit: int) -> List[Any]:
@@ -505,13 +610,14 @@ def write_research_context_pack(
 
     pack = build_research_context_pack(payload, source_path=source_path, limits=limits)
     pack_path = (output or _pack_path_for(path)).resolve()
-    text = _serialize_pack(pack)
-    errors = check_budget(
-        text,
+
+    text, trimmed, errors = _auto_trim_research_pack(
+        pack,
         max_chars=RESEARCH_BUDGET["max_chars"],
         max_lines=RESEARCH_BUDGET["max_lines"],
-        label="research",
     )
+    if trimmed:
+        print(f"[pack-trim] research pack trimmed: {', '.join(trimmed)}", file=sys.stderr)
     if errors:
         for error in errors:
             print(f"[pack-budget] {error}", file=sys.stderr)
@@ -538,7 +644,22 @@ def write_qa_pack(
     else:
         source_path = path.as_posix()
 
-    pack = build_qa_pack(payload, source_path=source_path, limits=limits)
+    env_limits = _env_limits().get("qa") or {}
+    lim = {**QA_LIMITS, **env_limits, **(limits or {})}
+    findings = payload.get("findings") or []
+    tests_executed = payload.get("tests_executed") or []
+    errors: List[str] = []
+    errors.extend(_check_count_budget("qa", field="findings", actual=len(findings), limit=lim["findings"]))
+    errors.extend(
+        _check_count_budget("qa", field="tests_executed", actual=len(tests_executed), limit=lim["tests_executed"])
+    )
+    if errors:
+        for error in errors:
+            print(f"[pack-budget] {error}", file=sys.stderr)
+        if _enforce_budget():
+            raise ValueError("; ".join(errors))
+
+    pack = build_qa_pack(payload, source_path=source_path, limits=lim)
     pack_path = (output or _pack_path_for(path)).resolve()
     return _write_pack(pack, pack_path)
 
@@ -561,7 +682,20 @@ def write_prd_pack(
     else:
         source_path = path.as_posix()
 
-    pack = build_prd_pack(payload, source_path=source_path, limits=limits)
+    env_limits = _env_limits().get("prd") or {}
+    lim = {**PRD_LIMITS, **env_limits, **(limits or {})}
+    findings = payload.get("findings") or []
+    action_items = payload.get("action_items") or []
+    errors: List[str] = []
+    errors.extend(_check_count_budget("prd", field="findings", actual=len(findings), limit=lim["findings"]))
+    errors.extend(_check_count_budget("prd", field="action_items", actual=len(action_items), limit=lim["action_items"]))
+    if errors:
+        for error in errors:
+            print(f"[pack-budget] {error}", file=sys.stderr)
+        if _enforce_budget():
+            raise ValueError("; ".join(errors))
+
+    pack = build_prd_pack(payload, source_path=source_path, limits=lim)
     pack_path = (output or _pack_path_for(path)).resolve()
     return _write_pack(pack, pack_path)
 

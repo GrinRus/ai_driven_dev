@@ -50,7 +50,7 @@
 - `claude-workflow analyst-check --ticket <ticket>` — валидация диалога analyst и статуса PRD.
 - `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — сбор целей/матчей/графа вызовов.
 - `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — маркер автотестов на ревью.
-- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — handoff-задачи в `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow tasks-derive --source qa|research --append --ticket <ticket>` — handoff-задачи в `aidd/docs/tasklist/<ticket>.md`.
 - `claude-workflow qa --ticket <ticket> --gate` — отчёт QA + гейт.
 - `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — подтверждение новых `- [x]`/handoff-пунктов.
 
@@ -317,7 +317,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `aidd/docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
 5. Запросите `/review`, когда чеклисты в `aidd/docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.
 6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
-7. После отчётов QA/Review/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
+7. После отчётов QA/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 Детальный playbook агентов и барьеров описан в `doc/dev/agents-playbook.md`.
 

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 SCHEMA = "aidd.ticket.v1"
+EVENTS_LIMIT = 5
 REQUIRED_FIELDS = [
     "schema",
     "ticket",
@@ -79,7 +80,6 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "research" / f"{ticket}-targets.json",
         root / "reports" / "prd" / f"{ticket}.json",
         root / "reports" / "qa" / f"{ticket}.json",
-        root / "reports" / "review" / f"{ticket}.json",
         root / "reports" / "reviewer" / f"{ticket}.json",
     ]
     for ext in (".pack.yaml", ".pack.toon"):
@@ -90,6 +90,29 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         if path.exists():
             reports.append(path.relative_to(root).as_posix())
     return reports
+
+
+def _collect_events(root: Path, ticket: str, limit: int = EVENTS_LIMIT) -> List[Dict[str, object]]:
+    path = root / "reports" / "events" / f"{ticket}.jsonl"
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    events: List[Dict[str, object]] = []
+    for raw in reversed(lines):
+        if not raw.strip():
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            events.append(payload)
+        if len(events) >= max(limit, 0):
+            break
+    return list(reversed(events))
 
 
 def _find_report_variant(report_path: Path) -> Optional[Path]:
@@ -194,6 +217,7 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
         "risks_top5": risks_top5,
         "checks": _collect_checks(root, ticket),
         "context_pack": context_pack,
+        "events": _collect_events(root, ticket),
     }
 
 

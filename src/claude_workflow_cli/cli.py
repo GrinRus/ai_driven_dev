@@ -1741,12 +1741,11 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     source = (args.source or "").strip().lower()
     default_report = {
         "qa": "reports/qa/{ticket}.json",
-        "review": "reports/review/{ticket}.json",
         "research": "reports/research/{ticket}-context.json",
     }.get(source)
     report_template = args.report or default_report
     if not report_template:
-        raise ValueError("unsupported source; expected qa|review|research")
+        raise ValueError("unsupported source; expected qa|research")
 
     def _fmt(text: str) -> str:
         return (
@@ -1773,7 +1772,7 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     is_pack_path = report_path.name.endswith(".pack.yaml") or report_path.name.endswith(".pack.toon")
     if source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
-    elif source in {"qa", "review"} and (is_pack_path or not report_path.exists()):
+    elif source == "qa" and (is_pack_path or not report_path.exists()):
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
     else:
         report_label = _rel_path(report_path, target)
@@ -1783,8 +1782,6 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     if source == "qa":
         derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
         derived_tasks.extend(_derive_tasks_from_tests(payload, report_label))
-    elif source == "review":
-        derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
         derived_tasks = _derive_tasks_from_research_context(payload, report_label)
     else:
@@ -2737,11 +2734,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     tasks_parser = subparsers.add_parser(
         "tasks-derive",
-        help="Generate tasklist candidates from QA/Review/Research reports.",
+        help="Generate tasklist candidates from QA/Research reports.",
     )
     tasks_parser.add_argument(
         "--source",
-        choices=("qa", "review", "research"),
+        choices=("qa", "research"),
         required=True,
         help="Report source to derive tasks from.",
     )
