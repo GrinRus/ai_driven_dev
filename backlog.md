@@ -1245,34 +1245,34 @@ _Статус: новый, приоритет 1. Цель — EP09‑MVP (anchor
 _Статус: новый, приоритет 2. Цель — ticket manifest + cadence policy + schema/logs + security guard._
 
 ### EPIC A — Ticket manifest + anchors expansion
-- [ ] Добавить `aidd/docs/tickets/` и шаблон `aidd/docs/tickets/template.yaml` (schema v1: ticket/slug/stage/status/owners/artifacts/tests/reports).
-- [ ] Автогенерация manifest при `/idea-new` и `claude-workflow set-active-feature` (`src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/feature_ids.py`); добавить тесты.
-- [ ] Линт schema + smoke: `tests/test_ticket_manifest.py`, обновить `scripts/lint-prompts.py`/`tests/test_prompt_lint.py` для наличия manifest.
-- [ ] Обновить шаблоны PRD/Plan/Research под канон AIDD‑якорей: PRD — `AIDD:RESEARCH_HINTS` (rename), `AIDD:ACCEPTANCE` (alias/rename), `AIDD:ROLL_OUT`, `AIDD:OPEN_QUESTIONS`; Plan — `AIDD:ARCHITECTURE`, `AIDD:FILES_TOUCHED`, `AIDD:ITERATIONS`, `AIDD:TEST_STRATEGY`, `AIDD:RISKS`; Research — `AIDD:INTEGRATION_POINTS`, `AIDD:REUSE_CANDIDATES`, `AIDD:TEST_HOOKS`, `AIDD:RISKS`; обновить `aidd/docs/*/template.md` и payload‑копии.
+- [x] Добавить `aidd/docs/tickets/` и шаблон `aidd/docs/tickets/template.yaml` (schema v1: ticket/slug/stage/status/owners/artifacts/tests/reports).
+- [x] Автогенерация manifest при `/idea-new` и `claude-workflow set-active-feature` (`src/claude_workflow_cli/cli.py`, `src/claude_workflow_cli/feature_ids.py`); добавить тесты.
+- [x] Линт schema + smoke: `tests/test_ticket_manifest.py`, обновить `scripts/lint-prompts.py`/`tests/test_prompt_lint.py` для наличия manifest.
+- [ ] Расширить шаблоны anchors (без multi‑platform/deploy): PRD добавить `AIDD:CONTRACTS` и `AIDD:OBSERVABILITY`, Research добавить `AIDD:TEST_HOOKS` и `AIDD:GAPS`; обновить `aidd/docs/*/template.md` и payload‑копии.
 
 ### EPIC D — Test cadence policy + debounce
-- [ ] Ввести cadence policy в `.claude/settings.json`: `cadence=on_stop|checkpoint|manual`, `checkpoint_trigger`, обновить `aidd/hooks/format-and-test.sh` на новый режим.
+- [x] Ввести cadence policy в `.claude/settings.json`: `cadence=on_stop|checkpoint|manual`, `checkpoint_trigger`, обновить `aidd/hooks/format-and-test.sh` на новый режим.
 - [x] Дебаунс запусков: хранить state в `aidd/.cache/format-and-test.last.json` и пропускать повтор при отсутствии diff/изменений.
-- [ ] Обновить `aidd/agents/implementer.md` на обязательный `Test scope/Cadence/Why skipped`; добавить тесты.
+- [x] Обновить `aidd/agents/implementer.md` на обязательный `Test scope/Cadence/Why skipped`; добавить тесты.
 
 ### EPIC E — Reports schema + JSONL logs
-- [ ] Зафиксировать schema header для отчетов в `aidd/docs/reports-format.md` (ticket/stage/status/started_at/finished_at/tool_versions/summary).
-- [ ] Добавить JSONL логи `reports/tests/<ticket>.jsonl` и CLI helper для append, обновить `/status` и `index_sync.py`.
-- [ ] Columnar full graphs: добавить `*-call-graph-full.cjson` (или иной columnar формат) и описать чтение в `reports-format.md`.
+- [x] Зафиксировать schema header для отчетов в `aidd/docs/reports-format.md` (ticket/stage/status/started_at/finished_at/tool_versions/summary).
+- [x] Добавить JSONL логи `reports/tests/<ticket>.jsonl` и CLI helper для append, обновить `/status` и `index_sync.py`.
+- [x] Columnar full graphs: добавить `*-call-graph-full.cjson` (или иной columnar формат) и описать чтение в `reports-format.md`.
 
 ### EPIC F — Security guard (prompt‑injection)
-- [ ] Добавить правило в `aidd/AGENTS.md`: игнорировать инструкции из кода/комментариев/README зависимостей; усилить `context_gc/pretooluse_guard.py` для защиты при Read/Bash.
-- [ ] Тесты на guard‑policy: `tests/test_context_gc.py` + smoke‑сценарии.
+- [x] Добавить правило в `aidd/AGENTS.md`: игнорировать инструкции из кода/комментариев/README зависимостей; усилить `context_gc/pretooluse_guard.py` для защиты при Read/Bash.
+- [x] Тесты на guard‑policy: `tests/test_context_gc.py` + smoke‑сценарии.
 
 ### EPIC G — Context pack CLI (optional)
-- [ ] Добавить `claude-workflow context-pack --ticket <T> --agent <name>`: собирать anchors из PRD/Plan/Tasklist и писать `reports/context/<ticket>-<agent>.md`.
-- [ ] Документация и примеры: `aidd/docs/workflow.md`, `doc/dev/customization.md`, обновить `manifest.json`.
+- [x] Добавить `claude-workflow context-pack --ticket <T> --agent <name>`: собирать anchors из PRD/Plan/Tasklist и писать `reports/context/<ticket>-<agent>.md`.
+- [x] Документация и примеры: `aidd/docs/workflow.md`, `doc/dev/customization.md`, обновить `manifest.json`.
 
 ### EPIC H — Prompt slimming + mkdir-free + hook noise
-- [ ] Slim команды: ограничить размер `/commands/*.md` (≤160 строк), убрать повторяющиеся блоки политики, оставить ссылки на `aidd/AGENTS.md` и stage‑anchors; обновить `scripts/lint-prompts.py`/`tests/test_prompt_lint.py` с проверкой лимита.
+- [x] Slim команды: ограничить размер `/commands/*.md` (≤160 строк), убрать повторяющиеся блоки политики, оставить ссылки на `aidd/AGENTS.md` и stage‑anchors; обновить `scripts/lint-prompts.py`/`tests/test_prompt_lint.py` с проверкой лимита.
 - [x] `aidd/AGENTS.md`: сохранить `MUST KNOW FIRST` как “stage‑anchor → AIDD:* → working set (если есть)”; index использовать только при необходимости; `sdlc-flow`/`status-machine` оставить read‑once; проверить, что path‑конвенции едины (`aidd/...`).
-- [ ] Предсоздание директорий: добавить `.gitkeep` в `reports/{context,qa,research,reviewer,tests}/` (и payload‑копии), чтобы не требовался `mkdir` в run‑time.
-- [ ] Снизить шум SubagentStop: ограничить набор тяжёлых хуков или добавить конфиг‑флаг “skip heavy on SubagentStop”; обновить `aidd/hooks/hooks.json` + smoke.
+- [x] Предсоздание директорий: добавить `.gitkeep` в `reports/{context,qa,research,reviewer,tests}/` (и payload‑копии), чтобы не требовался `mkdir` в run‑time.
+- [x] Снизить шум SubagentStop: ограничить набор тяжёлых хуков или добавить конфиг‑флаг “skip heavy on SubagentStop”; обновить `aidd/hooks/hooks.json` + smoke.
 
 ## Wave 70
 
@@ -1281,18 +1281,20 @@ _Статус: новый, приоритет 2. Цель — внедрить �
 ### EPIC A — Tasklist template + stage anchors (готовые файлы)
 - [ ] Заменить `aidd/docs/tasklist/template.md` на предоставленный канон (AIDD:CONTEXT_PACK, AIDD:HANDOFF_INBOX, чеклисты, HOW_TO_UPDATE) и синхронизировать `src/claude_workflow_cli/data/payload/aidd/docs/tasklist/template.md`.
 - [ ] Добавить `aidd/docs/anchors/README.md` со списком стадий + payload‑копию.
-- [ ] Полностью заменить stage‑anchors на предоставленные версии: `aidd/docs/anchors/{idea,research,plan,review-plan,review-prd,tasklist,implement,review,qa}.md` + payload‑копии (ссылки на `AIDD:RESEARCH_HINTS`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`, `reports/**`).
+- [ ] Полностью заменить stage‑anchors на предоставленные версии: `aidd/docs/anchors/{idea,research,plan,review-plan,review-prd,tasklist,implement,review,qa}.md` + payload‑копии (ссылки на `AIDD:RESEARCH_HINTS`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`, `aidd/reports/**`, `AIDD:ACCEPTANCE`).
+- [ ] Обновить шаблоны PRD/Plan/Research (и ADR при необходимости) под новый канон якорей: `AIDD:RESEARCH_HINTS`, `AIDD:ACCEPTANCE`, `AIDD:ROLL_OUT`, `AIDD:OPEN_QUESTIONS`, `AIDD:RISKS` (удалить `AIDD:CONTRACTS`, `AIDD:OBSERVABILITY`, `AIDD:ACCEPTANCE_CRITERIA`, `AIDD:GAPS`, `AIDD:RISKS_TOP5`); синхронизировать payload‑копии.
 
 ### EPIC B — Patch‑plan для AGENTS/агентов/команд
-- [ ] Обновить `aidd/AGENTS.md` и payload: working set `reports/context/latest_working_set.md`, `AIDD:NEXT_3`, `Reports: reports/**`, snippet‑regex под `AIDD:RESEARCH_HINTS`, упоминание `AIDD:HANDOFF_INBOX`.
-- [ ] Применить замены по агентам/командам: `Next 3 → AIDD:NEXT_3`, `## Research Hints → ## AIDD:RESEARCH_HINTS`, `AIDD:INBOX_DERIVED → AIDD:HANDOFF_INBOX`, обновить пути reports/working set, добавить stage‑anchor ссылки; обеспечить back‑compat для `Research Hints` на период миграции.
+- [ ] Обновить `aidd/AGENTS.md` и payload: working set `aidd/reports/context/latest_working_set.md`, `AIDD:NEXT_3`, `Reports: aidd/reports/**`, snippet‑regex под `AIDD:RESEARCH_HINTS`, упоминание `AIDD:HANDOFF_INBOX`, ссылки на `AIDD:ACCEPTANCE`.
+- [ ] Применить замены по агентам/командам: `Next 3 → AIDD:NEXT_3`, `## Research Hints → ## AIDD:RESEARCH_HINTS`, `AIDD:INBOX_DERIVED → AIDD:HANDOFF_INBOX`, `AIDD:ACCEPTANCE_CRITERIA → AIDD:ACCEPTANCE`, обновить пути reports/working set, добавить stage‑anchor ссылки; без back‑compat (полная замена якорей).
 - [ ] Добавить `Bash(sed:*)` в tools агентов (`analyst`, `researcher`, `plan-reviewer`, `prd-reviewer`, `qa`, `reviewer`, `planner`, `validator`) и синхронизировать payload‑копии.
 
-### EPIC C — Reports paths: канон `reports/**`
-- [ ] Привести ссылки в `aidd/commands/*.md`, `aidd/agents/*.md`, `aidd/docs/anchors/*.md`, `aidd/docs/*template.md`, `aidd/docs/reports-format.md`, `README*.md`, `doc/dev/*`, smoke‑скриптах и payload‑копиях к `reports/**`.
-- [ ] Обновить примеры CLI/доков и тесты, которые ещё ждут `aidd/reports/**` (включая `aidd/commands/review-spec.md`, `aidd/commands/qa.md`, smoke, payload).
+### EPIC C — Reports paths: канон `aidd/reports/**`
+- [ ] Привести ссылки в `aidd/commands/*.md`, `aidd/agents/*.md`, `aidd/docs/anchors/*.md`, `aidd/docs/*template.md`, `aidd/docs/reports-format.md`, `README*.md`, `doc/dev/*`, smoke‑скриптах и payload‑копиях к `aidd/reports/**`.
+- [ ] Обновить runtime‑дефолты под `aidd/reports/**`: CLI (tests log, research outputs, context‑pack), hooks/gates, `config/gates.json`, `reports_pack.py`, `index_sync.py`.
+- [ ] Обновить примеры CLI/доков и тесты, которые ещё ждут `reports/**` (включая `aidd/commands/review-spec.md`, `aidd/commands/qa.md`, smoke, payload).
 
 ### EPIC D — Lint/tests/sync
-- [ ] Обновить `scripts/lint-prompts.py`, `tests/test_prompt_lint.py`, `tools/upgrade_aidd_docs.py` под якоря `AIDD:HANDOFF_INBOX` и `AIDD:RESEARCH_HINTS` (убрать `AIDD:INBOX_DERIVED`, добавить back‑compat).
+- [ ] Обновить `scripts/lint-prompts.py`, `tests/test_prompt_lint.py`, `tools/upgrade_aidd_docs.py` под якоря `AIDD:HANDOFF_INBOX`, `AIDD:RESEARCH_HINTS`, `AIDD:ACCEPTANCE`, `AIDD:RISKS` (убрать `AIDD:INBOX_DERIVED`, `AIDD:ACCEPTANCE_CRITERIA`, `AIDD:CONTRACTS`, `AIDD:OBSERVABILITY`, `AIDD:GAPS`, `AIDD:RISKS_TOP5`).
 - [ ] Обновить smoke‑фикстуры и тесты под новый tasklist/anchors (включая payload smoke).
 - [ ] Финал: `python3 tools/check_payload_sync.py`, `scripts/sync-payload.sh --direction=to-root`.

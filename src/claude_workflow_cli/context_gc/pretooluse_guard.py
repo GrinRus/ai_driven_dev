@@ -252,10 +252,6 @@ def handle_bash(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
 
 
 def handle_read(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any], tool_input: Dict[str, Any]) -> None:
-    guard = cfg.get("read_guard", {})
-    if not guard.get("enabled", True):
-        return
-
     file_path = tool_input.get("file_path") or tool_input.get("path") or tool_input.get("filename")
     if not isinstance(file_path, str) or not file_path:
         return
@@ -282,17 +278,33 @@ def handle_read(project_dir: Path, aidd_root: Optional[Path], cfg: Dict[str, Any
                 continue
         path = (resolved or candidates[0]).resolve()
 
-    try:
-        size = path.stat().st_size
-    except Exception:
-        return
-
     injection_message = _prompt_injection_guard_message(
         cfg,
         project_dir,
         aidd_root,
         path=path,
     )
+
+    guard = cfg.get("read_guard", {})
+    if not guard.get("enabled", True):
+        if injection_message:
+            pretooluse_decision(
+                permission_decision="allow",
+                reason="Context GC: prompt-injection guard for dependency read.",
+                system_message=injection_message,
+            )
+        return
+
+    try:
+        size = path.stat().st_size
+    except Exception:
+        if injection_message:
+            pretooluse_decision(
+                permission_decision="allow",
+                reason="Context GC: prompt-injection guard for dependency read.",
+                system_message=injection_message,
+            )
+        return
 
     max_bytes = int(guard.get("max_bytes", 200_000))
     if size <= max_bytes:
