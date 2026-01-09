@@ -253,3 +253,91 @@ class TasksDeriveArgsTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("invalid choice", (result.stderr or ""))
+
+
+class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
+    def test_tasks_derive_updates_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = ensure_project_root(Path(tmpdir))
+            write_active_feature(project_root, "demo-checkout")
+            write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+            write_json(
+                project_root,
+                "reports/qa/demo-checkout.json",
+                {
+                    "status": "warn",
+                    "tests_summary": "pass",
+                    "tests_executed": [],
+                    "findings": [
+                        {"severity": "minor", "scope": "ui", "title": "Spacing", "details": "Button offset"},
+                    ],
+                },
+            )
+
+            index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
+            self.assertFalse(index_path.exists())
+
+            env = os.environ.copy()
+            env.pop("AIDD_INDEX_AUTO", None)
+            result = subprocess.run(
+                cli_cmd(
+                    "tasks-derive",
+                    "--source",
+                    "qa",
+                    "--ticket",
+                    "demo-checkout",
+                    "--target",
+                    ".",
+                ),
+                cwd=project_root,
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertTrue(index_path.exists())
+            payload = json.loads(index_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("ticket"), "demo-checkout")
+
+    def test_tasks_derive_skips_index_when_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = ensure_project_root(Path(tmpdir))
+            write_active_feature(project_root, "demo-checkout")
+            write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+            write_json(
+                project_root,
+                "reports/qa/demo-checkout.json",
+                {
+                    "status": "warn",
+                    "tests_summary": "pass",
+                    "tests_executed": [],
+                    "findings": [
+                        {"severity": "minor", "scope": "ui", "title": "Spacing", "details": "Button offset"},
+                    ],
+                },
+            )
+
+            index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
+            self.assertFalse(index_path.exists())
+
+            env = os.environ.copy()
+            env["AIDD_INDEX_AUTO"] = "0"
+            result = subprocess.run(
+                cli_cmd(
+                    "tasks-derive",
+                    "--source",
+                    "qa",
+                    "--ticket",
+                    "demo-checkout",
+                    "--target",
+                    ".",
+                ),
+                cwd=project_root,
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertFalse(index_path.exists())

@@ -56,6 +56,7 @@ from claude_workflow_cli.context_gc import (
     precompact_snapshot as _context_precompact,
     pretooluse_guard as _context_pretooluse,
     sessionstart_inject as _context_sessionstart,
+    stop_update as _context_stop,
     userprompt_guard as _context_userprompt,
 )
 from claude_workflow_cli.resources import (
@@ -502,6 +503,8 @@ def _set_active_stage_command(args: argparse.Namespace) -> int:
     stage_path = docs_dir / ".active_stage"
     stage_path.write_text(stage + "\n", encoding="utf-8")
     print(f"active stage: {stage}")
+    context = _resolve_feature_context(root)
+    _maybe_sync_index(root, context.resolved_ticket, context.slug_hint, reason="set-active-stage")
     return 0
 
 
@@ -542,14 +545,13 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
 
     index_ticket = identifiers.resolved_ticket or args.ticket
     index_slug = resolved_slug_hint or index_ticket
-    try:
-        from claude_workflow_cli.tools import index_sync as _index_sync
-
-        index_path = _index_sync.write_index(root, index_ticket, index_slug)
-        rel_index = index_path.relative_to(root).as_posix()
-        print(f"[index] index saved to {rel_index}.")
-    except Exception as exc:
-        print(f"[index] warning: failed to update index ({exc}).", file=sys.stderr)
+    _maybe_sync_index(
+        root,
+        index_ticket,
+        index_slug,
+        reason="set-active-feature",
+        announce=True,
+    )
     return 0
 
 
@@ -578,7 +580,18 @@ def _identifiers_command(args: argparse.Namespace) -> int:
 
 
 def _prd_review_command(args: argparse.Namespace) -> int:
-    return _prd_review.run(args)
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    exit_code = _prd_review.run(args)
+    if exit_code == 0:
+        context = _resolve_feature_context(
+            target,
+            ticket=getattr(args, "ticket", None),
+            slug_hint=getattr(args, "slug_hint", None),
+        )
+        ticket = (context.resolved_ticket or "").strip()
+        slug_hint = (context.slug_hint or ticket).strip() or ticket
+        _maybe_sync_index(target, ticket, slug_hint, reason="prd-review")
+    return exit_code
 
 
 def _plan_review_gate_command(args: argparse.Namespace) -> int:
@@ -606,6 +619,8 @@ def _context_gc_command(args: argparse.Namespace) -> None:
         _context_sessionstart.main()
     elif mode == "pretooluse":
         _context_pretooluse.main()
+    elif mode == "stop":
+        _context_stop.main()
     elif mode == "userprompt":
         _context_userprompt.main()
 
@@ -683,6 +698,9 @@ def _research_command(args: argparse.Namespace) -> None:
         slug_hint=getattr(args, "slug_hint", None),
     )
 
+    def _sync_index(reason: str) -> None:
+        _maybe_sync_index(target, ticket, feature_context.slug_hint, reason=reason)
+
     config_path: Optional[Path] = None
     if args.config:
         config_path = Path(args.config)
@@ -714,6 +732,8 @@ def _research_command(args: argparse.Namespace) -> None:
     )
 
     if args.targets_only:
+        if not getattr(args, "dry_run", False):
+            _sync_index("research-targets")
         return
 
     languages = _research_parse_langs(getattr(args, "langs", None))
@@ -819,31 +839,29 @@ def _research_command(args: argparse.Namespace) -> None:
     message += ")."
     print(message)
 
-    if args.no_template:
-        return
+    if not args.no_template:
+        template_overrides: dict[str, str] = {}
+        if match_count == 0:
+            template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
+            template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
+            template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
+        if scope.manual_notes:
+            template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
 
-    template_overrides: dict[str, str] = {}
-    if match_count == 0:
-        template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
-        template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
-        template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
-    if scope.manual_notes:
-        template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
-
-    doc_path, created = _ensure_research_doc(
-        target,
-        ticket,
-        slug_hint=feature_context.slug_hint,
-        template_overrides=template_overrides or None,
-    )
-    if not doc_path:
-        print("[claude-workflow] research summary template not found; skipping materialisation.")
-        return
-    rel_doc = doc_path.relative_to(target).as_posix()
-    if created:
-        print(f"[claude-workflow] research summary created at {rel_doc}.")
-    else:
-        print(f"[claude-workflow] research summary already exists at {rel_doc}.")
+        doc_path, created = _ensure_research_doc(
+            target,
+            ticket,
+            slug_hint=feature_context.slug_hint,
+            template_overrides=template_overrides or None,
+        )
+        if not doc_path:
+            print("[claude-workflow] research summary template not found; skipping materialisation.")
+        else:
+            rel_doc = doc_path.relative_to(target).as_posix()
+            if created:
+                print(f"[claude-workflow] research summary created at {rel_doc}.")
+            else:
+                print(f"[claude-workflow] research summary already exists at {rel_doc}.")
 
     try:
         from claude_workflow_cli.reports import events as _events
@@ -871,6 +889,7 @@ def _research_command(args: argparse.Namespace) -> None:
             output_path.unlink()
         except OSError:
             pass
+    _sync_index("research")
 
 
 def _index_sync_command(args: argparse.Namespace) -> int:
@@ -994,6 +1013,7 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
             print(f"[claude-workflow] reviewer marker cleared ({rel_marker}).")
         else:
             print(f"[claude-workflow] reviewer marker not found at {rel_marker}.")
+        _maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
         return
 
     status = (args.status or "required").strip().lower()
@@ -1056,6 +1076,7 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     print(f"[claude-workflow] reviewer marker updated ({rel_marker} → {state_label}).")
     if status in required_values:
         print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
+    _maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
 
 
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
@@ -1291,6 +1312,8 @@ def _qa_command(args: argparse.Namespace) -> int:
     except Exception:
         pass
 
+    if not args.dry_run:
+        _maybe_sync_index(target, ticket, slug_hint or None, reason="qa")
     return exit_code
 
 
@@ -1333,6 +1356,7 @@ def _progress_command(args: argparse.Namespace) -> int:
         )
     except Exception:
         pass
+    _maybe_sync_index(target, ticket, context.slug_hint, reason="progress")
 
     if args.json:
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
@@ -1413,6 +1437,41 @@ def _require_ticket(
             "feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new."
         )
     return resolved, context
+
+
+def _auto_index_enabled() -> bool:
+    raw = os.getenv("AIDD_INDEX_AUTO", "").strip().lower()
+    if not raw:
+        return True
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _maybe_sync_index(
+    target: Path,
+    ticket: Optional[str],
+    slug_hint: Optional[str],
+    *,
+    reason: str = "",
+    announce: bool = False,
+) -> None:
+    if not _auto_index_enabled():
+        return
+    if not ticket:
+        return
+    ticket = str(ticket).strip()
+    if not ticket:
+        return
+    slug = (slug_hint or ticket).strip() or ticket
+    try:
+        from claude_workflow_cli.tools import index_sync as _index_sync
+
+        index_path = _index_sync.write_index(target, ticket, slug)
+        if announce:
+            rel = _rel_path(index_path, target)
+            print(f"[index] index saved to {rel}.")
+    except Exception as exc:
+        label = f" ({reason})" if reason else ""
+        print(f"[index] warning{label}: failed to update index ({exc}).", file=sys.stderr)
 
 
 def _format_ticket_label(context: FeatureIdentifiers, fallback: str = "активной фичи") -> str:
@@ -1829,6 +1888,7 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
         f"from {source} report ({report_label}) to {tasklist_rel} "
         f"(section: {section_display}; mode={'append' if args.append else 'replace'})."
     )
+    _maybe_sync_index(target, ticket, slug_hint or None, reason="tasks-derive")
     return 0
 
 
@@ -2501,11 +2561,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     context_gc_parser = subparsers.add_parser(
         "context-gc",
-        help="Run context GC hooks (precompact/sessionstart/pretooluse/userprompt).",
+        help="Run context GC hooks (precompact/sessionstart/pretooluse/stop/userprompt).",
     )
     context_gc_parser.add_argument(
         "mode",
-        choices=("precompact", "sessionstart", "pretooluse", "userprompt"),
+        choices=("precompact", "sessionstart", "pretooluse", "stop", "userprompt"),
         help="Context GC mode to execute.",
     )
     context_gc_parser.set_defaults(func=_context_gc_command)

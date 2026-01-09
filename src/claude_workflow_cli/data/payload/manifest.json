@@ -39,8 +39,8 @@
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 3726,
-      "sha256": "8d8ea562d07b2e63bad2a717e268c020cf8f7c3a442b25f70fd0424f0ac9bc77"
+      "size": 3733,
+      "sha256": "7aeb7b04f6dc82d832a43382f34a085fa2d6a91bb372dd67525cacbbbe41b501"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -135,8 +135,8 @@
     {
       "path": "aidd/commands/status.md",
       "type": "file",
-      "size": 2413,
-      "sha256": "30b9fe301bdcbd8a145b56b2134da3bbf7035a6ba8ef7f3f2c298fb2ed5e384e"
+      "size": 2779,
+      "sha256": "5aab2364f57fea08afd3c6accdcf28676006a9a5d98c63c59c58d5e2d6d52c97"
     },
     {
       "path": "aidd/commands/tasks-new.md",
@@ -243,8 +243,8 @@
     {
       "path": "aidd/docs/cli-migration.md",
       "type": "file",
-      "size": 1644,
-      "sha256": "417b10ed48e74e7edfb16f4837ad620c7f48b45988695dd67733841364901606"
+      "size": 1650,
+      "sha256": "1db27dbfed066249f51acd6ead2dc0d0ae8c77cec6ba9f7a3a5b4e856de9c7f3"
     },
     {
       "path": "aidd/docs/index/schema.json",
@@ -363,8 +363,8 @@
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 3320,
-      "sha256": "dc55c8ae489a81e09833f4e16387ccc2a447fb55db3ae066ab6aec277d69bc48"
+      "size": 3800,
+      "sha256": "cd4e4605c831b3ef744cd3bd20443891bf3522cbf0f95b4565d4252e28677d2a"
     },
     {
       "path": "aidd/hooks/lib.sh",

@@ -23,6 +23,7 @@ USERPROMPT_MODULE = "claude_workflow_cli.context_gc.userprompt_guard"
 PRETOOLUSE_MODULE = "claude_workflow_cli.context_gc.pretooluse_guard"
 PRECOMPACT_MODULE = "claude_workflow_cli.context_gc.precompact_snapshot"
 SESSIONSTART_MODULE = "claude_workflow_cli.context_gc.sessionstart_inject"
+STOP_MODULE = "claude_workflow_cli.context_gc.stop_update"
 
 
 def _env_for_workspace(root: Path) -> dict[str, str]:
@@ -812,6 +813,35 @@ class PreCompactSnapshotTests(unittest.TestCase):
             self.assertTrue(session_path.exists())
             self.assertTrue(ticket_path.exists())
             self.assertTrue(latest_ticket.exists())
+
+
+class StopUpdateTests(unittest.TestCase):
+    def test_stop_update_writes_latest_working_set(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_file(
+                root,
+                "docs/prd/demo-ticket.prd.md",
+                "# Demo PRD\n\nStatus: draft\n\n",
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+            payload = {"hook_event_name": "Stop"}
+            result = _run_hook_script(STOP_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            latest_path = root / "aidd" / "reports" / "context" / "latest_working_set.md"
+            self.assertTrue(latest_path.exists())
+            content = latest_path.read_text(encoding="utf-8")
+            self.assertIn("Ticket: demo-ticket", content)
+            ticket_latest = (
+                root / "aidd" / "reports" / "context" / "by-ticket" / "demo-ticket" / "latest_working_set.md"
+            )
+            self.assertTrue(ticket_latest.exists())
 
 
 if __name__ == "__main__":
