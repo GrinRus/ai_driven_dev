@@ -33,22 +33,33 @@ run_cli() {
   fi
 }
 
-if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
-  CLI_USE_PYTHON=0
-else
-  pythonpath_env=""
-  if [[ -n "$CLI_PYTHONPATH" ]]; then
-    pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
-  fi
+pythonpath_env=""
+if [[ -n "$CLI_PYTHONPATH" ]]; then
+  pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
   if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
 import importlib
 importlib.import_module("claude_workflow_cli")
 PY
     CLI_USE_PYTHON=1
     echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+  fi
+fi
+
+if [[ "$CLI_USE_PYTHON" -eq 0 ]]; then
+  if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
+    CLI_USE_PYTHON=0
   else
-    echo "[smoke] missing CLI binary (${CLI_BIN}) and python module (claude_workflow_cli)" >&2
-    exit 1
+    pythonpath_env=""
+    if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
+import importlib
+importlib.import_module("claude_workflow_cli")
+PY
+      CLI_USE_PYTHON=1
+      echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+    else
+      echo "[smoke] missing CLI binary (${CLI_BIN}) and python module (claude_workflow_cli)" >&2
+      exit 1
+    fi
   fi
 fi
 

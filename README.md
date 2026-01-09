@@ -6,6 +6,7 @@
 - `claude-workflow init --target .` (или `aidd/init-claude-workflow.sh` из payload) разворачивает цикл `/idea-new (analyst) → research при необходимости → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow sync|upgrade|smoke` покрывают обновление payload и e2e-smoke.
 - Автоформат и выборочные проверки (`aidd/hooks/format-and-test.sh`) запускаются только на стадии `implement` и только на Stop/SubagentStop (`SKIP_AUTO_TESTS=1` временно отключает); профили тестов задаются через `aidd/.cache/test-policy.env`, артефакты защищены хуками `gate-*`.
 - Стадия фичи хранится в `aidd/docs/.active_stage` и обновляется слэш-командами (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); можно откатываться к любому этапу.
+- Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; рабочий набор в `aidd/reports/context/latest_working_set.md` читается первым, если есть.
 - Настраиваемые режимы веток/коммитов через `config/conventions.json` и готовые шаблоны документации/промптов.
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
 - Payload ставится в поддиректорию `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`); все артефакты и отчёты (`aidd/reports/**`) живут там же. Workspace‑настройки лежат в корне (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
@@ -49,7 +50,7 @@
 - `claude-workflow analyst-check --ticket <ticket>` — валидация диалога analyst и статуса PRD.
 - `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — сбор целей/матчей/графа вызовов.
 - `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — маркер автотестов на ревью.
-- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — handoff-задачи в `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow tasks-derive --source qa|research --append --ticket <ticket>` — handoff-задачи в `aidd/docs/tasklist/<ticket>.md`.
 - `claude-workflow qa --ticket <ticket> --gate` — отчёт QA + гейт.
 - `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — подтверждение новых `- [x]`/handoff-пунктов.
 
@@ -316,7 +317,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `aidd/docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
 5. Запросите `/review`, когда чеклисты в `aidd/docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.
 6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
-7. После отчётов QA/Review/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
+7. После отчётов QA/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 Детальный playbook агентов и барьеров описан в `doc/dev/agents-playbook.md`.
 

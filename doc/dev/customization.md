@@ -2,7 +2,7 @@
 
 Документ описывает, как адаптировать настройки Claude Code workflow под процессы команды: от политик доступа и конвенций до поведения git-хуков и слэш-команд.
 
-> Все служебные файлы (команды, агенты, хуки, шаблоны, конфиги) лежат в payload каталога `src/claude_workflow_cli/data/payload/` и разворачиваются из него через `claude-workflow init` / `claude-workflow upgrade`. Для точечной пересборки используйте `claude-workflow sync` (например, `claude-workflow sync --include .claude --include .claude-plugin`; чтобы подтянуть последнюю версию из GitHub Releases, укажите `--release latest` или конкретный тег `--release v0.2.0`). CLI сверяет контрольные суммы из `manifest.json` и выводит diff перед синхронизацией. Для локального dogfooding без установки CLI предусмотрен скрипт `scripts/bootstrap-local.sh`, который копирует payload в `.dev/.claude-example/`.
+> Канонические файлы для разработки лежат в `aidd/**` в корне репозитория. Payload в `src/claude_workflow_cli/data/payload/` — это дистрибутив, который разворачивается через `claude-workflow init` / `claude-workflow upgrade`. Для точечной пересборки используйте `claude-workflow sync` (например, `claude-workflow sync --include .claude --include .claude-plugin`; чтобы подтянуть последнюю версию из GitHub Releases, укажите `--release latest` или конкретный тег `--release v0.2.0`). CLI сверяет контрольные суммы из `manifest.json` и выводит diff перед синхронизацией. Для локального dogfooding без установки CLI предусмотрен скрипт `scripts/bootstrap-local.sh`, который копирует payload в `.dev/.claude-example/`.
 >
 > По умолчанию релизы скачиваются из `ai-driven-dev/ai_driven_dev`; переопределите репозиторий переменной `CLAUDE_WORKFLOW_RELEASE_REPO` или явно укажите `--release owner/repo@tag`. Кеш скачанных архивов хранится в `~/.cache/claude-workflow` (`CLAUDE_WORKFLOW_CACHE` или `--cache-dir`). Чтобы избежать лимитов GitHub API, задайте `GH_TOKEN` / `GITHUB_TOKEN`.
 >
@@ -12,10 +12,11 @@
 
 > Repo-only: `scripts/sync-payload.sh` и `tools/check_payload_sync.py` находятся в корне репозитория и не входят в установленный payload.
 
-1. **Правим только payload.** Любые изменения `.claude/`, `.claude-plugin/`, `aidd/**`, `templates/`, скриптов и агентов в root должны приходить из `src/claude_workflow_cli/data/payload`. Перед редактированием разверните содержание в корень командой `scripts/sync-payload.sh --direction=to-root`.
-2. **Фиксируем изменения назад.** После правок выполните `scripts/sync-payload.sh --direction=from-root` и закоммитьте обе стороны. Скрипт поддерживает `--paths` и `--dry-run` для точечного сравнения.
-3. **Проверяем контрольные суммы.** Запустите `python3 tools/check_payload_sync.py` (или `pre-commit run payload-sync-check`) — он сравнит хэши файлов payload и runtime snapshot. Любое расхождение блокирует CI (job `ci-lint` в GitHub Actions).
-4. **Dogfooding без установки.** Для проверки payload в стороннем проекте используйте `scripts/bootstrap-local.sh --payload src/claude_workflow_cli/data/payload --target .dev/.claude-example --force`, а не ручное редактирование `.claude` в репозитории.
+1. **Правим canonical в root.** Изменения в `aidd/**` и runtime‑снимках `.claude/`, `.claude-plugin/` делайте в корне репозитория.
+2. **Синхронизируем в payload.** После правок выполняйте `scripts/sync-payload.sh --direction=from-root` и коммитьте обе стороны. Скрипт поддерживает `--paths` и `--dry-run` для точечного сравнения.
+3. **При необходимости подтянуть payload в root.** Используйте `scripts/sync-payload.sh --direction=to-root`, если хотите обновить runtime‑снимок из payload.
+4. **Проверяем контрольные суммы.** Запустите `python3 tools/check_payload_sync.py` (или `pre-commit run payload-sync-check`) — он сравнит хэши файлов payload и runtime snapshot. Любое расхождение блокирует CI (job `ci-lint` в GitHub Actions).
+5. **Dogfooding без установки.** Для проверки payload в стороннем проекте используйте `scripts/bootstrap-local.sh --payload src/claude_workflow_cli/data/payload --target .dev/.claude-example --force`, а не ручное редактирование `.claude` в репозитории.
 
 Соблюдайте эти шаги перед публикацией релиза, чтобы `uv tool install claude-workflow-cli` всегда получал последнюю версию скриптов.
 
@@ -95,6 +96,7 @@
 
 - Для короткого контекста используйте секцию `AIDD:CONTEXT_PACK` в tasklist (<= 20 lines / <= 1200 chars).
 - Политика чтения: если есть `*.pack.yaml` — читать pack; иначе начинать с anchor‑секций.
+- Рабочий набор хранится в `aidd/reports/context/latest_working_set.md` и читается первым, если файл существует.
 
 ## Git-хуки
 

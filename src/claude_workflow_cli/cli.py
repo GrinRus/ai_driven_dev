@@ -56,6 +56,7 @@ from claude_workflow_cli.context_gc import (
     precompact_snapshot as _context_precompact,
     pretooluse_guard as _context_pretooluse,
     sessionstart_inject as _context_sessionstart,
+    stop_update as _context_stop,
     userprompt_guard as _context_userprompt,
 )
 from claude_workflow_cli.resources import (
@@ -502,6 +503,8 @@ def _set_active_stage_command(args: argparse.Namespace) -> int:
     stage_path = docs_dir / ".active_stage"
     stage_path.write_text(stage + "\n", encoding="utf-8")
     print(f"active stage: {stage}")
+    context = _resolve_feature_context(root)
+    _maybe_sync_index(root, context.resolved_ticket, context.slug_hint, reason="set-active-stage")
     return 0
 
 
@@ -539,6 +542,16 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(root).as_posix()
     print(f"[researcher] targets saved to {rel_targets} ({len(scope.paths)} paths, {len(scope.docs)} docs)")
+
+    index_ticket = identifiers.resolved_ticket or args.ticket
+    index_slug = resolved_slug_hint or index_ticket
+    _maybe_sync_index(
+        root,
+        index_ticket,
+        index_slug,
+        reason="set-active-feature",
+        announce=True,
+    )
     return 0
 
 
@@ -567,7 +580,18 @@ def _identifiers_command(args: argparse.Namespace) -> int:
 
 
 def _prd_review_command(args: argparse.Namespace) -> int:
-    return _prd_review.run(args)
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    exit_code = _prd_review.run(args)
+    if exit_code == 0:
+        context = _resolve_feature_context(
+            target,
+            ticket=getattr(args, "ticket", None),
+            slug_hint=getattr(args, "slug_hint", None),
+        )
+        ticket = (context.resolved_ticket or "").strip()
+        slug_hint = (context.slug_hint or ticket).strip() or ticket
+        _maybe_sync_index(target, ticket, slug_hint, reason="prd-review")
+    return exit_code
 
 
 def _plan_review_gate_command(args: argparse.Namespace) -> int:
@@ -595,6 +619,8 @@ def _context_gc_command(args: argparse.Namespace) -> None:
         _context_sessionstart.main()
     elif mode == "pretooluse":
         _context_pretooluse.main()
+    elif mode == "stop":
+        _context_stop.main()
     elif mode == "userprompt":
         _context_userprompt.main()
 
@@ -672,6 +698,9 @@ def _research_command(args: argparse.Namespace) -> None:
         slug_hint=getattr(args, "slug_hint", None),
     )
 
+    def _sync_index(reason: str) -> None:
+        _maybe_sync_index(target, ticket, feature_context.slug_hint, reason=reason)
+
     config_path: Optional[Path] = None
     if args.config:
         config_path = Path(args.config)
@@ -703,6 +732,8 @@ def _research_command(args: argparse.Namespace) -> None:
     )
 
     if args.targets_only:
+        if not getattr(args, "dry_run", False):
+            _sync_index("research-targets")
         return
 
     languages = _research_parse_langs(getattr(args, "langs", None))
@@ -786,6 +817,18 @@ def _research_command(args: argparse.Namespace) -> None:
     output = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, collected_context, output=output)
     rel_output = output_path.relative_to(target).as_posix()
+    pack_path = None
+    try:
+        from claude_workflow_cli.tools import reports_pack as _reports_pack
+
+        pack_path = _reports_pack.write_research_context_pack(output_path, root=target)
+        try:
+            rel_pack = pack_path.relative_to(target).as_posix()
+        except ValueError:
+            rel_pack = pack_path.as_posix()
+        print(f"[claude-workflow] research pack saved to {rel_pack}.")
+    except Exception as exc:
+        print(f"[claude-workflow] WARN: failed to generate research pack: {exc}", file=sys.stderr)
     reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
     call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
     message = f"[claude-workflow] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
@@ -796,32 +839,155 @@ def _research_command(args: argparse.Namespace) -> None:
     message += ")."
     print(message)
 
-    if args.no_template:
-        return
+    if not args.no_template:
+        template_overrides: dict[str, str] = {}
+        if match_count == 0:
+            template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
+            template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
+            template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
+        if scope.manual_notes:
+            template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
 
-    template_overrides: dict[str, str] = {}
-    if match_count == 0:
-        template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
-        template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
-        template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
-    if scope.manual_notes:
-        template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
+        doc_path, created = _ensure_research_doc(
+            target,
+            ticket,
+            slug_hint=feature_context.slug_hint,
+            template_overrides=template_overrides or None,
+        )
+        if not doc_path:
+            print("[claude-workflow] research summary template not found; skipping materialisation.")
+        else:
+            rel_doc = doc_path.relative_to(target).as_posix()
+            if created:
+                print(f"[claude-workflow] research summary created at {rel_doc}.")
+            else:
+                print(f"[claude-workflow] research summary already exists at {rel_doc}.")
 
-    doc_path, created = _ensure_research_doc(
+    try:
+        from claude_workflow_cli.reports import events as _events
+
+        _events.append_event(
+            target,
+            ticket=ticket,
+            slug_hint=feature_context.slug_hint,
+            event_type="research",
+            status="empty" if match_count == 0 else "ok",
+            details={
+                "matches": match_count,
+                "reuse_candidates": reuse_count,
+                "call_graph_edges": call_edges,
+            },
+            report_path=Path(rel_output),
+            source="claude-workflow research",
+        )
+    except Exception:
+        pass
+
+    pack_only = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
+    if pack_only and pack_path and pack_path.exists():
+        try:
+            output_path.unlink()
+        except OSError:
+            pass
+    _sync_index("research")
+
+
+def _index_sync_command(args: argparse.Namespace) -> int:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    ticket, context = _require_ticket(
         target,
-        ticket,
-        slug_hint=feature_context.slug_hint,
-        template_overrides=template_overrides or None,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
     )
-    if not doc_path:
-        print("[claude-workflow] research summary template not found; skipping materialisation.")
-        return
-    rel_doc = doc_path.relative_to(target).as_posix()
-    if created:
-        print(f"[claude-workflow] research summary created at {rel_doc}.")
-    else:
-        print(f"[claude-workflow] research summary already exists at {rel_doc}.")
+    slug = (getattr(args, "slug", None) or context.slug_hint or ticket).strip()
+    from claude_workflow_cli.tools import index_sync as _index_sync
 
+    output = Path(args.output) if args.output else None
+    index_path = _index_sync.write_index(target, ticket, slug, output=output)
+    rel = _rel_path(index_path, target)
+    print(f"[claude-workflow] index saved to {rel}.")
+    return 0
+
+
+def _status_command(args: argparse.Namespace) -> int:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+    ticket, context = _require_ticket(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    slug = context.slug_hint or ticket
+
+    from claude_workflow_cli.tools import index_sync as _index_sync
+    from claude_workflow_cli.reports import events as _events
+
+    index_path = target / "docs" / "index" / f"{ticket}.yaml"
+    if args.refresh or not index_path.exists():
+        _index_sync.write_index(target, ticket, slug)
+
+    try:
+        index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except Exception:
+        index_payload = {}
+
+    stage = index_payload.get("stage") or ""
+    summary = index_payload.get("summary") or ""
+    print(f"[status] {ticket}" + (f" (stage: {stage})" if stage else ""))
+    if summary:
+        print(f"- Summary: {summary}")
+    updated = index_payload.get("updated")
+    if updated:
+        print(f"- Updated: {updated}")
+    artifacts = index_payload.get("artifacts") or []
+    if artifacts:
+        print("- Artifacts:")
+        for item in artifacts:
+            print(f"  - {item}")
+    reports = index_payload.get("reports") or []
+    if reports:
+        print("- Reports:")
+        for item in reports:
+            print(f"  - {item}")
+    next3 = index_payload.get("next3") or []
+    if next3:
+        print("- Next 3:")
+        for item in next3:
+            print(f"  - {item}")
+    open_questions = index_payload.get("open_questions") or []
+    if open_questions:
+        print("- Open questions:")
+        for item in open_questions:
+            print(f"  - {item}")
+    risks = index_payload.get("risks_top5") or []
+    if risks:
+        print("- Risks top5:")
+        for item in risks:
+            print(f"  - {item}")
+    checks = index_payload.get("checks") or []
+    if checks:
+        print("- Checks:")
+        for item in checks:
+            name = item.get("name") if isinstance(item, dict) else None
+            status = item.get("status") if isinstance(item, dict) else None
+            path = item.get("path") if isinstance(item, dict) else None
+            label = f"{name}: {status}" if name else str(item)
+            if path:
+                label += f" ({path})"
+            print(f"  - {label}")
+
+    events = _events.read_events(target, ticket, limit=args.events)
+    if events:
+        print("- Events:")
+        for entry in events:
+            line = f"{entry.get('ts')} [{entry.get('type')}]"
+            status = entry.get("status")
+            if status:
+                line += f" {status}"
+            details = entry.get("details")
+            if isinstance(details, dict) and details.get("summary"):
+                line += f" — {details.get('summary')}"
+            print(f"  - {line}")
+    return 0
 
 def _reviewer_tests_command(args: argparse.Namespace) -> None:
     _, target = _require_workflow_root(Path(args.target).resolve())
@@ -847,6 +1013,7 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
             print(f"[claude-workflow] reviewer marker cleared ({rel_marker}).")
         else:
             print(f"[claude-workflow] reviewer marker not found at {rel_marker}.")
+        _maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
         return
 
     status = (args.status or "required").strip().lower()
@@ -909,6 +1076,7 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     print(f"[claude-workflow] reviewer marker updated ({rel_marker} → {state_label}).")
     if status in required_values:
         print("[claude-workflow] format-and-test will trigger test tasks after the next write/edit.")
+    _maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
 
 
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
@@ -1079,6 +1247,10 @@ def _qa_command(args: argparse.Namespace) -> int:
     if args.scope:
         for scope in args.scope:
             qa_args.extend(["--scope", scope])
+    if args.emit_patch:
+        qa_args.append("--emit-patch")
+    if args.pack_only:
+        qa_args.append("--pack-only")
 
     qa_args.extend(["--ticket", ticket])
     if slug_hint and slug_hint != ticket:
@@ -1113,6 +1285,35 @@ def _qa_command(args: argparse.Namespace) -> int:
     elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
         exit_code = max(exit_code, 1)
 
+    try:
+        from claude_workflow_cli.reports import events as _events
+        payload = None
+        report_for_event: Path | None = None
+        if report_path.exists():
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            report_for_event = report_path
+        else:
+            from claude_workflow_cli.reports.loader import load_report_for_path
+
+            payload, source, report_paths = load_report_for_path(report_path, prefer_pack=True)
+            report_for_event = report_paths.pack_path if source == "pack" else report_paths.json_path
+
+        if payload and report_for_event:
+            _events.append_event(
+                target,
+                ticket=ticket,
+                slug_hint=slug_hint or None,
+                event_type="qa",
+                status=str(payload.get("status") or ""),
+                details={"summary": payload.get("summary")},
+                report_path=Path(_rel_path(report_for_event, target)),
+                source="claude-workflow qa",
+            )
+    except Exception:
+        pass
+
+    if not args.dry_run:
+        _maybe_sync_index(target, ticket, slug_hint or None, reason="qa")
     return exit_code
 
 
@@ -1135,6 +1336,27 @@ def _progress_command(args: argparse.Namespace) -> int:
         branch=branch,
         config=config,
     )
+
+    try:
+        from claude_workflow_cli.reports import events as _events
+
+        _events.append_event(
+            target,
+            ticket=ticket or "",
+            slug_hint=context.slug_hint,
+            event_type="progress",
+            status=result.status,
+            details={
+                "source": args.source,
+                "message": result.message,
+                "code_files": len(result.code_files),
+                "new_items": len(result.new_items),
+            },
+            source="claude-workflow progress",
+        )
+    except Exception:
+        pass
+    _maybe_sync_index(target, ticket, context.slug_hint, reason="progress")
 
     if args.json:
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
@@ -1215,6 +1437,41 @@ def _require_ticket(
             "feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new."
         )
     return resolved, context
+
+
+def _auto_index_enabled() -> bool:
+    raw = os.getenv("AIDD_INDEX_AUTO", "").strip().lower()
+    if not raw:
+        return True
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _maybe_sync_index(
+    target: Path,
+    ticket: Optional[str],
+    slug_hint: Optional[str],
+    *,
+    reason: str = "",
+    announce: bool = False,
+) -> None:
+    if not _auto_index_enabled():
+        return
+    if not ticket:
+        return
+    ticket = str(ticket).strip()
+    if not ticket:
+        return
+    slug = (slug_hint or ticket).strip() or ticket
+    try:
+        from claude_workflow_cli.tools import index_sync as _index_sync
+
+        index_path = _index_sync.write_index(target, ticket, slug)
+        if announce:
+            rel = _rel_path(index_path, target)
+            print(f"[index] index saved to {rel}.")
+    except Exception as exc:
+        label = f" ({reason})" if reason else ""
+        print(f"[index] warning{label}: failed to update index ({exc}).", file=sys.stderr)
 
 
 def _format_ticket_label(context: FeatureIdentifiers, fallback: str = "активной фичи") -> str:
@@ -1327,7 +1584,8 @@ def _load_json_file(path: Path) -> Dict:
 
 
 def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -> List[str]:
-    findings = payload.get("findings") or []
+    raw_findings = payload.get("findings") or []
+    findings = _inflate_columnar(raw_findings) if isinstance(raw_findings, dict) else raw_findings
     tasks: List[str] = []
     for finding in findings:
         if not isinstance(finding, dict):
@@ -1345,7 +1603,8 @@ def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -
 def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
     tasks: List[str] = []
     summary = str(payload.get("tests_summary") or "").strip().lower() or "not-run"
-    executed = payload.get("tests_executed") or []
+    raw_executed = payload.get("tests_executed") or []
+    executed = _inflate_columnar(raw_executed) if isinstance(raw_executed, dict) else raw_executed
     if summary in {"skipped", "not-run"}:
         tasks.append(f"- [ ] QA tests: запустить автотесты и приложить лог (source: {report_label})")
     for entry in executed:
@@ -1362,6 +1621,21 @@ def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
     if summary == "fail" and not any(str(entry.get("status") or "").strip().lower() == "fail" for entry in executed):
         tasks.append(f"- [ ] QA tests: исправить упавшие тесты (source: {report_label})")
     return tasks
+
+
+def _inflate_columnar(section: object) -> List[Dict]:
+    if not isinstance(section, dict):
+        return list(section) if isinstance(section, list) else []
+    cols = section.get("cols")
+    rows = section.get("rows")
+    if not isinstance(cols, list) or not isinstance(rows, list):
+        return []
+    inflated: List[Dict] = []
+    for row in rows:
+        if not isinstance(row, list):
+            continue
+        inflated.append({str(col): row[idx] if idx < len(row) else None for idx, col in enumerate(cols)})
+    return inflated
 
 
 def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[str]:
@@ -1381,7 +1655,8 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
             continue
         tasks.append(f"- [ ] Research note: {note_text} (source: {report_label})")
 
-    reuse_candidates = payload.get("reuse_candidates") or []
+    raw_reuse = payload.get("reuse_candidates") or []
+    reuse_candidates = _inflate_columnar(raw_reuse) if isinstance(raw_reuse, dict) else raw_reuse
     for candidate in reuse_candidates[:reuse_limit]:
         if not isinstance(candidate, dict):
             continue
@@ -1525,12 +1800,11 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     source = (args.source or "").strip().lower()
     default_report = {
         "qa": "reports/qa/{ticket}.json",
-        "review": "reports/review/{ticket}.json",
         "research": "reports/research/{ticket}-context.json",
     }.get(source)
     report_template = args.report or default_report
     if not report_template:
-        raise ValueError("unsupported source; expected qa|review|research")
+        raise ValueError("unsupported source; expected qa|research")
 
     def _fmt(text: str) -> str:
         return (
@@ -1541,16 +1815,32 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     report_path = Path(_fmt(report_template))
     if not report_path.is_absolute():
         report_path = target / report_path
-    report_label = _rel_path(report_path, target)
-    if not report_path.exists():
-        raise FileNotFoundError(f"{source} report not found at {report_label}")
 
-    payload = _load_json_file(report_path)
+    def _env_truthy(value: str | None) -> bool:
+        return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
+
+    prefer_pack = bool(getattr(args, "prefer_pack", False) or _env_truthy(os.getenv("AIDD_PACK_FIRST")))
+
+    def _load_with_pack(path: Path, *, prefer_pack_first: bool) -> tuple[Dict, str]:
+        from claude_workflow_cli.reports.loader import load_report_for_path
+
+        payload, source_kind, report_paths = load_report_for_path(path, prefer_pack=prefer_pack_first)
+        label_path = report_paths.pack_path if source_kind == "pack" else report_paths.json_path
+        return payload, _rel_path(label_path, target)
+
+    is_pack_path = report_path.name.endswith(".pack.yaml") or report_path.name.endswith(".pack.toon")
+    if source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
+        payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
+    elif source == "qa" and (is_pack_path or not report_path.exists()):
+        payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
+    else:
+        report_label = _rel_path(report_path, target)
+        if not report_path.exists():
+            raise FileNotFoundError(f"{source} report not found at {report_label}")
+        payload = _load_json_file(report_path)
     if source == "qa":
         derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
         derived_tasks.extend(_derive_tasks_from_tests(payload, report_label))
-    elif source == "review":
-        derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
         derived_tasks = _derive_tasks_from_research_context(payload, report_label)
     else:
@@ -1598,6 +1888,7 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
         f"from {source} report ({report_label}) to {tasklist_rel} "
         f"(section: {section_display}; mode={'append' if args.append else 'replace'})."
     )
+    _maybe_sync_index(target, ticket, slug_hint or None, reason="tasks-derive")
     return 0
 
 
@@ -2177,6 +2468,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
     )
+    prd_review_parser.add_argument(
+        "--emit-patch",
+        action="store_true",
+        help="Emit RFC6902 patch file when a previous report exists.",
+    )
+    prd_review_parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
+    )
     prd_review_parser.set_defaults(func=_prd_review_command)
 
     plan_review_gate_parser = subparsers.add_parser(
@@ -2260,11 +2561,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     context_gc_parser = subparsers.add_parser(
         "context-gc",
-        help="Run context GC hooks (precompact/sessionstart/pretooluse/userprompt).",
+        help="Run context GC hooks (precompact/sessionstart/pretooluse/stop/userprompt).",
     )
     context_gc_parser.add_argument(
         "mode",
-        choices=("precompact", "sessionstart", "pretooluse", "userprompt"),
+        choices=("precompact", "sessionstart", "pretooluse", "stop", "userprompt"),
         help="Context GC mode to execute.",
     )
     context_gc_parser.set_defaults(func=_context_gc_command)
@@ -2387,6 +2688,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override output JSON path (default: reports/research/<ticket>-context.json).",
     )
     research_parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
+    )
+    research_parser.add_argument(
         "--targets-only",
         action="store_true",
         help="Only refresh targets JSON; skip content scan and context export.",
@@ -2488,11 +2794,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     tasks_parser = subparsers.add_parser(
         "tasks-derive",
-        help="Generate tasklist candidates from QA/Review/Research reports.",
+        help="Generate tasklist candidates from QA/Research reports.",
     )
     tasks_parser.add_argument(
         "--source",
-        choices=("qa", "review", "research"),
+        choices=("qa", "research"),
         required=True,
         help="Report source to derive tasks from.",
     )
@@ -2525,7 +2831,73 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show planned changes without modifying files.",
     )
+    tasks_parser.add_argument(
+        "--prefer-pack",
+        action="store_true",
+        help="Prefer *.pack.yaml for research reports when available.",
+    )
     tasks_parser.set_defaults(func=_tasks_derive_command)
+
+    index_parser = subparsers.add_parser(
+        "index-sync",
+        help="Generate/update derived ticket index (docs/index/<ticket>.yaml).",
+    )
+    index_parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier to index (defaults to docs/.active_ticket).",
+    )
+    index_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    index_parser.add_argument(
+        "--slug",
+        help="Optional slug override used in the index file.",
+    )
+    index_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    index_parser.add_argument(
+        "--output",
+        help="Optional output path override (default: docs/index/<ticket>.yaml).",
+    )
+    index_parser.set_defaults(func=_index_sync_command)
+
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Show summary for a ticket (index + recent events).",
+    )
+    status_parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier (defaults to docs/.active_ticket).",
+    )
+    status_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override (defaults to docs/.active_feature).",
+    )
+    status_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    status_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Rebuild index before showing status.",
+    )
+    status_parser.add_argument(
+        "--events",
+        type=int,
+        default=5,
+        help="Number of recent events to show (default: 5).",
+    )
+    status_parser.set_defaults(func=_status_command)
 
     qa_parser = subparsers.add_parser(
         "qa",
@@ -2577,6 +2949,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--emit-json",
         action="store_true",
         help="Emit JSON to stdout even in gate mode.",
+    )
+    qa_parser.add_argument(
+        "--emit-patch",
+        action="store_true",
+        help="Emit RFC6902 patch file when a previous report exists.",
+    )
+    qa_parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
     )
     qa_parser.add_argument(
         "--skip-tests",

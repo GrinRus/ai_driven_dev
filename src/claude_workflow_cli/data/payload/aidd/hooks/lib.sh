@@ -5,6 +5,7 @@ _hook_python() {
   local mode="$1"
   shift
   HOOK_HELPER_MODE="$mode" PYTHONIOENCODING=utf-8 python3 - "$@" <<'PY'
+import datetime as dt
 import json
 import os
 import sys
@@ -75,6 +76,46 @@ elif mode == "read_ticket":
             value = ""
     if value:
         print(value)
+elif mode == "append_event":
+    root_raw = os.environ.get("HOOK_EVENT_ROOT", "")
+    ticket = os.environ.get("HOOK_EVENT_TICKET", "").strip()
+    if not root_raw or not ticket:
+        raise SystemExit(0)
+    root = Path(root_raw)
+    if not root.exists():
+        raise SystemExit(0)
+    slug_hint = os.environ.get("HOOK_EVENT_SLUG", "").strip() or None
+    event_type = os.environ.get("HOOK_EVENT_TYPE", "").strip()
+    if not event_type:
+        raise SystemExit(0)
+    status = os.environ.get("HOOK_EVENT_STATUS", "").strip()
+    details_raw = os.environ.get("HOOK_EVENT_DETAILS", "").strip()
+    details = None
+    if details_raw:
+        try:
+            details = json.loads(details_raw)
+        except json.JSONDecodeError:
+            details = {"summary": details_raw}
+    report = os.environ.get("HOOK_EVENT_REPORT", "").strip()
+    source = os.environ.get("HOOK_EVENT_SOURCE", "").strip()
+    payload = {
+        "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "ticket": ticket,
+        "slug_hint": slug_hint,
+        "type": event_type,
+    }
+    if status:
+        payload["status"] = status
+    if details:
+        payload["details"] = details
+    if report:
+        payload["report"] = report
+    if source:
+        payload["source"] = source
+    path = root / "reports" / "events" / f"{ticket}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 else:
     raise SystemExit(f"Unsupported helper mode: {mode}")
 PY
@@ -161,6 +202,30 @@ run_cli_or_hint() {
   echo "или" >&2
   echo "  pipx install git+https://github.com/GrinRus/ai_driven_dev.git" >&2
   return 127
+}
+
+hook_append_event() {
+  local root="$1"
+  local event_type="$2"
+  local status="${3:-}"
+  local details="${4:-}"
+  local report="${5:-}"
+  local source="${6:-}"
+  [[ -n "$root" ]] || return 0
+  local ticket
+  local slug
+  ticket="$(hook_read_ticket "$root/docs/.active_ticket" "$root/docs/.active_feature" || true)"
+  [[ -n "$ticket" ]] || return 0
+  slug="$(hook_read_slug "$root/docs/.active_feature" || true)"
+  HOOK_EVENT_ROOT="$root" \
+    HOOK_EVENT_TICKET="$ticket" \
+    HOOK_EVENT_SLUG="$slug" \
+    HOOK_EVENT_TYPE="$event_type" \
+    HOOK_EVENT_STATUS="$status" \
+    HOOK_EVENT_DETAILS="$details" \
+    HOOK_EVENT_REPORT="$report" \
+    HOOK_EVENT_SOURCE="$source" \
+    _hook_python append_event
 }
 
 ensure_template() {

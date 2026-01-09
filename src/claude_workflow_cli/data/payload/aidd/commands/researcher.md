@@ -19,6 +19,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/researcher` собирает кодовый контекст: читает `## Research Hints` из PRD, запускает `claude-workflow research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.

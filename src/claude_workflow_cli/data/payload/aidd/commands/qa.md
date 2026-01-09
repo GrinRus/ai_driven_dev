@@ -20,6 +20,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/qa` запускает финальную проверку: запускает саб-агента **qa** через `claude-workflow qa --gate`, обновляет QA секцию tasklist и фиксирует прогресс. Выполняется после `/review`.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/qa.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
@@ -34,12 +35,12 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `claude-workflow set-active-stage qa` фиксирует стадию `qa`.
 - Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `claude-workflow qa --gate`.
-- `claude-workflow qa --ticket <ticket> --report "reports/qa/<ticket>.json" --gate` формирует отчёт.
+- `claude-workflow qa --ticket <ticket> --report "aidd/reports/qa/<ticket>.json" --gate` формирует отчёт.
 - `claude-workflow progress --source qa --ticket <ticket>` фиксирует новые `[x]`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md`.
-- `reports/qa/<ticket>.json`.
+- `aidd/reports/qa/<ticket>.json`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.

@@ -10,7 +10,8 @@
     "aidd/conventions.md",
     "aidd/init-claude-workflow.sh",
     "smoke-workflow.sh",
-    "aidd/reports/prd/.gitkeep"
+    "aidd/reports/prd/.gitkeep",
+    "aidd/reports/events/.gitkeep"
   ],
   "allow_globs": [
     "aidd/agents/*.md",

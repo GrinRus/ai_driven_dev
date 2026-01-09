@@ -6,7 +6,8 @@
 > Ticket — основной идентификатор фичи (`aidd/docs/.active_ticket`), slug-hint при необходимости сохраняется в `aidd/docs/.active_feature` и используется в шаблонах и логах.
 > Текущая стадия фиксируется в `aidd/docs/.active_stage` (`idea/research/plan/review-plan/review-prd/tasklist/implement/review/qa`); команды обновляют маркер и допускают откат на любой этап.
 > Payload обновляйте через CLI: `claude-workflow init --target .` (bootstrap), `claude-workflow sync|upgrade` для подтяжки шаблонов и `claude-workflow smoke` для быстрой проверки гейтов.
-> **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/prd, docs/adr, docs/plan, docs/tasklist, docs/research, scripts, tools, commands, agents, hooks, reports) — это развернутый snapshot. Каталог `aidd/reports/prd` разворачивается при `claude-workflow init` (payload включает `.gitkeep`), ручной `mkdir` не нужен. Все правки вносятся в `src/claude_workflow_cli/data/payload`, затем синхронизируются через `scripts/sync-payload.sh --direction=to-root|from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
+> **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/prd, docs/adr, docs/plan, docs/tasklist, docs/research, commands, agents, hooks, reports) — это развернутый snapshot. Каталог `aidd/reports/prd` разворачивается при `claude-workflow init` (payload включает `.gitkeep`), ручной `mkdir` не нужен. Канонические правки делайте в `aidd/**`, затем синхронизируйте в payload через `scripts/sync-payload.sh --direction=from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
+> Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; working set (`aidd/reports/context/latest_working_set.md`) — первый источник при наличии.
 ## Обзор этапов
 
 | Этап | Команда | Саб-агент | Основные артефакты |
@@ -67,7 +68,7 @@
 - В конце итерации (Stop/SubagentStop) запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только на стадии implement**. Управление через `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`; все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляйте в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `aidd/docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
 - Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh` (включая review-plan/PRD review и `/review-spec`), `gate-qa.sh`, `gate-tests.sh`, `lint-deps.sh`.
-- После отчётов QA/Review/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
+- После отчётов QA/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 ### 8. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `aidd/docs/tasklist/<ticket>.md`.

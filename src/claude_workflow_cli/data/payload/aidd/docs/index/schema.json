@@ -1,0 +1,23 @@
+{
+  "schema": "aidd.ticket.v1",
+  "required": [
+    "schema",
+    "ticket",
+    "slug",
+    "stage",
+    "updated",
+    "summary",
+    "artifacts",
+    "reports",
+    "next3",
+    "open_questions",
+    "risks_top5",
+    "checks"
+  ],
+  "optional": [
+    "context_pack",
+    "events",
+    "meta"
+  ],
+  "notes": "JSON is valid YAML; index files live at aidd/docs/index/<ticket>.yaml"
+}

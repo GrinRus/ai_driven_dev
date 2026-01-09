@@ -20,6 +20,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/review-spec` объединяет ревью плана и PRD и **последовательно запускает саб-агентов** `plan-reviewer` → `prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — план реализации.
@@ -42,7 +43,7 @@ disable-model-invocation: false
 - `aidd/docs/plan/<ticket>.md` — раздел `## Plan Review`.
 - `aidd/docs/prd/<ticket>.prd.md` — раздел `## PRD Review`.
 - `aidd/docs/tasklist/<ticket>.md` — перенос блокирующих action items (если есть).
-- `reports/prd/<ticket>.json` — отчёт PRD review.
+- `aidd/reports/prd/<ticket>.json` — отчёт PRD review.
 
 ## Пошаговый план
 1. Зафиксируй стадию `review-plan`, запусти саб-агента `plan-reviewer` и обнови `## Plan Review`.
@@ -56,7 +57,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - `## Plan Review` и `## PRD Review` обновлены и имеют статусы.
-- Отчёт `reports/prd/<ticket>.json` сохранён.
+- Отчёт `aidd/reports/prd/<ticket>.json` сохранён.
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

@@ -109,6 +109,26 @@ def test_allows_when_review_approved(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_allows_when_pack_report_present(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
+    write_json(
+        tmp_path,
+        "reports/prd/demo-checkout.pack.yaml",
+        {
+            "schema": "aidd.report.pack.v1",
+            "findings": {
+                "cols": ["severity", "title", "details"],
+                "rows": [["minor", "note", "ok"]],
+            },
+            "status": "ready",
+        },
+    )
+
+    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
 def test_skips_for_direct_prd_edit(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))

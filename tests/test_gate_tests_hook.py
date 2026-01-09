@@ -1,4 +1,7 @@
 import json
+import tempfile
+import unittest
+from pathlib import Path
 
 from .helpers import PAYLOAD_ROOT
 from .helpers import ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
@@ -126,3 +129,22 @@ def test_plugin_hooks_include_tests_and_post_hooks():
     assert any("lint-deps.sh" in cmd for cmd in stop_cmds + sub_stop_cmds), (
         "lint-deps missing in Stop/SubagentStop"
     )
+
+
+class GateTestsEventTests(unittest.TestCase):
+    def test_gate_tests_appends_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ensure_gates_config(tmp_path, {"tests_required": "soft"})
+            write_active_feature(tmp_path, "gate-soft")
+            write_active_stage(tmp_path, "implement")
+            write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+
+            result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            events_path = tmp_path / "aidd" / "reports" / "events" / "gate-soft.jsonl"
+            self.assertTrue(events_path.exists())
+            last_event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(last_event.get("type"), "gate-tests")
+            self.assertEqual(last_event.get("status"), "warn")

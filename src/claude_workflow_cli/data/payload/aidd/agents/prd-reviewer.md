@@ -10,7 +10,18 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент используется командой `/review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Агент используется командой `/review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/review-prd.md`
+- `AIDD:*` секции PRD
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
@@ -18,11 +29,11 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
-- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `reports/prd/<ticket>.json` через `claude-workflow prd-review`.
+- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json` через `claude-workflow prd-review`.
 - `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/review-spec`.
 
 ## Пошаговый план
-1. Прочитай PRD и связанные ADR/план.
+1. Сначала проверь `AIDD:*` секции PRD и `## PRD Review`, затем точечно читай ADR/план по нужным пунктам.
 2. Проверь цели, сценарии, метрики, rollout и отсутствие заглушек (`<>`, `TODO`, `TBD`).
 3. Сверь риски/зависимости/интеграции с Researcher и планом.
 4. Сформируй статус `READY|BLOCKED|PENDING`, summary, findings (critical/major/minor) и action items.

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -66,9 +67,77 @@ REQUIRED_AGENT_REFERENCES = [
     "aidd/docs/status-machine.md",
 ]
 
+REQUIRED_STAGE_ANCHORS = [
+    "idea",
+    "research",
+    "plan",
+    "review-plan",
+    "review-prd",
+    "tasklist",
+    "implement",
+    "review",
+    "qa",
+]
+
+CORE_ANCHORS = [
+    "AIDD:CONTEXT_PACK",
+    "AIDD:NON_NEGOTIABLES",
+    "AIDD:OPEN_QUESTIONS",
+    "AIDD:RISKS_TOP5",
+    "AIDD:DECISIONS",
+]
+
+TEMPLATE_ANCHORS = {
+    "docs/prd/template.md": [
+        *CORE_ANCHORS,
+        "AIDD:GOALS",
+        "AIDD:NON_GOALS",
+        "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:METRICS",
+        "AIDD:ROLL_OUT",
+    ],
+    "docs/plan/template.md": [
+        *CORE_ANCHORS,
+        "AIDD:ARCHITECTURE",
+        "AIDD:FILES_TOUCHED",
+        "AIDD:ITERATIONS",
+        "AIDD:TEST_STRATEGY",
+    ],
+    "docs/research/template.md": [
+        *CORE_ANCHORS,
+        "AIDD:INTEGRATION_POINTS",
+        "AIDD:REUSE_CANDIDATES",
+        "AIDD:COMMANDS_RUN",
+    ],
+    "docs/tasklist/template.md": [
+        *CORE_ANCHORS,
+        "AIDD:NEXT_3",
+        "AIDD:INBOX_DERIVED",
+        "AIDD:CHECKLIST",
+        "AIDD:QA_TRACEABILITY",
+        "AIDD:PROGRESS_LOG",
+    ],
+}
+
 QUESTION_TEMPLATE = {
     "ru": "Вопрос N (Blocker|Clarification)",
 }
+
+INDEX_SCHEMA_PATH = Path("docs/index/schema.json")
+INDEX_REQUIRED_FIELDS = [
+    "schema",
+    "ticket",
+    "slug",
+    "stage",
+    "updated",
+    "summary",
+    "artifacts",
+    "reports",
+    "next3",
+    "open_questions",
+    "risks_top5",
+    "checks",
+]
 
 
 @dataclass
@@ -94,6 +163,13 @@ def parse_args() -> argparse.Namespace:
         help="Workflow root containing agents/commands",
     )
     return parser.parse_args()
+
+
+def _resolve_aidd_root(root: Path) -> Path:
+    candidate = root / "aidd"
+    if candidate.is_dir():
+        return candidate
+    return root
 
 
 def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile | None, List[str]]:
@@ -332,6 +408,42 @@ def validate_prompt(info: PromptFile) -> List[str]:
     return errors
 
 
+def _extract_headings(text: str) -> set[str]:
+    return {
+        line.strip()[3:].strip()
+        for line in text.splitlines()
+        if line.strip().startswith("## ")
+    }
+
+
+def validate_stage_anchors(root: Path) -> List[str]:
+    errors: List[str] = []
+    aidd_root = _resolve_aidd_root(root)
+    anchors_dir = aidd_root / "docs" / "anchors"
+    if not anchors_dir.exists():
+        return [f"{anchors_dir}: missing anchors directory"]
+    for stage in REQUIRED_STAGE_ANCHORS:
+        anchor = anchors_dir / f"{stage}.md"
+        if not anchor.exists():
+            errors.append(f"{anchor}: missing stage anchor")
+    return errors
+
+
+def validate_template_anchors(root: Path) -> List[str]:
+    errors: List[str] = []
+    aidd_root = _resolve_aidd_root(root)
+    for rel_path, required in TEMPLATE_ANCHORS.items():
+        path = aidd_root / rel_path
+        if not path.exists():
+            errors.append(f"{path}: missing template")
+            continue
+        headings = _extract_headings(path.read_text(encoding="utf-8"))
+        missing = [section for section in required if section not in headings]
+        if missing:
+            errors.append(f"{path}: missing AIDD sections {missing}")
+    return errors
+
+
 def lint_prompts(root: Path) -> Tuple[List[str], Dict[str, Dict[str, Dict[str, PromptFile]]]]:
     errors: List[str] = []
     files: Dict[str, Dict[str, Dict[str, PromptFile]]] = {
@@ -387,6 +499,38 @@ def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> Lis
     return errors
 
 
+def validate_index_schema(root: Path) -> List[str]:
+    errors: List[str] = []
+    aidd_root = _resolve_aidd_root(root)
+    schema_path = aidd_root / INDEX_SCHEMA_PATH
+    if not schema_path.exists():
+        errors.append(f"{schema_path}: missing index schema")
+        return errors
+    try:
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"{schema_path}: invalid JSON ({exc})")
+        return errors
+    required = schema_payload.get("required") or []
+    missing = [field for field in INDEX_REQUIRED_FIELDS if field not in required]
+    if missing:
+        errors.append(f"{schema_path}: missing required fields {missing}")
+
+    index_dir = schema_path.parent
+    for path in sorted(index_dir.glob("*.yaml")):
+        if path.name == schema_path.name:
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{path}: invalid JSON/YAML ({exc})")
+            continue
+        for field in INDEX_REQUIRED_FIELDS:
+            if field not in payload:
+                errors.append(f"{path}: missing field `{field}`")
+    return errors
+
+
 def main() -> int:
     args = parse_args()
     root = args.root
@@ -394,6 +538,9 @@ def main() -> int:
         print(f"[prompt-lint] root {root} does not exist", file=sys.stderr)
         return 1
     errors, _ = lint_prompts(root)
+    errors.extend(validate_stage_anchors(root))
+    errors.extend(validate_template_anchors(root))
+    errors.extend(validate_index_schema(root))
     if errors:
         for msg in errors:
             print(f"[prompt-lint] {msg}", file=sys.stderr)

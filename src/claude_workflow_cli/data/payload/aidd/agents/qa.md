@@ -10,7 +10,18 @@ permissionMode: default
 ---
 
 ## Контекст
-QA-агент проверяет фичу после ревью и формирует отчёт `reports/qa/<ticket>.json`. Требуется связать проверки с acceptance criteria из PRD. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/tasklist/<ticket>.md`.
+QA-агент проверяет фичу после ревью и формирует отчёт `aidd/reports/qa/<ticket>.json`. Требуется связать проверки с acceptance criteria из PRD.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/qa.md`
+- `AIDD:*` секции PRD и tasklist
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — acceptance criteria и требования.
@@ -35,5 +46,5 @@ QA-агент проверяет фичу после ревью и формир�
 ## Формат ответа
 - `Checkbox updated: ...`.
 - `Status: READY|WARN|BLOCKED`.
-- `Artifacts updated: aidd/docs/tasklist/<ticket>.md, reports/qa/<ticket>.json`.
+- `Artifacts updated: aidd/docs/tasklist/<ticket>.md, aidd/reports/qa/<ticket>.json`.
 - `Next actions: ...`.

@@ -69,6 +69,7 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         self.assertEqual(report.status, "pending")
         self.assertTrue(any(f.severity == "major" for f in report.findings))
+        self.assertTrue(all(f.id for f in report.findings))
         self.assertEqual(report.recommended_status, "pending")
 
     def test_analyse_prd_blocks_on_blocked_status(self):
@@ -88,6 +89,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.status, "blocked")
         self.assertEqual(report.recommended_status, "blocked")
         self.assertTrue(any(f.severity == "critical" for f in report.findings))
+        self.assertTrue(all(f.id for f in report.findings))
 
     def test_cli_writes_json_report(self):
         prd = self.write_prd(
@@ -130,6 +132,52 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(payload["ticket"], "demo-feature")
         self.assertEqual(payload["status"], "ready")
         self.assertEqual(payload["recommended_status"], "ready")
+
+    def test_cli_emit_patch_and_pack_only(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        report_path = self.tmp_path / "reports" / "prd" / "demo-feature.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps({"status": "pending"}), encoding="utf-8")
+
+        env = os.environ.copy()
+        pythonpath = os.pathsep.join(filter(None, [str(SRC_ROOT), env.get("PYTHONPATH")]))
+        env["PYTHONPATH"] = pythonpath
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "claude_workflow_cli.tools.prd_review",
+                "--ticket",
+                "demo-feature",
+                "--slug",
+                "demo-feature",
+                "--prd",
+                str(prd),
+                "--report",
+                str(report_path),
+                "--emit-patch",
+                "--pack-only",
+            ],
+            check=True,
+            cwd=self.tmp_path,
+            env=env,
+        )
+
+        patch_path = report_path.with_suffix(".patch.json")
+        pack_path = report_path.with_suffix(".pack.yaml")
+        self.assertTrue(patch_path.exists(), "PRD patch should be written")
+        self.assertTrue(pack_path.exists(), "PRD pack should be written")
+        self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")
 
     def test_cli_default_report_path_under_plugin_root(self):
         workspace = self.tmp_path / "workspace"

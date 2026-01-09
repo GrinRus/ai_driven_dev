@@ -19,6 +19,7 @@ disable-model-invocation: false
 
 ## Контекст
 `/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## Research Hints` в PRD. После ответов пользователя следующий обязательный шаг — `/researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/idea.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).

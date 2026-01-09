@@ -10,7 +10,18 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент запускается командой `/review-spec` на этапе `review-plan` после `plan-new` и перед PRD review. Цель — подтвердить исполняемость плана: привязку к модулям, итерации, тестовую стратегию, миграции/флаги и наблюдаемость. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/research/<ticket>.md`.
+Агент запускается командой `/review-spec` на этапе `review-plan` после `plan-new` и перед PRD review. Цель — подтвердить исполняемость плана: привязку к модулям, итерации, тестовую стратегию, миграции/флаги и наблюдаемость.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/review-plan.md`
+- `AIDD:*` секции Plan и PRD
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — основной документ для ревью.
@@ -24,7 +35,7 @@ permissionMode: default
 - Используй `rg` только для точечных проверок упоминаний модулей/рисков в плане и PRD.
 
 ## Пошаговый план
-1. Прочитай план целиком и сопоставь его с PRD/Research: что меняем, где интегрируемся, какие тесты ожидаются.
+1. Сначала проверь `AIDD:*` секции Plan/PRD и `## Plan Review`, затем точечно читай детали, которые влияют на вывод.
 2. Проверь, что план содержит: список файлов/модулей, итерации с DoD, тест-стратегию на итерацию, миграции/feature flags, observability.
 3. Убедись, что риски и открытые вопросы явно перечислены, а dependencies/ADR учтены.
 4. Сформируй выводы: статус `READY|BLOCKED|PENDING`, summary (2–3 предложения), findings (severity + рекомендация), action items (чеклист).

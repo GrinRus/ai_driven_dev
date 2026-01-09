@@ -10,7 +10,18 @@ permissionMode: default
 ---
 
 ## Контекст
-Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/research/template.md`.
+Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/research.md`
+- `AIDD:*` секции PRD и Research
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` (раздел `## Research Hints`), `aidd/docs/plan/<ticket>.md` (если есть), `aidd/docs/tasklist/<ticket>.md`.
@@ -23,7 +34,7 @@ permissionMode: default
 - Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.
 
 ## Пошаговый план
-1. Прочитай PRD/plan/tasklist и JSON-контекст; извлеки `## Research Hints`.
+1. Сначала проверь `AIDD:*` секции PRD/Research и `## Research Hints`, затем точечно читай план/tasklist.
 2. При необходимости обнови JSON через `claude-workflow research ...` и зафиксируй параметры запуска.
 3. Используй `code_index`/call/import graph и `rg` для подтверждения точек интеграции, reuse и тестов.
 4. Заполни отчёт по шаблону: **Context Pack**, integration points, reuse, risks, tests, commands run.

@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict
@@ -33,11 +35,30 @@ PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
 REVIEW_SECTION_HEADER = "## PRD Review"
 
 
+def _normalize_id_text(value: str) -> str:
+    return " ".join(str(value).strip().split())
+
+
+def _stable_id(prefix: str, *parts: str) -> str:
+    digest = hashlib.sha1()
+    digest.update(prefix.encode("utf-8"))
+    digest.update(b"|")
+    for part in parts:
+        digest.update(_normalize_id_text(str(part)).encode("utf-8"))
+        digest.update(b"|")
+    return digest.hexdigest()[:12]
+
+
 @dataclass
 class Finding:
     severity: str  # critical | major | minor
     title: str
     details: str
+    id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.id:
+            self.id = _stable_id("prd", self.severity, self.title, self.details)
 
 
 @dataclass
@@ -95,6 +116,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         choices=("json", "text", "auto"),
         default="auto",
         help="Format for stdout output (default: auto). Auto prints text when --emit-text is used.",
+    )
+    parser.add_argument(
+        "--emit-patch",
+        action="store_true",
+        help="Emit RFC6902 patch file when a previous report exists.",
+    )
+    parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
     )
     return parser.parse_args(argv)
 
@@ -282,9 +313,58 @@ def run(args: argparse.Namespace) -> int:
         output_path = root / "reports" / "prd" / f"{ticket}.json"
     if not output_path.is_absolute():
         output_path = root / output_path
+
+    previous_payload = None
+    if args.emit_patch and output_path.exists():
+        try:
+            previous_payload = json.loads(output_path.read_text(encoding="utf-8"))
+        except Exception:
+            previous_payload = None
+
     output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     rel = output_path.relative_to(root) if output_path.is_relative_to(root) else output_path
     print(f"[prd-review] report saved to {rel}", file=sys.stderr)
+    try:
+        from claude_workflow_cli.reports import events as _events
+
+        _events.append_event(
+            root,
+            ticket=ticket,
+            slug_hint=slug,
+            event_type="prd-review",
+            status=report.status,
+            report_path=rel if isinstance(rel, Path) else output_path,
+            source="claude-workflow prd-review",
+        )
+    except Exception as exc:
+        print(f"[prd-review] WARN: failed to log event: {exc}", file=sys.stderr)
+    pack_path = None
+    try:
+        from claude_workflow_cli.tools import reports_pack
+
+        pack_path = reports_pack.write_prd_pack(output_path, root=root)
+    except Exception as exc:
+        print(f"[prd-review] WARN: failed to generate pack: {exc}", file=sys.stderr)
+
+    if args.emit_patch and previous_payload is not None:
+        try:
+            from claude_workflow_cli.tools import json_patch as _json_patch
+
+            patch_ops = _json_patch.diff(previous_payload, report.to_dict())
+            patch_path = output_path.with_suffix(".patch.json")
+            patch_path.write_text(
+                json.dumps(patch_ops, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            print(f"[prd-review] WARN: failed to emit patch: {exc}", file=sys.stderr)
+
+    pack_only = bool(args.pack_only or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
+    if pack_only and pack_path and pack_path.exists():
+        try:
+            output_path.unlink()
+        except OSError:
+            pass
     return 0
 
 

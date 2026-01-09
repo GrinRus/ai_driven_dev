@@ -4,6 +4,33 @@ Status: PENDING
 PRD: `aidd/docs/prd/<ticket>.prd.md`
 Research: `aidd/docs/research/<ticket>.md`
 
+## AIDD:CONTEXT_PACK
+- `<краткий контекст итерации>`
+
+## AIDD:NON_NEGOTIABLES
+- `<что нельзя нарушать>`
+
+## AIDD:OPEN_QUESTIONS
+- `<вопрос> → <кто отвечает> → <срок>`
+
+## AIDD:RISKS_TOP5
+- `<риск> → <митигация>`
+
+## AIDD:DECISIONS
+- `<решение> → <почему>`
+
+## AIDD:ARCHITECTURE
+- `<ключевые слои/границы>`
+
+## AIDD:FILES_TOUCHED
+- `<путь/модуль> — <что меняем>`
+
+## AIDD:ITERATIONS
+- `<итерация> → <цель> → <DoD>`
+
+## AIDD:TEST_STRATEGY
+- `<что/где/как тестируем>`
+
 ## 1. Контекст и цели
 - **Цель:** [кратко]
 - **Scope:** [что в/что вне]

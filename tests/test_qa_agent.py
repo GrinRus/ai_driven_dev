@@ -77,7 +77,46 @@ class QaAgentTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["status"], "fail")
         self.assertGreaterEqual(payload["counts"]["blocker"], 1)
+        self.assertTrue(all(finding.get("id") for finding in payload["findings"]))
         self.assertTrue(report_path.exists(), "QA report should be written")
+
+    def test_emit_patch_writes_patch_file(self):
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+
+        report_path = self.project_root / "reports" / "qa" / "demo.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps({"status": "pass"}), encoding="utf-8")
+
+        result = self.run_agent(
+            "--emit-json",
+            "--emit-patch",
+            "--report",
+            str(report_path),
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        patch_path = report_path.with_suffix(".patch.json")
+        self.assertTrue(patch_path.exists(), "QA patch should be written")
+        patch_ops = json.loads(patch_path.read_text(encoding="utf-8"))
+        self.assertIsInstance(patch_ops, list)
+
+    def test_pack_only_removes_json_report(self):
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+
+        report_path = self.project_root / "reports" / "qa" / "demo.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+
+        result = self.run_agent(
+            "--emit-json",
+            "--pack-only",
+            "--report",
+            str(report_path),
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        pack_path = report_path.with_suffix(".pack.yaml")
+        self.assertTrue(pack_path.exists(), "QA pack should be written")
+        self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")
 
     def test_missing_tests_flags_major_warning(self):
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")

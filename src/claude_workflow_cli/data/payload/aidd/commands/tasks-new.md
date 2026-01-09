@@ -2,8 +2,8 @@
 description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - Edit
@@ -18,6 +18,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/tasks-new` создаёт или пересобирает `aidd/docs/tasklist/<ticket>.md` на основе плана, PRD и ревью. Tasklist — основной источник для `/implement`, `/review`, `/qa`. Свободный ввод после тикета включи как примечание в чеклист.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/tasklist.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — итерации и DoD.
@@ -34,15 +35,16 @@ disable-model-invocation: false
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `Next 3`, `Handoff inbox`, чеклисты по этапам.
+- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `AIDD:NEXT_3`, `AIDD:CONTEXT_PACK`, `AIDD:INBOX_DERIVED`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `claude-workflow set-active-stage tasklist`.
-2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`. Если секции `AIDD:CONTEXT_PACK` нет — добавь по шаблону.
+2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 3. Обнови фронт-маттер (Ticket/Slug/Status/PRD/Plan/Research/Updated).
 4. Перенеси шаги из плана в чеклист, добавь action items из PRD Review.
-5. Заполни `Next 3` (первые три пункта фокуса) и `Handoff inbox`.
-6. При необходимости добавь типовые задачи вручную (без пресетов).
+5. Заполни `AIDD:NEXT_3` (первые три пункта фокуса).
+6. Заполни первичный `AIDD:CONTEXT_PACK` из плана (`AIDD:FILES_TOUCHED`, `AIDD:ITERATIONS`) и первого пункта `AIDD:NEXT_3`.
+7. Если есть handoff‑задачи — помести их в `AIDD:INBOX_DERIVED`.
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/review-spec`.
