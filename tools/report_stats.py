@@ -77,7 +77,7 @@ def main() -> int:
     parser.add_argument(
         "--write",
         action="store_true",
-        help="Update aidd/docs/reports-format.md between report-stats markers.",
+        help="Update doc/dev/reports-format.md between report-stats markers.",
     )
     args = parser.parse_args()
 
@@ -98,7 +98,7 @@ def main() -> int:
     print(block)
 
     if args.write:
-        doc_path = aidd_root / "docs" / "reports-format.md"
+        doc_path = root / "doc" / "dev" / "reports-format.md"
         updated = _update_doc(doc_path, block)
         if updated:
             print(f"[report-stats] updated {doc_path}")

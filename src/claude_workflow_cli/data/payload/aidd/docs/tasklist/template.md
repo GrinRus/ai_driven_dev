@@ -1,99 +1,138 @@
 ---
-Ticket: <ticket>
-Slug hint: <slug-hint or repeat ticket>
-Feature: <display name>
-Status: draft
-PRD: aidd/docs/prd/<ticket>.prd.md
-Plan: aidd/docs/plan/<ticket>.md
-Research: aidd/docs/research/<ticket>.md
+Ticket: <ABC-123>
+Slug: <short-slug>
+Status: PENDING   # PENDING|READY|WARN|BLOCKED
+Updated: <YYYY-MM-DD>
+Owner: <name/team>
+PRD: aidd/docs/prd/<ABC-123>.prd.md
+Plan: aidd/docs/plan/<ABC-123>.md
+Research: aidd/docs/research/<ABC-123>.md
 Reports:
-  Research: aidd/reports/research/<ticket>-context.json
-  QA: aidd/reports/qa/<ticket>.json
-Commands:
-  Progress: claude-workflow progress --source <stage> --ticket "<ticket>"
-  Tests: <test-runner> <args>
-Updated: YYYY-MM-DD
+  tests: aidd/reports/tests/<ABC-123>.*          # optional
+  reviewer: aidd/reports/reviewer/<ABC-123>.json # marker/summary
+  qa: aidd/reports/qa/<ABC-123>.json
 ---
 
-# Tasklist — <Feature title>
+# Tasklist: <ABC-123> — <short-slug>
 
-## Как отмечать прогресс
-- После каждого инкремента заменяйте выполненные пункты `- [ ]` на `- [x]`, добавляя в конце `— YYYY-MM-DD • итерация N` и ссылку на PR/commit или краткое описание результата.
-- Если закрываете часть большого пункта, добавляйте отдельный `- [x]` с пояснением, что именно готово (история прогресса сохраняется).
-- В ответах агентов используйте строку `Checkbox updated: …`, чтобы перечислить закрытые элементы и договорённости на следующий шаг.
-- Перед завершением `/implement`, `/qa`, `/review` запускайте `claude-workflow progress --source <этап> --ticket "<ticket>"` — утилита проверит, что появились новые `- [x]` и подскажет, если tasklist не обновлён.
-- После отчётов QA/Research добавляйте handoff-задачи через `claude-workflow tasks-derive --source <qa|research> --append --ticket "<ticket>"`; новые `- [ ]` должны ссылаться на соответствующий `aidd/reports/<source>/...`.
-
-## AIDD:NEXT_3
-- [ ] <первый приоритетный чекбокс>
-- [ ] <второй приоритетный чекбокс>
-- [ ] <третий приоритетный чекбокс>
+> Единственный источник правды для implement/review/qa.
+> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
-- Focus: <какой чекбокс из AIDD:NEXT_3>
-- Files: <2-8 путей/модулей>
-- Invariants: <1-3 пункта>
-- Plan refs: <итерация/секция плана>
-- Next: <что дальше>
-- Limit: <= 20 lines / <= 1200 chars
+Updated: <YYYY-MM-DD>
+Ticket: <ABC-123>
+Stage: <idea|research|plan|review-plan|review-prd|tasklist|implement|review|qa|release>
+Status: <PENDING|READY|WARN|BLOCKED>
 
-## AIDD:NON_NEGOTIABLES
-- <что нельзя нарушать>
+### TL;DR
+- Goal: <1–2 строки — что делаем>
+- Current focus (1 checkbox): <точное имя из AIDD:NEXT_3>
+- Done since last pack: <1–3 пункта, кратко>
+- Risk level: <low|medium|high> — <почему 1 строка>
 
-## AIDD:OPEN_QUESTIONS
-- <вопрос> → <кто отвечает> → <срок>
+### Scope & boundaries
+- Allowed paths (patch boundaries):
+  - <path1/>
+  - <path2/>
+- Forbidden / out-of-scope:
+  - <pathX/> — <почему>
+- Integrations / dependencies:
+  - <api/service/db/topic> — <что важно>
 
-## AIDD:RISKS_TOP5
-- <риск> → <митигация>
+### Decisions & defaults (living)
+- Feature flag: <none|flag_name + default>
+- Contract/API: <ссылка на PRD якорь или 1 строка>
+- Data model changes: <none|migrations needed: ...>
+- Observability: <logs/metrics/tracing expectations>
 
-## AIDD:DECISIONS
-- <решение> → <почему>
+### Test policy (iteration budget)
+- Cadence: <on_stop|checkpoint|manual>
+- Profile: <fast|targeted|full|none>
+- Tasks: <пример: :module:test или npm test ...> (если targeted/full)
+- Filters: <если применимо>
+- Budget minutes: <N>
+- Known flaky / failing: <none|link to aidd/reports/tests/...>
 
-## AIDD:INBOX_DERIVED
-- [ ] <handoff из QA/Review/Research со ссылкой на report>
+### Commands quickstart (copy/paste)
+- Format: <hook does it|cmd>
+- Tests (manual): <cmd for targeted/full>
+- Run/Dev: <cmd / url / emulator / device steps> (optional)
+
+### Open questions / blockers
+- Q1: <...>
+- Q2: <...>
+
+### References
+- PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
+- Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
+- Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
+- Reports:
+  - reviewer: aidd/reports/reviewer/<ABC-123>.json
+  - qa: aidd/reports/qa/<ABC-123>.json
+
+---
+
+## AIDD:NEXT_3
+- [ ] <1. ближайший чекбокс (одна итерация)>
+- [ ] <2. следующий>
+- [ ] <3. третий>
+
+---
+
+## AIDD:HANDOFF_INBOX
+> Сюда падают задачи из Research/Review/QA (с source: aidd/reports/...).
+- [ ] Research: <title> — <recommendation> (source: aidd/reports/research/<ABC-123>-context.json)
+- [ ] Review: <severity> <title> — <recommendation> (source: aidd/reports/reviewer/<ABC-123>.json)
+- [ ] QA: <severity> <title> — <recommendation> (source: aidd/reports/qa/<ABC-123>.json)
+
+---
 
 ## AIDD:CHECKLIST
-- Используйте разделы 1–6 ниже как полный чеклист с критериями готовности.
 
-## 1. Аналитика и дизайн
-- [ ] PRD и дизайн синхронизированы, риски зафиксированы (`aidd/docs/prd/<ticket>.prd.md`, макеты).
-- [ ] Метрики успеха и ограничения подтверждены артефактами (`aidd/docs/.active_feature`, `aidd/reports/research/<ticket>-context.json`).
-- [ ] Согласован объём разработки и зависимости (ссылки на ADR/план).
+### AIDD:CHECKLIST_SPEC
+- [ ] PRD: Status READY (и нет незакрытых blocker вопросов)
+- [ ] Research: Status reviewed
+- [ ] Plan: существует и валиден
+- [ ] Review Spec: Plan Review READY + PRD Review READY
 
-## 2. Реализация
-- [ ] Код реализован в целевых модулях, тесты покрывают новые ветви (укажите путь к diff и лог тестов).
-- [ ] Учтены негативные сценарии, feature flags/конфиги обновлены (`config/*.json`, `settings/*.yaml`).
-- [ ] Test profile: `<fast|targeted|full|none>` (ссылка на `aidd/.cache/test-policy.env`), Tests run: `<команды/задачи>`.
-- [ ] `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` и ручные команды (например, `pytest`, `npm test`, `go test`) выполняются без ошибок (приложите выдержки).
+### AIDD:CHECKLIST_IMPLEMENT
+- [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
+- [ ] Добавлены/обновлены тесты по плану
+- [ ] Обновлён AIDD:CONTEXT_PACK (scope + test policy)
+- [ ] Прогресс отмечен (см. AIDD:PROGRESS_LOG)
 
-## 3. QA / Проверки
-- [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).
-- [ ] Прогнаны unit/integration/e2e, результаты задокументированы (логи тест-раннера, `claude-workflow qa --gate`).
-- [ ] Проведено ручное тестирование или UAT (протокол в `aidd/docs/tasklist/<ticket>.md` или отдельном отчёте; `Checkbox updated` перечисляет QA-пункты).
-- [ ] Traceability: для каждого acceptance criteria из PRD указано, как проверено (ссылка на тест/лог/шаг).
+### AIDD:CHECKLIST_REVIEW
+- [ ] Reviewer: замечания добавлены в tasklist (handoff)
+- [ ] Требуемость тестов выставлена (если используете reviewer marker)
+- [ ] Изменения соответствуют plan/PRD (нет лишнего)
 
-## AIDD:QA_TRACEABILITY
-- <AC-1> → <тест/лог/шаг>
-- <AC-2> → <тест/лог/шаг>
+### AIDD:CHECKLIST_QA
+- [ ] QA: AIDD:ACCEPTANCE проверены (traceability)
+- [ ] QA report сохранён (aidd/reports/qa/<ticket>.json)
+- [ ] Known issues задокументированы
 
-## 4. Интеграция с гейтами
-- [ ] READY: `aidd/docs/.active_ticket` указывает на `<ticket>`, чеклист READY.
-- [ ] Researcher: `aidd/docs/research/<ticket>.md` со статусом `Status: reviewed`.
-- [ ] API/DB: обновлены контракты и миграции, гейты зелёные.
-- [ ] Tests: включены новые тесты, `gate-tests` завершился успешно.
+### AIDD:CHECKLIST_RELEASE
+- [ ] Release notes / changelog (если нужно)
+- [ ] Deploy на стенд (env + версия + время)
+- [ ] Smoke / e2e (если есть)
+- [ ] Мониторинг/алерты/дашборды проверены
 
-## 5. Документация и релиз
-- [ ] README и связанные руководства отражают изменения (укажите пути к файлам).
-- [ ] Добавлены заметки в release notes и `CHANGELOG.md` (если ведутся в проекте).
-- [ ] Подготовлен план выката/отката, инструментальные инструкции (`scripts/deploy.sh`, runbook).
+### AIDD:CHECKLIST_POST_RELEASE
+- [ ] Rollback plan проверен (если релевантно)
+- [ ] Метрики успеха/guardrails собраны
+- [ ] Техдолг/следующие шаги заведены
 
-## 6. Пострелиз
-- [ ] Собраны метрики и обратная связь (источник данных, путь к дашборду/отчёту).
-- [ ] Закрыты инциденты и действия по результатам (ссылка на issue/документ).
-- [ ] Обновлён roadmap/бэклог (используйте собственные источники, например `docs/roadmap.md`).
-
-## 7. Примечания
-- Свободное поле для договёрностей, ссылок, action items.
+---
 
 ## AIDD:PROGRESS_LOG
-- <YYYY-MM-DD> — <что сделано> — <ссылка/лог/PR>
+> Формат записи:
+> `- YYYY-MM-DD Iteration N: <что сделано> (checkbox: <...>) (tests: <...>) (artifacts: <...>)`
+- <YYYY-MM-DD> Iteration 1: ...
+
+---
+
+## AIDD:HOW_TO_UPDATE
+- Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
+- Отмечайте чекбоксы так:
+  - `- [x] <описание> — YYYY-MM-DD (iteration N) (tests: fast|targeted|full|none) (link: <commit/pr>)`
+- Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

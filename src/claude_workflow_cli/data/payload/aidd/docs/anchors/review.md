@@ -1,29 +1,22 @@
 # Anchor: review
 
-## Цели
-- Зафиксировать замечания и обновить tasklist.
-- Согласовать необходимость тестов через reviewer marker.
+## Goals
+- Сверить diff с plan/PRD и DoD.
+- Вернуть замечания в tasklist (handoff).
+- Управлять обязательностью тестов через reviewer marker (если используется).
 
-## MUST KNOW FIRST
-- `aidd/docs/tasklist/<ticket>.md` (AIDD:CONTEXT_PACK + Next 3).
-- `aidd/docs/plan/<ticket>.md`.
-
-## Inputs
-- Diff/изменения, tasklist, PRD/plan при необходимости.
-
-## Outputs/Contract
-- Замечания в tasklist и статус READY/BLOCKED.
-- Маркер reviewer в `aidd/reports/reviewer/<ticket>.json` (если нужен тест‑gate).
+## MUST READ FIRST
+- git diff / PR diff
+- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK, AIDD:CHECKLIST_REVIEW
+- aidd/docs/plan/<ticket>.md: AIDD:FILES_TOUCHED, AIDD:ITERATIONS
 
 ## MUST UPDATE
-- `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/docs/.active_stage`.
+- aidd/docs/tasklist/<ticket>.md: замечания + handoff
+- aidd/reports/reviewer/<ticket>.json (если это маркер/summary)
 
 ## MUST NOT
-- Требовать full‑read при наличии anchors/working set.
+- Рефакторинг “ради красоты”.
+- Игнорировать тест‑требования при рисковых изменениях.
 
-## Blockers
-- Отсутствует tasklist или не закрыты критичные замечания.
-
-## Test defaults
-- По умолчанию тесты запрашиваются через `claude-workflow reviewer-tests`.
+## Output contract
+- Status: READY|WARN|BLOCKED

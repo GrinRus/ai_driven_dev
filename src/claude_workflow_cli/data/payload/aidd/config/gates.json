@@ -81,7 +81,7 @@
     "blocking_severities": [
       "critical"
     ],
-    "report_path": "reports/prd/{ticket}.json"
+    "report_path": "aidd/reports/prd/{ticket}.json"
   },
   "plan_review": {
     "enabled": true,
@@ -157,7 +157,7 @@
     ],
     "debounce_minutes": 10,
     "timeout": 600,
-    "report": "reports/qa/{ticket}.json",
+    "report": "aidd/reports/qa/{ticket}.json",
     "block_on": [
       "blocker",
       "critical"
@@ -176,7 +176,7 @@
   },
   "reviewer": {
     "enabled": true,
-    "tests_marker": "reports/reviewer/{ticket}.json",
+    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
     "tests_field": "tests",
     "required_values": [
       "required"

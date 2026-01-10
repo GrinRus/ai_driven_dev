@@ -1,27 +1,19 @@
 # Anchor: review-prd
 
-## Цели
-- Проверить качество PRD и готовность к tasks/implement.
+## Goals
+- Проверить PRD: цели, AC, метрики, rollout, риски.
+- Сформировать action items и перенести блокеры в tasklist.
 
-## MUST KNOW FIRST
-- `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/research/<ticket>.md`.
-
-## Inputs
-- PRD, план, research, ADR (если есть).
-
-## Outputs/Contract
-- Раздел `## PRD Review` в PRD со статусом `READY|BLOCKED|PENDING`.
-- Отчёт `aidd/reports/prd/<ticket>.json`.
+## MUST READ FIRST
+- aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE, AIDD:ROLL_OUT, AIDD:OPEN_QUESTIONS
+- aidd/docs/plan/<ticket>.md (если есть): AIDD:ITERATIONS
+- aidd/docs/research/<ticket>.md: AIDD:RISKS
 
 ## MUST UPDATE
-- `aidd/docs/prd/<ticket>.prd.md` (секция PRD Review).
-- `aidd/reports/prd/<ticket>.json`.
-- `aidd/docs/.active_stage`.
+- aidd/docs/prd/<ticket>.prd.md: "## PRD Review" (status + findings + action items)
 
 ## MUST NOT
-- Пропускать блокирующие замечания и action items.
+- READY при TODO/TBD в ключевых секциях.
 
-## Blockers
-- PRD неполный, отсутствуют acceptance criteria или риски.
+## Output contract
+- Status: READY|PENDING|BLOCKED

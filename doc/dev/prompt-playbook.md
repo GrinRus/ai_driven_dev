@@ -13,7 +13,7 @@
 ### Performance KPIs (минимум)
 - Stop на 1 checkbox (за итерацию).
 - Запуски `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` на 1 checkbox.
-- Частота чтения `reports/**` (pack‑first vs full JSON).
+- Частота чтения `aidd/reports/**` (pack‑first vs full JSON).
 - Средний размер stdout логов (summary vs full).
 
 ## 2. Структура промпта
@@ -53,7 +53,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 Запрещено использовать свободный текст вне этих блоков: если нужна справка, добавьте ссылку на документ (`см. doc/dev/agents-playbook.md`).
 
 ### 2.3 Agent-first обязательства
-- Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
+- Любой агент должен описывать, **какие данные он собирает автоматически**: ссылки на файлы, пути поиска (`rg <ticket> aidd/docs/**`), используемые отчёты (`aidd/reports/research/*.json`), автозапуски (`claude-workflow progress ...`).
 - Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; предпочтение snippet‑first (`rg` → `sed`); pack‑first если рядом есть `*.pack.yaml`.
 - Разрешённый Q&A с пользователем всегда идёт в формате «перечислены изученные артефакты → сформулирован недостающий ответ → приложен требуемый формат ответа».
 - Если агент не имеет прав на определённые действия (например, запуск `rg` или запись в `aidd/docs/`), это должно быть указано в контексте и дублироваться в списке инструментов.
@@ -81,7 +81,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 
 | Роль/команда | Обязательные артефакты | Автохуки/гейты | Вывод | Ссылки |
 | --- | --- | --- | --- | --- |
-| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## Research Hints`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `doc/dev/agents-playbook.md` |
+| `analyst` / `/idea-new` | `aidd/docs/prd/<ticket>.prd.md` (включая `## AIDD:RESEARCH_HINTS`) | `gate-workflow` | PRD READY/BLOCKED, список вопросов | `aidd/docs/prd/template.md`, `doc/dev/agents-playbook.md` |
 | `planner` / `/plan-new` | PRD READY, `research-check`, `aidd/docs/plan/<ticket>.md` | `gate-workflow` | План + протокол validator | `aidd/docs/plan/template.md` |
 | `plan-reviewer` / `/review-spec` | План, PRD, research | `gate-workflow` | `## Plan Review` | `aidd/docs/plan/template.md` |
 | `prd-reviewer` / `/review-spec` | PRD, план, research | `gate-workflow`, `gate-prd-review` | `## PRD Review` + отчёт | `aidd/docs/prd/template.md` |
@@ -89,7 +89,7 @@ permissionMode: default     # для агентов (acceptEdits/bypassPermissio
 > `/review-spec` — единая команда для review-plan и review-prd.
 | `implementer` / `/implement` | План, tasklist, reports | `gate-tests` | Код + обновлённый tasklist | `aidd/docs/tasklist/template.md` |
 | `reviewer` / `/review` | Diff, план, tasklist | `gate-tests`, `gate-qa` | Замечания + tasklist | `doc/dev/agents-playbook.md` |
-| `qa` | Tasklist, PRD acceptance criteria, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `doc/dev/qa-playbook.md` |
+| `qa` | Tasklist, PRD AIDD:ACCEPTANCE, логи гейтов | `gate-qa`, `${CLAUDE_PLUGIN_ROOT}/hooks/gate-qa.sh` | QA отчёт | `doc/dev/qa-playbook.md` |
 
 Расширяйте матрицу по мере добавления агентов. Таблица используется линтером для проверки ссылок.
 

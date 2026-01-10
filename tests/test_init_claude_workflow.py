@@ -45,7 +45,6 @@ class InitClaudeWorkflowTests(unittest.TestCase):
             "config/context_gc.json",
             "config/conventions.json",
             "docs/prd/template.md",
-            "docs/cli-migration.md",
             "reports/prd/.gitkeep",
         ]
         for rel in expected_paths:

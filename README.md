@@ -11,7 +11,7 @@
 - Опциональные интеграции с GitHub Actions, Issue/PR шаблонами и политиками доступа Claude Code.
 - Payload ставится в поддиректорию `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`); все артефакты и отчёты (`aidd/reports/**`) живут там же. Workspace‑настройки лежат в корне (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — запускайте CLI с `--target .` или из `aidd/`, если команды не видят файлы.
   Корневые служебные файлы — только `.claude/` и `.claude-plugin/`, все остальные артефакты берутся из payload `aidd/`.
-- **Troubleshooting путей:** все артефакты (PRD/Research/QA/PRD Review/Reviewer) находятся под `aidd/`. Если `Read(reports/...)` не находит файл, проверяйте `aidd/reports/...` и запускайте CLI с `${CLAUDE_PLUGIN_ROOT:-./aidd}` или `--target aidd`.
+- **Troubleshooting путей:** все артефакты (PRD/Research/QA/PRD Review/Reviewer) находятся под `aidd/`. Если `Read(aidd/reports/...)` не находит файл, проверяйте `aidd/reports/...` и запускайте CLI с `${CLAUDE_PLUGIN_ROOT:-./aidd}` или `--target aidd`.
 
 ## Оглавление
 - [CLI шпаргалка](#cli-шпаргалка)
@@ -72,7 +72,7 @@
 Детали настройки и расширения для maintainers описаны в `doc/dev/workflow.md` и `doc/dev/customization.md`.
 
 ## Agent-first принципы
-- **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `aidd/docs/.active_feature` (пользовательский slug-hint), затем читает `aidd/docs/research/<ticket>.md`, `reports/research/*.json` (включая `code_index`/`reuse_candidates`), существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) и строит call/import graph Claude Code'ом, а implementer обновляет tasklist и перечисляет запущенные команды тестов/линтеров и `claude-workflow progress` перед тем как обращаться к пользователю.
+- **Сначала slug-hint и артефакты, затем вопросы.** Аналитик начинает со `aidd/docs/.active_feature` (пользовательский slug-hint), затем читает `aidd/docs/research/<ticket>.md`, `aidd/reports/research/*.json` (включая `code_index`/`reuse_candidates`), существующие планы/ADR и только потом формирует Q&A для пробелов. Исследователь фиксирует каждую команду (`claude-workflow research --auto --deep-code`, `rg "<ticket>" src/**`, `find`, `python`) и строит call/import graph Claude Code'ом, а implementer обновляет tasklist и перечисляет запущенные команды тестов/линтеров и `claude-workflow progress` перед тем как обращаться к пользователю.
 - **Команды и логи — часть ответа.** Все промпты и шаблоны требуют указывать разрешённые CLI (например, ваш тест‑раннер, `rg`, `claude-workflow`) и прикладывать вывод/пути, чтобы downstream-агенты могли воспроизвести шаги. Tasklist и research-шаблон теперь содержат разделы «Commands/Reports».
 - **Автогенерация артефактов.** `/idea-new` автоматически создаёт PRD, обновляет отчёты Researcher и инструктирует аналитика собирать данные из репозитория. Шаблоны `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md` подсказывают, как описывать входы, гейты, команды и fail-fast блоки в стиле agent-first.
 
@@ -119,14 +119,14 @@
 - `aidd/hooks/format-and-test.sh` — Python-хук, который читает `.claude/settings.json`, учитывает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS`, `AIDD_TEST_PROFILE/TASKS/FILTERS/FORCE`, анализирует `git diff`, активный ticket (и slug-хинт) из `aidd/docs/.active_ticket`/`.active_feature`, выбирает профиль (fast/targeted/full/none), подбирает задачи через `fastTasks/fullTasks/targetedTask`, `moduleMatrix`, `defaultTasks`, `fallbackTasks`, кеширует fingerprint в `aidd/.cache/format-and-test.last.json`. Запускается на Stop/SubagentStop и только при стадии `implement`.
 - `aidd/hooks/gate-workflow.sh` — блокирует правки под `src/**`, если для активного ticket нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) или новых `- [x]` в `aidd/docs/tasklist/<ticket>.md` (гейт `tasklist_progress`), игнорирует изменения в документации/шаблонах.
 - `aidd/hooks/gate-tests.sh` — опциональная проверка из `config/gates.json`: контролирует наличие сопутствующих тестов (`disabled|soft|hard`), по умолчанию игнорирует тестовые директории (`exclude_dirs`), выводит подсказки по разблокировке.
-- `aidd/hooks/gate-qa.sh` — запускает `claude-workflow qa` (или команду из `config/gates.json`), пишет `reports/qa/<ticket>.json` и считает `blocker/critical` блокирующими; см. `doc/dev/qa-playbook.md`.
+- `aidd/hooks/gate-qa.sh` — запускает `claude-workflow qa` (или команду из `config/gates.json`), пишет `aidd/reports/qa/<ticket>.json` и считает `blocker/critical` блокирующими; см. `doc/dev/qa-playbook.md`.
 - `aidd/hooks/lint-deps.sh` — отслеживает изменения зависимостей, сверяет их с allowlist `config/allowed-deps.txt` и сигнализирует при расхождениях.
 
 ### Саб-агенты Claude Code
 - `aidd/agents/analyst.md` — формализует идею в PRD со статусом READY/BLOCKED, задаёт уточняющие вопросы, фиксирует риски/допущения и обновляет `aidd/docs/prd/<ticket>.prd.md`.
 - `aidd/agents/planner.md` — строит пошаговый план (`aidd/docs/plan/<ticket>.md`) с DoD и зависимостями; `aidd/agents/validator.md` проверяет план и записывает вопросы для продуктов/архитекторов.
 - `aidd/agents/plan-reviewer.md` — проверяет исполняемость плана, обновляет `## Plan Review`, выставляет READY/BLOCKED и фиксирует блокеры.
-- `aidd/agents/prd-reviewer.md` — проверяет PRD, обновляет `## PRD Review`, сохраняет отчёт `reports/prd/<ticket>.json` и фиксирует action items.
+- `aidd/agents/prd-reviewer.md` — проверяет PRD, обновляет `## PRD Review`, сохраняет отчёт `aidd/reports/prd/<ticket>.json` и фиксирует action items.
 - `aidd/agents/implementer.md` — ведёт реализацию малыми итерациями, отслеживает гейты, обновляет чеклист (`Checkbox updated: …`, передаёт новые `- [x]`) и вызывает `claude-workflow progress --source implement`.
 - `aidd/agents/reviewer.md` — оформляет код-ревью, проверяет чеклисты, ставит статусы READY/BLOCKED, фиксирует follow-up в `aidd/docs/tasklist/<ticket>.md` и запускает `claude-workflow progress --source review`.
 - `aidd/agents/qa.md` — финальная QA-проверка; готовит отчёт с severity, обновляет `aidd/docs/tasklist/<ticket>.md`, запускает `claude-workflow progress --source qa` и взаимодействует с `gate-qa.sh`.
@@ -140,7 +140,7 @@
 - `aidd/commands/tasks-new.md` — синхронизирует `aidd/docs/tasklist/<ticket>.md` с планом, распределяя задачи по этапам и заполняя slug-хинт/артефакты.
 - `aidd/commands/implement.md` — фиксирует шаги реализации, напоминает про гейты и автоматические тесты.
 - `aidd/commands/review.md` — оформляет ревью, обновляет чеклисты и статус READY/BLOCKED.
-- `aidd/commands/qa.md` — запускает QA-проверку и сохраняет отчёт `reports/qa/<ticket>.json`.
+- `aidd/commands/qa.md` — запускает QA-проверку и сохраняет отчёт `aidd/reports/qa/<ticket>.json`.
 - Сообщения коммитов формируйте вручную (`git commit`), сверяясь со схемами в `config/conventions.json`.
 
 ### Конфигурация и политики
@@ -176,7 +176,7 @@
 ## Ключевые скрипты и хуки
 - **`aidd/init-claude-workflow.sh`** — валидирует `bash/git/python3`, генерирует `.claude/`, `.claude-plugin/` и `aidd/**`, перезаписывает артефакты по `--force`, выводит dry-run и настраивает режим коммитов.
 - **`aidd/hooks/format-and-test.sh`** — анализирует `git diff`, собирает задачи из `automation.tests` (`changedOnly`, `moduleMatrix`), уважает `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `SKIP_AUTO_TESTS` и умеет подстраивать полный прогон при изменении общих файлов; запускается на стадии `implement`.
-- **`gate-prd-review.sh`** — вызывает `scripts/prd_review_gate.py`, который требует наличие `aidd/docs/prd/<ticket>.prd.md`, секции `## PRD Review` со статусом из `approved_statuses`, закрытые action items и JSON-отчёт (`reports/prd/<ticket>.json` по умолчанию); блокирующие статусы, `- [ ]` и findings с severity из `blocking_severities` завершают проверку ошибкой, а флаги `skip_branches`, `allow_missing_section`, `allow_missing_report` и шаблон `report_path` задаются в `config/gates.json`.
+- **`gate-prd-review.sh`** — вызывает `scripts/prd_review_gate.py`, который требует наличие `aidd/docs/prd/<ticket>.prd.md`, секции `## PRD Review` со статусом из `approved_statuses`, закрытые action items и JSON-отчёт (`aidd/reports/prd/<ticket>.json` по умолчанию); блокирующие статусы, `- [ ]` и findings с severity из `blocking_severities` завершают проверку ошибкой, а флаги `skip_branches`, `allow_missing_section`, `allow_missing_report` и шаблон `report_path` задаются в `config/gates.json`.
 - **`gate-workflow.sh`** — блокирует изменения в `src/**`, пока для активной фичи нет PRD, плана, Plan Review + PRD Review (через `/review-spec`) и новых `- [x]` в `aidd/docs/tasklist/<ticket>.md`.
 - **`gate-tests.sh`** — опциональный гейт: при включении проверяет наличие тестов для изменённых исходников (режимы задаёт `config/gates.json`), игнорирует тестовые каталоги через `exclude_dirs`.
 - **`lint-deps.sh`** — напоминает про allowlist зависимостей из `config/allowed-deps.txt` и анализирует изменения манифестов/конфигов зависимостей.
@@ -302,7 +302,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 
 Результат:
 - создаётся цепочка артефактов (PRD, план, tasklist `aidd/docs/tasklist/<ticket>.md`): `/idea-new` сразу сохраняет черновик PRD со статусом `Status: draft`, аналитик фиксирует диалог в `## Диалог analyst`, а ответы даются в формате `Ответ N: …`;
-- `claude-workflow research --auto --deep-code` запускается по требованию: сохраняет цели в `reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline». Пути по умолчанию резолвятся от рабочего корня (parent `aidd/`), CLI выводит `base=workspace:/...` и подсказывает включить `--paths-relative workspace` или передать абсолютные/`../` пути, если граф/матчи пустые.
+- `claude-workflow research --auto --deep-code` запускается по требованию: сохраняет цели в `aidd/reports/research/<ticket>-targets.json`, формирует `aidd/docs/research/<ticket>.md`, добавляет `code_index`/`reuse_candidates`; при нулевых совпадениях CLI помечает отчёт `Status: pending` и добавляет маркер «Контекст пуст, требуется baseline». Пути по умолчанию резолвятся от рабочего корня (parent `aidd/`), CLI выводит `base=workspace:/...` и подсказывает включить `--paths-relative workspace` или передать абсолютные/`../` пути, если граф/матчи пустые.
 - при правках на стадии `implement` автоматически запускается `aidd/hooks/format-and-test.sh` (только на Stop/SubagentStop), гейты блокируют изменения в соответствии с `config/gates.json`;
 - `git commit` и `/review` работают в связке с чеклистами, помогая довести фичу до статуса READY.
 - прогресс каждой итерации фиксируется в `aidd/docs/tasklist/<ticket>.md`: переводите `- [ ] → - [x]`, обновляйте строку `Checkbox updated: …` и запускайте `claude-workflow progress --source <этап> --ticket <ticket>`.
@@ -312,11 +312,11 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 1. Создайте ветку (`git checkout -b feature/<TICKET>` или вручную) и запустите `/idea-new <ticket> [slug-hint]` — команда автоматически обновит `aidd/docs/.active_ticket`, при необходимости `.active_feature`, **и создаст PRD `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`.** Также фиксируется `aidd/docs/.active_stage=idea` (при смене требований просто перезапустите нужную команду). Ответьте аналитике в формате `Ответ N: …`; если контекста не хватает, инициируйте research (`/researcher` или `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only]`), затем вернитесь к аналитику и доведите PRD до READY (`claude-workflow analyst-check --ticket <ticket>`).
 2. Соберите артефакты аналитики: `/idea-new`, при необходимости `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph`, затем `/plan-new`, `/review-spec`, `/tasks-new` до статуса READY (ticket уже установлен шагом 1). Если проект новый и совпадений нет, оставьте `Status: pending` в `aidd/docs/research/<ticket>.md` с маркером «Контекст пуст, требуется baseline» — гейты разрешат merge только при наличии этого baseline.
 
-   > Call graph (через tree-sitter language pack) по умолчанию фильтруется по `<ticket>|<keywords>` и ограничивается 300 рёбрами (focus) в контексте; полный граф сохраняется отдельно в `reports/research/<ticket>-call-graph-full.json`. Настройка: `--graph-filter/--graph-limit/--graph-langs`.
+   > Call graph (через tree-sitter language pack) по умолчанию фильтруется по `<ticket>|<keywords>` и ограничивается 300 рёбрами (focus) в контексте; полный граф сохраняется отдельно в `aidd/reports/research/<ticket>-call-graph-full.json`. Настройка: `--graph-filter/--graph-limit/--graph-langs`.
 3. При необходимости включите дополнительные гейты в `config/gates.json` и подготовьте связанные артефакты (миграции, API-спецификации, тесты).
 4. Реализуйте фичу малыми шагами через `/implement`, отслеживая сообщения `gate-workflow` и подключённых гейтов. После каждой итерации обновляйте `aidd/docs/tasklist/<ticket>.md`, фиксируйте `Checkbox updated: …` и выполняйте `claude-workflow progress --source implement --ticket <ticket>`.
 5. Запросите `/review`, когда чеклисты в `aidd/docs/tasklist/<ticket>.md` закрыты, автотесты зелёные и артефакты синхронизированы, затем повторите `claude-workflow progress --source review --ticket <ticket>`.
-6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
+6. Перед релизом обязательно выполните `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate`, обновите QA-раздел tasklist и подтвердите прогресс `claude-workflow progress --source qa --ticket <ticket>`.
 7. После отчётов QA/Research сформируйте handoff-задачи для исполнителя: `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` добавит `- [ ]` с ссылками на отчёты в `aidd/docs/tasklist/<ticket>.md`; при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 Детальный playbook агентов и барьеров описан в `doc/dev/agents-playbook.md`.
@@ -334,7 +334,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 | `/tasks-new` | Обновить `aidd/docs/tasklist/<ticket>.md` по плану — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/research/<ticket>.md | `checkout-discounts` |
 | `/implement` | Реализация по плану с автотестами — входы: @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md, @aidd/docs/prd/<ticket>.prd.md | `checkout-discounts` |
 | `/review` | Финальное ревью и фиксация статуса — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md | `checkout-discounts` |
-| `/qa` | Финальная QA-проверка, отчёт `reports/qa/<ticket>.json` — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md | `checkout-discounts` |
+| `/qa` | Финальная QA-проверка, отчёт `aidd/reports/qa/<ticket>.json` — входы: @aidd/docs/prd/<ticket>.prd.md, @aidd/docs/plan/<ticket>.md, @aidd/docs/tasklist/<ticket>.md | `checkout-discounts` |
 | `claude-workflow progress` | Проверить наличие новых `- [x]` перед завершением шага | `--source implement --ticket checkout-discounts` |
 
 ## Режимы веток и коммитов
@@ -370,7 +370,7 @@ claude-workflow research --ticket STORE-123 --auto --deep-code --call-graph
 ## Миграция на agent-first
 1. **Обновите репозиторий и payload.** Выполните `git pull`, затем `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`, чтобы новые шаблоны PRD/tasklist/research и команда `/idea-new` попали в проект и CLI payload.
 2. **Обновите `aidd/agents|commands`.** Скопируйте свежие версии в свой проект или переустановите workflow; убедитесь, что `doc/dev/templates/prompts/prompt-agent.md`/`prompt-command.md` совпадают, чтобы новые агенты сразу работали в стиле agent-first.
-3. **Освежите активные тикеты.** Для каждой фичи выполните `claude-workflow research --ticket <ticket> --auto` (пересоберёт `reports/research/*.json` и шаблон research), затем `claude-workflow analyst-check --ticket <ticket>` — это подтвердит, что PRD и research соответствуют новым требованиям. При необходимости вручную перенесите разделы «Автоматизация»/«Команды» из обновлённых шаблонов в уже существующие артефакты.
+3. **Освежите активные тикеты.** Для каждой фичи выполните `claude-workflow research --ticket <ticket> --auto` (пересоберёт `aidd/reports/research/*.json` и шаблон research), затем `claude-workflow analyst-check --ticket <ticket>` — это подтвердит, что PRD и research соответствуют новым требованиям. При необходимости вручную перенесите разделы «Автоматизация»/«Команды» из обновлённых шаблонов в уже существующие артефакты.
 4. **Проверьте тесты и гейты.** Запустите `scripts/ci-lint.sh` и smoke-сценарии (`scripts/smoke-workflow.sh`) — они проверят, что tasklist содержит новые поля `Reports/Commands`, а промпты не содержат устаревших `Answer N` инструкций.
 5. **Документируйте миграцию.** Добавьте заметку в `doc/dev/release-notes.md`/`CHANGELOG.md` вашего проекта, чтобы команда знала о новых правилах вопросов, логах команд и репозиторных источниках.
 

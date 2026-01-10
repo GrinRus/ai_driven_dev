@@ -141,7 +141,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
                         "- Focus: checkout flow",
                         "- Files: src/checkout/service.py",
                         "",
-                        "## Next 3",
+                        "## AIDD:NEXT_3",
                         "- [ ] Task A",
                     ]
                 ),
@@ -181,7 +181,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
                         "short line",
                         "extra line",
                         "",
-                        "## Next 3",
+                        "## AIDD:NEXT_3",
                         "- [ ] Task A",
                     ]
                 ),

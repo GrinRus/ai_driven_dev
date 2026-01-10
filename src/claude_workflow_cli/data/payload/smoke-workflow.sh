@@ -213,7 +213,7 @@ if not prd_path.exists():
         f"Researcher: docs/research/{ticket}.md (Status: pending)\n\n"
         "Вопрос 1: Какие ограничения по среде?\n"
         "Ответ 1: TBD\n\n"
-        "## Research Hints\n"
+        "## AIDD:RESEARCH_HINTS\n"
         "- **Paths**: src/main\n"
         "- **Keywords**: checkout\n"
         "- **Notes**: smoke baseline\n\n"
@@ -228,7 +228,7 @@ PY
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
-if ! grep -q "\"call_graph\"" "reports/research/${TICKET}-context.json"; then
+if ! grep -q "\"call_graph\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
   exit 1
 fi
@@ -385,8 +385,8 @@ path.write_text(content, encoding="utf-8")
 PY
 
 log "run prd-review and prd-review-gate"
-run_cli prd-review --target . --ticket "$TICKET" --report "reports/prd/${TICKET}.json" --emit-text >/dev/null
-[[ -f "reports/prd/${TICKET}.json" ]] || {
+run_cli prd-review --target . --ticket "$TICKET" --report "aidd/reports/prd/${TICKET}.json" --emit-text >/dev/null
+[[ -f "$WORKDIR/reports/prd/${TICKET}.json" ]] || {
   echo "[smoke] prd-review did not create report" >&2
   exit 1
 }
@@ -519,11 +519,11 @@ for old, new in replacements.items():
 path.write_text(text, encoding="utf-8")
 PY
 
-if ! run_cli qa --ticket "$TICKET" --target . --report "reports/qa/${TICKET}.json" --emit-json >/dev/null; then
+if ! run_cli qa --ticket "$TICKET" --target . --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
   echo "[smoke] qa command failed" >&2
   exit 1
 fi
-[[ -f "reports/qa/${TICKET}.json" ]] || {
+[[ -f "$WORKDIR/reports/qa/${TICKET}.json" ]] || {
   echo "[smoke] qa report not generated" >&2
   exit 1
 }
@@ -558,7 +558,7 @@ log "verify generated artifacts"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
-[[ -f "reports/reviewer/${TICKET}.json" ]] || {
+[[ -f "$WORKDIR/reports/reviewer/${TICKET}.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }
@@ -566,7 +566,7 @@ run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/nul
 log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
-grep -q "Tasklist —" "docs/tasklist/${TICKET}.md"
+grep -q "Tasklist:" "docs/tasklist/${TICKET}.md"
 
 log "smoke scenario passed"
 popd >/dev/null

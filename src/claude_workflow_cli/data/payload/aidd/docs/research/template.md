@@ -19,8 +19,8 @@ Artifacts:
 ## AIDD:OPEN_QUESTIONS
 - {{open_questions}}
 
-## AIDD:RISKS_TOP5
-- {{risks_top5}}
+## AIDD:RISKS
+- {{risks}}
 
 ## AIDD:DECISIONS
 - {{decisions}}
@@ -37,15 +37,12 @@ Artifacts:
 ## AIDD:TEST_HOOKS
 - {{test_hooks}}
 
-## AIDD:GAPS
-- {{gaps}}
-
 ## Context Pack (TL;DR)
 - **Entry points:** {{entry_points}}
 - **Reuse candidates:** {{reuse_candidates}}
 - **Integration points:** {{integration_points}}
 - **Test pointers:** {{test_pointers}}
-- **Top risks:** {{risks_top5}}
+- **Top risks:** {{risks}}
 - Keep concise; may be longer than AIDD:CONTEXT_PACK.
 
 ## Definition of reviewed

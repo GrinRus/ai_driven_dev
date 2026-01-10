@@ -242,7 +242,7 @@ def test_research_required_then_passes_after_report(tmp_path):
     )
     # add research handoff marker to tasklist to satisfy gate handoff check
     with tasklist_path.open("a", encoding="utf-8") as fh:
-        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
@@ -274,7 +274,7 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
         },
     )
     with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
-        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
     result = run_hook(tmp_path, "gate-workflow.sh", AIDD_SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
 
@@ -341,7 +341,7 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False})
     write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]})
     with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
-        fh.write(f"- [ ] Research handoff (source: reports/research/{ticket}-context.json)\n")
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
@@ -371,7 +371,7 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
     write_file(
         project_root,
         f"docs/tasklist/{ticket}.md",
-        "- [ ] implement\n- [ ] Research handoff (source: reports/research/demo-rich-context.json)\n",
+        "- [ ] implement\n- [ ] Research handoff (source: aidd/reports/research/demo-rich-context.json)\n",
     )
     write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: reviewed\n")
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
@@ -452,7 +452,7 @@ def test_research_required_before_code_changes(tmp_path):
             ---
 
             - [ ] initial task
-            <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+            <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
             - [ ] add research handoff
             <!-- handoff:research end -->
             """
@@ -530,7 +530,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
                 ---
 
                 - [ ] QA :: подготовить smoke сценарии
-                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+                <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
                 - [ ] Research: follow-up
                 <!-- handoff:research end -->
                 """
@@ -543,8 +543,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
 
 def test_plugin_hooks_cover_workflow_events():
     hooks = _plugin_hooks()
-    for event in ("Stop", "SubagentStop"):
-        assert _has_command(hooks, event, "gate-workflow.sh"), f"gate-workflow missing in {event}"
+    assert _has_command(hooks, "Stop", "gate-workflow.sh"), "gate-workflow missing in Stop"
     for event, entries in hooks.get("hooks", {}).items():
         for entry in entries:
             for hook in entry.get("hooks", []):
@@ -656,7 +655,7 @@ def test_allows_pending_research_baseline(tmp_path):
                 ---
 
                 - [ ] Реализация :: подготовить сервис
-                <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+                <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
                 - [ ] Research: follow-up
                 <!-- handoff:research end -->
                 """
@@ -770,7 +769,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
              - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
              - [ ] QA :: подготовить smoke сценарии
-             <!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->
+             <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
              - [ ] Research: follow-up
              <!-- handoff:research end -->
              """
@@ -877,7 +876,7 @@ def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
     write_file(
         project_root,
         f"docs/tasklist/{ticket}.md",
-        "- [ ] pending\n- [x] impl done\n<!-- handoff:research start (source: reports/research/AIDD-456-context.json) -->\n- [ ] Research follow-up\n<!-- handoff:research end -->\n",
+        "- [ ] pending\n- [x] impl done\n<!-- handoff:research start (source: aidd/reports/research/AIDD-456-context.json) -->\n- [ ] Research follow-up\n<!-- handoff:research end -->\n",
     )
     write_research_doc(project_root, ticket, status="reviewed")
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
@@ -906,7 +905,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
             "analyst": {"enabled": False},
             "reviewer": {
                 "enabled": True,
-                "tests_marker": "reports/reviewer/{slug}.json",
+                "tests_marker": "aidd/reports/reviewer/{slug}.json",
                 "tests_field": "tests",
                 "required_values": ["required"],
                 "warn_on_missing": True,

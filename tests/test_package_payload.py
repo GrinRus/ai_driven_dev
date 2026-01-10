@@ -38,7 +38,6 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/config/allowed-deps.txt",
             f"{plugin_prefix}/config/context_gc.json",
             f"{plugin_prefix}/hooks/lib.sh",
-            f"{plugin_prefix}/docs/cli-migration.md",
             f"{plugin_prefix}/docs/plan/.gitkeep",
             f"{plugin_prefix}/docs/adr/.gitkeep",
             f"{plugin_prefix}/docs/prd/.gitkeep",
@@ -50,6 +49,8 @@ def test_payload_includes_dotfiles(tmp_path):
             assert expected in names, f"missing {expected} in {wheel.name}"
         for dev_only in [
             "claude_workflow_cli/data/payload/doc/dev/backlog.md",
+            "doc/dev/cli-migration.md",
+            "doc/dev/reports-format.md",
         ]:
             assert dev_only not in names, f"dev-only file should not be packaged: {dev_only}"
 

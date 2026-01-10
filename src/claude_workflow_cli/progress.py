@@ -538,7 +538,7 @@ def check_progress(
     if context == "handoff":
         guidance = (
             f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
-            f"но handoff-задачи не добавлены. Добавьте новые `- [ ] ... (source: reports/qa|research/...)` "
+            f"но handoff-задачи не добавлены. Добавьте новые `- [ ] ... (source: aidd/reports/qa|research/...)` "
             f"в {tasklist_rel} и повторите `claude-workflow progress --source handoff --ticket {ticket}`."
         )
     else:

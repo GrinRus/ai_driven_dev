@@ -76,7 +76,7 @@ DEFAULT_RELEASE_REPO = os.getenv("CLAUDE_WORKFLOW_RELEASE_REPO", "ai-driven-dev/
 CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
 HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
-DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -778,9 +778,8 @@ def _research_command(args: argparse.Namespace) -> None:
         collected_context["call_graph_engine"] = graph.get("engine", graph_engine)
         collected_context["call_graph_supported_languages"] = graph.get("supported_languages", [])
         if graph.get("edges_full") is not None:
-            full_path = Path(args.output or f"reports/research/{ticket}-call-graph-full.json")
-            if not full_path.is_absolute():
-                full_path = target / full_path
+            full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
+            full_path = _resolve_path_for_target(full_path, target)
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
             full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
@@ -975,7 +974,7 @@ def _status_command(args: argparse.Namespace) -> int:
             print(f"  - {item}")
     next3 = index_payload.get("next3") or []
     if next3:
-        print("- Next 3:")
+        print("- AIDD:NEXT_3:")
         for item in next3:
             print(f"  - {item}")
     open_questions = index_payload.get("open_questions") or []
@@ -985,7 +984,7 @@ def _status_command(args: argparse.Namespace) -> int:
             print(f"  - {item}")
     risks = index_payload.get("risks_top5") or []
     if risks:
-        print("- Risks top5:")
+        print("- Risks:")
         for item in risks:
             print(f"  - {item}")
     checks = index_payload.get("checks") or []
@@ -1262,13 +1261,9 @@ def _qa_command(args: argparse.Namespace) -> int:
             .replace("{branch}", branch or "")
         )
 
-    report_template = args.report or "reports/qa/{ticket}.json"
+    report_template = args.report or "aidd/reports/qa/{ticket}.json"
     report_text = _fmt(report_template)
-    report_path = Path(report_text)
-    if not report_path.is_absolute():
-        report_path = (target / report_path).resolve()
-    else:
-        report_path = report_path.resolve()
+    report_path = _resolve_path_for_target(Path(report_text), target)
 
     allow_no_tests = bool(
         getattr(args, "allow_no_tests", False)
@@ -1289,7 +1284,7 @@ def _qa_command(args: argparse.Namespace) -> int:
             allow_missing=allow_no_tests,
         )
         if tests_summary == "fail":
-            print("[claude-workflow] QA tests failed; see reports/qa/*-tests.log.")
+            print("[claude-workflow] QA tests failed; see aidd/reports/qa/*-tests.log.")
         elif tests_summary == "skipped":
             print("[claude-workflow] QA tests skipped (allow_no_tests enabled or no commands configured).")
         else:
@@ -1622,11 +1617,7 @@ def _reviewer_marker_path(target: Path, template: str, ticket: str, slug_hint: O
     rel_text = template.replace("{ticket}", ticket)
     if "{slug}" in template:
         rel_text = rel_text.replace("{slug}", slug_hint or ticket)
-    marker_path = Path(rel_text)
-    if not marker_path.is_absolute():
-        marker_path = (target / marker_path).resolve()
-    else:
-        marker_path = marker_path.resolve()
+    marker_path = _resolve_path_for_target(Path(rel_text), target)
     target_root = target.resolve()
     if not _is_relative_to(marker_path, target_root):
         raise ValueError(
@@ -1677,11 +1668,26 @@ _HANDOFF_SECTION_HINTS: Dict[str, Tuple[str, ...]] = {
 }
 
 
+def _resolve_path_for_target(path: Path, target: Path) -> Path:
+    if path.is_absolute():
+        return path.resolve()
+    parts = path.parts
+    if parts and parts[0] == ".":
+        path = Path(*parts[1:])
+        parts = path.parts
+    if parts and parts[0] == DEFAULT_PROJECT_SUBDIR and target.name == DEFAULT_PROJECT_SUBDIR:
+        path = Path(*parts[1:])
+    return (target / path).resolve()
+
+
 def _rel_path(path: Path, root: Path) -> str:
     try:
-        return path.relative_to(root).as_posix()
+        rel = path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
+    if root.name == DEFAULT_PROJECT_SUBDIR:
+        return f"{DEFAULT_PROJECT_SUBDIR}/{rel}"
+    return rel
 
 
 def _load_json_file(path: Path) -> Dict:
@@ -1907,8 +1913,8 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
 
     source = (args.source or "").strip().lower()
     default_report = {
-        "qa": "reports/qa/{ticket}.json",
-        "research": "reports/research/{ticket}-context.json",
+        "qa": "aidd/reports/qa/{ticket}.json",
+        "research": "aidd/reports/research/{ticket}-context.json",
     }.get(source)
     report_template = args.report or default_report
     if not report_template:
@@ -1920,9 +1926,7 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
             .replace("{slug}", slug_hint or ticket)
         )
 
-    report_path = Path(_fmt(report_template))
-    if not report_path.is_absolute():
-        report_path = target / report_path
+    report_path = _resolve_path_for_target(Path(_fmt(report_template)), target)
 
     def _env_truthy(value: str | None) -> bool:
         return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
@@ -2538,7 +2542,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     prd_review_parser = subparsers.add_parser(
         "prd-review",
-        help="Run lightweight PRD review heuristics and emit reports/prd/<ticket>.json.",
+        help="Run lightweight PRD review heuristics and emit aidd/reports/prd/<ticket>.json.",
     )
     prd_review_parser.add_argument(
         "--target",
@@ -2720,7 +2724,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     research_check_parser = subparsers.add_parser(
         "research-check",
-        help="Validate the Researcher report (docs/research + reports/research).",
+        help="Validate the Researcher report (docs/research + aidd/reports/research).",
     )
     research_check_parser.add_argument(
         "--ticket",
@@ -2793,7 +2797,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     research_parser.add_argument(
         "--output",
-        help="Override output JSON path (default: reports/research/<ticket>-context.json).",
+        help="Override output JSON path (default: aidd/reports/research/<ticket>-context.json).",
     )
     research_parser.add_argument(
         "--pack-only",
@@ -2972,7 +2976,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     context_pack_parser.add_argument(
         "--output",
-        help="Optional output path override (default: reports/context/<ticket>-<agent>.md).",
+        help="Optional output path override (default: aidd/reports/context/<ticket>-<agent>.md).",
     )
     context_pack_parser.set_defaults(func=_context_pack_command)
 
@@ -3039,7 +3043,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     tests_log_parser = subparsers.add_parser(
         "tests-log",
-        help="Append entry to tests JSONL log (reports/tests/<ticket>.jsonl).",
+        help="Append entry to tests JSONL log (aidd/reports/tests/<ticket>.jsonl).",
     )
     tests_log_parser.add_argument(
         "--ticket",
@@ -3080,7 +3084,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     qa_parser = subparsers.add_parser(
         "qa",
-        help="Run QA agent and generate reports/qa/<ticket>.json.",
+        help="Run QA agent and generate aidd/reports/qa/<ticket>.json.",
     )
     qa_parser.add_argument(
         "--ticket",
@@ -3103,7 +3107,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     qa_parser.add_argument(
         "--report",
-        help="Path to JSON report (default: reports/qa/<ticket>.json).",
+        help="Path to JSON report (default: aidd/reports/qa/<ticket>.json).",
     )
     qa_parser.add_argument(
         "--block-on",

@@ -1,30 +1,25 @@
 # Anchor: plan
 
-## Цели
-- Подготовить исполнимый план с итерациями, DoD и тест‑стратегией.
-- Зафиксировать границы изменений и риски.
+## Goals
+- Исполнимый план с итерациями и DoD.
+- Явный Files/Modules touched.
+- Test strategy per iteration + миграции/флаги + observability.
 
-## MUST KNOW FIRST
-- `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/research/<ticket>.md`.
-- `aidd/docs/plan/template.md`.
-
-## Inputs
-- PRD со статусом `READY`.
-- Research со статусом `reviewed`.
-
-## Outputs/Contract
-- `aidd/docs/plan/<ticket>.md` со статусом `PENDING|BLOCKED|READY`.
-- Заполненные `AIDD:*` секции плана (архитектура, файлы, итерации, тесты).
+## MUST READ FIRST
+- aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE, AIDD:ROLL_OUT
+- aidd/docs/research/<ticket>.md: AIDD:INTEGRATION_POINTS, AIDD:REUSE_CANDIDATES, AIDD:RISKS
 
 ## MUST UPDATE
-- `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/.active_stage`.
+- aidd/docs/plan/<ticket>.md:
+  - AIDD:ARCHITECTURE
+  - AIDD:FILES_TOUCHED
+  - AIDD:ITERATIONS
+  - AIDD:TEST_STRATEGY
+  - AIDD:RISKS
 
 ## MUST NOT
-- Пропускать `research-check` перед планом.
-- Планировать без границ модулей/файлов.
+- Over-engineering без обоснования (KISS/YAGNI).
+- Пропускать тест‑стратегию и миграции/флаги (если есть).
 
-## Blockers
-- Отсутствует `PRD READY` или `research reviewed`.
-- Не определены риски/границы изменений.
+## Output contract
+- План готов к validator и /review-spec.

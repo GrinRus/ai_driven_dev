@@ -25,7 +25,7 @@ permissionMode: default
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — итерации, DoD, границы изменений.
-- `@aidd/docs/tasklist/<ticket>.md` — прогресс и Next 3.
+- `@aidd/docs/tasklist/<ticket>.md` — прогресс и AIDD:NEXT_3.
 - `@aidd/docs/research/<ticket>.md`, `@aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
 
 ## Автоматизация
@@ -51,7 +51,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 ```
 
 ## Пошаговый план
-1. Определи ближайший пункт из `Next 3`, выпиши ожидаемые файлы/модули (patch boundaries).
+1. Определи ближайший пункт из `AIDD:NEXT_3`, выпиши ожидаемые файлы/модули (patch boundaries).
 2. Внеси минимальные правки в рамках плана; если выходишь за границы — остановись и запроси обновление плана/tasklist.
 3. Если `aidd/.cache/test-policy.env` отсутствует — создай его с выбранным профилем и параметрами.
 4. Обнови tasklist: `- [ ] → - [x]`, дата/итерация/результат.

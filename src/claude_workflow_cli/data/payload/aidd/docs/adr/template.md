@@ -15,7 +15,7 @@
 ## AIDD:NON_NEGOTIABLES
 - <что нельзя нарушать>
 
-## AIDD:RISKS_TOP5
+## AIDD:RISKS
 - <риск> -> <митигация>
 
 ## AIDD:DECISIONS

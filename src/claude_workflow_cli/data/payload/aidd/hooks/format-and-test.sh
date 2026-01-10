@@ -226,7 +226,7 @@ DEFAULT_CODE_FILES = (
     "pom.xml",
 )
 
-DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -321,14 +321,20 @@ def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: 
     return False
 
 
-def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None) -> Path:
+def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None, project_root: Path) -> Path:
     resolved = template.replace("{ticket}", ticket)
     if "{slug}" in template:
         resolved = resolved.replace("{slug}", slug_hint or ticket)
-    return Path(resolved)
+    path = Path(resolved)
+    if not path.is_absolute():
+        parts = path.parts
+        if parts and parts[0] == "aidd" and project_root.name == "aidd":
+            path = Path(*parts[1:])
+        path = project_root / path
+    return path
 
 
-def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) -> tuple[bool, str]:
+def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict, project_root: Path) -> tuple[bool, str]:
     marker_template = str(
         config.get("tests_marker")
         or config.get("marker")
@@ -370,7 +376,7 @@ def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) ->
     if fallback_raw is None:
         fallback_raw = config.get("defaultValue", "")
     fallback_value = str(fallback_raw).strip().lower()
-    marker = reviewer_marker_path(marker_template, ticket, slug_hint)
+    marker = reviewer_marker_path(marker_template, ticket, slug_hint, project_root)
     if not marker.exists():
         return False, marker.as_posix()
     try:
@@ -940,7 +946,12 @@ def main() -> int:
     reviewer_marker_source = ""
     if reviewer_enabled and not force_tests and not skip_tests:
         if active_ticket:
-            reviewer_required, reviewer_marker_source = reviewer_tests_required(active_ticket, slug_hint, reviewer_cfg)
+            reviewer_required, reviewer_marker_source = reviewer_tests_required(
+                active_ticket,
+                slug_hint,
+                reviewer_cfg,
+                project_root,
+            )
         else:
             log("reviewerGate.enabled=1, но docs/.active_ticket не найден — тесты будут ожидать запроса reviewer.")
 
@@ -965,7 +976,7 @@ def main() -> int:
         if checkpoint_active:
             log(f"Checkpoint trigger detected ({checkpoint_reason}).")
     elif cadence == "manual":
-        log("Test cadence: manual")
+        log("Test cadence: manual (cadence=manual)")
 
     def record_tests_log(status: str, reason: str = "") -> None:
         ticket = identifiers.resolved_ticket
@@ -1053,7 +1064,9 @@ def main() -> int:
         format_only_flag = True
         log("AIDD_TEST_PROFILE=none — тесты пропущены (FORMAT_ONLY=1).")
 
-    if changed_only_flag and not force_tests and not reviewer_required:
+    if changed_only_flag and not (
+        force_tests or reviewer_required or manual_scope_requested or policy_active or checkpoint_active
+    ):
         if not changed_files:
             log("Изменения не обнаружены — форматирование и тесты пропущены.")
             if not format_only_flag:

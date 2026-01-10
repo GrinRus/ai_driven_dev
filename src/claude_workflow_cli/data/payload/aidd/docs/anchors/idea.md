@@ -1,31 +1,21 @@
 # Anchor: idea
 
-## Цели
-- Зафиксировать ticket и создать PRD draft с вопросами.
-- Заполнить базовые AIDD:* секции и Research Hints.
+## Goals
+- Создать/обновить PRD draft.
+- Заполнить AIDD:RESEARCH_HINTS (пути/ключевые слова/заметки).
+- Сформировать вопросы пользователю; без ответов статус не READY.
 
-## MUST KNOW FIRST
-- `aidd/AGENTS.md`.
-- `aidd/docs/prd/template.md`.
-- `aidd/docs/sdlc-flow.md` (read-once).
-- `aidd/docs/status-machine.md` (read-once).
-
-## Inputs
-- Ввод пользователя (идея, ограничения, метрики).
-- Существующие документы (backlog/ADR), если есть.
-
-## Outputs/Contract
-- `aidd/docs/prd/<ticket>.prd.md` со статусом `draft|PENDING|BLOCKED|READY`.
-- Заполненные `AIDD:*` секции и блок `## Research Hints`.
+## MUST READ FIRST
+- aidd/docs/prd/<ticket>.prd.md: AIDD:RESEARCH_HINTS, AIDD:OPEN_QUESTIONS, Диалог analyst
+- aidd/docs/.active_ticket и .active_feature
 
 ## MUST UPDATE
-- `aidd/docs/prd/<ticket>.prd.md`.
-- `aidd/docs/.active_ticket` и `aidd/docs/.active_stage`.
+- aidd/docs/prd/<ticket>.prd.md: PRD draft + вопросы + AIDD:RESEARCH_HINTS
 
 ## MUST NOT
-- Переходить к планированию без `PRD READY`.
-- Запускать research без фиксации Research Hints при тонком контексте.
+- Ставить READY без ответов пользователя.
+- Уходить в код до research/plan/tasklist.
 
-## Blockers
-- Не задан ticket.
-- Нет ответов на ключевые вопросы пользователя.
+## Output contract
+- PRD статус: PENDING/BLOCKED до ответов.
+- Следующий шаг: /researcher <ticket>.

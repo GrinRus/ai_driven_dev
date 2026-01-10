@@ -10,6 +10,7 @@ allowed-tools:
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(sed:*)"
   - "Bash(claude-workflow set-active-feature:*)"
   - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow research:*)"
@@ -18,12 +19,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/researcher` собирает кодовый контекст: читает `## Research Hints` из PRD, запускает `claude-workflow research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
+Команда `/researcher` собирает кодовый контекст: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `claude-workflow research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
-- `@aidd/docs/prd/<ticket>.prd.md` (раздел `## Research Hints`).
+- `@aidd/docs/prd/<ticket>.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `@aidd/docs/research/template.md` — шаблон.
 - `aidd/reports/research/<ticket>-context.json` — формируется CLI.
 
@@ -44,7 +45,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Убедись, что активный ticket задан; при необходимости вызови `claude-workflow set-active-feature`.
 2. Зафиксируй стадию `research`.
-3. Извлеки `## Research Hints` и запусти `claude-workflow research ...` с `--paths/--keywords/--note`.
+3. Извлеки `## AIDD:RESEARCH_HINTS` и запусти `claude-workflow research ...` с `--paths/--keywords/--note`.
 4. Запусти саб-агента `researcher` и обнови `aidd/docs/research/<ticket>.md`.
 5. При необходимости добавь handoff-задачи в tasklist.
 

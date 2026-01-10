@@ -161,7 +161,7 @@ emit("COMMAND", norm_list(qa.get("command", [])))
 emit("BLOCK", [str(item).lower() for item in norm_list(qa.get('block_on', ('blocker', 'critical')))])
 emit("WARN", [str(item).lower() for item in norm_list(qa.get('warn_on', ('major', 'minor')))])
 emit("REQUIRES", norm_list(qa.get("requires", [])))
-report = qa.get("report", "reports/qa/latest.json")
+report = qa.get("report", "aidd/reports/qa/latest.json")
 print(f"REPORT={report}")
 timeout = int(qa.get("timeout", 600) or 0)
 print(f"TIMEOUT={timeout}")
@@ -291,7 +291,7 @@ fi
 file_path="$(hook_payload_file_path "$payload")"
 if [[ -n "$file_path" ]]; then
   case "$file_path" in
-    docs/qa/*|reports/qa/*)
+    docs/qa/*|reports/qa/*|aidd/docs/qa/*|aidd/reports/qa/*)
       : # всегда запускаем при обновлении QA артефактов
       ;;
     src/*|tests/*|docs/*|config/*|scripts/*)
@@ -391,6 +391,10 @@ fi
 report_path="$qa_report"
 if [[ -n "$report_path" ]]; then
   report_path="$(replace_placeholders "$report_path")"
+  report_path="${report_path#./}"
+  if [[ "$report_path" == aidd/* && "$(basename "$ROOT_DIR")" == "aidd" ]]; then
+    report_path="${report_path#aidd/}"
+  fi
   runner+=("--report" "$report_path")
 fi
 
@@ -403,11 +407,15 @@ if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
   fi
   if [[ "$debounce_minutes" =~ ^[0-9]+$ ]] && (( debounce_minutes > 0 )); then
     now_ts="$(date +%s)"
-    stamp_dir="reports/qa"
+    stamp_dir="aidd/reports/qa"
     if [[ -n "$report_path" ]]; then
       stamp_dir="$(dirname "$report_path")"
     fi
-    stamp_dir="${stamp_dir:-reports/qa}"
+    stamp_dir="${stamp_dir:-aidd/reports/qa}"
+    stamp_dir="${stamp_dir#./}"
+    if [[ "$stamp_dir" == aidd/* && "$(basename "$ROOT_DIR")" == "aidd" ]]; then
+      stamp_dir="${stamp_dir#aidd/}"
+    fi
     stamp_path="${stamp_dir}/.gate-qa.${ticket:-unknown}.stamp"
     if [[ -f "$stamp_path" ]]; then
       last_ts="$(cat "$stamp_path" 2>/dev/null || true)"

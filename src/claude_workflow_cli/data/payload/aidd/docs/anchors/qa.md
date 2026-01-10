@@ -1,29 +1,22 @@
 # Anchor: qa
 
-## Цели
-- Провести финальную проверку и выпустить QA report.
+## Goals
+- Проверить фичу против AIDD:ACCEPTANCE.
+- Findings с severity и traceability.
+- Обновить QA чекбоксы и отчёт.
 
-## MUST KNOW FIRST
-- `aidd/docs/tasklist/<ticket>.md` (QA‑секция + AIDD anchors).
-- `aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
-
-## Inputs
-- Diff, tasklist, результаты гейтов/тестов.
-
-## Outputs/Contract
-- `aidd/reports/qa/<ticket>.json` со статусом READY/WARN/BLOCKED.
-- Обновлённый tasklist с QA traceability.
+## MUST READ FIRST
+- aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE
+- aidd/docs/tasklist/<ticket>.md: AIDD:CHECKLIST_QA + AIDD:HANDOFF_INBOX
+- aidd/reports/tests/* и diff (если есть)
 
 ## MUST UPDATE
-- `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/reports/qa/<ticket>.json`.
-- `aidd/docs/.active_stage`.
+- aidd/docs/tasklist/<ticket>.md: QA чекбоксы + known issues
+- aidd/reports/qa/<ticket>.json
 
 ## MUST NOT
-- Пропускать блокеры/critical в QA отчёте.
+- READY при blocker/critical.
+- Прятать gaps — перечислять явно.
 
-## Blockers
-- Отсутствует tasklist или не пройдены обязательные проверки.
-
-## Test defaults
-- QA запускает `claude-workflow qa --gate` и фиксирует логи.
+## Output contract
+- Status: READY|WARN|BLOCKED

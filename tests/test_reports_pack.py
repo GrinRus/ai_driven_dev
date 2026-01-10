@@ -66,7 +66,7 @@ class ReportsPackTests(unittest.TestCase):
             "generated_at": "2024-01-08T00:00:00Z",
             "matches": matches,
         }
-        pack = reports_pack.build_research_context_pack(payload, source_path="reports/research/demo-4-context.json")
+        pack = reports_pack.build_research_context_pack(payload, source_path="aidd/reports/research/demo-4-context.json")
         match_rows = pack["matches"]["rows"]
         self.assertEqual(len(match_rows), reports_pack.RESEARCH_LIMITS["matches"])
         self.assertLessEqual(len(match_rows[0][4]), reports_pack.RESEARCH_LIMITS["match_snippet_chars"])
@@ -101,7 +101,7 @@ class ReportsPackTests(unittest.TestCase):
                 }
             ],
         }
-        pack = reports_pack.build_qa_pack(payload, source_path="reports/qa/QA-1.json")
+        pack = reports_pack.build_qa_pack(payload, source_path="aidd/reports/qa/QA-1.json")
         self.assertEqual(pack["findings"]["cols"][0], "id")
         self.assertEqual(pack["findings"]["rows"][0][0], "qa-issue-1")
 
@@ -119,7 +119,7 @@ class ReportsPackTests(unittest.TestCase):
                 }
             ],
         }
-        pack = reports_pack.build_prd_pack(payload, source_path="reports/prd/PRD-1.json")
+        pack = reports_pack.build_prd_pack(payload, source_path="aidd/reports/prd/PRD-1.json")
         self.assertEqual(pack["findings"]["cols"][0], "id")
         self.assertEqual(pack["findings"]["rows"][0][0], "prd-issue-1")
 

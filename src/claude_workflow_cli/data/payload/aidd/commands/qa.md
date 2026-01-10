@@ -23,7 +23,7 @@ disable-model-invocation: false
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/qa.md`.
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` (acceptance criteria).
+- `@aidd/docs/prd/<ticket>.prd.md` (AIDD:ACCEPTANCE).
 - `@aidd/docs/plan/<ticket>.md`.
 - `@aidd/docs/tasklist/<ticket>.md`.
 - Логи тестов/гейтов (если есть).
@@ -45,7 +45,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.
 2. Запусти саб-агента **qa** через `claude-workflow qa --gate` и получи отчёт.
-3. Обнови QA секцию tasklist, добавь traceability к acceptance criteria.
+3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE.
 4. Подтверди прогресс через `claude-workflow progress`.
 
 ## Fail-fast и вопросы

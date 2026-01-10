@@ -85,7 +85,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
         "tests_summary": "fail",
         "tests_executed": {
             "cols": ["command", "status", "log", "exit_code"],
-            "rows": [["pytest", "fail", "reports/qa/demo-tests.log", 1]],
+            "rows": [["pytest", "fail", "aidd/reports/qa/demo-tests.log", 1]],
         },
         "findings": {
             "cols": ["severity", "scope", "title", "details", "recommendation"],
@@ -108,7 +108,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
             "--target",
             ".",
             "--report",
-            "reports/qa/demo-checkout.pack.yaml",
+            "aidd/reports/qa/demo-checkout.pack.yaml",
         ),
         cwd=project_root,
         text=True,
@@ -123,7 +123,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
 def test_tasks_derive_research_appends_existing_block(tmp_path):
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, "demo-checkout")
-    base = _base_tasklist() + "\n<!-- handoff:research start (source: reports/research/demo-checkout-context.json) -->\n- [ ] Research: existing item\n<!-- handoff:research end -->\n"
+    base = _base_tasklist() + "\n<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n- [ ] Research: existing item\n<!-- handoff:research end -->\n"
     write_file(project_root, "docs/tasklist/demo-checkout.md", base)
     context = {
         "profile": {"recommendations": ["Create baseline dirs"]},
@@ -170,7 +170,7 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
         "reports/qa/demo-checkout.json",
         {
             "tests_summary": "fail",
-            "tests_executed": [{"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "reports/qa/demo-tests.log"}],
+            "tests_executed": [{"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}],
             "findings": [{"severity": "blocker", "title": "Regression", "scope": "api"}],
         },
     )

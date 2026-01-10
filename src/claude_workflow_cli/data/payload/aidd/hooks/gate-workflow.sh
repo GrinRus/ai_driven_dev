@@ -374,7 +374,7 @@ if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
 template = str(
     reviewer_cfg.get("tests_marker")
     or reviewer_cfg.get("marker")
-    or "reports/reviewer/{ticket}.json"
+    or "aidd/reports/reviewer/{ticket}.json"
 )
 field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
 required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -391,6 +391,8 @@ allowed_values = set(required_values + optional_values)
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
+if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
+    marker_path = Path(*marker_path.parts[1:])
 if not marker_path.exists():
     if reviewer_cfg.get("warn_on_missing", True):
         print(
@@ -427,11 +429,12 @@ from pathlib import Path
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
 tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
+prefix = "aidd/" if Path.cwd().name == "aidd" else ""
 if not tasklist_path.exists():
     raise SystemExit(0)
 reports = [
-    ("qa", Path("reports/qa") / f"{ticket}.json", "reports/qa/"),
-    ("research", Path("reports/research") / f"{ticket}-context.json", "reports/research/"),
+    ("qa", Path("reports/qa") / f"{ticket}.json", f"{prefix}reports/qa/"),
+    ("research", Path("reports/research") / f"{ticket}-context.json", f"{prefix}reports/research/"),
 ]
 try:
     lines = tasklist_path.read_text(encoding="utf-8").splitlines()
@@ -442,10 +445,10 @@ missing = []
 for name, report_path, marker in reports:
     if not report_path.exists():
         continue
-    if marker not in text:
+    if marker not in text and marker.replace("aidd/", "") not in text:
         missing.append((name, report_path))
 if missing:
-    items = ", ".join(f"{name}: {path}" for name, path in missing)
+    items = ", ".join(f"{name}: {prefix}{path.as_posix()}" for name, path in missing)
     print(f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). Запустите `claude-workflow tasks-derive --source <qa|research> --append --ticket {ticket}`.")
     raise SystemExit(1)
 PY

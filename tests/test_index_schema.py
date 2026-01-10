@@ -35,7 +35,7 @@ def test_index_sync_generates_required_fields(tmp_path):
             ## AIDD:OPEN_QUESTIONS
             - Question
 
-            ## AIDD:RISKS_TOP5
+            ## AIDD:RISKS
             - Risk
             """
         ).strip()
@@ -81,8 +81,8 @@ def test_index_sync_includes_pack_variants(tmp_path):
     payload = json.loads(index_path.read_text(encoding="utf-8"))
 
     reports = payload.get("reports") or []
-    assert "reports/qa/DEMO-2.pack.yaml" in reports
-    assert "reports/research/DEMO-2-context.pack.toon" in reports
+    assert "aidd/reports/qa/DEMO-2.pack.yaml" in reports
+    assert "aidd/reports/research/DEMO-2-context.pack.toon" in reports
     checks = payload.get("checks") or []
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None
@@ -138,4 +138,4 @@ def test_index_sync_includes_tests_log(tmp_path):
     payload = json.loads(index_path.read_text(encoding="utf-8"))
 
     reports = payload.get("reports") or []
-    assert "reports/tests/DEMO-4.jsonl" in reports
+    assert "aidd/reports/tests/DEMO-4.jsonl" in reports
