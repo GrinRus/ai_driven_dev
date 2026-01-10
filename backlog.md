@@ -970,7 +970,7 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 
 ### Phase 0: Alignment & Baseline
 - [x] Зафиксировать canonical/sync политику в `doc/dev/customization.md` (или новый `doc/dev/payload-policy.md`): что является источником правды и какие команды sync использовать.
-- [x] Проверить `tools/check_payload_sync.py`/`tools/payload_audit_rules.json` на новые артефакты (`aidd/docs/anchors/`, `aidd/docs/reports-format.md`, `aidd/docs/index/`) и обновить при необходимости.
+- [x] Проверить `tools/check_payload_sync.py`/`tools/payload_audit_rules.json` на новые артефакты (`aidd/docs/anchors/`, `doc/dev/reports-format.md`, `aidd/docs/index/`) и обновить при необходимости.
 - [x] Добавить раздел “Performance KPIs” в `doc/dev/prompt-playbook.md` (минимум: Stop/checkbox, формат‑тесты/checkbox, частота чтения reports, средний stdout логов).
 - [x] (Опционально) `tools/context_kpi_stub.py` — черновой сбор метрик из `aidd/.cache/logs`.
 - [x] DoD: политика canonical/sync и минимальные KPI задокументированы.
@@ -981,8 +981,8 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 - [x] AIDD‑anchors в шаблонах: `aidd/docs/{prd,plan,research,tasklist}/template.md` (core + PRD/Plan/Research/Tasklist anchors), затем sync в payload‑копии.
 - [x] Backfill anchors: `tools/upgrade_aidd_docs.py` — пройти по `aidd/docs/{prd,plan,tasklist,research}/**` и добавить отсутствующие `## AIDD:*` секции без перезаписи содержимого.
 - [x] Тесты для апгрейда: `tests/test_upgrade_aidd_docs.py` (минимум 1–2 фикстуры).
-- [x] Контракт отчётов (MVP): `aidd/docs/reports-format.md` (+ payload копия) — naming `reports/<type>/<ticket>-<kind>.pack.yaml`, правило pack‑first, budgets для `reports/research/*-context.pack.yaml`, deterministic output (byte‑identical), whitelist/blacklist полей.
-- [x] Инвентаризация отчётов: `tools/report_stats.py` → таблица top‑3 hotspots с `chars/lines/keys` в `aidd/docs/reports-format.md`.
+- [x] Контракт отчётов (MVP): `doc/dev/reports-format.md` (+ payload копия) — naming `reports/<type>/<ticket>-<kind>.pack.yaml`, правило pack‑first, budgets для `reports/research/*-context.pack.yaml`, deterministic output (byte‑identical), whitelist/blacklist полей.
+- [x] Инвентаризация отчётов: `tools/report_stats.py` → таблица top‑3 hotspots с `chars/lines/keys` в `doc/dev/reports-format.md`.
 - [x] Pack generator (MVP): `src/claude_workflow_cli/tools/reports_pack.py` для `reports/research/<ticket>-context.json` → sidecar `reports/research/<ticket>-context.pack.yaml` (stable order, top‑N, stable IDs).
 - [x] Single loader API: `src/claude_workflow_cli/reports/loader.py` (например, `load_report()`/`get_report_paths()`), обновить `src/claude_workflow_cli/cli.py` (`tasks-derive --source research`) на pack‑first + fallback в JSON.
 - [x] Миграция/обратимость: `tools/backfill_pack.py` и флаг `AIDD_PACK_FIRST=1`/`--prefer-pack` для `claude-workflow tasks-derive` (fallback обязателен).
@@ -991,7 +991,7 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 - [x] Мини‑аудит: убедиться, что `qa`/`researcher` не копии `prd-reviewer` (фикс отдельным чекбоксом в промптах при необходимости).
 - [x] Линт: расширить `scripts/lint-prompts.py` на проверку anchors в шаблонах и наличие stage‑anchors; обновить `tests/test_prompt_lint.py`.
 - [x] Документация: обновить `doc/dev/{agents-playbook,prompt-playbook}.md`, `README.md`, `README.en.md`, `src/claude_workflow_cli/data/payload/aidd/workflow.md` под anchors‑first + working set.
-- [x] DoD: контракт `aidd/docs/reports-format.md` зафиксирован, pack создаётся для research‑context и используется в `tasks-derive`, golden‑тесты детерминизма проходят, root→payload sync выполнен.
+- [x] DoD: контракт `doc/dev/reports-format.md` зафиксирован, pack создаётся для research‑context и используется в `tasks-derive`, golden‑тесты детерминизма проходят, root→payload sync выполнен.
 
 ### Phase 1.5: Working set (Context GC)
 - [x] Обновить `src/claude_workflow_cli/context_gc/working_set_builder.py`: включать `AIDD:CONTEXT_PACK`, лимиты по строкам/символам, ссылку на stage‑anchor текущей стадии.
@@ -1007,8 +1007,8 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 - [x] DoD: дефолты профилей по событиям действуют, stdout короткий, полный лог сохраняется.
 
 ### Phase 2: Расширение pack + events + index
-- [x] Расширить pack на QA/PRD/Review: обновить `src/claude_workflow_cli/tools/{qa_agent.py,prd_review.py}` для sidecar pack и обновить схемы в `aidd/docs/reports-format.md`.
-- [x] Columnar‑секции: findings (QA/PRD/Review), matches/reuse/call_graph/import_graph (research) с `cols/rows` и reference‑таблицами в `aidd/docs/reports-format.md`.
+- [x] Расширить pack на QA/PRD/Review: обновить `src/claude_workflow_cli/tools/{qa_agent.py,prd_review.py}` для sidecar pack и обновить схемы в `doc/dev/reports-format.md`.
+- [x] Columnar‑секции: findings (QA/PRD/Review), matches/reuse/call_graph/import_graph (research) с `cols/rows` и reference‑таблицами в `doc/dev/reports-format.md`.
 - [x] Pack‑first чтение вне tasks‑derive: обновить `aidd/{agents,commands}/*.md`, `doc/dev/agents-playbook.md`, `doc/dev/prompt-playbook.md`; sync `scripts/sync-payload.sh --direction=from-root`.
 - [x] JSONL events + `/status`: схема `aidd/reports/events/<ticket>.jsonl`, append‑запись в CLI/хуках, команда `/status` в `aidd/commands/status.md` + CLI‑handler чтения index + events.
 - [x] Ticket index/hub как derived‑source: генерация `aidd/docs/index/<ticket>.yaml` (schema `aidd.ticket.v1`) из tasklist/anchors/reports/events; CLI helper в `src/claude_workflow_cli/cli.py` или `src/claude_workflow_cli/tools/index_sync.py`.
@@ -1017,7 +1017,7 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 
 ### Phase 3: Advanced (по факту боли)
 - [x] RFC6902 patch updates: `tools/apply_json_patch.py`, `reports/<type>/<ticket>.patch.json`, флаг `--emit-patch` в `qa_agent.py`/`prd_review.py` — включать только при доказанном pain (diff/size).
-- [x] TOON optional: конвертер `full.json -> pack.toon` под `AIDD_PACK_FORMAT=toon`, ограничения в `aidd/docs/reports-format.md`.
+- [x] TOON optional: конвертер `full.json -> pack.toon` под `AIDD_PACK_FORMAT=toon`, ограничения в `doc/dev/reports-format.md`.
 - [x] Доп. оптимизации: `--pack-only`, компрессия больших полей по whitelist/blacklist, расширение budgets.
 - [x] DoD: опции gated флагами, есть e2e пример/тесты и документированные ограничения.
 
@@ -1075,7 +1075,7 @@ _Статус: новый, приоритет 1. Цель — добавить �
 _Статус: новый, приоритет 1. Цель — CLI‑first: перенести всю кастомную автоматизацию из payload в `claude-workflow`, удалить скрипты/обвязки из payload без обратной совместимости._
 
 ### Инвентаризация и карта миграции
-- [x] Собрать реестр всех кастомных скриптов/обвязок в payload: `src/claude_workflow_cli/data/payload/aidd/tools/*.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/**`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`, плюс все упоминания в hooks/commands/agents/docs; оформить таблицу «старый путь → новая CLI‑команда → потребители» в `src/claude_workflow_cli/data/payload/aidd/docs/cli-migration.md`.
+- [x] Собрать реестр всех кастомных скриптов/обвязок в payload: `src/claude_workflow_cli/data/payload/aidd/tools/*.py`, `src/claude_workflow_cli/data/payload/aidd/scripts/**`, `src/claude_workflow_cli/data/payload/aidd/hooks/_vendor/claude_workflow_cli/**`, плюс все упоминания в hooks/commands/agents/docs; оформить таблицу «старый путь → новая CLI‑команда → потребители» в `doc/dev/cli-migration.md`.
 
 ### CLI‑команды: перенос логики из payload
 - [x] Перенести `aidd/tools/set_active_feature.py` в `claude-workflow set-active-feature` (модуль в `src/claude_workflow_cli/`, CLI‑подкоманда в `src/claude_workflow_cli/cli.py`).
@@ -1255,7 +1255,7 @@ _Статус: новый, приоритет 2. Цель — ticket manifest + 
 - [x] Обновить `aidd/agents/implementer.md` на обязательный `Test scope/Cadence/Why skipped`; добавить тесты.
 
 ### EPIC E — Reports schema + JSONL logs
-- [x] Зафиксировать schema header для отчетов в `aidd/docs/reports-format.md` (ticket/stage/status/started_at/finished_at/tool_versions/summary).
+- [x] Зафиксировать schema header для отчетов в `doc/dev/reports-format.md` (ticket/stage/status/started_at/finished_at/tool_versions/summary).
 - [x] Добавить JSONL логи `reports/tests/<ticket>.jsonl` и CLI helper для append, обновить `/status` и `index_sync.py`.
 - [x] Columnar full graphs: добавить `*-call-graph-full.cjson` (или иной columnar формат) и описать чтение в `reports-format.md`.
 
@@ -1265,7 +1265,7 @@ _Статус: новый, приоритет 2. Цель — ticket manifest + 
 
 ### EPIC G — Context pack CLI (optional)
 - [x] Добавить `claude-workflow context-pack --ticket <T> --agent <name>`: собирать anchors из PRD/Plan/Tasklist и писать `reports/context/<ticket>-<agent>.md`.
-- [x] Документация и примеры: `aidd/docs/workflow.md`, `doc/dev/customization.md`, обновить `manifest.json`.
+- [x] Документация и примеры: `doc/dev/workflow.md`, `doc/dev/customization.md`, обновить `manifest.json`.
 
 ### EPIC H — Prompt slimming + mkdir-free + hook noise
 - [x] Slim команды: ограничить размер `/commands/*.md` (≤160 строк), убрать повторяющиеся блоки политики, оставить ссылки на `aidd/AGENTS.md` и stage‑anchors; обновить `scripts/lint-prompts.py`/`tests/test_prompt_lint.py` с проверкой лимита.
@@ -1289,7 +1289,7 @@ _Статус: новый, приоритет 2. Цель — внедрить �
 - [x] Добавить `Bash(sed:*)` в tools агентов (`analyst`, `researcher`, `plan-reviewer`, `prd-reviewer`, `qa`, `reviewer`, `planner`, `validator`) и синхронизировать payload‑копии.
 
 ### EPIC C — Reports paths: канон `aidd/reports/**`
-- [x] Привести ссылки в `aidd/commands/*.md`, `aidd/agents/*.md`, `aidd/docs/anchors/*.md`, `aidd/docs/*template.md`, `aidd/docs/reports-format.md`, `README*.md`, `doc/dev/*`, smoke‑скриптах и payload‑копиях к `aidd/reports/**`.
+- [x] Привести ссылки в `aidd/commands/*.md`, `aidd/agents/*.md`, `aidd/docs/anchors/*.md`, `aidd/docs/*template.md`, `doc/dev/reports-format.md`, `README*.md`, `doc/dev/*`, smoke‑скриптах и payload‑копиях к `aidd/reports/**`.
 - [x] Обновить runtime‑дефолты под `aidd/reports/**`: CLI (tests log, research outputs, context‑pack), hooks/gates, `config/gates.json`, `reports_pack.py`, `index_sync.py`.
 - [x] Обновить примеры CLI/доков и тесты, которые ещё ждут `reports/**` (включая `aidd/commands/review-spec.md`, `aidd/commands/qa.md`, smoke, payload).
 
