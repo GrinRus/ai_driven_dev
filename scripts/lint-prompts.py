@@ -84,7 +84,7 @@ CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
     "AIDD:NON_NEGOTIABLES",
     "AIDD:OPEN_QUESTIONS",
-    "AIDD:RISKS_TOP5",
+    "AIDD:RISKS",
     "AIDD:DECISIONS",
 ]
 
@@ -93,9 +93,7 @@ TEMPLATE_ANCHORS = {
         *CORE_ANCHORS,
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
-        "AIDD:CONTRACTS",
-        "AIDD:OBSERVABILITY",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -112,15 +110,14 @@ TEMPLATE_ANCHORS = {
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
         "AIDD:TEST_HOOKS",
-        "AIDD:GAPS",
     ],
     "docs/tasklist/template.md": [
-        *CORE_ANCHORS,
+        "AIDD:CONTEXT_PACK",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
 

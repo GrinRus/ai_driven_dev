@@ -182,6 +182,16 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
     return found, status, action_items
 
 
+def _resolve_report_path(root: Path, template: str) -> Path:
+    report_path = Path(template)
+    if not report_path.is_absolute():
+        parts = report_path.parts
+        if parts and parts[0] == "aidd" and root.name == "aidd":
+            report_path = Path(*parts[1:])
+        report_path = root / report_path
+    return report_path
+
+
 def _inflate_columnar(section: object) -> List[dict]:
     if not isinstance(section, dict):
         return list(section) if isinstance(section, list) else []
@@ -219,7 +229,7 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
             f"BLOCK: В PRD Review остались незакрытые action items → перенесите их в docs/tasklist/{ticket}.md и отметьте выполнение."
         )
     if kind == "missing_report":
-        return f"BLOCK: нет отчёта PRD Review (reports/prd/{ticket}.json) → перезапустите /review-spec {label or ticket}"
+        return f"BLOCK: нет отчёта PRD Review (aidd/reports/prd/{ticket}.json) → перезапустите /review-spec {label or ticket}"
     if kind == "report_corrupted":
         return f"BLOCK: отчёт PRD Review повреждён → пересоздайте через /review-spec {label or ticket}"
     if kind == "blocking_finding":
@@ -320,11 +330,9 @@ def run_gate(args: argparse.Namespace) -> int:
                 return 1
 
     allow_missing_report = bool(gate.get("allow_missing_report", False))
-    report_template = gate.get("report_path") or "reports/prd/{ticket}.json"
+    report_template = gate.get("report_path") or "aidd/reports/prd/{ticket}.json"
     resolved_report = report_template.replace("{ticket}", ticket).replace("{slug}", slug_hint or ticket)
-    report_path = Path(resolved_report)
-    if not report_path.is_absolute():
-        report_path = root / report_path
+    report_path = _resolve_report_path(root, resolved_report)
 
     report_data = None
     if report_path.exists():

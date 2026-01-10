@@ -70,7 +70,7 @@
 - Профили тестов `FAST/TARGETED/FULL/NONE` через `aidd/.cache/test-policy.env` и переменные `AIDD_TEST_*`.
 - Дедуп тестов: кэш `aidd/.cache/format-and-test.last.json` для пропуска повторов без изменений.
 - `claude-workflow research-check` — отдельная проверка research перед `/plan-new`.
-- `## Research Hints` в PRD-шаблоне для передачи путей/ключевых слов в `/researcher`.
+- `## AIDD:RESEARCH_HINTS` в PRD-шаблоне для передачи путей/ключевых слов в `/researcher`.
 - Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
 - Команда `/review-spec`, объединяющая review-plan и review-prd в один шаг.
 - Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
@@ -78,7 +78,7 @@
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - Автосоздание PRD: `claude-workflow set-active-feature` и `claude_workflow_cli.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
 - Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `doc/dev/templates/prompts/prompt-agent.md` и `doc/dev/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `doc/dev/workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/feature-cookbook.md`, `doc/dev/customization.md` описывают новые правила.
-- Каталог `reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
+- Каталог `aidd/reports/prd` разворачивается при `claude-workflow init` (payload содержит `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
 - `/implement` и `implementer` теперь фиксируют test policy, лимит итерации и тест-бюджет, ожидаемый вывод включает `Test profile`/`Tests run`.
@@ -89,7 +89,7 @@
 - Канонический SDLC обновлён: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa` (для ревью доступен `/review-spec`).
 - Команды стали “тонкими”, а агенты содержат алгоритмы и stop-conditions; формат вопросов стандартизирован (`Вопрос N (Blocker|Clarification)` + `Зачем/Варианты/Default`).
 - Output-контракт унифицирован (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), поиск стандартизирован на `rg`.
-- Шаблоны research/tasklist/QA обновлены: Context Pack и Definition of reviewed, секции `Next 3` и `Handoff inbox`, traceability к acceptance criteria.
+- Шаблоны research/tasklist/QA обновлены: Context Pack и Definition of reviewed, секции `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`, traceability к AIDD:ACCEPTANCE.
 - `gate-workflow` теперь проверяет `review-plan` перед PRD review и tasklist; для удобства есть `/review-spec`, smoke/тесты синхронизированы с новым порядком.
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
 - `claude-workflow prd-review-gate` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.

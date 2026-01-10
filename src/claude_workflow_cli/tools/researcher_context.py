@@ -125,6 +125,18 @@ def _normalise_rel(path: str, root: Optional[Path] = None) -> str:
         return candidate.as_posix()
 
 
+def _normalize_output_path(root: Path, path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    parts = path.parts
+    if parts and parts[0] == ".":
+        path = Path(*parts[1:])
+        parts = path.parts
+    if parts and parts[0] == "aidd" and root.name == "aidd":
+        path = Path(*parts[1:])
+    return root / path
+
+
 def _read_text_sample(path: Path) -> Optional[str]:
     try:
         data = path.read_text(encoding="utf-8")
@@ -334,8 +346,7 @@ class ResearcherContextBuilder:
         report_dir = self.root / _REPORT_DIR
         report_dir.mkdir(parents=True, exist_ok=True)
         target_path = output or (report_dir / f"{scope.ticket}-context.json")
-        if not target_path.is_absolute():
-            target_path = self.root / target_path
+        target_path = _normalize_output_path(self.root, target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(json.dumps(context, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return target_path
@@ -1179,7 +1190,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Free-form note or @path to include in the context; use '-' to read stdin once.",
     )
     parser.add_argument("--limit", type=int, default=_MAX_MATCHES, help="Maximum number of code/document matches to capture.")
-    parser.add_argument("--output", help="Override output path for context JSON (default: reports/research/<ticket>-context.json).")
+    parser.add_argument(
+        "--output",
+        help="Override output path for context JSON (default: aidd/reports/research/<ticket>-context.json).",
+    )
     parser.add_argument(
         "--pack-only",
         action="store_true",
@@ -1299,9 +1313,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context["call_graph_engine"] = graph.get("engine", graph_engine)
         context["call_graph_supported_languages"] = graph.get("supported_languages", [])
         if graph.get("edges_full") is not None:
-            full_path = Path(args.output or f"reports/research/{ticket}-call-graph-full.json")
-            if not full_path.is_absolute():
-                full_path = root / full_path
+            full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
+            full_path = _normalize_output_path(root, full_path)
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
             full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")

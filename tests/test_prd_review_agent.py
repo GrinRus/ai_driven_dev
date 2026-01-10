@@ -219,7 +219,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         payload = json.loads(report_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["ticket"], "demo-feature")
         self.assertEqual(payload["status"], "ready")
-        self.assertIn("[prd-review] report saved to reports/prd/demo-feature.json", result.stderr)
+        self.assertIn("[prd-review] report saved to aidd/reports/prd/demo-feature.json", result.stderr)
 
 
 if __name__ == "__main__":

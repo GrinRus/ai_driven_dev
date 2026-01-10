@@ -17,7 +17,7 @@ def test_blocks_when_report_missing(tmp_path):
                 "enabled": True,
                 "command": ["true"],
                 "allow_missing_report": False,
-                "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
             }
         },
     )
@@ -45,7 +45,7 @@ def test_allows_when_report_present(tmp_path):
                 "enabled": True,
                 "command": ["true"],
                 "allow_missing_report": False,
-                "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
             }
         },
     )
@@ -73,7 +73,7 @@ def test_allows_when_pack_present(tmp_path):
                 "enabled": True,
                 "command": ["true"],
                 "allow_missing_report": False,
-                "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
             }
         },
     )
@@ -101,7 +101,7 @@ def test_skip_env_allows(tmp_path):
                 "enabled": True,
                 "command": ["true"],
                 "allow_missing_report": False,
-                "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
             }
         },
     )
@@ -129,7 +129,7 @@ def test_debounce_stamp_written_only_on_success(tmp_path):
                 "enabled": True,
                 "command": ["false"],
                 "allow_missing_report": False,
-                "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
                 "debounce_minutes": 10,
             }
         },
@@ -196,7 +196,7 @@ class GateQaEventTests(unittest.TestCase):
                         "enabled": True,
                         "command": ["true"],
                         "allow_missing_report": False,
-                        "report": "reports/qa/{ticket}.json",
+                "report": "aidd/reports/qa/{ticket}.json",
                     }
                 },
             )
