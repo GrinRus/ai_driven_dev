@@ -51,7 +51,6 @@ Default: `<Что принять по умолчанию>`
 - `<AC-1>`
 - `<AC-2>`
 
-
 ## AIDD:METRICS
 - `<metric> → <target>`
 

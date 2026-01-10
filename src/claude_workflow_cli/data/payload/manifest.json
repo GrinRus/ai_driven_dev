@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/prd/template.md",
       "type": "file",
-      "size": 7248,
-      "sha256": "203886b2f22ea8a7ca4e163db5f6876f35e38382ee6c3afd2e9e8a8da82729ed"
+      "size": 7247,
+      "sha256": "43f3f801e29288ee62dda60d2f19a408c7ad169a8481d686024ce630f0b3adb3"
     },
     {
       "path": "aidd/docs/reports-format.md",
@@ -448,7 +448,7 @@
       "path": "manifest.json",
       "type": "file",
       "size": 13748,
-      "sha256": "979687ee65bd1a37594675ba816ce3e58b91fc29384a9f1cb56ba717763df486"
+      "sha256": "90926f666f0a5535566fa04dffefa4e963b51720dc3534a6bbf9b880fa39adf9"
     },
     {
       "path": "smoke-workflow.sh",
