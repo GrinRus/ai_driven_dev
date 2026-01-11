@@ -313,12 +313,6 @@
       "sha256": "a1f65732b6fdd86740bccdb5267d1901985842b3fbc889ba22ac8c8b4f46576f"
     },
     {
-      "path": "aidd/docs/tickets/template.yaml",
-      "type": "file",
-      "size": 785,
-      "sha256": "8e2c6782c27aca2492ecfd6468e21d5f3ed361c166fec7acd8a6a97361ad7f3e"
-    },
-    {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
       "size": 43312,

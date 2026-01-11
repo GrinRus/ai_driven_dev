@@ -10,8 +10,6 @@ ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
 PRD_TEMPLATE_FILE = Path("docs") / "prd" / "template.md"
 PRD_DIR = Path("docs") / "prd"
-TICKET_TEMPLATE_FILE = Path("docs") / "tickets" / "template.yaml"
-TICKET_DIR = Path("docs") / "tickets"
 
 
 def resolve_project_root(raw: Path) -> Path:
@@ -117,43 +115,12 @@ def scaffold_prd(root: Path, ticket: str) -> bool:
     return True
 
 
-def scaffold_ticket_manifest(root: Path, ticket: str, slug_hint: Optional[str] = None) -> bool:
-    """Ensure docs/tickets/<ticket>.yaml exists by copying the template."""
-
-    root = resolve_project_root(root)
-    ticket_value = ticket.strip()
-    if not ticket_value:
-        return False
-
-    template_path = root / TICKET_TEMPLATE_FILE
-    manifest_path = root / TICKET_DIR / f"{ticket_value}.yaml"
-
-    if not template_path.exists() or manifest_path.exists():
-        return False
-
-    try:
-        content = template_path.read_text(encoding="utf-8")
-    except OSError:
-        return False
-
-    slug_value = (slug_hint or ticket_value).strip() or ticket_value
-    content = content.replace("<ticket>", ticket_value).replace("<slug>", slug_value)
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        manifest_path.write_text(content, encoding="utf-8")
-    except OSError:
-        return False
-
-    return True
-
-
 def write_identifiers(
     root: Path,
     *,
     ticket: str,
     slug_hint: Optional[str] = None,
     scaffold_prd_file: bool = True,
-    scaffold_ticket_manifest_file: bool = True,
 ) -> None:
     root = resolve_project_root(root)
     ticket_value = ticket.strip()
@@ -182,5 +149,3 @@ def write_identifiers(
 
     if scaffold_prd_file:
         scaffold_prd(root, ticket_value)
-    if scaffold_ticket_manifest_file:
-        scaffold_ticket_manifest(root, ticket_value, hint_value)
