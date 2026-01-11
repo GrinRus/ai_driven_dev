@@ -20,12 +20,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-from claude_workflow_cli.feature_ids import resolve_identifiers
-from claude_workflow_cli.paths import AiddRootError, require_aidd_root
+from claude_workflow_cli.feature_ids import resolve_identifiers, resolve_project_root
 
 
 def detect_project_root(target: Optional[Path] = None) -> Path:
-    return require_aidd_root(target or Path.cwd())
+    return resolve_project_root(target or Path.cwd())
 
 
 ROOT_DIR = Path.cwd()
@@ -371,11 +370,7 @@ def write_report(report_path: Path, payload: dict) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     global ROOT_DIR
-    try:
-        ROOT_DIR = detect_project_root(Path(args.target))
-    except AiddRootError as exc:
-        print(f"[qa-agent] {exc}", file=sys.stderr)
-        return 2
+    ROOT_DIR = detect_project_root(Path(args.target))
     ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
     branch = detect_branch(args.branch)
     files = collect_changed_files()

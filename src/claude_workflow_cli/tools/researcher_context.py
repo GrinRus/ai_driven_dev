@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 from claude_workflow_cli.feature_ids import resolve_identifiers
-from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 
 _DEFAULT_CONFIG = Path("config") / "conventions.json"
@@ -1191,10 +1190,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    try:
-        root = require_aidd_root(Path(args.target))
-    except AiddRootError as exc:
-        parser.error(str(exc))
+    root = Path(args.target).resolve()
+    if not root.exists():
+        parser.error(f"target directory does not exist: {root}")
 
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = identifiers.resolved_ticket

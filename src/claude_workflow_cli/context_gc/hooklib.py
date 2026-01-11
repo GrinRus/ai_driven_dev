@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from claude_workflow_cli.paths import resolve_aidd_root as _resolve_aidd_root
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": True,
@@ -104,7 +103,20 @@ def resolve_project_dir(ctx: HookContext) -> Path:
 
 
 def resolve_aidd_root(project_dir: Path) -> Optional[Path]:
-    return _resolve_aidd_root(project_dir)
+    candidates = [
+        os.environ.get("AIDD_ROOT"),
+        os.environ.get("CLAUDE_PLUGIN_ROOT"),
+        str(project_dir / "aidd"),
+        str(project_dir),
+        str(project_dir.parent / "aidd"),
+    ]
+    for c in candidates:
+        if not c:
+            continue
+        p = Path(c).expanduser().resolve()
+        if (p / "docs").is_dir() and (p / "config").is_dir():
+            return p
+    return None
 
 
 def load_config(aidd_root: Optional[Path]) -> Dict[str, Any]:

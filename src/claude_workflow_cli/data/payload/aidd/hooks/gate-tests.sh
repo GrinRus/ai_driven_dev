@@ -3,28 +3,30 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
+  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" ]]; then
+  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
+  exit 2
+fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
-ROOT_DIR="$(hook_project_root)"
-if [[ -z "$ROOT_DIR" ]]; then
-  echo "[gate-tests] WARN: aidd root not found; skipping gate." >&2
-  exit 0
-fi
-export ROOT_DIR
-ROOT_PREFIX="$(hook_root_prefix "$ROOT_DIR")"
+
+cd "$ROOT_DIR"
 
 collect_changed_files() {
   local files=()
-  if git -C "$ROOT_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
     while IFS= read -r path; do
-      path="$(hook_normalize_path "$ROOT_DIR" "$path" "$ROOT_PREFIX")"
       [[ -n "$path" ]] && files+=("$path")
-    done < <(git -C "$ROOT_DIR" diff --name-only HEAD)
+    done < <(git diff --name-only HEAD)
   fi
   while IFS= read -r path; do
-    path="$(hook_normalize_path "$ROOT_DIR" "$path" "$ROOT_PREFIX")"
     [[ -n "$path" ]] && files+=("$path")
-  done < <(git -C "$ROOT_DIR" ls-files --others --exclude-standard 2>/dev/null || true)
+  done < <(git ls-files --others --exclude-standard 2>/dev/null || true)
   if ((${#files[@]} == 0)); then
     return 0
   fi
@@ -32,7 +34,7 @@ collect_changed_files() {
 }
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage "$ROOT_DIR/docs/.active_stage" || true)"
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
   if [[ "$active_stage" != "implement" ]]; then
     exit 0
   fi
@@ -40,34 +42,20 @@ fi
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
-file_path="$(hook_normalize_path "$ROOT_DIR" "$file_path" "$ROOT_PREFIX")"
-ticket_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_ticket_source "$ROOT_DIR/docs/.active_ticket")"
-slug_hint_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_slug_hint_source "$ROOT_DIR/docs/.active_feature")"
-if [[ -n "$ticket_source" && "$ticket_source" == aidd/* ]]; then
-  ticket_source="$ROOT_DIR/${ticket_source#aidd/}"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* ]]; then
-  slug_hint_source="$ROOT_DIR/${slug_hint_source#aidd/}"
-fi
-if [[ -n "$ticket_source" && "$ticket_source" != /* ]]; then
-  ticket_source="$ROOT_DIR/$ticket_source"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" != /* ]]; then
-  slug_hint_source="$ROOT_DIR/$slug_hint_source"
-fi
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
 slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 
 if [[ -n "$ticket" ]]; then
-  reviewer_tests_msg="$(python3 - "$ticket" "$slug_hint" "$ROOT_DIR" <<'PY'
+  reviewer_tests_msg="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
-root = Path(sys.argv[3]) if len(sys.argv) > 3 else Path.cwd()
-config_path = root / "config" / "gates.json"
+config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
 except Exception:
@@ -91,8 +79,6 @@ required_values = [
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
-if not marker_path.is_absolute():
-    marker_path = root / marker_path
 if not marker_path.exists():
     raise SystemExit(0)
 
@@ -117,11 +103,11 @@ PY
   fi
 fi
 
-mode="$(hook_config_get_str "$ROOT_DIR/config/gates.json" tests_required disabled)"
+mode="$(hook_config_get_str config/gates.json tests_required disabled)"
 mode="$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
 [[ "$mode" == "disabled" ]] && exit 0
 
-CONFIG_PATH="$ROOT_DIR/config/gates.json"
+CONFIG_PATH="config/gates.json"
 TESTS_CFG=()
 while IFS= read -r line; do
   TESTS_CFG+=("$line")
@@ -295,7 +281,7 @@ emit_research_hint() {
   local target_path="$1"
   [[ -z "$ticket" || -z "$target_path" ]] && return 0
   local message
-  message="$(python3 - "$target_path" "$ticket" "$slug_hint" "$ROOT_DIR" <<'PY'
+  message="$(python3 - "$target_path" "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -303,8 +289,7 @@ from pathlib import Path
 file_path = Path(sys.argv[1]).as_posix()
 ticket = sys.argv[2]
 slug_hint = sys.argv[3] if len(sys.argv) > 3 else ""
-root = Path(sys.argv[4]) if len(sys.argv) > 4 else Path.cwd()
-config_path = root / "config" / "gates.json"
+config_path = Path("config/gates.json")
 try:
     config = json.loads(config_path.read_text(encoding="utf-8"))
 except Exception:
@@ -314,14 +299,14 @@ research = config.get("researcher") or {}
 if not research.get("enabled", True):
     raise SystemExit(0)
 
-targets_path = root / "reports" / "research" / f"{ticket}-targets.json"
+targets_path = Path("reports/research") / f"{ticket}-targets.json"
 try:
     targets = json.loads(targets_path.read_text(encoding="utf-8"))
 except Exception:
     raise SystemExit(0)
 
 paths = targets.get("paths") or []
-cwd = root
+cwd = Path.cwd()
 for candidate in paths:
     raw = Path(candidate)
     if raw.is_absolute():

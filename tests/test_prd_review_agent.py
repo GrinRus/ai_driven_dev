@@ -90,11 +90,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(any(f.severity == "critical" for f in report.findings))
 
     def test_cli_writes_json_report(self):
-        workspace = self.tmp_path / "workspace"
-        project_root = workspace / "aidd"
-        prd = project_root / "docs" / "prd" / "demo-feature.prd.md"
-        prd.parent.mkdir(parents=True, exist_ok=True)
-        prd.write_text(
+        prd = self.write_prd(
             dedent(
                 """\
                 # Demo
@@ -103,10 +99,9 @@ class PRDReviewAgentTests(unittest.TestCase):
                 Status: READY
                 """
             ),
-            encoding="utf-8",
         )
 
-        report_path = project_root / "reports" / "prd" / "demo-feature.json"
+        report_path = self.tmp_path / "reports" / "prd" / "demo-feature.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
@@ -117,8 +112,6 @@ class PRDReviewAgentTests(unittest.TestCase):
                 sys.executable,
                 "-m",
                 "claude_workflow_cli.tools.prd_review",
-                "--target",
-                str(workspace),
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -129,7 +122,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 str(report_path),
             ],
             check=True,
-            cwd=workspace,
+            cwd=self.tmp_path,
             env=env,
         )
 

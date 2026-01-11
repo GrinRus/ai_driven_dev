@@ -1,14 +1,7 @@
 import json
 
 from .helpers import PAYLOAD_ROOT
-from .helpers import (
-    ensure_gates_config,
-    git_init,
-    run_hook,
-    write_active_feature,
-    write_active_stage,
-    write_file,
-)
+from .helpers import ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 from .helpers import write_json
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/service/RuleEngine.kt"}}'
@@ -111,17 +104,6 @@ def test_gate_tests_uses_aidd_root_even_if_plugin_root_missing(tmp_path):
     env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD, extra_env=env)
     assert result.returncode == 0, result.stderr
-
-
-def test_gate_tests_normalizes_git_prefix_from_workspace(tmp_path):
-    git_init(tmp_path)
-    ensure_gates_config(tmp_path, {"tests_required": "hard"})
-    write_active_stage(tmp_path, "implement")
-    write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
-
-    result = run_hook(tmp_path, "gate-tests.sh", "{}")
-    assert result.returncode == 2
-    assert "нет теста" in (result.stderr or result.stdout)
 
 def test_plugin_hooks_include_tests_and_post_hooks():
     hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))

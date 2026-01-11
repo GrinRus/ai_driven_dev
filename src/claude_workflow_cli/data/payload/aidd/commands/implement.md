@@ -15,7 +15,7 @@ allowed-tools:
   - "Bash(xargs:*)"
   - "Bash(./gradlew:*)"
   - "Bash(claude-workflow set-active-stage:*)"
-  - "Bash(${AIDD_ROOT:-${CLAUDE_PLUGIN_ROOT:-./aidd}}/hooks/format-and-test.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*)"
   - "Bash(claude-workflow progress:*)"
   - "Bash(git:*)"
   - "Bash(claude-workflow set-active-feature:*)"
@@ -38,7 +38,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `claude-workflow set-active-stage implement` фиксирует стадию `implement`.
 - Команда должна запускать саб-агента **implementer** (Claude: Run agent → implementer).
-- `${AIDD_ROOT:-${CLAUDE_PLUGIN_ROOT:-./aidd}}/hooks/format-and-test.sh` запускается на Stop/SubagentStop (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`).
+- `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` запускается на Stop/SubagentStop (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`).
 - `claude-workflow progress --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
 
 ## Что редактируется
