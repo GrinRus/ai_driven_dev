@@ -2,6 +2,8 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 from typing import Optional
 
@@ -421,3 +423,24 @@ def test_summary_log_written(tmp_path):
     logs = sorted(log_dir.glob("format-and-test.*.log"))
     assert logs, "expected summary log file to be created"
     assert "default_task" in logs[-1].read_text(encoding="utf-8")
+
+
+class FormatAndTestEventTests(unittest.TestCase):
+    def test_format_and_test_appends_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir) / "aidd"
+            project.mkdir(parents=True, exist_ok=True)
+            git_init(project)
+            settings = write_settings(project, {})
+            write_active_feature(project, "fmt-1")
+            write_active_stage(project, "implement")
+            (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
+            (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
+
+            run_hook(project, settings)
+
+            events_path = project / "reports" / "events" / "fmt-1.jsonl"
+            self.assertTrue(events_path.exists())
+            last_event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(last_event.get("type"), "format-and-test")
+            self.assertIn(last_event.get("status"), {"pass", "skipped"})

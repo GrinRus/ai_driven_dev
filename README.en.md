@@ -13,6 +13,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 - `claude-workflow init --target .` (or `aidd/init-claude-workflow.sh` from the payload) bootstraps `/idea-new (analyst) → research when needed → /plan-new → /review-spec (review-plan + review-prd) → /tasks-new → /implement → /review → /qa`; `claude-workflow sync|upgrade|smoke` cover payload refresh and smoke.
 - Formatting and selective checks (`aidd/hooks/format-and-test.sh`) run only during the `implement` stage and only on Stop/SubagentStop (`SKIP_AUTO_TESTS=1` to pause); test profiles live in `aidd/.cache/test-policy.env`; `gate-*` hooks keep PRD/plan/tasklist/test gates enforced.
 - The feature stage is stored in `aidd/docs/.active_stage` and updated by slash commands (`/idea-new`, `/plan-new`, `/review-spec`, `/tasks-new`, `/implement`, `/review`, `/qa`); you can roll back to any step.
+- Context is anchors-first: stage anchor → `AIDD:*` sections → full docs; the working set in `aidd/reports/context/latest_working_set.md` is read first when present.
 - Configurable branch/commit conventions via `config/conventions.json` plus ready-to-use docs and prompt templates.
 - Optional GitHub Actions, issue/PR templates, and Claude Code access policies.
 - The payload lives in `aidd/` (`aidd/agents`, `aidd/commands`, `aidd/hooks`, `aidd/.claude-plugin`, `aidd/docs`, `aidd/config`); all artifacts/reports stay under `aidd/`. Workspace settings live at the root (`.claude/settings.json`, `.claude/cache/`, `.claude-plugin/marketplace.json`) — run CLI with `--target .` (workspace root) or from `aidd/` if tools cannot locate files.
@@ -52,7 +53,7 @@ _Last sync with `README.md`: 2026-01-06._  <!-- update when EN catches up -->
 - `claude-workflow analyst-check --ticket <ticket>` — validate the analyst dialog/PRD status.
 - `claude-workflow research --ticket <ticket> --auto --deep-code [--call-graph]` — collect targets, matches, and call graph.
 - `claude-workflow reviewer-tests --status required|optional --ticket <ticket>` — toggle reviewer test marker.
-- `claude-workflow tasks-derive --source qa|review|research --append --ticket <ticket>` — append handoff items to `aidd/docs/tasklist/<ticket>.md`.
+- `claude-workflow tasks-derive --source qa|research --append --ticket <ticket>` — append handoff items to `aidd/docs/tasklist/<ticket>.md`.
 - `claude-workflow qa --ticket <ticket> --gate` — QA agent + gate report.
 - `claude-workflow progress --source implement|qa|review|handoff --ticket <ticket>` — assert new `- [x]`/handoff tasks before merging.
 
@@ -290,7 +291,7 @@ Research defaults to workspace-relative paths (parent of `aidd/`); the CLI print
 4. Implement in small increments via `/implement`, watching messages from `gate-workflow` and any enabled gates. After every iteration tick the relevant tasklist items, update `Checkbox updated: …`, and run `claude-workflow progress --source implement --ticket <ticket>`.
 5. Request `/review` once `aidd/docs/tasklist/<ticket>.md` checkboxes are complete, automated tests are green, and artefacts stay in sync — then re-run `claude-workflow progress --source review --ticket <ticket>` before closing the loop.
 6. Before release, run `/qa <ticket>` or `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, update the QA section in the tasklist, and confirm progress via `claude-workflow progress --source qa --ticket <ticket>`.
-7. After QA/Review/Research reports, derive implementer tasks via `claude-workflow tasks-derive --source <qa|review|research> --append --ticket <ticket>` so new `- [ ]` link back to the reports in `aidd/docs/tasklist/<ticket>.md`; if needed, verify with `claude-workflow progress --source handoff --ticket <ticket>`.
+7. After QA/Research reports, derive implementer tasks via `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` so new `- [ ]` link back to the reports in `aidd/docs/tasklist/<ticket>.md`; if needed, verify with `claude-workflow progress --source handoff --ticket <ticket>`.
 
 A detailed agent/gate playbook lives in `doc/dev/agents-playbook.md`.
 

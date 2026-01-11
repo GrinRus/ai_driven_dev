@@ -8,6 +8,7 @@ depending on the change scope and configuration flags.
 
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
 import os
@@ -96,6 +97,34 @@ def resolve_identifiers(root: Path) -> FeatureIdentifiers:
         ticket=payload.get("ticket"),
         slug_hint=payload.get("slug_hint"),
     )
+
+
+def append_event(
+    root: Path,
+    identifiers: FeatureIdentifiers,
+    status: str,
+    details: Dict[str, object] | None = None,
+) -> None:
+    ticket = identifiers.resolved_ticket
+    if not ticket:
+        return
+    payload: Dict[str, object] = {
+        "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "ticket": ticket,
+        "slug_hint": identifiers.slug_hint or ticket,
+        "type": "format-and-test",
+        "status": status,
+        "source": "hook format-and-test",
+    }
+    if details:
+        payload["details"] = details
+    path = root / "reports" / "events" / f"{ticket}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError:
+        return
 
 LOG_PREFIX = "[format-and-test]"
 
@@ -509,6 +538,23 @@ def hash_file_content(path: Path, hasher: "hashlib._Hash") -> None:
         return
 
 
+def strip_event_diffs(diff_text: str) -> str:
+    if not diff_text:
+        return ""
+    lines = diff_text.splitlines()
+    filtered: List[str] = []
+    skip = False
+    for line in lines:
+        if line.startswith("diff --git "):
+            skip = False
+            if "reports/events/" in line or "aidd/reports/events/" in line:
+                skip = True
+        if skip:
+            continue
+        filtered.append(line)
+    return "\n".join(filtered)
+
+
 def load_dedupe_state(path: Path) -> Dict[str, str]:
     if not path.exists():
         return {}
@@ -568,10 +614,12 @@ def collect_changed_files() -> List[str]:
 
 
 def is_cache_artifact(path: str) -> bool:
-    normalized = path.replace("\\", "/")
-    if normalized.endswith(".cache/format-and-test.last.json"):
-        return True
-    return normalized.startswith(".cache/logs/") or "/.cache/logs/" in normalized
+    return (
+        path.startswith(".cache/")
+        or path.startswith("aidd/.cache/")
+        or path.startswith("reports/events/")
+        or path.startswith("aidd/reports/events/")
+    )
 
 
 def append_unique(container: List[str], value: str) -> None:
@@ -794,6 +842,15 @@ def main() -> int:
     identifiers = resolve_identifiers(Path.cwd())
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
+
+    def record_event(status: str, reason: str = "") -> None:
+        details: Dict[str, object] = {"profile": test_profile}
+        if reason:
+            details["reason"] = reason
+        if test_tasks:
+            details["task_count"] = len(test_tasks)
+        append_event(project_root, identifiers, status, details)
+
     common_hits = [
         path
         for path in changed_files
@@ -886,6 +943,7 @@ def main() -> int:
                     log(f"Изменены только некодовые файлы ({preview}) — FORMAT_ONLY=1, выполняем только форматирование.")
                 else:
                     log(f"Изменены только некодовые файлы ({preview}) — форматирование и тесты пропущены.")
+                    record_event("skipped", "non-code-changes")
                     return 0
 
     if skip_format_flag:
@@ -900,6 +958,7 @@ def main() -> int:
 
     if format_only_flag:
         log("FORMAT_ONLY=1 — стадия тестов пропущена.")
+        record_event("skipped", "format-only")
         return 0
 
     if not tests_should_run:
@@ -907,6 +966,7 @@ def main() -> int:
             log(skip_reason)
         else:
             log("Стадия тестов пропущена (reviewerGate).")
+        record_event("skipped", "tests-disabled")
         return 0
 
     if active_ticket and common_hits:
@@ -953,24 +1013,24 @@ def main() -> int:
 
     if not test_tasks:
         log("Нет задач для запуска тестов — проверка пропущена.")
+        record_event("skipped", "no-tests")
         return 0
 
     log(f"Выбранные задачи тестов ({test_profile}): {' '.join(test_tasks)}")
 
     if not test_runner or not test_runner[0]:
         log("Не указан runner для тестов — стадия пропущена.")
+        record_event("skipped", "no-runner")
         return 0
 
-    diff_text = ""
+    diff_parts: List[str] = []
     if git_has_head():
-        diff_text = "\n".join(
-            part
-            for part in (
-                git_output(["git", "diff", "--no-color"]),
-                git_output(["git", "diff", "--no-color", "--cached"]),
-            )
-            if part
-        )
+        diff_parts.append(git_output(["git", "diff", "--no-color"]))
+        diff_parts.append(git_output(["git", "diff", "--no-color", "--cached"]))
+    else:
+        diff_parts.append(git_output(["git", "diff", "--no-color", "--cached"]))
+    diff_text = "\n".join(part for part in diff_parts if part)
+    diff_text = strip_event_diffs(diff_text)
     untracked_files = [path for path in list_untracked_files() if not is_cache_artifact(path)]
     dedupe_meta: Dict[str, object] = {
         "profile": test_profile,
@@ -988,6 +1048,7 @@ def main() -> int:
         log("AIDD_TEST_FORCE=1 — повторяем тесты независимо от дедупа.")
     elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "success":
         log("Dedupe: тесты уже запускались для текущего diff/profile — пропускаем повтор.")
+        record_event("skipped", "dedupe")
         return 0
     elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "failed":
         log("Dedupe: предыдущий прогон завершился ошибкой — повторяем.")
@@ -1021,6 +1082,7 @@ def main() -> int:
     )
     if result.returncode == 0:
         log("Тесты завершились успешно.")
+        record_event("pass")
         return 0
 
     if test_log_mode == "summary":
@@ -1030,9 +1092,11 @@ def main() -> int:
             log(f"Последние {tail_lines} строк лога тестов:\n{tail.rstrip()}")
 
     if strict_flag:
+        record_event("fail")
         return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result.returncode)
 
     log("Тесты завершились с ошибкой, но STRICT_TESTS != 1 — продолжаем.")
+    record_event("fail")
     return 0
 
 

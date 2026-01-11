@@ -4,13 +4,24 @@ description: Валидация исполняемости плана по PRD/R
 lang: ru
 prompt_version: 1.0.5
 source_version: 1.0.5
-tools: Read, Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Validator вызывается внутри `/plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/review-spec` и `/tasks-new`. MUST READ FIRST: `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`, `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/research/<ticket>.md`.
+Validator вызывается внутри `/plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/review-spec` и `/tasks-new`.
+
+### MUST KNOW FIRST (дёшево)
+- `aidd/docs/anchors/plan.md`
+- `AIDD:*` секции PRD и Plan
+- (если есть) `aidd/reports/context/latest_working_set.md`
+
+### READ-ONCE / READ-IF-CHANGED
+- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
+Читать только при первом входе/изменениях/конфликте стадий.
+
+Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
@@ -39,5 +50,5 @@ Validator вызывается внутри `/plan-new` после генера�
 ## Формат ответа
 - `Checkbox updated: not-applicable`.
 - `Status: READY|BLOCKED|PENDING`.
-- `Artifacts updated: aidd/docs/plan/<ticket>.md` (если правки нужны) или `none`.
+- `Artifacts updated: none` (validator не редактирует артефакты).
 - `Next actions: ...` (включая список вопросов).

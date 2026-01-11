@@ -182,6 +182,21 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
     return found, status, action_items
 
 
+def _inflate_columnar(section: object) -> List[dict]:
+    if not isinstance(section, dict):
+        return list(section) if isinstance(section, list) else []
+    cols = section.get("cols")
+    rows = section.get("rows")
+    if not isinstance(cols, list) or not isinstance(rows, list):
+        return []
+    inflated: List[dict] = []
+    for row in rows:
+        if not isinstance(row, list):
+            continue
+        inflated.append({str(col): row[idx] if idx < len(row) else None for idx, col in enumerate(cols)})
+    return inflated
+
+
 def format_message(kind: str, ticket: str, slug_hint: str | None = None, status: str | None = None) -> str:
     label = feature_label(ticket, slug_hint)
     human_status = (status or "PENDING").upper()
@@ -311,14 +326,28 @@ def run_gate(args: argparse.Namespace) -> int:
     if not report_path.is_absolute():
         report_path = root / report_path
 
+    report_data = None
     if report_path.exists():
         try:
             report_data = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
             print(format_message("report_corrupted", ticket, slug_hint))
             return 1
+    else:
+        if report_path.suffix == ".json":
+            for candidate in (report_path.with_suffix(".pack.yaml"), report_path.with_suffix(".pack.toon")):
+                if not candidate.exists():
+                    continue
+                try:
+                    report_data = json.loads(candidate.read_text(encoding="utf-8"))
+                except Exception:
+                    print(format_message("report_corrupted", ticket, slug_hint))
+                    return 1
+                break
 
-        findings = report_data.get("findings") or []
+    if report_data is not None:
+        raw_findings = report_data.get("findings") or []
+        findings = _inflate_columnar(raw_findings) if isinstance(raw_findings, dict) else raw_findings
         blocking_severities: Set[str] = {
             str(item).lower() for item in gate.get("blocking_severities", DEFAULT_BLOCKING_SEVERITIES)
         }
@@ -333,15 +362,14 @@ def run_gate(args: argparse.Namespace) -> int:
                         f"BLOCK: PRD Review содержит findings уровня '{severity}' → обновите PRD и повторно вызовите /review-spec {label or ticket}."
                     )
                     return 1
-    else:
-        if not allow_missing_report:
-            if "{ticket}" in report_template or "{slug}" in report_template:
-                message = format_message("missing_report", ticket, slug_hint)
-            else:
-                label = feature_label(ticket, slug_hint)
-                message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-spec {label or ticket}"
-            print(message)
-            return 1
+    elif not allow_missing_report:
+        if "{ticket}" in report_template or "{slug}" in report_template:
+            message = format_message("missing_report", ticket, slug_hint)
+        else:
+            label = feature_label(ticket, slug_hint)
+            message = f"BLOCK: нет отчёта PRD Review ({report_path}) → перезапустите /review-spec {label or ticket}"
+        print(message)
+        return 1
 
     return 0
 

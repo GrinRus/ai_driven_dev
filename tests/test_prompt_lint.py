@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -19,6 +20,66 @@ REQUIRED_AGENT_PAIRS = [
     ("researcher", "researcher"),
     ("prd-reviewer", "review-spec"),
 ]
+
+REQUIRED_STAGE_ANCHORS = [
+    "idea",
+    "research",
+    "plan",
+    "review-plan",
+    "review-prd",
+    "tasklist",
+    "implement",
+    "review",
+    "qa",
+]
+
+TEMPLATE_ANCHORS = {
+    "docs/prd/template.md": [
+        "AIDD:CONTEXT_PACK",
+        "AIDD:NON_NEGOTIABLES",
+        "AIDD:OPEN_QUESTIONS",
+        "AIDD:RISKS_TOP5",
+        "AIDD:DECISIONS",
+        "AIDD:GOALS",
+        "AIDD:NON_GOALS",
+        "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:METRICS",
+        "AIDD:ROLL_OUT",
+    ],
+    "docs/plan/template.md": [
+        "AIDD:CONTEXT_PACK",
+        "AIDD:NON_NEGOTIABLES",
+        "AIDD:OPEN_QUESTIONS",
+        "AIDD:RISKS_TOP5",
+        "AIDD:DECISIONS",
+        "AIDD:ARCHITECTURE",
+        "AIDD:FILES_TOUCHED",
+        "AIDD:ITERATIONS",
+        "AIDD:TEST_STRATEGY",
+    ],
+    "docs/research/template.md": [
+        "AIDD:CONTEXT_PACK",
+        "AIDD:NON_NEGOTIABLES",
+        "AIDD:OPEN_QUESTIONS",
+        "AIDD:RISKS_TOP5",
+        "AIDD:DECISIONS",
+        "AIDD:INTEGRATION_POINTS",
+        "AIDD:REUSE_CANDIDATES",
+        "AIDD:COMMANDS_RUN",
+    ],
+    "docs/tasklist/template.md": [
+        "AIDD:CONTEXT_PACK",
+        "AIDD:NON_NEGOTIABLES",
+        "AIDD:OPEN_QUESTIONS",
+        "AIDD:RISKS_TOP5",
+        "AIDD:DECISIONS",
+        "AIDD:NEXT_3",
+        "AIDD:INBOX_DERIVED",
+        "AIDD:CHECKLIST",
+        "AIDD:QA_TRACEABILITY",
+        "AIDD:PROGRESS_LOG",
+    ],
+}
 
 
 def build_agent(name: str) -> str:
@@ -142,6 +203,48 @@ class PromptLintTests(unittest.TestCase):
             command_path.parent.mkdir(parents=True, exist_ok=True)
             command_content = command_override.get(command_name, build_command(command_name))
             command_path.write_text(command_content, encoding="utf-8")
+        self.write_docs(root)
+
+    def write_docs(self, root: Path) -> None:
+        anchors_dir = root / "docs" / "anchors"
+        anchors_dir.mkdir(parents=True, exist_ok=True)
+        for stage in REQUIRED_STAGE_ANCHORS:
+            (anchors_dir / f"{stage}.md").write_text(f"# Anchor: {stage}\n", encoding="utf-8")
+
+        for rel_path, sections in TEMPLATE_ANCHORS.items():
+            template_path = root / rel_path
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            lines = ["# Template"]
+            for section in sections:
+                lines.append(f"## {section}")
+            template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        index_schema = root / "docs" / "index" / "schema.json"
+        index_schema.parent.mkdir(parents=True, exist_ok=True)
+        index_schema.write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.ticket.v1",
+                    "required": [
+                        "schema",
+                        "ticket",
+                        "slug",
+                        "stage",
+                        "updated",
+                        "summary",
+                        "artifacts",
+                        "reports",
+                        "next3",
+                        "open_questions",
+                        "risks_top5",
+                        "checks",
+                    ],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     def test_valid_prompts_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

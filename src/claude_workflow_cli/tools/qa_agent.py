@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -34,6 +35,20 @@ DEFAULT_WARNINGS = ("major", "minor")
 SEVERITY_ORDER = ["blocker", "critical", "major", "minor", "info"]
 
 
+def _normalize_id_text(value: str) -> str:
+    return " ".join(str(value).strip().split())
+
+
+def _stable_id(prefix: str, *parts: str) -> str:
+    digest = hashlib.sha1()
+    digest.update(prefix.encode("utf-8"))
+    digest.update(b"|")
+    for part in parts:
+        digest.update(_normalize_id_text(str(part)).encode("utf-8"))
+        digest.update(b"|")
+    return digest.hexdigest()[:12]
+
+
 def feature_label(ticket: Optional[str], slug_hint: Optional[str]) -> str:
     ticket_value = (ticket or "").strip()
     hint_value = (slug_hint or "").strip()
@@ -51,9 +66,22 @@ class Finding:
     title: str
     details: str
     recommendation: str
+    id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.id:
+            self.id = _stable_id(
+                "qa",
+                self.severity,
+                self.scope,
+                self.title,
+                self.details,
+                self.recommendation,
+            )
 
     def to_dict(self) -> dict:
         return {
+            "id": self.id,
             "severity": self.severity,
             "scope": self.scope,
             "title": self.title,
@@ -109,6 +137,16 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--emit-json",
         action="store_true",
         help="Emit JSON to stdout even in gate mode (useful for tooling).",
+    )
+    parser.add_argument(
+        "--emit-patch",
+        action="store_true",
+        help="Emit RFC6902 patch file when a previous report exists.",
+    )
+    parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Remove JSON report after writing pack sidecar.",
     )
     parser.add_argument(
         "--scope",
@@ -408,7 +446,41 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     }
 
     if args.report:
+        previous_payload = None
+        if args.emit_patch and args.report.exists():
+            try:
+                previous_payload = json.loads(args.report.read_text(encoding="utf-8"))
+            except Exception:
+                previous_payload = None
+
         write_report(args.report, payload)
+        pack_path = None
+        try:
+            from claude_workflow_cli.tools import reports_pack
+
+            pack_path = reports_pack.write_qa_pack(args.report, root=ROOT_DIR)
+        except Exception as exc:
+            print(f"[qa-agent] WARN: failed to generate pack: {exc}", file=sys.stderr)
+
+        if args.emit_patch and previous_payload is not None:
+            try:
+                from claude_workflow_cli.tools import json_patch as _json_patch
+
+                patch_ops = _json_patch.diff(previous_payload, payload)
+                patch_path = args.report.with_suffix(".patch.json")
+                patch_path.write_text(
+                    json.dumps(patch_ops, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            except Exception as exc:
+                print(f"[qa-agent] WARN: failed to emit patch: {exc}", file=sys.stderr)
+
+        pack_only = bool(args.pack_only or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
+        if pack_only and pack_path and pack_path.exists():
+            try:
+                args.report.unlink()
+            except OSError:
+                pass
 
     if not args.gate or args.emit_json:
         if args.format == "json":

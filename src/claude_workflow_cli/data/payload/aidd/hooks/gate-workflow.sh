@@ -23,6 +23,12 @@ if [[ -d "$HOOK_VENDOR_DIR" ]]; then
   fi
 fi
 
+EVENT_TYPE="gate-workflow"
+EVENT_STATUS=""
+EVENT_SHOULD_LOG=0
+EVENT_SOURCE="hook gate-workflow"
+trap 'if [[ "${EVENT_SHOULD_LOG:-0}" == "1" ]]; then hook_append_event "$ROOT_DIR" "$EVENT_TYPE" "$EVENT_STATUS" "" "" "$EVENT_SOURCE"; fi' EXIT
+
 cd "$ROOT_DIR"
 
 collect_changed_files() {
@@ -121,6 +127,9 @@ slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 if [[ "$has_src_changes" -ne 1 ]]; then
   exit 0
 fi
+
+EVENT_SHOULD_LOG=1
+EVENT_STATUS="fail"
 
 ensure_template "docs/research/template.md" "docs/research/$ticket.md"
 ensure_template "docs/prd/template.md" "docs/prd/$ticket.prd.md"
@@ -316,6 +325,7 @@ PY
   exit 2
 fi
 if [[ "$research_msg" == "ALLOW_PENDING_BASELINE" ]]; then
+  EVENT_STATUS="pass"
   exit 0
 fi
 
@@ -421,7 +431,6 @@ if not tasklist_path.exists():
     raise SystemExit(0)
 reports = [
     ("qa", Path("reports/qa") / f"{ticket}.json", "reports/qa/"),
-    ("review", Path("reports/review") / f"{ticket}.json", "reports/review/"),
     ("research", Path("reports/research") / f"{ticket}-context.json", "reports/research/"),
 ]
 try:
@@ -437,7 +446,7 @@ for name, report_path, marker in reports:
         missing.append((name, report_path))
 if missing:
     items = ", ".join(f"{name}: {path}" for name, path in missing)
-    print(f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). Запустите `claude-workflow tasks-derive --source <qa|review|research> --append --ticket {ticket}`.")
+    print(f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). Запустите `claude-workflow tasks-derive --source <qa|research> --append --ticket {ticket}`.")
     raise SystemExit(1)
 PY
 )"
@@ -470,4 +479,5 @@ if [[ -n "$progress_output" ]]; then
   echo "$progress_output"
 fi
 
+EVENT_STATUS="pass"
 exit 0

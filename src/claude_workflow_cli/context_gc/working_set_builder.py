@@ -146,14 +146,18 @@ def build_working_set(project_dir: Path) -> WorkingSet:
 
     ticket = None
     slug = None
+    stage = None
 
     if aidd_root:
         ticket_path = aidd_root / "docs" / ".active_ticket"
         slug_path = aidd_root / "docs" / ".active_feature"
+        stage_path = aidd_root / "docs" / ".active_stage"
         if ticket_path.exists():
             ticket = ticket_path.read_text(encoding="utf-8", errors="replace").strip() or None
         if slug_path.exists():
             slug = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
+        if stage_path.exists():
+            stage = stage_path.read_text(encoding="utf-8", errors="replace").strip() or None
 
     parts: List[str] = []
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -161,6 +165,13 @@ def build_working_set(project_dir: Path) -> WorkingSet:
     parts.append(f"- Generated: {now}")
     if ticket:
         parts.append(f"- Ticket: {ticket}" + (f" (slug: {slug})" if slug else ""))
+    if stage:
+        parts.append(f"- Stage: {stage}")
+        if aidd_root:
+            anchor_path = aidd_root / "docs" / "anchors" / f"{stage}.md"
+            if anchor_path.exists():
+                rel_anchor = anchor_path.relative_to(aidd_root).as_posix()
+                parts.append(f"- Stage anchor: {rel_anchor}")
     parts.append("")
 
     if aidd_root and ticket:

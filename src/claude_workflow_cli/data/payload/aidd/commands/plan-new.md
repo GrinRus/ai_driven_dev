@@ -19,6 +19,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Следующий шаг — `/review-spec`. Свободный ввод после тикета используйте как уточнения для плана.
+Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.

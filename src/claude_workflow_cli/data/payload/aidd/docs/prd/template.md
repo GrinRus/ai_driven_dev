@@ -2,8 +2,11 @@
 
 Заполните текст в соответствии с проектом. Примеры в скобках помогут выбрать формат.
 
-## Диалог analyst
 Status: draft
+Ticket: <ticket>
+Updated: YYYY-MM-DD
+
+## Диалог analyst
 
 Ссылка на исследование: `aidd/docs/research/<ticket>.md`
 
@@ -22,9 +25,41 @@ Default: `<Что принять по умолчанию>`
 - **Keywords**: `<kw1,kw2>` (например, `payment,checkout`)
 - **Notes**: `<что искать/проверить>`
 
+## AIDD:CONTEXT_PACK
+- `<краткий контекст, ≤ 20 строк>`
+
+## AIDD:NON_NEGOTIABLES
+- `<что нельзя нарушать>`
+
+## AIDD:OPEN_QUESTIONS
+- `<вопрос> → <кто отвечает> → <срок>`
+
+## AIDD:RISKS_TOP5
+- `<риск> → <митигация>`
+
+## AIDD:DECISIONS
+- `<решение> → <почему>`
+
+## AIDD:GOALS
+- `<goal 1>`
+- `<goal 2>`
+
+## AIDD:NON_GOALS
+- `<non-goal>`
+
+## AIDD:ACCEPTANCE_CRITERIA
+- `<AC-1>`
+- `<AC-2>`
+
+## AIDD:METRICS
+- `<metric> → <target>`
+
+## AIDD:ROLL_OUT
+- `<этапы/флаги/откат>`
+
 ## 1. Обзор
 - **Название продукта/фичи**: `<Название или код>` (например, `Smart Checkout`)
-- **Исходные артефакты**: `<Перечень репозиторных документов>` (например, slug-hint, `aidd/docs/research/ABC-123.md`, `reports/research/ABC-123-context.json`)
+- **Исходные артефакты**: `<Перечень репозиторных документов>` (например, slug-hint, `aidd/docs/research/ABC-123.md`, `aidd/reports/research/ABC-123-context.json`)
 - **Дата/версия**: `<2024-05-14 v1>`
 - **Краткое описание**: `<1–2 предложения о цели инициативы>`
 

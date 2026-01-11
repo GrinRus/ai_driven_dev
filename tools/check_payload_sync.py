@@ -11,10 +11,15 @@ from typing import Dict, Iterable, List, Sequence
 DEFAULT_PATHS: list[str] = [
     ".claude",
     ".claude-plugin",
+    "AGENTS.md",
+    "agents",
+    "commands",
     "config",
     "docs",
     "conventions.md",
+    "hooks",
     "init-claude-workflow.sh",
+    "reports",
 ]
 
 DEFAULT_PAYLOAD_PREFIX = "aidd"

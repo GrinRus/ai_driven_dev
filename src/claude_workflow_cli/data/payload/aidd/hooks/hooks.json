@@ -54,6 +54,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-./aidd}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" claude-workflow context-gc stop",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/gate-workflow.sh",
             "timeout": 5
           },
@@ -84,6 +89,11 @@
       {
         "matcher": ".*",
         "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-./aidd}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" claude-workflow context-gc stop",
+            "timeout": 5
+          },
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/gate-workflow.sh",
