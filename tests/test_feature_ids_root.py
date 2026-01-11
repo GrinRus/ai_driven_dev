@@ -9,6 +9,7 @@ from claude_workflow_cli.feature_ids import resolve_project_root
 class FeatureIdsRootTests(unittest.TestCase):
     def setUp(self) -> None:
         self._env_backup = os.environ.copy()
+        os.environ.pop("AIDD_ROOT", None)
         os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
@@ -16,7 +17,30 @@ class FeatureIdsRootTests(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self._env_backup)
 
-    def test_prefers_plugin_root(self) -> None:
+    def test_prefers_aidd_root_env(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
+            base = Path(tmp)
+            root = base / "custom-root"
+            (root / "docs").mkdir(parents=True)
+            os.environ["AIDD_ROOT"] = str(root)
+
+            resolved = resolve_project_root(base)
+
+            self.assertEqual(resolved, root.resolve())
+
+    def test_prefers_project_dir_aidd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
+            base = Path(tmp)
+            workspace = base / "workspace"
+            aidd = workspace / "aidd"
+            (aidd / "docs").mkdir(parents=True)
+            os.environ["CLAUDE_PROJECT_DIR"] = str(workspace)
+
+            resolved = resolve_project_root(base)
+
+            self.assertEqual(resolved, aidd.resolve())
+
+    def test_prefers_plugin_root_when_project_dir_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
             base = Path(tmp)
             plugin = base / "aidd"
@@ -27,35 +51,22 @@ class FeatureIdsRootTests(unittest.TestCase):
 
             self.assertEqual(resolved, plugin.resolve())
 
-    def test_prefers_aidd_subdir_when_present(self) -> None:
+    def test_aidd_root_env_blocks_fallback(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
             base = Path(tmp)
-            aidd = base / "aidd"
-            (aidd / "docs").mkdir(parents=True)
+            plugin = base / "aidd"
+            (plugin / "docs").mkdir(parents=True)
+            os.environ["AIDD_ROOT"] = str(base / "missing-aidd")
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin)
 
-            resolved = resolve_project_root(base)
+            with self.assertRaises(FileNotFoundError):
+                resolve_project_root(base)
 
-            self.assertEqual(resolved, aidd.resolve())
-
-    def test_falls_back_to_cwd_docs(self) -> None:
+    def test_raises_when_no_aidd_root_found(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
             base = Path(tmp)
-            (base / "docs").mkdir(parents=True)
-
-            resolved = resolve_project_root(base)
-
-            self.assertEqual(resolved, base.resolve())
-
-    def test_uses_project_dir_as_last_resort(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
-            base = Path(tmp)
-            project = base / "project-root"
-            (project / "docs").mkdir(parents=True)
-            os.environ["CLAUDE_PROJECT_DIR"] = str(project)
-
-            resolved = resolve_project_root(base)
-
-            self.assertEqual(resolved, project.resolve())
+            with self.assertRaises(FileNotFoundError):
+                resolve_project_root(base)
 
 
 if __name__ == "__main__":

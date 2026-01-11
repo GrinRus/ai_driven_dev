@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import os
 import pathlib
 from pathlib import Path
 import subprocess
@@ -819,7 +820,71 @@ def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
     # research pending will still block; key is no crash and correct root resolution
     assert result.returncode in (0, 2)
-    assert "aidd" in (result.stdout + result.stderr)
+    combined = (result.stdout + result.stderr).lower()
+    assert "root not found" not in combined
+
+
+def test_hook_skips_when_aidd_root_env_invalid(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo")
+    write_file(project_root, "docs/prd/demo.prd.md", approved_prd("demo"))
+    payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
+    env = {
+        "AIDD_ROOT": str(tmp_path / "missing-aidd"),
+        "CLAUDE_PROJECT_DIR": str(tmp_path),
+    }
+    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    assert result.returncode == 0
+    combined = (result.stdout + result.stderr).lower()
+    assert "root not found" in combined
+
+
+def test_hook_skips_when_root_missing_outside_git(tmp_path):
+    hook_path = PAYLOAD_ROOT / "hooks" / "gate-workflow.sh"
+    env = os.environ.copy()
+    env.pop("AIDD_ROOT", None)
+    env.pop("CLAUDE_PROJECT_DIR", None)
+    env.pop("CLAUDE_PLUGIN_ROOT", None)
+    result = subprocess.run(
+        [str(hook_path)],
+        input=SRC_PAYLOAD,
+        text=True,
+        capture_output=True,
+        cwd=tmp_path,
+        env=env,
+    )
+    assert result.returncode == 0
+    assert "root not found" in (result.stdout + result.stderr).lower()
+
+
+def test_prd_review_gate_blocks_when_git_prefix_used(tmp_path):
+    git_init(tmp_path)
+    ticket = "demo-checkout"
+    project_root = ensure_project_root(tmp_path)
+    ensure_gates_config(tmp_path, {"researcher": {"enabled": False}})
+    write_active_feature(project_root, ticket)
+    write_plan_with_review(project_root, ticket)
+    write_file(
+        project_root,
+        f"docs/prd/{ticket}.prd.md",
+        (
+            "# PRD\n\n"
+            "## Диалог analyst\n"
+            "Status: READY\n\n"
+            f"Researcher: docs/research/{ticket}.md (Status: reviewed)\n\n"
+            "Вопрос 1: Нужно ли отдельное кеширование?\n"
+            "Ответ 1: Пока нет.\n\n"
+            "## PRD Review\n"
+            "Status: pending\n"
+        ),
+    )
+    write_file(project_root, f"docs/tasklist/{ticket}.md", "- [x] done\n")
+    write_file(project_root, "src/main/kotlin/App.kt", "class App")
+
+    env = {"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"}
+    result = run_hook(tmp_path, "gate-workflow.sh", "{}", extra_env=env)
+    assert result.returncode == 2
+    assert "PRD Review" in (result.stdout + result.stderr)
 
 
 def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):

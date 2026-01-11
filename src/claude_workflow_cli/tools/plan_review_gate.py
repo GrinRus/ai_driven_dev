@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
-from claude_workflow_cli.feature_ids import resolve_project_root
+from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -66,15 +67,17 @@ def matches(patterns: Iterable[str], value: str) -> bool:
 
 
 def detect_project_root(target: Path) -> Path:
-    return resolve_project_root(target)
+    return require_aidd_root(target)
 
 
 def normalize_path(raw: str) -> str:
     if not raw:
         return ""
     normalized = raw.replace("\\", "/")
-    if normalized.startswith("./"):
+    while normalized.startswith("./"):
         normalized = normalized[2:]
+    if normalized.startswith("aidd/"):
+        normalized = normalized[5:]
     return normalized.lstrip("/")
 
 
@@ -101,7 +104,11 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
 
 
 def run_gate(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    try:
+        root = detect_project_root(Path(args.target))
+    except AiddRootError as exc:
+        print(f"[plan-review-gate] {exc}", file=sys.stderr)
+        return 2
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path

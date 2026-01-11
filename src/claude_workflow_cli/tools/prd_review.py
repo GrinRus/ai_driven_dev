@@ -20,12 +20,13 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from claude_workflow_cli.feature_ids import resolve_identifiers, resolve_project_root
+from claude_workflow_cli.feature_ids import resolve_identifiers
+from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 
 def detect_project_root(target: Optional[Path] = None) -> Path:
     base = target or Path.cwd()
-    return resolve_project_root(base)
+    return require_aidd_root(base)
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
@@ -245,7 +246,11 @@ def print_text_report(report: Report) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    try:
+        root = detect_project_root(Path(args.target))
+    except AiddRootError as exc:
+        print(f"[prd-review] {exc}", file=sys.stderr)
+        return 2
     ticket, slug_hint = detect_feature(root, getattr(args, "ticket", None), getattr(args, "slug_hint", None))
     if not ticket:
         print(

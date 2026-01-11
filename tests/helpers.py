@@ -216,6 +216,7 @@ def run_hook(
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
     env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
+    env.setdefault("AIDD_ROOT", "")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PATH"] = f"{cli_bin}{os.pathsep}{env.get('PATH', '')}"
     if extra_env:

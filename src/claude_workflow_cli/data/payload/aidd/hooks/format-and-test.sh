@@ -17,11 +17,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-dev_src = ROOT_DIR / "src"
+from claude_workflow_cli.paths import resolve_aidd_root
+
+SCRIPT_PATH = Path(__file__).resolve()
+SCRIPT_ROOT = SCRIPT_PATH.parents[2]
+dev_src = SCRIPT_ROOT / "src"
 if dev_src.exists() and str(dev_src) not in sys.path:
     sys.path.insert(0, str(dev_src))
-HOOKS_DIR = Path(__file__).resolve().parent
+HOOKS_DIR = SCRIPT_PATH.parent
 VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
@@ -77,7 +80,7 @@ def _run_cli(args: List[str]) -> subprocess.CompletedProcess[str]:
             env["PYTHONPATH"] = (
                 f"{pythonpath}{os.pathsep}{existing}" if existing else pythonpath
             )
-    return subprocess.run(cmd, text=True, capture_output=True, env=env)
+    return subprocess.run(cmd, text=True, capture_output=True, env=env, cwd=WORKSPACE_ROOT)
 
 
 def resolve_identifiers(root: Path) -> FeatureIdentifiers:
@@ -95,21 +98,29 @@ def resolve_identifiers(root: Path) -> FeatureIdentifiers:
     )
 
 LOG_PREFIX = "[format-and-test]"
-def resolve_settings_path() -> Path:
+PROJECT_ROOT = Path.cwd()
+WORKSPACE_ROOT = Path.cwd()
+SETTINGS_PATH = Path()
+
+
+def resolve_workspace_root(project_root: Path) -> Path:
+    if project_root.name == "aidd":
+        return project_root.parent
+    return project_root
+
+
+def resolve_settings_path(project_root: Path, workspace_root: Path) -> Path:
     env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
     if env_path:
         return Path(env_path)
     candidates = [
-        ROOT_DIR / ".claude" / "settings.json",
-        ROOT_DIR.parent / ".claude" / "settings.json",
+        workspace_root / ".claude" / "settings.json",
+        project_root / ".claude" / "settings.json",
     ]
     for candidate in candidates:
         if candidate.exists():
             return candidate
     return candidates[0]
-
-
-SETTINGS_PATH = resolve_settings_path()
 COMMON_PATTERNS = (
     "config/",
     "gradle/libs.versions.toml",
@@ -375,7 +386,7 @@ def load_config() -> dict | None:
 
 def run_subprocess(cmd: List[str], strict: bool = True) -> bool:
     log(f"→ {' '.join(cmd)}")
-    result = subprocess.run(cmd, text=True)
+    result = subprocess.run(cmd, text=True, cwd=WORKSPACE_ROOT)
     if result.returncode == 0:
         return True
     if strict:
@@ -390,27 +401,70 @@ def env_flag(name: str) -> bool | None:
     return value not in {"0", "false", "False"}
 
 
+def _resolve_git_root(project_root: Path) -> Path | None:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(project_root), "rev-parse", "--show-toplevel"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, FileNotFoundError):
+        return None
+    if proc.returncode != 0:
+        return None
+    value = (proc.stdout or "").strip()
+    if not value:
+        return None
+    return Path(value).expanduser().resolve()
+
+
 def collect_changed_files() -> List[str]:
     files: set[str] = set()
+    git_root = _resolve_git_root(PROJECT_ROOT)
+    prefix = ""
+    if git_root and git_root != PROJECT_ROOT:
+        try:
+            prefix = PROJECT_ROOT.relative_to(git_root).as_posix()
+        except ValueError:
+            prefix = ""
+
+    def normalize_path(value: str) -> str:
+        text = value.replace("\\", "/")
+        while text.startswith("./"):
+            text = text[2:]
+        if prefix and text.startswith(prefix + "/"):
+            text = text[len(prefix) + 1 :]
+        return text
 
     def git_lines(args: Iterable[str]) -> List[str]:
         proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         if proc.returncode != 0:
             return []
-        return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+        lines = []
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            normalized = normalize_path(line)
+            if normalized:
+                lines.append(normalized)
+        return lines
 
     # tracked changes
-    proc = subprocess.run([
-        "git",
-        "rev-parse",
-        "--verify",
-        "HEAD",
-    ], text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc = subprocess.run(
+        ["git", "-C", str(PROJECT_ROOT), "rev-parse", "--verify", "HEAD"],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     if proc.returncode == 0:
-        files.update(git_lines(["git", "diff", "--name-only", "HEAD"]))
+        files.update(git_lines(["git", "-C", str(PROJECT_ROOT), "diff", "--name-only", "HEAD"]))
 
     # untracked
-    files.update(git_lines(["git", "ls-files", "--others", "--exclude-standard"]))
+    files.update(
+        git_lines(["git", "-C", str(PROJECT_ROOT), "ls-files", "--others", "--exclude-standard"])
+    )
     return sorted(files)
 
 
@@ -437,33 +491,6 @@ def parse_scope(value: str) -> List[str]:
     return items
 
 
-def determine_project_dir() -> Path:
-    if "CLAUDE_PROJECT_DIR" in os.environ:
-        return Path(os.environ["CLAUDE_PROJECT_DIR"]).resolve()
-    settings_parent = SETTINGS_PATH.parent
-    if settings_parent.name == ".claude":
-        return settings_parent.parent.resolve()
-    return settings_parent.resolve()
-
-
-def resolve_project_root(raw: Path) -> Path:
-    cwd = raw.resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
-    candidates: list[Path] = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    if project_dir:
-        candidates.append(Path(project_dir).expanduser().resolve())
-    for candidate in candidates:
-        if (candidate / "docs").is_dir():
-            return candidate
-    return cwd
-
 def read_active_stage(project_root: Path) -> str:
     override = os.environ.get("CLAUDE_ACTIVE_STAGE")
     if override:
@@ -478,15 +505,30 @@ def read_active_stage(project_root: Path) -> str:
 
 
 def main() -> int:
-    os.chdir(determine_project_dir())
+    global PROJECT_ROOT, WORKSPACE_ROOT, SETTINGS_PATH
+    settings_hint = os.environ.get("CLAUDE_SETTINGS_PATH")
+    if settings_hint:
+        hint_path = Path(settings_hint).expanduser().resolve()
+        if hint_path.parent.name == ".claude":
+            start_hint = hint_path.parent.parent
+        else:
+            start_hint = hint_path.parent
+    else:
+        start_hint = SCRIPT_PATH
+
+    PROJECT_ROOT = resolve_aidd_root(start_hint)
+    if not PROJECT_ROOT:
+        log("AIDD root не найден — форматирование/тесты пропущены.")
+        return 0
+    WORKSPACE_ROOT = resolve_workspace_root(PROJECT_ROOT)
+    SETTINGS_PATH = resolve_settings_path(PROJECT_ROOT, WORKSPACE_ROOT)
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
     if not env_flag("CLAUDE_SKIP_STAGE_CHECKS"):
-        project_root = resolve_project_root(Path.cwd())
-        stage = read_active_stage(project_root)
+        stage = read_active_stage(PROJECT_ROOT)
         if stage and stage != "implement":
             log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
             return 0
@@ -566,7 +608,7 @@ def main() -> int:
         code_exact = normalize_code_files([code_files_raw])
 
     changed_files = collect_changed_files()
-    identifiers = resolve_identifiers(Path.cwd())
+    identifiers = resolve_identifiers(PROJECT_ROOT)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
 
