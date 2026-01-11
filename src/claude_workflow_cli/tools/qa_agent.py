@@ -72,11 +72,8 @@ class Finding:
         if not self.id:
             self.id = _stable_id(
                 "qa",
-                self.severity,
                 self.scope,
                 self.title,
-                self.details,
-                self.recommendation,
             )
 
     def to_dict(self) -> dict:

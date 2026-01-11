@@ -5,6 +5,7 @@ import datetime as dt
 import filecmp
 import hashlib
 import json
+import re
 import os
 import shlex
 import shutil
@@ -77,6 +78,7 @@ CACHE_ENV = "CLAUDE_WORKFLOW_CACHE"
 HTTP_TIMEOUT = int(os.getenv("CLAUDE_WORKFLOW_HTTP_TIMEOUT", "30"))
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "claude-workflow"
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
+DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -1142,6 +1144,239 @@ def _reviewer_tests_command(args: argparse.Namespace) -> None:
     _maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
 
 
+def _review_report_command(args: argparse.Namespace) -> int:
+    _, target = _require_workflow_root(Path(args.target).resolve())
+
+    context = _resolve_feature_context(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    ticket = (context.resolved_ticket or "").strip()
+    slug_hint = (context.slug_hint or ticket or "").strip()
+    if not ticket:
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /idea-new.")
+
+    branch = args.branch or _detect_branch(target)
+
+    def _fmt(text: str) -> str:
+        return (
+            text.replace("{ticket}", ticket)
+            .replace("{slug}", slug_hint or ticket)
+            .replace("{branch}", branch or "")
+        )
+
+    report_template = args.report or _review_report_template(target)
+    report_text = _fmt(report_template)
+    report_path = _resolve_path_for_target(Path(report_text), target)
+
+    if args.findings and args.findings_file:
+        raise ValueError("use --findings or --findings-file (not both)")
+
+    input_payload = None
+    if args.findings_file:
+        try:
+            input_payload = json.loads(Path(args.findings_file).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in --findings-file: {exc}") from exc
+    elif args.findings:
+        try:
+            input_payload = json.loads(args.findings)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON for --findings: {exc}") from exc
+    elif not args.status and not args.summary:
+        raise ValueError("provide --findings or --findings-file, or update --status/--summary")
+
+    def _extract_findings(raw: object) -> List[Dict]:
+        if raw is None:
+            return []
+        if isinstance(raw, dict) and "findings" in raw:
+            raw = raw.get("findings")
+        if isinstance(raw, dict) and raw.get("cols") and raw.get("rows"):
+            raw = _inflate_columnar(raw)
+        if isinstance(raw, dict):
+            if any(key in raw for key in ("title", "severity", "details", "recommendation", "scope", "id")):
+                raw = [raw]
+            else:
+                return []
+        if isinstance(raw, list):
+            return [entry for entry in raw if isinstance(entry, dict)]
+        return []
+
+    existing_payload: Dict[str, Any] = {}
+    existing_findings: List[Dict] = []
+    if report_path.exists():
+        try:
+            existing_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing_payload = {}
+    if isinstance(existing_payload, dict):
+        existing_findings = _extract_findings(existing_payload.get("findings"))
+
+    def _normalize_signature_text(value: object) -> str:
+        return " ".join(str(value or "").strip().split()).lower()
+
+    def _extract_title(entry: Dict, fallback: Optional[Dict[str, Any]] = None) -> str:
+        title = entry.get("title") or entry.get("summary")
+        if not title and fallback:
+            title = fallback.get("title")
+        return str(title or "").strip() or "issue"
+
+    def _extract_scope(entry: Dict, fallback: Optional[Dict[str, Any]] = None) -> str:
+        scope = entry.get("scope")
+        if not scope and fallback:
+            scope = fallback.get("scope")
+        return str(scope or "").strip()
+
+    def _finding_signature(entry: Dict, fallback: Optional[Dict[str, Any]] = None) -> str:
+        raw_title = entry.get("title") or entry.get("summary")
+        if not raw_title and fallback:
+            raw_title = fallback.get("title") or fallback.get("summary")
+        if not raw_title:
+            return ""
+        title = _normalize_signature_text(raw_title)
+        raw_scope = entry.get("scope")
+        if not raw_scope and fallback:
+            raw_scope = fallback.get("scope")
+        scope = _normalize_signature_text(raw_scope)
+        return f"{scope}::{title}"
+
+    def _stable_review_id(scope: str, title: str) -> str:
+        return _stable_task_id("review", scope, title)
+
+    def _normalize_finding(
+        entry: Dict,
+        *,
+        existing: Dict[str, Any],
+        now: str,
+        fallback_id: str | None = None,
+    ) -> Dict:
+        severity = str(entry.get("severity") or existing.get("severity") or "info").strip().lower() or "info"
+        scope = _extract_scope(entry, existing)
+        title = _extract_title(entry, existing)
+        details = str(entry.get("details") or existing.get("details") or "").strip()
+        recommendation = str(entry.get("recommendation") or entry.get("action") or existing.get("recommendation") or "").strip()
+        raw_id = str(entry.get("id") or "").strip()
+        if not raw_id:
+            raw_id = fallback_id or _stable_review_id(scope, title)
+        merged = dict(existing)
+        merged.update(entry)
+        merged.update(
+            {
+                "id": raw_id,
+                "severity": severity,
+                "scope": scope,
+                "title": title,
+                "details": details,
+                "recommendation": recommendation,
+            }
+        )
+        first_seen = (
+            existing.get("first_seen_at")
+            or existing.get("created_at")
+            or existing.get("generated_at")
+        )
+        merged["first_seen_at"] = first_seen or now
+        merged["last_seen_at"] = now
+        return merged
+
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    existing_by_id: Dict[str, Dict] = {}
+    existing_by_sig: Dict[str, Dict] = {}
+    sig_collisions: set[str] = set()
+    normalized_existing: List[Dict] = []
+    for entry in existing_findings:
+        signature = _finding_signature(entry, entry)
+        normalized = _normalize_finding(
+            entry,
+            existing=entry,
+            now=entry.get("last_seen_at") or now,
+            fallback_id=_stable_review_id(
+                _extract_scope(entry, entry),
+                _extract_title(entry, entry),
+            ),
+        )
+        entry_id = str(normalized.get("id") or "").strip()
+        if entry_id:
+            existing_by_id[entry_id] = normalized
+        if signature:
+            if signature in existing_by_sig:
+                sig_collisions.add(signature)
+            else:
+                existing_by_sig[signature] = normalized
+        normalized_existing.append(normalized)
+
+    new_findings = _extract_findings(input_payload)
+    new_by_id: Dict[str, Dict] = {}
+    for entry in new_findings:
+        entry_id = str(entry.get("id") or "").strip()
+        signature = ""
+        matched_existing: Dict[str, Any] = {}
+        if not entry_id:
+            signature = _finding_signature(entry)
+            if signature and signature in existing_by_sig and signature not in sig_collisions:
+                matched_existing = existing_by_sig[signature]
+                entry_id = str(matched_existing.get("id") or "").strip()
+        fallback_id = None
+        if not entry_id:
+            scope = _extract_scope(entry)
+            title = _extract_title(entry)
+            fallback_id = _stable_review_id(scope, title)
+        candidate = _normalize_finding(
+            entry,
+            existing=matched_existing or existing_by_id.get(entry_id, {}),
+            now=now,
+            fallback_id=fallback_id,
+        )
+        entry_id = str(candidate.get("id") or "").strip()
+        if entry_id:
+            new_by_id[entry_id] = candidate
+
+    merged_findings: List[Dict] = []
+    replaced_ids: set[str] = set()
+    for entry in normalized_existing:
+        entry_id = str(entry.get("id") or "").strip()
+        if entry_id and entry_id in new_by_id:
+            merged_findings.append(new_by_id[entry_id])
+            replaced_ids.add(entry_id)
+        else:
+            merged_findings.append(entry)
+    for entry in new_by_id.values():
+        entry_id = str(entry.get("id") or "").strip()
+        if entry_id and entry_id in replaced_ids:
+            continue
+        merged_findings.append(entry)
+
+    record: Dict[str, Any] = existing_payload if isinstance(existing_payload, dict) else {}
+    record.update(
+        {
+            "ticket": ticket,
+            "slug": slug_hint or ticket,
+            "kind": "review",
+            "stage": "review",
+            "updated_at": now,
+        }
+    )
+    if branch:
+        record["branch"] = branch
+    record.setdefault("generated_at", now)
+    if args.status:
+        record["status"] = str(args.status).strip().lower()
+    if args.summary:
+        record["summary"] = str(args.summary).strip()
+    if merged_findings:
+        record["findings"] = merged_findings
+    elif "findings" in record:
+        record["findings"] = record.get("findings") or []
+
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    rel_report = _rel_path(report_path, target)
+    print(f"[claude-workflow] review report saved to {rel_report}.")
+    _maybe_sync_index(target, ticket, slug_hint or None, reason="review-report")
+    return 0
+
+
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     config_path = root / "config" / "gates.json"
     commands: list[list[str]] = []
@@ -1626,6 +1861,26 @@ def _reviewer_marker_path(target: Path, template: str, ticket: str, slug_hint: O
     return marker_path
 
 
+def _load_gates_config(target: Path) -> dict:
+    config_path = target / "config" / "gates.json"
+    try:
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _review_report_template(target: Path) -> str:
+    config = _load_gates_config(target)
+    reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
+    if not isinstance(reviewer_cfg, dict):
+        reviewer_cfg = {}
+    return str(
+        reviewer_cfg.get("marker")
+        or reviewer_cfg.get("tests_marker")
+        or DEFAULT_REVIEW_REPORT
+    )
+
+
 def _detect_branch(target: Path) -> Optional[str]:
     try:
         proc = subprocess.run(
@@ -1646,20 +1901,67 @@ def _detect_branch(target: Path) -> Optional[str]:
     return branch
 
 
+_TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
+_TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
+
+
+def _stable_task_id(prefix: str, *parts: object) -> str:
+    digest = hashlib.sha1()
+    digest.update(prefix.encode("utf-8"))
+    for part in parts:
+        normalized = " ".join(str(part or "").strip().split())
+        digest.update(b"|")
+        digest.update(normalized.encode("utf-8"))
+    return digest.hexdigest()[:12]
+
+
+def _task_id_from_line(line: str) -> str | None:
+    match = _TASK_ID_RE.search(line)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    return value or None
+
+
+def _task_signature(line: str) -> str:
+    normalized = " ".join(line.strip().split())
+    normalized = _TASK_ID_SIGNATURE_RE.sub("", normalized)
+    normalized = normalized.replace(" ,", ",")
+    lowered = normalized.lower()
+    source_idx = lowered.rfind(" (source:")
+    if source_idx != -1:
+        head = normalized[:source_idx]
+        tail = normalized[source_idx:]
+        if " — " in head:
+            head = head.split(" — ", 1)[0]
+        normalized = head + tail
+    return " ".join(normalized.strip().split())
+
+
+def _format_task_suffix(report_label: str, task_id: str | None = None) -> str:
+    parts = [f"source: {report_label}"]
+    if task_id:
+        parts.append(f"id: {task_id}")
+    return f" ({', '.join(parts)})"
+
+
 _HANDOFF_SECTION_HINTS: Dict[str, Tuple[str, ...]] = {
     "qa": (
+        "## aidd:handoff_inbox",
         "## 3. qa / проверки",
         "## qa",
         "## 3. qa",
         "## 3. qa / проверки",
     ),
     "review": (
+        "## aidd:handoff_inbox",
         "## 2. реализация",
         "## реализация",
         "## implementation",
         "## 2. implementation",
     ),
     "research": (
+        "## aidd:handoff_inbox",
         "## 1. аналитика и дизайн",
         "## аналитика",
         "## research",
@@ -1701,6 +2003,7 @@ def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -
     raw_findings = payload.get("findings") or []
     findings = _inflate_columnar(raw_findings) if isinstance(raw_findings, dict) else raw_findings
     tasks: List[str] = []
+    prefix_key = prefix.lower().replace(" ", "-")
     for finding in findings:
         if not isinstance(finding, dict):
             continue
@@ -1708,9 +2011,14 @@ def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -
         scope = str(finding.get("scope") or "").strip()
         title = str(finding.get("title") or "").strip() or "issue"
         details = str(finding.get("recommendation") or finding.get("details") or "").strip()
+        raw_id = str(finding.get("id") or "").strip()
+        if not raw_id:
+            raw_id = _stable_task_id(prefix_key, scope, title)
+        task_id = f"{prefix_key}:{raw_id}"
         scope_label = f" ({scope})" if scope else ""
         details_part = f" — {details}" if details else ""
-        tasks.append(f"- [ ] {prefix} [{severity}] {title}{scope_label}{details_part} (source: {report_label})")
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] {prefix} [{severity}] {title}{scope_label}{details_part}{suffix}")
     return tasks
 
 
@@ -1720,7 +2028,9 @@ def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
     raw_executed = payload.get("tests_executed") or []
     executed = _inflate_columnar(raw_executed) if isinstance(raw_executed, dict) else raw_executed
     if summary in {"skipped", "not-run"}:
-        tasks.append(f"- [ ] QA tests: запустить автотесты и приложить лог (source: {report_label})")
+        task_id = f"qa-tests:{_stable_task_id('qa-tests', summary)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] QA tests: запустить автотесты и приложить лог{suffix}")
     for entry in executed:
         if not isinstance(entry, dict):
             continue
@@ -1731,9 +2041,13 @@ def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
         log = str(entry.get("log") or entry.get("log_path") or "").strip()
         details = f" (лог: {log})" if log else ""
         status_label = status or "unknown"
-        tasks.append(f"- [ ] QA tests: {status_label} → повторить `{command}`{details} (source: {report_label})")
+        task_id = f"qa-tests:{_stable_task_id('qa-tests', status_label, command, log)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] QA tests: {status_label} → повторить `{command}`{details}{suffix}")
     if summary == "fail" and not any(str(entry.get("status") or "").strip().lower() == "fail" for entry in executed):
-        tasks.append(f"- [ ] QA tests: исправить упавшие тесты (source: {report_label})")
+        task_id = f"qa-tests:{_stable_task_id('qa-tests', 'fail', 'summary')}"
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] QA tests: исправить упавшие тесты{suffix}")
     return tasks
 
 
@@ -1760,14 +2074,18 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
         rec_text = str(rec).strip()
         if not rec_text:
             continue
-        tasks.append(f"- [ ] Research: {rec_text} (source: {report_label})")
+        task_id = f"research:{_stable_task_id('research', rec_text)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] Research: {rec_text}{suffix}")
 
     manual_notes = payload.get("manual_notes") or []
     for note in manual_notes:
         note_text = str(note).strip()
         if not note_text:
             continue
-        tasks.append(f"- [ ] Research note: {note_text} (source: {report_label})")
+        task_id = f"research:{_stable_task_id('research', 'note', note_text)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] Research note: {note_text}{suffix}")
 
     raw_reuse = payload.get("reuse_candidates") or []
     reuse_candidates = _inflate_columnar(raw_reuse) if isinstance(raw_reuse, dict) else raw_reuse
@@ -1785,8 +2103,23 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
         if has_tests:
             extra_parts.append("tests")
         suffix = f" ({', '.join(extra_parts)})" if extra_parts else ""
-        tasks.append(f"- [ ] Reuse candidate: {path}{suffix} (source: {report_label})")
+        task_id = f"research:{_stable_task_id('research', 'reuse', path, score, has_tests)}"
+        task_suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] Reuse candidate: {path}{suffix}{task_suffix}")
     return tasks
+
+
+def _derive_handoff_placeholder(source: str, ticket: str, report_label: str) -> List[str]:
+    source_key = source.strip().lower()
+    if source_key == "qa":
+        task_id = f"qa:report-{_stable_task_id('qa-report', ticket)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        return [f"- [ ] QA report: подтвердить отсутствие блокеров{suffix}"]
+    if source_key == "review":
+        task_id = f"review:report-{_stable_task_id('review-report', ticket)}"
+        suffix = _format_task_suffix(report_label, task_id)
+        return [f"- [ ] Review report: подтвердить отсутствие замечаний{suffix}"]
+    return []
 
 
 def _dedupe_tasks(tasks: Sequence[str]) -> List[str]:
@@ -1801,6 +2134,49 @@ def _dedupe_tasks(tasks: Sequence[str]) -> List[str]:
         seen.add(normalized)
         deduped.append(task.strip())
     return deduped
+
+
+def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, append: bool) -> List[str]:
+    if not append:
+        return _dedupe_tasks(new_tasks)
+    existing_lines = list(existing)
+    new_by_id: Dict[str, str] = {}
+    new_by_sig: Dict[str, str] = {}
+    sig_collisions: set[str] = set()
+    for line in new_tasks:
+        task_id = _task_id_from_line(line)
+        if task_id:
+            new_by_id[task_id] = line
+        signature = _task_signature(line)
+        if signature:
+            if signature in new_by_sig:
+                sig_collisions.add(signature)
+            else:
+                new_by_sig[signature] = line
+    merged: List[str] = []
+    replaced_ids: set[str] = set()
+    replaced_sigs: set[str] = set()
+    for line in existing_lines:
+        task_id = _task_id_from_line(line)
+        if task_id and task_id in new_by_id:
+            merged.append(new_by_id[task_id])
+            replaced_ids.add(task_id)
+            continue
+        signature = _task_signature(line)
+        if signature and signature in new_by_sig and signature not in sig_collisions:
+            merged.append(new_by_sig[signature])
+            replaced_sigs.add(signature)
+            continue
+        merged.append(line)
+    for line in new_tasks:
+        task_id = _task_id_from_line(line)
+        if task_id and task_id in replaced_ids:
+            continue
+        signature = _task_signature(line)
+        if signature and signature in replaced_sigs:
+            continue
+        merged.append(line)
+    return _dedupe_tasks(merged)
 
 
 def _extract_handoff_block(lines: List[str], source: str) -> tuple[int, int, List[str]]:
@@ -1870,9 +2246,7 @@ def _apply_handoff_tasks(
         return text, None, False
     lines = text.splitlines()
     start, end, existing = _extract_handoff_block(lines, source)
-    combined = list(existing) if append else []
-    combined.extend(tasks)
-    combined = _dedupe_tasks(combined)
+    combined = _merge_handoff_tasks(existing, tasks, append=append)
     if not combined:
         return text, None, False
 
@@ -1916,9 +2290,11 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
         "qa": "aidd/reports/qa/{ticket}.json",
         "research": "aidd/reports/research/{ticket}-context.json",
     }.get(source)
+    if source == "review":
+        default_report = _review_report_template(target)
     report_template = args.report or default_report
     if not report_template:
-        raise ValueError("unsupported source; expected qa|research")
+        raise ValueError("unsupported source; expected qa|research|review")
 
     def _fmt(text: str) -> str:
         return (
@@ -1953,12 +2329,16 @@ def _tasks_derive_command(args: argparse.Namespace) -> int:
     if source == "qa":
         derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
         derived_tasks.extend(_derive_tasks_from_tests(payload, report_label))
+    elif source == "review":
+        derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
         derived_tasks = _derive_tasks_from_research_context(payload, report_label)
     else:
         derived_tasks = []
 
     derived_tasks = _dedupe_tasks(derived_tasks)
+    if not derived_tasks:
+        derived_tasks = _dedupe_tasks(_derive_handoff_placeholder(source, ticket, report_label))
     if not derived_tasks:
         print(f"[claude-workflow] no tasks found in {source} report ({report_label}).")
         return 0
@@ -2904,13 +3284,58 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewer_tests_parser.set_defaults(func=_reviewer_tests_command)
 
+    review_report_parser = subparsers.add_parser(
+        "review-report",
+        help="Create/update review report with findings (stored in aidd/reports/reviewer/<ticket>.json).",
+    )
+    review_report_parser.add_argument(
+        "--ticket",
+        dest="ticket",
+        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+    )
+    review_report_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        help="Optional slug hint override for report metadata.",
+    )
+    review_report_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    review_report_parser.add_argument(
+        "--branch",
+        help="Optional branch override for metadata.",
+    )
+    review_report_parser.add_argument(
+        "--report",
+        help="Optional report path override (default: aidd/reports/reviewer/<ticket>.json).",
+    )
+    review_report_parser.add_argument(
+        "--findings",
+        help="JSON list of findings or JSON object containing findings.",
+    )
+    review_report_parser.add_argument(
+        "--findings-file",
+        help="Path to JSON file containing findings list or full report payload.",
+    )
+    review_report_parser.add_argument(
+        "--status",
+        help="Review status label to store (ready|warn|blocked).",
+    )
+    review_report_parser.add_argument(
+        "--summary",
+        help="Optional summary for the review report.",
+    )
+    review_report_parser.set_defaults(func=_review_report_command)
+
     tasks_parser = subparsers.add_parser(
         "tasks-derive",
-        help="Generate tasklist candidates from QA/Research reports.",
+        help="Generate tasklist candidates from QA/Research/Review reports.",
     )
     tasks_parser.add_argument(
         "--source",
-        choices=("qa", "research"),
+        choices=("qa", "research", "review"),
         required=True,
         help="Report source to derive tasks from.",
     )

@@ -561,14 +561,44 @@ PY
 
 log "derive tasklist items from QA report (handoff)"
 run_cli tasks-derive --source qa --ticket "$TICKET" --target . --append >/dev/null
+run_cli tasks-derive --source qa --ticket "$TICKET" --target . --append >/dev/null
 grep -q "handoff:qa" "docs/tasklist/${TICKET}.md" || {
   echo "[smoke] tasks-derive did not update tasklist" >&2
+  exit 1
+}
+qa_handoff_count="$(grep -c "handoff:qa start" "docs/tasklist/${TICKET}.md" || true)"
+[[ "$qa_handoff_count" -eq 1 ]] || {
+  echo "[smoke] expected single QA handoff block, got ${qa_handoff_count}" >&2
   exit 1
 }
 if ! progress_handoff="$(run_cli progress --target . --ticket "$TICKET" --source handoff --verbose 2>&1)"; then
   printf '[smoke] expected progress handoff check to pass:\n%s\n' "$progress_handoff" >&2
   exit 1
 fi
+
+log "create review report and derive handoff tasks"
+cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
+[
+  {
+    "severity": "major",
+    "scope": "api",
+    "title": "Review coverage",
+    "recommendation": "Add regression checks"
+  }
+]
+JSON
+run_cli review-report --ticket "$TICKET" --target . --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
+run_cli tasks-derive --source review --ticket "$TICKET" --target . --append >/dev/null
+run_cli tasks-derive --source review --ticket "$TICKET" --target . --append >/dev/null
+grep -q "handoff:review" "docs/tasklist/${TICKET}.md" || {
+  echo "[smoke] review handoff tasks missing" >&2
+  exit 1
+}
+review_handoff_count="$(grep -c "handoff:review start" "docs/tasklist/${TICKET}.md" || true)"
+[[ "$review_handoff_count" -eq 1 ]] || {
+  echo "[smoke] expected single review handoff block, got ${review_handoff_count}" >&2
+  exit 1
+}
 
 log "verify generated artifacts"
 [[ -f "docs/prd/${TICKET}.prd.md" ]]
