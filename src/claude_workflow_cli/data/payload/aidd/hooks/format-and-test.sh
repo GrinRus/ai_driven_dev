@@ -8,14 +8,16 @@ depending on the change scope and configuration flags.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 dev_src = ROOT_DIR / "src"
@@ -95,6 +97,8 @@ def resolve_identifiers(root: Path) -> FeatureIdentifiers:
     )
 
 LOG_PREFIX = "[format-and-test]"
+
+
 def resolve_settings_path() -> Path:
     env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
     if env_path:
@@ -390,6 +394,104 @@ def env_flag(name: str) -> bool | None:
     return value not in {"0", "false", "False"}
 
 
+def parse_bool_value(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    text = value.strip().lower()
+    if text == "":
+        return None
+    return text not in {"0", "false", "no"}
+
+
+def parse_env_file(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        log(f"Не удалось прочитать {path}: {exc}")
+        return {}
+    data: Dict[str, str] = {}
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        clean = value.strip().strip('"').strip("'")
+        data[key] = clean
+    return data
+
+
+def git_has_head() -> bool:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return proc.returncode == 0
+
+
+def git_output(args: Iterable[str]) -> str:
+    proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout or ""
+
+
+def list_untracked_files() -> List[str]:
+    output = git_output(["git", "ls-files", "--others", "--exclude-standard"])
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def hash_file_content(path: Path, hasher: "hashlib._Hash") -> None:
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
+                hasher.update(chunk)
+    except OSError:
+        return
+
+
+def load_dedupe_state(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if isinstance(payload, dict):
+        return {str(k): str(v) for k, v in payload.items()}
+    return {}
+
+
+def write_dedupe_state(path: Path, payload: Dict[str, object]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    except OSError as exc:
+        log(f"Не удалось записать dedupe cache {path}: {exc}")
+
+
+def compute_tests_fingerprint(
+    metadata: Dict[str, object], diff_text: str, untracked_files: List[str]
+) -> str:
+    hasher = hashlib.sha256()
+    encoded = json.dumps(metadata, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    hasher.update(encoded)
+    if diff_text:
+        hasher.update(diff_text.encode("utf-8"))
+    for rel in untracked_files:
+        hasher.update(rel.encode("utf-8"))
+        hash_file_content(Path(rel), hasher)
+    return hasher.hexdigest()
+
+
 def collect_changed_files() -> List[str]:
     files: set[str] = set()
 
@@ -479,13 +581,13 @@ def read_active_stage(project_root: Path) -> str:
 
 def main() -> int:
     os.chdir(determine_project_dir())
+    project_root = resolve_project_root(Path.cwd())
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
     if not env_flag("CLAUDE_SKIP_STAGE_CHECKS"):
-        project_root = resolve_project_root(Path.cwd())
         stage = read_active_stage(project_root)
         if stage and stage != "implement":
             log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
@@ -515,6 +617,16 @@ def main() -> int:
 
     default_tasks = [str(task) for task in tests_cfg.get("defaultTasks", [])]
     fallback_tasks = [str(task) for task in tests_cfg.get("fallbackTasks", [])]
+    fast_tasks = [str(task) for task in tests_cfg.get("fastTasks", [])]
+    full_tasks = [str(task) for task in tests_cfg.get("fullTasks", [])]
+    targeted_raw = tests_cfg.get("targetedTask", [])
+    if isinstance(targeted_raw, list):
+        targeted_tasks = [str(task) for task in targeted_raw]
+    elif targeted_raw:
+        targeted_tasks = [str(targeted_raw)]
+    else:
+        targeted_tasks = []
+    filter_flag = str(tests_cfg.get("filterFlag") or "--tests")
     module_matrix = [
         {
             "match": str(item.get("match", "")),
@@ -534,12 +646,56 @@ def main() -> int:
     if changed_only_flag is None:
         changed_only_flag = changed_only_default
 
+    policy_path = project_root / ".cache" / "test-policy.env"
+    policy_env = parse_env_file(policy_path)
+    profile_env = os.environ.get("AIDD_TEST_PROFILE")
+    profile_file = policy_env.get("AIDD_TEST_PROFILE")
+    policy_profile_raw = (profile_env or profile_file or "").strip()
+    profile_source = "default"
+    if profile_env:
+        profile_source = "env"
+    elif profile_file:
+        profile_source = "test-policy.env"
+    test_profile = policy_profile_raw.lower() if policy_profile_raw else "fast"
+    if test_profile not in {"fast", "targeted", "full", "none"}:
+        log(f"Неизвестный AIDD_TEST_PROFILE={test_profile!r}; используем fast.")
+        test_profile = "fast"
+        profile_source = "default"
+    policy_tasks_raw = (os.environ.get("AIDD_TEST_TASKS") or policy_env.get("AIDD_TEST_TASKS") or "").strip()
+    policy_filters_raw = (os.environ.get("AIDD_TEST_FILTERS") or policy_env.get("AIDD_TEST_FILTERS") or "").strip()
+    policy_force_raw = os.environ.get("AIDD_TEST_FORCE") or policy_env.get("AIDD_TEST_FORCE")
+    parsed_force = parse_bool_value(policy_force_raw)
+    policy_force = bool(parsed_force) if parsed_force is not None else False
+    policy_active = bool(policy_profile_raw or policy_tasks_raw or policy_filters_raw or policy_force_raw)
+    if policy_path.exists():
+        policy_active = True
+        log(f"Test policy detected: {policy_path}")
+    log(f"Test profile: {test_profile} (source: {profile_source}).")
+
+    if test_profile == "full":
+        changed_only_flag = False
+
     test_tasks: List[str] = []
+    test_filters: List[str] = []
+    manual_scope_requested = False
     test_scope_env = os.environ.get("TEST_SCOPE")
     if test_scope_env:
         for item in parse_scope(test_scope_env):
             append_unique(test_tasks, item)
         changed_only_flag = False
+        manual_scope_requested = True
+
+    if policy_tasks_raw:
+        for item in parse_scope(policy_tasks_raw):
+            append_unique(test_tasks, item)
+        changed_only_flag = False
+        manual_scope_requested = True
+
+    if policy_filters_raw:
+        test_filters = parse_scope(policy_filters_raw)
+        if test_filters:
+            changed_only_flag = False
+            manual_scope_requested = True
 
     code_paths_raw = tests_cfg.get("codePaths")
     if isinstance(code_paths_raw, list):
@@ -565,13 +721,26 @@ def main() -> int:
     else:
         code_exact = normalize_code_files([code_files_raw])
 
-    changed_files = collect_changed_files()
+    changed_files = [
+        path
+        for path in collect_changed_files()
+        if not path.endswith(".cache/format-and-test.last.json")
+    ]
     identifiers = resolve_identifiers(Path.cwd())
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
+    common_hits = [
+        path
+        for path in changed_files
+        if any(path == pattern or path.startswith(pattern) for pattern in COMMON_PATTERNS)
+    ]
 
     reviewer_cfg = tests_cfg.get("reviewerGate") or {}
     reviewer_enabled = bool(reviewer_cfg.get("enabled", False))
+    policy_gate_override = policy_active and test_profile != "none"
+    if policy_gate_override and reviewer_enabled:
+        reviewer_enabled = False
+        log("Test policy активен — reviewer gate отключён.")
     force_env_name = str(reviewer_cfg.get("forceEnv", "FORCE_TESTS") or "")
     skip_env_name = str(reviewer_cfg.get("skipEnv", "SKIP_TESTS") or "")
 
@@ -581,9 +750,12 @@ def main() -> int:
     force_tests = bool(force_tests_flag) if force_env_name else False
     skip_tests = bool(skip_tests_flag) if skip_env_name else False
 
-    manual_scope_requested = bool(test_scope_env)
     if manual_scope_requested:
         force_tests = True
+        skip_tests = False
+    if policy_force:
+        force_tests = True
+        skip_tests = False
     if force_tests:
         skip_tests = False
 
@@ -597,13 +769,16 @@ def main() -> int:
 
     tests_should_run = True
     skip_reason = ""
-    if skip_tests:
+    if test_profile == "none":
+        tests_should_run = False
+        skip_reason = "AIDD_TEST_PROFILE=none — стадия тестов пропущена."
+    elif skip_tests:
         tests_should_run = False
         skip_reason = f"{skip_env_name}=1 — стадия тестов пропущена."
     elif force_tests or manual_scope_requested:
         tests_should_run = True
         if manual_scope_requested:
-            log("TEST_SCOPE задан — выполняем указанные задачи тестов.")
+            log("TEST_SCOPE/AIDD_TEST_TASKS/AIDD_TEST_FILTERS заданы — выполняем указанные задачи тестов.")
         elif force_env_name and force_tests:
             log(f"{force_env_name}=1 — тесты будут запущены независимо от маркера reviewer.")
     elif reviewer_enabled:
@@ -626,6 +801,9 @@ def main() -> int:
 
     skip_format_flag = os.environ.get("SKIP_FORMAT", "0") == "1"
     format_only_flag = os.environ.get("FORMAT_ONLY", "0") == "1"
+    if test_profile == "none":
+        format_only_flag = True
+        log("AIDD_TEST_PROFILE=none — тесты пропущены (FORMAT_ONLY=1).")
 
     if changed_only_flag and not force_tests and not reviewer_required:
         if not changed_files:
@@ -633,14 +811,17 @@ def main() -> int:
             if not format_only_flag:
                 return 0
         elif not has_code_changes(changed_files, code_prefixes, code_suffixes, code_exact):
-            preview = " ".join(changed_files[:8])
-            if len(changed_files) > 8:
-                preview = f"{preview} ..."
-            if format_only_flag:
-                log(f"Изменены только некодовые файлы ({preview}) — FORMAT_ONLY=1, выполняем только форматирование.")
+            if active_ticket and common_hits:
+                changed_only_flag = False
             else:
-                log(f"Изменены только некодовые файлы ({preview}) — форматирование и тесты пропущены.")
-                return 0
+                preview = " ".join(changed_files[:8])
+                if len(changed_files) > 8:
+                    preview = f"{preview} ..."
+                if format_only_flag:
+                    log(f"Изменены только некодовые файлы ({preview}) — FORMAT_ONLY=1, выполняем только форматирование.")
+                else:
+                    log(f"Изменены только некодовые файлы ({preview}) — форматирование и тесты пропущены.")
+                    return 0
 
     if skip_format_flag:
         log("SKIP_FORMAT=1 — форматирование пропущено.")
@@ -663,17 +844,14 @@ def main() -> int:
             log("Стадия тестов пропущена (reviewerGate).")
         return 0
 
-    if active_ticket and changed_files:
-        common_hits = [
-            path
-            for path in changed_files
-            if any(path == pattern or path.startswith(pattern) for pattern in COMMON_PATTERNS)
-        ]
-        if common_hits:
-            changed_only_flag = False
-            log(
-                f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов."
-            )
+    if active_ticket and common_hits:
+        changed_only_flag = False
+        if test_profile != "full":
+            test_profile = "full"
+            profile_source = "common-files"
+        log(
+            f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов (profile=full)."
+        )
 
     if changed_only_flag and changed_files and module_matrix:
         matrix_tasks: List[str] = []
@@ -687,27 +865,87 @@ def main() -> int:
         for task in matrix_tasks:
             append_unique(test_tasks, task)
 
-    if not test_tasks:
-        for task in default_tasks:
+    if not test_tasks and test_profile != "none":
+        profile_tasks: List[str] = []
+        if test_profile == "full":
+            profile_tasks = full_tasks or default_tasks
+        elif test_profile == "fast":
+            profile_tasks = fast_tasks or default_tasks
+        elif test_profile == "targeted":
+            profile_tasks = targeted_tasks or fast_tasks or default_tasks
+        for task in profile_tasks:
             append_unique(test_tasks, task)
 
     if not test_tasks:
         for task in fallback_tasks:
             append_unique(test_tasks, task)
 
+    if test_filters:
+        for filter_item in test_filters:
+            if filter_flag:
+                test_tasks.append(filter_flag)
+            test_tasks.append(filter_item)
+
     if not test_tasks:
         log("Нет задач для запуска тестов — проверка пропущена.")
         return 0
 
-    log(f"Выбранные задачи тестов: {' '.join(test_tasks)}")
+    log(f"Выбранные задачи тестов ({test_profile}): {' '.join(test_tasks)}")
 
     if not test_runner or not test_runner[0]:
         log("Не указан runner для тестов — стадия пропущена.")
         return 0
 
+    diff_text = ""
+    if git_has_head():
+        diff_text = "\n".join(
+            part
+            for part in (
+                git_output(["git", "diff", "--no-color"]),
+                git_output(["git", "diff", "--no-color", "--cached"]),
+            )
+            if part
+        )
+    untracked_files = [
+        path
+        for path in list_untracked_files()
+        if not path.endswith(".cache/format-and-test.last.json")
+    ]
+    dedupe_meta: Dict[str, object] = {
+        "profile": test_profile,
+        "tasks": test_tasks,
+        "filters": test_filters,
+        "runner": test_runner,
+        "changed_only": changed_only_flag,
+        "manual_scope": manual_scope_requested,
+        "changed_files": changed_files,
+    }
+    fingerprint = compute_tests_fingerprint(dedupe_meta, diff_text, untracked_files)
+    cache_path = project_root / ".cache" / "format-and-test.last.json"
+    last_state = load_dedupe_state(cache_path)
+    if policy_force:
+        log("AIDD_TEST_FORCE=1 — повторяем тесты независимо от дедупа.")
+    elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "success":
+        log("Dedupe: тесты уже запускались для текущего diff/profile — пропускаем повтор.")
+        return 0
+    elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "failed":
+        log("Dedupe: предыдущий прогон завершился ошибкой — повторяем.")
+
     command = test_runner + test_tasks
     log(f"Запуск тестов: {' '.join(command)}")
     result = subprocess.run(command, text=True)
+    status = "success" if result.returncode == 0 else "failed"
+    write_dedupe_state(
+        cache_path,
+        {
+            "fingerprint": fingerprint,
+            "status": status,
+            "profile": test_profile,
+            "tasks": test_tasks,
+            "filters": test_filters,
+            "ran_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        },
+    )
     if result.returncode == 0:
         log("Тесты завершились успешно.")
         return 0

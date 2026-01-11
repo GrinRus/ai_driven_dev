@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6015,
-      "sha256": "639c7c13734f806c418ed6b91bc0f302856cb5048c9835fa122d7fda86f483ee"
+      "size": 6959,
+      "sha256": "7fe11fe8faff5bc7698d9b6f59b8a421a91c1b050f13593303da9d1a52ebf02f"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -45,8 +45,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 2984,
-      "sha256": "ae026076b60b00f0f79b0326a4e26f97cfdd4aa62125373afe80bc6818b5ffea"
+      "size": 4694,
+      "sha256": "0e2708af2ea8a2138af156a88a0520492e1b8e258346f930c0b15399e27b37c3"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
@@ -99,8 +99,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 3028,
-      "sha256": "fdb0be375eeaf331f27413d0f97b241927bc3921ca811cf28e7ec0e9f5c0f1b4"
+      "size": 4733,
+      "sha256": "4f62944809cc683d295124b175641cf2243e01156f210e36dd6c63b618fd8093"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -243,14 +243,14 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6561,
-      "sha256": "5cefec6a8f675f96cc0f64b22e67190373c495d78df34e95b7a5c8b9a75f7e6a"
+      "size": 6704,
+      "sha256": "9f5982c664a9611bc93e89d45104821f3db9c7caf69135d9d88fdcbedd93b4be"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 23805,
-      "sha256": "be40611a4198c70a8ea787172c573e90cfb7909a2d1c3b6e280b65edb9644f1f"
+      "size": 32728,
+      "sha256": "4929a30d8e70668f179155067981c94608ef54543ff80b5090aaeaa635a145ca"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -309,8 +309,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 12536,
-      "sha256": "2a3b25ef9ae63b005e4e9ffff4a62c9b757e0d249857025d83fe716a84880fcf"
+      "size": 13149,
+      "sha256": "300967379ab103b456c70ec3947600217203e8304014e296a1886043d250e4f1"
     },
     {
       "path": "aidd/reports/prd/.gitkeep",
@@ -321,8 +321,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 18380,
-      "sha256": "cdd55ecb0f633c7e39ac0cb57d687974f27a5b4a32dd06711f3ea4d8a39e5ea0"
+      "size": 19767,
+      "sha256": "1d97c6c94a0b8dc391078b09a58f87c212437b02d8ccf3c55909ad3b01511346"
     }
   ]
 }

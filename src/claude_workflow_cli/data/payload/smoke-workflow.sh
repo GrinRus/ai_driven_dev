@@ -412,6 +412,46 @@ class App {
 }
 KT
 
+log "configure test policy for format-and-test smoke"
+python3 - "$WORKSPACE_ROOT/.claude/settings.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8"))
+tests = data.setdefault("automation", {}).setdefault("tests", {})
+tests["runner"] = ["/bin/echo"]
+tests["fastTasks"] = ["smoke-fast"]
+tests["fullTasks"] = ["smoke-full"]
+tests["targetedTask"] = "smoke-target"
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+mkdir -p "$WORKDIR/.cache"
+cat >"$WORKDIR/.cache/test-policy.env" <<'EOF'
+AIDD_TEST_PROFILE=fast
+EOF
+
+log "format-and-test uses profile and dedupe"
+fmt_first="$("$WORKDIR/hooks/format-and-test.sh" 2>&1)"
+echo "$fmt_first" | grep -q "Выбранные задачи тестов (fast): smoke-fast" || {
+  echo "[smoke] format-and-test did not use fast profile" >&2
+  echo "$fmt_first" >&2
+  exit 1
+}
+fmt_second="$("$WORKDIR/hooks/format-and-test.sh" 2>&1)"
+echo "$fmt_second" | grep -q "Dedupe: тесты уже запускались" || {
+  echo "[smoke] dedupe did not skip repeated run" >&2
+  echo "$fmt_second" >&2
+  exit 1
+}
+fmt_force="$(AIDD_TEST_FORCE=1 "$WORKDIR/hooks/format-and-test.sh" 2>&1)"
+echo "$fmt_force" | grep -q "AIDD_TEST_FORCE=1" || {
+  echo "[smoke] force flag did not bypass dedupe" >&2
+  echo "$fmt_force" >&2
+  exit 1
+}
+
 log "gate blocks when checkbox is missing"
 assert_gate_exit 2 "missing progress checkbox"
 

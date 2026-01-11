@@ -45,6 +45,7 @@ Updated: YYYY-MM-DD
 ## 2. Реализация
 - [ ] Код реализован в целевых модулях, тесты покрывают новые ветви (укажите путь к diff и лог тестов).
 - [ ] Учтены негативные сценарии, feature flags/конфиги обновлены (`config/*.json`, `settings/*.yaml`).
+- [ ] Test profile: `<fast|targeted|full|none>` (ссылка на `aidd/.cache/test-policy.env`), Tests run: `<команды/задачи>`.
 - [ ] `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` и ручные команды (например, `pytest`, `npm test`, `go test`) выполняются без ошибок (приложите выдержки).
 
 ## 3. QA / Проверки

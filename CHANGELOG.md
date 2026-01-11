@@ -7,6 +7,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ## [Unreleased]
 
 ### Added
+- Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
+- Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - `claude-workflow research-check` to validate research artefacts before planning.
 - PRD template section `## Research Hints` for passing paths/keywords to `/researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
@@ -27,6 +29,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `doc/dev/feature-cookbook.md`, `aidd/docs/customization.md`, `doc/dev/agents-playbook.md`, ensuring agents log repository inputs and CLI commands before asking the user.
 
 ### Changed
+- `/implement` and `implementer` prompts now require a test policy, iteration budget, and report `Test profile`/`Tests run` in the response.
+- `format-and-test.sh` selects tasks by profile (`fastTasks/fullTasks/targetedTask`) and honors `AIDD_TEST_FORCE` when repeating runs.
 - `/idea-new` no longer triggers research; analyst captures `Research Hints`, research is run in `/researcher`.
 - `analyst-check` no longer validates research; research validation is handled by `research-check` and `gate-workflow`.
 - `/plan-new` now runs `research-check` before planning.
