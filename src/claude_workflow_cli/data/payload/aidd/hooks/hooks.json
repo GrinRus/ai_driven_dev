@@ -69,7 +69,7 @@
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/format-and-test.sh",
+            "command": "AIDD_TEST_PROFILE_DEFAULT=targeted \"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/format-and-test.sh",
             "timeout": 900
           },
           {
@@ -101,7 +101,7 @@
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/format-and-test.sh",
+            "command": "AIDD_TEST_PROFILE_DEFAULT=fast \"${CLAUDE_PLUGIN_ROOT:-./aidd}\"/hooks/format-and-test.sh",
             "timeout": 900
           },
           {
