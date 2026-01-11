@@ -422,13 +422,14 @@ PY
 fi
 
 if [[ -n "$ticket" ]]; then
-  handoff_block="$(python3 - "$ticket" "$slug_hint" <<'PY'
+  handoff_block="$(python3 - "$ticket" "$slug_hint" "$current_branch" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
+branch = sys.argv[3] if len(sys.argv) > 3 else ""
 tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
 prefix = "aidd/" if Path.cwd().name == "aidd" else ""
 if not tasklist_path.exists():
@@ -460,7 +461,28 @@ def read_tasklist_section(lines: list[str]) -> str:
     return "\n".join(lines).lower()
 
 reports = []
-qa_path = resolve_report(Path("reports/qa") / f"{ticket}.json")
+qa_template = None
+try:
+    config = json.loads(Path("config/gates.json").read_text(encoding="utf-8"))
+except Exception:
+    config = {}
+qa_cfg = config.get("qa") or {}
+if isinstance(qa_cfg, dict):
+    qa_template = qa_cfg.get("report")
+if not qa_template:
+    qa_template = "aidd/reports/qa/{ticket}.json"
+slug_value = slug_hint.strip() or ticket
+branch_value = branch.strip() or "detached"
+raw_qa_path = (
+    str(qa_template)
+    .replace("{ticket}", ticket)
+    .replace("{slug}", slug_value)
+    .replace("{branch}", branch_value)
+)
+qa_path = Path(raw_qa_path)
+if not qa_path.is_absolute() and qa_path.parts and qa_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
+    qa_path = Path(*qa_path.parts[1:])
+qa_path = resolve_report(qa_path)
 if qa_path:
     reports.append(("qa", qa_path, f"{prefix}{qa_path.as_posix()}"))
 research_path = resolve_report(Path("reports/research") / f"{ticket}-context.json")
@@ -468,10 +490,6 @@ if research_path:
     reports.append(("research", research_path, f"{prefix}{research_path.as_posix()}"))
 
 review_path = None
-try:
-    config = json.loads(Path("config/gates.json").read_text(encoding="utf-8"))
-except Exception:
-    config = {}
 reviewer_cfg = config.get("reviewer") or {}
 review_template = (
     reviewer_cfg.get("marker")

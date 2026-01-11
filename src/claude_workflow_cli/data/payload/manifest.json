@@ -351,8 +351,8 @@
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 20726,
-      "sha256": "1025fcbf3bad56954e8fc1d683b173475aeea9590e1067c0b8a07d8c1d3a0d64"
+      "size": 21360,
+      "sha256": "2e75c699d6a8072d1354d5b210898b7bb5230e4f3ec3720d79d4b0ef9e1a14fd"
     },
     {
       "path": "aidd/hooks/hooks.json",

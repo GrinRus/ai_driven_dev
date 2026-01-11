@@ -706,6 +706,55 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
     assert result_ok.returncode == 0, result_ok.stderr
 
 
+def test_handoff_uses_configured_qa_report(tmp_path):
+    ticket = "demo-qa-custom"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "plan_review": {"enabled": False},
+            "researcher": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {"enabled": False},
+            "qa": {"report": "aidd/reports/qa/custom/{ticket}.json"},
+        },
+    )
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_plan_with_review(tmp_path, ticket)
+    write_json(tmp_path, f"reports/qa/custom/{ticket}.json", {"status": "pass", "findings": []})
+    write_file(
+        tmp_path,
+        f"docs/tasklist/{ticket}.md",
+        dedent(
+            f"""\
+            ---
+            Feature: {ticket}
+            Status: draft
+            PRD: docs/prd/{ticket}.prd.md
+            Plan: docs/plan/{ticket}.md
+            Updated: 2024-01-01
+            ---
+
+            - [ ] implement
+            ## AIDD:HANDOFF_INBOX
+            <!-- handoff:qa start (source: aidd/reports/qa/custom/{ticket}.json) -->
+            - [ ] QA report: подтвердить отсутствие блокеров (source: aidd/reports/qa/custom/{ticket}.json, id: qa:report-1234567890ab)
+            <!-- handoff:qa end -->
+            """
+        ),
+    )
+
+    result = run_hook(
+        tmp_path,
+        "gate-workflow.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_plugin_hooks_cover_workflow_events():
     hooks = _plugin_hooks()
     assert _has_command(hooks, "Stop", "gate-workflow.sh"), "gate-workflow missing in Stop"
