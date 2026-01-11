@@ -47,16 +47,11 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
 def run_hook(
     tmp_path: Path, settings_path: Path, env: Optional[dict] = None
 ) -> subprocess.CompletedProcess[str]:
-    effective_env = os.environ.copy()
-    effective_env.update(
-        {
-            "CLAUDE_SETTINGS_PATH": str(settings_path),
-            "SKIP_FORMAT": "1",
-            "AIDD_ROOT": "",
-        }
-    )
-    if env:
-        effective_env.update(env)
+    effective_env = {
+        "CLAUDE_SETTINGS_PATH": str(settings_path),
+        "SKIP_FORMAT": "1",
+        **({} if env is None else env),
+    }
     return subprocess.run(
         [str(HOOK)],
         cwd=tmp_path,
@@ -97,22 +92,6 @@ def test_common_change_forces_full_suite(tmp_path):
 
     assert "Изменены только некодовые файлы" in result.stderr
     assert "Запуск тестов" not in result.stderr
-
-
-def test_git_prefix_paths_are_normalized_for_code_changes(tmp_path):
-    git_init(tmp_path)
-    project = tmp_path / "aidd"
-    project.mkdir(parents=True, exist_ok=True)
-    write_active_stage(project, "implement")
-    write_active_feature(project, "demo")
-    (project / "src/main/kotlin").mkdir(parents=True, exist_ok=True)
-    (project / "src/main/kotlin/App.kt").write_text("class App", encoding="utf-8")
-    settings = write_settings(project, {})
-
-    result = run_hook(project, settings, env={"FORCE_TESTS": "1"})
-
-    assert "Запуск тестов" in result.stderr
-    assert "Изменены только некодовые файлы" not in result.stderr
 
 
 def test_reviewer_marker_forces_full_suite(tmp_path):

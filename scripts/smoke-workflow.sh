@@ -526,18 +526,18 @@ log "smoke scenario passed"
 popd >/dev/null
 popd >/dev/null
 
-log "negative scenario: gate skips on incorrect target without aidd workflow"
+log "negative scenario: gate fails on incorrect target without aidd workflow"
 BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claude-workflow-smoke-bad-target.XXXXXX")"
 set +e
-bad_output="$(cd "$BAD_DIR" && CLAUDE_PROJECT_DIR="$BAD_DIR" CLAUDE_PLUGIN_ROOT="$BAD_DIR" AIDD_ROOT= "$WORKDIR/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+bad_output="$(CLAUDE_PROJECT_DIR="$BAD_DIR" CLAUDE_PLUGIN_ROOT="$BAD_DIR" AIDD_ROOT= "$WORKDIR/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
 bad_rc=$?
 set -e
-if [[ "$bad_rc" -ne 0 ]]; then
-  echo "[smoke] expected gate-workflow to skip when root missing" >&2
+if [[ "$bad_rc" -eq 0 ]]; then
+  echo "[smoke] expected gate-workflow to fail for missing aidd/docs" >&2
   echo "$bad_output" >&2
   exit 1
 fi
-echo "$bad_output" | grep -qi "root not found" || {
+echo "$bad_output" | grep -qi "aidd/docs not found" || {
   echo "[smoke] unexpected gate-workflow output for bad target:" >&2
   echo "$bad_output" >&2
   exit 1

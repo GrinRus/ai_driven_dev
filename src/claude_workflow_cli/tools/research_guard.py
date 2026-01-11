@@ -8,7 +8,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, Optional
 
-from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 class ResearchValidationError(RuntimeError):
     """Raised when researcher validation fails."""
@@ -240,10 +239,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    try:
-        root = require_aidd_root(Path(args.target))
-    except AiddRootError as exc:
-        parser.exit(2, f"{exc}\n")
+    root = Path(args.target).resolve()
     if not (root / "docs").exists():
         parser.exit(1, f"BLOCK: expected aidd/docs at {root / 'docs'}. Run 'claude-workflow init --target <workspace>' to install payload.")
     settings = load_settings(root)

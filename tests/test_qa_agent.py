@@ -26,7 +26,6 @@ class QaAgentTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="qa-agent-test-")
         self.root = Path(self._tmp.name)
         self.project_root = ensure_project_root(self.root)
-        (self.project_root / "docs").mkdir(parents=True, exist_ok=True)
         git_init(self.project_root)
         git_config_user(self.project_root)
 

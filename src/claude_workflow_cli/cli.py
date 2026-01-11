@@ -23,9 +23,9 @@ from claude_workflow_cli.feature_ids import (
     FeatureIdentifiers,
     read_identifiers,
     resolve_identifiers,
+    resolve_project_root as resolve_aidd_root,
     write_identifiers,
 )
-from claude_workflow_cli.paths import AiddRootError, require_aidd_root
 
 from claude_workflow_cli import progress as _progress
 from claude_workflow_cli.tools.analyst_guard import (
@@ -119,14 +119,6 @@ def _require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
         f"bootstrap via 'claude-workflow init --target {workspace_root}' "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
-
-
-def _require_aidd_root_for_cli(raw_target: Path) -> Optional[Path]:
-    try:
-        return require_aidd_root(raw_target)
-    except AiddRootError as exc:
-        print(str(exc), file=sys.stderr)
-        return None
 
 
 def _normalize_stage(value: str) -> str:
@@ -499,9 +491,7 @@ def _smoke_command(args: argparse.Namespace) -> None:
 
 
 def _set_active_stage_command(args: argparse.Namespace) -> int:
-    root = _require_aidd_root_for_cli(Path(args.target))
-    if root is None:
-        return 2
+    root = resolve_aidd_root(Path(args.target))
     stage = _normalize_stage(args.stage)
     if not args.allow_custom and stage not in VALID_STAGES:
         valid = ", ".join(sorted(VALID_STAGES))
@@ -516,9 +506,7 @@ def _set_active_stage_command(args: argparse.Namespace) -> int:
 
 
 def _set_active_feature_command(args: argparse.Namespace) -> int:
-    root = _require_aidd_root_for_cli(Path(args.target))
-    if root is None:
-        return 2
+    root = resolve_aidd_root(Path(args.target))
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -555,9 +543,7 @@ def _set_active_feature_command(args: argparse.Namespace) -> int:
 
 
 def _identifiers_command(args: argparse.Namespace) -> int:
-    root = _require_aidd_root_for_cli(Path(args.target))
-    if root is None:
-        return 2
+    root = resolve_aidd_root(Path(args.target))
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     if args.json:
         payload = {

@@ -45,7 +45,7 @@ Updated: YYYY-MM-DD
 ## 2. Реализация
 - [ ] Код реализован в целевых модулях, тесты покрывают новые ветви (укажите путь к diff и лог тестов).
 - [ ] Учтены негативные сценарии, feature flags/конфиги обновлены (`config/*.json`, `settings/*.yaml`).
-- [ ] `${AIDD_ROOT:-${CLAUDE_PLUGIN_ROOT:-./aidd}}/hooks/format-and-test.sh` и ручные команды (например, `pytest`, `npm test`, `go test`) выполняются без ошибок (приложите выдержки).
+- [ ] `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` и ручные команды (например, `pytest`, `npm test`, `go test`) выполняются без ошибок (приложите выдержки).
 
 ## 3. QA / Проверки
 - [ ] Обновлены тест-кейсы и тестовые данные (ссылки на `docs/testcases/*.md` или `tests/**`).

@@ -45,8 +45,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 3012,
-      "sha256": "38fa9534a9e2ae6e66e02ff6dd800e0feec1db1b1bfdf788e17f0028b884264b"
+      "size": 2984,
+      "sha256": "ae026076b60b00f0f79b0326a4e26f97cfdd4aa62125373afe80bc6818b5ffea"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
@@ -99,8 +99,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 3056,
-      "sha256": "7503caebac42732ddbeb5f07b1ab9fa11ca1f84fa6912e5fd7f0a09df7c799ac"
+      "size": 3028,
+      "sha256": "fdb0be375eeaf331f27413d0f97b241927bc3921ca811cf28e7ec0e9f5c0f1b4"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -165,8 +165,8 @@
     {
       "path": "aidd/conventions.md",
       "type": "file",
-      "size": 2246,
-      "sha256": "b1424c738edf1da1d70cb7ab1d4f64c7dc13b60b5060063ca035bb477b9472fd"
+      "size": 2105,
+      "sha256": "1689a1198dcb2661fa69d533819c5f3d461311ede068ccd51ee5d856e3e896f3"
     },
     {
       "path": "aidd/docs/adr/.gitkeep",
@@ -225,8 +225,8 @@
     {
       "path": "aidd/docs/sdlc-flow.md",
       "type": "file",
-      "size": 2818,
-      "sha256": "cd9a976e2fba157e87e9733f730149311f3d4c15f0414cc699307d48ff79602b"
+      "size": 2619,
+      "sha256": "5c50721c8036b211f445ca758e23a03b7dbab02163bee4638cc7a3495f9f4ada"
     },
     {
       "path": "aidd/docs/status-machine.md",
@@ -243,14 +243,14 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6575,
-      "sha256": "7bb55cb758f54391526b2ba9295fae47f3e48ec4e69c5c6e187b40ac67883581"
+      "size": 6561,
+      "sha256": "5cefec6a8f675f96cc0f64b22e67190373c495d78df34e95b7a5c8b9a75f7e6a"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 25173,
-      "sha256": "6da1da236d03e6648b4e66edc2bf399bf1af5d8bc3c1f52fe9c9d35e96607ffc"
+      "size": 23805,
+      "sha256": "be40611a4198c70a8ea787172c573e90cfb7909a2d1c3b6e280b65edb9644f1f"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -267,26 +267,26 @@
     {
       "path": "aidd/hooks/gate-prd-review.sh",
       "type": "file",
-      "size": 1925,
-      "sha256": "6f2d68472534d86db78b3f856c0f78bd0aa4430ddb69003db58a2ff30f3b1a5d"
+      "size": 1681,
+      "sha256": "05f7a74a2b5e03e7da320bc89602b4e37b102791132c50a8378064c069dc9b85"
     },
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 14486,
-      "sha256": "74521d1d94f33e54ba677ba05c8ab65ec145914e443e14ed8161af5fd5f851c2"
+      "size": 13921,
+      "sha256": "3964863534de0909ac08d07d3a00e9f7820c7e0daa37c830c76f707785c601a4"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 14971,
-      "sha256": "30304b299584557f010318fb6ad7458a4d970e4c9a7af0c8b08aeaa580a3c06f"
+      "size": 14222,
+      "sha256": "f0a2dc5c7459629ebc819a5251749867ed51d4bcadc471bb297023e0c1206cc8"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 18408,
-      "sha256": "7cd0142c5b5261a8933cd31ddaf3932796061368b1ac40bd888f52454985f70b"
+      "size": 17785,
+      "sha256": "f2e2228867b0a2def198e6435f3f731387fb5d7d0e1f91fe2259a6983e8f17d2"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -297,14 +297,14 @@
     {
       "path": "aidd/hooks/lib.sh",
       "type": "file",
-      "size": 8145,
-      "sha256": "30c5dbde51f134b4763992d53d87b8e216145889b262af6ed9d55aecbbb10725"
+      "size": 5110,
+      "sha256": "e20db2950493ec4abb59cddd12f5148e53a2be01fb4e3408d208665adafa9bd0"
     },
     {
       "path": "aidd/hooks/lint-deps.sh",
       "type": "file",
-      "size": 1815,
-      "sha256": "33b98caf83ba7d6808598a392543da26e70b2e3ac3f128a8f321af8793262893"
+      "size": 1582,
+      "sha256": "01d38bca82a045332d030e25f99beca8c615aef4430b6cfd38fc4b7066311ec2"
     },
     {
       "path": "aidd/init-claude-workflow.sh",
@@ -321,8 +321,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 18388,
-      "sha256": "d0f76aed529739610398b3a856ff145e1be39101e81a4d5682e6bf69e3649f04"
+      "size": 18380,
+      "sha256": "cdd55ecb0f633c7e39ac0cb57d687974f27a5b4a32dd06711f3ea4d8a39e5ea0"
     }
   ]
 }

@@ -2,14 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
+  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" ]]; then
+  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
+  exit 2
+fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
-ROOT_DIR="$(hook_project_root)"
-if [[ -z "$ROOT_DIR" ]]; then
-  echo "[gate-qa] WARN: aidd root not found; skipping gate." >&2
-  exit 0
-fi
-export ROOT_DIR
 
 usage() {
   cat <<'EOF'
@@ -92,14 +95,16 @@ dry_run=0
 [[ "${CLAUDE_QA_DRY_RUN:-0}" == "1" ]] && dry_run=1
 (( manual_dry == 1 )) && dry_run=1
 
+cd "$ROOT_DIR"
+
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage "$ROOT_DIR/docs/.active_stage" || true)"
+  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
   if [[ "$active_stage" != "qa" ]]; then
     exit 0
   fi
 fi
 
-CONFIG_PATH="$ROOT_DIR/config/gates.json"
+CONFIG_PATH="config/gates.json"
 if [[ ! -f "$CONFIG_PATH" ]]; then
   echo "[gate-qa] WARN: не найден $CONFIG_PATH — QA-гейт пропущен." >&2
   exit 0
@@ -250,7 +255,7 @@ done
 
 [[ "$qa_enabled" == "1" ]] || exit 0
 
-branch="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
 [[ -n "$branch" ]] || branch="detached"
 
 if ((${#qa_branches[@]} > 0)); then
@@ -277,12 +282,6 @@ if ((${#qa_skip[@]} > 0)); then
 fi
 
 file_path="$(hook_payload_file_path "$payload")"
-if [[ -n "$file_path" && "$file_path" == /* && "$file_path" == "$ROOT_DIR"/* ]]; then
-  file_path="${file_path#"$ROOT_DIR"/}"
-fi
-if [[ -n "$file_path" && "$file_path" == aidd/* ]]; then
-  file_path="${file_path#aidd/}"
-fi
 if [[ -n "$file_path" ]]; then
   case "$file_path" in
     docs/qa/*|reports/qa/*)
@@ -298,25 +297,13 @@ if [[ -n "$file_path" ]]; then
   esac
 fi
 
-ticket_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_ticket_source "$ROOT_DIR/docs/.active_ticket")"
-slug_hint_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_slug_hint_source "$ROOT_DIR/docs/.active_feature")"
-if [[ -n "$ticket_source" && "$ticket_source" == aidd/* ]]; then
-  ticket_source="$ROOT_DIR/${ticket_source#aidd/}"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* ]]; then
-  slug_hint_source="$ROOT_DIR/${slug_hint_source#aidd/}"
-fi
-if [[ -n "$ticket_source" && "$ticket_source" != /* ]]; then
-  ticket_source="$ROOT_DIR/$ticket_source"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" != /* ]]; then
-  slug_hint_source="$ROOT_DIR/$slug_hint_source"
-fi
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
 slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 
 if ((${#qa_requires[@]} > 0)); then
-  tests_mode="$(hook_config_get_str "$ROOT_DIR/config/gates.json" tests_required disabled)"
+  tests_mode="$(hook_config_get_str config/gates.json tests_required disabled)"
   for req in "${qa_requires[@]}"; do
     req_norm="$(printf '%s' "$req" | tr '[:upper:]' '[:lower:]')"
     case "$req_norm" in
@@ -327,7 +314,7 @@ if ((${#qa_requires[@]} > 0)); then
         fi
         ;;
       gate-api-contract)
-        if [[ "$(hook_config_get_bool "$ROOT_DIR/config/gates.json" api_contract)" != "1" ]]; then
+        if [[ "$(hook_config_get_bool config/gates.json api_contract)" != "1" ]]; then
           echo "[gate-qa] WARN: qa.requires содержит gate-api-contract, но гейт отключён." >&2
         fi
         ;;
@@ -397,9 +384,6 @@ fi
 report_path="$qa_report"
 if [[ -n "$report_path" ]]; then
   report_path="$(replace_placeholders "$report_path")"
-  if [[ "$report_path" != /* ]]; then
-    report_path="$ROOT_DIR/$report_path"
-  fi
   runner+=("--report" "$report_path")
 fi
 
@@ -412,11 +396,11 @@ if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
   fi
   if [[ "$debounce_minutes" =~ ^[0-9]+$ ]] && (( debounce_minutes > 0 )); then
     now_ts="$(date +%s)"
-    stamp_dir="$ROOT_DIR/reports/qa"
+    stamp_dir="reports/qa"
     if [[ -n "$report_path" ]]; then
       stamp_dir="$(dirname "$report_path")"
     fi
-    stamp_dir="${stamp_dir:-$ROOT_DIR/reports/qa}"
+    stamp_dir="${stamp_dir:-reports/qa}"
     stamp_path="${stamp_dir}/.gate-qa.${ticket:-unknown}.stamp"
     if [[ -f "$stamp_path" ]]; then
       last_ts="$(cat "$stamp_path" 2>/dev/null || true)"

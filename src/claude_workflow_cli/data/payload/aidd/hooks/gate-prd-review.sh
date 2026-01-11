@@ -2,42 +2,34 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
+  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" ]]; then
+  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
+  exit 2
+fi
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
-ROOT_DIR="$(hook_project_root)"
-if [[ -z "$ROOT_DIR" ]]; then
-  echo "[gate-prd-review] WARN: aidd root not found; skipping gate." >&2
-  exit 0
-fi
-export ROOT_DIR
-ROOT_PREFIX="$(hook_root_prefix "$ROOT_DIR")"
 
 payload="$(cat)"
 file_path="$(hook_payload_file_path "$payload")"
-file_path="$(hook_normalize_path "$ROOT_DIR" "$file_path" "$ROOT_PREFIX")"
 
-ticket_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_ticket_source "$ROOT_DIR/docs/.active_ticket")"
-slug_hint_source="$(hook_config_get_str "$ROOT_DIR/config/gates.json" feature_slug_hint_source "$ROOT_DIR/docs/.active_feature")"
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
 if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
   exit 0
-fi
-if [[ -n "$ticket_source" && "$ticket_source" == aidd/* ]]; then
-  ticket_source="$ROOT_DIR/${ticket_source#aidd/}"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* ]]; then
-  slug_hint_source="$ROOT_DIR/${slug_hint_source#aidd/}"
-fi
-if [[ -n "$ticket_source" && "$ticket_source" != /* ]]; then
-  ticket_source="$ROOT_DIR/$ticket_source"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" != /* ]]; then
-  slug_hint_source="$ROOT_DIR/$slug_hint_source"
 fi
 ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
 slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
 [[ -n "$ticket" ]] || exit 0
 
-branch="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 
 if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$branch" --skip-on-prd-edit)"; then
   if [[ -n "$review_msg" ]]; then
