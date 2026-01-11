@@ -247,12 +247,6 @@
       "sha256": "3af81859a258a9b12b02ebde9a4d2e8eff5b48b08d1cb7e9800ccae8259fdac0"
     },
     {
-      "path": "aidd/docs/cli-migration.md",
-      "type": "file",
-      "size": 1650,
-      "sha256": "1db27dbfed066249f51acd6ead2dc0d0ae8c77cec6ba9f7a3a5b4e856de9c7f3"
-    },
-    {
       "path": "aidd/docs/index/schema.json",
       "type": "file",
       "size": 385,
@@ -281,12 +275,6 @@
       "type": "file",
       "size": 7247,
       "sha256": "43f3f801e29288ee62dda60d2f19a408c7ad169a8481d686024ce630f0b3adb3"
-    },
-    {
-      "path": "aidd/docs/reports-format.md",
-      "type": "file",
-      "size": 5785,
-      "sha256": "854ad60f6e1fa8209103e1dcce36222d3ee5c212433123ecebe8818e26603be6"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -323,18 +311,6 @@
       "type": "file",
       "size": 5221,
       "sha256": "a1f65732b6fdd86740bccdb5267d1901985842b3fbc889ba22ac8c8b4f46576f"
-    },
-    {
-      "path": "aidd/docs/tickets/template.yaml",
-      "type": "file",
-      "size": 785,
-      "sha256": "8e2c6782c27aca2492ecfd6468e21d5f3ed361c166fec7acd8a6a97361ad7f3e"
-    },
-    {
-      "path": "aidd/docs/workflow.md",
-      "type": "file",
-      "size": 777,
-      "sha256": "524758b7426c6464ed48d960928edacf97c662e6d34d4fd883c58f8b07d62d13"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",

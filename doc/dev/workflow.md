@@ -8,6 +8,25 @@
 > Payload обновляйте через CLI: `claude-workflow init --target .` (bootstrap), `claude-workflow sync|upgrade` для подтяжки шаблонов и `claude-workflow smoke` для быстрой проверки гейтов.
 > **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/prd, docs/adr, docs/plan, docs/tasklist, docs/research, commands, agents, hooks, reports) — это развернутый snapshot. Каталог `aidd/reports/prd` разворачивается при `claude-workflow init` (payload включает `.gitkeep`), ручной `mkdir` не нужен. Канонические правки делайте в `aidd/**`, затем синхронизируйте в payload через `scripts/sync-payload.sh --direction=from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 > Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; working set (`aidd/reports/context/latest_working_set.md`) — первый источник при наличии.
+
+## Context pack
+
+Создать компактный контекст по якорям можно командой:
+
+```
+claude-workflow context-pack --ticket <TICKET> --agent <agent>
+```
+
+Файл сохраняется в `aidd/reports/context/<ticket>-<agent>.md`.
+
+## Test cadence
+
+Поле `.claude/settings.json → automation.tests.cadence` управляет автозапуском тестов:
+- `on_stop` — запуск по Stop/SubagentStop (по умолчанию).
+- `checkpoint` — запуск после `claude-workflow progress`.
+- `manual` — запуск только при явном запросе.
+
+Для ручного триггера используйте `AIDD_TEST_CHECKPOINT=1` или явный `AIDD_TEST_PROFILE`.
 ## Обзор этапов
 
 | Этап | Команда | Саб-агент | Основные артефакты |
