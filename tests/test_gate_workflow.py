@@ -178,8 +178,6 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
-    script_src = PAYLOAD_ROOT / "scripts" / "tasklist-check.py"
-    write_file(tmp_path, "scripts/tasklist-check.py", script_src.read_text(encoding="utf-8"))
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     text = tasklist_path.read_text(encoding="utf-8")
     text = text.replace("DoD: done", "DoD: ...", 1)

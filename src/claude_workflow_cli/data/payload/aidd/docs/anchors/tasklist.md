@@ -47,4 +47,4 @@
 
 ## Output contract
 - Tasklist готов к /implement.
-- (Опционально) preflight: `python3 aidd/scripts/tasklist-check.py --ticket <ticket>`.
+- (Опционально) preflight: `claude-workflow tasklist-check --ticket <ticket>`.

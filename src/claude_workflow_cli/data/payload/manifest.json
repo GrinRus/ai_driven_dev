@@ -1,12 +1,6 @@
 {
   "files": [
     {
-      "path": ".claude-plugin/marketplace.json",
-      "type": "file",
-      "size": 338,
-      "sha256": "8fb9c7d6670014e9eaa8d180abe8f5e392f054031a8a8fb3fec5aecdb65c32ee"
-    },
-    {
       "path": ".claude/cache/.gitkeep",
       "type": "file",
       "size": 1,
@@ -17,6 +11,12 @@
       "type": "file",
       "size": 7133,
       "sha256": "fa95b93dce5d6354f5ae0dfbc8f626d6eafa8ecb4d8e3e5133aaa5f956011fb1"
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "type": "file",
+      "size": 338,
+      "sha256": "8fb9c7d6670014e9eaa8d180abe8f5e392f054031a8a8fb3fec5aecdb65c32ee"
     },
     {
       "path": "aidd/.claude-plugin/plugin.json",
@@ -249,8 +249,8 @@
     {
       "path": "aidd/docs/anchors/tasklist.md",
       "type": "file",
-      "size": 1916,
-      "sha256": "e35bd3f2e351b6faa2cd28136d90e1616f936cb993f20e5bfc3fb1d5b9349188"
+      "size": 1908,
+      "sha256": "f149b8744e97775041b13ae104ad47af0ac3a30c028703f02381daf6add01378"
     },
     {
       "path": "aidd/docs/index/schema.json",
@@ -357,8 +357,8 @@
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 24001,
-      "sha256": "47e51e8cd55dc0466783bf03fba16015f98a6b1e0b67cc7b98f1d79e9ce25727"
+      "size": 22402,
+      "sha256": "6458ef5dff24cdf2f59b9612573ea3bc8dea848a7d081d3dd99e2886f3277a24"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -429,14 +429,8 @@
     {
       "path": "aidd/scripts/tasklist-check.py",
       "type": "file",
-      "size": 6299,
-      "sha256": "8c96af515519ff7ef75f9627b3303f3a8647ab18dd5a9d1f28b89b3ba7db348b"
-    },
-    {
-      "path": "manifest.json",
-      "type": "file",
-      "size": 13748,
-      "sha256": "c18316c39eda5dad7f1afefae9334af0dca5c5d5a51d225b0e2c30d11823fa4d"
+      "size": 374,
+      "sha256": "226bae5b3bf0b98221656bcec8b1345c20f17ebd008535f936736422609fa52c"
     },
     {
       "path": "smoke-workflow.sh",
