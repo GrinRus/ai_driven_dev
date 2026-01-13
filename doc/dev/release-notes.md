@@ -34,7 +34,6 @@
 
 - [ ] Обновить `README.md` и `README.en.md` (TL;DR, список фич, ссылки на новые документы).
 - [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
-- [ ] Обновить демо (`examples/`) и убедиться, что `examples/apply-demo.sh` отрабатывает без ошибок.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить локальный прогон CI lint (см. `.github/workflows/ci.yml`).
 - [ ] Проверить промпты: `python3 scripts/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part patch --dry-run`, затем `python3 scripts/lint-prompts.py --root <workflow-root>` и pytest промптов.

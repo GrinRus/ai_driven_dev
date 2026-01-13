@@ -15,7 +15,7 @@
    - Вынести repo-only скрипты из `aidd/` в `scripts/`/`tools/`.
    - Обновить документацию и ссылки, поправить manifest/тесты.
 4. **Упорядочить корень репозитория.**
-   - Сгруппировать dev-only материалы (design/backlog/examples/tests) и обновить README/CONTRIBUTING.
+   - Сгруппировать dev-only материалы (design/backlog/tests) и обновить README/CONTRIBUTING.
    - Добавить раздел "Состав репозитория" с явным разделением.
 5. **Закрепить аудит в процессах.**
    - Использовать `python3 tools/payload_audit.py` как обязательную проверку перед тегом.
