@@ -94,7 +94,7 @@ def is_placeholder(value: str) -> bool:
 
 
 def extract_field_value(item: str, field: str) -> str | None:
-    pattern = re.compile(rf"^\s*{re.escape(field)}\s*:\s*(.*)$", re.IGNORECASE)
+    pattern = re.compile(rf"^\s*(?:[-*]\s*)?{re.escape(field)}\s*:\s*(.*)$", re.IGNORECASE)
     for line in item.splitlines():
         match = pattern.match(line)
         if match:
