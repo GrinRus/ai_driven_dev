@@ -279,8 +279,8 @@
     {
       "path": "aidd/docs/prd/template.md",
       "type": "file",
-      "size": 7247,
-      "sha256": "43f3f801e29288ee62dda60d2f19a408c7ad169a8481d686024ce630f0b3adb3"
+      "size": 6646,
+      "sha256": "913faa4c723efd3aebeae5b0a65bfb71ae142793fad436bf790ff1708757bf79"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
