@@ -14,7 +14,7 @@ permissionMode: default
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/implement.md`
-- `AIDD:*` секции tasklist
+- `AIDD:*` секции tasklist (включая `AIDD:SPEC_PACK` и `AIDD:NEXT_3`)
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
@@ -61,6 +61,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или статусы не READY — остановись и попроси `/plan-new`/`/tasks-new`/ревью.
+- Если `AIDD:SPEC Status` != `READY` — `Status: BLOCKED`, `Next actions: /tasks-new` для завершения интервью/refinement.
 - Тесты падают — не продолжай без исправления или явного разрешения на skip.
 - Если нужно выйти за рамки плана — сначала обнови план/tasklist или получи согласование.
 

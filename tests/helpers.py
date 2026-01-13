@@ -141,6 +141,11 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "optional_values": ["optional", "skipped", "not-required"],
         "warn_on_missing": True,
     },
+    "tasklist_spec": {
+        "enabled": True,
+        "branches": ["feature/*", "release/*", "hotfix/*"],
+        "skip_branches": ["docs/*"],
+    },
     "tasklist_progress": {
         "enabled": True,
         "code_prefixes": [
@@ -253,6 +258,62 @@ def write_file(root: pathlib.Path, relative: str, content: str = "") -> pathlib.
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return target
+
+
+def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
+    return (
+        "---\n"
+        f"Ticket: {ticket}\n"
+        "Status: READY\n"
+        "Updated: 2024-01-01\n"
+        "---\n\n"
+        "## AIDD:SPEC\n"
+        "Status: READY\n\n"
+        "## AIDD:INTERVIEW\n"
+        "Passes:\n\n"
+        "- [x] Pass 1 — UI/UX & journeys\n"
+        "- [x] Pass 2 — Technical design & tradeoffs\n"
+        "- [x] Pass 3 — Tests/Rollout/Observability\n"
+        "- [x] Spec READY (AIDD:SPEC Status: READY)\n\n"
+        "Coverage checklist (DoD интервью):\n\n"
+        "- [x] UI: happy + 3–5 edge/failure + loading/empty + permissions + a11y/i18n\n"
+        "- [x] Tech: FE/BE/mobile границы + контракты + retries/error handling + idempotency\n"
+        "- [x] Data: миграции/совместимость/консистентность\n"
+        "- [x] Tradeoffs: A vs B → почему + последствия\n"
+        "- [x] Tests: unit/integration/contract/e2e + heavy budget + когда FULL\n"
+        "- [x] Rollout: flag + этапы + rollback\n"
+        "- [x] No blocker open questions\n\n"
+        "Question queue (append-only):\n\n"
+        "## AIDD:OPEN_QUESTIONS\n"
+        "- (Non-blocker) none\n\n"
+        "## AIDD:NEXT_3\n"
+        "- [ ] Task 1\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n"
+        "- [ ] Task 2\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n"
+        "- [ ] Task 3\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n\n"
+        "## AIDD:HANDOFF_INBOX\n"
+    )
+
+
+def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout") -> pathlib.Path:
+    return write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
 
 
 def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathlib.Path:

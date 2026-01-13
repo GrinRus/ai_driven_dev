@@ -61,11 +61,20 @@
 
 ## Tasklist (`aidd/docs/tasklist/<ticket>.md`)
 
-Статусы:
-- `draft` — создан, но не синхронизирован с планом.
-- `READY` — отражает plan/review/qa handoff.
+Статусы tasklist (front matter):
+- `PENDING` — создан, но не синхронизирован с планом/интервью.
+- `BLOCKED` — есть блокеры в интервью или отсутствуют входные артефакты.
+- `READY` — tasklist готов к implement.
+- `WARN` — готов, но с предупреждениями.
+
+Статусы spec (внутри tasklist):
+- `AIDD:SPEC Status: DRAFT` — интервью/решения не закрыты.
+- `AIDD:SPEC Status: READY` — интервью закрыто, решения зафиксированы.
 
 Кто выставляет: `/tasks-new` и агент‑исполнитель.
+
+Готовность:
+- `Tasklist READY` требует `AIDD:SPEC Status: READY` и закрытого coverage checklist.
 
 ## Review / QA Reports
 
@@ -80,4 +89,4 @@
 
 - Без `PRD READY` и успешного `research-check` нельзя переходить к планированию.
 - Без `Plan READY` и `Plan Review READY` нельзя начинать `review-prd` (через `/review-spec`) и `tasks`.
-- Без `PRD Review READY` и `Tasklist READY` нельзя менять код (`implement/review/qa`).
+- Без `PRD Review READY` и `Tasklist READY` (включая `AIDD:SPEC Status: READY`) нельзя менять код (`implement/review/qa`).

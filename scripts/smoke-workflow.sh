@@ -417,6 +417,121 @@ log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
   cp "docs/tasklist/template.md" "docs/tasklist/${TICKET}.md"
 fi
+log "mark tasklist spec ready"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/tasklist") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+
+
+def find_section(text: str, title: str) -> tuple[int | None, int | None]:
+    matches = list(section_re.finditer(text))
+    for idx, match in enumerate(matches):
+        if match.group(1).strip() == title:
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            return start, end
+    return None, None
+
+
+def replace_section(text: str, title: str, new_body: str) -> str:
+    start, end = find_section(text, title)
+    if start is None or end is None:
+        return text
+    return text[:start] + "\n" + new_body.strip("\n") + "\n\n" + text[end:]
+
+
+spec_start, spec_end = find_section(text, "AIDD:SPEC")
+if spec_start is not None and spec_end is not None:
+    spec_body = text[spec_start:spec_end]
+    lines = []
+    updated = False
+    for line in spec_body.splitlines():
+        if line.strip().startswith("Status:"):
+            lines.append("Status: READY")
+            updated = True
+        else:
+            lines.append(line)
+    if not updated:
+        lines.insert(0, "Status: READY")
+    text = replace_section(text, "AIDD:SPEC", "\n".join(lines))
+
+
+pack_start, pack_end = find_section(text, "AIDD:SPEC_PACK")
+if pack_start is not None and pack_end is not None:
+    pack_body = text[pack_start:pack_end]
+    lines = pack_body.splitlines()
+    updated = False
+    new_lines = []
+    for line in lines:
+        if not updated and re.match(r"^\s*status:\s*", line):
+            indent = re.match(r"^\s*", line).group(0)
+            comment = ""
+            if "#" in line:
+                comment = " #" + line.split("#", 1)[1].strip()
+            new_lines.append(f'{indent}status: "READY"{comment}')
+            updated = True
+        else:
+            new_lines.append(line)
+    text = replace_section(text, "AIDD:SPEC_PACK", "\n".join(new_lines))
+
+interview_start, interview_end = find_section(text, "AIDD:INTERVIEW")
+if interview_start is not None and interview_end is not None:
+    interview_body = text[interview_start:interview_end]
+    lines = interview_body.splitlines()
+    new_lines = []
+    in_coverage = False
+    for line in lines:
+        if "coverage checklist" in line.lower():
+            in_coverage = True
+            new_lines.append(line)
+            continue
+        if in_coverage:
+            stripped = line.strip()
+            if stripped.startswith("##") or stripped.startswith("###") or stripped.lower().startswith("question queue"):
+                in_coverage = False
+                new_lines.append(line)
+                continue
+            if re.match(r"^\\s*-\\s+\\[\\s*\\]\\s+", line):
+                line = re.sub(r"\\[\\s*\\]", "[x]", line, count=1)
+            new_lines.append(line)
+        else:
+            new_lines.append(line)
+    text = replace_section(text, "AIDD:INTERVIEW", "\n".join(new_lines))
+
+text = replace_section(text, "AIDD:OPEN_QUESTIONS", "- (Non-blocker) none")
+next_3_body = f"""- [ ] Smoke: ready checkbox 1
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 2
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 3
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []"""
+text = replace_section(text, "AIDD:NEXT_3", next_3_body)
+
+path.write_text(text, encoding="utf-8")
+PY
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 

@@ -23,7 +23,8 @@
     "aidd/commands/*.md",
     "aidd/hooks/**",
     "aidd/config/**",
-    "aidd/docs/**"
+    "aidd/docs/**",
+    "aidd/scripts/**"
   ],
   "deny_globs": [
     "**/__pycache__/**",

@@ -1324,3 +1324,22 @@ _Статус: новый, приоритет 1. Цель — гарантиро
 - [x] Тесты на review handoff. **Deps:** review report + tasks-derive review. **AC:** отчёт ревью → задачи в handoff; `gate-workflow` блокирует при отсутствии записей. Файлы: `tests/test_tasks_derive.py`, `tests/test_gate_workflow.py`.
 - [x] Тесты на повторные запуски QA/Review. **Deps:** идемпотентность handoff. **AC:** двойной `tasks-derive` не добавляет дубликатов, обновляет существующие задачи по id; smoke‑сценарий проверяет повторный `/qa` и `/review`. Файлы: `tests/test_tasks_derive.py`, `scripts/smoke-workflow.sh`.
 - [x] Документация. **Deps:** все выше. **AC:** anchors `aidd/docs/anchors/qa.md` и `aidd/docs/anchors/review.md`, а также `/qa` и `/review` описывают auto‑handoff и формат источников; `reports-format.md` отражает review report. Файлы: `src/claude_workflow_cli/data/payload/aidd/docs/anchors/{qa,review}.md`, `src/claude_workflow_cli/data/payload/aidd/docs/reports-format.md`, `README.md`.
+
+## Wave 72
+
+_Статус: новый, приоритет 2. Цель — сделать tasklist “контейнером спеки” и выделить интервью в отдельного агента._
+
+### EPIC A — Tasklist spec-in-tasklist + interview agent
+- [x] Добавить `aidd/agents/tasklist-refiner.md`: интервью по plan/PRD/research, `AIDD:SPEC_PACK`, coverage checklist, non‑obvious questions; добавить payload‑копию и регистрацию в `src/claude_workflow_cli/data/payload/manifest.json`.
+- [x] Обновить `/tasks-new` до оркестратора (set-active-stage/feature → scaffold секций → запуск `tasklist-refiner`); синхронизировать `aidd/commands/tasks-new.md` и `src/claude_workflow_cli/data/payload/aidd/commands/tasks-new.md`.
+- [x] Расширить `aidd/docs/tasklist/template.md` (AIDD:SPEC/AIDD:SPEC_PACK/AIDD:INTERVIEW/AIDD:DECISIONS/AIDD:TEST_POLICY/AIDD:OPEN_QUESTIONS/AIDD:TASKLIST_REFINEMENT) и синхронизировать payload‑копию.
+- [x] Обновить `aidd/docs/anchors/tasklist.md` (DoD интервью, правило “non‑obvious questions only”, критерии READY) и синхронизировать payload‑копию.
+
+### EPIC B — Gates & readiness
+- [x] Добавить fail‑fast в `aidd/agents/implementer.md`: блокировать код, если `AIDD:SPEC Status != READY`, с `Next actions: /tasks-new`; синхронизировать payload‑копию.
+- [x] (Опционально) Добавить `aidd/scripts/tasklist-check.py` и описать ручной запуск/интеграцию в `gate-workflow` или preflight `/implement`.
+
+### EPIC C — Docs + sync
+- [x] Обновить `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` под `tasklist-refiner` и требование `AIDD:SPEC READY`.
+- [x] Обновить `aidd/AGENTS.md` (чтение `AIDD:SPEC_PACK` после `AIDD:CONTEXT_PACK`) и синхронизировать payload‑копию.
+- [x] Прогнать `tools/check_payload_sync.py` и `scripts/sync-payload.sh --direction=to-root` после изменений.

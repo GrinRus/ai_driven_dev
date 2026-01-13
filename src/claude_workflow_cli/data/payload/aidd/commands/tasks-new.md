@@ -1,9 +1,9 @@
 ---
-description: "Сформировать чеклист задач (`aidd/docs/tasklist/<ticket>.md`) для фичи"
+description: "Tasklist: scaffold + интервью-агент для спецификации"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
@@ -17,7 +17,8 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/tasks-new` создаёт или пересобирает `aidd/docs/tasklist/<ticket>.md` на основе плана, PRD и ревью. Tasklist — основной источник для `/implement`, `/review`, `/qa`. Свободный ввод после тикета включи как примечание в чеклист.
+Команда `/tasks-new` готовит `aidd/docs/tasklist/<ticket>.md` (шаблон + anchors) и передаёт управление саб-агенту **tasklist-refiner**.
+Agent проводит глубокое интервью по plan/PRD/research, фиксирует решения в `AIDD:SPEC`/`AIDD:SPEC_PACK` и доводит чекбоксы до однозначных DoD/Boundaries/Tests.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/tasklist.md`.
 
 ## Входные артефакты
@@ -28,30 +29,31 @@ disable-model-invocation: false
 
 ## Когда запускать
 - После `/review-spec`, перед `/implement`.
-- Повторно — если план/PRD изменились.
+- Повторно — пока `AIDD:SPEC Status` не READY или изменились вводные.
 
 ## Автоматические хуки и переменные
 - `claude-workflow set-active-stage tasklist` фиксирует стадию `tasklist`.
+- `claude-workflow set-active-feature --target . <ticket>` фиксирует активную фичу.
+- Команда должна запускать саб-агента **tasklist-refiner** (Claude: Run agent → tasklist-refiner).
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `AIDD:NEXT_3`, `AIDD:CONTEXT_PACK`, `AIDD:HANDOFF_INBOX`.
+- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `AIDD:SPEC`, `AIDD:SPEC_PACK`, `AIDD:INTERVIEW`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `claude-workflow set-active-stage tasklist`.
-2. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
-3. Обнови фронт-маттер (Ticket/Slug/Status/PRD/Plan/Research/Updated).
-4. Перенеси шаги из плана в чеклист, добавь action items из PRD Review.
-5. Заполни `AIDD:NEXT_3` (первые три пункта фокуса).
-6. Заполни первичный `AIDD:CONTEXT_PACK` из плана (`AIDD:FILES_TOUCHED`, `AIDD:ITERATIONS`) и первого пункта `AIDD:NEXT_3`.
-7. Если есть handoff‑задачи — помести их в `AIDD:HANDOFF_INBOX`.
+2. Зафиксируй активную фичу: `claude-workflow set-active-feature --target . "$1"`.
+3. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
+4. Если секций `AIDD:SPEC`/`AIDD:SPEC_PACK`/`AIDD:INTERVIEW`/`AIDD:TASKLIST_REFINEMENT` нет — добавь их из шаблона.
+5. Запусти саб-агента **tasklist-refiner** и передай примечания из свободного ввода.
+6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:INTERVIEW`, `AIDD:NEXT_3` и чекбоксы refinement.
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/review-spec`.
 - Если непонятны владельцы/сроки — запроси уточнения.
 
 ## Ожидаемый вывод
-- Актуальный `aidd/docs/tasklist/<ticket>.md` с `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`.
+- Актуальный `aidd/docs/tasklist/<ticket>.md` с `AIDD:SPEC_PACK`, `AIDD:INTERVIEW`, `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`.
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

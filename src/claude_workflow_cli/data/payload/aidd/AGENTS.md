@@ -11,7 +11,7 @@
 
 ## MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/<stage>.md` — stage‑anchor.
-- `AIDD:*` секции ключевого артефакта роли (PRD/Plan/Tasklist/Research).
+- `AIDD:*` секции ключевого артефакта роли (PRD/Plan/Tasklist/Research); для tasklist читать `AIDD:CONTEXT_PACK → AIDD:SPEC_PACK → AIDD:NEXT_3`.
 - `aidd/reports/context/latest_working_set.md` — краткий рабочий контекст (если файл существует).
 
 ## READ-ONCE / READ-IF-CHANGED

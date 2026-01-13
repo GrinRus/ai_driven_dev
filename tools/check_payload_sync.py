@@ -18,6 +18,7 @@ DEFAULT_PATHS: list[str] = [
     "docs",
     "conventions.md",
     "hooks",
+    "scripts",
     "init-claude-workflow.sh",
     "reports",
 ]

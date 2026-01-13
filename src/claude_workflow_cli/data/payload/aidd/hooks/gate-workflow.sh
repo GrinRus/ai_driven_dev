@@ -338,12 +338,36 @@ ticket = sys.argv[1]
 tasklist = Path("docs") / "tasklist" / f"{ticket}.md"
 if not tasklist.exists():
     sys.exit(1)
-for raw in tasklist.read_text(encoding="utf-8").splitlines():
+
+lines = tasklist.read_text(encoding="utf-8").splitlines()
+start = None
+end = len(lines)
+for idx, line in enumerate(lines):
+    if line.strip().lower().startswith("## aidd:next_3"):
+        start = idx + 1
+        break
+if start is None:
+    sys.exit(1)
+for idx in range(start, len(lines)):
+    if lines[idx].strip().startswith("##"):
+        end = idx
+        break
+section = lines[start:end]
+
+
+def is_placeholder(text: str) -> bool:
+    lower = text.lower()
+    placeholders = ("<1.", "<2.", "<3.", "<ticket>", "<slug>", "<abc-123>")
+    return any(token in lower for token in placeholders)
+
+
+for raw in section:
     line = raw.strip()
-    if not line.startswith("- [ ]"):
+    if not line.startswith("- ["):
         continue
-    lower_line = line.lower()
-    if "<slug>" in lower_line or "<ticket>" in lower_line:
+    if not (line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]")):
+        continue
+    if is_placeholder(line):
         continue
     sys.exit(0)
 sys.exit(1)
@@ -354,6 +378,67 @@ then
 fi
 
 if [[ -n "$ticket" ]]; then
+  if ! tasklist_spec_block="$(python3 - "$ticket" "$current_branch" <<'PY'
+import json
+import subprocess
+import sys
+from fnmatch import fnmatch
+from pathlib import Path
+
+ticket = sys.argv[1]
+branch = sys.argv[2] if len(sys.argv) > 2 else ""
+config_path = Path("config/gates.json")
+if not config_path.exists():
+    raise SystemExit(0)
+try:
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+except Exception:
+    print("WARN: не удалось прочитать config/gates.json; пропускаем проверку tasklist spec.")
+    raise SystemExit(0)
+
+settings = config.get("tasklist_spec")
+if settings is None:
+    raise SystemExit(0)
+if isinstance(settings, bool):
+    settings = {"enabled": settings}
+if not settings or not settings.get("enabled", True):
+    raise SystemExit(0)
+
+branches = settings.get("branches")
+if branch and isinstance(branches, list) and branches:
+    if not any(fnmatch(branch, pattern) for pattern in branches if isinstance(pattern, str)):
+        raise SystemExit(0)
+
+skip_branches = settings.get("skip_branches")
+if branch and isinstance(skip_branches, list):
+    if any(fnmatch(branch, pattern) for pattern in skip_branches if isinstance(pattern, str)):
+        raise SystemExit(0)
+
+script_path = Path("scripts/tasklist-check.py")
+if not script_path.exists():
+    raise SystemExit(0)
+
+result = subprocess.run([sys.executable, str(script_path), "--ticket", ticket], capture_output=True, text=True)
+if result.returncode != 0:
+    output = (result.stdout + result.stderr).strip()
+    if output:
+        print(output)
+    else:
+        print(f"BLOCK: tasklist spec не готов для {ticket} → запустите /tasks-new {ticket}")
+    raise SystemExit(1)
+PY
+)"
+  then
+    if [[ -n "$tasklist_spec_block" ]]; then
+      echo "$tasklist_spec_block"
+    else
+      echo "BLOCK: tasklist spec не готов для ${ticket} → запустите /tasks-new ${ticket}"
+    fi
+    exit 2
+  fi
+  if [[ -n "$tasklist_spec_block" ]]; then
+    echo "$tasklist_spec_block" 1>&2
+  fi
   reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys

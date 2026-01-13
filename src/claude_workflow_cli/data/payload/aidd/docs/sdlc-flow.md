@@ -7,7 +7,7 @@
 3. **plan** → `/plan-new` → `planner` → `validator`
 4. **review-plan** → `/review-spec` → `plan-reviewer`
 5. **review-prd** → `/review-spec` → `prd-reviewer`
-6. **tasklist** → `/tasks-new`
+6. **tasklist** → `/tasks-new` → `tasklist-refiner`
 7. **implement** → `/implement` → `implementer`
 8. **review** → `/review` → `reviewer`
 9. **qa** → `/qa` → `qa`
@@ -23,7 +23,7 @@
 | plan | `/plan-new` | `planner` + `validator` | PRD READY, research | План + статус validator | `research-check` обязателен перед планом |
 | review-plan | `/review-spec` | `plan-reviewer` | План + research | `## Plan Review` в плане | Блокирует PRD review/`tasks` при BLOCKED |
 | review-prd | `/review-spec` | `prd-reviewer` | PRD + plan + research | `## PRD Review` + report | Блокирует `tasks`/код при BLOCKED |
-| tasklist | `/tasks-new` | — | План + PRD | Tasklist READY | Без tasklist нет implement |
+| tasklist | `/tasks-new` | `tasklist-refiner` | План + PRD | Tasklist READY + AIDD:SPEC READY | Без tasklist нет implement |
 | implement | `/implement` | `implementer` | План + tasklist | Код + обновлённый tasklist | `gate-workflow`, `gate-tests` |
 | review | `/review` | `reviewer` | Diff + tasklist | Findings + tasklist | `reviewer-tests` |
 | qa | `/qa` | `qa` | Tasklist + отчёты | QA report | `gate-qa` |

@@ -10,6 +10,7 @@ from .helpers import (
     write_active_feature,
     write_file,
     write_json,
+    write_tasklist_ready,
 )
 
 
@@ -49,21 +50,7 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
         f"docs/plan/{ticket}.md",
         "# Plan\n\n## Architecture & Patterns\n- service layer\n\n## Plan Review\nStatus: READY\n",
     )
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        (
-            "---\n"
-            f"Feature: {ticket}\n"
-            f"Status: draft\n"
-            f"PRD: docs/prd/{ticket}.prd.md\n"
-            f"Plan: docs/plan/{ticket}.md\n"
-            f"Research: docs/research/{ticket}.md\n"
-            "Updated: 2024-01-01\n"
-            "---\n\n"
-            "- [ ] initial task\n"
-        ),
-    )
+    write_tasklist_ready(tmp_path, ticket)
     write_json(
         tmp_path,
         f"reports/research/{ticket}-targets.json",
