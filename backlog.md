@@ -1337,7 +1337,7 @@ _Статус: новый, приоритет 2. Цель — сделать tas
 
 ### EPIC B — Gates & readiness
 - [x] Добавить fail‑fast в `aidd/agents/implementer.md`: блокировать код, если `AIDD:SPEC Status != READY`, с `Next actions: /tasks-new`; синхронизировать payload‑копию.
-- [x] (Опционально) Добавить `aidd/scripts/tasklist-check.py` и описать ручной запуск/интеграцию в `gate-workflow` или preflight `/implement`.
+- [x] (Опционально) Добавить `claude-workflow tasklist-check` и описать ручной запуск/интеграцию в `gate-workflow` или preflight `/implement`.
 
 ### EPIC C — Docs + sync
 - [x] Обновить `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` под `tasklist-refiner` и требование `AIDD:SPEC READY`.
