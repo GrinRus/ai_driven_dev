@@ -499,8 +499,8 @@ if interview_start is not None and interview_end is not None:
                 in_coverage = False
                 new_lines.append(line)
                 continue
-            if re.match(r"^\\s*-\\s+\\[\\s*\\]\\s+", line):
-                line = re.sub(r"\\[\\s*\\]", "[x]", line, count=1)
+            if re.match(r"^\s*-\s+\[\s*\]\s+", line):
+                line = re.sub(r"\[\s*\]", "[x]", line, count=1)
             new_lines.append(line)
         else:
             new_lines.append(line)

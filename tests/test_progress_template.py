@@ -92,3 +92,60 @@ def test_progress_detects_new_checkbox_without_modifying_tasklist(tmp_path):
 
     after = tasklist_path.read_text(encoding="utf-8")
     assert after == before
+
+
+def test_progress_blocks_without_new_checkbox_for_nested_root(tmp_path):
+    ticket = "demo-nested"
+    workspace_root = tmp_path
+    project_root = ensure_project_root(tmp_path)
+    git_init(workspace_root)
+    git_config_user(workspace_root)
+    ensure_gates_config(project_root)
+    write_active_feature(project_root, ticket)
+
+    write_file(
+        project_root,
+        f"docs/tasklist/{ticket}.md",
+        dedent(
+            """\
+            ---
+            Feature: demo-nested
+            Status: draft
+            Updated: 2024-01-01
+            ---
+
+            - [x] Baseline checkbox already checked
+            """
+        ),
+    )
+    write_file(workspace_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+
+    subprocess.run(["git", "add", "."], cwd=workspace_root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "feat: baseline"],
+        cwd=workspace_root,
+        check=True,
+        capture_output=True,
+    )
+
+    write_file(workspace_root, "src/main/App.kt", "class App { fun run() = \"changed\" }\n")
+
+    result = subprocess.run(
+        cli_cmd(
+            "progress",
+            "--target",
+            str(project_root),
+            "--ticket",
+            ticket,
+            "--source",
+            "implement",
+            "--json",
+        ),
+        cwd=workspace_root,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "error:no-checkbox"

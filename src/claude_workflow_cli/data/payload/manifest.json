@@ -441,8 +441,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 26144,
-      "sha256": "9c975cab462fa5562fd948193ef5f4222b1e1a12f1ccccf2b91192516e509062"
+      "size": 26135,
+      "sha256": "5b709d5672a31875afbfea1b7cb585fd979c93bf75e30f44ed413758635b421b"
     }
   ]
 }
