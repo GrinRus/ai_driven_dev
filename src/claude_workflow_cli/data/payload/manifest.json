@@ -51,8 +51,8 @@
     {
       "path": "aidd/agents/plan-reviewer.md",
       "type": "file",
-      "size": 3855,
-      "sha256": "c5d68dfd219bc458603437bca71a92a2dde90818f9806d5a4000580ba1b8d4c0"
+      "size": 3879,
+      "sha256": "820126ee1c8c58f2aa0ca1fffb40013000de0acca36a6f781a6504a31ccd4352"
     },
     {
       "path": "aidd/agents/planner.md",
@@ -459,8 +459,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 26712,
-      "sha256": "f7ed236c5e5fbe8cb3fd05ff422186359a1aca37dd26a4323f6f2b848201066d"
+      "size": 28732,
+      "sha256": "c04c1327a4d133f81e0d1415a13bebc57f798c6eb0206a54c1018eee939228c8"
     }
   ]
 }

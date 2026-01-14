@@ -39,7 +39,7 @@ permissionMode: default
 2. Проверь, что план содержит: список файлов/модулей, итерации с `iteration_id` и DoD, тест-стратегию на итерацию, миграции/feature flags, observability.
    Убедись, что план остаётся macro‑уровня (без чекбоксов, CLI-команд и микрошагов).
 3. Убедись, что риски и открытые вопросы явно перечислены, а dependencies/ADR учтены.
-4. Сформируй выводы: статус `READY|BLOCKED|PENDING`, summary (2–3 предложения), findings (severity + рекомендация), action items (чеклист).
+4. Сформируй выводы: статус `READY|BLOCKED|PENDING`, summary (2–3 предложения), findings (severity + рекомендация), action items (список без чекбоксов).
 5. Обнови раздел `## Plan Review` в `aidd/docs/plan/<ticket>.md`.
 
 ## Fail-fast и вопросы

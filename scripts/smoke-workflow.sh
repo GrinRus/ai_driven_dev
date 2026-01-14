@@ -584,6 +584,63 @@ PY
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 
+log "expect block when test execution incomplete"
+cp "docs/tasklist/${TICKET}.md" "docs/tasklist/${TICKET}.bak"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/tasklist") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+AIDD:TEST_EXECUTION\s*$", re.MULTILINE)
+match = section_re.search(text)
+if not match:
+    raise SystemExit("missing AIDD:TEST_EXECUTION")
+start = match.end()
+tail = text[start:]
+next_heading = re.search(r"^##\s+", tail, re.MULTILINE)
+end = start + (next_heading.start() if next_heading else len(tail))
+section_lines = text[start:end].splitlines()
+section_lines = [line for line in section_lines if "profile:" not in line]
+new_section = "\n".join(section_lines).strip("\n")
+text = text[:start] + "\n" + new_section + "\n\n" + text[end:]
+path.write_text(text, encoding="utf-8")
+PY
+assert_gate_exit 2 "missing test execution profile"
+mv "docs/tasklist/${TICKET}.bak" "docs/tasklist/${TICKET}.md"
+
+log "expect block when plan iteration missing from tasklist"
+cp "docs/plan/${TICKET}.md" "docs/plan/${TICKET}.bak"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/plan") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+AIDD:ITERATIONS\s*$", re.MULTILINE)
+match = section_re.search(text)
+if not match:
+    raise SystemExit("missing AIDD:ITERATIONS")
+start = match.end()
+tail = text[start:]
+next_heading = re.search(r"^##\s+", tail, re.MULTILINE)
+end = start + (next_heading.start() if next_heading else len(tail))
+section = text[start:end].rstrip("\n")
+section += "\n- iteration_id: I4\n  - Goal: extra scope\n"
+text = text[:start] + "\n" + section.lstrip("\n") + "\n" + text[end:]
+path.write_text(text, encoding="utf-8")
+PY
+assert_gate_exit 2 "plan iteration mismatch"
+mv "docs/plan/${TICKET}.bak" "docs/plan/${TICKET}.md"
+
 log "gate now allows source edits"
 CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
   run_cli set-active-stage --target . implement >/dev/null

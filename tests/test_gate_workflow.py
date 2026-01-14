@@ -204,6 +204,48 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     assert "next_3" in combined or "dod" in combined or "boundaries" in combined
 
 
+def test_tasklist_blocks_when_test_execution_missing(tmp_path):
+    ticket = "demo-checkout"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    text = tasklist_path.read_text(encoding="utf-8")
+    text = text.replace("- profile: none\n", "", 1)
+    tasklist_path.write_text(text, encoding="utf-8")
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "test_execution" in combined or "profile" in combined
+
+
+def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
+    ticket = "demo-checkout"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    plan_path = tmp_path / "docs" / "plan" / f"{ticket}.md"
+    with plan_path.open("a", encoding="utf-8") as fh:
+        fh.write("- iteration_id: I4\n  - Goal: extra scope\n")
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "iteration_id" in combined or "missing iteration" in combined
+
+
 def test_pending_baseline_allows_docs_only(tmp_path):
     ticket = "demo-checkout"
     write_active_feature(tmp_path, ticket)
