@@ -15,7 +15,7 @@
 - **Артефакты** — релевантные логи, отчёты нагрузочного тестирования, ссылки на
   демо или тестовые окружения.
 - **Research** — `aidd/docs/research/<ticket>.md` со статусом `Status: reviewed`, актуальный
-  `reports/research/<ticket>-context.json` (не старше установленного порога), ссылка
+  `aidd/reports/research/<ticket>-context.json` (не старше установленного порога), ссылка
   на отчёт проставлена в PRD и `aidd/docs/tasklist/<ticket>.md`.
 - **Diff** — локально агент анализирует рабочее дерево (`git diff HEAD` +
   незакоммиченные файлы). В CI добавьте `QA_AGENT_DIFF_BASE=origin/<base>`, чтобы
@@ -27,8 +27,8 @@
 ### Локально
 
 ```bash
-# обязательный запуск агента QA + запись JSON в reports/qa/<ticket>.json
-claude-workflow qa --ticket "<ticket>" --report "reports/qa/<ticket>.json" --gate
+# обязательный запуск агента QA + запись JSON в aidd/reports/qa/<ticket>.json
+claude-workflow qa --ticket "<ticket>" --report "aidd/reports/qa/<ticket>.json" --gate
 
 # dry-run (не проваливать выполнение при блокерах)
 CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
@@ -56,7 +56,7 @@ CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '
 | `info` | Наблюдения, идеи на будущее | INFO |
 
 `gate-qa.sh` печатает суммарную строку и каждое замечание отдельной записью с
-рекомендацией. JSON-отчёт лежит в `reports/qa/<ticket>.json`, если
+рекомендацией. JSON-отчёт лежит в `aidd/reports/qa/<ticket>.json`, если
 `allow_missing_report=false`.
 
 ## Переменные окружения

@@ -38,11 +38,11 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -50,7 +50,7 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:ARCHITECTURE",
         "AIDD:FILES_TOUCHED",
@@ -61,26 +61,22 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:INTEGRATION_POINTS",
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
+        "AIDD:TEST_HOOKS",
     ],
     "docs/tasklist/template.md": [
         "AIDD:CONTEXT_PACK",
-        "AIDD:NON_NEGOTIABLES",
-        "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
-        "AIDD:DECISIONS",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
-
 
 def build_agent(name: str) -> str:
     question = ""
@@ -383,6 +379,16 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("replace HTML escape", result.stderr)
+
+    def test_command_length_limit_fails(self) -> None:
+        long_tail = "\n".join([f"Extra line {idx}" for idx in range(220)])
+        long_command = build_command() + "\n" + long_tail + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, command_override={"implement": long_command})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exceeds max command length", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

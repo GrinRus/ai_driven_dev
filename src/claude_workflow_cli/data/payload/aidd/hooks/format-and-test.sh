@@ -226,10 +226,11 @@ DEFAULT_CODE_FILES = (
     "pom.xml",
 )
 
-DEFAULT_REVIEWER_MARKER = "reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
+CHECKPOINT_PATH = Path(".cache") / "test-checkpoint.json"
 
 
 def dedupe_preserve(items: Iterable[str]) -> Tuple[str, ...]:
@@ -320,14 +321,20 @@ def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: 
     return False
 
 
-def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None) -> Path:
+def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None, project_root: Path) -> Path:
     resolved = template.replace("{ticket}", ticket)
     if "{slug}" in template:
         resolved = resolved.replace("{slug}", slug_hint or ticket)
-    return Path(resolved)
+    path = Path(resolved)
+    if not path.is_absolute():
+        parts = path.parts
+        if parts and parts[0] == "aidd" and project_root.name == "aidd":
+            path = Path(*parts[1:])
+        path = project_root / path
+    return path
 
 
-def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) -> tuple[bool, str]:
+def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict, project_root: Path) -> tuple[bool, str]:
     marker_template = str(
         config.get("tests_marker")
         or config.get("marker")
@@ -369,7 +376,7 @@ def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict) ->
     if fallback_raw is None:
         fallback_raw = config.get("defaultValue", "")
     fallback_value = str(fallback_raw).strip().lower()
-    marker = reviewer_marker_path(marker_template, ticket, slug_hint)
+    marker = reviewer_marker_path(marker_template, ticket, slug_hint, project_root)
     if not marker.exists():
         return False, marker.as_posix()
     try:
@@ -619,6 +626,8 @@ def is_cache_artifact(path: str) -> bool:
         or path.startswith("aidd/.cache/")
         or path.startswith("reports/events/")
         or path.startswith("aidd/reports/events/")
+        or path.startswith("reports/tests/")
+        or path.startswith("aidd/reports/tests/")
     )
 
 
@@ -643,6 +652,58 @@ def parse_scope(value: str) -> List[str]:
         if chunk:
             append_unique(items, chunk)
     return items
+
+
+def normalize_cadence(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in {"checkpoint", "manual"}:
+        return raw
+    return "on_stop"
+
+
+def parse_checkpoint_triggers(value: object) -> Tuple[str, ...]:
+    if value is None:
+        return ("progress",)
+    if isinstance(value, (list, tuple)):
+        items = [str(item).strip().lower() for item in value if str(item).strip()]
+    else:
+        items = [chunk.strip().lower() for chunk in str(value).replace(",", " ").split() if chunk.strip()]
+    if not items:
+        return ("progress",)
+    return dedupe_preserve(items)
+
+
+def load_test_checkpoint(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {str(k): str(v) for k, v in payload.items() if v is not None}
+
+
+def resolve_checkpoint(project_root: Path, ticket: str, triggers: Tuple[str, ...]) -> Tuple[bool, str, Path]:
+    path = project_root / CHECKPOINT_PATH
+    payload = load_test_checkpoint(path)
+    if not payload:
+        return False, "", path
+    stored_ticket = (payload.get("ticket") or "").strip()
+    if stored_ticket and ticket and stored_ticket != ticket:
+        return False, "ticket-mismatch", path
+    trigger = (payload.get("trigger") or payload.get("source") or "").strip().lower()
+    if triggers and trigger and trigger not in triggers:
+        return False, f"trigger={trigger}", path
+    return True, trigger or "checkpoint", path
+
+
+def clear_checkpoint(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError:
+        return
 
 
 def determine_project_dir() -> Path:
@@ -885,9 +946,80 @@ def main() -> int:
     reviewer_marker_source = ""
     if reviewer_enabled and not force_tests and not skip_tests:
         if active_ticket:
-            reviewer_required, reviewer_marker_source = reviewer_tests_required(active_ticket, slug_hint, reviewer_cfg)
+            reviewer_required, reviewer_marker_source = reviewer_tests_required(
+                active_ticket,
+                slug_hint,
+                reviewer_cfg,
+                project_root,
+            )
         else:
             log("reviewerGate.enabled=1, но docs/.active_ticket не найден — тесты будут ожидать запроса reviewer.")
+
+    cadence = normalize_cadence(tests_cfg.get("cadence"))
+    checkpoint_triggers = parse_checkpoint_triggers(
+        tests_cfg.get("checkpointTrigger") or tests_cfg.get("checkpoint_trigger")
+    )
+    checkpoint_active = False
+    checkpoint_reason = ""
+    checkpoint_path = project_root / CHECKPOINT_PATH
+    if cadence == "checkpoint":
+        checkpoint_active, checkpoint_reason, checkpoint_path = resolve_checkpoint(
+            project_root, active_ticket, checkpoint_triggers
+        )
+    manual_checkpoint = env_flag("AIDD_TEST_CHECKPOINT")
+    if manual_checkpoint:
+        checkpoint_active = True
+        checkpoint_reason = "env"
+
+    if cadence == "checkpoint":
+        log(f"Test cadence: checkpoint (triggers: {', '.join(checkpoint_triggers)})")
+        if checkpoint_active:
+            log(f"Checkpoint trigger detected ({checkpoint_reason}).")
+    elif cadence == "manual":
+        log("Test cadence: manual (cadence=manual)")
+
+    def record_tests_log(status: str, reason: str = "") -> None:
+        ticket = identifiers.resolved_ticket
+        if not ticket:
+            return
+        details: Dict[str, object] = {
+            "profile": test_profile,
+            "cadence": cadence,
+        }
+        if reason:
+            details["reason"] = reason
+        if test_tasks:
+            details["tasks"] = list(test_tasks)
+        if test_filters:
+            details["filters"] = list(test_filters)
+        if manual_scope_requested:
+            details["manual_scope"] = True
+        if test_runner:
+            details["runner"] = list(test_runner)
+        try:
+            from claude_workflow_cli.reports import tests_log as _tests_log
+
+            _tests_log.append_log(
+                project_root,
+                ticket=ticket,
+                slug_hint=identifiers.slug_hint,
+                status=status,
+                details=details,
+                source="hook format-and-test",
+            )
+        except Exception:
+            return
+
+    cadence_allows = True
+    cadence_reason = ""
+    if cadence == "manual":
+        if not (force_tests or manual_scope_requested or policy_active or reviewer_required or checkpoint_active):
+            cadence_allows = False
+            cadence_reason = "cadence=manual — стадия тестов пропущена."
+    elif cadence == "checkpoint":
+        if not (force_tests or manual_scope_requested or policy_active or reviewer_required or checkpoint_active):
+            cadence_allows = False
+            cadence_reason = "cadence=checkpoint — стадия тестов пропущена (нет checkpoint)."
 
     tests_should_run = True
     skip_reason = ""
@@ -897,12 +1029,17 @@ def main() -> int:
     elif skip_tests:
         tests_should_run = False
         skip_reason = f"{skip_env_name}=1 — стадия тестов пропущена."
-    elif force_tests or manual_scope_requested:
+    elif not cadence_allows:
+        tests_should_run = False
+        skip_reason = cadence_reason
+    elif force_tests or manual_scope_requested or checkpoint_active:
         tests_should_run = True
         if manual_scope_requested:
             log("TEST_SCOPE/AIDD_TEST_TASKS/AIDD_TEST_FILTERS заданы — выполняем указанные задачи тестов.")
         elif force_env_name and force_tests:
             log(f"{force_env_name}=1 — тесты будут запущены независимо от маркера reviewer.")
+        elif checkpoint_active:
+            log("checkpoint trigger активен — тесты будут запущены.")
     elif reviewer_enabled:
         if reviewer_required:
             tests_should_run = True
@@ -927,7 +1064,9 @@ def main() -> int:
         format_only_flag = True
         log("AIDD_TEST_PROFILE=none — тесты пропущены (FORMAT_ONLY=1).")
 
-    if changed_only_flag and not force_tests and not reviewer_required:
+    if changed_only_flag and not (
+        force_tests or reviewer_required or manual_scope_requested or policy_active or checkpoint_active
+    ):
         if not changed_files:
             log("Изменения не обнаружены — форматирование и тесты пропущены.")
             if not format_only_flag:
@@ -959,6 +1098,7 @@ def main() -> int:
     if format_only_flag:
         log("FORMAT_ONLY=1 — стадия тестов пропущена.")
         record_event("skipped", "format-only")
+        record_tests_log("skipped", "format-only")
         return 0
 
     if not tests_should_run:
@@ -967,7 +1107,12 @@ def main() -> int:
         else:
             log("Стадия тестов пропущена (reviewerGate).")
         record_event("skipped", "tests-disabled")
+        record_tests_log("skipped", skip_reason or "tests-disabled")
         return 0
+
+    if checkpoint_active:
+        clear_checkpoint(checkpoint_path)
+        log("Checkpoint consumed — повторный запуск потребует нового checkpoint.")
 
     if active_ticket and common_hits:
         changed_only_flag = False
@@ -1014,6 +1159,7 @@ def main() -> int:
     if not test_tasks:
         log("Нет задач для запуска тестов — проверка пропущена.")
         record_event("skipped", "no-tests")
+        record_tests_log("skipped", "no-tests")
         return 0
 
     log(f"Выбранные задачи тестов ({test_profile}): {' '.join(test_tasks)}")
@@ -1083,6 +1229,7 @@ def main() -> int:
     if result.returncode == 0:
         log("Тесты завершились успешно.")
         record_event("pass")
+        record_tests_log("pass")
         return 0
 
     if test_log_mode == "summary":
@@ -1093,10 +1240,12 @@ def main() -> int:
 
     if strict_flag:
         record_event("fail")
+        record_tests_log("fail")
         return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result.returncode)
 
     log("Тесты завершились с ошибкой, но STRICT_TESTS != 1 — продолжаем.")
     record_event("fail")
+    record_tests_log("fail")
     return 0
 
 

@@ -73,6 +73,13 @@ def _detect_stage(root: Path) -> str:
     return stage_path.read_text(encoding="utf-8", errors="replace").strip()
 
 
+def _rel_path(root: Path, path: Path) -> str:
+    rel = path.relative_to(root).as_posix()
+    if root.name == "aidd":
+        return f"aidd/{rel}"
+    return rel
+
+
 def _collect_reports(root: Path, ticket: str) -> List[str]:
     reports = []
     candidates = [
@@ -81,6 +88,7 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "prd" / f"{ticket}.json",
         root / "reports" / "qa" / f"{ticket}.json",
         root / "reports" / "reviewer" / f"{ticket}.json",
+        root / "reports" / "tests" / f"{ticket}.jsonl",
     ]
     for ext in (".pack.yaml", ".pack.toon"):
         candidates.append(root / "reports" / "research" / f"{ticket}-context{ext}")
@@ -88,7 +96,7 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         candidates.append(root / "reports" / "qa" / f"{ticket}{ext}")
     for path in candidates:
         if path.exists():
-            reports.append(path.relative_to(root).as_posix())
+            reports.append(_rel_path(root, path))
     return reports
 
 
@@ -138,7 +146,7 @@ def _collect_artifacts(root: Path, ticket: str) -> List[str]:
     ]
     for path in candidates:
         if path.exists():
-            artifacts.append(path.relative_to(root).as_posix())
+            artifacts.append(_rel_path(root, path))
     return artifacts
 
 
@@ -151,7 +159,7 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
             checks.append({
                 "name": "prd-review",
                 "status": payload.get("status") or "",
-                "path": prd_path.relative_to(root).as_posix(),
+                "path": _rel_path(root, prd_path),
             })
         except json.JSONDecodeError:
             pass
@@ -163,7 +171,7 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
             checks.append({
                 "name": "qa",
                 "status": payload.get("status") or "",
-                "path": qa_path.relative_to(root).as_posix(),
+                "path": _rel_path(root, qa_path),
             })
         except json.JSONDecodeError:
             pass
@@ -173,7 +181,7 @@ def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
         checks.append({
             "name": "reviewer-tests",
             "status": "present",
-            "path": reviewer_path.relative_to(root).as_posix(),
+            "path": _rel_path(root, reviewer_path),
         })
     return checks
 
@@ -189,9 +197,9 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
     open_questions = _extract_section(tasklist_text, "AIDD:OPEN_QUESTIONS")
     if not open_questions:
         open_questions = _extract_section(prd_text, "AIDD:OPEN_QUESTIONS")
-    risks_top5 = _extract_section(tasklist_text, "AIDD:RISKS_TOP5")
+    risks_top5 = _extract_section(tasklist_text, "AIDD:RISKS")
     if not risks_top5:
-        risks_top5 = _extract_section(prd_text, "AIDD:RISKS_TOP5")
+        risks_top5 = _extract_section(prd_text, "AIDD:RISKS")
 
     context_pack = _extract_section(tasklist_text, "AIDD:CONTEXT_PACK")
     summary = _first_nonempty(context_pack)

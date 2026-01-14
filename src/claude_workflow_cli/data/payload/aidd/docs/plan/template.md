@@ -13,7 +13,7 @@ Research: `aidd/docs/research/<ticket>.md`
 ## AIDD:OPEN_QUESTIONS
 - `<вопрос> → <кто отвечает> → <срок>`
 
-## AIDD:RISKS_TOP5
+## AIDD:RISKS
 - `<риск> → <митигация>`
 
 ## AIDD:DECISIONS

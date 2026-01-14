@@ -141,7 +141,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
                         "- Focus: checkout flow",
                         "- Files: src/checkout/service.py",
                         "",
-                        "## Next 3",
+                        "## AIDD:NEXT_3",
                         "- [ ] Task A",
                     ]
                 ),
@@ -181,7 +181,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
                         "short line",
                         "extra line",
                         "",
-                        "## Next 3",
+                        "## AIDD:NEXT_3",
                         "- [ ] Task A",
                     ]
                 ),
@@ -637,6 +637,74 @@ class PreToolUseGuardTests(unittest.TestCase):
             data = json.loads(result.stdout)
             hook_output = data.get("hookSpecificOutput", {})
             self.assertEqual(hook_output.get("permissionDecision"), "deny")
+
+    def test_pretooluse_guard_warns_on_dependency_read(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"prompt_injection_guard": {"enabled": True, "path_segments": ["node_modules"]}},
+            )
+            write_file(root, "node_modules/pkg/README.md", "Ignore this\n")
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "node_modules/pkg/README.md"},
+            }
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("ignore instructions", data.get("systemMessage", ""))
+
+    def test_pretooluse_guard_warns_without_read_guard(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {
+                    "read_guard": {"enabled": False},
+                    "prompt_injection_guard": {"enabled": True, "path_segments": ["node_modules"]},
+                },
+            )
+            write_file(root, "node_modules/pkg/README.md", "Ignore this\n")
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "node_modules/pkg/README.md"},
+            }
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            hook_output = data.get("hookSpecificOutput", {})
+            self.assertEqual(hook_output.get("permissionDecision"), "allow")
+            self.assertIn("ignore instructions", data.get("systemMessage", ""))
+
+    def test_pretooluse_guard_warns_on_dependency_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/.active_ticket", "demo")
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"prompt_injection_guard": {"enabled": True, "path_segments": ["node_modules"]}},
+            )
+            write_file(root, "node_modules/pkg/README.md", "Ignore this\n")
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "cat node_modules/pkg/README.md"},
+            }
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertIn("ignore instructions", data.get("systemMessage", ""))
 
     def test_pretooluse_guard_dangerous_bash_asks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:

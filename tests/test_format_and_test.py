@@ -16,6 +16,7 @@ from .helpers import (
     write_active_feature,
     write_active_stage,
     write_file,
+    write_json,
 )
 
 HOOK = PAYLOAD_ROOT / "hooks" / "format-and-test.sh"
@@ -34,7 +35,7 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "moduleMatrix": [],
                 "reviewerGate": {
                     "enabled": True,
-                    "marker": "reports/reviewer/{ticket}.json",
+                    "marker": "aidd/reports/reviewer/{ticket}.json",
                     "field": "tests",
                     "requiredValues": ["required"],
                     "optionalValues": ["optional", "skipped", "not-required"],
@@ -71,11 +72,17 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
 def run_hook(
     tmp_path: Path, settings_path: Path, env: Optional[dict] = None
 ) -> subprocess.CompletedProcess[str]:
-    effective_env = {
-        "CLAUDE_SETTINGS_PATH": str(settings_path),
-        "SKIP_FORMAT": "1",
-        **({} if env is None else env),
-    }
+    effective_env = os.environ.copy()
+    effective_env.update(
+        {
+            "CLAUDE_SETTINGS_PATH": str(settings_path),
+            "SKIP_FORMAT": "1",
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "CLAUDE_PLUGIN_ROOT": str(tmp_path),
+        }
+    )
+    if env:
+        effective_env.update(env)
     return subprocess.run(
         [str(HOOK)],
         cwd=tmp_path,
@@ -153,6 +160,58 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 
+def test_manual_cadence_skips_tests_without_override(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "cadence": "manual",
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    write_active_feature(project, "demo")
+
+    result = run_hook(project, settings)
+
+    assert "cadence=manual" in result.stderr
+    assert "Запуск тестов" not in result.stderr
+
+
+def test_checkpoint_cadence_runs_with_checkpoint(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "cadence": "checkpoint",
+                    "checkpointTrigger": "progress",
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    write_active_feature(project, "demo")
+    write_json(
+        project,
+        ".cache/test-checkpoint.json",
+        {"ticket": "demo", "trigger": "progress"},
+    )
+
+    result = run_hook(project, settings)
+
+    assert "checkpoint trigger активен" in result.stderr
+    assert "Запуск тестов" in result.stderr
+
+
 def test_skip_auto_tests_env(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
@@ -176,7 +235,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     payload["automation"]["tests"]["reviewerGate"].update(
         {
             "enabled": True,
-            "tests_marker": "reports/reviewer/{slug}.json",
+            "tests_marker": "aidd/reports/reviewer/{slug}.json",
             "tests_field": "state",
             "required_values": ["force"],
             "optional_values": ["idle"],
@@ -203,7 +262,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
             "tests": {
                 "reviewerGate": {
                     "enabled": True,
-                    "tests_marker": "reports/reviewer/{ticket}.json",
+                    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
                     "tests_field": "state",
                     "required_values": ["force"],
                     "optional_values": ["idle"],
@@ -444,3 +503,22 @@ class FormatAndTestEventTests(unittest.TestCase):
             last_event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[-1])
             self.assertEqual(last_event.get("type"), "format-and-test")
             self.assertIn(last_event.get("status"), {"pass", "skipped"})
+
+    def test_format_and_test_appends_tests_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir) / "aidd"
+            project.mkdir(parents=True, exist_ok=True)
+            git_init(project)
+            settings = write_settings(project, {})
+            write_active_feature(project, "fmt-2")
+            write_active_stage(project, "implement")
+            (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
+            (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
+
+            run_hook(project, settings)
+
+            log_path = project / "reports" / "tests" / "fmt-2.jsonl"
+            self.assertTrue(log_path.exists())
+            last_entry = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(last_entry.get("type"), "tests")
+            self.assertIn(last_entry.get("status"), {"pass", "fail", "skipped"})

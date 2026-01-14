@@ -16,6 +16,7 @@ PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru"}
+MAX_COMMAND_LINES = 160
 
 LANG_SECTION_TITLES = {
     "agent": {
@@ -83,7 +84,7 @@ CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
     "AIDD:NON_NEGOTIABLES",
     "AIDD:OPEN_QUESTIONS",
-    "AIDD:RISKS_TOP5",
+    "AIDD:RISKS",
     "AIDD:DECISIONS",
 ]
 
@@ -92,7 +93,7 @@ TEMPLATE_ANCHORS = {
         *CORE_ANCHORS,
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -108,14 +109,15 @@ TEMPLATE_ANCHORS = {
         "AIDD:INTEGRATION_POINTS",
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
+        "AIDD:TEST_HOOKS",
     ],
     "docs/tasklist/template.md": [
-        *CORE_ANCHORS,
+        "AIDD:CONTEXT_PACK",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
 
@@ -148,6 +150,7 @@ class PromptFile:
     front_matter: Dict[str, str | list[str]]
     sections: List[str]
     body: str
+    line_count: int
 
     @property
     def stem(self) -> str:  # pragma: no cover - trivial
@@ -246,6 +249,7 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
             front_matter=front,
             sections=sections,
             body=body,
+            line_count=len(lines),
         ),
         errors,
     )
@@ -379,6 +383,10 @@ def validate_prompt(info: PromptFile) -> List[str]:
                 ],
             )
         )
+        if info.line_count > MAX_COMMAND_LINES:
+            errors.append(
+                f"{info.path}: exceeds max command length ({info.line_count} > {MAX_COMMAND_LINES} lines)"
+            )
 
     lang = _as_string(front.get("lang")) or info.lang
     sections_required = LANG_SECTION_TITLES.get(info.kind, {}).get(lang or "ru")

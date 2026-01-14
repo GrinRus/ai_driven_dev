@@ -12,7 +12,7 @@ CORE_SECTIONS = [
     "AIDD:CONTEXT_PACK",
     "AIDD:NON_NEGOTIABLES",
     "AIDD:OPEN_QUESTIONS",
-    "AIDD:RISKS_TOP5",
+    "AIDD:RISKS",
     "AIDD:DECISIONS",
 ]
 
@@ -20,11 +20,11 @@ SECTION_TEMPLATES: Dict[str, List[str]] = {
     "AIDD:CONTEXT_PACK": ["- <краткий контекст>"],
     "AIDD:NON_NEGOTIABLES": ["- <что нельзя нарушать>"],
     "AIDD:OPEN_QUESTIONS": ["- <вопрос> → <кто отвечает> → <срок>"],
-    "AIDD:RISKS_TOP5": ["- <риск> → <митигация>"],
+    "AIDD:RISKS": ["- <риск> → <митигация>"],
     "AIDD:DECISIONS": ["- <решение> → <почему>"],
     "AIDD:GOALS": ["- <goal 1>", "- <goal 2>"],
     "AIDD:NON_GOALS": ["- <non-goal>"],
-    "AIDD:ACCEPTANCE_CRITERIA": ["- <AC-1>", "- <AC-2>"],
+    "AIDD:ACCEPTANCE": ["- <AC-1>", "- <AC-2>"],
     "AIDD:METRICS": ["- <metric> → <target>"],
     "AIDD:ROLL_OUT": ["- <этапы/флаги/откат>"],
     "AIDD:ARCHITECTURE": ["- <ключевые слои/границы>"],
@@ -35,10 +35,11 @@ SECTION_TEMPLATES: Dict[str, List[str]] = {
     "AIDD:REUSE_CANDIDATES": ["- <reuse-кандидат>"],
     "AIDD:COMMANDS_RUN": ["- <команда/лог>"],
     "AIDD:NEXT_3": ["- [ ] <первый приоритетный чекбокс>"],
-    "AIDD:INBOX_DERIVED": ["- [ ] <handoff со ссылкой на report>"],
+    "AIDD:HANDOFF_INBOX": ["- [ ] <handoff со ссылкой на report>"],
     "AIDD:CHECKLIST": ["- <см. чеклисты ниже>"],
     "AIDD:PROGRESS_LOG": ["- <YYYY-MM-DD> — <что сделано> — <ссылка>"],
     "AIDD:QA_TRACEABILITY": ["- <AC-1> → <тест/лог/шаг>"],
+    "AIDD:HOW_TO_UPDATE": ["- <правила обновления>"],
 }
 
 TYPE_SECTIONS: Dict[str, Sequence[str]] = {
@@ -46,7 +47,7 @@ TYPE_SECTIONS: Dict[str, Sequence[str]] = {
         *CORE_SECTIONS,
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -64,12 +65,12 @@ TYPE_SECTIONS: Dict[str, Sequence[str]] = {
         "AIDD:COMMANDS_RUN",
     ],
     "tasklist": [
-        *CORE_SECTIONS,
+        "AIDD:CONTEXT_PACK",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
 

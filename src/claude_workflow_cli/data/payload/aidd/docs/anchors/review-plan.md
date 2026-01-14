@@ -1,24 +1,19 @@
 # Anchor: review-plan
 
-## Цели
-- Проверить исполнимость плана и блокеры до PRD review.
+## Goals
+- Подтвердить исполнимость плана и тестируемость.
+- Выявить риски/пробелы/зависимости.
 
-## MUST KNOW FIRST
-- `aidd/docs/plan/<ticket>.md`.
-- `aidd/docs/research/<ticket>.md`.
-
-## Inputs
-- План, research, PRD.
-
-## Outputs/Contract
-- Раздел `## Plan Review` в плане со статусом `READY|BLOCKED|PENDING`.
+## MUST READ FIRST
+- aidd/docs/plan/<ticket>.md: AIDD:FILES_TOUCHED, AIDD:ITERATIONS, AIDD:TEST_STRATEGY
+- aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE
+- aidd/docs/research/<ticket>.md: AIDD:RISKS
 
 ## MUST UPDATE
-- `aidd/docs/plan/<ticket>.md` (секция Plan Review).
-- `aidd/docs/.active_stage`.
+- aidd/docs/plan/<ticket>.md: "## Plan Review" (status + findings + action items)
 
 ## MUST NOT
-- Пропускать проверку DoD, тест‑стратегии и границ модулей.
+- READY при отсутствии Files/Modules touched или тест‑стратегии.
 
-## Blockers
-- Критичные пробелы в планировании, отсутствующие артефакты.
+## Output contract
+- Status: READY|PENDING|BLOCKED

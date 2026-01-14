@@ -20,7 +20,7 @@ Default: `<Что принять по умолчанию>`
 
 <!-- Добавьте дополнительные пары «Вопрос N»/«Ответ N» по мере диалога. Удалите блок, когда заполните реальными данными. -->
 
-## Research Hints
+## AIDD:RESEARCH_HINTS
 - **Paths**: `<path1:path2>` (например, `src/app:src/shared`)
 - **Keywords**: `<kw1,kw2>` (например, `payment,checkout`)
 - **Notes**: `<что искать/проверить>`
@@ -34,7 +34,7 @@ Default: `<Что принять по умолчанию>`
 ## AIDD:OPEN_QUESTIONS
 - `<вопрос> → <кто отвечает> → <срок>`
 
-## AIDD:RISKS_TOP5
+## AIDD:RISKS
 - `<риск> → <митигация>`
 
 ## AIDD:DECISIONS
@@ -47,7 +47,7 @@ Default: `<Что принять по умолчанию>`
 ## AIDD:NON_GOALS
 - `<non-goal>`
 
-## AIDD:ACCEPTANCE_CRITERIA
+## AIDD:ACCEPTANCE
 - `<AC-1>`
 - `<AC-2>`
 

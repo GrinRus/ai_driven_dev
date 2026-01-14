@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 6959,
-      "sha256": "7fe11fe8faff5bc7698d9b6f59b8a421a91c1b050f13593303da9d1a52ebf02f"
+      "size": 7131,
+      "sha256": "5af9fe44cdd83c8458442ab5ed62c62a14482bad7894a16b3e895bc6330301e4"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -33,68 +33,68 @@
     {
       "path": "aidd/AGENTS.md",
       "type": "file",
-      "size": 2709,
-      "sha256": "5d2d34f12b51060754c42bc523f07a6e637a2b327ba62b6aa0129c7a78c3fc8e"
+      "size": 2950,
+      "sha256": "953e4bb36c6b8ad795574dd1ec4a8b915d44e53a0c026dbd3dfe86b38a3fdbf2"
     },
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 3733,
-      "sha256": "7aeb7b04f6dc82d832a43382f34a085fa2d6a91bb372dd67525cacbbbe41b501"
+      "size": 3766,
+      "sha256": "4984583c113344ae35912de0f208dc1180e014409431063ca011c9b22c5fdc51"
     },
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 5418,
-      "sha256": "0337762f2ddd3efee5b728526fb6e86153525f81ca5a6939f60e4a0677e6a673"
+      "size": 5853,
+      "sha256": "f32f6c48c70d3943a0dacc77e39dca4bb28461094e3a077967b5d5bd59a1e6d0"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
       "type": "file",
-      "size": 3684,
-      "sha256": "75429c3f89b21a607f8657d603adc96989a9df732ea37488ee4ee6917007e9b8"
+      "size": 3693,
+      "sha256": "a29c3c2fdf56edfd7711273c9187730baaa2a123a7e0c0d95fc267318f3a381c"
     },
     {
       "path": "aidd/agents/planner.md",
       "type": "file",
-      "size": 3582,
-      "sha256": "74d3c4d5932874edd7aa47c4a7400cfeb5af0af48394712b9b8643134b276310"
+      "size": 3591,
+      "sha256": "95cecffc0c31ed8bd12ed7463e3bbe84dee86743905423a99792bfd6a6089d02"
     },
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 2918,
-      "sha256": "6c244b56a44de808d074ce3174e0e2c0704682314251148d8d226f41ac5e1322"
+      "size": 2931,
+      "sha256": "d4e7077018d22c24d53dd1e40b6f8bb6c31d371456731b192c58017c60565824"
     },
     {
       "path": "aidd/agents/qa.md",
       "type": "file",
-      "size": 2522,
-      "sha256": "524d8d88fc22117ac4810211e0dbcc61af79048968e2af512628d44883072939"
+      "size": 2519,
+      "sha256": "747459d40aeec5ae65b5fda650ff913753e2fbfdcd915b56a37fa82ae66080d2"
     },
     {
       "path": "aidd/agents/researcher.md",
       "type": "file",
-      "size": 3685,
-      "sha256": "35c693526f88313ac2e151482be6a82843098eb5ab5c0ca86879b8c838075ddd"
+      "size": 3713,
+      "sha256": "87e9c9d501e9e509d70480e09a080a861b9e4e44513eae5b8ebb77d222c755f3"
     },
     {
       "path": "aidd/agents/reviewer.md",
       "type": "file",
-      "size": 2706,
-      "sha256": "4b190a692e91543bd7ece9d08178899cdbdaffd8f0349b4310a6079b6f2d76bf"
+      "size": 2719,
+      "sha256": "e0910aa0e2b15edf1186493e448ee129dc44f110b7707176df7ae4cf4a9205e3"
     },
     {
       "path": "aidd/agents/validator.md",
       "type": "file",
-      "size": 2971,
-      "sha256": "8d0060e255821368253291a4ff59bed363e3219c391359f2acf78efcbfb4f678"
+      "size": 2980,
+      "sha256": "ea8bedc2c6c2445591d2e037332c4d5452bc6910516fa1b9f8e94ea768aaabd4"
     },
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 3730,
-      "sha256": "758c1feedb431ae63582fb5019ff49f402360aa15d2b6f06f3aee1d7cc6ec67d"
+      "size": 3763,
+      "sha256": "1a3c6dc9a814254a24b1f1aa54029399fbc784edfc0caefaa6e6a5863a4a3362"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -105,44 +105,44 @@
     {
       "path": "aidd/commands/plan-new.md",
       "type": "file",
-      "size": 3607,
-      "sha256": "9db5dbe4db7a4c6eec5671e97f96fdfe5e08c92855df130427ec9a0a033f6bc3"
+      "size": 3625,
+      "sha256": "dde1ca4176b2344eb967a3a144ec19262a17b1e038852b2faedab87cd6472836"
     },
     {
       "path": "aidd/commands/qa.md",
       "type": "file",
-      "size": 2659,
-      "sha256": "c9a6124aade2a60f480e485f90f68dcbf3cd9d05e385fca3c572f4f6d1033e9d"
+      "size": 2651,
+      "sha256": "07011d98a709b49a5b52e6a8c82f90ec99d65d5ab6982bee751fa5d7c647ae95"
     },
     {
       "path": "aidd/commands/researcher.md",
       "type": "file",
-      "size": 3408,
-      "sha256": "a5387da69cf4e117b8bd4e3a8e1b5f535c8266af9955fae35b497a6946a6fe39"
+      "size": 3441,
+      "sha256": "1f623f9cdbb5f198e61b233f5d8d1e2aad80d232059f974235daaba5d92f7cd0"
     },
     {
       "path": "aidd/commands/review-spec.md",
       "type": "file",
-      "size": 3940,
-      "sha256": "b5425c4c49e04935ac7889f4d528bd88359296601704602fd92c068d50b0d0bf"
+      "size": 3959,
+      "sha256": "3f8f16ee666a225b479f04ea7ec6e394257774b87af58293eaa5c188ad37c549"
     },
     {
       "path": "aidd/commands/review.md",
       "type": "file",
-      "size": 2737,
-      "sha256": "f95bdc8d54914d9d4a76b5b70f958f93ed82eb55d77cdb0224010145ea78297c"
+      "size": 2755,
+      "sha256": "1894b5c701448b1c390430260d4b624f8243ffd7b95dc8cfac18e33d0713095b"
     },
     {
       "path": "aidd/commands/status.md",
       "type": "file",
-      "size": 2779,
-      "sha256": "5aab2364f57fea08afd3c6accdcf28676006a9a5d98c63c59c58d5e2d6d52c97"
+      "size": 2881,
+      "sha256": "229271749317c2d34989a8e40f93c30b2009095d9ccd8b3fdec86c5a2af1823b"
     },
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 3081,
-      "sha256": "71366f82b4eb4713e39fbe35b41721ad11e4c8f8d254ada9d692b77357ac4224"
+      "size": 3091,
+      "sha256": "0ef83292a0334b8bc2c6c8793cddb02626b1c1afcdbab7948fdc6ee2fc217665"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -153,8 +153,8 @@
     {
       "path": "aidd/config/context_gc.json",
       "type": "file",
-      "size": 1391,
-      "sha256": "da06d386c5a16b472c34de7733e8e576fd4ee2c61387f3cc40f4e4b468b2bcaa"
+      "size": 1695,
+      "sha256": "16ec3b39aad2f3ba095ce85249664d9a7fb8178bbbc52980b1ae1b9812ac56cf"
     },
     {
       "path": "aidd/config/conventions.json",
@@ -165,8 +165,8 @@
     {
       "path": "aidd/config/gates.json",
       "type": "file",
-      "size": 4385,
-      "sha256": "47687af7ebba897da5d53fc0112d327d68d9fecb367b743ab3db48b42f137cb2"
+      "size": 4400,
+      "sha256": "2b33237746c28f3fb2b555f48d4f865be136e32eb26debd6708f36071b8b034a"
     },
     {
       "path": "aidd/conventions.md",
@@ -183,68 +183,68 @@
     {
       "path": "aidd/docs/adr/template.md",
       "type": "file",
-      "size": 3600,
-      "sha256": "67d24a937d77abcc2abb8c584970489d87b5b1dd7f987035ae248447b3cf53c6"
+      "size": 3595,
+      "sha256": "05d849c425f383abbbaac6744e3c5ba598145d96a1ff1d423ffad4a71cd26170"
+    },
+    {
+      "path": "aidd/docs/anchors/README.md",
+      "type": "file",
+      "size": 630,
+      "sha256": "564b32a316e2d48bdfcc53b8e09c680a3cde881f357e0f15afab4c80247b64cd"
     },
     {
       "path": "aidd/docs/anchors/idea.md",
       "type": "file",
-      "size": 1142,
-      "sha256": "e9d467553dbff8c3f9718dec5f53cb638e4b19ab44d357bba6382b44d7bce5af"
+      "size": 809,
+      "sha256": "1310683fc9be09fb751b28fccd197999372e8562b329f0d40f3170fb5ccb143d"
     },
     {
       "path": "aidd/docs/anchors/implement.md",
       "type": "file",
-      "size": 1419,
-      "sha256": "ed9ed7336199f7fe9deea6d4cb3e0a21ee47948aaddc2a213cd18b2b2c731730"
+      "size": 1148,
+      "sha256": "9d47cd9b8e9664d12f4d5778c87ce64d88537cd3a5e6671540db718c2005f6bf"
     },
     {
       "path": "aidd/docs/anchors/plan.md",
       "type": "file",
-      "size": 1048,
-      "sha256": "c62f66e5436965056fcf5498387dcc95f14ef79f806782938224515a0a64ec92"
+      "size": 781,
+      "sha256": "9faa6e8213c698bf30544f2d200beb594cd8693cedf96503f22dee4a72545925"
     },
     {
       "path": "aidd/docs/anchors/qa.md",
       "type": "file",
-      "size": 907,
-      "sha256": "67692f095627a97ebc907a47a9eee44af3a29356eeaa65cfa3d96b07634c80ff"
+      "size": 641,
+      "sha256": "44358ae5280c40fe4124a47b58082864158e94a6f1ea406a6abe1048070cbc91"
     },
     {
       "path": "aidd/docs/anchors/research.md",
       "type": "file",
-      "size": 1191,
-      "sha256": "b3055a3e016c96d3a02a4a9f61ec4ef194fd6a1dbb903177f622fe38382c0df7"
+      "size": 976,
+      "sha256": "4e6ea8465673768bb8d6d2e24c0dada1e41feeb2f425cb1aa8eb592d20e60d97"
     },
     {
       "path": "aidd/docs/anchors/review-plan.md",
       "type": "file",
-      "size": 716,
-      "sha256": "324d5f65043e544d148b803d46d6b44dacc73d3e5fbb19f176e3967b8416157e"
+      "size": 650,
+      "sha256": "b9d23aeb1fa002aed083386757e6d541dcb31380ab8e73b1e217efd80de9502b"
     },
     {
       "path": "aidd/docs/anchors/review-prd.md",
       "type": "file",
-      "size": 795,
-      "sha256": "27ea1538dc345c4b045fcaff641278900d4e776153541ef9a65aae630c7df5e5"
+      "size": 639,
+      "sha256": "36f065242bc69762168386b8920df77e7b8a604d708851d8757c99f7a92a2f83"
     },
     {
       "path": "aidd/docs/anchors/review.md",
       "type": "file",
-      "size": 1009,
-      "sha256": "de13eb577966a2e4fda77f8d72a417e3addee7c8f82af715d3896f88bc67640a"
+      "size": 818,
+      "sha256": "8fd804e59c592a0047dbcc60d8f44ef919738874db01d129e8ee60c47015d5f3"
     },
     {
       "path": "aidd/docs/anchors/tasklist.md",
       "type": "file",
-      "size": 764,
-      "sha256": "19487aba93e9ee384e82a4c55af74b4e754e28daaf447bb0586f055e1dd34b47"
-    },
-    {
-      "path": "aidd/docs/cli-migration.md",
-      "type": "file",
-      "size": 1650,
-      "sha256": "1db27dbfed066249f51acd6ead2dc0d0ae8c77cec6ba9f7a3a5b4e856de9c7f3"
+      "size": 736,
+      "sha256": "3af81859a258a9b12b02ebde9a4d2e8eff5b48b08d1cb7e9800ccae8259fdac0"
     },
     {
       "path": "aidd/docs/index/schema.json",
@@ -261,8 +261,8 @@
     {
       "path": "aidd/docs/plan/template.md",
       "type": "file",
-      "size": 2204,
-      "sha256": "ad9bb2e55f5fe9b7efaf86c6382ac70b0e04b696e090112e8b13aed26832f410"
+      "size": 2199,
+      "sha256": "3d8e25237ee26ee8b39c7365fd9f7f9a23dd2037a856bfe8c2364a822055b534"
     },
     {
       "path": "aidd/docs/prd/.gitkeep",
@@ -273,14 +273,8 @@
     {
       "path": "aidd/docs/prd/template.md",
       "type": "file",
-      "size": 7256,
-      "sha256": "f7722c566a7df0b78530c6d10a40f1cebd378f6c534fa7ba569c3ad4e70bbdcd"
-    },
-    {
-      "path": "aidd/docs/reports-format.md",
-      "type": "file",
-      "size": 4935,
-      "sha256": "14ddf080624737d73f984f70a55a576ccf134fe26b86723682256bd3da99de57"
+      "size": 7247,
+      "sha256": "43f3f801e29288ee62dda60d2f19a408c7ad169a8481d686024ce630f0b3adb3"
     },
     {
       "path": "aidd/docs/research/.gitkeep",
@@ -291,14 +285,14 @@
     {
       "path": "aidd/docs/research/template.md",
       "type": "file",
-      "size": 3234,
-      "sha256": "65e414ab3f0983c46c66c51a94c20692210b1ab42bcbccb5d9c9446e9bdc9e96"
+      "size": 3256,
+      "sha256": "9955805e641ed61f59a9d35707c560ae548f3e00bfa628067e82ab28a36b9f4b"
     },
     {
       "path": "aidd/docs/sdlc-flow.md",
       "type": "file",
-      "size": 2619,
-      "sha256": "5c50721c8036b211f445ca758e23a03b7dbab02163bee4638cc7a3495f9f4ada"
+      "size": 2624,
+      "sha256": "f76dd1589d8ebef824b390703d7db2cfddf5c109aa0245a588ff5d0652ee8e4e"
     },
     {
       "path": "aidd/docs/status-machine.md",
@@ -315,14 +309,14 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 6457,
-      "sha256": "c2c66ca5049db68b9ed3036fbe23977b06c83de5d244992247a496b5201f35a7"
+      "size": 5221,
+      "sha256": "a1f65732b6fdd86740bccdb5267d1901985842b3fbc889ba22ac8c8b4f46576f"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
       "type": "file",
-      "size": 37670,
-      "sha256": "589e195d1614775422f549939e3469c83223725fd704ff83d7f8326ddf18815f"
+      "size": 43312,
+      "sha256": "dfdcff4c23ac5a404aacec732133e6527a9a5e9b75a6b9405fe30c4f0ec4cc2b"
     },
     {
       "path": "aidd/hooks/gate-api-contract.sh",
@@ -345,26 +339,26 @@
     {
       "path": "aidd/hooks/gate-qa.sh",
       "type": "file",
-      "size": 14754,
-      "sha256": "9351b5e9449a01805b02ea856f96f8bcba5b8e0ebcf1928cfe2d8e349da3fc65"
+      "size": 15118,
+      "sha256": "c291e11c73a53f7da2017c7cd95d0510c6e44bd0ee64425f1750f000ca379d3a"
     },
     {
       "path": "aidd/hooks/gate-tests.sh",
       "type": "file",
-      "size": 14542,
-      "sha256": "1d649eb0394aa4d7f5d3aaa1e1ede2611ab1a9b44f89fb2eda1f0ffebcadf2a5"
+      "size": 14715,
+      "sha256": "d6eb2a07bb13239ec357d1070cbfff6d2cd7a7fe63f9efab6701e15ed5367a7c"
     },
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 18024,
-      "sha256": "7db9574f920a785d474f417020c364cd24d50645302d7939cd9e4569c9f4ed08"
+      "size": 18332,
+      "sha256": "78b923131a28e4d7570b6f469926455425943889f66dc7fdb9be00cab4e33aa8"
     },
     {
       "path": "aidd/hooks/hooks.json",
       "type": "file",
-      "size": 3800,
-      "sha256": "cd4e4605c831b3ef744cd3bd20443891bf3522cbf0f95b4565d4252e28677d2a"
+      "size": 2956,
+      "sha256": "104a7b413be17f9a8734128ed791c3ecfa5d05483452a0767a17cee3ca869763"
     },
     {
       "path": "aidd/hooks/lib.sh",
@@ -385,6 +379,12 @@
       "sha256": "300967379ab103b456c70ec3947600217203e8304014e296a1886043d250e4f1"
     },
     {
+      "path": "aidd/reports/context/.gitkeep",
+      "type": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "path": "aidd/reports/events/.gitkeep",
       "type": "file",
       "size": 0,
@@ -397,16 +397,40 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "aidd/reports/qa/.gitkeep",
+      "type": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "aidd/reports/research/.gitkeep",
+      "type": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "aidd/reports/reviewer/.gitkeep",
+      "type": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "aidd/reports/tests/.gitkeep",
+      "type": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "path": "manifest.json",
       "type": "file",
-      "size": 12303,
-      "sha256": "ad57e59f213bf9ebd6d6781202feaa3696ec3d38a9b4fc33e9ccd8d946eefb9f"
+      "size": 13748,
+      "sha256": "c18316c39eda5dad7f1afefae9334af0dca5c5d5a51d225b0e2c30d11823fa4d"
     },
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 20462,
-      "sha256": "fadc2bb4e613b09995a1031318f61507882c148c77ee51f33d132881e2104f47"
+      "size": 20510,
+      "sha256": "8222e4ebe0d7d95b6bf90a48db9b67fe4d16a1e75a327548336cb7b7780a0143"
     }
   ]
 }

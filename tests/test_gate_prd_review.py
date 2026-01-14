@@ -39,7 +39,7 @@ def setup_base(tmp_path) -> None:
                 "require_action_items_closed": True,
                 "allow_missing_report": False,
                 "blocking_severities": ["critical"],
-                "report_path": "reports/prd/{ticket}.json",
+                "report_path": "aidd/reports/prd/{ticket}.json",
             }
         },
     )

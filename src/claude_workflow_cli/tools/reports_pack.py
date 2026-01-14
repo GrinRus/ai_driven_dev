@@ -488,6 +488,7 @@ def build_research_context_pack(
         "call_graph": _pack_call_graph(payload.get("call_graph") or [], lim["call_graph"]),
         "import_graph": _pack_import_graph(payload.get("import_graph") or [], lim["import_graph"]),
         "call_graph_full_path": payload.get("call_graph_full_path"),
+        "call_graph_full_columnar_path": payload.get("call_graph_full_columnar_path"),
         "call_graph_warning": payload.get("call_graph_warning"),
         "call_graph_engine": payload.get("call_graph_engine"),
         "call_graph_supported_languages": payload.get("call_graph_supported_languages") or [],
@@ -702,7 +703,7 @@ def write_prd_pack(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Generate pack sidecar for research context JSON.")
-    parser.add_argument("path", help="Path to reports/research/<ticket>-context.json")
+    parser.add_argument("path", help="Path to aidd/reports/research/<ticket>-context.json")
     parser.add_argument(
         "--output",
         help="Optional output path (default: *.pack.yaml or *.pack.toon when AIDD_PACK_FORMAT=toon).",

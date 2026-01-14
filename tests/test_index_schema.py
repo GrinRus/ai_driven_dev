@@ -35,7 +35,7 @@ def test_index_sync_generates_required_fields(tmp_path):
             ## AIDD:OPEN_QUESTIONS
             - Question
 
-            ## AIDD:RISKS_TOP5
+            ## AIDD:RISKS
             - Risk
             """
         ).strip()
@@ -81,8 +81,8 @@ def test_index_sync_includes_pack_variants(tmp_path):
     payload = json.loads(index_path.read_text(encoding="utf-8"))
 
     reports = payload.get("reports") or []
-    assert "reports/qa/DEMO-2.pack.yaml" in reports
-    assert "reports/research/DEMO-2-context.pack.toon" in reports
+    assert "aidd/reports/qa/DEMO-2.pack.yaml" in reports
+    assert "aidd/reports/research/DEMO-2-context.pack.toon" in reports
     checks = payload.get("checks") or []
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None
@@ -119,3 +119,23 @@ class IndexSyncEventTests(unittest.TestCase):
             events = payload.get("events") or []
             self.assertEqual(len(events), 2)
             self.assertEqual(events[0].get("type"), "qa")
+
+
+def test_index_sync_includes_tests_log(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "DEMO-4")
+    write_active_stage(project_root, "implement")
+    write_file(project_root, "docs/tasklist/DEMO-4.md", "## AIDD:CONTEXT_PACK\n- Demo\n")
+    write_file(project_root, "docs/prd/DEMO-4.prd.md", "# Demo PRD\n")
+    write_file(
+        project_root,
+        "reports/tests/DEMO-4.jsonl",
+        json.dumps({"ts": "2024-01-03T00:00:00Z", "ticket": "DEMO-4", "type": "tests", "status": "pass"})
+        + "\n",
+    )
+
+    index_path = index_sync.write_index(project_root, "DEMO-4", "DEMO-4")
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+
+    reports = payload.get("reports") or []
+    assert "aidd/reports/tests/DEMO-4.jsonl" in reports

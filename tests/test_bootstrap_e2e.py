@@ -15,7 +15,6 @@ CRITICAL_FILES: Iterable[str] = (
     "hooks/hooks.json",
     "config/context_gc.json",
     "config/conventions.json",
-    "docs/cli-migration.md",
     "docs/prd/template.md",
     "docs/tasklist/template.md",
     "docs/research/template.md",

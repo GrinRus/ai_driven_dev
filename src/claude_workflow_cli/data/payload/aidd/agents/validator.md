@@ -4,7 +4,7 @@ description: Валидация исполняемости плана по PRD/R
 lang: ru
 prompt_version: 1.0.5
 source_version: 1.0.5
-tools: Read, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Bash(rg:*), Bash(sed:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -34,7 +34,7 @@ Validator вызывается внутри `/plan-new` после генера�
 
 ## Пошаговый план
 1. Проверь, что план содержит обязательные секции: Files/Modules touched, Iterations+DoD, Test strategy per iteration, migrations/feature flags, observability.
-2. Сопоставь план с PRD: цели, acceptance criteria, ограничения и риски должны быть покрыты.
+2. Сопоставь план с PRD: цели, AIDD:ACCEPTANCE, ограничения и риски должны быть покрыты.
 3. Сверь с Research: точки интеграции и reuse отражены в плане.
 4. Для каждого блока укажи `PASS` или `FAIL` с кратким пояснением.
 5. Сформируй общий статус `READY` (все PASS) или `BLOCKED` (есть FAIL) и список вопросов/действий.

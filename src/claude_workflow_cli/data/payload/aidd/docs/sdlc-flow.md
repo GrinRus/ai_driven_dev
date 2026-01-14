@@ -18,7 +18,7 @@
 
 | Stage | Команда | Агент | Входы | Выходы | Гейт/условия |
 | --- | --- | --- | --- | --- | --- |
-| idea | `/idea-new` | `analyst` | PRD template, research (если есть) | PRD draft + вопросы + Research Hints | Нет перехода в plan без ответов |
+| idea | `/idea-new` | `analyst` | PRD template, research (если есть) | PRD draft + вопросы + AIDD:RESEARCH_HINTS | Нет перехода в plan без ответов |
 | research | `/researcher` | `researcher` | PRD, репозиторий | Research report (reviewed/pending) | `gate-workflow` требует reviewed |
 | plan | `/plan-new` | `planner` + `validator` | PRD READY, research | План + статус validator | `research-check` обязателен перед планом |
 | review-plan | `/review-spec` | `plan-reviewer` | План + research | `## Plan Review` в плане | Блокирует PRD review/`tasks` при BLOCKED |

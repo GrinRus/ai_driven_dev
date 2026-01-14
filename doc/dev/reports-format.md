@@ -9,6 +9,7 @@ This document defines the minimal report contract for pack-first reading.
 - QA report: `aidd/reports/qa/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
 - PRD review: `aidd/reports/prd/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
 - Reviewer marker (tests gate): `aidd/reports/reviewer/<ticket>.json` (not a pack report)
+- Tests log (JSONL): `aidd/reports/tests/<ticket>.jsonl`
 
 The pack file is JSON (valid YAML) for deterministic output. When `AIDD_PACK_FORMAT=toon`,
 the output is still JSON-encoded but stored as `.pack.toon` (format is experimental).
@@ -17,6 +18,17 @@ the output is still JSON-encoded but stored as `.pack.toon` (format is experimen
 
 Consumers should read `*.pack.yaml` when available and fall back to the JSON report.
 When `AIDD_PACK_FORMAT=toon` is set, prefer `*.pack.toon` and fall back to `*.pack.yaml` or JSON.
+
+## Report header (common)
+
+Each report (JSON or JSONL entry) should include these fields when applicable:
+- `ticket`
+- `stage`
+- `status`
+- `started_at`
+- `finished_at`
+- `tool_versions`
+- `summary`
 
 ## Determinism contract
 
@@ -80,6 +92,7 @@ Pack includes:
 - Matches (top-N)
 - Call/import graph samples (top-N)
 - call_graph_full_path (reference to full JSON if present)
+- call_graph_full_columnar_path (reference to columnar full graph if present)
 
 Pack excludes:
 - code_index (full symbol lists)
@@ -107,7 +120,11 @@ Top-level keys used by consumers:
 - reuse_candidates (columnar)
 
 Additional top-level keys may include: ticket, slug, generated_at, keywords, tags, paths, docs,
-call_graph, import_graph, call_graph_full_path, call_graph_warning, deep_mode, auto_mode.
+call_graph, import_graph, call_graph_full_path, call_graph_full_columnar_path, call_graph_warning, deep_mode, auto_mode.
+
+Columnar full graph:
+- `aidd/reports/research/<ticket>-call-graph-full.cjson`
+- format: `cols` + `rows` for edges; `imports` kept as list of objects
 
 Columnar schemas:
 - matches: `id, token, file, line, snippet`
