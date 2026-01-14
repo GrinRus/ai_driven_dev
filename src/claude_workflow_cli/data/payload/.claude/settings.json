@@ -179,7 +179,7 @@
       "notes": "fastTasks/fullTasks/targetedTask управляют профилями; moduleMatrixExample рассчитан на Gradle (используйте runner ['./gradlew']).",
       "reviewerGate": {
         "enabled": true,
-        "marker": "reports/reviewer/{slug}.json",
+        "marker": "reports/reviewer/{ticket}.json",
         "field": "tests",
         "requiredValues": [
           "required"

@@ -130,7 +130,8 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_missing_report": False,
         "block_on": ["blocker", "critical"],
         "warn_on": ["major", "minor"],
-        "handoff": False,
+        "handoff": True,
+        "handoff_mode": "block",
     },
     "reviewer": {
         "enabled": True,

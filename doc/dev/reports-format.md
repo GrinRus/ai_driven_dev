@@ -8,7 +8,7 @@ This document defines the minimal report contract for pack-first reading.
 - Research targets: `aidd/reports/research/<ticket>-targets.json` (no pack)
 - QA report: `aidd/reports/qa/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
 - PRD review: `aidd/reports/prd/<ticket>.json` + `*.pack.yaml`/`*.pack.toon`
-- Reviewer marker (tests gate): `aidd/reports/reviewer/<ticket>.json` (not a pack report)
+- Review report + reviewer marker (tests gate): `aidd/reports/reviewer/<ticket>.json` (not a pack report)
 - Tests log (JSONL): `aidd/reports/tests/<ticket>.jsonl`
 
 The pack file is JSON (valid YAML) for deterministic output. When `AIDD_PACK_FORMAT=toon`,
@@ -38,7 +38,7 @@ Rules:
 - Stable key ordering in serialized output.
 - Stable list truncation (top-N limits only, no random sampling).
 - String truncation is deterministic.
-- Findings include stable `id` values (QA/PRD) for diff-friendly updates.
+- Findings include stable `id` values (QA/PRD/Review) for diff-friendly updates.
 
 ## Columnar sections
 
@@ -153,6 +153,18 @@ Top-level keys:
 
 Columnar schemas:
 - findings: `id, severity, title, details`
+
+## Review report
+
+Top-level keys:
+- ticket, slug, generated_at, updated_at, status, summary, stage, kind
+- tests (optional reviewer marker field, e.g. required/optional)
+- findings (list of objects)
+
+Finding schema:
+- id (stable)
+- severity, scope, title, details, recommendation
+- first_seen_at, last_seen_at
 
 ## Hotspots (auto)
 

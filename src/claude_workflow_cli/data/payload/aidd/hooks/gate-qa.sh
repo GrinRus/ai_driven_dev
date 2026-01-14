@@ -171,6 +171,8 @@ allow_missing = bool(qa.get("allow_missing_report", False))
 print(f"ALLOW_MISSING={'1' if allow_missing else '0'}")
 handoff = bool(qa.get("handoff", False))
 print(f"HANDOFF={'1' if handoff else '0'}")
+handoff_mode = qa.get("handoff_mode", qa.get("handoffMode", "warn"))
+print(f"HANDOFF_MODE={handoff_mode}")
 PY
 ) || {
   echo "[gate-qa] WARN: не удалось прочитать секцию qa из config/gates.json." >&2
@@ -188,6 +190,7 @@ qa_block=()
 qa_warn=()
 qa_requires=()
 qa_handoff=0
+qa_handoff_mode=""
 qa_debounce=0
 list_sep=$'\x1f'
 
@@ -214,6 +217,9 @@ for line in "${QA_CFG[@]}"; do
       ;;
     HANDOFF=*)
       qa_handoff="${line#HANDOFF=}"
+      ;;
+    HANDOFF_MODE=*)
+      qa_handoff_mode="${line#HANDOFF_MODE=}"
       ;;
     BRANCHES=*)
       raw="${line#BRANCHES=}"
@@ -513,6 +519,77 @@ if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDO
     fi
   else
     echo "[gate-qa] WARN: ticket не определён — handoff пропущен." >&2
+  fi
+fi
+
+handoff_mode="${qa_handoff_mode:-warn}"
+if [[ -n "${CLAUDE_QA_HANDOFF_MODE:-}" ]]; then
+  handoff_mode="$(printf '%s' "${CLAUDE_QA_HANDOFF_MODE}" | tr '[:upper:]' '[:lower:]')"
+fi
+case "$handoff_mode" in
+  1|true|yes|on|block)
+    handoff_mode="block"
+    ;;
+  0|false|no|off|skip|disabled)
+    handoff_mode="off"
+    ;;
+  warn|warning)
+    handoff_mode="warn"
+    ;;
+esac
+
+if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]] && [[ "$handoff_mode" != "off" ]]; then
+  if [[ -n "$ticket" ]]; then
+    handoff_check="$(python3 - "$ticket" "$handoff_mode" <<'PY'
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+mode = (sys.argv[2] or "warn").strip().lower()
+tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
+prefix = "aidd/" if Path.cwd().name == "aidd" else ""
+if not tasklist_path.exists():
+    print(f"{mode.upper()}: tasklist не найден ({tasklist_path}).")
+    raise SystemExit(0)
+
+try:
+    lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+except Exception:
+    print(f"{mode.upper()}: не удалось прочитать {tasklist_path}.")
+    raise SystemExit(0)
+
+start = None
+end = len(lines)
+for idx, line in enumerate(lines):
+    if line.strip().lower().startswith("## aidd:handoff_inbox"):
+        start = idx
+        break
+if start is not None:
+    for idx in range(start + 1, len(lines)):
+        if lines[idx].strip().startswith("##"):
+            end = idx
+            break
+    scan_text = "\n".join(lines[start:end]).lower()
+else:
+    scan_text = "\n".join(lines).lower()
+
+markers = [
+    f"{prefix}reports/qa/{ticket}".lower(),
+    f"reports/qa/{ticket}".lower(),
+]
+if not any(marker in scan_text for marker in markers):
+    hint = f"claude-workflow tasks-derive --source qa --append --ticket {ticket}"
+    print(f"{mode.upper()}: handoff-задачи QA не найдены в tasklist. Запустите `{hint}`.")
+PY
+)"
+    if [[ -n "$handoff_check" ]]; then
+      if [[ "$handoff_mode" == "block" && "$dry_run" == "0" ]]; then
+        echo "${handoff_check/BLOCK:/BLOCK:}" >&2
+        status=2
+      else
+        echo "${handoff_check/BLOCK:/WARN:}" >&2
+      fi
+    fi
   fi
 fi
 

@@ -1,48 +1,40 @@
 # Руководство по вкладу
 
-Спасибо за интерес к проекту! Ниже описаны минимальные требования к изменениям и процессам, чтобы поддерживать Claude Code workflow стабильным и прозрачным.
+Спасибо за интерес к проекту! Ниже - короткий и практичный гайд, чтобы изменения были прозрачными и воспроизводимыми.
 
 ## TL;DR
-- Создавайте issue перед крупными доработками.
-- Работайте из веток `feature/<ticket>` или `feat/<scope>` в зависимости от активной конвенции.
-- Обновляйте документацию на двух языках: `README.md` (RU) и `README.en.md` (EN).
-- Перед PR запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` в установленном workspace).
-
-## Состав репозитория
-- **Runtime (у пользователя):** `aidd/**` + корневые `.claude/` и `.claude-plugin/` после `claude-workflow init`.
-- **Dev-only:** `doc/dev/`, `tests/`, `examples/`, `tools/`, `scripts/`, `.github/`, `.dev/`, `.tmp-debug/`, `build/`.
+- Для крупных изменений заведите issue или ссылку на ADR/PRD.
+- Работайте из веток `feature/<ticket>` или `feat/<scope>` (см. `config/conventions.json`).
+- Формируйте сообщения коммитов вручную по шаблонам из `config/conventions.json`.
+- Перед PR запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` в рабочем workspace).
+- Обновляйте `README.md` и `README.en.md` вместе (и поле _Last sync_).
+- Если трогаете runtime/payload (`aidd/`, `.claude/`, `.claude-plugin/`), используйте sync-процедуру.
 
 ## Процесс работы
-1. **Обсуждение.** Подготовьте issue или ссылку на ADR/PRD, если изменение затрагивает архитектуру.
-2. **Ветка.** Создайте ветку командой `git checkout -b feature/<TICKET>` (или по другому паттерну из `config/conventions.json`).
-3. **Коммиты.** Формируйте сообщения вручную (`git commit`), сверяясь с шаблонами в `config/conventions.json`. Для строгой проверки подключите git-хук из `doc/dev/customization.md`.
-4. **Тесты и форматирование.** Запустите `aidd/hooks/format-and-test.sh` (или `scripts/ci-lint.sh`, если работаете над CLI/payload). Для строгого режима выставьте `STRICT_TESTS=1`.
-5. **Payload как единственный источник.** Правьте `.claude/`, `.claude-plugin/`, `aidd/**`, шаблоны и хуки только в `src/claude_workflow_cli/data/payload`. Перед правками выполните `scripts/sync-payload.sh --direction=to-root`, после правок — `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py` (или `pre-commit run payload-sync-check`). Это гарантирует, что пакет `claude-workflow-cli` и runtime snapshot остаются в одном состоянии.
-   Дополнительно запустите `python3 tools/payload_audit.py`, чтобы проверить состав дистрибутива по allowlist/denylist.
-6. **Документация.** Обновите связанные файлы в `doc/dev/`, `README.md` и `README.en.md`. Если меняется поведение скриптов, обновите `doc/dev/customization.md` и `doc/dev/workflow.md`.
-7. **Pull request.** Используйте шаблон PR, приложите ссылки на связанные задачи и укажите, как проверяли изменения локально.
+1. **Обсуждение.** Issue или ссылка на ADR/PRD, если меняется архитектура/поведение.
+2. **Ветка.** `git checkout -b feature/<TICKET>` или другой паттерн из `config/conventions.json`.
+3. **Коммиты.** Сообщения - по правилам `config/conventions.json`.
+4. **Тесты.** Запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` для установленного workflow).
+5. **Документация.** Обновите README (RU/EN) и связанные файлы в `doc/dev/`.
+6. **PR.** Приложите ссылки на задачи и список проверок.
 
-## Код-стайл и тесты
-- Поддерживайте существующие скрипты на Bash/Python без зависимостей, не входящих в стандартную библиотеку.
-- Для новых функциональностей добавляйте smoke-тесты (`bats`, `pytest`) и описывайте их запуск.
-- Не отключайте проверок форматирования или тестов без веской причины.
+## Payload и runtime
+Единственный источник правды для runtime-артефактов - `src/claude_workflow_cli/data/payload`.
+
+Если меняете `.claude/`, `.claude-plugin/` или `aidd/**`:
+- Перед правками: `scripts/sync-payload.sh --direction=to-root`.
+- После правок: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`.
+- По необходимости: `python3 tools/payload_audit.py`.
 
 ## Документация и переводы
-- Каждый раздел с деталями должен иметь ссылку на расширенное описание в `doc/dev/`.
-- При изменении README:
-  1. Правьте русскую версию (`README.md`).
-  2. Сразу переносите изменения в `README.en.md`.
-  3. Обновляйте поле _Last sync_ в английской версии.
-- Добавляйте новые гайды в подпапку `doc/dev/` и поддерживайте их в списке «Дополнительно» в обоих README.
+- Любые изменения в README делайте в `README.md` и синхронно переносите в `README.en.md`.
+- Обновляйте _Last sync_ в англоязычной версии.
+- Если меняется поведение скриптов, дополните `doc/dev/workflow.md` и `doc/dev/customization.md`.
 
-## Безопасность и настройки
-- Не ослабляйте ограничения `.claude/settings.json` без обсуждения: политика `ask/deny` защищает от случайных деструктивных команд.
-- При необходимости расширить охраняемые каталоги обновляйте правила в `config/gates.json` или добавляйте кастомные гейты.
-- Для новых пресетов конвенций создавайте отдельные JSON-файлы в `config/` и документируйте их в `doc/dev/customization.md`.
+## Безопасность
+- Не ослабляйте ограничения `.claude/settings.json` без обсуждения.
+- Новые гейты и правила документируйте в `config/gates.json` и `doc/dev/`.
 
-## Выпуск релизов
-- Собирайте изменения в релизные заметки (`doc/dev/release-notes.md` — см. Wave 1 backlog).
-- Обновляйте версию workflow в README и указывайте ключевые изменения.
-- Добавляйте тег и публикуйте GitHub Release, если релиз предназначен для внешних пользователей.
-
-Следуйте этим рекомендациям, и ваш вклад будет быстрее принят. Спасибо!
+## Релизы и поддержка
+- Процесс релизов и чеклисты: `doc/dev/release-notes.md`.
+- Аудит дистрибутива: `doc/dev/distro-audit.md`.

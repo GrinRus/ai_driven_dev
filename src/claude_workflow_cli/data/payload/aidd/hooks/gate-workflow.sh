@@ -422,34 +422,120 @@ PY
 fi
 
 if [[ -n "$ticket" ]]; then
-  handoff_block="$(python3 - "$ticket" "$slug_hint" <<'PY'
+  handoff_block="$(python3 - "$ticket" "$slug_hint" "$current_branch" <<'PY'
+import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
 slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
+branch = sys.argv[3] if len(sys.argv) > 3 else ""
 tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
 prefix = "aidd/" if Path.cwd().name == "aidd" else ""
 if not tasklist_path.exists():
     raise SystemExit(0)
-reports = [
-    ("qa", Path("reports/qa") / f"{ticket}.json", f"{prefix}reports/qa/"),
-    ("research", Path("reports/research") / f"{ticket}-context.json", f"{prefix}reports/research/"),
-]
+
+def resolve_report(path: Path) -> Path | None:
+    if path.exists():
+        return path
+    if path.suffix == ".json":
+        for suffix in (".pack.yaml", ".pack.toon"):
+            candidate = path.with_suffix(suffix)
+            if candidate.exists():
+                return candidate
+    return None
+
+def read_tasklist_section(lines: list[str]) -> str:
+    start = None
+    end = len(lines)
+    for idx, line in enumerate(lines):
+        if line.strip().lower().startswith("## aidd:handoff_inbox"):
+            start = idx
+            break
+    if start is not None:
+        for idx in range(start + 1, len(lines)):
+            if lines[idx].strip().startswith("##"):
+                end = idx
+                break
+        return "\n".join(lines[start:end]).lower()
+    return "\n".join(lines).lower()
+
+reports = []
+qa_template = None
+try:
+    config = json.loads(Path("config/gates.json").read_text(encoding="utf-8"))
+except Exception:
+    config = {}
+qa_cfg = config.get("qa") or {}
+if isinstance(qa_cfg, dict):
+    qa_template = qa_cfg.get("report")
+if not qa_template:
+    qa_template = "aidd/reports/qa/{ticket}.json"
+slug_value = slug_hint.strip() or ticket
+branch_value = branch.strip() or "detached"
+raw_qa_path = (
+    str(qa_template)
+    .replace("{ticket}", ticket)
+    .replace("{slug}", slug_value)
+    .replace("{branch}", branch_value)
+)
+qa_path = Path(raw_qa_path)
+if not qa_path.is_absolute() and qa_path.parts and qa_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
+    qa_path = Path(*qa_path.parts[1:])
+qa_path = resolve_report(qa_path)
+if qa_path:
+    reports.append(("qa", qa_path, f"{prefix}{qa_path.as_posix()}"))
+research_path = resolve_report(Path("reports/research") / f"{ticket}-context.json")
+if research_path:
+    reports.append(("research", research_path, f"{prefix}{research_path.as_posix()}"))
+
+review_path = None
+reviewer_cfg = config.get("reviewer") or {}
+review_template = (
+    reviewer_cfg.get("marker")
+    or reviewer_cfg.get("tests_marker")
+    or "aidd/reports/reviewer/{ticket}.json"
+)
+slug_value = slug_hint.strip() or ticket
+raw_path = str(review_template).replace("{ticket}", ticket).replace("{slug}", slug_value)
+review_path = Path(raw_path)
+if not review_path.is_absolute() and review_path.parts and review_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
+    review_path = Path(*review_path.parts[1:])
+if review_path.exists():
+    has_review_report = False
+    try:
+        review_payload = json.loads(review_path.read_text(encoding="utf-8"))
+    except Exception:
+        review_payload = {}
+        has_review_report = True
+    if isinstance(review_payload, dict):
+        kind = str(review_payload.get("kind") or "").strip().lower()
+        stage = str(review_payload.get("stage") or "").strip().lower()
+        if kind == "review" or stage == "review":
+            has_review_report = True
+        elif "findings" in review_payload:
+            has_review_report = True
+    else:
+        has_review_report = True
+    if has_review_report:
+        reports.append(("review", review_path, f"{prefix}{review_path.as_posix()}"))
 try:
     lines = tasklist_path.read_text(encoding="utf-8").splitlines()
 except Exception:
     raise SystemExit(0)
-text = "\n".join(lines).lower()
+text = read_tasklist_section(lines)
 missing = []
 for name, report_path, marker in reports:
-    if not report_path.exists():
-        continue
-    if marker not in text and marker.replace("aidd/", "") not in text:
-        missing.append((name, report_path))
+    marker_lower = marker.lower()
+    alt_marker = marker_lower.replace("aidd/", "")
+    if marker_lower not in text and alt_marker not in text:
+        missing.append((name, marker))
 if missing:
-    items = ", ".join(f"{name}: {prefix}{path.as_posix()}" for name, path in missing)
-    print(f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). Запустите `claude-workflow tasks-derive --source <qa|research> --append --ticket {ticket}`.")
+    items = ", ".join(f"{name}: {marker}" for name, marker in missing)
+    print(
+        f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). "
+        f"Запустите `claude-workflow tasks-derive --source <qa|research|review> --append --ticket {ticket}`."
+    )
     raise SystemExit(1)
 PY
 )"

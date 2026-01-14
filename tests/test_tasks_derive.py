@@ -21,6 +21,8 @@ def _base_tasklist() -> str:
         Updated: 2024-01-01
         ---
 
+        ## AIDD:HANDOFF_INBOX
+
         ## 1. Аналитика и дизайн
         - [ ] research checklist
 
@@ -71,7 +73,39 @@ def test_tasks_derive_from_qa_report(tmp_path):
     assert "handoff:qa start" in content
     assert "QA [blocker]" in content
     assert "QA [minor]" in content
-    assert content.lower().find("## 3. qa") < content.lower().find("handoff:qa"), "block should be under QA section"
+    assert content.lower().find("aidd:handoff_inbox") < content.lower().find("handoff:qa"), "block should be under handoff inbox"
+
+
+def test_tasks_derive_adds_placeholder_when_qa_empty(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {"tests_summary": "pass", "tests_executed": [], "findings": []},
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "QA report:" in content
+    assert "aidd/reports/qa/demo-checkout.json" in content
 
 
 def test_tasks_derive_from_qa_pack(tmp_path):
@@ -238,11 +272,182 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     assert "Research: from json" not in content
 
 
+def test_tasks_derive_from_review_report(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    write_json(
+        project_root,
+        "reports/reviewer/demo-checkout.json",
+        {
+            "kind": "review",
+            "status": "warn",
+            "findings": [
+                {"severity": "major", "scope": "api", "title": "Null guard", "recommendation": "Add guard"},
+            ],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "review",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "handoff:review start" in content
+    assert "Review [major]" in content
+    assert "aidd/reports/reviewer/demo-checkout.json" in content
+
+
+def test_tasks_derive_idempotent_by_id(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {
+            "status": "warn",
+            "tests_summary": "pass",
+            "tests_executed": [],
+            "findings": [
+                {
+                    "id": "qa-1",
+                    "severity": "minor",
+                    "scope": "ui",
+                    "title": "Spacing",
+                    "recommendation": "Fix spacing v1",
+                },
+            ],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {
+            "status": "warn",
+            "tests_summary": "pass",
+            "tests_executed": [],
+            "findings": [
+                {
+                    "id": "qa-1",
+                    "severity": "minor",
+                    "scope": "ui",
+                    "title": "Spacing",
+                    "recommendation": "Fix spacing v2",
+                },
+            ],
+        },
+    )
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert content.count("id: qa:qa-1") == 1
+    assert "Fix spacing v2" in content
+    assert "Fix spacing v1" not in content
+
+
+def test_tasks_derive_replaces_legacy_without_id(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    base = _base_tasklist() + "\n<!-- handoff:qa start (source: aidd/reports/qa/demo-checkout.json) -->\n- [ ] QA [minor] Spacing (source: aidd/reports/qa/demo-checkout.json)\n<!-- handoff:qa end -->\n"
+    write_file(project_root, "docs/tasklist/demo-checkout.md", base)
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {
+            "status": "warn",
+            "tests_summary": "pass",
+            "tests_executed": [],
+            "findings": [
+                {
+                    "severity": "minor",
+                    "scope": "",
+                    "title": "Spacing",
+                    "recommendation": "Fix spacing v2",
+                },
+            ],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--target",
+            ".",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert content.count("QA [minor] Spacing") == 1
+    assert "id: qa:" in content
+
+
 class TasksDeriveArgsTests(unittest.TestCase):
-    def test_tasks_derive_rejects_review_source(self) -> None:
+    def test_tasks_derive_allows_review_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = ensure_project_root(Path(tmpdir))
             write_active_feature(project_root, "demo-checkout")
+            write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+            write_json(
+                project_root,
+                "reports/reviewer/demo-checkout.json",
+                {"kind": "review", "findings": [{"severity": "minor", "title": "Lint", "id": "review-1"}]},
+            )
 
             result = subprocess.run(
                 cli_cmd("tasks-derive", "--source", "review", "--ticket", "demo-checkout"),
@@ -251,8 +456,7 @@ class TasksDeriveArgsTests(unittest.TestCase):
                 capture_output=True,
             )
 
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("invalid choice", (result.stderr or ""))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
 
 
 class TasksDeriveIndexAutoSyncTests(unittest.TestCase):

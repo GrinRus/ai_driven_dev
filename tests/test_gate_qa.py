@@ -93,6 +93,74 @@ def test_allows_when_pack_present(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_handoff_blocks_when_tasklist_missing(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": False,
+                "report": "aidd/reports/qa/{ticket}.json",
+                "handoff": True,
+                "handoff_mode": "block",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-handoff")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+    write_file(
+        tmp_path,
+        "reports/qa/qa-handoff.json",
+        json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
+    )
+
+    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    try:
+        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    finally:
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "tasklist" in combined or "handoff" in combined
+
+
+def test_handoff_warns_when_configured(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": False,
+                "report": "aidd/reports/qa/{ticket}.json",
+                "handoff": True,
+                "handoff_mode": "warn",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-warn")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+    write_file(
+        tmp_path,
+        "reports/qa/qa-warn.json",
+        json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
+    )
+
+    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    try:
+        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+    finally:
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+
+    assert result.returncode == 0, result.stderr
+    combined = (result.stdout + result.stderr).lower()
+    assert "tasklist" in combined or "handoff" in combined
+
+
 def test_skip_env_allows(tmp_path):
     ensure_gates_config(
         tmp_path,
