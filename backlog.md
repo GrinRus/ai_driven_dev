@@ -1351,4 +1351,4 @@ _Статус: новый, приоритет 2. Цель — вынести и�
 ### EPIC D — Plugin & payload sync
 - [x] Зарегистрировать `/spec-interview` и `spec-interview-writer` в `.claude-plugin/plugin.json`, добавить permissions в `.claude/settings.json`.
 - [x] Удалить `tasklist-refiner` из payload и manifest (не используется в новом флоу).
-- [ ] Синхронизировать payload, обновить `src/claude_workflow_cli/data/payload/manifest.json`.
+- [x] Синхронизировать payload, обновить `src/claude_workflow_cli/data/payload/manifest.json`.
