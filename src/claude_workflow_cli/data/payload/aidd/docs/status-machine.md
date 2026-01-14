@@ -79,7 +79,7 @@
 - `READY` — tasklist готов к implement.
 - `WARN` — готов, но с предупреждениями.
 
-Кто выставляет: `/tasks-new` (manual).
+Кто выставляет: `/tasks-new` + `tasklist-refiner`.
 
 Готовность:
 - `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.

@@ -1,6 +1,6 @@
 ---
 name: spec-interview-writer
-description: Build spec.yaml from interview log and update tasklist pack.
+description: Build spec.yaml from interview log (tasklist обновляется через /tasks-new).
 lang: ru
 prompt_version: 1.0.0
 source_version: 1.0.0
@@ -21,7 +21,6 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 - `aidd/docs/plan/<ticket>.md`
 - `aidd/docs/prd/<ticket>.prd.md`
 - `aidd/docs/research/<ticket>.md`
-- `aidd/docs/tasklist/<ticket>.md` (если есть)
 - `aidd/reports/spec/<ticket>.interview.jsonl`
 - `aidd/docs/spec/template.spec.yaml`
 
@@ -31,10 +30,7 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 ## Пошаговый план
 1. Сформируй `aidd/docs/spec/<ticket>.spec.yaml` по шаблону `aidd.spec.v1`.
 2. Убедись, что `status` отражает готовность (draft/ready).
-3. Если tasklist существует — обнови:
-   - `AIDD:SPEC_PACK` (краткий TL;DR + ссылка на spec)
-   - `AIDD:TEST_STRATEGY` (unit/integration/contract/e2e + stand)
-4. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
+3. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
 
 ## Fail-fast и вопросы
 - Если interview log отсутствует или пуст — `Status: BLOCKED` и попроси `/spec-interview`.
@@ -42,5 +38,5 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 ## Формат ответа
 - `Checkbox updated: not-applicable`
 - `Status: READY|BLOCKED|PENDING`
-- `Artifacts updated: aidd/docs/spec/<ticket>.spec.yaml` (+ tasklist if exists)
-- `Next actions: ...`
+- `Artifacts updated: aidd/docs/spec/<ticket>.spec.yaml`
+- `Next actions: /tasks-new <ticket> для синхронизации tasklist`

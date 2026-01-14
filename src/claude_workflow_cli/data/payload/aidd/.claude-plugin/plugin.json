@@ -22,6 +22,7 @@
     "./agents/plan-reviewer.md",
     "./agents/prd-reviewer.md",
     "./agents/spec-interview-writer.md",
+    "./agents/tasklist-refiner.md",
     "./agents/implementer.md",
     "./agents/reviewer.md",
     "./agents/qa.md"

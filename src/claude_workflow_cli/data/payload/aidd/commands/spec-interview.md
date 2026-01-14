@@ -1,5 +1,5 @@
 ---
-description: "Spec interview (AskUserQuestionTool) → spec.yaml + tasklist pack"
+description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /tasks-new)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
 prompt_version: 1.0.0
@@ -20,14 +20,13 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/spec-interview` проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью и формирует spec-файл. Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml`, tasklist обновляется только кратким `AIDD:SPEC_PACK` и `AIDD:TEST_STRATEGY` (если tasklist уже есть).
+Команда `/spec-interview` проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью и формирует spec-файл. Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml`. Обновление tasklist выполняется только через `/tasks-new`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/spec-interview.md`.
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md`
 - `@aidd/docs/prd/<ticket>.prd.md`
 - `@aidd/docs/research/<ticket>.md`
-- `@aidd/docs/tasklist/<ticket>.md` (если есть)
 - `@aidd/docs/spec/template.spec.yaml`
 
 ## Когда запускать
@@ -43,17 +42,16 @@ disable-model-invocation: false
 ## Что редактируется
 - `aidd/docs/spec/<ticket>.spec.yaml`
 - `aidd/reports/spec/<ticket>.interview.jsonl`
-- `aidd/docs/tasklist/<ticket>.md` (AIDD:SPEC_PACK, AIDD:TEST_STRATEGY)
 
 ## Пошаговый план
 1. Зафиксируй стадию `spec-interview` и активную фичу.
-2. Прочитай plan/PRD/research/tasklist и собери decision points.
+2. Прочитай plan/PRD/research и собери decision points.
 3. Проведи интервью через AskUserQuestionTool (non-obvious вопросы):
    - Data/compat/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
 4. Запиши ответы в `aidd/reports/spec/<ticket>.interview.jsonl` (append-only).
 5. Сформируй/обнови `aidd/docs/spec/<ticket>.spec.yaml` по шаблону.
-6. Если tasklist существует — обнови `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY` + ссылку на spec.
-7. Если нужна синтезация по логу — запусти саб-агента `spec-interview-writer`.
+6. Если нужна синтезация по логу — запусти саб-агента `spec-interview-writer`.
+7. Обнови tasklist только через `/tasks-new` (обязательный шаг для синхронизации).
 
 ## Fail-fast и вопросы
 - Нет plan/PRD/research — остановись и попроси завершить `/plan-new` или `/review-spec`.
@@ -62,7 +60,6 @@ disable-model-invocation: false
 ## Ожидаемый вывод
 - `aidd/docs/spec/<ticket>.spec.yaml` создан/обновлён.
 - `aidd/reports/spec/<ticket>.interview.jsonl` обновлён.
-- Tasklist содержит `AIDD:SPEC_PACK` и `AIDD:TEST_STRATEGY` (если tasklist существует).
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

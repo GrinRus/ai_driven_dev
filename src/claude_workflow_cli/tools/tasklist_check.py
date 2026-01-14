@@ -102,6 +102,19 @@ def extract_field_value(item: str, field: str) -> str | None:
     return None
 
 
+def section_has_field(section: str, field: str) -> bool:
+    pattern = re.compile(rf"^\s*(?:[-*]\s*)?{re.escape(field)}\s*:\s*(.*)$", re.IGNORECASE)
+    for line in section.splitlines():
+        match = pattern.match(line)
+        if not match:
+            continue
+        value = match.group(1).strip()
+        if not value or is_placeholder(value):
+            continue
+        return True
+    return False
+
+
 def item_has_fields(item: str) -> tuple[bool, list[str]]:
     missing: list[str] = []
 
@@ -178,6 +191,28 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
     test_strategy = find_section(text, "AIDD:TEST_STRATEGY")
     if not test_strategy:
         return fail("missing section: ## AIDD:TEST_STRATEGY")
+
+    iterations_full = find_section(text, "AIDD:ITERATIONS_FULL")
+    if not iterations_full:
+        return fail("missing section: ## AIDD:ITERATIONS_FULL")
+    has_iteration = False
+    for line in iterations_full.splitlines():
+        match = re.match(r"^\s*-\s*Iteration\s+\d+\s*:\s*(.+)$", line, re.IGNORECASE)
+        if not match:
+            continue
+        value = match.group(1).strip()
+        if not value or is_placeholder(value):
+            continue
+        has_iteration = True
+        break
+    if not has_iteration:
+        return fail("AIDD:ITERATIONS_FULL has no concrete iterations")
+    if not section_has_field(iterations_full, "DoD"):
+        return fail("AIDD:ITERATIONS_FULL missing DoD details")
+    if not section_has_field(iterations_full, "Boundaries"):
+        return fail("AIDD:ITERATIONS_FULL missing Boundaries details")
+    if re.search(r"\bprofile:\s*(fast|targeted|full|none)\b", iterations_full) is None:
+        return fail("AIDD:ITERATIONS_FULL missing Tests.profile")
 
     open_questions = find_section(text, "AIDD:OPEN_QUESTIONS")
     if open_questions:

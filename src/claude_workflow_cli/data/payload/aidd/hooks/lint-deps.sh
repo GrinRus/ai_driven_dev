@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
+HOOK_PREFIX="[lint-deps]"
+log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
 
 if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
   active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
@@ -37,7 +39,7 @@ for line in "${added[@]}"; do
   fi
   [[ -z "$ga" ]] && continue
   if ! is_allowed "$ga"; then
-    echo "WARN: dependency '$ga' не в allowlist (config/allowed-deps.txt)" 1>&2
+    log_stdout "WARN: dependency '$ga' не в allowlist (config/allowed-deps.txt)"
   fi
 done
 

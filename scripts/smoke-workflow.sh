@@ -506,6 +506,18 @@ test_strategy_body = """- Unit: smoke
 - Test data: fixtures"""
 text = replace_section(text, "AIDD:TEST_STRATEGY", test_strategy_body)
 
+iterations_full_body = f"""- Iteration 1: Smoke bootstrap
+  - Goal: satisfy tasklist gate
+  - DoD: tasklist ready for implement
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Dependencies: none
+  - Risks: low"""
+text = replace_section(text, "AIDD:ITERATIONS_FULL", iterations_full_body)
+
 next_3_body = f"""- [ ] Smoke: ready checkbox 1
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md

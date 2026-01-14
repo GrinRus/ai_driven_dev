@@ -2,17 +2,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+HOOK_PREFIX="[gate-qa]"
+log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
+log_stderr() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX" >&2; }
+
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
-  echo "[gate-qa] WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
+  log_stdout "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
 if [[ ! -d "$ROOT_DIR/docs" ]]; then
-  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
+  log_stderr "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload."
   exit 2
 fi
-# shellcheck source=hooks/lib.sh
-source "${SCRIPT_DIR}/lib.sh"
 
 EVENT_TYPE="gate-qa"
 EVENT_STATUS=""
@@ -52,13 +56,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --only)
       shift
-      [[ $# -gt 0 ]] || { echo "[gate-qa] --only требует значение" >&2; exit 64; }
+      [[ $# -gt 0 ]] || { log_stderr "--only требует значение"; exit 64; }
       manual_only="$1"
       shift
       ;;
     --payload)
       shift
-      [[ $# -gt 0 ]] || { echo "[gate-qa] --payload требует JSON" >&2; exit 64; }
+      [[ $# -gt 0 ]] || { log_stderr "--payload требует JSON"; exit 64; }
       payload="$1"
       shift
       ;;
@@ -67,7 +71,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "[gate-qa] неизвестный аргумент: $1" >&2
+      log_stderr "неизвестный аргумент: $1"
       exit 64
       ;;
   esac
@@ -113,7 +117,7 @@ fi
 
 CONFIG_PATH="config/gates.json"
 if [[ ! -f "$CONFIG_PATH" ]]; then
-  echo "[gate-qa] WARN: не найден $CONFIG_PATH — QA-гейт пропущен." >&2
+  log_stdout "WARN: не найден $CONFIG_PATH — QA-гейт пропущен."
   exit 0
 fi
 
@@ -175,7 +179,7 @@ handoff_mode = qa.get("handoff_mode", qa.get("handoffMode", "warn"))
 print(f"HANDOFF_MODE={handoff_mode}")
 PY
 ) || {
-  echo "[gate-qa] WARN: не удалось прочитать секцию qa из config/gates.json." >&2
+  log_stdout "WARN: не удалось прочитать секцию qa из config/gates.json."
   exit 0
 }
 
@@ -197,7 +201,7 @@ list_sep=$'\x1f'
 for line in "${QA_CFG[@]}"; do
   case "$line" in
     PYERROR=*)
-      echo "[gate-qa] ${line#PYERROR=}" >&2
+      log_stderr "${line#PYERROR=}"
       exit 1
       ;;
     ENABLED=*)
@@ -323,12 +327,12 @@ if ((${#qa_requires[@]} > 0)); then
       gate-tests)
         tests_mode_norm="$(printf '%s' "$tests_mode" | tr '[:upper:]' '[:lower:]')"
         if [[ "$tests_mode_norm" == "disabled" ]]; then
-          echo "[gate-qa] WARN: qa.requires содержит gate-tests, но tests_required=disabled." >&2
+          log_stdout "WARN: qa.requires содержит gate-tests, но tests_required=disabled."
         fi
         ;;
       gate-api-contract)
         if [[ "$(hook_config_get_bool config/gates.json api_contract)" != "1" ]]; then
-          echo "[gate-qa] WARN: qa.requires содержит gate-api-contract, но гейт отключён." >&2
+          log_stdout "WARN: qa.requires содержит gate-api-contract, но гейт отключён."
         fi
         ;;
     esac
@@ -428,7 +432,7 @@ if [[ "${CLAUDE_SKIP_QA_DEBOUNCE:-0}" != "1" ]]; then
       if [[ "$last_ts" =~ ^[0-9]+$ ]]; then
         delta=$(( now_ts - last_ts ))
         if (( delta < debounce_minutes * 60 )); then
-          echo "[gate-qa] debounce: QA пропущен (${delta}s < ${debounce_minutes}m)." >&2
+          log_stdout "debounce: QA пропущен (${delta}s < ${debounce_minutes}m)."
           exit 0
         fi
       fi
@@ -449,14 +453,14 @@ fi
 
 if [[ -n "$ticket" ]]; then
   if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
-    echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: $ticket, slug hint: $slug_hint)" >&2
+    log_stdout "Запуск QA-агента (ветка: $branch, ticket: $ticket, slug hint: $slug_hint)"
   else
-    echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: $ticket)" >&2
+    log_stdout "Запуск QA-агента (ветка: $branch, ticket: $ticket)"
   fi
 else
-  echo "[gate-qa] Запуск QA-агента (ветка: $branch, ticket: n/a)" >&2
+  log_stdout "Запуск QA-агента (ветка: $branch, ticket: n/a)"
 fi
-((dry_run == 1)) && echo "[gate-qa] dry-run режим: блокеры не провалят команду." >&2
+((dry_run == 1)) && log_stdout "dry-run режим: блокеры не провалят команду."
 
 EVENT_SHOULD_LOG=1
 EVENT_STATUS="fail"
@@ -471,7 +475,7 @@ status=$?
 set -e
 
 if [[ "$status" -eq 127 ]]; then
-  echo "[gate-qa] ERROR: не удалось выполнить команду QA (${runner[0]})." >&2
+  log_stderr "ERROR: не удалось выполнить команду QA (${runner[0]})."
 fi
 
 if [[ -n "$report_path" && ! -f "$report_path" ]]; then
@@ -488,7 +492,7 @@ fi
 
 if [[ -n "$report_path" && "$qa_allow_missing" == "0" ]]; then
   if [[ ! -f "$report_path" ]]; then
-    echo "[gate-qa] ERROR: отчёт QA не создан: $report_path" >&2
+    log_stderr "ERROR: отчёт QA не создан: $report_path"
     (( status == 0 )) && status=1
   fi
 fi
@@ -502,7 +506,7 @@ fi
 
 if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDOFF:-0}" != "1" ]]; then
   if [[ -n "$ticket" ]]; then
-    echo "[gate-qa] handoff: формируем задачи из отчёта QA" >&2
+    log_stdout "handoff: формируем задачи из отчёта QA"
     handoff_cmd=(tasks-derive --source qa --append --ticket "$ticket" --target "$ROOT_DIR")
     if [[ -n "$slug_hint" && "$slug_hint" != "$ticket" ]]; then
       handoff_cmd+=(--slug-hint "$slug_hint")
@@ -515,10 +519,10 @@ if (( status == 0 )) && [[ "$qa_handoff" == "1" ]] && [[ "${CLAUDE_SKIP_QA_HANDO
     handoff_status=$?
     set -e
     if (( handoff_status != 0 )); then
-      echo "[gate-qa] WARN: tasks-derive завершился с кодом $handoff_status (handoff пропущен)." >&2
+      log_stdout "WARN: tasks-derive завершился с кодом $handoff_status (handoff пропущен)."
     fi
   else
-    echo "[gate-qa] WARN: ticket не определён — handoff пропущен." >&2
+    log_stdout "WARN: ticket не определён — handoff пропущен."
   fi
 fi
 
@@ -584,10 +588,10 @@ PY
 )"
     if [[ -n "$handoff_check" ]]; then
       if [[ "$handoff_mode" == "block" && "$dry_run" == "0" ]]; then
-        echo "${handoff_check/BLOCK:/BLOCK:}" >&2
+        log_stderr "${handoff_check/BLOCK:/BLOCK:}"
         status=2
       else
-        echo "${handoff_check/BLOCK:/WARN:}" >&2
+        log_stdout "${handoff_check/BLOCK:/WARN:}"
       fi
     fi
   fi

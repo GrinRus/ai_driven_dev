@@ -17,7 +17,7 @@ Reports:
 # Tasklist: <ABC-123> — <short-slug>
 
 > Единственный источник правды для implement/review/qa.
-> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:NEXT_3`.
+> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
@@ -94,11 +94,58 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 
 ---
 
+## AIDD:ITERATIONS_FULL
+> Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
+- Iteration 1: <краткое название>
+  - Goal: <что именно делаем>
+  - DoD: <как проверить готовность>
+  - Boundaries: <пути/модули + что не трогаем>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <команды/таски>
+    - filters: <фильтры>
+  - Dependencies: <сервисы/фичефлаги/данные>
+  - Risks: <что может пойти не так>
+- Iteration 2: <...>
+  - Goal: <...>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Dependencies: <...>
+  - Risks: <...>
+- Iteration 3..N: <...>
+
+---
+
 ## AIDD:NEXT_3
-> 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests).
+> 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests). Регулярно обновляй после каждой итерации.
 - [ ] <1. ближайший чекбокс (одна итерация)>
+  - DoD: <что считается готовым>
+  - Boundaries: <пути/модули + что не трогаем>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <команды/таски>
+    - filters: <фильтры>
+  - Notes: <важные нюансы>
 - [ ] <2. следующий>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Notes: <...>
 - [ ] <3. третий>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Notes: <...>
 
 ---
 
@@ -117,7 +164,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] Research: Status reviewed
 - [ ] Plan: существует и валиден
 - [ ] Review Spec: Plan Review READY + PRD Review READY
-- [ ] Spec interview (optional): spec обновлён + tasklist pack синхронизирован
+- [ ] Spec interview (optional): spec обновлён; затем `/tasks-new` для синхронизации tasklist
 
 ### AIDD:CHECKLIST_IMPLEMENT
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
@@ -149,6 +196,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ---
 
 ## AIDD:PROGRESS_LOG
+> Мини‑лог: фиксируй кратко, обновляй после каждой итерации.
 > Формат записи:
 > `- YYYY-MM-DD Iteration N: <что сделано> (checkbox: <...>) (tests: <...>) (artifacts: <...>)`
 - <YYYY-MM-DD> Iteration 1: ...
@@ -159,5 +207,6 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
 - Отмечайте чекбоксы так:
   - `- [x] <описание> — YYYY-MM-DD (iteration N) (tests: fast|targeted|full|none) (link: <commit/pr>)`
-- Если есть spec — сначала обнови spec (`aidd/docs/spec/<ticket>.spec.yaml`), затем tasklist pack.
+- После каждой итерации обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
+- Если обновили spec — запусти `/tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

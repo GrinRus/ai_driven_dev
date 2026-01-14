@@ -846,7 +846,8 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "handoff-задачи" in result.stdout or "tasks-derive" in result.stdout
+    combined = result.stdout + result.stderr
+    assert "handoff-задачи" in combined or "tasks-derive" in combined
 
     tasklist_path = write_tasklist_ready(tmp_path, slug)
     with tasklist_path.open("a", encoding="utf-8") as fh:
