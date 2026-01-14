@@ -4,7 +4,7 @@ description: Структурное ревью PRD после review-plan. Пр�
 lang: ru
 prompt_version: 1.0.7
 source_version: 1.0.7
-tools: Read, Write, Glob, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---

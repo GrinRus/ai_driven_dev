@@ -10,7 +10,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - `claude-workflow research-check` to validate research artefacts before planning.
-- PRD template section `## Research Hints` for passing paths/keywords to `/researcher`.
+- PRD template section `## AIDD:RESEARCH_HINTS` for passing paths/keywords to `/researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` as the primary agent entrypoint.
@@ -31,13 +31,13 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Changed
 - `/implement` and `implementer` prompts now require a test policy, iteration budget, and report `Test profile`/`Tests run` in the response.
 - `format-and-test.sh` selects tasks by profile (`fastTasks/fullTasks/targetedTask`) and honors `AIDD_TEST_FORCE` when repeating runs.
-- `/idea-new` no longer triggers research; analyst captures `Research Hints`, research is run in `/researcher`.
+- `/idea-new` no longer triggers research; analyst captures `AIDD:RESEARCH_HINTS`, research is run in `/researcher`.
 - `analyst-check` no longer validates research; research validation is handled by `research-check` and `gate-workflow`.
 - `/plan-new` now runs `research-check` before planning.
 - Canonical flow now includes plan review: idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa.
 - Commands are thin orchestrators; agents carry algorithms/stop-conditions with a unified question format (Blocker/Clarification + rationale/options/default).
 - Output contract standardized (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), search unified on `rg`.
-- Research/tasklist/QA templates updated with Context Pack, Next 3, Handoff inbox, and QA traceability to acceptance criteria.
+- Research/tasklist/QA templates updated with Context Pack, AIDD:NEXT_3, AIDD:HANDOFF_INBOX, and QA traceability to AIDD:ACCEPTANCE.
 - `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
 - Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; legacy `tasklist.md` больше не мигрируется автоматически.
 - `claude-workflow set-active-feature` больше не нормализует front-matter tasklist и не переносит legacy `tasklist.md`.

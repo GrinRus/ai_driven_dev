@@ -703,7 +703,7 @@ def write_prd_pack(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Generate pack sidecar for research context JSON.")
-    parser.add_argument("path", help="Path to reports/research/<ticket>-context.json")
+    parser.add_argument("path", help="Path to aidd/reports/research/<ticket>-context.json")
     parser.add_argument(
         "--output",
         help="Optional output path (default: *.pack.yaml or *.pack.toon when AIDD_PACK_FORMAT=toon).",

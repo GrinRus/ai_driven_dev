@@ -90,7 +90,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "require_action_items_closed": True,
         "allow_missing_report": False,
         "blocking_severities": ["critical"],
-        "report_path": "reports/prd/{ticket}.json",
+        "report_path": "aidd/reports/prd/{ticket}.json",
     },
     "plan_review": {
         "enabled": True,
@@ -126,7 +126,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "skip_branches": ["docs/*"],
         "command": ["claude-workflow", "qa", "--gate"],
         "debounce_minutes": 10,
-        "report": "reports/qa/{ticket}.json",
+        "report": "aidd/reports/qa/{ticket}.json",
         "allow_missing_report": False,
         "block_on": ["blocker", "critical"],
         "warn_on": ["major", "minor"],
@@ -134,7 +134,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     },
     "reviewer": {
         "enabled": True,
-        "tests_marker": "reports/reviewer/{ticket}.json",
+        "tests_marker": "aidd/reports/reviewer/{ticket}.json",
         "tests_field": "tests",
         "required_values": ["required"],
         "optional_values": ["optional", "skipped", "not-required"],

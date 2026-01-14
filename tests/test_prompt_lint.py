@@ -38,13 +38,11 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
-        "AIDD:CONTRACTS",
-        "AIDD:OBSERVABILITY",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -52,7 +50,7 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:ARCHITECTURE",
         "AIDD:FILES_TOUCHED",
@@ -63,42 +61,22 @@ TEMPLATE_ANCHORS = {
         "AIDD:CONTEXT_PACK",
         "AIDD:NON_NEGOTIABLES",
         "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
+        "AIDD:RISKS",
         "AIDD:DECISIONS",
         "AIDD:INTEGRATION_POINTS",
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
         "AIDD:TEST_HOOKS",
-        "AIDD:GAPS",
     ],
     "docs/tasklist/template.md": [
         "AIDD:CONTEXT_PACK",
-        "AIDD:NON_NEGOTIABLES",
-        "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS_TOP5",
-        "AIDD:DECISIONS",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
-
-TICKET_TEMPLATE_CONTENT = json.dumps(
-    {
-        "ticket": "<ticket>",
-        "slug": "<slug>",
-        "stage": "idea",
-        "status": "pending",
-        "owners": {},
-        "artifacts": {},
-        "tests": {},
-        "reports": {},
-    },
-    indent=2,
-)
-
 
 def build_agent(name: str) -> str:
     question = ""
@@ -236,10 +214,6 @@ class PromptLintTests(unittest.TestCase):
             for section in sections:
                 lines.append(f"## {section}")
             template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-        ticket_template = root / "docs" / "tickets" / "template.yaml"
-        ticket_template.parent.mkdir(parents=True, exist_ok=True)
-        ticket_template.write_text(TICKET_TEMPLATE_CONTENT + "\n", encoding="utf-8")
 
         index_schema = root / "docs" / "index" / "schema.json"
         index_schema.parent.mkdir(parents=True, exist_ok=True)

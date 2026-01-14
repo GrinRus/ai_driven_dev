@@ -4,7 +4,7 @@ description: Ревью плана реализации: исполняемос�
 lang: ru
 prompt_version: 1.0.7
 source_version: 1.0.7
-tools: Read, Write, Glob, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -25,7 +25,7 @@ permissionMode: default
 
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — основной документ для ревью.
-- `@aidd/docs/prd/<ticket>.prd.md` — цели, acceptance criteria, ограничения.
+- `@aidd/docs/prd/<ticket>.prd.md` — цели, AIDD:ACCEPTANCE, ограничения.
 - `@aidd/docs/research/<ticket>.md` и отчёты `aidd/reports/research/*` — точки интеграции и reuse.
 - ADR (если есть) — архитектурные решения и ограничения.
 

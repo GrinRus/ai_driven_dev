@@ -4,7 +4,7 @@ description: План реализации по PRD и research. Декомпо�
 lang: ru
 prompt_version: 1.1.1
 source_version: 1.1.1
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -35,7 +35,7 @@ permissionMode: default
 - План — источник для `/review-spec` и `/tasks-new`.
 
 ## Пошаговый план
-1. Прочитай PRD: цели, сценарии, ограничения, acceptance criteria, риски.
+1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.
 2. Сверься с research: reuse-точки, интеграции, тесты, «красные зоны».
 3. Заполни раздел `Architecture & Patterns`: опиши архитектуру и границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
 4. Разбей работу на итерации: шаги → DoD → тесты (unit/integration/e2e) → артефакты.

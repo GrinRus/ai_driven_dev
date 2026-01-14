@@ -154,7 +154,7 @@ class QaAgentTests(unittest.TestCase):
             "QA_TESTS_SUMMARY": "fail",
             "QA_TESTS_EXECUTED": json.dumps(
                 [
-                    {"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "reports/qa/demo-tests.log"}
+                    {"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}
                 ]
             ),
             "QA_ALLOW_NO_TESTS": "1",
@@ -262,7 +262,7 @@ Updated: 2024-01-02
         (self.project_root / "docs").mkdir(parents=True, exist_ok=True)
         workdir = self.root / "outside"
         workdir.mkdir(parents=True, exist_ok=True)
-        report_rel = "reports/qa/demo.json"
+        report_rel = "aidd/reports/qa/demo.json"
 
         result = subprocess.run(
             cli_cmd(
@@ -283,5 +283,5 @@ Updated: 2024-01-02
         )
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
-        self.assertTrue((self.project_root / report_rel).is_file())
+        self.assertTrue((self.project_root / "reports/qa/demo.json").is_file())
         self.assertFalse((workdir / report_rel).exists())

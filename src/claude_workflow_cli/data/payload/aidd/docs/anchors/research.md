@@ -1,30 +1,27 @@
 # Anchor: research
 
-## Цели
-- Обновить `aidd/reports/research/*` и документ исследования.
-- Зафиксировать интеграционные точки, reuse, риски и команды.
+## Goals
+- Собрать подтверждённые integration points, reuse, risks, test hooks.
+- Обновить research report и дать handoff в tasklist.
+- Status reviewed — только при воспроизводимом сборе (commands + paths).
 
-## MUST KNOW FIRST
-- `aidd/docs/prd/<ticket>.prd.md` (особенно `## Research Hints`).
-- `aidd/docs/research/template.md`.
-- `aidd/docs/anchors/research.md`.
-
-## Inputs
-- PRD + Research Hints.
-- Репозиторий, конвенции, code index.
-
-## Outputs/Contract
-- `aidd/docs/research/<ticket>.md` со статусом `reviewed|pending`.
-- `aidd/reports/research/<ticket>-context.json` и `aidd/reports/research/<ticket>-targets.json`.
-- Опционально: `aidd/reports/research/<ticket>-call-graph-full.json`.
+## MUST READ FIRST
+- aidd/docs/prd/<ticket>.prd.md: AIDD:RESEARCH_HINTS
+- aidd/reports/research/<ticket>-context.json (или актуальный путь)
+- aidd/docs/research/<ticket>.md (если существует)
 
 ## MUST UPDATE
-- `aidd/docs/research/<ticket>.md`.
-- `aidd/reports/research/<ticket>-context.json` (и targets).
+- aidd/docs/research/<ticket>.md:
+  - AIDD:INTEGRATION_POINTS
+  - AIDD:REUSE_CANDIDATES
+  - AIDD:RISKS
+  - AIDD:TEST_HOOKS
+  - Commands run / paths
 
 ## MUST NOT
-- Пропускать фиксацию интеграционных точек и рисков.
-- Задавать вопросы без списка просмотренных артефактов.
+- Писать “возможно” без файлов/команд.
+- Вставлять большие JSON — только ссылки.
 
-## Blockers
-- Недостаточно данных для baseline (нет путей/keywords).
+## Output contract
+- Status: reviewed|pending
+- Handoff: задачи формата "Research: ..." (source: aidd/reports/research/...).

@@ -5,7 +5,7 @@ The script inspects docs/prd/<ticket>.prd.md, looks for the dedicated
 `## PRD Review` section, checks status/action items and surfaces obvious
 placeholders (TODO/TBD/<...>) that must be resolved before development.
 
-It produces a structured JSON report that can be stored in reports/prd/
+It produces a structured JSON report that can be stored in aidd/reports/prd/
 and optionally prints a concise human-readable summary.
 """
 
@@ -33,6 +33,28 @@ APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
 PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
 REVIEW_SECTION_HEADER = "## PRD Review"
+
+
+def _normalize_output_path(root: Path, path: Path) -> Path:
+    if path.is_absolute():
+        return path.resolve()
+    parts = path.parts
+    if parts and parts[0] == ".":
+        path = Path(*parts[1:])
+        parts = path.parts
+    if parts and parts[0] == "aidd" and root.name == "aidd":
+        path = Path(*parts[1:])
+    return (root / path).resolve()
+
+
+def _rel_path(root: Path, path: Path) -> str:
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+    if root.name == "aidd":
+        return f"aidd/{rel}"
+    return rel
 
 
 def _normalize_id_text(value: str) -> str:
@@ -311,8 +333,7 @@ def run(args: argparse.Namespace) -> int:
     output_path = args.report
     if output_path is None:
         output_path = root / "reports" / "prd" / f"{ticket}.json"
-    if not output_path.is_absolute():
-        output_path = root / output_path
+    output_path = _normalize_output_path(root, output_path)
 
     previous_payload = None
     if args.emit_patch and output_path.exists():
@@ -322,7 +343,7 @@ def run(args: argparse.Namespace) -> int:
             previous_payload = None
 
     output_path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-    rel = output_path.relative_to(root) if output_path.is_relative_to(root) else output_path
+    rel = _rel_path(root, output_path)
     print(f"[prd-review] report saved to {rel}", file=sys.stderr)
     try:
         from claude_workflow_cli.reports import events as _events
@@ -333,7 +354,7 @@ def run(args: argparse.Namespace) -> int:
             slug_hint=slug,
             event_type="prd-review",
             status=report.status,
-            report_path=rel if isinstance(rel, Path) else output_path,
+            report_path=Path(rel),
             source="claude-workflow prd-review",
         )
     except Exception as exc:

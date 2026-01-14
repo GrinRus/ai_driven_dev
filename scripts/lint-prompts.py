@@ -84,7 +84,7 @@ CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
     "AIDD:NON_NEGOTIABLES",
     "AIDD:OPEN_QUESTIONS",
-    "AIDD:RISKS_TOP5",
+    "AIDD:RISKS",
     "AIDD:DECISIONS",
 ]
 
@@ -93,9 +93,7 @@ TEMPLATE_ANCHORS = {
         *CORE_ANCHORS,
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE_CRITERIA",
-        "AIDD:CONTRACTS",
-        "AIDD:OBSERVABILITY",
+        "AIDD:ACCEPTANCE",
         "AIDD:METRICS",
         "AIDD:ROLL_OUT",
     ],
@@ -112,15 +110,14 @@ TEMPLATE_ANCHORS = {
         "AIDD:REUSE_CANDIDATES",
         "AIDD:COMMANDS_RUN",
         "AIDD:TEST_HOOKS",
-        "AIDD:GAPS",
     ],
     "docs/tasklist/template.md": [
-        *CORE_ANCHORS,
+        "AIDD:CONTEXT_PACK",
         "AIDD:NEXT_3",
-        "AIDD:INBOX_DERIVED",
+        "AIDD:HANDOFF_INBOX",
         "AIDD:CHECKLIST",
-        "AIDD:QA_TRACEABILITY",
         "AIDD:PROGRESS_LOG",
+        "AIDD:HOW_TO_UPDATE",
     ],
 }
 
@@ -142,17 +139,6 @@ INDEX_REQUIRED_FIELDS = [
     "open_questions",
     "risks_top5",
     "checks",
-]
-TICKET_TEMPLATE_PATH = Path("docs/tickets/template.yaml")
-TICKET_REQUIRED_FIELDS = [
-    "ticket",
-    "slug",
-    "stage",
-    "status",
-    "owners",
-    "artifacts",
-    "tests",
-    "reports",
 ]
 
 
@@ -553,27 +539,6 @@ def validate_index_schema(root: Path) -> List[str]:
     return errors
 
 
-def validate_ticket_manifest_template(root: Path) -> List[str]:
-    errors: List[str] = []
-    aidd_root = _resolve_aidd_root(root)
-    template_path = aidd_root / TICKET_TEMPLATE_PATH
-    if not template_path.exists():
-        return [f"{template_path}: missing ticket manifest template"]
-    try:
-        raw = template_path.read_text(encoding="utf-8")
-        stripped = raw.lstrip()
-        if stripped.startswith("---"):
-            lines = stripped.splitlines()
-            stripped = "\n".join(lines[1:]).lstrip()
-        payload = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        return [f"{template_path}: invalid JSON/YAML ({exc})"]
-    missing = [field for field in TICKET_REQUIRED_FIELDS if field not in payload]
-    if missing:
-        errors.append(f"{template_path}: missing required fields {missing}")
-    return errors
-
-
 def main() -> int:
     args = parse_args()
     root = args.root
@@ -584,7 +549,6 @@ def main() -> int:
     errors.extend(validate_stage_anchors(root))
     errors.extend(validate_template_anchors(root))
     errors.extend(validate_index_schema(root))
-    errors.extend(validate_ticket_manifest_template(root))
     if errors:
         for msg in errors:
             print(f"[prompt-lint] {msg}", file=sys.stderr)

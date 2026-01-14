@@ -10,6 +10,7 @@ allowed-tools:
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(sed:*)"
   - "Bash(claude-workflow set-active-feature:*)"
   - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow analyst-check:*)"
@@ -18,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## Research Hints` в PRD. После ответов пользователя следующий обязательный шаг — `/researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
+`/idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## AIDD:RESEARCH_HINTS` в PRD. После ответов пользователя следующий обязательный шаг — `/researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/idea.md`.
 
 ## Входные артефакты
@@ -43,12 +44,12 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `idea`: `claude-workflow set-active-stage idea`.
 2. Обнови активный тикет/slug: `claude-workflow set-active-feature "$1" [--slug-note "$2"]`.
-3. Запусти саб-агента **analyst**; он обновит PRD и заполнит блок `## Research Hints` (пути/ключевые слова/заметки).
+3. Запусти саб-агента **analyst**; он обновит PRD и заполнит блок `## AIDD:RESEARCH_HINTS` (пути/ключевые слова/заметки).
 4. Верни список вопросов и статус PRD; следующий шаг — `/researcher <ticket>`.
 
 ## Fail-fast и вопросы
 - Нет тикета/slug — остановись и запроси корректные аргументы.
-- Если контекста недостаточно, вопросы формируются как `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`; ответы — `Ответ N: ...`. Для research укажи подсказки в `## Research Hints`.
+- Если контекста недостаточно, вопросы формируются как `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`; ответы — `Ответ N: ...`. Для research укажи подсказки в `## AIDD:RESEARCH_HINTS`.
 
 ## Ожидаемый вывод
 - Активный ticket/slug зафиксирован в `aidd/docs/.active_*`.

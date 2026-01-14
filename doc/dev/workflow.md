@@ -8,19 +8,38 @@
 > Payload обновляйте через CLI: `claude-workflow init --target .` (bootstrap), `claude-workflow sync|upgrade` для подтяжки шаблонов и `claude-workflow smoke` для быстрой проверки гейтов.
 > **Важно:** `.claude/`, `.claude-plugin/` и содержимое `aidd/` (docs/prd, docs/adr, docs/plan, docs/tasklist, docs/research, commands, agents, hooks, reports) — это развернутый snapshot. Каталог `aidd/reports/prd` разворачивается при `claude-workflow init` (payload включает `.gitkeep`), ручной `mkdir` не нужен. Канонические правки делайте в `aidd/**`, затем синхронизируйте в payload через `scripts/sync-payload.sh --direction=from-root`. Перед отправкой PR запустите `python3 tools/check_payload_sync.py` или `pre-commit run payload-sync-check`, чтобы убедиться в отсутствии расхождений.
 > Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; working set (`aidd/reports/context/latest_working_set.md`) — первый источник при наличии.
+
+## Context pack
+
+Создать компактный контекст по якорям можно командой:
+
+```
+claude-workflow context-pack --ticket <TICKET> --agent <agent>
+```
+
+Файл сохраняется в `aidd/reports/context/<ticket>-<agent>.md`.
+
+## Test cadence
+
+Поле `.claude/settings.json → automation.tests.cadence` управляет автозапуском тестов:
+- `on_stop` — запуск по Stop/SubagentStop (по умолчанию).
+- `checkpoint` — запуск после `claude-workflow progress`.
+- `manual` — запуск только при явном запросе.
+
+Для ручного триггера используйте `AIDD_TEST_CHECKPOINT=1` или явный `AIDD_TEST_PROFILE`.
 ## Обзор этапов
 
 | Этап | Команда | Саб-агент | Основные артефакты |
 | --- | --- | --- | --- |
 | Аналитика идеи | `/idea-new <ticket> [slug-hint]` | `analyst` | `aidd/docs/prd/<ticket>.prd.md`, активная фича |
-| Research | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` | `researcher` | `aidd/docs/research/<ticket>.md`, `reports/research/<ticket>-targets.json` |
+| Research | `claude-workflow research --ticket <ticket>` → `/researcher <ticket>` | `researcher` | `aidd/docs/research/<ticket>.md`, `aidd/reports/research/<ticket>-targets.json` |
 | Планирование | `/plan-new <ticket>` | `planner`, `validator` | `aidd/docs/plan/<ticket>.md`, уточнённые вопросы |
 | Review планa | `/review-spec <ticket>` | `plan-reviewer` | `aidd/docs/plan/<ticket>.md` |
-| PRD review | `/review-spec <ticket>` | `prd-reviewer` | `aidd/docs/prd/<ticket>.prd.md`, отчёт `reports/prd/<ticket>.json` |
+| PRD review | `/review-spec <ticket>` | `prd-reviewer` | `aidd/docs/prd/<ticket>.prd.md`, отчёт `aidd/reports/prd/<ticket>.json` |
 | Тасклист | `/tasks-new <ticket>` | — | `aidd/docs/tasklist/<ticket>.md` (обновлённые чеклисты) |
 | Реализация | `/implement <ticket>` | `implementer` | кодовые изменения, актуальные тесты |
 | Ревью | `/review <ticket>` | `reviewer` | замечания в `aidd/docs/tasklist/<ticket>.md`, итоговый статус |
-| QA | `/qa <ticket>` | `qa` | `aidd/docs/tasklist/<ticket>.md` (QA блок), `reports/qa/<ticket>.json` |
+| QA | `/qa <ticket>` | `qa` | `aidd/docs/tasklist/<ticket>.md` (QA блок), `aidd/reports/qa/<ticket>.json` |
 
 > Команда `/review-spec <ticket>` выполняет review-plan и review-prd последовательно.
 
@@ -31,13 +50,13 @@
 ### 1. Идея (`/idea-new`)
 - Устанавливает активную фичу (`aidd/docs/.active_ticket`).
 - Автоматически создаёт черновик PRD по шаблону (`aidd/docs/prd/<ticket>.prd.md`, `Status: draft`), собирает вводные, риски и метрики.
-- Саб-агент **analyst** опирается на slug-hint (`aidd/docs/.active_feature`) и доступные артефакты (PRD, существующий research/reports), заполняет PRD и фиксирует `## Research Hints` для последующего исследования.
+- Саб-агент **analyst** опирается на slug-hint (`aidd/docs/.active_feature`) и доступные артефакты (PRD, существующий research/reports), заполняет PRD и фиксирует `## AIDD:RESEARCH_HINTS` для последующего исследования.
 - Каждый вопрос фиксируется в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default` в разделе `## Диалог analyst`; ответы даются как `Ответ N: ...`. Итоговый статус переводится в READY после закрытия вопросов; research проверяется отдельно через `research-check` перед планом.
 - После диалога запускайте `claude-workflow analyst-check --ticket <ticket>` — команда проверит структуру вопросов/ответов и статус. При ошибке вернитесь к агенту и дополните информацию.
 
 ### 2. Research (`/researcher`)
-- Запустите `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter/--graph-limit/--note]`, используя `## Research Hints` из PRD, затем вызовите `/researcher <ticket>`.
-- CLI-команда `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter/--graph-limit/--note]` собирает контекст: пути из `config/conventions.json`, `code_index` (символы/импорты/тесты), `reuse_candidates` и `call_graph`/`import_graph` (для поддерживаемых языков через tree-sitter language pack; если грамматики нет, граф может быть пустым). По умолчанию call graph фильтруется по `<ticket>|<keywords>` и ограничивается 100 рёбрами (focus) в контексте; полный граф сохраняется в `reports/research/<ticket>-call-graph-full.json`. Результат сохраняется в `reports/research/<ticket>-targets.json` и `<ticket>-context.json`.
+- Запустите `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter/--graph-limit/--note]`, используя `## AIDD:RESEARCH_HINTS` из PRD, затем вызовите `/researcher <ticket>`.
+- CLI-команда `claude-workflow research --ticket <ticket> --auto --deep-code --call-graph [--reuse-only] [--paths/--keywords/--langs/--graph-langs/--graph-filter/--graph-limit/--note]` собирает контекст: пути из `config/conventions.json`, `code_index` (символы/импорты/тесты), `reuse_candidates` и `call_graph`/`import_graph` (для поддерживаемых языков через tree-sitter language pack; если грамматики нет, граф может быть пустым). По умолчанию call graph фильтруется по `<ticket>|<keywords>` и ограничивается 100 рёбрами (focus) в контексте; полный граф сохраняется в `aidd/reports/research/<ticket>-call-graph-full.json`. Результат сохраняется в `aidd/reports/research/<ticket>-targets.json` и `<ticket>-context.json`.
 - Саб-агент **researcher** использует `code_index`/`reuse_candidates` и `call_graph`/`import_graph`, при необходимости дорасшифровывает связи в Claude Code, дополняет `rg "<ticket|feature>"`, `find`, `python`-скриптами, чтобы выявить интеграционные точки, тесты, миграции и долги. Все выводы оформляются в `aidd/docs/research/<ticket>.md` со ссылками на файлы/строки, команды и call graph; при отсутствии данных фиксируется baseline «Контекст пуст, требуется baseline» с перечислением уже просмотренных путей.
 - Статус в отчёте должен стать `Status: reviewed`, критичные действия переносятся в план и `aidd/docs/tasklist/<ticket>.md`.
 - При запуске с `--auto` Researcher отмечает нулевые совпадения (новые проекты), добавляет в шаблон блок «Контекст пуст, требуется baseline» и предлагает рекомендации (`profile.recommendations`) на основе `config/conventions.json`; такие отчёты можно временно оставлять в `Status: pending`, baseline фиксируется в `aidd/docs/research/<ticket>.md`.
@@ -54,9 +73,9 @@
 
 ### 5. PRD Review (`/review-spec`, этап review-prd)
 - Саб-агент **prd-reviewer** проверяет полноту PRD, метрики, риски и соответствие ADR.
-- Результат фиксируется в разделе `## PRD Review` (статус, summary, findings, action items) и в отчёте `reports/prd/<ticket>.json`.
+- Результат фиксируется в разделе `## PRD Review` (статус, summary, findings, action items) и в отчёте `aidd/reports/prd/<ticket>.json`.
 - Блокирующие action items и открытые вопросы синхронизируются с планом и `aidd/docs/tasklist/<ticket>.md`.
-- Каталог `reports/prd` создаётся при `claude-workflow init` из payload (через `.gitkeep`).
+- Каталог `aidd/reports/prd` создаётся при `claude-workflow init` из payload (через `.gitkeep`).
 
 ### 6. Тасклист (`/tasks-new`)
 - Преобразует план в чеклисты в `aidd/docs/tasklist/<ticket>.md`.
@@ -68,18 +87,18 @@
 - В конце итерации (Stop/SubagentStop) запускается `${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh` **только на стадии implement**. Управление через `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`; все ручные команды (например, `pytest`, `npm test`, `go test`, `claude-workflow progress --source implement --ticket <ticket>`) перечисляйте в ответе с кратким результатом.
 - Каждая итерация должна завершаться фиксацией прогресса в `aidd/docs/tasklist/<ticket>.md`: переведите релевантные пункты `- [ ] → - [x]`, обновите строку `Checkbox updated: …`, приложите ссылку на diff/команду и запустите `claude-workflow progress --source implement --ticket <ticket>`. Если утилита сообщает, что новых `- [x]` нет, вернитесь к чеклисту прежде чем завершать команду.
 - Если включены дополнительные гейты (`config/gates.json`), следите за сообщениями `gate-workflow.sh` (включая review-plan/PRD review и `/review-spec`), `gate-qa.sh`, `gate-tests.sh`, `lint-deps.sh`.
-- После отчётов QA/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
+- После отчётов QA/Research добавляйте handoff-задачи командой `claude-workflow tasks-derive --source <qa|research> --append --ticket <ticket>` (новые `- [ ]` должны ссылаться на `aidd/reports/<source>/...`); при необходимости подтвердите прогресс `claude-workflow progress --source handoff --ticket <ticket>`.
 
 ### 8. Ревью (`/review`)
 - Саб-агент **reviewer** проводит код-ревью и синхронизирует замечания в `aidd/docs/tasklist/<ticket>.md`.
 - Reviewer сверяет, что выполненные пункты отмечены `- [x]`, обновляет строку `Checkbox updated: …` и при необходимости запускает `claude-workflow progress --source review --ticket <ticket>`, чтобы убедиться, что прогресс зафиксирован.
-- Для запуска автотестов reviewer помечает маркер `reports/reviewer/<ticket>.json` командой `claude-workflow reviewer-tests --status required` (slug берётся из `aidd/docs/.active_ticket`). После успешного прогона обновите статус на `optional`, чтобы отключить авто‑запуск.
+- Для запуска автотестов reviewer помечает маркер `aidd/reports/reviewer/<ticket>.json` командой `claude-workflow reviewer-tests --status required` (slug берётся из `aidd/docs/.active_ticket`). После успешного прогона обновите статус на `optional`, чтобы отключить авто‑запуск.
 - При блокирующих проблемах фича возвращается на стадию реализации; при минорных — формируется список рекомендаций.
 
 ### 9. QA (`/qa`)
-- Обязательная стадия перед релизом: запустите `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report reports/qa/<ticket>.json --gate`, чтобы сформировать отчёт и статус READY/WARN/BLOCKED.
+- Обязательная стадия перед релизом: запустите `/qa <ticket>` или `claude-workflow qa --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate`, чтобы сформировать отчёт и статус READY/WARN/BLOCKED.
 - Саб-агент **qa** сопоставляет diff с чеклистом `aidd/docs/tasklist/<ticket>.md`, фиксирует найденные проблемы и рекомендации; гейт `gate-qa.sh` блокирует merge при blocker/critical или отсутствии отчёта.
-- После статуса READY/WARN добавьте handoff-задачи из `reports/qa/<ticket>.json` через `claude-workflow tasks-derive --source qa --append --ticket <ticket>`, чтобы исполнитель видел все находки.
+- После статуса READY/WARN добавьте handoff-задачи из `aidd/reports/qa/<ticket>.json` через `claude-workflow tasks-derive --source qa --append --ticket <ticket>`, чтобы исполнитель видел все находки.
 - Обновите QA-раздел tasklist (новые `- [x]`, дата/итерация, ссылки на логи) и выполните `claude-workflow progress --source qa --ticket <ticket>`.
 
 ## Автоматизация и гейты
@@ -102,8 +121,8 @@
 - `config/gates.json` управляет дополнительными проверками:
   - дополнительные гейты конфигурируются в `config/gates.json` (см. `tests_required`, `qa`).
   - `plan_review` — контролирует раздел `## Plan Review`: статус и блокирующие уровни.
-  - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `reports/prd/<ticket>.json`.
-  - `researcher` — проверяет наличие `aidd/docs/research/<ticket>.md`, статус `Status: reviewed`, свежесть `reports/research/<ticket>-context.json` и заполненность `reports/research/<ticket>-targets.json`; те же правила использует `claude-workflow research-check` перед `/plan-new`.
+  - `prd_review` — контролирует раздел `## PRD Review`: разрешённые ветки, статус, блокирующие уровни и отчёт в `aidd/reports/prd/<ticket>.json`.
+  - `researcher` — проверяет наличие `aidd/docs/research/<ticket>.md`, статус `Status: reviewed`, свежесть `aidd/reports/research/<ticket>-context.json` и заполненность `aidd/reports/research/<ticket>-targets.json`; те же правила использует `claude-workflow research-check` перед `/plan-new`.
   - `analyst` — следит за блоком `## Диалог analyst`, наличием ответов на вопросы в формате `Вопрос N`/`Ответ N` и запретом статуса READY при незакрытых вопросах; используется командой `claude-workflow analyst-check` и хуком `gate-workflow.sh`.
   - `qa` — запускает `scripts/qa-agent.py`, блокируя фичу при критичных/блокирующих находках.
   - `tests_required` — режим `disabled|soft|hard` для обязательных тестов.

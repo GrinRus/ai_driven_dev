@@ -35,7 +35,7 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "moduleMatrix": [],
                 "reviewerGate": {
                     "enabled": True,
-                    "marker": "reports/reviewer/{ticket}.json",
+                    "marker": "aidd/reports/reviewer/{ticket}.json",
                     "field": "tests",
                     "requiredValues": ["required"],
                     "optionalValues": ["optional", "skipped", "not-required"],
@@ -235,7 +235,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     payload["automation"]["tests"]["reviewerGate"].update(
         {
             "enabled": True,
-            "tests_marker": "reports/reviewer/{slug}.json",
+            "tests_marker": "aidd/reports/reviewer/{slug}.json",
             "tests_field": "state",
             "required_values": ["force"],
             "optional_values": ["idle"],
@@ -262,7 +262,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
             "tests": {
                 "reviewerGate": {
                     "enabled": True,
-                    "tests_marker": "reports/reviewer/{ticket}.json",
+                    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
                     "tests_field": "state",
                     "required_values": ["force"],
                     "optional_values": ["idle"],

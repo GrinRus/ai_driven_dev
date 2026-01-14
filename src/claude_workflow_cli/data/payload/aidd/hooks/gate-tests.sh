@@ -74,7 +74,7 @@ if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
 template = str(
     reviewer_cfg.get("tests_marker")
     or reviewer_cfg.get("marker")
-    or "reports/reviewer/{ticket}.json"
+    or "aidd/reports/reviewer/{ticket}.json"
 )
 field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
 required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -85,6 +85,8 @@ required_values = [
 
 slug_value = slug_hint.strip() or ticket
 marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
+if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
+    marker_path = Path(*marker_path.parts[1:])
 if not marker_path.exists():
     raise SystemExit(0)
 

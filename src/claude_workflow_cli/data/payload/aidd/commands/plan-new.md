@@ -10,6 +10,7 @@ allowed-tools:
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(sed:*)"
   - "Bash(claude-workflow set-active-stage:*)"
   - "Bash(claude-workflow set-active-feature:*)"
   - "Bash(claude-workflow research-check:*)"
