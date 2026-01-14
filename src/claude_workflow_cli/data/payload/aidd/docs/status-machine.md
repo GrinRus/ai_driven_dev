@@ -82,7 +82,7 @@
 Кто выставляет: `/tasks-new` + `tasklist-refiner`.
 
 Готовность:
-- `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.
+- `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY` + `AIDD:TEST_EXECUTION`.
 
 ## Review / QA Reports
 

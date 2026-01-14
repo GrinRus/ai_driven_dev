@@ -26,7 +26,12 @@ Research: `aidd/docs/research/<ticket>.md`
 - `<путь/модуль> — <что меняем>`
 
 ## AIDD:ITERATIONS
-- `<итерация> → <цель> → <DoD>`
+- iteration_id: I1
+  - Goal: <цель итерации>
+  - Boundaries: <модули/границы>
+  - Outputs: <артефакты>
+  - DoD: <критерий готовности>
+  - Test categories: <unit|integration|e2e>
 
 ## AIDD:TEST_STRATEGY
 - `<что/где/как тестируем>`
@@ -45,17 +50,19 @@ Research: `aidd/docs/research/<ticket>.md`
 - [путь/модуль] — [что меняем]
 
 ## 4. Итерации и DoD
-### Итерация 1
-- Шаги: [описание]
+### Итерация I1
+- Goal: [что именно делаем]
+- Boundaries: [модули/пути, где меняем]
+- Outputs: [артефакты итерации]
 - DoD: [критерии готовности]
-- Тесты: [unit/integration/e2e]
+- Test categories: [unit/integration/e2e]
 
-### Итерация 2
+### Итерация I2
 - ...
 
 ## 5. Test Strategy
-- По итерациям: [что/где/как]
-- Автоматизация: [команды/хуки]
+- По итерациям: [что/где тестируем]
+- Категории: [unit/integration/e2e]
 
 ## 6. Feature Flags & Migrations
 - Флаги: [название/поведение]
@@ -77,7 +84,7 @@ Status: PENDING
 - [краткий вывод]
 
 ### Findings
-- [ ] [проблема] — [severity] — [рекомендация]
+- [severity] [проблема] — [рекомендация]
 
 ### Action items
-- [ ] [действие] — [ответственный] — [срок]
+- [действие] — [ответственный] — [срок]

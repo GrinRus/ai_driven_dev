@@ -130,7 +130,18 @@ def write_plan_with_review(tmp_path: pathlib.Path, ticket: str = "demo-checkout"
     write_file(
         tmp_path,
         f"docs/plan/{ticket}.md",
-        "# Plan\n\n## Plan Review\n" f"Status: {status}\n",
+        (
+            "# Plan\n\n"
+            "## Plan Review\n"
+            f"Status: {status}\n\n"
+            "## AIDD:ITERATIONS\n"
+            "- iteration_id: I1\n"
+            "  - Goal: bootstrap\n"
+            "- iteration_id: I2\n"
+            "  - Goal: follow-up\n"
+            "- iteration_id: I3\n"
+            "  - Goal: follow-up\n"
+        ),
     )
 
 

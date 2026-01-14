@@ -506,39 +506,77 @@ test_strategy_body = """- Unit: smoke
 - Test data: fixtures"""
 text = replace_section(text, "AIDD:TEST_STRATEGY", test_strategy_body)
 
-iterations_full_body = f"""- Iteration 1: Smoke bootstrap
+test_execution_body = """- profile: none
+- tasks: []
+- filters: []
+- when: manual
+- reason: smoke baseline"""
+text = replace_section(text, "AIDD:TEST_EXECUTION", test_execution_body)
+
+iterations_full_body = f"""- Iteration I1: Smoke bootstrap
+  - iteration_id: I1
   - Goal: satisfy tasklist gate
+  - Outputs: tasklist ready for implement
   - DoD: tasklist ready for implement
   - Boundaries: docs/tasklist/{ticket}.md
+  - Steps:
+    - update tasklist sections
+    - verify gate
+    - record progress
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
-  - Dependencies: none
-  - Risks: low"""
+  - Acceptance mapping: AC-1
+  - Risks & mitigations: low → none
+  - Dependencies: none"""
 text = replace_section(text, "AIDD:ITERATIONS_FULL", iterations_full_body)
 
 next_3_body = f"""- [ ] Smoke: ready checkbox 1
+  - iteration_id: I1
+  - Goal: satisfy tasklist gate
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md
+  - Steps:
+    - update tasklist sections
+    - verify gate
+    - record progress
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
+  - Acceptance mapping: AC-1
+  - Risks & mitigations: low → none
 - [ ] Smoke: ready checkbox 2
+  - iteration_id: I2
+  - Goal: follow-up
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md
+  - Steps:
+    - update tasklist sections
+    - verify gate
+    - record progress
   - Tests:
     - profile: none
     - tasks: []
     - filters: []
+  - Acceptance mapping: AC-2
+  - Risks & mitigations: low → none
 - [ ] Smoke: ready checkbox 3
+  - iteration_id: I3
+  - Goal: follow-up
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md
+  - Steps:
+    - update tasklist sections
+    - verify gate
+    - record progress
   - Tests:
     - profile: none
     - tasks: []
-    - filters: []"""
+    - filters: []
+  - Acceptance mapping: AC-3
+  - Risks & mitigations: low → none"""
 text = replace_section(text, "AIDD:NEXT_3", next_3_body)
 
 path.write_text(text, encoding="utf-8")

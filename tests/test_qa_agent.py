@@ -78,6 +78,7 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(payload["status"], "fail")
         self.assertGreaterEqual(payload["counts"]["blocker"], 1)
         self.assertTrue(all(finding.get("id") for finding in payload["findings"]))
+        self.assertTrue(all("blocking" in finding for finding in payload["findings"]))
         self.assertTrue(report_path.exists(), "QA report should be written")
 
     def test_emit_patch_writes_patch_file(self):

@@ -11,7 +11,7 @@
 
 ## MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/<stage>.md` — stage‑anchor.
-- `AIDD:*` секции ключевого артефакта роли (PRD/Plan/Tasklist/Research); для tasklist читать `AIDD:CONTEXT_PACK → AIDD:SPEC_PACK → AIDD:ITERATIONS_FULL → AIDD:NEXT_3`.
+- `AIDD:*` секции ключевого артефакта роли (PRD/Plan/Tasklist/Research); для tasklist читать `AIDD:CONTEXT_PACK → AIDD:SPEC_PACK → AIDD:TEST_EXECUTION → AIDD:ITERATIONS_FULL → AIDD:NEXT_3`.
 - `aidd/reports/context/latest_working_set.md` — краткий рабочий контекст (если файл существует).
 
 ## READ-ONCE / READ-IF-CHANGED
@@ -22,7 +22,7 @@
 ## Политика чтения
 - Anchors‑first: stage‑anchor → `AIDD:*` секции → только потом full docs.
 - Если рядом есть `*.pack.yaml` (или `*.pack.toon` при `AIDD_PACK_FORMAT=toon`) — читать pack; полный JSON только при need‑to‑know.
-- Ищи якоря: `AIDD:CONTEXT_PACK`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`, `AIDD:ACCEPTANCE`.
+- Ищи якоря: `AIDD:CONTEXT_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`, `AIDD:ACCEPTANCE`.
 - Snippet‑first:
   - сначала `rg -n -C 2 "^(## AIDD:|## Plan Review|## PRD Review)" <file>`
   - `sed -n 'X,Yp'` — только если инструмент доступен и нужен contiguous‑блок.

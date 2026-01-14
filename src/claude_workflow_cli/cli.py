@@ -91,6 +91,7 @@ VALID_STAGES = {
     "plan",
     "review-plan",
     "review-prd",
+    "spec-interview",
     "tasklist",
     "implement",
     "review",
@@ -1261,6 +1262,11 @@ def _review_report_command(args: argparse.Namespace) -> int:
         title = _extract_title(entry, existing)
         details = str(entry.get("details") or existing.get("details") or "").strip()
         recommendation = str(entry.get("recommendation") or entry.get("action") or existing.get("recommendation") or "").strip()
+        blocking_value = entry.get("blocking")
+        if blocking_value is None:
+            blocking_value = existing.get("blocking")
+        if blocking_value is None:
+            blocking_value = severity in {"blocker", "critical"}
         raw_id = str(entry.get("id") or "").strip()
         if not raw_id:
             raw_id = fallback_id or _stable_review_id(scope, title)
@@ -1274,6 +1280,7 @@ def _review_report_command(args: argparse.Namespace) -> int:
                 "title": title,
                 "details": details,
                 "recommendation": recommendation,
+                "blocking": bool(blocking_value),
             }
         )
         first_seen = (

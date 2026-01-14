@@ -3,13 +3,14 @@
 ## Goals
 - Tasklist — единственный источник для implement/review/qa.
 - Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml` (если есть), tasklist содержит краткий `AIDD:SPEC_PACK`.
-- Чекбоксы однозначны (DoD/Boundaries/Tests) и не требуют дополнительных догадок.
+- Чекбоксы однозначны (iteration_id/DoD/Boundaries/Steps/Tests) и не требуют дополнительных догадок.
 
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md:
   - AIDD:CONTEXT_PACK
   - AIDD:SPEC_PACK
   - AIDD:TEST_STRATEGY
+  - AIDD:TEST_EXECUTION
   - AIDD:ITERATIONS_FULL
   - AIDD:NEXT_3
 - aidd/docs/spec/<ticket>.spec.yaml (status, contracts, risks, test strategy) if exists
@@ -22,20 +23,26 @@
 - aidd/docs/tasklist/<ticket>.md:
   - AIDD:SPEC_PACK
   - AIDD:TEST_STRATEGY
+  - AIDD:TEST_EXECUTION
   - AIDD:ITERATIONS_FULL
   - AIDD:NEXT_3
   - AIDD:HANDOFF_INBOX
   - AIDD:CHECKLIST
+  - AIDD:QA_TRACEABILITY (если был QA)
 
 ## MUST NOT
 - Оставлять tasklist без AIDD:NEXT_3 или AIDD:SPEC_PACK.
 - Задавать очевидные вопросы (ответ уже в plan/PRD/research/tasklist).
 - Начинать реализацию кода.
 
+## Spec required policy
+- Spec обязателен, если есть изменения UI/UX, API‑контрактов, данных/миграций, или e2e на стенде.
+- Spec опционален для рефакторинга без изменения поведения, фикса багов без изменения контракта, docs‑only.
+
 ## Definition of Done
-- `AIDD:SPEC_PACK` и `AIDD:TEST_STRATEGY` заполнены.
-- `AIDD:ITERATIONS_FULL` подробен и детальнее плана (DoD/Boundaries/Tests/Dependencies/Risks).
-- Каждый implement‑чекбокс содержит DoD + Boundaries + Tests.
+- `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION` заполнены.
+- `AIDD:ITERATIONS_FULL` подробен и детальнее плана (iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks).
+- Каждый implement‑чекбокс содержит iteration_id + DoD + Boundaries + Steps + Tests + Acceptance mapping.
 
 ## Output contract
 - Tasklist готов к /implement.

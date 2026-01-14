@@ -28,6 +28,7 @@ disable-model-invocation: false
 ## Входные артефакты
 - Diff/PR.
 - `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md`.
+- `@aidd/docs/spec/<ticket>.spec.yaml` (если есть).
 - Логи тестов/гейтов (если есть), `aidd/reports/reviewer/<ticket>.json`.
 
 ## Когда запускать

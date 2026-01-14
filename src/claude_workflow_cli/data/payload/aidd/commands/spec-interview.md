@@ -45,8 +45,8 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `spec-interview` и активную фичу.
-2. Прочитай plan/PRD/research и собери decision points.
-3. Проведи интервью через AskUserQuestionTool (non-obvious вопросы):
+2. Прочитай plan/PRD/research и собери decision points по `iteration_id`.
+3. Проведи интервью через AskUserQuestionTool (non-obvious вопросы) по каждой итерации:
    - Data/compat/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
 4. Запиши ответы в `aidd/reports/spec/<ticket>.interview.jsonl` (append-only).
 5. Сформируй/обнови `aidd/docs/spec/<ticket>.spec.yaml` по шаблону.

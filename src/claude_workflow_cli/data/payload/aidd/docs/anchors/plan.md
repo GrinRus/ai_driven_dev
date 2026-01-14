@@ -1,7 +1,8 @@
 # Anchor: plan
 
 ## Goals
-- Исполнимый план с итерациями и DoD.
+- План на уровне milestones (macro), не tasklist.
+- Итерации с `iteration_id` и измеримым DoD.
 - Явный Files/Modules touched.
 - Test strategy per iteration + миграции/флаги + observability.
 
@@ -20,6 +21,8 @@
 ## MUST NOT
 - Over-engineering без обоснования (KISS/YAGNI).
 - Пропускать тест‑стратегию и миграции/флаги (если есть).
+- Чекбоксы `- [ ]`, execution‑команды и микрошаги по файлам/функциям в итерациях.
+- Конкретные команды тестов/CLI (это уровень tasklist).
 
 ## Output contract
 - План готов к validator и /review-spec.

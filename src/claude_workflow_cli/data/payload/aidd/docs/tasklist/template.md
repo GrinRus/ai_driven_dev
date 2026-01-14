@@ -17,7 +17,7 @@ Reports:
 # Tasklist: <ABC-123> — <short-slug>
 
 > Единственный источник правды для implement/review/qa.
-> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
+> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:TEST_EXECUTION`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
@@ -63,6 +63,9 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - Q1: <...>
 - Q2: <...>
 
+### Blockers summary (handoff)
+- <handoff-id> — <1 строка, почему блокирует>
+
 ### References
 - Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 - PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
@@ -94,28 +97,50 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 
 ---
 
+## AIDD:TEST_EXECUTION
+> Конкретные команды/фильтры запуска (execution‑уровень).
+- profile: <fast|targeted|full|none>
+- tasks: <команды/таски>
+- filters: <фильтры>
+- when: <on_stop|checkpoint|manual>
+- reason: <почему такой профиль>
+
+---
+
 ## AIDD:ITERATIONS_FULL
 > Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
-- Iteration 1: <краткое название>
+- Iteration I1: <краткое название>
+  - iteration_id: I1
   - Goal: <что именно делаем>
+  - Outputs: <артефакты итерации>
   - DoD: <как проверить готовность>
   - Boundaries: <пути/модули + что не трогаем>
+  - Steps:
+    - <шаг 1>
+    - <шаг 2>
+    - <шаг 3>
   - Tests:
     - profile: <fast|targeted|full|none>
     - tasks: <команды/таски>
     - filters: <фильтры>
+  - Acceptance mapping: <AC-1, spec:...>
+  - Risks & mitigations: <риск → митигация>
   - Dependencies: <сервисы/фичефлаги/данные>
-  - Risks: <что может пойти не так>
 - Iteration 2: <...>
+  - iteration_id: I2
   - Goal: <...>
+  - Outputs: <...>
   - DoD: <...>
   - Boundaries: <...>
+  - Steps:
+    - <...>
   - Tests:
     - profile: <fast|targeted|full|none>
     - tasks: <...>
     - filters: <...>
+  - Acceptance mapping: <...>
+  - Risks & mitigations: <...>
   - Dependencies: <...>
-  - Risks: <...>
 - Iteration 3..N: <...>
 
 ---
@@ -123,28 +148,48 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ## AIDD:NEXT_3
 > 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests). Регулярно обновляй после каждой итерации.
 - [ ] <1. ближайший чекбокс (одна итерация)>
+  - iteration_id: I1
+  - Goal: <что именно делаем>
   - DoD: <что считается готовым>
   - Boundaries: <пути/модули + что не трогаем>
+  - Steps:
+    - <шаг 1>
+    - <шаг 2>
+    - <шаг 3>
   - Tests:
     - profile: <fast|targeted|full|none>
     - tasks: <команды/таски>
     - filters: <фильтры>
+  - Acceptance mapping: <AC-1, spec:...>
+  - Risks & mitigations: <...>
   - Notes: <важные нюансы>
 - [ ] <2. следующий>
+  - iteration_id: I2
+  - Goal: <...>
   - DoD: <...>
   - Boundaries: <...>
+  - Steps:
+    - <...>
   - Tests:
     - profile: <fast|targeted|full|none>
     - tasks: <...>
     - filters: <...>
+  - Acceptance mapping: <...>
+  - Risks & mitigations: <...>
   - Notes: <...>
 - [ ] <3. третий>
+  - iteration_id: I3
+  - Goal: <...>
   - DoD: <...>
   - Boundaries: <...>
+  - Steps:
+    - <...>
   - Tests:
     - profile: <fast|targeted|full|none>
     - tasks: <...>
     - filters: <...>
+  - Acceptance mapping: <...>
+  - Risks & mitigations: <...>
   - Notes: <...>
 
 ---
@@ -154,6 +199,13 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] Research: <title> — <recommendation> (source: aidd/reports/research/<ABC-123>-context.json)
 - [ ] Review: <severity> <title> — <recommendation> (source: aidd/reports/reviewer/<ABC-123>.json)
 - [ ] QA: <severity> <title> — <recommendation> (source: aidd/reports/qa/<ABC-123>.json)
+
+---
+
+## AIDD:QA_TRACEABILITY
+> AC → check → result → evidence.
+- AC-1 → <check> → <pass|fail> → <evidence/link>
+- AC-2 → <check> → <pass|fail> → <evidence/link>
 
 ---
 
@@ -170,6 +222,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
 - [ ] Добавлены/обновлены тесты по плану
 - [ ] Обновлён AIDD:CONTEXT_PACK (scope + test policy)
+- [ ] Обновлён AIDD:TEST_EXECUTION (если менялась тестовая тактика)
 - [ ] Прогресс отмечен (см. AIDD:PROGRESS_LOG)
 
 ### AIDD:CHECKLIST_REVIEW
@@ -206,7 +259,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ## AIDD:HOW_TO_UPDATE
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
 - Отмечайте чекбоксы так:
-  - `- [x] <описание> — YYYY-MM-DD (iteration N) (tests: fast|targeted|full|none) (link: <commit/pr>)`
+  - `- [x] <описание> — YYYY-MM-DD (iteration_id: I1) (tests: fast|targeted|full|none) (link: <commit/pr>)`
 - После каждой итерации обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
+- Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
 - Если обновили spec — запусти `/tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

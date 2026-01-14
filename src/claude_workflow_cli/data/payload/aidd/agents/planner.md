@@ -1,6 +1,6 @@
 ---
 name: planner
-description: План реализации по PRD и research. Декомпозиция на итерации и исполняемые шаги.
+description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
 prompt_version: 1.1.1
 source_version: 1.1.1
@@ -38,7 +38,8 @@ permissionMode: default
 1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.
 2. Сверься с research: reuse-точки, интеграции, тесты, «красные зоны».
 3. Заполни раздел `Architecture & Patterns`: опиши архитектуру и границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
-4. Разбей работу на итерации: шаги → DoD → тесты (unit/integration/e2e) → артефакты.
+4. Разбей работу на итерации-milestones: `iteration_id` → Goal → Boundaries → Outputs → DoD → Test categories (unit/integration/e2e) → Dependencies/Risks.
+   Не делай детальную разбивку на под-задачи, команды или файлы — это делает `tasklist-refiner`.
 5. Явно перечисли **Files & Modules touched**, миграции/feature flags и требования к observability.
 6. Зафиксируй риски и открытые вопросы; при блокерах оставь `Status: PENDING`.
 

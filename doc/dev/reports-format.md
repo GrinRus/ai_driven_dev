@@ -141,7 +141,7 @@ Top-level keys:
 - tests_executed (columnar)
 
 Columnar schemas:
-- findings: `id, severity, scope, title, details, recommendation`
+- findings: `id, severity, scope, blocking, title, details, recommendation` (scope = iteration_id or n/a)
 - tests_executed: `command, status, log, exit_code`
 
 ## PRD review pack
@@ -163,7 +163,7 @@ Top-level keys:
 
 Finding schema:
 - id (stable)
-- severity, scope, title, details, recommendation
+- severity, scope (iteration_id or n/a), blocking, title, details, recommendation
 - first_seen_at, last_seen_at
 
 ## Hotspots (auto)
