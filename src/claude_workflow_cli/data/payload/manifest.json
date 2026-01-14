@@ -91,12 +91,6 @@
       "sha256": "1550a4f5e8ac7d37e1958529e877f0ef055db72c0c67571974718bc6f9b62b46"
     },
     {
-      "path": "aidd/agents/tasklist-refiner.md",
-      "type": "file",
-      "size": 1837,
-      "sha256": "c5f3ab1d57c780ba10d85d20dc9fb2008ab6f3ed6cfc444cab47033ddf0958df"
-    },
-    {
       "path": "aidd/agents/validator.md",
       "type": "file",
       "size": 2980,
