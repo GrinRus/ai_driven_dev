@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate tasklist spec readiness before implement."""
+"""Validate tasklist readiness before implement."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class TasklistCheckResult:
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate tasklist spec readiness.")
+    parser = argparse.ArgumentParser(description="Validate tasklist readiness.")
     parser.add_argument(
         "--target",
         default=".",
@@ -122,26 +122,6 @@ def item_has_fields(item: str) -> tuple[bool, list[str]]:
     return (len(missing) == 0, missing)
 
 
-def extract_coverage_checklist(interview_text: str) -> list[str]:
-    lines = interview_text.splitlines()
-    start = None
-    for idx, line in enumerate(lines):
-        if "coverage checklist" in line.lower():
-            start = idx + 1
-            break
-    if start is None:
-        return []
-    block: list[str] = []
-    for line in lines[start:]:
-        stripped = line.strip()
-        if stripped.startswith("##") or stripped.startswith("###"):
-            break
-        if stripped.lower().startswith("question queue"):
-            break
-        block.append(line)
-    return block
-
-
 def load_gate_config(path: Path) -> dict | None:
     if not path.is_file():
         return None
@@ -191,11 +171,13 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
 
     text = read_text(tasklist_path)
 
-    spec_section = find_section(text, "AIDD:SPEC")
-    if not spec_section:
-        return fail("missing section: ## AIDD:SPEC")
-    if re.search(r"(?im)^\s*Status:\s*READY\b", spec_section) is None:
-        return fail("AIDD:SPEC Status is not READY")
+    spec_pack = find_section(text, "AIDD:SPEC_PACK")
+    if not spec_pack:
+        return fail("missing section: ## AIDD:SPEC_PACK")
+
+    test_strategy = find_section(text, "AIDD:TEST_STRATEGY")
+    if not test_strategy:
+        return fail("missing section: ## AIDD:TEST_STRATEGY")
 
     open_questions = find_section(text, "AIDD:OPEN_QUESTIONS")
     if open_questions:
@@ -229,15 +211,6 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
 
     if failures:
         return fail("AIDD:NEXT_3 items missing required fields", details=failures)
-
-    interview = find_section(text, "AIDD:INTERVIEW")
-    if not interview:
-        return fail("missing section: ## AIDD:INTERVIEW")
-    coverage = extract_coverage_checklist(interview)
-    if not coverage:
-        return fail("coverage checklist missing in AIDD:INTERVIEW")
-    if any(re.match(r"^\s*-\s+\[\s*\]\s+", line) for line in coverage):
-        return fail("coverage checklist not complete in AIDD:INTERVIEW")
 
     return TasklistCheckResult(status="ok")
 

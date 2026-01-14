@@ -465,6 +465,7 @@ Open the project in Claude Code and try:
   git checkout -b feature/STORE-123
   /idea-new STORE-123 checkout-discounts
   /plan-new checkout-discounts
+  /spec-interview checkout-discounts
   /tasks-new checkout-discounts
   /implement checkout-discounts
   /review checkout-discounts

@@ -37,6 +37,7 @@
 - PRD: `aidd/docs/prd/<ticket>.prd.md`
 - Research: `aidd/docs/research/<ticket>.md`
 - Plan: `aidd/docs/plan/<ticket>.md`
+- Spec: `aidd/docs/spec/<ticket>.spec.yaml`
 - Tasklist: `aidd/docs/tasklist/<ticket>.md`
 - Reports: `aidd/reports/**`
 

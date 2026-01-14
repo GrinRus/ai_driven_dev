@@ -9,8 +9,8 @@
     {
       "path": ".claude/settings.json",
       "type": "file",
-      "size": 7133,
-      "sha256": "fa95b93dce5d6354f5ae0dfbc8f626d6eafa8ecb4d8e3e5133aaa5f956011fb1"
+      "size": 7319,
+      "sha256": "087b7054ffcb872f2052abd10a3993bbab2b07e1e2378f18ae9a97f5b16dfffa"
     },
     {
       "path": ".claude-plugin/marketplace.json",
@@ -21,8 +21,8 @@
     {
       "path": "aidd/.claude-plugin/plugin.json",
       "type": "file",
-      "size": 757,
-      "sha256": "56cb8dcf6470f178fd24a856b73be680dd77c4831394d2055ab8d2b57a5a5a4f"
+      "size": 855,
+      "sha256": "8a081a80239fc451cc9114e41fdce149d79b6c5bda1ed46ba6af2af1891811e1"
     },
     {
       "path": "aidd/.markdownlint.yaml",
@@ -33,8 +33,8 @@
     {
       "path": "aidd/AGENTS.md",
       "type": "file",
-      "size": 3035,
-      "sha256": "dac07c59d9b376662a5e7c7280f57c29c2dc528a082f70c96d671f5dcf372fd7"
+      "size": 3079,
+      "sha256": "f8b353db539213dc7e6da2567abd64689a9c7ae669ee698120a3209d7291e95a"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -45,8 +45,8 @@
     {
       "path": "aidd/agents/implementer.md",
       "type": "file",
-      "size": 6052,
-      "sha256": "602500b131bf1d51b7808439bd4a4d1cfbaee14b142dcad2ef3f55116ffdc9c0"
+      "size": 6176,
+      "sha256": "07477a301321468e097ccb807650c4ba30a524945aff05d7d322de89b99ae867"
     },
     {
       "path": "aidd/agents/plan-reviewer.md",
@@ -85,10 +85,16 @@
       "sha256": "105f4abeee5233c5be5c08543e1c2d7ac98f0c3e0698513a676fe6ae594ec174"
     },
     {
+      "path": "aidd/agents/spec-interview-writer.md",
+      "type": "file",
+      "size": 1958,
+      "sha256": "1550a4f5e8ac7d37e1958529e877f0ef055db72c0c67571974718bc6f9b62b46"
+    },
+    {
       "path": "aidd/agents/tasklist-refiner.md",
       "type": "file",
-      "size": 4515,
-      "sha256": "02fad2c089ada9711ae8b6db7709b122489aadbfa2fac3ea423170efde604b0c"
+      "size": 1837,
+      "sha256": "c5f3ab1d57c780ba10d85d20dc9fb2008ab6f3ed6cfc444cab47033ddf0958df"
     },
     {
       "path": "aidd/agents/validator.md",
@@ -105,8 +111,8 @@
     {
       "path": "aidd/commands/implement.md",
       "type": "file",
-      "size": 5014,
-      "sha256": "8edb79937fa4fe60dbcf61e322b38e28b68bee7f34cebfb9db9bef66782555a5"
+      "size": 5226,
+      "sha256": "fe219624de7a277b4cc6d1c4bb93e59b12a46dc5d0032a9e2a5c4226882c2d9b"
     },
     {
       "path": "aidd/commands/plan-new.md",
@@ -139,6 +145,12 @@
       "sha256": "f2bb4d32187bab48a0a69b8997e15810f6ccc58658d26c4422bb1c012bcf204f"
     },
     {
+      "path": "aidd/commands/spec-interview.md",
+      "type": "file",
+      "size": 3712,
+      "sha256": "5856f4451f31332d451a1dacc25affe1c69e30998ad4c764b41e5291e1e5ad25"
+    },
+    {
       "path": "aidd/commands/status.md",
       "type": "file",
       "size": 2881,
@@ -147,8 +159,8 @@
     {
       "path": "aidd/commands/tasks-new.md",
       "type": "file",
-      "size": 3457,
-      "sha256": "2223046d28b2b0dd822bb817a5a9da31b9e570a10d8585fa81f41c1cb9091866"
+      "size": 3458,
+      "sha256": "a721530de87449bb75f39887d20f3da65b00df7fae9558d01c5b3aaf676f3e8a"
     },
     {
       "path": "aidd/config/allowed-deps.txt",
@@ -195,8 +207,8 @@
     {
       "path": "aidd/docs/anchors/README.md",
       "type": "file",
-      "size": 630,
-      "sha256": "564b32a316e2d48bdfcc53b8e09c680a3cde881f357e0f15afab4c80247b64cd"
+      "size": 684,
+      "sha256": "60a8fce6de9bd9cbbda8f1362acad9dcb29b451499b7c91ccfb134ea9be57e98"
     },
     {
       "path": "aidd/docs/anchors/idea.md",
@@ -207,8 +219,8 @@
     {
       "path": "aidd/docs/anchors/implement.md",
       "type": "file",
-      "size": 1148,
-      "sha256": "9d47cd9b8e9664d12f4d5778c87ce64d88537cd3a5e6671540db718c2005f6bf"
+      "size": 1229,
+      "sha256": "4c18de41994065f63f329609e3b9a0f727f33b806248f9f28d6a2ffd3110a55e"
     },
     {
       "path": "aidd/docs/anchors/plan.md",
@@ -247,10 +259,16 @@
       "sha256": "39da4b5a067a48a0904cd6c57ef0d4ac83469e8c5b3a9fd1d8089b7283a3598d"
     },
     {
+      "path": "aidd/docs/anchors/spec-interview.md",
+      "type": "file",
+      "size": 1232,
+      "sha256": "511ebd7bec010030469128397b8f90743f77fbde7aa6adb40a0a14f5423b5c3c"
+    },
+    {
       "path": "aidd/docs/anchors/tasklist.md",
       "type": "file",
-      "size": 1908,
-      "sha256": "f149b8744e97775041b13ae104ad47af0ac3a30c028703f02381daf6add01378"
+      "size": 1649,
+      "sha256": "cd6168ec44fa12869ad7c472654a459aed9001e03ed70003770c25f17c2ad9a7"
     },
     {
       "path": "aidd/docs/index/schema.json",
@@ -297,14 +315,20 @@
     {
       "path": "aidd/docs/sdlc-flow.md",
       "type": "file",
-      "size": 2680,
-      "sha256": "4c8bf6da695a508d231127bb5a99f86a0464127007b911c295e57404ffaed091"
+      "size": 3102,
+      "sha256": "451df85044b9d7dda5b592fb9428eb18aeb6eb2de287c735b7319ab8929ccf7f"
+    },
+    {
+      "path": "aidd/docs/spec/template.spec.yaml",
+      "type": "file",
+      "size": 2032,
+      "sha256": "ec036fc81465e618bad4c08d735602a169bc66f4cabb05342e0c8ea761f90738"
     },
     {
       "path": "aidd/docs/status-machine.md",
       "type": "file",
-      "size": 4143,
-      "sha256": "d9c80d77b84bca64da8d866ebb53f285a49f8db1b0423cc066172124550148ac"
+      "size": 4341,
+      "sha256": "113517e73b2f5b610d0d1c5094bb707e5ed6edc56bf13093314e192b5c8439f9"
     },
     {
       "path": "aidd/docs/tasklist/.gitkeep",
@@ -315,8 +339,8 @@
     {
       "path": "aidd/docs/tasklist/template.md",
       "type": "file",
-      "size": 9682,
-      "sha256": "f12c9261131ceb5bcc4a388d197e13a9432a31794085d60777c02fb04e9ef742"
+      "size": 6019,
+      "sha256": "b872f22270fbd3e3a7a8c3a8cc27efbb1d155e776c9a152bc05a398480eb660d"
     },
     {
       "path": "aidd/hooks/format-and-test.sh",
@@ -357,8 +381,8 @@
     {
       "path": "aidd/hooks/gate-workflow.sh",
       "type": "file",
-      "size": 22402,
-      "sha256": "6458ef5dff24cdf2f59b9612573ea3bc8dea848a7d081d3dd99e2886f3277a24"
+      "size": 22396,
+      "sha256": "96dbcc15c66098fb6b5fe92c70d71ef49e80ff8650fce19495e54017634f6008"
     },
     {
       "path": "aidd/hooks/hooks.json",
@@ -381,8 +405,8 @@
     {
       "path": "aidd/init-claude-workflow.sh",
       "type": "file",
-      "size": 13149,
-      "sha256": "300967379ab103b456c70ec3947600217203e8304014e296a1886043d250e4f1"
+      "size": 13186,
+      "sha256": "4bb0399505ffb1371819cca9f5209a5659d701d47e993f479c3cc22781b9f009"
     },
     {
       "path": "aidd/reports/context/.gitkeep",
@@ -435,8 +459,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 26135,
-      "sha256": "5b709d5672a31875afbfea1b7cb585fd979c93bf75e30f44ed413758635b421b"
+      "size": 25396,
+      "sha256": "020f2bd8a0b06e253a0d8ad31d65d56c5a8067250d9eb8238c668c2400e28fd5"
     }
   ]
 }

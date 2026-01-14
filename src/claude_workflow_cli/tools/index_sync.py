@@ -142,6 +142,7 @@ def _collect_artifacts(root: Path, ticket: str) -> List[str]:
         root / "docs" / "prd" / f"{ticket}.prd.md",
         root / "docs" / "plan" / f"{ticket}.md",
         root / "docs" / "research" / f"{ticket}.md",
+        root / "docs" / "spec" / f"{ticket}.spec.yaml",
         root / "docs" / "tasklist" / f"{ticket}.md",
     ]
     for path in candidates:

@@ -266,26 +266,24 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
         f"Ticket: {ticket}\n"
         "Status: READY\n"
         "Updated: 2024-01-01\n"
+        f"Spec: aidd/docs/spec/{ticket}.spec.yaml\n"
         "---\n\n"
-        "## AIDD:SPEC\n"
-        "Status: READY\n\n"
-        "## AIDD:INTERVIEW\n"
-        "Passes:\n\n"
-        "- [x] Pass 1 — UI/UX & journeys\n"
-        "- [x] Pass 2 — Technical design & tradeoffs\n"
-        "- [x] Pass 3 — Tests/Rollout/Observability\n"
-        "- [x] Spec READY (AIDD:SPEC Status: READY)\n\n"
-        "Coverage checklist (DoD интервью):\n\n"
-        "- [x] UI: happy + 3–5 edge/failure + loading/empty + permissions + a11y/i18n\n"
-        "- [x] Tech: FE/BE/mobile границы + контракты + retries/error handling + idempotency\n"
-        "- [x] Data: миграции/совместимость/консистентность\n"
-        "- [x] Tradeoffs: A vs B → почему + последствия\n"
-        "- [x] Tests: unit/integration/contract/e2e + heavy budget + когда FULL\n"
-        "- [x] Rollout: flag + этапы + rollback\n"
-        "- [x] No blocker open questions\n\n"
-        "Question queue (append-only):\n\n"
-        "## AIDD:OPEN_QUESTIONS\n"
-        "- (Non-blocker) none\n\n"
+        "## AIDD:SPEC_PACK\n"
+        "Updated: 2024-01-01\n"
+        f"Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)\n"
+        "- Goal: demo\n"
+        "- Non-goals:\n"
+        "  - none\n"
+        "- Key decisions:\n"
+        "  - default\n"
+        "- Risks:\n"
+        "  - low\n\n"
+        "## AIDD:TEST_STRATEGY\n"
+        "- Unit: smoke\n"
+        "- Integration: smoke\n"
+        "- Contract: smoke\n"
+        "- E2E/Stand: smoke\n"
+        "- Test data: fixtures\n\n"
         "## AIDD:NEXT_3\n"
         "- [ ] Task 1\n"
         "  - DoD: done\n"
@@ -312,7 +310,31 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
     )
 
 
-def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout") -> pathlib.Path:
+def spec_ready_text(ticket: str = "demo-checkout") -> str:
+    return (
+        "schema: aidd.spec.v1\n"
+        f"ticket: \"{ticket}\"\n"
+        "slug: \"demo\"\n"
+        "status: ready\n"
+        "updated_at: \"2024-01-01\"\n"
+        "sources:\n"
+        f"  plan: \"aidd/docs/plan/{ticket}.md\"\n"
+        f"  prd: \"aidd/docs/prd/{ticket}.prd.md\"\n"
+        f"  tasklist: \"aidd/docs/tasklist/{ticket}.md\"\n"
+        f"  interview_log: \"aidd/reports/spec/{ticket}.interview.jsonl\"\n"
+        "open_questions:\n"
+        "  blocker: []\n"
+        "  non_blocker: []\n"
+    )
+
+
+def write_spec_ready(root: pathlib.Path, ticket: str = "demo-checkout") -> pathlib.Path:
+    return write_file(root, f"docs/spec/{ticket}.spec.yaml", spec_ready_text(ticket))
+
+
+def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout", *, include_spec: bool = True) -> pathlib.Path:
+    if include_spec:
+        write_spec_ready(root, ticket)
     return write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
 
 

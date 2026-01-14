@@ -145,7 +145,6 @@ if [[ ! -f "$tasklist_path" ]]; then
   echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
   exit 2
 fi
-
 # Проверим артефакты
 [[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
 analyst_cmd=(claude-workflow analyst-check --target "$ROOT_DIR" --ticket "$ticket")
@@ -384,7 +383,7 @@ if [[ -n "$ticket" ]]; then
     if [[ -n "$tasklist_spec_output" ]]; then
       echo "$tasklist_spec_output"
     else
-      echo "BLOCK: tasklist spec не готов для ${ticket} → запустите /tasks-new ${ticket}"
+      echo "BLOCK: tasklist не готов для ${ticket} → запустите /tasks-new ${ticket}"
     fi
     exit 2
   fi

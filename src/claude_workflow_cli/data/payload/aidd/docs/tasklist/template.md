@@ -7,6 +7,7 @@ Owner: <name/team>
 PRD: aidd/docs/prd/<ABC-123>.prd.md
 Plan: aidd/docs/plan/<ABC-123>.md
 Research: aidd/docs/research/<ABC-123>.md
+Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 Reports:
   tests: aidd/reports/tests/<ABC-123>.*          # optional
   reviewer: aidd/reports/reviewer/<ABC-123>.json # marker/summary
@@ -21,7 +22,7 @@ Reports:
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
 Ticket: <ABC-123>
-Stage: <idea|research|plan|review-plan|review-prd|tasklist|implement|review|qa|release>
+Stage: <idea|research|plan|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|release>
 Status: <PENDING|READY|WARN|BLOCKED>
 
 ### TL;DR
@@ -41,7 +42,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 
 ### Decisions & defaults (living)
 - Feature flag: <none|flag_name + default>
-- Contract/API: <ссылка на PRD якорь или 1 строка>
+- Contract/API: <ссылка на spec или 1 строка>
 - Data model changes: <none|migrations needed: ...>
 - Observability: <logs/metrics/tracing expectations>
 
@@ -63,6 +64,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - Q2: <...>
 
 ### References
+- Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 - PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
 - Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
@@ -72,94 +74,28 @@ Status: <PENDING|READY|WARN|BLOCKED>
 
 ---
 
-## AIDD:SPEC
-Status: DRAFT   # DRAFT|READY
-Updated: <YYYY-MM-DD>
-Owner: <name/team>
-Source:
-- plan: aidd/docs/plan/<ABC-123>.md
-- prd: aidd/docs/prd/<ABC-123>.prd.md
-- research: aidd/docs/research/<ABC-123>.md
-
 ## AIDD:SPEC_PACK
-> Token-first YAML. Обновляй после каждого интервью-прохода и при смене решений.
+Updated: <YYYY-MM-DD>
+Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
+- Goal: <1–2 строки>
+- Non-goals:
+  - <...>
+- Key decisions:
+  - <...>
+- Risks:
+  - <...>
 
-```yaml
-ticket: "<ABC-123>"
-status: "DRAFT" # DRAFT|READY
-
-surfaces: ["frontend","backend"]   # + "mobile" при необходимости
-
-scope:
-  in: []
-  out: []
-
-journeys:
-  - id: "J1"
-    title: ""
-    actors: []
-    happy_path: []
-    failure_modes: []
-
-ui:
-  screens: []
-  states:
-    loading: true
-    empty: true
-    error: true
-    partial_success: false
-  a11y: []
-  i18n: []
-  analytics_events: []   # no PII
-
-contracts:
-  api: []      # {name, auth, request, response, errors, timeouts}
-  events: []   # {topic, schema, compat, idempotency}
-
-data_model:
-  entities: []
-  migrations: []
-  compatibility: ""   # backward/forward strategy
-  idempotency: ""     # if needed
-
-integrations: []      # external systems + failure modes
-
-tradeoffs: []         # "A vs B -> why -> impact"
-risks: []             # "risk -> mitigation"
-
-tests:
-  heavy_definition: ""     # what is heavy (time/infra/cost)
-  heavy_budget: ""         # when full is allowed
-  defaults:
-    profile: "fast"        # fast|targeted|full|none
-    tasks: []              # runner tasks (gradle/npm/etc)
-    filters: []            # test filters
-  matrix:
-    unit: []
-    integration: []
-    contract: []
-    e2e_stand: []          # minimal smoke on stand
-
-rollout:
-  feature_flag: ""
-  steps: []
-  rollback: ""
-
-observability:
-  logs: []
-  metrics: []
-  alerts: []
-
-open_questions:
-  blocker: []
-  non_blocker: []
-```
+## AIDD:TEST_STRATEGY
+- Unit: <scope>
+- Integration: <scope>
+- Contract: <scope>
+- E2E/Stand: <critical paths>
+- Test data: <fixtures/mocks>
 
 ---
 
 ## AIDD:NEXT_3
-> Пока `AIDD:SPEC Status` не READY — сюда идут шаги интервью/refinement.
-> После READY — 3 ближайших implement-чекбокса (каждый с DoD/Boundaries/Tests).
+> 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests).
 - [ ] <1. ближайший чекбокс (одна итерация)>
 - [ ] <2. следующий>
 - [ ] <3. третий>
@@ -174,75 +110,6 @@ open_questions:
 
 ---
 
-## AIDD:INTERVIEW
-
-> Глубокое интервью по plan. Вопросы только НЕочевидные (см. anchor tasklist).
-> Ведём append-only очередь Q/A, чтобы не терять историю.
-
-Passes:
-
-- [ ] Pass 1 — UI/UX & journeys
-- [ ] Pass 2 — Technical design & tradeoffs
-- [ ] Pass 3 — Tests/Rollout/Observability
-- [ ] Spec READY (AIDD:SPEC Status: READY)
-
-Coverage checklist (DoD интервью):
-
-- [ ] UI: happy + 3–5 edge/failure + loading/empty + permissions + a11y/i18n
-- [ ] Tech: FE/BE/mobile границы + контракты + retries/error handling + idempotency
-- [ ] Data: миграции/совместимость/консистентность
-- [ ] Tradeoffs: A vs B → почему + последствия
-- [ ] Tests: unit/integration/contract/e2e + heavy budget + когда FULL
-- [ ] Rollout: flag + этапы + rollback
-- [ ] No blocker open questions
-
-Question queue (append-only):
-
-- Q01:
-
-  - Type: Clarification|Blocker
-  - Question: ""
-  - Why/Impact: ""
-  - Options: ["A) ...", "B) ..."]
-  - Default: ""
-  - Answer: ""
-
-## AIDD:DECISIONS
-
-- <YYYY-MM-DD> Decision: ... (why / tradeoff / impact)
-
-## AIDD:TEST_POLICY
-
-> Политика, чтобы не запускать тяжелые тесты “каждый stop”.
-
-- Default profile per checkbox: fast
-- Heavy tests definition: <what>
-- Heavy budget: <when we allow full>
-- FULL is mandatory when:
-
-  - changed: core/shared/config/build/infra OR risky integration
-- TARGETED usage guide:
-
-  - tasks examples: ...
-  - filters examples: ...
-
-## AIDD:OPEN_QUESTIONS
-
-- (Blocker) ...
-- (Non-blocker) ...
-
-## AIDD:TASKLIST_REFINEMENT
-
-> Цель: чекбоксы без разночтений. Каждый implement‑чекбокс имеет DoD/Boundaries/Tests.
-
-- [ ] Pass A — Draft: задачи из plan → чекбоксы
-- [ ] Pass B — Split: разбить большие пункты до 1-итерационных
-- [ ] Pass C — Each checkbox has DoD/Boundaries/Tests (+ test profile/tasks/filters)
-- [ ] Pass D — Stand/E2E: тест-данные, мок-стратегия, smoke на стенде
-- [ ] Pass E — Final: нет TBD/TODO, AIDD:SPEC=READY
-
----
-
 ## AIDD:CHECKLIST
 
 ### AIDD:CHECKLIST_SPEC
@@ -250,7 +117,7 @@ Question queue (append-only):
 - [ ] Research: Status reviewed
 - [ ] Plan: существует и валиден
 - [ ] Review Spec: Plan Review READY + PRD Review READY
-- [ ] Tasklist: AIDD:SPEC Status READY + coverage checklist закрыт
+- [ ] Spec interview (optional): spec обновлён + tasklist pack синхронизирован
 
 ### AIDD:CHECKLIST_IMPLEMENT
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
@@ -292,5 +159,5 @@ Question queue (append-only):
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
 - Отмечайте чекбоксы так:
   - `- [x] <описание> — YYYY-MM-DD (iteration N) (tests: fast|targeted|full|none) (link: <commit/pr>)`
-- Если меняются решения — сначала обнови `AIDD:SPEC_PACK` и `AIDD:DECISIONS`, затем чекбоксы.
+- Если есть spec — сначала обнови spec (`aidd/docs/spec/<ticket>.spec.yaml`), затем tasklist pack.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

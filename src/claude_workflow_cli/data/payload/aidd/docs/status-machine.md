@@ -59,22 +59,30 @@
 
 Кто выставляет: `prd-reviewer` (через `/review-spec`).
 
+## Spec Interview (`aidd/docs/spec/<ticket>.spec.yaml`)
+
+Статусы:
+- `draft` — интервью не закрыто, есть блокеры/дыры.
+- `ready` — интервью закрыто, решения зафиксированы.
+- `deprecated` — спеку заменили/устарела.
+
+Кто выставляет: `/spec-interview` и агент `spec-interview-writer`.
+
+Примечание:
+- Spec‑интервью опционален; отсутствие spec не блокирует implement.
+
 ## Tasklist (`aidd/docs/tasklist/<ticket>.md`)
 
 Статусы tasklist (front matter):
-- `PENDING` — создан, но не синхронизирован с планом/интервью.
-- `BLOCKED` — есть блокеры в интервью или отсутствуют входные артефакты.
+- `PENDING` — создан, но не синхронизирован с планом.
+- `BLOCKED` — есть блокеры в plan/tasklist или отсутствуют входные артефакты.
 - `READY` — tasklist готов к implement.
 - `WARN` — готов, но с предупреждениями.
 
-Статусы spec (внутри tasklist):
-- `AIDD:SPEC Status: DRAFT` — интервью/решения не закрыты.
-- `AIDD:SPEC Status: READY` — интервью закрыто, решения зафиксированы.
-
-Кто выставляет: `/tasks-new` и агент‑исполнитель.
+Кто выставляет: `/tasks-new` (manual).
 
 Готовность:
-- `Tasklist READY` требует `AIDD:SPEC Status: READY` и закрытого coverage checklist.
+- `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.
 
 ## Review / QA Reports
 
@@ -89,4 +97,4 @@
 
 - Без `PRD READY` и успешного `research-check` нельзя переходить к планированию.
 - Без `Plan READY` и `Plan Review READY` нельзя начинать `review-prd` (через `/review-spec`) и `tasks`.
-- Без `PRD Review READY` и `Tasklist READY` (включая `AIDD:SPEC Status: READY`) нельзя менять код (`implement/review/qa`).
+- Без `PRD Review READY` и `Tasklist READY` нельзя менять код (`implement/review/qa`).

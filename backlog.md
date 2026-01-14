@@ -1327,19 +1327,27 @@ _Статус: новый, приоритет 1. Цель — гарантиро
 
 ## Wave 72
 
-_Статус: новый, приоритет 2. Цель — сделать tasklist “контейнером спеки” и выделить интервью в отдельного агента._
+_Статус: новый, приоритет 2. Цель — вынести интервью в верхний уровень (AskUserQuestionTool) и вести отдельный spec‑артефакт, оставив tasklist операционным. Шаг spec‑interview — опциональный (до/после tasklist)._
 
-### EPIC A — Tasklist spec-in-tasklist + interview agent
-- [x] Добавить `aidd/agents/tasklist-refiner.md`: интервью по plan/PRD/research, `AIDD:SPEC_PACK`, coverage checklist, non‑obvious questions; добавить payload‑копию и регистрацию в `src/claude_workflow_cli/data/payload/manifest.json`.
-- [x] Обновить `/tasks-new` до оркестратора (set-active-stage/feature → scaffold секций → запуск `tasklist-refiner`); синхронизировать `aidd/commands/tasks-new.md` и `src/claude_workflow_cli/data/payload/aidd/commands/tasks-new.md`.
-- [x] Расширить `aidd/docs/tasklist/template.md` (AIDD:SPEC/AIDD:SPEC_PACK/AIDD:INTERVIEW/AIDD:DECISIONS/AIDD:TEST_POLICY/AIDD:OPEN_QUESTIONS/AIDD:TASKLIST_REFINEMENT) и синхронизировать payload‑копию.
-- [x] Обновить `aidd/docs/anchors/tasklist.md` (DoD интервью, правило “non‑obvious questions only”, критерии READY) и синхронизировать payload‑копию.
+### EPIC A — Spec interview (top-level interview, optional)
+- [x] Добавить stage `spec-interview` в `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как опциональный шаг (до/после tasklist), без требования `spec READY` перед implement.
+- [x] Добавить anchor `aidd/docs/anchors/spec-interview.md` (MUST READ/UPDATE/NOT, порядок интервью, критерии READY).
+- [x] Добавить шаблон `aidd/docs/spec/template.spec.yaml` (schema `aidd.spec.v1`, UI/UX, API, tradeoffs, risks, tests, rollout, observability).
+- [x] Добавить команду `/spec-interview`: интервью через AskUserQuestionTool на верхнем уровне, запись лога `aidd/reports/spec/<ticket>.interview.jsonl`, запуск `spec-interview-writer`.
+- [x] Добавить агента `aidd/agents/spec-interview-writer.md` (без AskUserQuestionTool): собирает spec, обновляет tasklist `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.
 
-### EPIC B — Gates & readiness
-- [x] Добавить fail‑fast в `aidd/agents/implementer.md`: блокировать код, если `AIDD:SPEC Status != READY`, с `Next actions: /tasks-new`; синхронизировать payload‑копию.
-- [x] (Опционально) Добавить `claude-workflow tasklist-check` и описать ручной запуск/интеграцию в `gate-workflow` или preflight `/implement`.
+### EPIC B — Tasklist как операционный чеклист
+- [x] Обновить `aidd/docs/tasklist/template.md`: убрать in-tasklist SPEC/INTERVIEW, оставить `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY` + ссылку на spec.
+- [x] Обновить `/tasks-new`: scaffold tasklist, подтягивать spec (если есть), `/spec-interview` — опционален.
+- [x] Обновить `aidd/docs/anchors/tasklist.md` и `aidd/docs/anchors/implement.md` под новый spec‑flow.
+- [x] Обновить `aidd/agents/implementer.md` и `/implement`: убрать fail‑fast по spec, упоминания о вопросах — только в spec‑interview.
 
-### EPIC C — Docs + sync
-- [x] Обновить `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` под `tasklist-refiner` и требование `AIDD:SPEC READY`.
-- [x] Обновить `aidd/AGENTS.md` (чтение `AIDD:SPEC_PACK` после `AIDD:CONTEXT_PACK`) и синхронизировать payload‑копию.
-- [x] Прогнать `tools/check_payload_sync.py` и `scripts/sync-payload.sh --direction=to-root` после изменений.
+### EPIC C — Gates, checks, smoke, tests
+- [x] Обновить `claude-workflow tasklist-check`: проверка `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY` + `AIDD:NEXT_3` (без требования spec).
+- [x] Обновить `gate-workflow` и сообщения: убрать обязательность spec, подсказка → `/tasks-new` (spec‑interview опционален).
+- [x] Обновить `scripts/smoke-workflow.sh` под spec‑file и новые секции tasklist.
+- [x] Обновить тесты/хелперы под spec‑flow (tasklist_ready_text, prompt lint anchors, gate tests).
+
+### EPIC D — Plugin & payload sync
+- [x] Зарегистрировать `/spec-interview` и `spec-interview-writer` в `.claude-plugin/plugin.json`, добавить permissions в `.claude/settings.json`.
+- [ ] Синхронизировать payload, обновить `src/claude_workflow_cli/data/payload/manifest.json`.

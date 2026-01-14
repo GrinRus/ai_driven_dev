@@ -1,0 +1,128 @@
+---
+schema: aidd.spec.v1
+
+# Core
+status: draft   # draft|ready|deprecated
+updated_at: "<YYYY-MM-DD>"
+ticket: "<ABC-123>"
+slug: "<short-slug>"
+
+owners:
+  product: "<owner>"
+  tech: "<owner>"
+  qa: "<owner>"
+
+sources:
+  plan: "aidd/docs/plan/<ABC-123>.md"
+  prd: "aidd/docs/prd/<ABC-123>.prd.md"
+  tasklist: "aidd/docs/tasklist/<ABC-123>.md"
+  interview_log: "aidd/reports/spec/<ABC-123>.interview.jsonl"
+
+spec_pack:
+  goal: "<1-2 lines>"
+  non_goals: []
+  constraints: []
+  decisions: []
+  risks_top: []
+  links:
+    spec: "aidd/docs/spec/<ABC-123>.spec.yaml"
+
+platforms:
+  frontend:
+    enabled: true
+    stack_hint: ""
+  backend:
+    enabled: true
+    stack_hint: ""
+  mobile:
+    enabled: false
+    stack_hint: ""
+
+user_flows:
+  - id: "flow.primary"
+    actors: ["user"]
+    entrypoints: []
+    steps: []
+    edge_cases: []
+
+ui_ux:
+  screens: []
+  states:
+    loading: []
+    empty: []
+    error: []
+    partial_success: []
+  accessibility: []
+  i18n: []
+  analytics_events: []
+
+api_contract:
+  - id: "<METHOD /path>"
+    auth: ""
+    request:
+      content_type: "application/json"
+      body_schema: {}
+    response:
+      success_schema: {}
+      error_codes: []
+      timeouts_ms: 0
+
+data_model:
+  entities: []
+  migrations:
+    required: false
+    notes: ""
+  compatibility: "backward"
+  idempotency: ""
+
+tradeoffs:
+  - topic: "<topic>"
+    options:
+      - name: "A"
+        pros: []
+        cons: []
+      - name: "B"
+        pros: []
+        cons: []
+    decision: "A"
+    rationale: ""
+
+risks:
+  - risk: "<risk>"
+    impact: "low|med|high"
+    mitigation: []
+    detection: []
+
+observability:
+  logs: []
+  metrics: []
+  traces: []
+  dashboards: []
+
+roll_out:
+  feature_flags: []
+  stages: []
+  rollback: []
+
+test_strategy:
+  unit:
+    scope: []
+  integration:
+    scope: []
+  contract:
+    scope: []
+  e2e:
+    scope: []
+    critical_paths: []
+  test_data:
+    fixtures: []
+  environments:
+    stage: []
+
+open_questions:
+  blocker: []
+  non_blocker: []
+
+done_definition:
+  acceptance_criteria_map: []
+  manual_checks: []

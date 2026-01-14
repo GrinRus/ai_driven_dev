@@ -7,11 +7,13 @@
 3. **plan** → `/plan-new` → `planner` → `validator`
 4. **review-plan** → `/review-spec` → `plan-reviewer`
 5. **review-prd** → `/review-spec` → `prd-reviewer`
-6. **tasklist** → `/tasks-new` → `tasklist-refiner`
-7. **implement** → `/implement` → `implementer`
-8. **review** → `/review` → `reviewer`
-9. **qa** → `/qa` → `qa`
+6. **spec-interview** (optional) → `/spec-interview` → `spec-interview-writer`
+7. **tasklist** → `/tasks-new` → (manual)
+8. **implement** → `/implement` → `implementer`
+9. **review** → `/review` → `reviewer`
+10. **qa** → `/qa` → `qa`
 
+> `spec-interview` можно запускать как перед `/tasks-new`, так и после — для дополнительного уточнения.  
 > Review-plan и review-prd выполняются одной командой `/review-spec`.
 
 ## Таблица переходов
@@ -23,8 +25,9 @@
 | plan | `/plan-new` | `planner` + `validator` | PRD READY, research | План + статус validator | `research-check` обязателен перед планом |
 | review-plan | `/review-spec` | `plan-reviewer` | План + research | `## Plan Review` в плане | Блокирует PRD review/`tasks` при BLOCKED |
 | review-prd | `/review-spec` | `prd-reviewer` | PRD + plan + research | `## PRD Review` + report | Блокирует `tasks`/код при BLOCKED |
-| tasklist | `/tasks-new` | `tasklist-refiner` | План + PRD | Tasklist READY + AIDD:SPEC READY | Без tasklist нет implement |
-| implement | `/implement` | `implementer` | План + tasklist | Код + обновлённый tasklist | `gate-workflow`, `gate-tests` |
+| spec-interview (optional) | `/spec-interview` | `spec-interview-writer` | Plan + PRD + research (+ tasklist if exists) | Spec + tasklist pack | Опционально до/после tasklist |
+| tasklist | `/tasks-new` | (manual) | Plan (+ Spec) | Tasklist READY | Без tasklist нет implement |
+| implement | `/implement` | `implementer` | Plan + tasklist (+ spec if exists) | Код + обновлённый tasklist | `gate-workflow`, `gate-tests` |
 | review | `/review` | `reviewer` | Diff + tasklist | Findings + tasklist | `reviewer-tests` |
 | qa | `/qa` | `qa` | Tasklist + отчёты | QA report | `gate-qa` |
 

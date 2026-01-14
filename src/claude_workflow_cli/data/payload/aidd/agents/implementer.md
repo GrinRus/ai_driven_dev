@@ -1,9 +1,9 @@
 ---
 name: implementer
-description: Реализация по плану/tasklist малыми итерациями, вопросы — только по блокерам.
+description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.12
-source_version: 1.1.12
+prompt_version: 1.1.14
+source_version: 1.1.14
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/format-and-test.sh:*), Bash(claude-workflow progress:*), Bash(git:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
@@ -26,6 +26,7 @@ permissionMode: default
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md` — итерации, DoD, границы изменений.
 - `@aidd/docs/tasklist/<ticket>.md` — прогресс и AIDD:NEXT_3.
+- `@aidd/docs/spec/<ticket>.spec.yaml` — спецификация (contracts/risks/tests), если есть.
 - `@aidd/docs/research/<ticket>.md`, `@aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
 
 ## Автоматизация
@@ -33,7 +34,7 @@ permissionMode: default
 - `claude-workflow progress --source implement --ticket <ticket>` подтверждает новые `- [x]`.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
-- **Лимит итерации:** 1 чекбокс (или 2 тесно связанных). Больше — останавливайся и запрашивай уточнение.
+- **Лимит итерации:** 1 чекбокс (или 2 тесно связанных). Больше — останавливайся и проси обновить plan/tasklist.
 - **Test budget:** не повторяй запуск тестов без изменения diff. Для повторного прогона используй `AIDD_TEST_FORCE=1` и объясни причину.
 - **Контракт:** если `aidd/.cache/test-policy.env` уже существует (создано командой `/implement`), НЕ перезаписывай его без причины. Перезапись допустима только при повышении риска — и тогда обязательно объясни "Why".
 - **Cadence:** см. `.claude/settings.json → automation.tests.cadence` (on_stop|checkpoint|manual). При `checkpoint` тесты запускаются после `claude-workflow progress` или явного override.
@@ -61,7 +62,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или статусы не READY — остановись и попроси `/plan-new`/`/tasks-new`/ревью.
-- Если `AIDD:SPEC Status` != `READY` — `Status: BLOCKED`, `Next actions: /tasks-new` для завершения интервью/refinement.
+- Если контекст недостаточен для реализации — остановись и попроси `/spec-interview` (опционально).
 - Тесты падают — не продолжай без исправления или явного разрешения на skip.
 - Если нужно выйти за рамки плана — сначала обнови план/tasklist или получи согласование.
 
@@ -76,4 +77,4 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 - `Tests run: ...` (что именно запускалось/скипнуто).
 - `Why: ...` (краткое обоснование профиля/бюджета).
 - `Why skipped: ...` (если тесты не запускались).
-- `Next actions: ...` (остаток работ/вопросы/тесты).
+- `Next actions: ...` (остаток работ/риски/тесты).

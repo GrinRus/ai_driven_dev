@@ -16,6 +16,7 @@ from .helpers import (
     write_active_feature,
     write_file,
     write_json,
+    write_spec_ready,
     write_tasklist_ready,
 )
 
@@ -148,6 +149,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
         "docs/tasklist/demo-checkout.md",
         "- [ ] <ticket> placeholder\n",
     )
+    write_spec_ready(tmp_path, "demo-checkout")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -198,6 +200,7 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_spec_ready(tmp_path, ticket)
     write_research_doc(tmp_path, status="pending")
     write_json(
         tmp_path,
@@ -322,6 +325,7 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
     )
     write_plan_with_review(tmp_path, ticket)
     write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] clarify limits\n")
+    write_spec_ready(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     write_json(
@@ -430,6 +434,7 @@ def test_research_required_before_code_changes(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_spec_ready(tmp_path, ticket)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -491,6 +496,7 @@ def test_blocked_status_blocks(tmp_path):
         "docs/tasklist/demo-checkout.md",
         "- [ ] <ticket> placeholder\n",
     )
+    write_spec_ready(tmp_path, "demo-checkout")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -816,6 +822,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
     write_plan_with_review(tmp_path, slug)
     write_json(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, slug)
+    write_spec_ready(tmp_path, slug)
     write_file(tmp_path, f"docs/tasklist/{slug}.md", tasklist_ready_text(slug))
     write_file(
         tmp_path,
