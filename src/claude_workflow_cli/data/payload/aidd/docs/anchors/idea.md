@@ -5,6 +5,7 @@
 - Заполнить AIDD:RESEARCH_HINTS (пути/ключевые слова/заметки).
 - Сформировать вопросы пользователю; без ответов статус не READY.
 - Если ответы пришли в чате — зафиксировать их в `AIDD:ANSWERS`.
+- В `AIDD:OPEN_QUESTIONS` использовать `Q1/Q2/...` для ссылок из плана.
 
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:RESEARCH_HINTS, AIDD:OPEN_QUESTIONS, AIDD:ANSWERS, Диалог analyst

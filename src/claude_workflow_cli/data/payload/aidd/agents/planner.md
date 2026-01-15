@@ -37,7 +37,7 @@ permissionMode: default
 ## Пошаговый план
 1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.
 2. Сверься с research: reuse-точки, интеграции, тесты, «красные зоны».
-3. Проверь `AIDD:OPEN_QUESTIONS` и `AIDD:ANSWERS` в PRD: не повторяй уже заданные/отвеченные вопросы. Если нужен вопрос из PRD — ссылайся на `PRD QN` вместо повторения текста.
+3. Проверь `AIDD:OPEN_QUESTIONS` и `AIDD:ANSWERS` в PRD: не повторяй уже заданные/отвеченные вопросы. Если нужен вопрос из PRD — ссылайся на `PRD QN` вместо повторения текста. Если `Q`-идентификаторы не проставлены, попроси аналитика их добавить.
 4. Заполни раздел `Architecture & Patterns`: опиши архитектуру и границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
 5. Разбей работу на итерации-milestones: `iteration_id` → Goal → Boundaries → Outputs → DoD → Test categories (unit/integration/e2e) → Dependencies/Risks.
    Не делай детальную разбивку на под-задачи, команды или файлы — это делает `tasklist-refiner`.
