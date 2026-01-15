@@ -919,6 +919,31 @@ class PreCompactSnapshotTests(unittest.TestCase):
             session_path = root / "aidd" / "reports" / "context" / "session-env" / "working_set.md"
             self.assertTrue(session_path.exists())
 
+    def test_precompact_snapshot_runs_without_hook_event_name(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_json(root, "config/context_gc.json", {"enabled": True})
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("line1\n", encoding="utf-8")
+
+            payload = {
+                "session_id": "session-missing-event",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(PRECOMPACT_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            session_path = (
+                root
+                / "aidd"
+                / "reports"
+                / "context"
+                / "session-missing-event"
+                / "working_set.md"
+            )
+            self.assertTrue(session_path.exists())
+
 
 class StopUpdateTests(unittest.TestCase):
     def test_stop_update_writes_latest_working_set(self) -> None:

@@ -52,7 +52,7 @@ def _tail_file(path: Path, max_bytes: int = 200_000) -> str:
 
 def main() -> None:
     ctx = read_hook_context()
-    if ctx.hook_event_name != "PreCompact":
+    if ctx.hook_event_name and ctx.hook_event_name != "PreCompact":
         return
 
     project_dir = resolve_project_dir(ctx)
