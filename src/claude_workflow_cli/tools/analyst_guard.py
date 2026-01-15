@@ -11,9 +11,13 @@ from typing import Iterable, Optional
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
-ANSWER_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Ответ\s+(\d+)\b(?:\*\*)?\s*:", re.MULTILINE)
+ANSWER_RE = re.compile(
+    r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?(?:Ответ|Answer)\s+(\d+)\b(?:\*\*)?\s*:",
+    re.MULTILINE,
+)
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
+ANSWERS_HEADING = "## AIDD:ANSWERS"
 OPEN_QUESTIONS_HEADING = "## 10. Открытые вопросы"
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
 RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
@@ -150,8 +154,10 @@ def validate_prd(
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
     questions_source = dialog_section or text
+    answers_section = _extract_section(text, ANSWERS_HEADING)
+    answers_source = answers_section if answers_section is not None else (dialog_section or text)
     questions = _collect_numbers(QUESTION_RE, questions_source)
-    answers = _collect_numbers(ANSWER_RE, questions_source)
+    answers = _collect_numbers(ANSWER_RE, answers_source)
 
     min_questions = settings.min_questions
     if min_questions_override is not None:

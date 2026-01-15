@@ -40,7 +40,7 @@ permissionMode: default
 3. Заполни `## AIDD:RESEARCH_HINTS` (пути, ключевые слова, заметки для researcher).
 4. Обнови PRD (обзор, контекст, метрики, сценарии, требования, риски) и источники.
 5. Сформируй вопросы пользователю по шаблону ниже; без ответов оставляй `Status: PENDING` (BLOCKED — при явных блокерах).
-6. После ответов обнови PRD, сними блокеры, запусти `claude-workflow analyst-check --ticket <ticket>`.
+6. После ответов обнови PRD (включая `AIDD:ANSWERS`), сними блокеры, запусти `claude-workflow analyst-check --ticket <ticket>`.
 
 ## Fail-fast и вопросы
 - Нет PRD — попроси `/idea-new <ticket>`.
@@ -49,7 +49,7 @@ permissionMode: default
   - `Зачем: ...`
   - `Варианты: A) ... B) ...`
   - `Default: ...`
-- Ответы пользователь даёт как `Ответ N: ...`.
+- Ответы пользователь даёт как `Ответ N: ...` или блоком `AIDD:ANSWERS` (формат `Answer N: ...`).
 
 ## Формат ответа
 - `Checkbox updated: not-applicable`.

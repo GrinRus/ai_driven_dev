@@ -1384,3 +1384,10 @@ _Статус: новый, приоритет 1. Цель — закрепить
 
 ### EPIC G — Payload sync + checks
 - [x] Финальный sync: `scripts/sync-payload.sh --direction=to-root`, `python3 tools/check_payload_sync.py`, обновить тесты/линтеры при необходимости. **AC:** payload и корневые промпты синхронизированы, lint/tests проходят. Файлы: `scripts/sync-payload.sh`, `tools/check_payload_sync.py`, тесты по месту.
+
+### EPIC H — Answers capture (chat → artifacts → validators)
+### EPIC H — Answers capture (chat → artifacts → validators)
+- [x] Ввести единый формат `AIDD:ANSWERS` и обновить шаблоны/anchors: описать, что ответы из чата фиксируются в артефактах через `AIDD:ANSWERS` (единый формат `Answer N: ...`/`Answer N: TBD`) и указать место фиксации в PRD/Plan. **AC:** в PRD/Plan шаблонах и anchors есть явный блок `AIDD:ANSWERS` с одинаковым форматом. Файлы: `aidd/docs/prd/template.md`, `aidd/docs/plan/template.md`, `aidd/docs/anchors/idea.md`, `aidd/docs/anchors/plan.md`, payload‑копии.
+- [x] Обновить `/idea-new` + `analyst`: поддержать `ANSWERS:` в пользовательском вводе, записывать ответы в `## Диалог analyst` и/или `AIDD:ANSWERS`, обновлять `Status: READY` и `Updated`, запускать `analyst-check`. **AC:** ответы из чата попадают в PRD, `analyst-check` проходит при полном покрытии Q/A, иначе статус PENDING/BLOCKED. Файлы: `aidd/commands/idea-new.md`, `aidd/agents/analyst.md`, payload‑копии.
+- [x] Обновить `analyst-check` для чтения `AIDD:ANSWERS` как источника истины (если он присутствует) и устранить дублирование/рассинхронизацию с `## Диалог analyst`. **AC:** при наличии `AIDD:ANSWERS` валидатор считает ответы закрытыми, блокирует только реальные пропуски. Файлы: `src/claude_workflow_cli/tools/analyst_guard.py`, тесты.
+- [x] Обновить `/plan-new` + `planner`/`validator`: поддержать `ANSWERS:` и закрывать вопросы в плане (перенос в `AIDD:DECISIONS` или пометка resolved), валидатор не должен пропускать блокеры без ответов. **AC:** ответы фиксируются в `docs/plan/<ticket>.md`, открытые вопросы не остаются в READY‑плане. Файлы: `aidd/commands/plan-new.md`, `aidd/agents/planner.md`, `aidd/agents/validator.md`, payload‑копии.

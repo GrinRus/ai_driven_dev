@@ -40,12 +40,14 @@ permissionMode: default
 3. Заполни раздел `Architecture & Patterns`: опиши архитектуру и границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
 4. Разбей работу на итерации-milestones: `iteration_id` → Goal → Boundaries → Outputs → DoD → Test categories (unit/integration/e2e) → Dependencies/Risks.
    Не делай детальную разбивку на под-задачи, команды или файлы — это делает `tasklist-refiner`.
-5. Явно перечисли **Files & Modules touched**, миграции/feature flags и требования к observability.
-6. Зафиксируй риски и открытые вопросы; при блокерах оставь `Status: PENDING`.
+5. Если в PRD есть `AIDD:ANSWERS`, учти ответы и перенеси закрытые вопросы в `AIDD:DECISIONS`.
+6. Явно перечисли **Files & Modules touched**, миграции/feature flags и требования к observability.
+7. Зафиксируй риски и открытые вопросы; при блокерах оставь `Status: PENDING`.
 
 ## Fail-fast и вопросы
 - Если PRD не READY или research отсутствует — остановись и попроси завершить предыдущие шаги.
 - При неопределённых интеграциях/миграциях сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
+- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в плане.
 
 ## Формат ответа
 - `Checkbox updated: not-applicable`.

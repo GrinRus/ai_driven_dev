@@ -94,6 +94,7 @@ CORE_ANCHORS = [
 TEMPLATE_ANCHORS = {
     "docs/prd/template.md": [
         *CORE_ANCHORS,
+        "AIDD:ANSWERS",
         "AIDD:GOALS",
         "AIDD:NON_GOALS",
         "AIDD:ACCEPTANCE",
@@ -102,6 +103,7 @@ TEMPLATE_ANCHORS = {
     ],
     "docs/plan/template.md": [
         *CORE_ANCHORS,
+        "AIDD:ANSWERS",
         "AIDD:ARCHITECTURE",
         "AIDD:FILES_TOUCHED",
         "AIDD:ITERATIONS",

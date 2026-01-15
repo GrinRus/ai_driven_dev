@@ -55,6 +55,7 @@ disable-model-invocation: false
 ## Fail-fast и вопросы
 - Нет плана/PRD/research → остановись и попроси завершить `/plan-new` или `/researcher`.
 - При блокерах верни `BLOCKED` и вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
+- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в соответствующем артефакте (PRD/Plan).
 
 ## Ожидаемый вывод
 - `## Plan Review` и `## PRD Review` обновлены и имеют статусы.

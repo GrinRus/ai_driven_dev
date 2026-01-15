@@ -45,11 +45,13 @@ disable-model-invocation: false
 1. Зафиксируй стадию `idea`: `claude-workflow set-active-stage idea`.
 2. Обнови активный тикет/slug: `claude-workflow set-active-feature "$1" [--slug-note "$2"]`.
 3. Запусти саб-агента **analyst**; он обновит PRD и заполнит блок `## AIDD:RESEARCH_HINTS` (пути/ключевые слова/заметки).
-4. Верни список вопросов и статус PRD; следующий шаг — `/researcher <ticket>`.
+4. Если пользователь передал блок `AIDD:ANSWERS`, зафиксируй его в PRD (и при необходимости продублируй ответы в `## Диалог analyst`).
+5. Верни список вопросов и статус PRD; следующий шаг — `/researcher <ticket>`, затем `/plan-new`.
 
 ## Fail-fast и вопросы
 - Нет тикета/slug — остановись и запроси корректные аргументы.
 - Если контекста недостаточно, вопросы формируются как `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`; ответы — `Ответ N: ...`. Для research укажи подсказки в `## AIDD:RESEARCH_HINTS`.
+- Если пользователь отвечает в чате — попроси прислать блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`).
 
 ## Ожидаемый вывод
 - Активный ticket/slug зафиксирован в `aidd/docs/.active_*`.

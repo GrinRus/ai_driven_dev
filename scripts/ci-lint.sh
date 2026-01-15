@@ -199,19 +199,45 @@ run_yamllint() {
 
 run_answer_pattern_check() {
   local root="$1"
-  if ! command -v rg >/dev/null 2>&1; then
-    warn "ripgrep not found; skipping Answer-pattern check"
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping Answer-pattern check"
     return
   fi
-  local answer_literal="Answer "
-  answer_literal+="1"
-  if rg -n --no-ignore --hidden --fixed-strings "$answer_literal" "$root" >/dev/null 2>&1; then
-    err "found forbidden literal '${answer_literal}' (legacy manual Q&A instruction)"
-    STATUS=1
-    return
-  fi
-  if rg -n --no-ignore --hidden "Answer [0-9]" "$root" >/dev/null 2>&1; then
-    err "found forbidden pattern 'Answer [0-9]' (legacy manual Q&A instruction)"
+  if ! python3 - "$root" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+pattern = re.compile(r"Answer\\s+[0-9]")
+answers_header = "## aidd:answers"
+
+violations = []
+for path in root.rglob("*"):
+    if not path.is_file():
+        continue
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    inside_answers = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            inside_answers = stripped.lower() == answers_header
+        if pattern.search(line) and not inside_answers:
+            violations.append(f"{path.as_posix()}:{line.strip()}")
+            break
+
+if violations:
+    for entry in violations[:5]:
+        print(f"[answer-pattern] {entry}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+  then
+    err "found forbidden pattern 'Answer [0-9]' outside AIDD:ANSWERS blocks"
     STATUS=1
     return
   fi

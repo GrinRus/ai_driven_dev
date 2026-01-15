@@ -309,11 +309,30 @@ PY
 log "mark analyst dialog ready"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 ticket = sys.argv[1]
 path = Path("docs/prd") / f"{ticket}.prd.md"
 text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+
+
+def find_section(text: str, title: str) -> tuple[int | None, int | None]:
+    matches = list(section_re.finditer(text))
+    for idx, match in enumerate(matches):
+        if match.group(1).strip() == title:
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            return start, end
+    return None, None
+
+
+def replace_section(text: str, title: str, new_body: str) -> str:
+    start, end = find_section(text, title)
+    if start is None or end is None:
+        return text
+    return text[:start] + "\n" + new_body.strip("\n") + "\n\n" + text[end:]
 if "## Диалог analyst" not in text:
     raise SystemExit("an analyst dialog block is expected in the PRD template")
 if "Вопрос 1:" in text:
@@ -330,6 +349,8 @@ if "Ответ 1:" in text:
     )
 if "Status: draft" in text:
     text = text.replace("Status: draft", "Status: READY", 1)
+answers_body = "- Answer 1: Покрываем стандартный happy-path и ошибку оплаты."
+text = replace_section(text, "AIDD:ANSWERS", answers_body)
 path.write_text(text, encoding="utf-8")
 PY
 

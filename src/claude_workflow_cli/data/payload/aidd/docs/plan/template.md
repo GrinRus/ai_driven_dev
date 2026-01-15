@@ -13,6 +13,11 @@ Research: `aidd/docs/research/<ticket>.md`
 ## AIDD:OPEN_QUESTIONS
 - `<вопрос> → <кто отвечает> → <срок>`
 
+## AIDD:ANSWERS
+> Единый формат ответов из чата (если вопросы были).
+- Answer 1: <ответ>
+- Answer 2: <ответ>
+
 ## AIDD:RISKS
 - `<риск> → <митигация>`
 
@@ -79,6 +84,7 @@ Research: `aidd/docs/research/<ticket>.md`
 
 ## Plan Review
 Status: PENDING
+Note: Action items must live under `### Action items`. Avoid checkboxes elsewhere in Plan Review.
 
 ### Summary
 - [краткий вывод]
@@ -87,4 +93,5 @@ Status: PENDING
 - [severity] [проблема] — [рекомендация]
 
 ### Action items
-- [действие] — [ответственный] — [срок]
+- None
+- <действие> — <ответственный> — <срок>
