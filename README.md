@@ -21,6 +21,7 @@ Claude Code Workflow добавляет к проекту готовый про�
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
+- Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `config/conventions.json`.
 
 ## Быстрый старт
@@ -69,6 +70,8 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 Примечания:
 - `/idea-new` принимает `ticket` и опциональный `slug-hint`.
 - После `/idea-new` ответьте аналитику и доведите PRD до `Status: READY` (проверьте `claude-workflow analyst-check --ticket STORE-123`).
+- Ответы фиксируйте в `AIDD:ANSWERS` (формат `Answer N`) и синхронизируйте `AIDD:OPEN_QUESTIONS` как `Q1/Q2/...` — при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон.
+- В плане вместо дублирования вопросов используйте ссылки `PRD QN`.
 - `/review-spec` выполняет review-plan и review-prd в одном шаге.
 
 ## CLI справка
@@ -81,7 +84,7 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 | `claude-workflow smoke` | E2E smoke-сценарий workflow |
 | `claude-workflow research --ticket <ticket>` | Генерация research-контекста |
 | `claude-workflow research-check --ticket <ticket>` | Проверка Research статуса `reviewed` |
-| `claude-workflow analyst-check --ticket <ticket>` | Проверка PRD статуса `READY` |
+| `claude-workflow analyst-check --ticket <ticket>` | Проверка PRD статуса `READY` и синхронизации `AIDD:OPEN_QUESTIONS`/`AIDD:ANSWERS` |
 | `claude-workflow qa --ticket <ticket> --gate` | Запуск QA-отчёта и гейта |
 | `claude-workflow progress --source <stage> --ticket <ticket>` | Подтверждение прогресса tasklist |
 
