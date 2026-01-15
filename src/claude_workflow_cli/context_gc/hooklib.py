@@ -89,6 +89,8 @@ class HookContext:
 def _read_stdin_json() -> Dict[str, Any]:
     raw = sys.stdin.read()
     if not raw.strip():
+        raw = os.environ.get("HOOK_PAYLOAD", "") or os.environ.get("CLAUDE_HOOK_PAYLOAD", "")
+    if not raw.strip():
         return {}
     try:
         return json.loads(raw)

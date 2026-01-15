@@ -29,6 +29,15 @@ def _write_snapshot(
         (session_dir / "transcript_tail.jsonl").write_text(tail, encoding="utf-8")
 
 
+def _log(aidd_root: Path, message: str) -> None:
+    log_dir = aidd_root / "reports" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "context-gc-precompact.log"
+    now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    with log_path.open("a", encoding="utf-8", errors="replace") as handle:
+        handle.write(f"[context-gc:precompact] {now} {message}\n")
+
+
 def _tail_file(path: Path, max_bytes: int = 200_000) -> str:
     try:
         size = path.stat().st_size
@@ -49,7 +58,10 @@ def main() -> None:
     project_dir = resolve_project_dir(ctx)
     aidd_root = resolve_aidd_root(project_dir)
     cfg = load_config(aidd_root)
-    if not cfg.get("enabled", True) or not aidd_root:
+    if not aidd_root:
+        return
+    if not cfg.get("enabled", True):
+        _log(aidd_root, f"skip: context-gc disabled (aidd_root={aidd_root})")
         return
 
     reports_dir = aidd_root / "reports" / "context"
@@ -73,12 +85,16 @@ def main() -> None:
     session_dir = reports_dir / (ctx.session_id or "unknown")
     _write_snapshot(session_dir, ws.text, meta, tail)
     (reports_dir / "latest_working_set.md").write_text(ws.text + "\n", encoding="utf-8")
+    _log(aidd_root, f"wrote session snapshot: {session_dir}")
+    _log(aidd_root, f"wrote latest snapshot: {reports_dir / 'latest_working_set.md'}")
 
     if ws.ticket:
         ticket_root = reports_dir / "by-ticket" / ws.ticket
         ticket_session_dir = ticket_root / (ctx.session_id or "unknown")
         _write_snapshot(ticket_session_dir, ws.text, meta, tail)
         (ticket_root / "latest_working_set.md").write_text(ws.text + "\n", encoding="utf-8")
+        _log(aidd_root, f"wrote ticket snapshot: {ticket_session_dir}")
+        _log(aidd_root, f"wrote ticket latest: {ticket_root / 'latest_working_set.md'}")
 
 
 if __name__ == "__main__":

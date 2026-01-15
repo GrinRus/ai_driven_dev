@@ -45,6 +45,24 @@ def _run_hook_script(module: str, payload: dict, env: dict[str, str], cwd: Path)
     )
 
 
+def _run_hook_script_env_payload(
+    module: str,
+    payload: dict,
+    env: dict[str, str],
+    cwd: Path,
+) -> subprocess.CompletedProcess[str]:
+    env = dict(env)
+    env["HOOK_PAYLOAD"] = json.dumps(payload)
+    return subprocess.run(
+        [sys.executable, "-m", module],
+        input="",
+        text=True,
+        capture_output=True,
+        cwd=cwd,
+        env=env,
+    )
+
+
 class WorkingSetBuilderTests(unittest.TestCase):
     def test_working_set_builder_includes_ticket_and_tasks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
@@ -881,6 +899,25 @@ class PreCompactSnapshotTests(unittest.TestCase):
             self.assertTrue(session_path.exists())
             self.assertTrue(ticket_path.exists())
             self.assertTrue(latest_ticket.exists())
+
+    def test_precompact_snapshot_reads_env_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_json(root, "config/context_gc.json", {"enabled": True})
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("line1\n", encoding="utf-8")
+
+            payload = {
+                "hook_event_name": "PreCompact",
+                "session_id": "session-env",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script_env_payload(PRECOMPACT_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            session_path = root / "aidd" / "reports" / "context" / "session-env" / "working_set.md"
+            self.assertTrue(session_path.exists())
 
 
 class StopUpdateTests(unittest.TestCase):
