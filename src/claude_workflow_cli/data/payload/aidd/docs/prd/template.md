@@ -38,6 +38,7 @@ Default: `<Что принять по умолчанию>`
 
 ## AIDD:OPEN_QUESTIONS
 - `<вопрос> → <кто отвечает> → <срок>`
+> Если ответ зафиксирован в `AIDD:ANSWERS`, перенеси пункт в `AIDD:DECISIONS` и удали из `AIDD:OPEN_QUESTIONS`.
 
 ## AIDD:RISKS
 - `<риск> → <митигация>`

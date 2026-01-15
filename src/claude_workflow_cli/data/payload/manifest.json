@@ -39,8 +39,8 @@
     {
       "path": "aidd/agents/analyst.md",
       "type": "file",
-      "size": 3864,
-      "sha256": "bab273cefcd2afb7c5f848bec7c77662d687e94ce2316086ec31ee8bf2aee95e"
+      "size": 4235,
+      "sha256": "d3138ae2fe30386b9259decff95b27162d37a55ba8497b85b8a39fe70c2a1dc4"
     },
     {
       "path": "aidd/agents/implementer.md",
@@ -63,8 +63,8 @@
     {
       "path": "aidd/agents/prd-reviewer.md",
       "type": "file",
-      "size": 3288,
-      "sha256": "5b99b96f155175c3f797052930b7e8c99e8b5a44ac1ce41a50d3264904991f03"
+      "size": 3587,
+      "sha256": "2f41c586e2e0930849134fb8f73a49956faf0faa37a23c70bdf3ac9138c94088"
     },
     {
       "path": "aidd/agents/qa.md",
@@ -105,8 +105,8 @@
     {
       "path": "aidd/commands/idea-new.md",
       "type": "file",
-      "size": 4218,
-      "sha256": "f5bd112795b31930942fbe5f28f9c7f35f2e77ee1adb1813e9b89fb32c638d2f"
+      "size": 4587,
+      "sha256": "23868e5305291b122e3e829911ad0a4ec53f42ebe0039edf6c39c35f2fe6c023"
     },
     {
       "path": "aidd/commands/implement.md",
@@ -135,8 +135,8 @@
     {
       "path": "aidd/commands/review-spec.md",
       "type": "file",
-      "size": 4239,
-      "sha256": "5ca92febb7473dd99176caf73a471f1c4cd7c15b15c3782b4f2bdd834db76aaf"
+      "size": 4668,
+      "sha256": "a801751e417af62318ba4fda94b0f4aeabee94819ef2e948d61b59789e6e63da"
     },
     {
       "path": "aidd/commands/review.md",
@@ -297,8 +297,8 @@
     {
       "path": "aidd/docs/prd/template.md",
       "type": "file",
-      "size": 6739,
-      "sha256": "6c3a3e95012cc5abb60c5ed0d4f9da3ce081f3c49ecfa5b11f6bcbe0ad93b50c"
+      "size": 6895,
+      "sha256": "360a60aa7f2367e3c0f8d28d4e4aac9cbc7d4144cb671858f0191cc92715a8a2"
     },
     {
       "path": "aidd/docs/research/.gitkeep",

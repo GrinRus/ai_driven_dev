@@ -49,8 +49,9 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `review-plan`, запусти саб-агента `plan-reviewer` и обнови `## Plan Review`.
 2. Если план в статусе `BLOCKED` — остановись и верни вопросы.
-3. Зафиксируй стадию `review-prd`, запусти саб-агента `prd-reviewer` и обнови `## PRD Review`.
-4. Перенеси блокирующие action items в tasklist и сохрани отчёт через `claude-workflow prd-review`.
+3. Перед PRD review проверь консистентность PRD: `AIDD:OPEN_QUESTIONS` не содержит вопросов с ответами в `AIDD:ANSWERS`, `Status:` в шапке согласован, `AIDD:METRICS/RISKS/ROLL_OUT` синхронизированы с планом. При несоответствиях верни блокирующие вопросы и попроси обновить PRD.
+4. Зафиксируй стадию `review-prd`, запусти саб-агента `prd-reviewer` и обнови `## PRD Review`.
+5. Перенеси блокирующие action items в tasklist и сохрани отчёт через `claude-workflow prd-review`.
 
 ## Fail-fast и вопросы
 - Нет плана/PRD/research → остановись и попроси завершить `/plan-new` или `/researcher`.
