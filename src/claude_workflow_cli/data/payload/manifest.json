@@ -33,8 +33,8 @@
     {
       "path": "aidd/AGENTS.md",
       "type": "file",
-      "size": 3428,
-      "sha256": "ee57cf69c3e2ac47074d30bbe0b8c6bc40bdf9948d810c72e1e6ac458204ed13"
+      "size": 3549,
+      "sha256": "53a310ab8baf0f53e56e7ec33fad6afa3ff6adeacf3ede1e91984f9ba6bf01dd"
     },
     {
       "path": "aidd/agents/analyst.md",
@@ -459,8 +459,8 @@
     {
       "path": "smoke-workflow.sh",
       "type": "file",
-      "size": 29591,
-      "sha256": "711bdfd5543b41a3ebbd6efb7aaf9c5ab8a527d652681c02fd8bba3143314240"
+      "size": 29697,
+      "sha256": "ff6069e1b67cd4bf99a866d17db7d9dfaed59d1bd0e1a618589e8dfdd5bfae72"
     }
   ]
 }

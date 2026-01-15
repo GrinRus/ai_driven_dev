@@ -351,6 +351,8 @@ if "Status: draft" in text:
     text = text.replace("Status: draft", "Status: READY", 1)
 answers_body = "- Answer 1: Покрываем стандартный happy-path и ошибку оплаты."
 text = replace_section(text, "AIDD:ANSWERS", answers_body)
+open_questions_body = "- `none`"
+text = replace_section(text, "AIDD:OPEN_QUESTIONS", open_questions_body)
 path.write_text(text, encoding="utf-8")
 PY
 
