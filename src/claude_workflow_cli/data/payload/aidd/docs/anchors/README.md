@@ -9,6 +9,7 @@ Stage anchors — короткие правила работы на стадии
 - plan: aidd/docs/anchors/plan.md
 - review-plan: aidd/docs/anchors/review-plan.md
 - review-prd: aidd/docs/anchors/review-prd.md
+- spec-interview: aidd/docs/anchors/spec-interview.md
 - tasklist: aidd/docs/anchors/tasklist.md
 - implement: aidd/docs/anchors/implement.md
 - review: aidd/docs/anchors/review.md

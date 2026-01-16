@@ -12,9 +12,12 @@ from .helpers import (
     git_config_user,
     git_init,
     run_hook,
+    tasklist_ready_text,
     write_active_feature,
     write_file,
     write_json,
+    write_spec_ready,
+    write_tasklist_ready,
 )
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
@@ -146,6 +149,7 @@ def test_missing_prd_blocks_when_feature_active(tmp_path):
         "docs/tasklist/demo-checkout.md",
         "- [ ] <ticket> placeholder\n",
     )
+    write_spec_ready(tmp_path, "demo-checkout")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -168,6 +172,27 @@ def test_missing_plan_blocks(tmp_path):
     assert "нет плана" in result.stdout or "нет плана" in result.stderr
 
 
+def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
+    ticket = "demo-checkout"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed")
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    text = tasklist_path.read_text(encoding="utf-8")
+    text = text.replace("DoD: done", "DoD: ...", 1)
+    tasklist_path.write_text(text, encoding="utf-8")
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "next_3" in combined or "dod" in combined or "boundaries" in combined
+
+
 def test_pending_baseline_allows_docs_only(tmp_path):
     ticket = "demo-checkout"
     write_active_feature(tmp_path, ticket)
@@ -175,6 +200,7 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_spec_ready(tmp_path, ticket)
     write_research_doc(tmp_path, status="pending")
     write_json(
         tmp_path,
@@ -204,11 +230,7 @@ def test_research_required_then_passes_after_report(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_prd_with_status(tmp_path, ticket, status="READY", research_status="pending")
     write_plan_with_review(tmp_path, ticket)
-    tasklist_path = write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        "- [ ] implement\n\n## AIDD:HANDOFF_INBOX\n",
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     ensure_gates_config(
         tmp_path,
@@ -259,11 +281,7 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
     write_active_feature(project_root, ticket)
     write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
-    write_file(
-        project_root,
-        f"docs/tasklist/{ticket}.md",
-        "- [ ] implement\n\n## AIDD:HANDOFF_INBOX\n",
-    )
+    write_tasklist_ready(project_root, ticket)
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(project_root, ticket=ticket, status="reviewed")
     write_json(
@@ -307,6 +325,7 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
     )
     write_plan_with_review(tmp_path, ticket)
     write_file(tmp_path, f"docs/tasklist/{ticket}.md", "- [ ] clarify limits\n")
+    write_spec_ready(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     write_json(
@@ -335,11 +354,7 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     write_file(project_root, "docs/.active_feature", "thin context demo")
     write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
-    write_file(
-        project_root,
-        f"docs/tasklist/{ticket}.md",
-        "- [ ] implement\n\n## AIDD:HANDOFF_INBOX\n",
-    )
+    write_tasklist_ready(project_root, ticket)
     write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: pending\n")
     write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": []})
     write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
@@ -380,11 +395,9 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
         ),
     )
     write_plan_with_review(project_root, ticket)
-    write_file(
-        project_root,
-        f"docs/tasklist/{ticket}.md",
-        "- [ ] implement\n\n## AIDD:HANDOFF_INBOX\n- [ ] Research handoff (source: aidd/reports/research/demo-rich-context.json)\n",
-    )
+    write_tasklist_ready(project_root, ticket)
+    with (project_root / f"docs/tasklist/{ticket}.md").open("a", encoding="utf-8") as fh:
+        fh.write("- [ ] Research handoff (source: aidd/reports/research/demo-rich-context.json)\n")
     write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: reviewed\n")
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_json(
@@ -421,6 +434,7 @@ def test_research_required_before_code_changes(tmp_path):
     write_json(tmp_path, "reports/prd/demo-checkout.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path)
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
+    write_spec_ready(tmp_path, ticket)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -449,28 +463,13 @@ def test_research_required_before_code_changes(tmp_path):
         "reports/research/demo-checkout-targets.json",
         {"paths": ["src"], "docs": ["docs"], "generated_at": _timestamp()},
     )
-    write_file(
-        tmp_path,
-        "docs/tasklist/demo-checkout.md",
-        dedent(
-            """\
-            ---
-            Feature: demo-checkout
-            Status: draft
-            PRD: docs/prd/demo-checkout.prd.md
-            Plan: docs/plan/demo-checkout.md
-            Research: docs/research/demo-checkout.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] initial task
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
-            - [ ] add research handoff
-            <!-- handoff:research end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+            "- [ ] add research handoff\n"
+            "<!-- handoff:research end -->\n"
+        )
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
 
@@ -497,6 +496,7 @@ def test_blocked_status_blocks(tmp_path):
         "docs/tasklist/demo-checkout.md",
         "- [ ] <ticket> placeholder\n",
     )
+    write_spec_ready(tmp_path, "demo-checkout")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -528,27 +528,12 @@ def test_tasks_with_slug_allow_changes(tmp_path):
         "reports/reviewer/demo-checkout.json",
         {"ticket": "demo-checkout", "tests": "optional"},
     )
-    write_file(
-        tmp_path,
-        "docs/tasklist/demo-checkout.md",
-        dedent(
-            """\
-            ---
-            Feature: demo-checkout
-            Status: draft
-            PRD: docs/prd/demo-checkout.prd.md
-            Plan: docs/plan/demo-checkout.md
-                Research: docs/research/demo-checkout.md
-                Updated: 2024-01-01
-                ---
-
-                - [ ] QA :: подготовить smoke сценарии
-                ## AIDD:HANDOFF_INBOX
-                <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
-                - [ ] Research: follow-up
-                <!-- handoff:research end -->
-                """
-            ),
+    tasklist_path = write_tasklist_ready(tmp_path, "demo-checkout")
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
         )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -572,59 +557,29 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
             "findings": [{"severity": "major", "title": "Edge case", "recommendation": "Handle error"}],
         },
     )
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            f"""\
-            ---
-            Feature: {ticket}
-            Status: draft
-            PRD: docs/prd/{ticket}.prd.md
-            Plan: docs/plan/{ticket}.md
-            Research: docs/research/{ticket}.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] implement
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->
-            - [ ] Research: follow-up
-            <!-- handoff:research end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
+        )
 
     result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_block.returncode == 2
     combined = result_block.stdout + result_block.stderr
     assert "handoff" in combined.lower()
 
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            f"""\
-            ---
-            Feature: {ticket}
-            Status: draft
-            PRD: docs/prd/{ticket}.prd.md
-            Plan: docs/plan/{ticket}.md
-            Research: docs/research/{ticket}.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] implement
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->
-            - [ ] Research: follow-up
-            <!-- handoff:research end -->
-            <!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->
-            - [ ] Review: fix edge case
-            <!-- handoff:review end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
+            f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->\n"
+            "- [ ] Review: fix edge case\n"
+            "<!-- handoff:review end -->\n"
+        )
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
@@ -648,59 +603,29 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
             "findings": [],
         },
     )
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            f"""\
-            ---
-            Feature: {ticket}
-            Status: draft
-            PRD: docs/prd/{ticket}.prd.md
-            Plan: docs/plan/{ticket}.md
-            Research: docs/research/{ticket}.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] implement
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->
-            - [ ] Research: follow-up
-            <!-- handoff:research end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
+        )
 
     result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_block.returncode == 2
     combined = result_block.stdout + result_block.stderr
     assert "handoff" in combined.lower()
 
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            f"""\
-            ---
-            Feature: {ticket}
-            Status: draft
-            PRD: docs/prd/{ticket}.prd.md
-            Plan: docs/plan/{ticket}.md
-            Research: docs/research/{ticket}.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] implement
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->
-            - [ ] Research: follow-up
-            <!-- handoff:research end -->
-            <!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->
-            - [ ] Review report: подтвердить отсутствие замечаний (source: aidd/reports/reviewer/{ticket}.json, id: review:report-1234567890ab)
-            <!-- handoff:review end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
+            f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->\n"
+            f"- [ ] Review report: подтвердить отсутствие замечаний (source: aidd/reports/reviewer/{ticket}.json, id: review:report-1234567890ab)\n"
+            "<!-- handoff:review end -->\n"
+        )
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_ok.returncode == 0, result_ok.stderr
@@ -724,27 +649,13 @@ def test_handoff_uses_configured_qa_report(tmp_path):
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/qa/custom/{ticket}.json", {"status": "pass", "findings": []})
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            f"""\
-            ---
-            Feature: {ticket}
-            Status: draft
-            PRD: docs/prd/{ticket}.prd.md
-            Plan: docs/plan/{ticket}.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] implement
-            ## AIDD:HANDOFF_INBOX
-            <!-- handoff:qa start (source: aidd/reports/qa/custom/{ticket}.json) -->
-            - [ ] QA report: подтвердить отсутствие блокеров (source: aidd/reports/qa/custom/{ticket}.json, id: qa:report-1234567890ab)
-            <!-- handoff:qa end -->
-            """
-        ),
-    )
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"<!-- handoff:qa start (source: aidd/reports/qa/custom/{ticket}.json) -->\n"
+            f"- [ ] QA report: подтвердить отсутствие блокеров (source: aidd/reports/qa/custom/{ticket}.json, id: qa:report-1234567890ab)\n"
+            "<!-- handoff:qa end -->\n"
+        )
 
     result = run_hook(
         tmp_path,
@@ -854,27 +765,12 @@ def test_allows_pending_research_baseline(tmp_path):
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            """\
-            ---
-            Feature: demo-checkout
-            Status: draft
-            PRD: docs/prd/demo-checkout.prd.md
-                Plan: docs/plan/demo-checkout.md
-                Research: docs/research/demo-checkout.md
-                Updated: 2024-01-01
-                ---
-
-                - [ ] Реализация :: подготовить сервис
-                ## AIDD:HANDOFF_INBOX
-                <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
-                - [ ] Research: follow-up
-                <!-- handoff:research end -->
-                """
-            ),
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
         )
     baseline_doc = (
         "# Research\n\nStatus: pending\n\n## Отсутствие паттернов\n- Контекст пуст, требуется baseline\n"
@@ -926,25 +822,8 @@ def test_progress_blocks_without_checkbox(tmp_path):
     write_plan_with_review(tmp_path, slug)
     write_json(tmp_path, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_research_doc(tmp_path, slug)
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{slug}.md",
-        dedent(
-            """\
-            ---
-            Feature: demo-checkout
-            Status: draft
-            PRD: docs/prd/demo-checkout.prd.md
-            Plan: docs/plan/demo-checkout.md
-            Research: docs/research/demo-checkout.md
-            Updated: 2024-01-01
-            ---
-
-            - [ ] Реализация :: подготовить сервис
-            ## AIDD:HANDOFF_INBOX
-            """
-        ),
-    )
+    write_spec_ready(tmp_path, slug)
+    write_file(tmp_path, f"docs/tasklist/{slug}.md", tasklist_ready_text(slug))
     write_file(
         tmp_path,
         "src/main/kotlin/App.kt",
@@ -967,30 +846,17 @@ def test_progress_blocks_without_checkbox(tmp_path):
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
-    assert "handoff-задачи" in result.stdout or "tasks-derive" in result.stdout
+    combined = result.stdout + result.stderr
+    assert "handoff-задачи" in combined or "tasks-derive" in combined
 
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{slug}.md",
-        dedent(
-            """\
-            ---
-            Feature: demo-checkout
-            Status: draft
-            PRD: docs/prd/demo-checkout.prd.md
-            Plan: docs/plan/demo-checkout.md
-             Research: docs/research/demo-checkout.md
-             Updated: 2024-01-01
-             ---
-
-             - [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1
-             - [ ] QA :: подготовить smoke сценарии
-             ## AIDD:HANDOFF_INBOX
-             <!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->
-             - [ ] Research: follow-up
-             <!-- handoff:research end -->
-             """
-            ),
+    tasklist_path = write_tasklist_ready(tmp_path, slug)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "- [x] Реализация :: подготовить сервис — 2024-05-01 • итерация 1\n"
+            "- [ ] QA :: подготовить smoke сценарии\n"
+            "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+            "- [ ] Research: follow-up\n"
+            "<!-- handoff:research end -->\n"
         )
 
     result_ok = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -1007,7 +873,7 @@ def test_hook_uses_aidd_docs_when_workspace_has_legacy_docs(tmp_path):
     write_active_feature(project_root, slug)
     write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_plan_with_review(project_root, slug)
-    write_file(project_root, f"docs/tasklist/{slug}.md", "- [ ] implement\n")
+    write_tasklist_ready(project_root, slug)
     write_research_doc(project_root, slug)
     write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
@@ -1025,7 +891,7 @@ def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
     write_active_feature(project_root, slug)
     write_file(project_root, f"docs/prd/{slug}.prd.md", approved_prd(slug))
     write_plan_with_review(project_root, slug)
-    write_file(project_root, f"docs/tasklist/{slug}.md", "- [ ] implement\n")
+    write_tasklist_ready(project_root, slug)
     write_research_doc(project_root, slug)
     write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
@@ -1049,7 +915,7 @@ def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):
     write_active_feature(project_root, ticket, slug_hint="aidd-slug")
     write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
-    write_file(project_root, f"docs/tasklist/{ticket}.md", "- [x] done\n")
+    write_tasklist_ready(project_root, ticket)
     write_research_doc(project_root, ticket, status="reviewed")
     write_json(
         project_root,
@@ -1090,11 +956,15 @@ def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
     write_active_feature(project_root, ticket)
     write_file(project_root, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(project_root, ticket)
-    write_file(
-        project_root,
-        f"docs/tasklist/{ticket}.md",
-        "- [ ] pending\n- [x] impl done\n## AIDD:HANDOFF_INBOX\n<!-- handoff:research start (source: aidd/reports/research/AIDD-456-context.json) -->\n- [ ] Research follow-up\n<!-- handoff:research end -->\n",
-    )
+    tasklist_path = write_tasklist_ready(project_root, ticket)
+    with tasklist_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "- [ ] pending\n"
+            "- [x] impl done\n"
+            "<!-- handoff:research start (source: aidd/reports/research/AIDD-456-context.json) -->\n"
+            "- [ ] Research follow-up\n"
+            "<!-- handoff:research end -->\n"
+        )
     write_research_doc(project_root, ticket, status="reviewed")
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
@@ -1134,25 +1004,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     write_research_doc(tmp_path, ticket)
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    write_file(
-        tmp_path,
-        f"docs/tasklist/{ticket}.md",
-        dedent(
-            """\
-            ---
-            Ticket: FEAT-123
-            Slug hint: checkout-lite
-            Status: draft
-            PRD: docs/prd/FEAT-123.prd.md
-            Plan: docs/plan/FEAT-123.md
-            Research: docs/research/FEAT-123.md
-            Updated: 2024-06-01
-            ---
-
-            - [ ] Реализация :: подготовить сервис
-            """
-        ),
-    )
+    write_tasklist_ready(tmp_path, ticket)
     reviewer_marker = {
         "ticket": ticket,
         "slug": slug_hint,

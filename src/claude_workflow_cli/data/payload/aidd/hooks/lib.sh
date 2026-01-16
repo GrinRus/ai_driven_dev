@@ -262,3 +262,15 @@ Status: pending
 EOF
   return 0
 }
+
+hook_prefix_lines() {
+  local prefix="$1"
+  if [[ -z "$prefix" ]]; then
+    cat
+    return 0
+  fi
+  local line
+  while IFS= read -r line; do
+    printf '%s %s\n' "$prefix" "$line"
+  done
+}

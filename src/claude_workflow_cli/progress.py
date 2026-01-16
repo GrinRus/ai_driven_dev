@@ -242,6 +242,13 @@ def _run_git(root: Path, args: Sequence[str]) -> List[str]:
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
 
+def _git_toplevel(root: Path) -> Optional[Path]:
+    lines = _run_git(root, ["rev-parse", "--show-toplevel"])
+    if not lines:
+        return None
+    return Path(lines[0]).expanduser().resolve()
+
+
 def _collect_changed_files(root: Path) -> Tuple[List[str], bool]:
     if not _is_git_repository(root):
         return ([], False)
@@ -265,6 +272,16 @@ def _collect_changed_files(root: Path) -> Tuple[List[str], bool]:
 
 def _read_git_file(root: Path, relative: Path) -> str:
     rel = str(relative).replace("\\", "/")
+    repo_root = _git_toplevel(root)
+    if repo_root is not None:
+        try:
+            target = (root / relative).resolve()
+        except OSError:
+            target = root / relative
+        try:
+            rel = str(target.relative_to(repo_root)).replace("\\", "/")
+        except ValueError:
+            rel = str(relative).replace("\\", "/")
     try:
         proc = subprocess.run(
             ["git", "show", f"HEAD:{rel}"],

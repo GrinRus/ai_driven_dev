@@ -59,13 +59,30 @@
 
 Кто выставляет: `prd-reviewer` (через `/review-spec`).
 
-## Tasklist (`aidd/docs/tasklist/<ticket>.md`)
+## Spec Interview (`aidd/docs/spec/<ticket>.spec.yaml`)
 
 Статусы:
-- `draft` — создан, но не синхронизирован с планом.
-- `READY` — отражает plan/review/qa handoff.
+- `draft` — интервью не закрыто, есть блокеры/дыры.
+- `ready` — интервью закрыто, решения зафиксированы.
+- `deprecated` — спеку заменили/устарела.
 
-Кто выставляет: `/tasks-new` и агент‑исполнитель.
+Кто выставляет: `/spec-interview` и агент `spec-interview-writer`.
+
+Примечание:
+- Spec‑интервью опционален; отсутствие spec не блокирует implement.
+
+## Tasklist (`aidd/docs/tasklist/<ticket>.md`)
+
+Статусы tasklist (front matter):
+- `PENDING` — создан, но не синхронизирован с планом.
+- `BLOCKED` — есть блокеры в plan/tasklist или отсутствуют входные артефакты.
+- `READY` — tasklist готов к implement.
+- `WARN` — готов, но с предупреждениями.
+
+Кто выставляет: `/tasks-new` + `tasklist-refiner`.
+
+Готовность:
+- `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.
 
 ## Review / QA Reports
 

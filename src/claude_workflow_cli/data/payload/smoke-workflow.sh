@@ -1,21 +1,65 @@
 #!/usr/bin/env bash
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly and via `claude-workflow smoke`.
-# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→tasks cycle,
+# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→spec-interview→tasks cycle,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
 
-PAYLOAD_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INIT_SCRIPT="${PAYLOAD_ROOT}/aidd/init-claude-workflow.sh"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PAYLOAD_ROOT="${CLAUDE_TEMPLATE_DIR:-${ROOT_DIR}/src/claude_workflow_cli/data/payload}"
+if [[ -n "${CLAUDE_TEMPLATE_DIR:-}" && -x "${CLAUDE_TEMPLATE_DIR}/init-claude-workflow.sh" ]]; then
+  INIT_SCRIPT="${CLAUDE_TEMPLATE_DIR}/init-claude-workflow.sh"
+else
+  INIT_SCRIPT="${PAYLOAD_ROOT}/aidd/init-claude-workflow.sh"
+fi
 TICKET="demo-checkout"
 PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 CLI_BIN="${CLAUDE_WORKFLOW_BIN:-claude-workflow}"
 CLI_PYTHON="${CLAUDE_WORKFLOW_PYTHON:-python3}"
-CLI_PYTHONPATH="${CLAUDE_WORKFLOW_PYTHONPATH:-}"
+CLI_PYTHONPATH="${CLAUDE_WORKFLOW_PYTHONPATH:-$ROOT_DIR/src}"
 CLI_USE_PYTHON=0
 export PYTHONDONTWRITEBYTECODE="1"
 WORKDIR=""
 WORKSPACE_ROOT=""
+
+if [[ ! -d "$CLI_PYTHONPATH" ]]; then
+  CLI_PYTHONPATH=""
+fi
+
+resolve_cli() {
+  # Prefer local source when an explicit pythonpath is provided.
+  local pythonpath_env=""
+  if [[ -n "$CLI_PYTHONPATH" ]]; then
+    pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
+    if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
+import importlib
+importlib.import_module("claude_workflow_cli")
+PY
+      CLI_USE_PYTHON=1
+      echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+      return 0
+    fi
+  fi
+
+  if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
+    CLI_USE_PYTHON=0
+    return 0
+  fi
+
+  pythonpath_env=""
+  if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
+import importlib
+importlib.import_module("claude_workflow_cli")
+PY
+    CLI_USE_PYTHON=1
+    echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
+    return 0
+  fi
+
+  echo "[smoke] missing CLI binary (${CLI_BIN}) and python module (claude_workflow_cli)" >&2
+  echo "[smoke] install with uv/pipx or set CLAUDE_WORKFLOW_PYTHONPATH to repo src/" >&2
+  exit 1
+}
 
 run_cli() {
   CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${WORKDIR:-}}"
@@ -33,35 +77,7 @@ run_cli() {
   fi
 }
 
-pythonpath_env=""
-if [[ -n "$CLI_PYTHONPATH" ]]; then
-  pythonpath_env="PYTHONPATH=${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
-  if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
-import importlib
-importlib.import_module("claude_workflow_cli")
-PY
-    CLI_USE_PYTHON=1
-    echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
-  fi
-fi
-
-if [[ "$CLI_USE_PYTHON" -eq 0 ]]; then
-  if [[ -n "$CLI_BIN" ]] && command -v "$CLI_BIN" >/dev/null 2>&1; then
-    CLI_USE_PYTHON=0
-  else
-    pythonpath_env=""
-    if env $pythonpath_env "$CLI_PYTHON" - <<'PY' >/dev/null 2>&1; then
-import importlib
-importlib.import_module("claude_workflow_cli")
-PY
-      CLI_USE_PYTHON=1
-      echo "[smoke] using python module for CLI (${CLI_PYTHON} -m claude_workflow_cli.cli)" >&2
-    else
-      echo "[smoke] missing CLI binary (${CLI_BIN}) and python module (claude_workflow_cli)" >&2
-      exit 1
-    fi
-  fi
-fi
+resolve_cli
 
 if [[ "$CLI_USE_PYTHON" -eq 1 && -n "$CLI_PYTHONPATH" ]]; then
   export PYTHONPATH="${CLI_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
@@ -141,12 +157,14 @@ def assert_has(needle: str, event: str) -> None:
         raise SystemExit(f"{needle} missing in {event}: {cmds}")
 
 for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
-    if event in ("Stop", "SubagentStop"):
+    if event == "Stop":
         assert_has("gate-workflow.sh", event)
         assert_has("gate-tests.sh", event)
         assert_has("gate-qa.sh", event)
         assert_has("format-and-test.sh", event)
         assert_has("lint-deps.sh", event)
+    if event == "SubagentStop":
+        assert_has("context-gc stop", event)
     if event == "PreToolUse":
         assert_has("context-gc pretooluse", event)
     if event == "UserPromptSubmit":
@@ -399,12 +417,138 @@ log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
   cp "docs/tasklist/template.md" "docs/tasklist/${TICKET}.md"
 fi
+log "ensure spec template exists"
+if [[ ! -f "docs/spec/${TICKET}.spec.yaml" ]]; then
+  mkdir -p "docs/spec"
+  cp "docs/spec/template.spec.yaml" "docs/spec/${TICKET}.spec.yaml"
+fi
+
+log "mark spec ready"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import sys
+from datetime import date
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/spec") / f"{ticket}.spec.yaml"
+text = path.read_text(encoding="utf-8")
+today = date.today().isoformat()
+lines = []
+has_status = False
+has_updated = False
+for line in text.splitlines():
+    if line.startswith("status:"):
+        lines.append("status: ready")
+        has_status = True
+        continue
+    if line.startswith("updated_at:"):
+        lines.append(f'updated_at: "{today}"')
+        has_updated = True
+        continue
+    lines.append(line)
+if not has_status:
+    lines.insert(0, "status: ready")
+if not has_updated:
+    lines.insert(1, f'updated_at: "{today}"')
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+
+log "update tasklist summary"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from datetime import date
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/tasklist") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+today = date.today().isoformat()
+
+
+def find_section(text: str, title: str) -> tuple[int | None, int | None]:
+    matches = list(section_re.finditer(text))
+    for idx, match in enumerate(matches):
+        if match.group(1).strip() == title:
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            return start, end
+    return None, None
+
+
+def replace_section(text: str, title: str, new_body: str) -> str:
+    start, end = find_section(text, title)
+    if start is None or end is None:
+        return text
+    return text[:start] + "\n" + new_body.strip("\n") + "\n\n" + text[end:]
+
+
+spec_pack_body = f"""Updated: {today}
+Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)
+- Goal: smoke spec ready
+- Non-goals:
+  - none
+- Key decisions:
+  - smoke decision
+- Risks:
+  - low"""
+text = replace_section(text, "AIDD:SPEC_PACK", spec_pack_body)
+
+test_strategy_body = """- Unit: smoke
+- Integration: smoke
+- Contract: smoke
+- E2E/Stand: smoke
+- Test data: fixtures"""
+text = replace_section(text, "AIDD:TEST_STRATEGY", test_strategy_body)
+
+iterations_full_body = f"""- Iteration 1: Smoke bootstrap
+  - Goal: satisfy tasklist gate
+  - DoD: tasklist ready for implement
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Dependencies: none
+  - Risks: low"""
+text = replace_section(text, "AIDD:ITERATIONS_FULL", iterations_full_body)
+
+next_3_body = f"""- [ ] Smoke: ready checkbox 1
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 2
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 3
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []"""
+text = replace_section(text, "AIDD:NEXT_3", next_3_body)
+
+path.write_text(text, encoding="utf-8")
+PY
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 
 log "gate now allows source edits"
 CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  run_cli set-active-stage implement >/dev/null
+  run_cli set-active-stage --target . implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --target . --append >/dev/null
 # Skip progress gate for preset-created artifacts: no code changes yet
@@ -500,7 +644,7 @@ assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
 CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  run_cli set-active-stage qa >/dev/null
+  run_cli set-active-stage --target . qa >/dev/null
 # pre-mark QA checklist items to avoid false blockers from template
 python3 - "$TICKET" <<'PY'
 from pathlib import Path

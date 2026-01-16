@@ -1324,3 +1324,31 @@ _Статус: новый, приоритет 1. Цель — гарантиро
 - [x] Тесты на review handoff. **Deps:** review report + tasks-derive review. **AC:** отчёт ревью → задачи в handoff; `gate-workflow` блокирует при отсутствии записей. Файлы: `tests/test_tasks_derive.py`, `tests/test_gate_workflow.py`.
 - [x] Тесты на повторные запуски QA/Review. **Deps:** идемпотентность handoff. **AC:** двойной `tasks-derive` не добавляет дубликатов, обновляет существующие задачи по id; smoke‑сценарий проверяет повторный `/qa` и `/review`. Файлы: `tests/test_tasks_derive.py`, `scripts/smoke-workflow.sh`.
 - [x] Документация. **Deps:** все выше. **AC:** anchors `aidd/docs/anchors/qa.md` и `aidd/docs/anchors/review.md`, а также `/qa` и `/review` описывают auto‑handoff и формат источников; `reports-format.md` отражает review report. Файлы: `src/claude_workflow_cli/data/payload/aidd/docs/anchors/{qa,review}.md`, `src/claude_workflow_cli/data/payload/aidd/docs/reports-format.md`, `README.md`.
+
+## Wave 72
+
+_Статус: новый, приоритет 2. Цель — вынести интервью в верхний уровень (AskUserQuestionTool) и вести отдельный spec‑артефакт, оставив tasklist операционным. Шаг spec‑interview — опциональный (до/после tasklist)._
+
+### EPIC A — Spec interview (top-level interview, optional)
+- [x] Добавить stage `spec-interview` в `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как опциональный шаг (до/после tasklist), без требования `spec READY` перед implement.
+- [x] Добавить anchor `aidd/docs/anchors/spec-interview.md` (MUST READ/UPDATE/NOT, порядок интервью, критерии READY).
+- [x] Добавить шаблон `aidd/docs/spec/template.spec.yaml` (schema `aidd.spec.v1`, UI/UX, API, tradeoffs, risks, tests, rollout, observability).
+- [x] Добавить команду `/spec-interview`: интервью через AskUserQuestionTool на верхнем уровне, запись лога `aidd/reports/spec/<ticket>.interview.jsonl`, запуск `spec-interview-writer`.
+- [x] Добавить агента `aidd/agents/spec-interview-writer.md` (без AskUserQuestionTool): собирает spec, обновляет tasklist `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY`.
+
+### EPIC B — Tasklist как операционный чеклист
+- [x] Обновить `aidd/docs/tasklist/template.md`: убрать in-tasklist SPEC/INTERVIEW, оставить `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY` + ссылку на spec.
+- [x] Обновить `/tasks-new`: scaffold tasklist, подтягивать spec (если есть), `/spec-interview` — опционален.
+- [x] Обновить `aidd/docs/anchors/tasklist.md` и `aidd/docs/anchors/implement.md` под новый spec‑flow.
+- [x] Обновить `aidd/agents/implementer.md` и `/implement`: убрать fail‑fast по spec, упоминания о вопросах — только в spec‑interview.
+
+### EPIC C — Gates, checks, smoke, tests
+- [x] Обновить `claude-workflow tasklist-check`: проверка `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY` + `AIDD:NEXT_3` (без требования spec).
+- [x] Обновить `gate-workflow` и сообщения: убрать обязательность spec, подсказка → `/tasks-new` (spec‑interview опционален).
+- [x] Обновить `scripts/smoke-workflow.sh` под spec‑file и новые секции tasklist.
+- [x] Обновить тесты/хелперы под spec‑flow (tasklist_ready_text, prompt lint anchors, gate tests).
+
+### EPIC D — Plugin & payload sync
+- [x] Зарегистрировать `/spec-interview` и `spec-interview-writer` в `.claude-plugin/plugin.json`, добавить permissions в `.claude/settings.json`.
+- [x] Удалить `tasklist-refiner` из payload и manifest (не используется в новом флоу).
+- [x] Синхронизировать payload, обновить `src/claude_workflow_cli/data/payload/manifest.json`.

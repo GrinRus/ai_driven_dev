@@ -2,18 +2,22 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+HOOK_PREFIX="[gate-workflow]"
+log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
+log_stderr() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX" >&2; }
+
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
-  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  log_stdout "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
 if [[ ! -d "$ROOT_DIR/docs" ]]; then
-  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run 'claude-workflow init --target <workspace>' to install payload into ./aidd." >&2
+  log_stderr "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run 'claude-workflow init --target <workspace>' to install payload into ./aidd."
   exit 2
 fi
 export ROOT_DIR
-# shellcheck source=hooks/lib.sh
-source "${SCRIPT_DIR}/lib.sh"
 HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
 if [[ -d "$HOOK_VENDOR_DIR" ]]; then
   if [[ -n "${PYTHONPATH:-}" ]]; then
@@ -96,7 +100,7 @@ if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
         : ;;
       *)
         if [[ "$has_src_changes" -eq 1 ]]; then
-          echo "BLOCK: активная стадия '$active_stage' не разрешает правки кода. Переключитесь на /implement (или установите стадию вручную)." >&2
+          log_stderr "BLOCK: активная стадия '$active_stage' не разрешает правки кода. Переключитесь на /implement (или установите стадию вручную)."
           exit 2
         fi
         exit 0
@@ -136,34 +140,33 @@ ensure_template "docs/prd/template.md" "docs/prd/$ticket.prd.md"
 plan_path="docs/plan/$ticket.md"
 if [[ ! -f "$plan_path" ]]; then
   ensure_template "docs/plan/template.md" "$plan_path"
-  echo "BLOCK: нет плана → запустите /plan-new $ticket"
+  log_stderr "BLOCK: нет плана → запустите /plan-new $ticket"
   exit 2
 fi
 tasklist_path="docs/tasklist/$ticket.md"
 if [[ ! -f "$tasklist_path" ]]; then
   ensure_template "docs/tasklist/template.md" "$tasklist_path"
-  echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
+  log_stderr "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
   exit 2
 fi
-
 # Проверим артефакты
-[[ -f "docs/prd/$ticket.prd.md" ]] || { echo "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
+[[ -f "docs/prd/$ticket.prd.md" ]] || { log_stderr "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
 analyst_cmd=(claude-workflow analyst-check --target "$ROOT_DIR" --ticket "$ticket")
 if [[ -n "$current_branch" ]]; then
   analyst_cmd+=(--branch "$current_branch")
 fi
 if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
   if [[ -n "$analyst_output" ]]; then
-    echo "$analyst_output" >&2
+    log_stderr "$analyst_output"
   fi
   exit 2
 fi
 if [[ -f "docs/plan/$ticket.md" ]]; then
   if ! review_msg="$(claude-workflow plan-review-gate --target "$ROOT_DIR" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
     if [[ -n "$review_msg" ]]; then
-      echo "$review_msg"
+      log_stderr "$review_msg"
     else
-      echo "BLOCK: Plan Review не готов → выполните /review-spec $ticket"
+      log_stderr "BLOCK: Plan Review не готов → выполните /review-spec $ticket"
     fi
     exit 2
   fi
@@ -171,9 +174,9 @@ fi
 if [[ -f "docs/plan/$ticket.md" ]]; then
   if ! review_msg="$(claude-workflow prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
     if [[ -n "$review_msg" ]]; then
-      echo "$review_msg"
+      log_stderr "$review_msg"
     else
-      echo "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
+      log_stderr "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
     fi
     exit 2
   fi
@@ -318,9 +321,9 @@ raise SystemExit(0)
 PY
 )"; then
   if [[ -n "$research_msg" ]]; then
-    echo "$research_msg"
+    log_stderr "$research_msg"
   else
-    echo "BLOCK: проверка Researcher не прошла."
+    log_stderr "BLOCK: проверка Researcher не прошла."
   fi
   exit 2
 fi
@@ -329,7 +332,7 @@ if [[ "$research_msg" == "ALLOW_PENDING_BASELINE" ]]; then
   exit 0
 fi
 
-[[ -f "docs/plan/$ticket.md"    ]] || { echo "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
+[[ -f "docs/plan/$ticket.md"    ]] || { log_stderr "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
 if ! python3 - "$ticket" <<'PY'
 import sys
 from pathlib import Path
@@ -338,22 +341,56 @@ ticket = sys.argv[1]
 tasklist = Path("docs") / "tasklist" / f"{ticket}.md"
 if not tasklist.exists():
     sys.exit(1)
-for raw in tasklist.read_text(encoding="utf-8").splitlines():
+
+lines = tasklist.read_text(encoding="utf-8").splitlines()
+start = None
+end = len(lines)
+for idx, line in enumerate(lines):
+    if line.strip().lower().startswith("## aidd:next_3"):
+        start = idx + 1
+        break
+if start is None:
+    sys.exit(1)
+for idx in range(start, len(lines)):
+    if lines[idx].strip().startswith("##"):
+        end = idx
+        break
+section = lines[start:end]
+
+
+def is_placeholder(text: str) -> bool:
+    lower = text.lower()
+    placeholders = ("<1.", "<2.", "<3.", "<ticket>", "<slug>", "<abc-123>")
+    return any(token in lower for token in placeholders)
+
+
+for raw in section:
     line = raw.strip()
-    if not line.startswith("- [ ]"):
+    if not line.startswith("- ["):
         continue
-    lower_line = line.lower()
-    if "<slug>" in lower_line or "<ticket>" in lower_line:
+    if not (line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]")):
+        continue
+    if is_placeholder(line):
         continue
     sys.exit(0)
 sys.exit(1)
 PY
 then
-  echo "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
+  log_stderr "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
   exit 2
 fi
 
 if [[ -n "$ticket" ]]; then
+  tasklist_spec_output="$(claude-workflow tasklist-check --target "$ROOT_DIR" --ticket "$ticket" --branch "$current_branch" --quiet-ok 2>&1)"
+  tasklist_spec_status=$?
+  if [[ "$tasklist_spec_status" -ne 0 ]]; then
+    if [[ -n "$tasklist_spec_output" ]]; then
+      log_stderr "$tasklist_spec_output"
+    else
+      log_stderr "BLOCK: tasklist не готов для ${ticket} → запустите /tasks-new ${ticket}"
+    fi
+    exit 2
+  fi
   reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
 import json
 import sys
@@ -417,7 +454,7 @@ elif value in required_values:
 PY
 )" || reviewer_notice=""
   if [[ -n "$reviewer_notice" ]]; then
-    echo "$reviewer_notice" 1>&2
+    log_stdout "$reviewer_notice"
   fi
 fi
 
@@ -540,7 +577,7 @@ if missing:
 PY
 )"
   if [[ -n "$handoff_block" ]]; then
-    echo "$handoff_block"
+    log_stderr "$handoff_block"
     exit 2
   fi
 fi
@@ -558,14 +595,14 @@ progress_status=$?
 set -e
 if [[ "$progress_status" -ne 0 ]]; then
   if [[ -n "$progress_output" ]]; then
-    echo "$progress_output"
+    log_stderr "$progress_output"
   else
-    echo "BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением."
+    log_stderr "BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением."
   fi
   exit 2
 fi
 if [[ -n "$progress_output" ]]; then
-  echo "$progress_output"
+  log_stdout "$progress_output"
 fi
 
 EVENT_STATUS="pass"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly and via `claude-workflow smoke`.
-# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→tasks cycle,
+# Creates a temporary project, runs init script, mimics the idea→plan→review-spec→spec-interview→tasks cycle,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
 
@@ -417,6 +417,132 @@ log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
   cp "docs/tasklist/template.md" "docs/tasklist/${TICKET}.md"
 fi
+log "ensure spec template exists"
+if [[ ! -f "docs/spec/${TICKET}.spec.yaml" ]]; then
+  mkdir -p "docs/spec"
+  cp "docs/spec/template.spec.yaml" "docs/spec/${TICKET}.spec.yaml"
+fi
+
+log "mark spec ready"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import sys
+from datetime import date
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/spec") / f"{ticket}.spec.yaml"
+text = path.read_text(encoding="utf-8")
+today = date.today().isoformat()
+lines = []
+has_status = False
+has_updated = False
+for line in text.splitlines():
+    if line.startswith("status:"):
+        lines.append("status: ready")
+        has_status = True
+        continue
+    if line.startswith("updated_at:"):
+        lines.append(f'updated_at: "{today}"')
+        has_updated = True
+        continue
+    lines.append(line)
+if not has_status:
+    lines.insert(0, "status: ready")
+if not has_updated:
+    lines.insert(1, f'updated_at: "{today}"')
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+
+log "update tasklist summary"
+python3 - "$TICKET" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from datetime import date
+from pathlib import Path
+
+ticket = sys.argv[1]
+path = Path("docs/tasklist") / f"{ticket}.md"
+text = path.read_text(encoding="utf-8")
+section_re = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+today = date.today().isoformat()
+
+
+def find_section(text: str, title: str) -> tuple[int | None, int | None]:
+    matches = list(section_re.finditer(text))
+    for idx, match in enumerate(matches):
+        if match.group(1).strip() == title:
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            return start, end
+    return None, None
+
+
+def replace_section(text: str, title: str, new_body: str) -> str:
+    start, end = find_section(text, title)
+    if start is None or end is None:
+        return text
+    return text[:start] + "\n" + new_body.strip("\n") + "\n\n" + text[end:]
+
+
+spec_pack_body = f"""Updated: {today}
+Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)
+- Goal: smoke spec ready
+- Non-goals:
+  - none
+- Key decisions:
+  - smoke decision
+- Risks:
+  - low"""
+text = replace_section(text, "AIDD:SPEC_PACK", spec_pack_body)
+
+test_strategy_body = """- Unit: smoke
+- Integration: smoke
+- Contract: smoke
+- E2E/Stand: smoke
+- Test data: fixtures"""
+text = replace_section(text, "AIDD:TEST_STRATEGY", test_strategy_body)
+
+iterations_full_body = f"""- Iteration 1: Smoke bootstrap
+  - Goal: satisfy tasklist gate
+  - DoD: tasklist ready for implement
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+  - Dependencies: none
+  - Risks: low"""
+text = replace_section(text, "AIDD:ITERATIONS_FULL", iterations_full_body)
+
+next_3_body = f"""- [ ] Smoke: ready checkbox 1
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 2
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []
+- [ ] Smoke: ready checkbox 3
+  - DoD: smoke gate satisfied
+  - Boundaries: docs/tasklist/{ticket}.md
+  - Tests:
+    - profile: none
+    - tasks: []
+    - filters: []"""
+text = replace_section(text, "AIDD:NEXT_3", next_3_body)
+
+path.write_text(text, encoding="utf-8")
+PY
 log "tasklist snapshot"
 tail -n 10 "docs/tasklist/${TICKET}.md"
 

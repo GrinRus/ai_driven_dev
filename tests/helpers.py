@@ -141,6 +141,11 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "optional_values": ["optional", "skipped", "not-required"],
         "warn_on_missing": True,
     },
+    "tasklist_spec": {
+        "enabled": True,
+        "branches": ["feature/*", "release/*", "hotfix/*"],
+        "skip_branches": ["docs/*"],
+    },
     "tasklist_progress": {
         "enabled": True,
         "code_prefixes": [
@@ -253,6 +258,95 @@ def write_file(root: pathlib.Path, relative: str, content: str = "") -> pathlib.
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return target
+
+
+def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
+    return (
+        "---\n"
+        f"Ticket: {ticket}\n"
+        "Status: READY\n"
+        "Updated: 2024-01-01\n"
+        f"Spec: aidd/docs/spec/{ticket}.spec.yaml\n"
+        "---\n\n"
+        "## AIDD:SPEC_PACK\n"
+        "Updated: 2024-01-01\n"
+        f"Spec: aidd/docs/spec/{ticket}.spec.yaml (status: ready)\n"
+        "- Goal: demo\n"
+        "- Non-goals:\n"
+        "  - none\n"
+        "- Key decisions:\n"
+        "  - default\n"
+        "- Risks:\n"
+        "  - low\n\n"
+        "## AIDD:TEST_STRATEGY\n"
+        "- Unit: smoke\n"
+        "- Integration: smoke\n"
+        "- Contract: smoke\n"
+        "- E2E/Stand: smoke\n"
+        "- Test data: fixtures\n\n"
+        "## AIDD:ITERATIONS_FULL\n"
+        "- Iteration 1: Bootstrap\n"
+        "  - Goal: setup baseline\n"
+        "  - DoD: tasklist ready\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n"
+        "  - Dependencies: none\n"
+        "  - Risks: low\n\n"
+        "## AIDD:NEXT_3\n"
+        "- [ ] Task 1\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n"
+        "- [ ] Task 2\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n"
+        "- [ ] Task 3\n"
+        "  - DoD: done\n"
+        f"  - Boundaries: docs/tasklist/{ticket}.md\n"
+        "  - Tests:\n"
+        "    - profile: none\n"
+        "    - tasks: []\n"
+        "    - filters: []\n\n"
+        "## AIDD:HANDOFF_INBOX\n"
+    )
+
+
+def spec_ready_text(ticket: str = "demo-checkout") -> str:
+    return (
+        "schema: aidd.spec.v1\n"
+        f"ticket: \"{ticket}\"\n"
+        "slug: \"demo\"\n"
+        "status: ready\n"
+        "updated_at: \"2024-01-01\"\n"
+        "sources:\n"
+        f"  plan: \"aidd/docs/plan/{ticket}.md\"\n"
+        f"  prd: \"aidd/docs/prd/{ticket}.prd.md\"\n"
+        f"  tasklist: \"aidd/docs/tasklist/{ticket}.md\"\n"
+        f"  interview_log: \"aidd/reports/spec/{ticket}.interview.jsonl\"\n"
+        "open_questions:\n"
+        "  blocker: []\n"
+        "  non_blocker: []\n"
+    )
+
+
+def write_spec_ready(root: pathlib.Path, ticket: str = "demo-checkout") -> pathlib.Path:
+    return write_file(root, f"docs/spec/{ticket}.spec.yaml", spec_ready_text(ticket))
+
+
+def write_tasklist_ready(root: pathlib.Path, ticket: str = "demo-checkout", *, include_spec: bool = True) -> pathlib.Path:
+    if include_spec:
+        write_spec_ready(root, ticket)
+    return write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
 
 
 def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathlib.Path:

@@ -53,6 +53,7 @@ from claude_workflow_cli.tools import plan_review_gate as _plan_review_gate
 from claude_workflow_cli.tools import prd_review as _prd_review
 from claude_workflow_cli.tools import prd_review_gate as _prd_review_gate
 from claude_workflow_cli.tools import qa_agent as _qa_agent
+from claude_workflow_cli.tools import tasklist_check as _tasklist_check
 from claude_workflow_cli.context_gc import (
     precompact_snapshot as _context_precompact,
     pretooluse_guard as _context_pretooluse,
@@ -689,6 +690,10 @@ def _research_check_command(args: argparse.Namespace) -> None:
     if summary.age_days is not None:
         details.append(f"age: {summary.age_days}d")
     print(f"[claude-workflow] research gate OK for `{label}` ({', '.join(details)}).")
+
+
+def _tasklist_check_command(args: argparse.Namespace) -> int:
+    return _tasklist_check.run_check(args)
 
 
 def _research_command(args: argparse.Namespace) -> None:
@@ -3039,6 +3044,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return success when the PRD file itself is being edited.",
     )
     prd_review_gate_parser.set_defaults(func=_prd_review_gate_command)
+
+    tasklist_check_parser = subparsers.add_parser(
+        "tasklist-check",
+        help="Validate tasklist spec readiness (used by hooks).",
+    )
+    tasklist_check_parser.add_argument(
+        "--target",
+        default=".",
+        help="Workspace root (default: current; workflow lives in ./aidd).",
+    )
+    tasklist_check_parser.add_argument(
+        "--ticket",
+        help="Feature ticket (defaults to docs/.active_ticket).",
+    )
+    tasklist_check_parser.add_argument(
+        "--slug-hint",
+        dest="slug_hint",
+        default=None,
+        help="Optional slug hint override.",
+    )
+    tasklist_check_parser.add_argument(
+        "--branch",
+        default="",
+        help="Current branch name for branch filters.",
+    )
+    tasklist_check_parser.add_argument(
+        "--config",
+        default="config/gates.json",
+        help="Path to gates configuration file (default: config/gates.json).",
+    )
+    tasklist_check_parser.add_argument(
+        "--quiet-ok",
+        action="store_true",
+        help="Suppress output when the check passes.",
+    )
+    tasklist_check_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print skip diagnostics when the gate is disabled.",
+    )
+    tasklist_check_parser.set_defaults(func=_tasklist_check_command)
 
     researcher_context_parser = subparsers.add_parser(
         "researcher-context",

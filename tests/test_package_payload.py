@@ -42,6 +42,7 @@ def test_payload_includes_dotfiles(tmp_path):
             f"{plugin_prefix}/docs/adr/.gitkeep",
             f"{plugin_prefix}/docs/prd/.gitkeep",
             f"{plugin_prefix}/docs/prd/template.md",
+            f"{plugin_prefix}/docs/spec/template.spec.yaml",
             f"{plugin_prefix}/docs/tasklist/template.md",
             f"{plugin_prefix}/docs/research/template.md",
             f"{payload_prefix}/manifest.json",

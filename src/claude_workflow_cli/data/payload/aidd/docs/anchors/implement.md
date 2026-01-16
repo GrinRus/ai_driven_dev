@@ -8,6 +8,7 @@
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:NEXT_3
 - aidd/docs/plan/<ticket>.md: границы итерации (DoD)
+- aidd/docs/spec/<ticket>.spec.yaml: contracts, risks, test strategy (if exists)
 - aidd/reports/context/latest_working_set.md (если есть)
 
 ## MUST UPDATE

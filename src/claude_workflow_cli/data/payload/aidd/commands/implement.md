@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.12
-source_version: 1.1.12
+prompt_version: 1.1.14
+source_version: 1.1.14
 allowed-tools:
   - Read
   - Edit
@@ -30,10 +30,12 @@ disable-model-invocation: false
 ## Входные артефакты
 - `@aidd/docs/plan/<ticket>.md`.
 - `@aidd/docs/tasklist/<ticket>.md`.
+- `@aidd/docs/spec/<ticket>.spec.yaml` (если есть).
 - `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/research/<ticket>.md` — при необходимости.
 
 ## Когда запускать
 - После `/tasks-new`, когда план и оба ревью готовы (Plan Review + PRD Review через `/review-spec`).
+- Если нужен уточняющий контекст — предварительно запусти `/spec-interview` (опционально).
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные

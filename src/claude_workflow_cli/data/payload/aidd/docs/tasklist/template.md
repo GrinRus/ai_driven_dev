@@ -7,6 +7,7 @@ Owner: <name/team>
 PRD: aidd/docs/prd/<ABC-123>.prd.md
 Plan: aidd/docs/plan/<ABC-123>.md
 Research: aidd/docs/research/<ABC-123>.md
+Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 Reports:
   tests: aidd/reports/tests/<ABC-123>.*          # optional
   reviewer: aidd/reports/reviewer/<ABC-123>.json # marker/summary
@@ -16,12 +17,12 @@ Reports:
 # Tasklist: <ABC-123> — <short-slug>
 
 > Единственный источник правды для implement/review/qa.
-> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:NEXT_3`.
+> Всегда начинайте чтение с `## AIDD:CONTEXT_PACK`, затем `## AIDD:SPEC_PACK`, затем `## AIDD:ITERATIONS_FULL`, затем `## AIDD:NEXT_3`.
 
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
 Ticket: <ABC-123>
-Stage: <idea|research|plan|review-plan|review-prd|tasklist|implement|review|qa|release>
+Stage: <idea|research|plan|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|release>
 Status: <PENDING|READY|WARN|BLOCKED>
 
 ### TL;DR
@@ -41,7 +42,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 
 ### Decisions & defaults (living)
 - Feature flag: <none|flag_name + default>
-- Contract/API: <ссылка на PRD якорь или 1 строка>
+- Contract/API: <ссылка на spec или 1 строка>
 - Data model changes: <none|migrations needed: ...>
 - Observability: <logs/metrics/tracing expectations>
 
@@ -63,6 +64,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - Q2: <...>
 
 ### References
+- Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 - PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
 - Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
@@ -72,10 +74,78 @@ Status: <PENDING|READY|WARN|BLOCKED>
 
 ---
 
+## AIDD:SPEC_PACK
+Updated: <YYYY-MM-DD>
+Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
+- Goal: <1–2 строки>
+- Non-goals:
+  - <...>
+- Key decisions:
+  - <...>
+- Risks:
+  - <...>
+
+## AIDD:TEST_STRATEGY
+- Unit: <scope>
+- Integration: <scope>
+- Contract: <scope>
+- E2E/Stand: <critical paths>
+- Test data: <fixtures/mocks>
+
+---
+
+## AIDD:ITERATIONS_FULL
+> Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
+- Iteration 1: <краткое название>
+  - Goal: <что именно делаем>
+  - DoD: <как проверить готовность>
+  - Boundaries: <пути/модули + что не трогаем>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <команды/таски>
+    - filters: <фильтры>
+  - Dependencies: <сервисы/фичефлаги/данные>
+  - Risks: <что может пойти не так>
+- Iteration 2: <...>
+  - Goal: <...>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Dependencies: <...>
+  - Risks: <...>
+- Iteration 3..N: <...>
+
+---
+
 ## AIDD:NEXT_3
+> 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests). Регулярно обновляй после каждой итерации.
 - [ ] <1. ближайший чекбокс (одна итерация)>
+  - DoD: <что считается готовым>
+  - Boundaries: <пути/модули + что не трогаем>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <команды/таски>
+    - filters: <фильтры>
+  - Notes: <важные нюансы>
 - [ ] <2. следующий>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Notes: <...>
 - [ ] <3. третий>
+  - DoD: <...>
+  - Boundaries: <...>
+  - Tests:
+    - profile: <fast|targeted|full|none>
+    - tasks: <...>
+    - filters: <...>
+  - Notes: <...>
 
 ---
 
@@ -94,6 +164,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - [ ] Research: Status reviewed
 - [ ] Plan: существует и валиден
 - [ ] Review Spec: Plan Review READY + PRD Review READY
+- [ ] Spec interview (optional): spec обновлён; затем `/tasks-new` для синхронизации tasklist
 
 ### AIDD:CHECKLIST_IMPLEMENT
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
@@ -125,6 +196,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 ---
 
 ## AIDD:PROGRESS_LOG
+> Мини‑лог: фиксируй кратко, обновляй после каждой итерации.
 > Формат записи:
 > `- YYYY-MM-DD Iteration N: <что сделано> (checkbox: <...>) (tests: <...>) (artifacts: <...>)`
 - <YYYY-MM-DD> Iteration 1: ...
@@ -135,4 +207,6 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
 - Отмечайте чекбоксы так:
   - `- [x] <описание> — YYYY-MM-DD (iteration N) (tests: fast|targeted|full|none) (link: <commit/pr>)`
+- После каждой итерации обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
+- Если обновили spec — запусти `/tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

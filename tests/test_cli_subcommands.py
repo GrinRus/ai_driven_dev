@@ -13,6 +13,7 @@ def test_cli_parses_new_subcommands():
     parser.parse_args(["prd-review", "--target", ".", "--ticket", "DEMO-1"])
     parser.parse_args(["plan-review-gate", "--ticket", "DEMO-1"])
     parser.parse_args(["prd-review-gate", "--ticket", "DEMO-1"])
+    parser.parse_args(["tasklist-check", "--target", ".", "--ticket", "DEMO-1"])
     parser.parse_args(["researcher-context"])
     parser.parse_args(["context-gc", "precompact"])
     parser.parse_args(["identifiers", "--target", ".", "--json"])

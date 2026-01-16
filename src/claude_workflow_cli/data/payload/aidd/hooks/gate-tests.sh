@@ -3,17 +3,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+HOOK_PREFIX="[gate-tests]"
+log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
+log_stderr() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX" >&2; }
+
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}}"
 if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
-  echo "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root" >&2
+  log_stdout "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
   ROOT_DIR="$ROOT_DIR/aidd"
 fi
 if [[ ! -d "$ROOT_DIR/docs" ]]; then
-  echo "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload." >&2
+  log_stderr "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run init with '--target <workspace>' to install payload."
   exit 2
 fi
-# shellcheck source=hooks/lib.sh
-source "${SCRIPT_DIR}/lib.sh"
 
 EVENT_TYPE="gate-tests"
 EVENT_STATUS=""
@@ -107,7 +111,7 @@ if value in required_values:
 PY
 )"
   if [[ -n "$reviewer_tests_msg" ]]; then
-    echo "$reviewer_tests_msg" 1>&2
+    log_stdout "$reviewer_tests_msg"
   fi
 fi
 
@@ -335,7 +339,7 @@ print(f"WARN: {file_path} не входит в список Researcher targets �
 PY
 )"
   if [[ -n "$message" ]]; then
-    echo "$message" 1>&2
+    log_stdout "$message"
   fi
 }
 
@@ -500,7 +504,7 @@ fi
 
 if [[ "$mode" == "soft" ]]; then
   for i in "${!missing_files[@]}"; do
-    echo "WARN: отсутствует тест для ${missing_files[$i]}. Рекомендуется создать ${missing_tests[$i]}." 1>&2
+    log_stdout "WARN: отсутствует тест для ${missing_files[$i]}. Рекомендуется создать ${missing_tests[$i]}."
     emit_research_hint "${missing_files[$i]}"
   done
   EVENT_STATUS="warn"
@@ -508,7 +512,7 @@ if [[ "$mode" == "soft" ]]; then
 fi
 
 for i in "${!missing_files[@]}"; do
-  echo "BLOCK: нет теста для ${missing_files[$i]}. Создайте ${missing_tests[$i]} либо переведите tests_required в config/gates.json в soft/disabled." 1>&2
+  log_stderr "BLOCK: нет теста для ${missing_files[$i]}. Создайте ${missing_tests[$i]} либо переведите tests_required в config/gates.json в soft/disabled."
   emit_research_hint "${missing_files[$i]}"
 done
 exit 2

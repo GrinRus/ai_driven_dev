@@ -27,7 +27,7 @@ def test_warns_but_allows_in_soft_mode(tmp_path):
 
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
     assert result.returncode == 0
-    assert "WARN" in (result.stderr or "")
+    assert "WARN" in (result.stdout or "")
 
 
 def test_blocks_in_hard_mode_without_tests(tmp_path):
@@ -92,7 +92,7 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
 
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
     assert result.returncode == 0
-    assert "reviewer запросил обязательный запуск тестов" in (result.stderr or "")
+    assert "reviewer запросил обязательный запуск тестов" in (result.stdout or "")
 
 
 def test_gate_tests_uses_aidd_root_even_if_plugin_root_missing(tmp_path):
