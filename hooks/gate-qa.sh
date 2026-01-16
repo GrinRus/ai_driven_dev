@@ -306,7 +306,7 @@ if [[ -n "$file_path" ]]; then
     docs/qa/*|reports/qa/*|aidd/docs/qa/*|aidd/reports/qa/*)
       : # всегда запускаем при обновлении QA артефактов
       ;;
-    src/*|tests/*|docs/*|config/*|repo_tools/*)
+    src/*|tests/*|docs/*|config/*|dev/repo_tools/*)
       : # релевантные изменения
       ;;
     *)

@@ -86,10 +86,10 @@ Notes:
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli index-sync --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.yaml` |
-| `repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
-| `repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
+| `dev/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
+| `dev/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
-`repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
+`dev/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
 
 ## Slash Commands
 
@@ -121,8 +121,8 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
-- Deep dive and customization: `doc/dev/workflow.md`, `doc/dev/customization.md`.
-- Agent and QA playbooks: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`.
+- Deep dive and customization: `dev/doc/workflow.md`, `dev/doc/customization.md`.
+- Agent and QA playbooks: `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`.
 - Russian version: `README.md`.
 
 ## Contributing

@@ -6,8 +6,8 @@
 - Для крупных изменений заведите issue или ссылку на ADR/PRD.
 - Работайте из веток `feature/<ticket>` или `feat/<scope>` (см. `config/conventions.json`).
 - Формируйте сообщения коммитов вручную по шаблонам из `config/conventions.json`.
-- Перед PR запустите `repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` в рабочем workspace).
-- Если используете `pre-commit`, он запускает `repo_tools/ci-lint.sh`.
+- Перед PR запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` в рабочем workspace).
+- Если используете `pre-commit`, он запускает `dev/repo_tools/ci-lint.sh`.
 - Обновляйте `README.md` и `README.en.md` вместе (и поле _Last sync_).
 - Если трогаете runtime/шаблоны (`commands/`, `agents/`, `hooks/`, `templates/aidd/`), обновляйте связанные доки и тесты.
 
@@ -15,8 +15,8 @@
 1. **Обсуждение.** Issue или ссылка на ADR/PRD, если меняется архитектура/поведение.
 2. **Ветка.** `git checkout -b feature/<TICKET>` или другой паттерн из `config/conventions.json`.
 3. **Коммиты.** Сообщения - по правилам `config/conventions.json`.
-4. **Тесты.** Запустите `repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` для установленного workflow).
-5. **Документация.** Обновите README (RU/EN) и связанные файлы в `doc/dev/`.
+4. **Тесты.** Запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` для установленного workflow).
+5. **Документация.** Обновите README (RU/EN) и связанные файлы в `dev/doc/`.
 6. **PR.** Приложите ссылки на задачи и список проверок.
 
 ## Плагин и шаблоны
@@ -28,12 +28,12 @@
 ## Документация и переводы
 - Любые изменения в README делайте в `README.md` и синхронно переносите в `README.en.md`.
 - Обновляйте _Last sync_ в англоязычной версии.
-- Если меняется поведение скриптов, дополните `doc/dev/workflow.md` и `doc/dev/customization.md`.
+- Если меняется поведение скриптов, дополните `dev/doc/workflow.md` и `dev/doc/customization.md`.
 
 ## Безопасность
 - Не ослабляйте ограничения `.claude/settings.json` без обсуждения.
-- Новые гейты и правила документируйте в `config/gates.json` и `doc/dev/`.
+- Новые гейты и правила документируйте в `config/gates.json` и `dev/doc/`.
 
 ## Релизы и поддержка
-- Процесс релизов и чеклисты: `doc/dev/release-notes.md`.
-- Аудит дистрибутива: `doc/dev/distro-audit.md`.
+- Процесс релизов и чеклисты: `dev/doc/release-notes.md`.
+- Аудит дистрибутива: `dev/doc/distro-audit.md`.

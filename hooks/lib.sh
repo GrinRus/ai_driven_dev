@@ -216,7 +216,7 @@ run_aidd_script() {
   shift
   local plugin_root
   plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-  python3 "${plugin_root}/repo_tools/${script}" "$@"
+  python3 "${plugin_root}/dev/repo_tools/${script}" "$@"
 }
 
 hook_append_event() {

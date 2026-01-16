@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc precompact'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc precompact",
             "timeout": 8
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc sessionstart'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc sessionstart",
             "timeout": 5
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc pretooluse'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc pretooluse",
             "timeout": 2
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc userprompt'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc userprompt",
             "timeout": 2
           }
         ]
@@ -54,32 +54,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc stop'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc stop",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-workflow.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-workflow.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-tests.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-tests.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-qa.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-qa.sh",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "AIDD_TEST_PROFILE_DEFAULT=targeted \"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/format-and-test.sh",
+            "command": "AIDD_TEST_PROFILE_DEFAULT=targeted ${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh",
             "timeout": 900
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/lint-deps.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/lint-deps.sh",
             "timeout": 10
           }
         ]
@@ -91,32 +91,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT:-.}\" CLAUDE_PROJECT_DIR=\"${CLAUDE_PROJECT_DIR:-.}\" bash -lc 'cd \"$CLAUDE_PLUGIN_ROOT\" && PYTHONPATH=\"$CLAUDE_PLUGIN_ROOT\" python3 -m aidd_runtime.cli context-gc stop'",
+            "command": "PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli context-gc stop",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-workflow.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-workflow.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-tests.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-tests.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/gate-qa.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-qa.sh",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "AIDD_TEST_PROFILE_DEFAULT=fast \"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/format-and-test.sh",
+            "command": "AIDD_TEST_PROFILE_DEFAULT=fast ${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh",
             "timeout": 900
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT:-.}\"/hooks/lint-deps.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT:-.}/hooks/lint-deps.sh",
             "timeout": 10
           }
         ]

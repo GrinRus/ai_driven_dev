@@ -193,7 +193,7 @@ def _run_init(
 
 def _run_smoke(verbose: bool) -> None:
     plugin_root = Path(os.getenv("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parents[1])).resolve()
-    script = plugin_root / "repo_tools" / "smoke-workflow.sh"
+    script = plugin_root / "dev" / "repo_tools" / "smoke-workflow.sh"
     if not script.exists():
         raise FileNotFoundError(f"smoke script not found at {script}")
     cmd = ["bash", str(script)]

@@ -15,14 +15,14 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` as the primary agent entrypoint.
 - Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
-- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa`, `doc/dev/qa-playbook.md`, and `aidd/agents/qa.md` with severity guidance.
-- CI now executes the QA gate (`.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
+- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa`, `dev/doc/qa-playbook.md`, and `aidd/agents/qa.md` with severity guidance.
+- CI now executes the QA gate (`dev/.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `aidd/agents/analyst.md`, PRD template with `## Диалог analyst`, script `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli analyst-check`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 - Progress tracking: script `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`, new `tasklist_progress` gate in `config/gates.json`, gate-workflow integration, smoke coverage, and unit tests validating missing/updated checkboxes.
-- Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`) reflecting the mandatory tasklist sync.
+- Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`) reflecting the mandatory tasklist sync.
 - Auto PRD scaffolding: `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature` and `aidd_runtime.feature_ids` now create `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, so agents/gates always work against an existing artefact.
 - Runtime workflow tools: `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli prd-review`, `plan-review-gate`, `prd-review-gate`, `research`, and `context-gc`.
-- Agent-first documentation set: updated `/idea-new`, `templates/prompt-agent.md`, `templates/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `workflow.md`, `doc/dev/feature-cookbook.md`, `aidd/docs/customization.md`, `doc/dev/agents-playbook.md`, ensuring agents log repository inputs and script commands before asking the user.
+- Agent-first documentation set: updated `/idea-new`, `dev/doc/templates/prompts/prompt-agent.md`, `dev/doc/templates/prompts/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `dev/doc/workflow.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md`, `dev/doc/agents-playbook.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Changed
 - Marketplace-only distribution: replaced `claude-workflow` CLI with `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli …`; payload sync/upgrade and release packaging removed.
@@ -38,14 +38,14 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
 - Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; legacy `tasklist.md` больше не мигрируется автоматически.
 - `set-active-feature` больше не нормализует front-matter tasklist и не переносит legacy `tasklist.md`.
-- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `workflow.md`, `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`, `doc/dev/feature-cookbook.md`, `aidd/docs/customization.md` и шаблоны tasklist.
+- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` и шаблоны tasklist.
 - `prd-review-gate`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
 - Hooks call `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli …`; no `claude-workflow` dependency.
-- `repo_tools/ci-lint.sh` запускает линтер промптов, dry-run `repo_tools/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.
+- `dev/repo_tools/ci-lint.sh` запускает линтер промптов, dry-run `dev/repo_tools/prompt-version`, новые тесты (`dev/tests/test_prompt_lint.py`, `dev/tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`, `<test-runner> <args>`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
-- Внутренний backlog (`doc/dev/backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
+- Внутренний backlog (`dev/doc/backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixed
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).

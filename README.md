@@ -79,10 +79,10 @@ PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
 | `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli index-sync --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.yaml` |
-| `repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
-| `repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
+| `dev/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
+| `dev/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
-`repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
+`dev/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
 
 ## Слэш-команды
 
@@ -114,8 +114,8 @@ PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init
 
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
-- Глубокий разбор и кастомизация: `doc/dev/workflow.md`, `doc/dev/customization.md`.
-- Playbook агентов и QA: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`.
+- Глубокий разбор и кастомизация: `dev/doc/workflow.md`, `dev/doc/customization.md`.
+- Playbook агентов и QA: `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`.
 - Английская версия: `README.en.md`.
 
 ## Вклад
