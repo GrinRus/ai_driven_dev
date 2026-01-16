@@ -11,7 +11,14 @@ Research: `aidd/docs/research/<ticket>.md`
 - `<что нельзя нарушать>`
 
 ## AIDD:OPEN_QUESTIONS
-- `<вопрос> → <кто отвечает> → <срок>`
+- `PRD Q1 → <кто отвечает> → <срок>`
+- `<новый вопрос> → <кто отвечает> → <срок>`
+> Если вопрос уже есть в PRD `AIDD:OPEN_QUESTIONS`, не повторяй текст — укажи ссылку `PRD QN`.
+
+## AIDD:ANSWERS
+> Единый формат ответов из чата (если вопросы были).
+- Answer 1: <ответ>
+- Answer 2: <ответ>
 
 ## AIDD:RISKS
 - `<риск> → <митигация>`
@@ -26,7 +33,12 @@ Research: `aidd/docs/research/<ticket>.md`
 - `<путь/модуль> — <что меняем>`
 
 ## AIDD:ITERATIONS
-- `<итерация> → <цель> → <DoD>`
+- iteration_id: I1
+  - Goal: <цель итерации>
+  - Boundaries: <модули/границы>
+  - Outputs: <артефакты>
+  - DoD: <критерий готовности>
+  - Test categories: <unit|integration|e2e>
 
 ## AIDD:TEST_STRATEGY
 - `<что/где/как тестируем>`
@@ -45,17 +57,19 @@ Research: `aidd/docs/research/<ticket>.md`
 - [путь/модуль] — [что меняем]
 
 ## 4. Итерации и DoD
-### Итерация 1
-- Шаги: [описание]
+### Итерация I1
+- Goal: [что именно делаем]
+- Boundaries: [модули/пути, где меняем]
+- Outputs: [артефакты итерации]
 - DoD: [критерии готовности]
-- Тесты: [unit/integration/e2e]
+- Test categories: [unit/integration/e2e]
 
-### Итерация 2
+### Итерация I2
 - ...
 
 ## 5. Test Strategy
-- По итерациям: [что/где/как]
-- Автоматизация: [команды/хуки]
+- По итерациям: [что/где тестируем]
+- Категории: [unit/integration/e2e]
 
 ## 6. Feature Flags & Migrations
 - Флаги: [название/поведение]
@@ -72,12 +86,14 @@ Research: `aidd/docs/research/<ticket>.md`
 
 ## Plan Review
 Status: PENDING
+Note: Action items must live under `### Action items`. Avoid checkboxes elsewhere in Plan Review.
 
 ### Summary
 - [краткий вывод]
 
 ### Findings
-- [ ] [проблема] — [severity] — [рекомендация]
+- [severity] [проблема] — [рекомендация]
 
 ### Action items
-- [ ] [действие] — [ответственный] — [срок]
+- None
+- <действие> — <ответственный> — <срок>

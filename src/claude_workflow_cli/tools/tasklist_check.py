@@ -90,7 +90,11 @@ def extract_checkboxes(section_body: str) -> list[str]:
 
 
 def is_placeholder(value: str) -> bool:
-    return value.strip().lower() in PLACEHOLDER_VALUES
+    stripped = value.strip()
+    lowered = stripped.lower()
+    if lowered in PLACEHOLDER_VALUES:
+        return True
+    return stripped.startswith("<") and stripped.endswith(">")
 
 
 def extract_field_value(item: str, field: str) -> str | None:
@@ -115,8 +119,29 @@ def section_has_field(section: str, field: str) -> bool:
     return False
 
 
+def section_has_steps(section: str) -> bool:
+    return re.search(r"^\s*-\s*Steps\s*:\s*$", section, re.IGNORECASE | re.MULTILINE) is not None
+
+
+def extract_iteration_ids(section: str) -> list[str]:
+    ids: list[str] = []
+    for line in section.splitlines():
+        match = re.search(r"\biteration_id\s*:\s*([A-Za-z0-9_-]+)", line, re.IGNORECASE)
+        if match:
+            ids.append(match.group(1).strip())
+            continue
+        match = re.match(r"^\s*-\s*(?:Iteration\s+)?([A-Za-z]+[0-9]+)\b", line)
+        if match:
+            ids.append(match.group(1).strip())
+    return [item for item in ids if item]
+
+
 def item_has_fields(item: str) -> tuple[bool, list[str]]:
     missing: list[str] = []
+
+    iteration_value = extract_field_value(item, "iteration_id")
+    if iteration_value is None or is_placeholder(iteration_value):
+        missing.append("iteration_id")
 
     dod_value = extract_field_value(item, "DoD")
     if dod_value is None or is_placeholder(dod_value):
@@ -126,11 +151,22 @@ def item_has_fields(item: str) -> tuple[bool, list[str]]:
     if boundaries_value is None or is_placeholder(boundaries_value):
         missing.append("Boundaries")
 
+    if not section_has_steps(item):
+        missing.append("Steps")
+
     if "Tests:" not in item:
         missing.append("Tests")
     else:
         if re.search(r"\bprofile:\s*(fast|targeted|full|none)\b", item) is None:
             missing.append("Tests.profile")
+
+    acceptance_value = extract_field_value(item, "Acceptance mapping")
+    if acceptance_value is None or is_placeholder(acceptance_value):
+        missing.append("Acceptance mapping")
+
+    risks_value = extract_field_value(item, "Risks & mitigations")
+    if risks_value is None or is_placeholder(risks_value):
+        missing.append("Risks & mitigations")
 
     return (len(missing) == 0, missing)
 
@@ -192,12 +228,26 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
     if not test_strategy:
         return fail("missing section: ## AIDD:TEST_STRATEGY")
 
+    test_execution = find_section(text, "AIDD:TEST_EXECUTION")
+    if not test_execution:
+        return fail("missing section: ## AIDD:TEST_EXECUTION")
+    if not section_has_field(test_execution, "profile"):
+        return fail("AIDD:TEST_EXECUTION missing profile")
+    if not section_has_field(test_execution, "tasks"):
+        return fail("AIDD:TEST_EXECUTION missing tasks")
+    if not section_has_field(test_execution, "filters"):
+        return fail("AIDD:TEST_EXECUTION missing filters")
+    if not section_has_field(test_execution, "when"):
+        return fail("AIDD:TEST_EXECUTION missing when")
+    if not section_has_field(test_execution, "reason"):
+        return fail("AIDD:TEST_EXECUTION missing reason")
+
     iterations_full = find_section(text, "AIDD:ITERATIONS_FULL")
     if not iterations_full:
         return fail("missing section: ## AIDD:ITERATIONS_FULL")
     has_iteration = False
     for line in iterations_full.splitlines():
-        match = re.match(r"^\s*-\s*Iteration\s+\d+\s*:\s*(.+)$", line, re.IGNORECASE)
+        match = re.match(r"^\s*-\s*Iteration\s+[A-Za-z]*\d+\s*:\s*(.+)$", line, re.IGNORECASE)
         if not match:
             continue
         value = match.group(1).strip()
@@ -211,8 +261,32 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
         return fail("AIDD:ITERATIONS_FULL missing DoD details")
     if not section_has_field(iterations_full, "Boundaries"):
         return fail("AIDD:ITERATIONS_FULL missing Boundaries details")
+    if not section_has_steps(iterations_full):
+        return fail("AIDD:ITERATIONS_FULL missing Steps details")
     if re.search(r"\bprofile:\s*(fast|targeted|full|none)\b", iterations_full) is None:
         return fail("AIDD:ITERATIONS_FULL missing Tests.profile")
+    if not section_has_field(iterations_full, "Acceptance mapping"):
+        return fail("AIDD:ITERATIONS_FULL missing Acceptance mapping")
+    if not section_has_field(iterations_full, "Risks & mitigations"):
+        return fail("AIDD:ITERATIONS_FULL missing Risks & mitigations")
+
+    iteration_ids = extract_iteration_ids(iterations_full)
+    if not iteration_ids:
+        return fail("AIDD:ITERATIONS_FULL missing iteration_id")
+
+    plan_path = root / "docs" / "plan" / f"{ticket}.md"
+    if not plan_path.exists():
+        return fail(f"plan not found: {plan_path}")
+    plan_text = read_text(plan_path)
+    plan_iterations = find_section(plan_text, "AIDD:ITERATIONS")
+    if not plan_iterations:
+        return fail("plan missing section: ## AIDD:ITERATIONS")
+    plan_iteration_ids = extract_iteration_ids(plan_iterations)
+    if not plan_iteration_ids:
+        return fail("AIDD:ITERATIONS missing iteration_id")
+    missing_from_tasklist = sorted(set(plan_iteration_ids) - set(iteration_ids))
+    if missing_from_tasklist:
+        return fail(f"AIDD:ITERATIONS_FULL missing iteration_id(s): {', '.join(missing_from_tasklist)}")
 
     open_questions = find_section(text, "AIDD:OPEN_QUESTIONS")
     if open_questions:
@@ -243,6 +317,9 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
         if not ok:
             header = item.splitlines()[0].strip()
             failures.append(f"item {idx} missing: {', '.join(missing)} -> {header}")
+        iteration_value = extract_field_value(item, "iteration_id")
+        if iteration_value and iteration_value not in plan_iteration_ids:
+            failures.append(f"item {idx} iteration_id not in plan: {iteration_value}")
 
     if failures:
         return fail("AIDD:NEXT_3 items missing required fields", details=failures)

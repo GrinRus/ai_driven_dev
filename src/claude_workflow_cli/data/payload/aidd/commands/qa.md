@@ -27,6 +27,7 @@ disable-model-invocation: false
 - `@aidd/docs/prd/<ticket>.prd.md` (AIDD:ACCEPTANCE).
 - `@aidd/docs/plan/<ticket>.md`.
 - `@aidd/docs/tasklist/<ticket>.md`.
+- `@aidd/docs/spec/<ticket>.spec.yaml` (если есть).
 - Логи тестов/гейтов (если есть).
 
 ## Когда запускать
@@ -47,7 +48,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.
 2. Запусти саб-агента **qa** через `claude-workflow qa --gate` и получи отчёт.
-3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE.
+3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE (AIDD:QA_TRACEABILITY).
 4. Запусти `claude-workflow tasks-derive --source qa --append` — повторный запуск не должен дублировать задачи.
 5. Подтверди прогресс через `claude-workflow progress`.
 

@@ -67,6 +67,7 @@ class Finding:
     details: str
     recommendation: str
     id: str = ""
+    blocking: bool = False
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -81,6 +82,7 @@ class Finding:
             "id": self.id,
             "severity": self.severity,
             "scope": self.scope,
+            "blocking": self.blocking,
             "title": self.title,
             "details": self.details,
             "recommendation": self.recommendation,
@@ -368,14 +370,21 @@ def aggregate_findings(
     return findings
 
 
-def summarise(findings: Sequence[Finding]) -> Tuple[str, dict, int, int]:
+def summarise(
+    findings: Sequence[Finding],
+    *,
+    blockers_set: Optional[set[str]] = None,
+    warnings_set: Optional[set[str]] = None,
+) -> Tuple[str, dict, int, int]:
     counts = {severity: 0 for severity in SEVERITY_ORDER}
     for finding in findings:
         severity = finding.severity.lower()
         counts[severity] = counts.get(severity, 0) + 1
 
-    blockers = counts.get("blocker", 0) + counts.get("critical", 0)
-    warnings = counts.get("major", 0) + counts.get("minor", 0)
+    active_blockers = blockers_set or {"blocker", "critical"}
+    active_warnings = warnings_set or {"major", "minor"}
+    blockers = sum(counts.get(severity, 0) for severity in active_blockers)
+    warnings = sum(counts.get(severity, 0) for severity in active_warnings)
 
     parts: List[str] = []
     if blockers:
@@ -419,7 +428,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         allow_missing_tests=allow_missing_tests,
     )
 
-    summary, counts, blockers, warnings = summarise(findings)
+    blockers_set = {sev.strip().lower() for sev in args.block_on.split(",") if sev.strip()}
+    warnings_set = {sev.strip().lower() for sev in args.warn_on.split(",") if sev.strip()}
+
+    for finding in findings:
+        finding.blocking = finding.severity.lower() in blockers_set
+
+    summary, counts, blockers, warnings = summarise(
+        findings,
+        blockers_set=blockers_set,
+        warnings_set=warnings_set,
+    )
     label = feature_label(ticket, slug_hint)
     generated_at = (
         dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -501,10 +520,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             if finding.recommendation:
                 print(f"{log_prefix}   → {finding.recommendation}", file=sys.stderr)
 
-        blockers_set = {sev.strip().lower() for sev in args.block_on.split(",") if sev.strip()}
-        warnings_set = {sev.strip().lower() for sev in args.warn_on.split(",") if sev.strip()}
-
-        has_blockers = any(f.severity.lower() in blockers_set for f in findings)
+        has_blockers = any(f.blocking for f in findings)
         if has_blockers and not args.dry_run:
             return 1
         return 0

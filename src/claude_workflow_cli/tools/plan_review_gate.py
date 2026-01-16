@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
@@ -18,6 +19,8 @@ from claude_workflow_cli.feature_ids import resolve_project_root
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
 REVIEW_HEADER = "## Plan Review"
+ACTION_ITEMS_HEADER = "action items"
+FENCE_PREFIXES = ("```", "~~~")
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
@@ -83,20 +86,56 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
     found = False
     status = ""
     action_items: List[str] = []
+    fallback_items: List[str] = []
+    inside_action_items = False
+    saw_action_items = False
+    inside_fence = False
+
     for raw in content.splitlines():
         stripped = raw.strip()
         if stripped.startswith("## "):
-            inside = stripped == REVIEW_HEADER
-            if inside:
+            if stripped == REVIEW_HEADER:
+                inside = True
                 found = True
+                inside_action_items = False
+                saw_action_items = False
+                inside_fence = False
+                continue
+            if inside:
+                break
             continue
         if not inside:
             continue
+
+        if stripped.startswith(FENCE_PREFIXES):
+            inside_fence = not inside_fence
+            continue
+        if inside_fence:
+            continue
+
+        if stripped.startswith("### "):
+            heading = re.sub(r"[-_]+", " ", stripped[4:].strip().lower())
+            inside_action_items = heading == ACTION_ITEMS_HEADER
+            if inside_action_items:
+                saw_action_items = True
+            continue
+
         lower = stripped.lower()
         if lower.startswith("status:"):
-            status = stripped.split(":", 1)[1].strip().lower()
-        elif stripped.startswith("- ["):
-            action_items.append(stripped)
+            raw_value = stripped.split(":", 1)[1].strip()
+            match = re.match(r"([a-z]+)", raw_value, flags=re.IGNORECASE)
+            status = match.group(1).lower() if match else raw_value.lower()
+            continue
+
+        if stripped.startswith("- ["):
+            if inside_action_items:
+                action_items.append(stripped)
+            elif not saw_action_items:
+                fallback_items.append(stripped)
+
+    if not saw_action_items:
+        action_items = fallback_items
+
     return found, status, action_items
 
 

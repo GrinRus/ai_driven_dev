@@ -6,7 +6,7 @@
 
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE, AIDD:ROLL_OUT, AIDD:OPEN_QUESTIONS
-- aidd/docs/plan/<ticket>.md (если есть): AIDD:ITERATIONS
+- aidd/docs/plan/<ticket>.md: AIDD:ITERATIONS
 - aidd/docs/research/<ticket>.md: AIDD:RISKS
 
 ## MUST UPDATE

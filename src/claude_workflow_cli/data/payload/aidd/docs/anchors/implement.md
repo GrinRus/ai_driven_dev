@@ -6,7 +6,7 @@
 - Минимизировать Stop → минимизировать лишние тесты.
 
 ## MUST READ FIRST
-- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:NEXT_3
+- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:TEST_EXECUTION + AIDD:NEXT_3
 - aidd/docs/plan/<ticket>.md: границы итерации (DoD)
 - aidd/docs/spec/<ticket>.spec.yaml: contracts, risks, test strategy (if exists)
 - aidd/reports/context/latest_working_set.md (если есть)

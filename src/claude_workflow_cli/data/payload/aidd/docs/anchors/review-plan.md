@@ -11,6 +11,7 @@
 
 ## MUST UPDATE
 - aidd/docs/plan/<ticket>.md: "## Plan Review" (status + findings + action items)
+- Action items должны быть под `### Action items`; не ставь чекбоксы вне этого блока.
 
 ## MUST NOT
 - READY при отсутствии Files/Modules touched или тест‑стратегии.

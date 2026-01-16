@@ -27,6 +27,18 @@ spec_pack:
   links:
     spec: "aidd/docs/spec/<ABC-123>.spec.yaml"
 
+iteration_decisions:
+  - iteration_id: "I1"
+    scope:
+      - api_contract
+      - ui_ux
+      - data_model
+      - tests
+      - roll_out
+      - observability
+    decisions: []
+    open_questions: []
+
 platforms:
   frontend:
     enabled: true

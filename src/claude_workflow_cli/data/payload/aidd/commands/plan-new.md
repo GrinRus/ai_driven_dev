@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Следующий шаг — `/review-spec`. Свободный ввод после тикета используйте как уточнения для плана.
+Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
@@ -44,17 +44,20 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `plan`: `claude-workflow set-active-stage plan`.
 2. Проверь, что PRD `Status: READY`; затем запусти `claude-workflow research-check --ticket <ticket>` и остановись при ошибке.
-3. Запусти саб-агента `planner` для генерации/обновления плана.
-4. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.
-5. Убедись, что план содержит нужные секции (модули/файлы, итерации, тесты, риски).
+3. Запусти саб-агента `planner` для генерации/обновления плана; он не должен дублировать вопросы из PRD и должен использовать ссылки `PRD QN` при необходимости.
+4. Если пользователь передал `AIDD:ANSWERS`, зафиксируй их в плане и закрой соответствующие вопросы (перенеси в `AIDD:DECISIONS` или пометь resolved).
+5. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.
+6. Убедись, что план содержит нужные секции (модули/файлы, итерации, тесты, риски).
 
 ## Fail-fast и вопросы
 - Нет READY PRD или `research-check` падает — остановись и попроси завершить предыдущие шаги.
 - При `BLOCKED` от validator верни вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
+- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`).
+- Если вопросы уже присутствуют/закрыты в PRD — не задавай их повторно, синхронизируй через `AIDD:OPEN_QUESTIONS` и `AIDD:DECISIONS`.
 
 ## Ожидаемый вывод
 - `aidd/docs/plan/<ticket>.md` обновлён и валидирован.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions` (следующий шаг — `/review-spec`).
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
 - `/plan-new ABC-123`

@@ -4,7 +4,7 @@ description: Финальная QA-проверка с отчётом по sever
 lang: ru
 prompt_version: 1.0.8
 source_version: 1.0.8
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(claude-workflow qa:*), Bash(claude-workflow tasks-derive:*), Bash(claude-workflow progress:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(claude-workflow set-active-feature:*), Bash(claude-workflow set-active-stage:*)
 model: inherit
 permissionMode: default
 ---
@@ -30,16 +30,16 @@ QA-агент проверяет фичу после ревью и формир�
 - Отчёты тестов/гейтов и diff.
 
 ## Автоматизация
-- Отчёт формируется через `claude-workflow qa --gate`.
-- `claude-workflow tasks-derive --source qa --append --ticket <ticket>` добавляет handoff‑задачи.
-- Прогресс фиксируется через `claude-workflow progress --source qa --ticket <ticket>`.
+- Команда `/qa` отвечает за `qa --gate`, `tasks-derive`, `progress`.
+  Агент обновляет только tasklist и findings.
 
 ## Пошаговый план
 1. Сопоставь AIDD:ACCEPTANCE с QA шагами; для каждого AC укажи, как проверено.
+1.1. Убедись, что `AIDD:TEST_EXECUTION` заполнен и QA не придумывает команды.
 2. Сформируй findings с severity и рекомендациями.
+   Findings должны содержать `scope=iteration_id` (или `n/a`) и `blocking: true|false`.
 3. Обнови QA секцию tasklist и отметь выполненные чекбоксы.
-4. Запусти `claude-workflow tasks-derive --source qa --append` (повторные запуски не должны дублировать задачи).
-5. Сохрани отчёт и прогресс.
+4. Зафиксируй traceability в `AIDD:QA_TRACEABILITY`.
 
 ## Fail-fast и вопросы
 - Если нет AIDD:ACCEPTANCE в PRD — запроси уточнение у владельца.
@@ -48,5 +48,5 @@ QA-агент проверяет фичу после ревью и формир�
 ## Формат ответа
 - `Checkbox updated: ...`.
 - `Status: READY|WARN|BLOCKED`.
-- `Artifacts updated: aidd/docs/tasklist/<ticket>.md, aidd/reports/qa/<ticket>.json`.
+- `Artifacts updated: aidd/docs/tasklist/<ticket>.md`.
 - `Next actions: ...`.

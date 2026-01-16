@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tests.helpers import REPO_ROOT, git_config_user, git_init, write_active_feature, write_file, write_json
@@ -18,6 +19,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from claude_workflow_cli.context_gc import working_set_builder  # noqa: E402
+from claude_workflow_cli.context_gc import hooklib  # noqa: E402
 
 USERPROMPT_MODULE = "claude_workflow_cli.context_gc.userprompt_guard"
 PRETOOLUSE_MODULE = "claude_workflow_cli.context_gc.pretooluse_guard"
@@ -38,6 +40,24 @@ def _run_hook_script(module: str, payload: dict, env: dict[str, str], cwd: Path)
     return subprocess.run(
         [sys.executable, "-m", module],
         input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        cwd=cwd,
+        env=env,
+    )
+
+
+def _run_hook_script_env_payload(
+    module: str,
+    payload: dict,
+    env: dict[str, str],
+    cwd: Path,
+) -> subprocess.CompletedProcess[str]:
+    env = dict(env)
+    env["HOOK_PAYLOAD"] = json.dumps(payload)
+    return subprocess.run(
+        [sys.executable, "-m", module],
+        input="",
         text=True,
         capture_output=True,
         cwd=cwd,
@@ -881,6 +901,78 @@ class PreCompactSnapshotTests(unittest.TestCase):
             self.assertTrue(session_path.exists())
             self.assertTrue(ticket_path.exists())
             self.assertTrue(latest_ticket.exists())
+
+    def test_precompact_snapshot_reads_env_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_json(root, "config/context_gc.json", {"enabled": True})
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("line1\n", encoding="utf-8")
+
+            payload = {
+                "hook_event_name": "PreCompact",
+                "session_id": "session-env",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script_env_payload(PRECOMPACT_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            session_path = root / "aidd" / "reports" / "context" / "session-env" / "working_set.md"
+            self.assertTrue(session_path.exists())
+
+    def test_precompact_snapshot_runs_without_hook_event_name(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_json(root, "config/context_gc.json", {"enabled": True})
+            transcript = root / "transcript.jsonl"
+            transcript.write_text("line1\n", encoding="utf-8")
+
+            payload = {
+                "session_id": "session-missing-event",
+                "transcript_path": str(transcript),
+            }
+            result = _run_hook_script(PRECOMPACT_MODULE, payload, _env_for_workspace(root), root)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            session_path = (
+                root
+                / "aidd"
+                / "reports"
+                / "context"
+                / "session-missing-event"
+                / "working_set.md"
+            )
+            self.assertTrue(session_path.exists())
+
+
+class HooklibResolutionTests(unittest.TestCase):
+    def test_resolve_project_dir_relative_env_uses_ctx_cwd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            ctx = hooklib.HookContext(
+                hook_event_name="",
+                session_id="",
+                transcript_path=None,
+                cwd=str(root),
+                permission_mode=None,
+                raw={},
+            )
+            with mock.patch.dict(os.environ, {"CLAUDE_PROJECT_DIR": "."}, clear=False):
+                resolved = hooklib.resolve_project_dir(ctx)
+            self.assertEqual(resolved, root.resolve())
+
+    def test_resolve_aidd_root_walks_parents(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "aidd" / "docs").mkdir(parents=True, exist_ok=True)
+            (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
+            nested = root / "foo" / "bar" / "baz"
+            nested.mkdir(parents=True, exist_ok=True)
+            with mock.patch.dict(os.environ, {"AIDD_ROOT": "", "CLAUDE_PLUGIN_ROOT": ""}, clear=False):
+                resolved = hooklib.resolve_aidd_root(nested)
+            self.assertEqual(resolved, (root / "aidd").resolve())
 
 
 class StopUpdateTests(unittest.TestCase):

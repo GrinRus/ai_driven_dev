@@ -103,6 +103,7 @@ class ReportsPackTests(unittest.TestCase):
         }
         pack = reports_pack.build_qa_pack(payload, source_path="aidd/reports/qa/QA-1.json")
         self.assertEqual(pack["findings"]["cols"][0], "id")
+        self.assertIn("blocking", pack["findings"]["cols"])
         self.assertEqual(pack["findings"]["rows"][0][0], "qa-issue-1")
 
     def test_prd_pack_includes_id_column(self) -> None:

@@ -34,14 +34,17 @@ permissionMode: default
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции PRD и `## PRD Review`, затем точечно читай ADR/план по нужным пунктам.
-2. Проверь цели, сценарии, метрики, rollout и отсутствие заглушек (`<>`, `TODO`, `TBD`).
-3. Сверь риски/зависимости/интеграции с Researcher и планом.
-4. Сформируй статус `READY|BLOCKED|PENDING`, summary, findings (critical/major/minor) и action items.
-5. Обнови раздел `## PRD Review`.
+2. Проверь консистентность PRD: `AIDD:OPEN_QUESTIONS` не содержит вопросов с ответами в `AIDD:ANSWERS`, `Status:` в шапке согласован с `## PRD Review`, `AIDD:METRICS/RISKS/ROLL_OUT` синхронизированы с планом.
+3. Проверь цели, сценарии, метрики, rollout и отсутствие заглушек (`<>`, `TODO`, `TBD`).
+4. Сверь риски/зависимости/интеграции с Researcher и планом.
+5. Сформируй статус `READY|BLOCKED|PENDING`, summary, findings (critical/major/minor) и action items.
+6. Обнови раздел `## PRD Review`.
 
 ## Fail-fast и вопросы
 - Если PRD в статусе draft или отсутствует — остановись и запроси завершение `/idea-new`.
+- Если plan/research отсутствуют — остановись и запроси недостающие артефакты.
 - При пропущенных секциях/метриках сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
+- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в PRD.
 
 ## Формат ответа
 - `Checkbox updated: not-applicable`.

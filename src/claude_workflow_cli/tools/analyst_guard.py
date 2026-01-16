@@ -11,10 +11,19 @@ from typing import Iterable, Optional
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
-ANSWER_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Ответ\s+(\d+)\b(?:\*\*)?\s*:", re.MULTILINE)
+ANSWER_RE = re.compile(
+    r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?(?:Ответ|Answer)\s+(\d+)\b(?:\*\*)?\s*:",
+    re.MULTILINE,
+)
 STATUS_RE = re.compile(r"^\s*Status:\s*([A-Za-z]+)", re.MULTILINE)
 DIALOG_HEADING = "## Диалог analyst"
+ANSWERS_HEADING = "## AIDD:ANSWERS"
 OPEN_QUESTIONS_HEADING = "## 10. Открытые вопросы"
+AIDD_OPEN_QUESTIONS_HEADING = "## AIDD:OPEN_QUESTIONS"
+Q_RE = re.compile(r"\bQ(\d+)\b")
+NONE_VALUES = {"none", "нет", "n/a", "na"}
+OPEN_ITEM_PREFIX_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)")
+CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s*")
 ALLOWED_STATUSES = {"READY", "BLOCKED", "PENDING"}
 RESEARCH_REF_TEMPLATE = "docs/research/{ticket}.md"
 
@@ -130,6 +139,36 @@ def _collect_numbers(pattern: re.Pattern[str], text: str) -> list[int]:
     return numbers
 
 
+def _has_open_items(section: str) -> bool:
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(">"):
+            continue
+        normalized = OPEN_ITEM_PREFIX_RE.sub("", stripped)
+        normalized = CHECKBOX_PREFIX_RE.sub("", normalized).strip()
+        if normalized.startswith("`") and normalized.endswith("`") and len(normalized) > 1:
+            normalized = normalized[1:-1].strip()
+        if normalized.startswith("**") and normalized.endswith("**") and len(normalized) > 3:
+            normalized = normalized[2:-2].strip()
+        if normalized.startswith("__") and normalized.endswith("__") and len(normalized) > 3:
+            normalized = normalized[2:-2].strip()
+        if normalized.lower() in NONE_VALUES:
+            continue
+        return True
+    return False
+
+
+def _collect_q_numbers(section: str) -> set[int]:
+    numbers: set[int] = set()
+    for line in section.splitlines():
+        for match in Q_RE.finditer(line):
+            try:
+                numbers.add(int(match.group(1)))
+            except ValueError:
+                continue
+    return numbers
+
+
 def validate_prd(
     root: Path,
     ticket: str,
@@ -150,8 +189,10 @@ def validate_prd(
     text = prd_path.read_text(encoding="utf-8")
     dialog_section = _extract_section(text, DIALOG_HEADING)
     questions_source = dialog_section or text
+    answers_section = _extract_section(text, ANSWERS_HEADING)
+    answers_source = answers_section if answers_section is not None else (dialog_section or text)
     questions = _collect_numbers(QUESTION_RE, questions_source)
-    answers = _collect_numbers(ANSWER_RE, questions_source)
+    answers = _collect_numbers(ANSWER_RE, answers_source)
 
     min_questions = settings.min_questions
     if min_questions_override is not None:
@@ -177,14 +218,46 @@ def validate_prd(
                 f"BLOCK: нарушена последовательность нумерации вопросов (пропущены {missing_repr}). Перенумеруйте вопросы и ответы."
             )
 
-    extra_answers = sorted(set(answers) - set(questions))
-    if extra_answers:
-        sample = ", ".join(str(num) for num in extra_answers[:3])
-        if len(extra_answers) > 3:
-            sample += ", …"
-        raise AnalystValidationError(
-            f"BLOCK: найдены ответы без соответствующих вопросов ({sample}). Согласуйте пары «Вопрос N»/«Ответ N»."
-        )
+    status_match = STATUS_RE.search(text)
+    status = status_match.group(1).upper() if status_match else None
+    open_section = _extract_section(text, OPEN_QUESTIONS_HEADING)
+    aidd_open_section = _extract_section(text, AIDD_OPEN_QUESTIONS_HEADING)
+    if settings.check_open_questions and aidd_open_section:
+        q_numbers = _collect_q_numbers(aidd_open_section)
+        if q_numbers:
+            question_numbers = set(questions)
+            answer_numbers = set(answers)
+            missing_q = sorted(q_numbers - question_numbers)
+            if missing_q:
+                sample = ", ".join(f"Q{num}" for num in missing_q[:3])
+                if len(missing_q) > 3:
+                    sample = f"{sample}..."
+                raise AnalystValidationError(
+                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих «Вопрос N»."
+                )
+            missing_answer = sorted(q_numbers - answer_numbers)
+            if missing_answer:
+                sample = ", ".join(f"Q{num}" for num in missing_answer[:3])
+                if len(missing_answer) > 3:
+                    sample = f"{sample}..."
+                raise AnalystValidationError(
+                    f"BLOCK: AIDD:OPEN_QUESTIONS содержит {sample}, но нет соответствующих «Answer N»."
+                )
+
+    if settings.check_open_questions and status == "READY":
+        if open_section:
+            for line in open_section.splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if stripped.startswith("- [ ]"):
+                    raise AnalystValidationError(
+                        "BLOCK: статус READY, но раздел «Открытые вопросы» содержит незакрытые пункты."
+                    )
+        if aidd_open_section and _has_open_items(aidd_open_section):
+            raise AnalystValidationError(
+                "BLOCK: статус READY, но AIDD:OPEN_QUESTIONS содержит незакрытые пункты."
+            )
 
     missing_answers = sorted(set(questions) - set(answers))
     if missing_answers:
@@ -195,8 +268,15 @@ def validate_prd(
             f"BLOCK: отсутствуют ответы для вопросов {sample}. Ответьте в формате «Ответ N: …» и повторите /idea-new {ticket}."
         )
 
-    status_match = STATUS_RE.search(text)
-    status = status_match.group(1).upper() if status_match else None
+    extra_answers = sorted(set(answers) - set(questions))
+    if extra_answers:
+        sample = ", ".join(str(num) for num in extra_answers[:3])
+        if len(extra_answers) > 3:
+            sample += ", …"
+        raise AnalystValidationError(
+            f"BLOCK: найдены ответы без соответствующих вопросов ({sample}). Согласуйте пары «Вопрос N»/«Ответ N»."
+        )
+
     if status is None:
         raise AnalystValidationError("BLOCK: в PRD отсутствует строка `Status:` → обновите раздел `## Диалог analyst`.")
     if status == "DRAFT":
@@ -229,18 +309,6 @@ def validate_prd(
         raise AnalystValidationError(
             f"BLOCK: PRD должен ссылаться на `{research_ref}` в разделе `## Диалог analyst` → добавьте ссылку на отчёт Researcher."
         )
-
-    if settings.check_open_questions and status == "READY":
-        open_section = _extract_section(text, OPEN_QUESTIONS_HEADING)
-        if open_section:
-            for line in open_section.splitlines():
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                if stripped.startswith("- [ ]"):
-                    raise AnalystValidationError(
-                        "BLOCK: статус READY, но раздел «Открытые вопросы» содержит незакрытые пункты."
-                    )
 
     return AnalystCheckSummary(status=status, question_count=len(set(questions)), answered_count=len(set(answers)))
 

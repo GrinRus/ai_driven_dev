@@ -15,7 +15,7 @@ permissionMode: default
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/tasklist.md`
-- `AIDD:*` секции tasklist (CONTEXT_PACK → SPEC_PACK → TEST_STRATEGY → NEXT_3)
+- `AIDD:*` секции tasklist (CONTEXT_PACK → SPEC_PACK → TEST_EXECUTION → ITERATIONS_FULL → NEXT_3)
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
@@ -37,11 +37,12 @@ permissionMode: default
 
 ## Что нужно сделать
 1. Прочитай plan/PRD/research/spec и текущий tasklist.
-2. Обнови `AIDD:SPEC_PACK` и `AIDD:TEST_STRATEGY` краткими выводами из spec/plan.
-3. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с DoD/Boundaries/Tests/Dependencies/Risks.
+2. Обнови `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY` и `AIDD:TEST_EXECUTION` краткими выводами из spec/plan.
+3. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks.
 4. Сформируй `AIDD:NEXT_3` как 3 ближайших implement‑задачи:
    - каждая задача = 1 итерация;
-   - обязательные поля: `DoD`, `Boundaries`, `Tests (profile/tasks/filters)`;
+   - обязательные поля: `iteration_id`, `Goal`, `DoD`, `Boundaries`, `Steps (3–10)`, `Tests (profile/tasks/filters)`;
+   - добавить `Acceptance mapping` и `Risks & mitigations`;
    - `Boundaries` должны ссылаться на реальные модули/пути из плана;
    - если тесты должны быть heavy → укажи `profile: full` и причину в Notes.
 5. Если данных недостаточно (контракты/UX/данные/тест‑стратегия не определены):
@@ -55,8 +56,9 @@ permissionMode: default
 - DoD = конкретная проверка результата (что считать готовым).
 - Boundaries = список файлов/папок/модулей и явные запреты.
 - Tests = профиль + команды/фильтры (или `profile: none` для чистой документации).
-- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь DoD/Boundaries/Tests/Dependencies/Risks).
+- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks).
 - Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/spec-interview`.
+  Спека обязательна при UI/API/DATA/E2E изменениях.
 
 ## Итерации и прогресс
 - Итерации берутся из `aidd/docs/plan/<ticket>.md` (AIDD:ITERATIONS и раздел “Итерации и DoD”).
@@ -67,7 +69,7 @@ permissionMode: default
 
 ## Пошаговый план
 1. Прочитай `AIDD:*` секции tasklist и ключевые блоки plan/PRD/spec.
-2. Заполни `AIDD:SPEC_PACK` и `AIDD:TEST_STRATEGY`.
+2. Заполни `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`.
 3. Сформируй `AIDD:ITERATIONS_FULL` с деталями по итерациям.
 4. Сформируй `AIDD:NEXT_3` в формате DoD/Boundaries/Tests.
 5. Если данных недостаточно — выставь `Status: BLOCKED` и зафиксируй blockers.

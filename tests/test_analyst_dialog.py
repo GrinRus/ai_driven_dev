@@ -1,4 +1,7 @@
+import inspect
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
@@ -116,6 +119,39 @@ def test_missing_answer_blocks_validation(tmp_path):
     assert "отсутствуют ответы" in str(excinfo.value)
 
 
+def test_aidd_answers_section_satisfies_missing_dialog_answer(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n\n## 10. Открытые вопросы\n- [x] Все уточнения закрыты\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+    assert summary.question_count == 1
+    assert summary.answered_count == 1
+
+
+def test_aidd_answers_missing_blocks_validation(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\n\n## AIDD:ANSWERS\n- Answer 2: Не по теме\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug, status="pending")
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "отсутствуют ответы" in str(excinfo.value)
+
+
 def test_ready_status_with_open_questions_fails(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
@@ -130,6 +166,85 @@ def test_ready_status_with_open_questions_fails(tmp_path):
         validate_prd(project, slug, settings=settings)
 
     assert "Открытые вопросы" in str(excinfo.value)
+
+
+def test_ready_status_with_aidd_open_questions_fails(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q1: Остаётся блокер → Analyst → 2026-01-01\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "AIDD:OPEN_QUESTIONS" in str(excinfo.value)
+
+
+def test_ready_allows_aidd_open_questions_none(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- `none`\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    summary = validate_prd(project, slug, settings=settings)
+
+    assert summary.status == "READY"
+
+
+def test_open_questions_q_requires_matching_question(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n- Answer 2: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "Q2" in str(excinfo.value)
+
+
+def test_open_questions_q_blocks_when_blocked(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: BLOCKED\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "Q2" in str(excinfo.value)
+
+
+def test_open_questions_q_requires_matching_answer(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    ensure_gates_config(project)
+    slug = "demo"
+    prd = """# PRD\n\n## Диалог analyst\nStatus: READY\nСсылка: docs/research/demo.md\n\nВопрос 1: Что уточнить?\nОтвет 1: Ответ получен.\nВопрос 2: Другой вопрос?\n\n## AIDD:OPEN_QUESTIONS\n- Q2: Другой вопрос → Analyst → 2026-01-01\n\n## AIDD:ANSWERS\n- Answer 1: Ответ получен.\n\n## 1. Обзор\n- **Название продукта/фичи**: Demo\n"""
+    _write_prd(project, slug, prd)
+    _write_research(project, slug)
+    settings = load_settings(project)
+
+    with pytest.raises(AnalystValidationError) as excinfo:
+        validate_prd(project, slug, settings=settings)
+
+    assert "Q2" in str(excinfo.value)
 
 
 def test_draft_status_rejected(tmp_path):
@@ -162,3 +277,24 @@ def test_validation_skipped_when_disabled(tmp_path):
 
     assert summary.status is None
     assert summary.question_count == 0
+
+
+def _wrap_tmp_path(func):
+    def _wrapped():
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            return func(Path(tmp_dir))
+
+    return _wrapped
+
+
+def load_tests(loader, tests, pattern):  # pragma: no cover - unittest discovery hook
+    suite = unittest.TestSuite()
+    for name, func in sorted(globals().items()):
+        if not name.startswith("test_") or not callable(func):
+            continue
+        params = len(inspect.signature(func).parameters)
+        if params == 1:
+            suite.addTest(unittest.FunctionTestCase(_wrap_tmp_path(func)))
+        else:
+            suite.addTest(unittest.FunctionTestCase(func))
+    return suite

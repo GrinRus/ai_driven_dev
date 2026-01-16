@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from typing import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -87,7 +88,19 @@ class HookContext:
 
 
 def _read_stdin_json() -> Dict[str, Any]:
-    raw = sys.stdin.read()
+    raw = os.environ.get("HOOK_PAYLOAD", "") or os.environ.get("CLAUDE_HOOK_PAYLOAD", "")
+    if not raw.strip():
+        try:
+            if sys.stdin is not None and not sys.stdin.closed and not sys.stdin.isatty():
+                try:
+                    import select
+
+                    if select.select([sys.stdin], [], [], 0.0)[0]:
+                        raw = sys.stdin.read()
+                except Exception:
+                    raw = sys.stdin.read()
+        except Exception:
+            raw = ""
     if not raw.strip():
         return {}
     try:
@@ -112,26 +125,43 @@ def read_hook_context() -> HookContext:
 def resolve_project_dir(ctx: HookContext) -> Path:
     env = os.environ.get("CLAUDE_PROJECT_DIR")
     if env:
-        return Path(env).expanduser().resolve()
+        env_path = Path(env).expanduser()
+        if not env_path.is_absolute() and ctx.cwd:
+            return (Path(ctx.cwd).expanduser() / env_path).resolve()
+        return env_path.resolve()
     if ctx.cwd:
         return Path(ctx.cwd).expanduser().resolve()
     return Path.cwd().resolve()
 
 
+def _iter_parent_dirs(path: Path) -> Iterable[Path]:
+    yield path
+    for parent in path.parents:
+        yield parent
+
+
 def resolve_aidd_root(project_dir: Path) -> Optional[Path]:
-    candidates = [
+    env_candidates = [
         os.environ.get("AIDD_ROOT"),
         os.environ.get("CLAUDE_PLUGIN_ROOT"),
-        str(project_dir / "aidd"),
-        str(project_dir),
-        str(project_dir.parent / "aidd"),
     ]
-    for c in candidates:
+    for c in env_candidates:
         if not c:
             continue
-        p = Path(c).expanduser().resolve()
+        p = Path(c).expanduser()
+        if not p.is_absolute():
+            p = (project_dir / p).resolve()
+        else:
+            p = p.resolve()
         if (p / "docs").is_dir() and (p / "config").is_dir():
             return p
+
+    for parent in _iter_parent_dirs(project_dir):
+        candidate = parent / "aidd"
+        if (candidate / "docs").is_dir() and (candidate / "config").is_dir():
+            return candidate.resolve()
+        if (parent / "docs").is_dir() and (parent / "config").is_dir():
+            return parent.resolve()
     return None
 
 

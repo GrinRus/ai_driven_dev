@@ -533,7 +533,7 @@ def build_qa_pack(
         "findings": _pack_findings(
             findings,
             lim["findings"],
-            ["id", "severity", "scope", "title", "details", "recommendation"],
+            ["id", "severity", "scope", "blocking", "title", "details", "recommendation"],
         ),
         "tests_summary": payload.get("tests_summary"),
         "tests_executed": _pack_tests_executed(payload.get("tests_executed") or [], lim["tests_executed"]),

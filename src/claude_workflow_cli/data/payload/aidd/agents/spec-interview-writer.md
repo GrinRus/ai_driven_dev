@@ -29,8 +29,9 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 
 ## Пошаговый план
 1. Сформируй `aidd/docs/spec/<ticket>.spec.yaml` по шаблону `aidd.spec.v1`.
-2. Убедись, что `status` отражает готовность (draft/ready).
-3. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
+2. Заполни `iteration_decisions` по `iteration_id` из плана; пометь open_questions по каждой итерации.
+3. Убедись, что `status` отражает готовность (draft/ready).
+4. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
 
 ## Fail-fast и вопросы
 - Если interview log отсутствует или пуст — `Status: BLOCKED` и попроси `/spec-interview`.

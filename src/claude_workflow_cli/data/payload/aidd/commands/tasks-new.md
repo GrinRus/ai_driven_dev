@@ -41,22 +41,23 @@ disable-model-invocation: false
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`.
+- `aidd/docs/tasklist/<ticket>.md` — фронт-маттер + секции `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`.
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `claude-workflow set-active-stage tasklist`.
 2. Зафиксируй активную фичу: `claude-workflow set-active-feature --target . "$1"`.
 3. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
-4. Если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
+4. Если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
 5. Запусти саб-агента **tasklist-refiner** (без AskUserQuestionTool).
-6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` (с DoD/Boundaries/Tests).
+6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` (с iteration_id/DoD/Boundaries/Steps/Tests).
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/review-spec`.
+- Если есть UI/API/DATA/E2E изменения и spec отсутствует — `Status: BLOCKED` и запросить `/spec-interview`.
 - Если непонятны владельцы/сроки — запроси уточнения.
 
 ## Ожидаемый вывод
-- Актуальный `aidd/docs/tasklist/<ticket>.md` с `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`.
+- Актуальный `aidd/docs/tasklist/<ticket>.md` с `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`.
 - Если данных недостаточно — `Status: BLOCKED` и рекомендация повторить `/spec-interview`, затем `/tasks-new`.
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 

@@ -18,7 +18,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-12._
+_Last sync with `README.md`: 2026-01-15._
 
 ## What it is
 Claude Code Workflow adds a ready-to-use development process with agents and gates. You get the `aidd/` structure, slash commands, and a consistent way to manage PRDs, plans, and tasklists.
@@ -28,6 +28,7 @@ Key features:
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Auto-formatting and selective tests during the `implement` stage.
+- Unified `AIDD:ANSWERS` format plus Q identifiers in `AIDD:OPEN_QUESTIONS` (the plan references `PRD QN` without duplication).
 - Branch and commit conventions via `config/conventions.json`.
 
 ## Get Started
@@ -76,6 +77,8 @@ claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
 Notes:
 - `/idea-new` takes a `ticket` and an optional `slug-hint`.
 - After `/idea-new`, answer the analyst questions and update the PRD to `Status: READY` (check with `claude-workflow analyst-check --ticket STORE-123`).
+- Capture answers in `AIDD:ANSWERS` (`Answer N` format) and keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when the `AIDD:OPEN_QUESTIONS` section is present, `analyst-check` blocks mismatches.
+- In the plan, reference questions as `PRD QN` instead of duplicating the text.
 - `/review-spec` performs plan review and PRD review in one step.
 
 ## CLI Reference
@@ -88,7 +91,7 @@ Notes:
 | `claude-workflow smoke` | End-to-end smoke workflow |
 | `claude-workflow research --ticket <ticket>` | Generate research context |
 | `claude-workflow research-check --ticket <ticket>` | Verify Research status `reviewed` |
-| `claude-workflow analyst-check --ticket <ticket>` | Verify PRD status `READY` |
+| `claude-workflow analyst-check --ticket <ticket>` | Verify PRD `READY` status and `AIDD:OPEN_QUESTIONS`/`AIDD:ANSWERS` sync |
 | `claude-workflow qa --ticket <ticket> --gate` | Run QA report + gate |
 | `claude-workflow progress --source <stage> --ticket <ticket>` | Confirm tasklist progress |
 
