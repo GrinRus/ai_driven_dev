@@ -80,7 +80,7 @@
 
 ### CI и тестовый контур
 - [x] `init-claude-workflow.sh`: устранить рассинхрон с текущим `.github/workflows/ci.yml` (сейчас генерируется `.github/workflows/gradle.yml`); выбрать единый pipeline и описать его в README и релиз-нотах.
-- [x] `tests/test_init_claude_workflow.py`: дополнить проверками на наличие overview-документа, helper-скриптов и актуального CI-файла; добавить негативные сценарии (например, отсутствие doc/dev/intro) и очистку временных артефактов.
+- [x] `tests/test_init_aidd.py`: дополнить проверками на наличие overview-документа, helper-скриптов и актуального CI-файла; добавить негативные сценарии (например, отсутствие doc/dev/intro) и очистку временных артефактов.
 
 ## Wave 7
 
@@ -1038,7 +1038,7 @@ _Статус: новый, приоритет 1. Цель — довести lan
 - [ ] Пересмотреть `src/claude_workflow_cli/data/payload/aidd/scripts/gradle/init-print-projects.gradle`: оставить в payload как optional helper или перенести в `examples/`/dev-only; обновить `tools/payload_audit_rules.json`.
 
 ### Tests
-- [ ] Добавить тесты/смоук для новых config‑ключей (`format-and-test`, `lint-deps`, init‑скрипт) и обновить `tests/test_init_claude_workflow.py`/`src/claude_workflow_cli/data/payload/aidd/repo_tools/smoke-workflow.sh` при необходимости.
+- [ ] Добавить тесты/смоук для новых config‑ключей (`format-and-test`, `lint-deps`, init‑скрипт) и обновить `tests/test_init_aidd.py`/`src/claude_workflow_cli/data/payload/aidd/repo_tools/smoke-workflow.sh` при необходимости.
 
 ## Wave 62
 
@@ -1092,7 +1092,7 @@ _Статус: новый, приоритет 1. Цель — CLI‑first: пе�
 
 ### Тесты и CI
 - [x] Обновить smoke: `src/claude_workflow_cli/data/payload/aidd/repo_tools/smoke-workflow.sh` (или заменить на вызов `claude-workflow smoke`) без обращения к `tools/*.py`/`scripts/*.py`.
-- [x] Переписать unit‑тесты на CLI‑first: `tests/test_init_claude_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`, `tests/test_prd_review_gate.py`, `tests/test_prompt_versioning.py` (если зависит от скриптов).
+- [x] Переписать unit‑тесты на CLI‑first: `tests/test_init_aidd.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`, `tests/test_prd_review_gate.py`, `tests/test_prompt_versioning.py` (если зависит от скриптов).
 - [x] Добавить тесты наличия новых CLI‑подкоманд и отсутствия legacy‑файлов в payload.
 
 ### Документация и релиз
@@ -1138,7 +1138,7 @@ _Статус: новый, приоритет 1. Цель — поддержка
 - [ ] Обновить packaging для dotfiles. **Deps:** обновлённый payload. **AC:** wheel и payload‑архив содержат `opencode.json` и `.opencode/**`; `pyproject.toml`/`MANIFEST.in` покрывают новые dot‑директории. Файлы: `pyproject.toml`, `MANIFEST.in`, `tests/test_package_payload.py`.
 
 ### Tests
-- [ ] Тесты `init --type open-code` и `--type both`. **Deps:** init + overlay. **AC:** создаются `opencode.json`, `.opencode/{command,agent,plugin}`; `.claude/` и `.claude-plugin/` отсутствуют при `open-code`; CLI‑команды работают при open‑code‑only установке; `sync/upgrade` корректно обрабатывают workspace‑root `opencode.json`. Файлы: `tests/test_init_claude_workflow.py` (или новый `tests/test_init_open_code.py`), `tests/test_cli_sync.py`.
+- [ ] Тесты `init --type open-code` и `--type both`. **Deps:** init + overlay. **AC:** создаются `opencode.json`, `.opencode/{command,agent,plugin}`; `.claude/` и `.claude-plugin/` отсутствуют при `open-code`; CLI‑команды работают при open‑code‑only установке; `sync/upgrade` корректно обрабатывают workspace‑root `opencode.json`. Файлы: `tests/test_init_aidd.py` (или новый `tests/test_init_open_code.py`), `tests/test_cli_sync.py`.
 - [ ] Обновить `tests/test_package_payload.py`. **Deps:** packaging update. **AC:** проверки ожидают `opencode.json` и `.opencode/**` в wheel/payload‑zip.
 - [ ] Добавить проверку `opencode.json` и wrapper‑файлов. **Deps:** opencode overlay. **AC:** `opencode.json` валиден по schema (или минимальный контракт проверен тестом); wrapper‑файлы ссылаются на `@aidd/commands/*` и `@aidd/agents/*` без дублирования контента. Файлы: `tests/test_package_payload.py` (или отдельный тест).
 - [ ] Добавить smoke‑сценарий OpenCode. **Deps:** overlay + plugin. **AC:** сценарий `init --type open-code` создаёт `opencode.json`/`.opencode`, не создаёт `.claude*`, проверяет базовые гейты/хуки (dry‑run или с фиктивным payload) и корректные exit‑codes. Файлы: `repo_tools/smoke-workflow.sh` (или новый smoke‑скрипт), `src/claude_workflow_cli/data/payload/smoke-workflow.sh` (если применимо).

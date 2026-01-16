@@ -33,12 +33,12 @@
 > Repo-only: чеклист рассчитан на работу в репозитории; утилиты `repo_tools/*` не входят в установленный плагин.
 
 - [ ] Обновить `README.md` и `README.en.md` (TL;DR, список фич, ссылки на новые документы).
-- [ ] Проверить Wave backlog — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
+- [ ] Проверить Wave backlog (`doc/dev/backlog.md`) — закрыть выполненные пункты и создать Wave 2/3 для новых задач.
 - [ ] Убедиться, что CI (`.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить локальный прогон CI lint (см. `.github/workflows/ci.yml`).
 - [ ] Проверить промпты: `python3 repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part patch --dry-run`, затем `python3 repo_tools/lint-prompts.py --root <workflow-root>` и pytest промптов.
 - [ ] Проверить `templates/aidd/` и идемпотентность `/aidd-init` (новые файлы появляются без перезаписи).
-- [ ] Убедиться, что dev-only артефакты (например, `backlog.md` в корне) не попали в дистрибутив.
+- [ ] Убедиться, что dev-only артефакты (например, `doc/dev/backlog.md`) не попали в дистрибутив.
 
 ## Migration: legacy root installs → `./aidd` (marketplace-only)
 - Legacy CLI больше не используется; устанавливайте плагин через marketplace и запускайте `/aidd-init`.
@@ -96,7 +96,7 @@
 - Проверки CI используют `repo_tools/ci-lint.sh` и `repo_tools/smoke-workflow.sh` для контроля целостности.
 - CI lint запускает `repo_tools/lint-prompts.py`, dry-run `repo_tools/prompt-version`, юнит-тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_versioning.py`), а `repo_tools/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
 - Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`, `<test-runner>`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
-- Внутренний backlog (`backlog.md`) оставлен только для разработки и исключён из дистрибутива.
+- Внутренний backlog (`doc/dev/backlog.md`) оставлен только для разработки и исключён из дистрибутива.
 
 ### Migration
 - Если у вас есть legacy `tasklist.md`, перенесите его вручную в `aidd/docs/tasklist/<ticket>.md` и добавьте front-matter (`Ticket`, `Slug hint`, `Feature`, `Status`, `PRD`, `Plan`, `Research`, `Updated`).
