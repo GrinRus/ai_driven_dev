@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import PAYLOAD_ROOT, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
+from .helpers import HOOKS_DIR, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/App.kt"}}'
 
@@ -220,7 +220,7 @@ def test_debounce_stamp_written_only_on_success(tmp_path):
 
 
 def test_plugin_hooks_include_qa_gate():
-    hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = json.loads((HOOKS_DIR / "hooks.json").read_text(encoding="utf-8"))
     stop_hooks = hooks.get("hooks", {}).get("Stop", [])
     sub_stop_hooks = hooks.get("hooks", {}).get("SubagentStop", [])
     commands = [

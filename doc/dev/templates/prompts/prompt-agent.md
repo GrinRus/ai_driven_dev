@@ -17,7 +17,7 @@ model: inherit
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
-- Укажите разрешённые CLI-команды (`<test-runner> …`, `claude-workflow progress …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` и когда использовать ручные команды.
+- Укажите разрешённые CLI-команды (`<test-runner> …`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh` и когда использовать ручные команды.
 
 ## Пошаговый план
 1. Распишите действия агента (чтение артефактов, запуск `rg`/`<test-runner>`, обновление файлов, обращение к другим агентам).

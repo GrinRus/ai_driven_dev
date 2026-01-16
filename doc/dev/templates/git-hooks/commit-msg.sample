@@ -3,7 +3,7 @@ set -euo pipefail
 
 MESSAGE_FILE="$1"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-CONFIG_FILE="${ROOT_DIR}/config/conventions.json"
+CONFIG_FILE="${ROOT_DIR}/aidd/config/conventions.json"
 
 # Установите COMMIT_LINT_BYPASS=1, чтобы пропустить проверку (например, для emergency-коммитов).
 if [[ "${COMMIT_LINT_BYPASS:-0}" == "1" ]]; then
@@ -11,7 +11,7 @@ if [[ "${COMMIT_LINT_BYPASS:-0}" == "1" ]]; then
 fi
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
-  printf '[commit-msg] config/conventions.json не найден, проверка пропущена\n' >&2
+  printf '[commit-msg] aidd/config/conventions.json не найден, проверка пропущена\n' >&2
   exit 0
 fi
 

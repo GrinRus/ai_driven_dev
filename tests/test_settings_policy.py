@@ -6,8 +6,7 @@ import unittest
 class SettingsPolicyTest(unittest.TestCase):
     SETTINGS_PATH = (
         Path(__file__).resolve().parents[1]
-        / "src"
-        / "claude_workflow_cli"
+        / "aidd_runtime"
         / "data"
         / "payload"
         / ".claude"

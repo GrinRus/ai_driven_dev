@@ -12,5 +12,4 @@ dist/
 .idea/
 .vscode/
 /.claude/
-/.claude-plugin/
 /aidd/

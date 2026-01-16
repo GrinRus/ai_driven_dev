@@ -8,13 +8,10 @@ from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-SRC_ROOT = REPO_ROOT / "src"
+SRC_ROOT = REPO_ROOT
 PROJECT_SUBDIR = "aidd"
-PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / PROJECT_SUBDIR
-HOOKS_DIR = PAYLOAD_ROOT / "hooks"
-SETTINGS_SRC = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / ".claude" / "settings.json"
-os.environ.setdefault("CLAUDE_WORKFLOW_PYTHON", sys.executable)
-os.environ.setdefault("CLAUDE_WORKFLOW_DEV_SRC", str(SRC_ROOT))
+TEMPLATES_ROOT = REPO_ROOT / "templates" / PROJECT_SUBDIR
+HOOKS_DIR = REPO_ROOT / "hooks"
 existing_pythonpath = os.environ.get("PYTHONPATH")
 if existing_pythonpath:
     if str(SRC_ROOT) not in existing_pythonpath.split(os.pathsep):
@@ -124,7 +121,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],
         "skip_branches": ["docs/*"],
-        "command": ["claude-workflow", "qa", "--gate"],
+        "command": ["python3", "-m", "aidd_runtime.cli", "qa", "--gate"],
         "debounce_minutes": 10,
         "report": "aidd/reports/qa/{ticket}.json",
         "allow_missing_report": False,
@@ -174,35 +171,6 @@ def hook_path(name: str) -> pathlib.Path:
     return HOOKS_DIR / name
 
 
-def _ensure_cli_stub(workspace_root: pathlib.Path) -> pathlib.Path:
-    bin_dir = workspace_root / ".claude-workflow-bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    stub = bin_dir / "claude-workflow"
-    if not stub.exists():
-        stub.write_text(
-            "\n".join(
-                [
-                    "#!/usr/bin/env bash",
-                    "set -euo pipefail",
-                    'PYTHON_BIN="${CLAUDE_WORKFLOW_PYTHON:-python3}"',
-                    'DEV_SRC="${CLAUDE_WORKFLOW_DEV_SRC:-}"',
-                    'if [[ -n "$DEV_SRC" ]]; then',
-                    '  if [[ -n "${PYTHONPATH:-}" ]]; then',
-                    '    export PYTHONPATH="$DEV_SRC:$PYTHONPATH"',
-                    "  else",
-                    '    export PYTHONPATH="$DEV_SRC"',
-                    "  fi",
-                    "fi",
-                    'exec "$PYTHON_BIN" -m claude_workflow_cli.cli "$@"',
-                    "",
-                ]
-            ),
-            encoding="utf-8",
-        )
-        stub.chmod(stub.stat().st_mode | 0o111)
-    return bin_dir
-
-
 def _project_root(base: pathlib.Path) -> pathlib.Path:
     """Return the project root inside the workspace (always <workspace>/aidd)."""
     if base.name == PROJECT_SUBDIR:
@@ -218,12 +186,10 @@ def run_hook(
     workspace_root = project_root.parent if project_root.name == PROJECT_SUBDIR else project_root
     project_root.mkdir(parents=True, exist_ok=True)
     (project_root / "docs").mkdir(parents=True, exist_ok=True)
-    cli_bin = _ensure_cli_stub(workspace_root)
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
-    env["CLAUDE_PLUGIN_ROOT"] = str(project_root)
+    env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PATH"] = f"{cli_bin}{os.pathsep}{env.get('PATH', '')}"
     if extra_env:
         env.update(extra_env)
     existing = env.get("PYTHONPATH")
@@ -231,15 +197,11 @@ def run_hook(
         env["PYTHONPATH"] = os.pathsep.join([str(SRC_ROOT), existing])
     else:
         env["PYTHONPATH"] = str(SRC_ROOT)
-    config_src = PAYLOAD_ROOT / "config" / "gates.json"
+    config_src = TEMPLATES_ROOT / "config" / "gates.json"
     config_dst = project_root / "config" / "gates.json"
     if config_src.exists() and not config_dst.exists():
         config_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(config_src, config_dst)
-    settings_dst = workspace_root / ".claude" / "settings.json"
-    if SETTINGS_SRC.exists() and not settings_dst.exists():
-        settings_dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(SETTINGS_SRC, settings_dst)
     result = subprocess.run(
         [str(hook_path(hook_name))],
         input=payload,
@@ -441,27 +403,25 @@ def write_active_stage(root: pathlib.Path, stage: str) -> None:
 
 
 def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
-    """Ensure workspace has the expected project subdirectory with .claude stub."""
+    """Ensure workspace has the expected project subdirectory."""
     project_root = root / PROJECT_SUBDIR
-    workspace_root = root if root.name != PROJECT_SUBDIR else root.parent
-    (workspace_root / ".claude").mkdir(parents=True, exist_ok=True)
     project_root.mkdir(parents=True, exist_ok=True)
+    (project_root / "docs").mkdir(parents=True, exist_ok=True)
+    (project_root / "reports").mkdir(parents=True, exist_ok=True)
+    (project_root / "config").mkdir(parents=True, exist_ok=True)
     return project_root
 
 
 def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
-    """Run init-claude-workflow.sh from the packaged payload into root."""
-    project_root = ensure_project_root(root)
-    env = os.environ.copy()
-    env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
-    script = PAYLOAD_ROOT / "init-claude-workflow.sh"
+    """Run aidd_runtime.cli init to bootstrap workspace into root."""
+    ensure_project_root(root)
     subprocess.run(
-        ["bash", str(script), *extra_args],
+        cli_cmd("init", "--target", str(root), *extra_args),
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd=project_root,
-        env=env,
+        cwd=root,
+        env=cli_env(),
     )
 
 
@@ -496,4 +456,14 @@ def git_config_user(path: pathlib.Path) -> None:
 
 def cli_cmd(*args: str) -> list[str]:
     """Build a command that invokes the CLI module directly."""
-    return [sys.executable, "-m", "claude_workflow_cli.cli", *args]
+    return [sys.executable, "-m", "aidd_runtime.cli", *args]
+
+
+def cli_env(extra_env: Optional[dict[str, str]] = None) -> dict[str, str]:
+    """Return an environment with PYTHONPATH pointing at the runtime sources."""
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC_ROOT), existing]))
+    return env

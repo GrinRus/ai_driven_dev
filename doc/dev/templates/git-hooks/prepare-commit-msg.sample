@@ -3,7 +3,7 @@ set -euo pipefail
 
 MESSAGE_FILE="$1"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-CONFIG_FILE="${ROOT_DIR}/config/conventions.json"
+CONFIG_FILE="${ROOT_DIR}/aidd/config/conventions.json"
 
 # Пропустить автозаполнение, если сообщение уже содержит текст (игнорируя комментарии).
 if grep -Eq '^[^#[:space:]]' "$MESSAGE_FILE"; then

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from tests import helpers
-from claude_workflow_cli.tools import tasklist_check
+from aidd_runtime.tools import tasklist_check
 
 
 def write_plan(root: Path, ticket: str, iteration_ids: list[str] | None = None) -> None:

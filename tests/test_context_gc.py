@@ -14,18 +14,18 @@ from tests.helpers import REPO_ROOT, git_config_user, git_init, write_active_fea
 
 sys.dont_write_bytecode = True
 
-SRC_ROOT = REPO_ROOT / "src"
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.context_gc import working_set_builder  # noqa: E402
-from claude_workflow_cli.context_gc import hooklib  # noqa: E402
+from aidd_runtime.context_gc import working_set_builder  # noqa: E402
+from aidd_runtime.context_gc import hooklib  # noqa: E402
 
-USERPROMPT_MODULE = "claude_workflow_cli.context_gc.userprompt_guard"
-PRETOOLUSE_MODULE = "claude_workflow_cli.context_gc.pretooluse_guard"
-PRECOMPACT_MODULE = "claude_workflow_cli.context_gc.precompact_snapshot"
-SESSIONSTART_MODULE = "claude_workflow_cli.context_gc.sessionstart_inject"
-STOP_MODULE = "claude_workflow_cli.context_gc.stop_update"
+USERPROMPT_MODULE = "aidd_runtime.context_gc.userprompt_guard"
+PRETOOLUSE_MODULE = "aidd_runtime.context_gc.pretooluse_guard"
+PRECOMPACT_MODULE = "aidd_runtime.context_gc.precompact_snapshot"
+SESSIONSTART_MODULE = "aidd_runtime.context_gc.sessionstart_inject"
+STOP_MODULE = "aidd_runtime.context_gc.stop_update"
 
 
 def _env_for_workspace(root: Path) -> dict[str, str]:

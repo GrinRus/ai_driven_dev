@@ -1,2 +1,1 @@
-recursive-include src/claude_workflow_cli/data/payload *
-recursive-include src/claude_workflow_cli/data/payload .*
+# No extra package data.

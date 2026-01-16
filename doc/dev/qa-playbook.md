@@ -20,7 +20,7 @@
 - **Diff** — локально агент анализирует рабочее дерево (`git diff HEAD` +
   незакоммиченные файлы). В CI добавьте `QA_AGENT_DIFF_BASE=origin/<base>`, чтобы
   сравнивать с веткой-основой.
-- **Прогресс** — в `aidd/docs/tasklist/<ticket>.md` фиксируются завершённые пункты `- [x]`, рядом указаны дата/итерация и строка `Checkbox updated: …`; предыдущий запуск `claude-workflow progress --source qa --ticket <ticket>` прошёл без ошибок.
+- **Прогресс** — в `aidd/docs/tasklist/<ticket>.md` фиксируются завершённые пункты `- [x]`, рядом указаны дата/итерация и строка `Checkbox updated: …`; предыдущий запуск `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source qa --ticket <ticket>` прошёл без ошибок.
 
 ## Как запускать QA-агента
 
@@ -28,13 +28,13 @@
 
 ```bash
 # обязательный запуск агента QA + запись JSON в aidd/reports/qa/<ticket>.json
-claude-workflow qa --ticket "<ticket>" --report "aidd/reports/qa/<ticket>.json" --gate
+PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --ticket "<ticket>" --report "aidd/reports/qa/<ticket>.json" --gate
 
 # dry-run (не проваливать выполнение при блокерах)
-CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
+CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-qa.sh" --payload '{"tool_input":{"file_path":"src/main/App.kt"}}'
 ```
 
-Перед завершением каждой сессии QA обновите чеклист, сформируйте строку `Checkbox updated: …` и выполните `claude-workflow progress --source qa --ticket <ticket>` — гейт `gate-workflow.sh` блокирует правки без новых `- [x]`.
+Перед завершением каждой сессии QA обновите чеклист, сформируйте строку `Checkbox updated: …` и выполните `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source qa --ticket <ticket>` — гейт `gate-workflow.sh` блокирует правки без новых `- [x]`.
 
 ### В CI
 
@@ -42,8 +42,8 @@ CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '
    ветки (см. `.github/workflows/ci.yml`).
 2. Перед шагом QA установите
    `QA_AGENT_DIFF_BASE=origin/${{ github.event.pull_request.base.ref }}`.
-3. Запустите `"${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '{}'`. Скрипт вызовет
-   `claude-workflow qa --gate` и провалит job при блокерах.
+3. Запустите `"${CLAUDE_PLUGIN_ROOT:-.}/hooks/gate-qa.sh" --payload '{}'`. Скрипт вызовет
+   `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --gate` и провалит job при блокерах.
 
 ## Severity и статус гейта
 
@@ -76,6 +76,6 @@ CLAUDE_QA_DRY_RUN=1 "${CLAUDE_PLUGIN_ROOT:-./aidd}/hooks/gate-qa.sh" --payload '
 - [ ] Тестовое окружение задокументировано (URL, пользователи, токены).
 - [ ] Автоматические гейты (`gate-tests`) прошли.
 - [ ] `gate-workflow` подтвердил актуальность отчёта Researcher (`Status: reviewed`, свежий контекст).
-- [ ] Результаты `claude-workflow qa --gate` приложены к описанию PR или загружены в CI артефакты.
+- [ ] Результаты `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --gate` приложены к описанию PR или загружены в CI артефакты.
 - [ ] В `CHANGELOG.md`/release notes отмечены найденные и устранённые дефекты.
-- [ ] Строка `Checkbox updated: …` отражает прогресс QA, а `claude-workflow progress --source qa --ticket <ticket>` возвращает успех.
+- [ ] Строка `Checkbox updated: …` отражает прогресс QA, а `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source qa --ticket <ticket>` возвращает успех.

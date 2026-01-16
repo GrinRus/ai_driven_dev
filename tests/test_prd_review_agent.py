@@ -10,11 +10,11 @@ from pathlib import Path
 from textwrap import dedent
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC_ROOT = REPO_ROOT / "src"
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools import prd_review as prd_review_agent  # noqa: E402
+from aidd_runtime.tools import prd_review as prd_review_agent  # noqa: E402
 
 
 class PRDReviewAgentTests(unittest.TestCase):
@@ -113,7 +113,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "claude_workflow_cli.tools.prd_review",
+                "aidd_runtime.tools.prd_review",
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -156,7 +156,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "claude_workflow_cli.tools.prd_review",
+                "aidd_runtime.tools.prd_review",
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -199,7 +199,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "claude_workflow_cli.tools.prd_review",
+                "aidd_runtime.tools.prd_review",
                 "--ticket",
                 "demo-feature",
                 "--prd",

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+HOOK_PREFIX="[gate-prd-review]"
+log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
+log_stderr() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX" >&2; }
+
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
+  log_stdout "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" && -d "$ROOT_DIR/aidd/docs" ]]; then
+  ROOT_DIR="$ROOT_DIR/aidd"
+fi
+if [[ ! -d "$ROOT_DIR/docs" ]]; then
+  log_stderr "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run 'PYTHONPATH=${PLUGIN_ROOT} python3 -m aidd_runtime.cli init --target <workspace>' (or /aidd-init) to bootstrap ./aidd."
+  exit 2
+fi
+hook_runtime_pythonpath "$PLUGIN_ROOT"
+
+EVENT_TYPE="gate-prd-review"
+EVENT_STATUS=""
+EVENT_SHOULD_LOG=0
+EVENT_SOURCE="hook gate-prd-review"
+trap 'if [[ "${EVENT_SHOULD_LOG:-0}" == "1" ]]; then hook_append_event "$ROOT_DIR" "$EVENT_TYPE" "$EVENT_STATUS" "" "" "$EVENT_SOURCE"; fi' EXIT
+
+cd "$ROOT_DIR"
+
+payload="$(cat)"
+file_path="$(hook_payload_file_path "$payload")"
+
+ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
+slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
+if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
+  exit 0
+fi
+ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
+slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
+[[ -n "$ticket" ]] || exit 0
+
+EVENT_SHOULD_LOG=1
+EVENT_STATUS="fail"
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+
+if ! review_msg="$(python3 -m aidd_runtime.cli prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$branch" --skip-on-prd-edit)"; then
+  if [[ -n "$review_msg" ]]; then
+    log_stderr "$review_msg"
+  else
+    log_stderr "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
+  fi
+  exit 2
+fi
+
+EVENT_STATUS="pass"
+exit 0

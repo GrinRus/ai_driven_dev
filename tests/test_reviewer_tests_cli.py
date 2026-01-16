@@ -6,20 +6,17 @@ from pathlib import Path
 
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from claude_workflow_cli import cli  # noqa: E402
+from aidd_runtime import cli  # noqa: E402
 
-from .helpers import PAYLOAD_ROOT, SETTINGS_SRC, ensure_project_root, write_active_feature, write_file
+from .helpers import ensure_project_root, write_active_feature
 
 
 def prepare_workspace(tmp_path: Path) -> Path:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     project_root = ensure_project_root(workspace)
-    settings_dst = workspace / ".claude" / "settings.json"
-    settings_dst.parent.mkdir(parents=True, exist_ok=True)
-    settings_dst.write_text(SETTINGS_SRC.read_text(encoding="utf-8"), encoding="utf-8")
     # seed active feature and reviewer folder
     write_active_feature(project_root, "demo")
     return workspace

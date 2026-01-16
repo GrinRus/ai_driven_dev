@@ -1,67 +1,58 @@
-# Установка workflow в поддиректорию `aidd/`
+# Установка workflow в поддиректорию `aidd/` (marketplace-only)
 
 ## Зачем
-- Изолировать служебные артефакты (команды, агенты, хуки, шаблоны, конфиги) от корня продуктового репо.
-- Облегчить обновление payload через `claude-workflow init/sync/upgrade` без коллизий с пользовательскими файлами.
-- Поддержать сценарии многопроектной установки (несколько `aidd/` в одном воркспейсе).
-- Дать предсказуемый runtime в smoke/pytest: всё берётся из одного payload-префикса, без корневых снапшотов.
+- Изолировать рабочие артефакты (`docs/`, `reports/`, `config/`) от корня продуктового репо.
+- Развести плагин (commands/agents/hooks) и workspace (aidd/).
+- Дать предсказуемую структуру для хуков и тестов без CLI-пэйлоада.
 
 ## Целевая структура
 ```
-<workspace>/
+<repo>/
   .claude/
   .claude-plugin/
-  aidd/
-    .claude-plugin/
-    agents/
-    commands/
-    hooks/
+  agents/
+  commands/
+  hooks/
+  repo_tools/
+  templates/
+    aidd/
+      config/
+      docs/
+      reports/
+  aidd_runtime/
+  aidd/            # появляется после /aidd-init
     config/
     docs/
     reports/
-    scripts/
-    templates/
-    tools/
 ```
 
-## Поведение CLI
-- Дефолт: `claude-workflow init --target .` создаёт `<cwd>/aidd/` по manifest (префикс `aidd/` внутри ресурса).
-- `--target` задаёт корень установки; внутри него всегда создаётся поддиректория `aidd/` (перемещённые fallback/зеркалирование в корень убраны).
-- `sync/upgrade` работают только с вложенным payload; dry-run не создаёт каталог и показывает diff по manifest.
-- При наличии старых `.claude/` и `.claude-plugin/` в корне CLI предупреждает и предлагает миграцию; существующий `aidd/` обновляется на месте с бэкапом изменённых файлов.
-- Smoke из CLI (`claude-workflow smoke`) и bash-скрипт `scripts/smoke-workflow.sh` используют тот же payload и запускают e2e в tmp-каталоге из текущего git checkout, без скачивания внешних артефактов.
+## Поведение init
+- `/aidd-init` разворачивает `./aidd` из `templates/aidd` и не перезаписывает существующие файлы.
+- Шаблоны обновляются через изменения в `templates/aidd/` + повторный `/aidd-init`.
+- Smoke (`repo_tools/smoke-workflow.sh`) использует текущий git checkout и hooks из `hooks/`.
 
 ## Сценарии установки
-1) Быстрый старт через uv:
-   ```bash
-   uv tool install --force "git+https://github.com/GrinRus/ai_driven_dev.git#egg=claude-workflow-cli"
-   claude-workflow init --target .
-   claude-workflow smoke          # e2e из текущей ветки, tmp-каталог
+1) Marketplace:
+   ```text
+   /plugin marketplace add GrinRus/ai_driven_dev
+   /plugin install feature-dev-aidd@aidd-local
+   /aidd-init
    ```
-2) Локальный payload (dogfooding/ветка):
+2) Локальная разработка:
    ```bash
-   CLAUDE_TEMPLATE_DIR=./src/claude_workflow_cli/data/payload/aidd \
-   claude-workflow init --target .
+   PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init
    ```
-3) Повторная установка/upgrade:
-   - `claude-workflow upgrade --target .` для обновления неизменённых файлов.
-   - `claude-workflow sync --direction=from-root` при подготовке релиза (зеркалит корневые снапшоты в payload).
+3) Обновление шаблонов:
+   - Обновите плагин, затем повторите `/aidd-init`.
+   - Сверьте изменения в `templates/aidd/` и перенесите их в рабочие артефакты при необходимости.
 
-## Edge cases и DX
-- Несколько `aidd/` в монорепо: CLI работает с ближайшим к `--target`; smoke принимает `--target` и не ходит выше по дереву.
-- CI: команды `claude-workflow init/smoke` должны выполняться из корня продукта; PYTHONPATH выставляется автоматически на время прогона.
-- Бэкапы: изменённые файлы пишутся с суффиксом `.bak` при upgrade/sync, отчёт — в stdout.
-- Контроль целостности: `tools/check_payload_sync.py` сравнивает манифест и runtime; тесты используют payload из пакета, не корневые снапшоты.
-- Неверный таргет/рабочая директория: запуск CLI/хуков вне `aidd/` приводит к явной ошибке «aidd/docs not found», fallback в корень отключён.
+## Edge cases
+- Если `aidd/` отсутствует, хуки и команды падают с явной подсказкой запустить `/aidd-init`.
+- При нестандартном размещении плагина используйте `CLAUDE_PLUGIN_ROOT` для запуска скриптов вручную.
 
 ## Миграция из корня
-1. Зафиксировать локальные правки (при необходимости `scripts/sync-payload.sh --direction=from-root` для отражения в payload).
-2. Удалить dev-снапшоты из корня (`.claude`, `.claude-plugin`, `config`, `docs`, `scripts`, `templates`, `tools`), оставить продуктовые файлы.
-3. Запустить `claude-workflow init --target .` (или с `CLAUDE_TEMPLATE_DIR=...` для локальной ветки) — создаст `aidd/`.
-4. Прогнать `claude-workflow smoke` (или `scripts/smoke-workflow.sh`) — e2e на tmp-каталоге из текущей ветки.
-5. Обновить CI шаги: init/smoke должны указывать `--target .` и работать с `aidd/`.
-
-## To-do
-- Добавить схемы путей (`--target`, `CLAUDE_TEMPLATE_DIR`, `PYTHONPATH` в smoke).
-- Зафиксировать политику для нескольких `aidd/` в одном repo (порядок поиска target).
-- Финализировать user-facing walkthrough в `doc/dev/workflow.md`/`README*` с примерами команд под новую структуру.
+1. Зафиксируйте локальные правки.
+2. Удалите legacy-снапшоты из корня (`.claude`, `.claude-plugin`, `config`, `docs`, `repo_tools`, `templates`).
+3. Установите плагин через marketplace и выполните `/aidd-init`.
+4. Перенесите артефакты в `aidd/docs` и `aidd/reports`.
+5. Прогоните `repo_tools/smoke-workflow.sh`.

@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli import cli
+from aidd_runtime import cli
 
 
 def test_cli_parses_new_subcommands():

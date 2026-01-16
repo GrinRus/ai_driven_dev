@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-HOOK="${ROOT_DIR}/.claude/hooks/format-and-test.sh"
+HOOK="${ROOT_DIR}/hooks/format-and-test.sh"
 
 # Установите PRE_PUSH_SKIP=1, чтобы временно отключить проверку.
 if [[ "${PRE_PUSH_SKIP:-0}" == "1" ]]; then

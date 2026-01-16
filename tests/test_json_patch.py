@@ -1,6 +1,6 @@
 import json
 
-from claude_workflow_cli.tools import json_patch
+from aidd_runtime.tools import json_patch
 
 
 def test_json_patch_round_trip():

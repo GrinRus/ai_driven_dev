@@ -204,7 +204,7 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
         "reports/qa/demo-checkout.json",
         {
             "tests_summary": "fail",
-            "tests_executed": [{"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}],
+            "tests_executed": [{"command": "bash repo_tools/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}],
             "findings": [{"severity": "blocker", "title": "Regression", "scope": "api"}],
         },
     )

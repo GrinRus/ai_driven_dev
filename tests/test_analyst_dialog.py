@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test environment setup
     sys.path.insert(0, str(SRC_ROOT))
 
@@ -35,7 +35,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for unittest environm
 
     pytest = _PytestStub()
 
-from claude_workflow_cli.tools.analyst_guard import (
+from aidd_runtime.tools.analyst_guard import (
     AnalystValidationError,
     load_settings,
     validate_prd,

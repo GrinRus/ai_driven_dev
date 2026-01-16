@@ -10,11 +10,11 @@ except Exception:
 else:
     TREE_SITTER_AVAILABLE = True
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools.researcher_context import ResearcherContextBuilder
+from aidd_runtime.tools.researcher_context import ResearcherContextBuilder
 
 
 @unittest.skipUnless(TREE_SITTER_AVAILABLE, "tree-sitter not installed")

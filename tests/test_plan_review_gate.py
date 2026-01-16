@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from claude_workflow_cli.tools import plan_review_gate
+from aidd_runtime.tools import plan_review_gate
 
 
 def write_plan(root: Path, ticket: str, review_body: str) -> Path:

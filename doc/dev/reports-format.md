@@ -104,7 +104,7 @@ Pack excludes:
 When `--emit-patch` is enabled and a previous report exists, emit RFC6902 patches to
 `aidd/reports/<type>/<ticket>.patch.json`. Operations are limited to `add/remove/replace`,
 and list changes are expressed as `replace` of the whole list.
-Apply patches with `tools/apply_json_patch.py --input <report.json> --patch <report.patch.json>`.
+Apply patches with `repo_tools/apply_json_patch.py --input <report.json> --patch <report.patch.json>`.
 
 ## Pack-only + field filters (optional)
 
@@ -169,5 +169,5 @@ Finding schema:
 ## Hotspots (auto)
 
 <!-- report-stats:start -->
-No reports found. Run `python3 tools/report_stats.py --write` after reports exist.
+No reports found. Run `python3 repo_tools/report_stats.py --write` after reports exist.
 <!-- report-stats:end -->

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from claude_workflow_cli.feature_ids import resolve_project_root
+from aidd_runtime.feature_ids import resolve_project_root
 
 
 class FeatureIdsRootTests(unittest.TestCase):

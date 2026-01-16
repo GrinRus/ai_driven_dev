@@ -1,22 +1,19 @@
-# План разделения (на основе аудитов)
+# План разделения (marketplace-only)
 
 ## Входные документы
 - `doc/dev/distro-audit.md`
 - `doc/dev/root-audit.md`
 
 ## Шаги
-1. **Утвердить границу runtime vs repo-only.**
-   - Зафиксировать решения по спорным пунктам: `scripts/sync-payload.sh`, `scripts/lint-prompts.py`, `scripts/prompt-version`, `tools/check_payload_sync.py`, `tools/prompt_diff.py`, `tools/payload_audit.py` → repo-only.
-   - Итог: список путей, которые обязаны попадать в payload, и список repo-only.
-2. **Ввести allowlist/denylist для payload.**
-   - Добавить явный список разрешенных директорий/файлов.
-   - Подключить автоматическую проверку (скрипт/CLI-команда) в CI и релизный чеклист.
-3. **Переместить repo-only инструменты.**
-   - Вынести repo-only скрипты из `aidd/` в `scripts/`/`tools/`.
-   - Обновить документацию и ссылки, поправить manifest/тесты.
-4. **Упорядочить корень репозитория.**
-   - Сгруппировать dev-only материалы (design/backlog/tests) и обновить README/CONTRIBUTING.
-   - Добавить раздел "Состав репозитория" с явным разделением.
-5. **Закрепить аудит в процессах.**
-   - Использовать `python3 tools/payload_audit.py` как обязательную проверку перед тегом.
-   - Обновить release checklist, чтобы аудит был обязательным перед релизом.
+1. **Утвердить границу runtime vs dev-only.**
+   - Runtime: `commands/`, `agents/`, `hooks/`, `aidd_runtime/`, `.claude-plugin/`.
+   - Шаблоны workspace: `templates/aidd/`.
+   - Dev-only: `doc/dev/`, `tests/`, `repo_tools/`.
+2. **Зафиксировать источник истины для шаблонов.**
+   - Все изменения шаблонов делаются в `templates/aidd/`.
+   - `/aidd-init` остаётся идемпотентным и не перезаписывает пользовательские правки.
+3. **Поддерживать чистый корень репозитория.**
+   - Группировать dev-only материалы и обновлять README/CONTRIBUTING.
+4. **Закрепить аудит в процессах.**
+   - Проверки: `repo_tools/ci-lint.sh`, `repo_tools/smoke-workflow.sh`.
+   - Регулярно сверять `doc/dev/distro-audit.md` перед релизом.

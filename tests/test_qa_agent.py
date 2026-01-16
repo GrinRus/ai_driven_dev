@@ -37,10 +37,10 @@ class QaAgentTests(unittest.TestCase):
         run_env.setdefault("QA_AGENT_DIFF_BASE", "")
         if env:
             run_env.update(env)
-        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT / "src"), run_env.get("PYTHONPATH")]))
+        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT), run_env.get("PYTHONPATH")]))
         run_env["PYTHONPATH"] = pythonpath
         return subprocess.run(
-            [sys.executable, "-m", "claude_workflow_cli.tools.qa_agent", *argv],
+            [sys.executable, "-m", "aidd_runtime.tools.qa_agent", *argv],
             cwd=self.project_root,
             text=True,
             capture_output=True,
@@ -155,7 +155,7 @@ class QaAgentTests(unittest.TestCase):
             "QA_TESTS_SUMMARY": "fail",
             "QA_TESTS_EXECUTED": json.dumps(
                 [
-                    {"command": "bash scripts/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}
+                    {"command": "bash repo_tools/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}
                 ]
             ),
             "QA_ALLOW_NO_TESTS": "1",

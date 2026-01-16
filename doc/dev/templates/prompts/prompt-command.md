@@ -20,7 +20,7 @@ model: inherit
 - Уточните ограничения (например, только после `/review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`claude-workflow set-active-feature`, `claude-workflow research`, `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research`, `${CLAUDE_PROJECT_DIR}/.claude/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
 - Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
 
 ## Что редактируется
@@ -29,7 +29,7 @@ model: inherit
 
 ## Пошаговый план
 1. Распишите последовательность действий команды (вызов саб-агентов, запуск скриптов, обновление артефактов).
-2. Добавьте проверки готовности (например, `claude-workflow progress --source ...`).
+2. Добавьте проверки готовности (например, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source ...`).
 3. При необходимости предусмотрите ветки для ручных вмешательств.
 
 ## Fail-fast и вопросы
@@ -47,5 +47,5 @@ model: inherit
 - Зафиксируйте требования к финальному сообщению: `Checkbox updated: ...`, затем `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
 
 ## Примеры CLI
-- Приведите пример вызова команды/скрипта (например, `/implement ABC-123` или `!bash -lc 'claude-workflow tasks-derive --source qa --ticket ABC-123'`).
+- Приведите пример вызова команды/скрипта (например, `/implement ABC-123` или `!bash -lc 'PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source qa --ticket ABC-123'`).
 - Добавьте подсказки по аргументам и типовым ошибкам.

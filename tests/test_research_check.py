@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from claude_workflow_cli import cli  # noqa: E402
+from aidd_runtime import cli  # noqa: E402
 
 from .helpers import ensure_gates_config, ensure_project_root, write_active_feature, write_file, write_json
 

@@ -6,25 +6,24 @@
 - Для крупных изменений заведите issue или ссылку на ADR/PRD.
 - Работайте из веток `feature/<ticket>` или `feat/<scope>` (см. `config/conventions.json`).
 - Формируйте сообщения коммитов вручную по шаблонам из `config/conventions.json`.
-- Перед PR запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` в рабочем workspace).
+- Перед PR запустите `repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` в рабочем workspace).
+- Если используете `pre-commit`, он запускает `repo_tools/ci-lint.sh`.
 - Обновляйте `README.md` и `README.en.md` вместе (и поле _Last sync_).
-- Если трогаете runtime/payload (`aidd/`, `.claude/`, `.claude-plugin/`), используйте sync-процедуру.
+- Если трогаете runtime/шаблоны (`commands/`, `agents/`, `hooks/`, `templates/aidd/`), обновляйте связанные доки и тесты.
 
 ## Процесс работы
 1. **Обсуждение.** Issue или ссылка на ADR/PRD, если меняется архитектура/поведение.
 2. **Ветка.** `git checkout -b feature/<TICKET>` или другой паттерн из `config/conventions.json`.
 3. **Коммиты.** Сообщения - по правилам `config/conventions.json`.
-4. **Тесты.** Запустите `scripts/ci-lint.sh` (или `aidd/hooks/format-and-test.sh` для установленного workflow).
+4. **Тесты.** Запустите `repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` для установленного workflow).
 5. **Документация.** Обновите README (RU/EN) и связанные файлы в `doc/dev/`.
 6. **PR.** Приложите ссылки на задачи и список проверок.
 
-## Payload и runtime
-Единственный источник правды для runtime-артефактов - `src/claude_workflow_cli/data/payload`.
-
-Если меняете `.claude/`, `.claude-plugin/` или `aidd/**`:
-- Перед правками: `scripts/sync-payload.sh --direction=to-root`.
-- После правок: `scripts/sync-payload.sh --direction=from-root && python3 tools/check_payload_sync.py`.
-- По необходимости: `python3 tools/payload_audit.py`.
+## Плагин и шаблоны
+- Канонические промпты и хуки живут в `commands/`, `agents/`, `hooks/`.
+- Шаблоны workspace лежат в `templates/aidd/` (они разворачиваются в `./aidd` командой `/aidd-init`).
+- Рантайм-логика лежит в `aidd_runtime/` и вызывается через `python3 -m aidd_runtime.cli`.
+- Локальный `aidd/` в репозитории используйте только для dogfooding; источником истины остаются `templates/aidd/`.
 
 ## Документация и переводы
 - Любые изменения в README делайте в `README.md` и синхронно переносите в `README.en.md`.

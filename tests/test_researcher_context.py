@@ -6,16 +6,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools.researcher_context import (
+from aidd_runtime.tools.researcher_context import (
     ResearcherContextBuilder,
     _columnar_call_graph,
 )
 
-from .helpers import PAYLOAD_ROOT, cli_cmd, write_file
+from .helpers import TEMPLATES_ROOT, cli_cmd, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class ResearcherContextTests(unittest.TestCase):
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)
-        template_src = (PAYLOAD_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
+        template_src = (TEMPLATES_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
         write_file(self.root, "docs/prd/template.md", template_src)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 

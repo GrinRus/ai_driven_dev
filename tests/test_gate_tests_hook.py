@@ -3,8 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import PAYLOAD_ROOT
-from .helpers import ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
+from .helpers import HOOKS_DIR, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 from .helpers import write_json
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/service/RuleEngine.kt"}}'
@@ -109,7 +108,7 @@ def test_gate_tests_uses_aidd_root_even_if_plugin_root_missing(tmp_path):
     assert result.returncode == 0, result.stderr
 
 def test_plugin_hooks_include_tests_and_post_hooks():
-    hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = json.loads((HOOKS_DIR / "hooks.json").read_text(encoding="utf-8"))
     stop_cmds = [
         hook.get("command", "")
         for entry in hooks.get("hooks", {}).get("Stop", [])

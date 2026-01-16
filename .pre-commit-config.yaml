@@ -2,8 +2,8 @@
 repos:
   - repo: local
     hooks:
-      - id: payload-sync-check
-        name: Payload snapshot sync
-        entry: python3 tools/check_payload_sync.py
+      - id: repo-tools-ci-lint
+        name: Repo tools CI lint
+        entry: bash repo_tools/ci-lint.sh
         language: system
         pass_filenames: false
