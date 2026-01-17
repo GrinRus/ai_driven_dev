@@ -1442,7 +1442,7 @@ _Статус: новый, приоритет 1. Цель — перейти н�
 
 ## Wave 75
 
-_Статус: новый, приоритет 2. Перенос из Wave 45/52. Цель — end‑to‑end call graph для Researcher: auto‑режим + правила/доки использования._
+_Статус: новый, приоритет 2. Перенос из Wave 45/52/61. Цель — end‑to‑end call graph для Researcher + language‑agnostic hooks/init под marketplace‑only._
 
 - [ ] `tools/research.py` + `tools/research.sh`: в `--auto` включать `--deep-code` и call graph для kt/kts/java, для остальных — fast scan; логировать выбранный профиль и добавлять WARN «0 matches → сузить paths/keywords или graph-only».
 - [ ] `tools/researcher_context.py`: разделить fast-scan и graph-scan, добавить `--graph-mode auto|focus|full`, сохранять full graph в sidecar, фиксировать `call_graph_warning`/INSTALL_HINT при отсутствии tree-sitter.
@@ -1458,10 +1458,6 @@ _Статус: новый, приоритет 2. Перенос из Wave 45/52.
 - [ ] `templates/aidd/docs/research/template.md`: добавить секцию с кратким summary call graph и ссылкой на full graph файл.
 - [ ] Документация: `AGENTS.md`, `README.md`, `README.en.md` — таблица «когда graph обязателен», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста.
 - [ ] `tests/repo_tools/smoke-workflow.sh`: проверка наличия `call_graph` по умолчанию и `--graph-engine none`.
-
-## Wave 76
-
-_Статус: новый, приоритет 1. Перенос из Wave 61. Цель — language‑agnostic hooks/init в marketplace‑only раскладке._
 
 ### Hooks & config
 - [ ] `hooks/format-and-test.sh`: вынести `COMMON_PATTERNS`/`DEFAULT_CODE_PATHS`/`DEFAULT_CODE_EXTENSIONS` в `.claude/settings.json` (новые ключи), добавить дефолты для npm/py/go/rust/.NET; обновить `AGENTS.md` с примерами.

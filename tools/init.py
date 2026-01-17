@@ -28,13 +28,6 @@ def _copy_tree(src: Path, dest: Path, *, force: bool) -> list[Path]:
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
     workspace_root, project_root = runtime.resolve_roots(target, create=True)
-    current_version = runtime.read_template_version(project_root)
-    if current_version and current_version != runtime.VERSION:
-        print(
-            f"[aidd] existing template version {current_version} detected;"
-            f" CLI {runtime.VERSION} will refresh files."
-        )
-
     force = "--force" in extra_args
     ignored = [arg for arg in extra_args if arg != "--force"]
     if ignored:
@@ -54,7 +47,6 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         print(f"[aidd:init] copied {len(copied)} files into {project_root}")
     else:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
-    runtime.write_template_version(project_root)
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:

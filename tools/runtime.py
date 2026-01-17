@@ -66,19 +66,6 @@ def resolve_claude_dir(target: Path) -> Path:
     return candidate
 
 
-def read_template_version(target: Path) -> str | None:
-    version_file = resolve_claude_dir(target) / ".template_version"
-    if not version_file.exists():
-        return None
-    return version_file.read_text(encoding="utf-8").strip() or None
-
-
-def write_template_version(target: Path) -> None:
-    version_file = resolve_claude_dir(target) / ".template_version"
-    version_file.parent.mkdir(parents=True, exist_ok=True)
-    version_file.write_text(f"{VERSION}\n", encoding="utf-8")
-
-
 def resolve_feature_context(
     target: Path,
     *,

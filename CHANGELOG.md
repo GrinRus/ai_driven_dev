@@ -1,12 +1,8 @@
-# Changelog
+# Release Notes
 
-All notable changes to this project will be documented in this file.
+## Unreleased
 
-The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
-
-## [Unreleased]
-
-### Added
+### New Features
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
@@ -25,7 +21,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Runtime workflow tools: `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`, `plan-review-gate`, `prd-review-gate`, `research`, and `context-gc-*.sh`.
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
-### Changed
+### Improvements
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
 - Marketplace manifest uses a GitHub source for the plugin, and `plugin.json` now includes author/repository/homepage/license metadata.
 - Marketplace-only distribution: replaced `claude-workflow` CLI with `${CLAUDE_PLUGIN_ROOT}/tools/*.sh` entrypoints; payload sync/upgrade and release packaging removed.
@@ -50,10 +46,10 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
-### Fixed
+### Fixes
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
 
-## [0.1.0] - 2025-02-XX
+## v0.1.0 (2025-02-XX)
 
-### Added
+### New Features
 - Initial release of `claude-workflow-cli` packaging and installation instructions.
