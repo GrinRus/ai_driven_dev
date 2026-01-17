@@ -1,6 +1,6 @@
 # AIDD Claude Code Plugin - Language-agnostic Workflow Template
 
-> A ready-to-use Claude Code plugin: slash commands, agents, hooks, and templates for the idea → research → plan → review-spec → tasklist → implement → review → qa flow.
+> A ready-to-use Claude Code plugin: slash commands, agents, hooks, and templates for the idea → research → plan → review-spec → spec-interview (optional) → tasklist → implement → review → qa flow.
 
 ## Table of Contents
 - [What it is](#what-it-is)
@@ -21,10 +21,10 @@
 _Last sync with `README.md`: 2026-01-17._
 
 ## What it is
-AIDD adds a ready-to-use development process with agents and gates. You get the `aidd/` structure, slash commands, and a consistent way to manage PRDs, plans, and tasklists.
+AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
 
 Key features:
-- Slash commands and agents for the idea → research → plan → review-spec → tasklist → implement → review → qa flow.
+- Slash commands and agents for the idea → research → plan → review-spec → spec-interview (optional) → tasklist → implement → review → qa flow.
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Auto-formatting and selective tests during the `implement` stage.
@@ -59,6 +59,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 /feature-dev-aidd:researcher STORE-123
 /feature-dev-aidd:plan-new STORE-123
 /feature-dev-aidd:review-spec STORE-123
+/feature-dev-aidd:spec-interview STORE-123
 /feature-dev-aidd:tasks-new STORE-123
 /feature-dev-aidd:implement STORE-123
 /feature-dev-aidd:review STORE-123
@@ -66,11 +67,8 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 ```
 
 Notes:
-- `/feature-dev-aidd:idea-new` takes a `ticket` and an optional `slug-hint`.
-- After `/feature-dev-aidd:idea-new`, answer the analyst questions and update the PRD to `Status: READY` (check with `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket STORE-123`).
-- Capture answers in `AIDD:ANSWERS` (`Answer N` format) and keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when the `AIDD:OPEN_QUESTIONS` section is present, `analyst-check` blocks mismatches.
-- In the plan, reference questions as `PRD QN` instead of duplicating the text.
-- `/feature-dev-aidd:review-spec` performs plan review and PRD review in one step.
+- Questions can appear after `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec`, and `/feature-dev-aidd:spec-interview` (if you run it).
+- Answer in `AIDD:ANSWERS` (`Answer N` format) in response to the same command that asked the questions; keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when `AIDD:OPEN_QUESTIONS` is present, `analyst-check` blocks mismatches. In the plan, reference `PRD QN` instead of duplicating questions.
 
 ## Scripts and Checks
 
