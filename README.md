@@ -80,10 +80,10 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.yaml` |
-| `dev/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
-| `dev/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
+| `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
+| `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
-`dev/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
+`tests/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
 
 ## Слэш-команды
 
@@ -116,11 +116,11 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
-- Глубокий разбор и кастомизация: `dev/doc/workflow.md`, `dev/doc/customization.md`.
+- Глубокий разбор и кастомизация: `AGENTS.md`.
 - Английская версия: `README.en.md`.
 
 ## Dev-only проверки
-- Репозиторные проверки (maintainer only): `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
+- Репозиторные проверки (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
 
 ## Вклад
 Правила вкладов: `CONTRIBUTING.md`.

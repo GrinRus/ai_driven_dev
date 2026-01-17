@@ -1,0 +1,45 @@
+---
+name: CI
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}"
+
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck yamllint ripgrep
+          npm install -g markdownlint-cli
+
+      - name: Run ci-lint script
+        run: tests/repo_tools/ci-lint.sh
+
+      - name: Bootstrap AIDD workspace for QA gate
+        run: |
+          CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}" \
+            tools/init.sh
+
+      - name: Run QA gate
+        run: |
+          if [[ -n "${GITHUB_BASE_REF}" ]]; then
+            export QA_AGENT_DIFF_BASE="${GITHUB_BASE_REF}"
+          else
+            unset QA_AGENT_DIFF_BASE
+          fi
+          export CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}"
+          hooks/gate-qa.sh --payload '{}'

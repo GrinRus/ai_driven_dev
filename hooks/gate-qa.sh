@@ -221,7 +221,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     if file_path:
         if file_path.startswith(("docs/qa/", "reports/qa/", "aidd/docs/qa/", "aidd/reports/qa/")):
             pass
-        elif file_path.startswith(("src/", "tests/", "docs/", "config/", "dev/repo_tools/")):
+        elif file_path.startswith(("src/", "tests/", "docs/", "config/", "tests/repo_tools/")):
             pass
         else:
             return 0

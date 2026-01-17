@@ -87,10 +87,10 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.yaml` |
-| `dev/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
-| `dev/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
+| `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
+| `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
-`dev/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
+`tests/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
 
 ## Slash Commands
 
@@ -123,11 +123,11 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
-- Deep dive and customization: `dev/doc/workflow.md`, `dev/doc/customization.md`.
+- Deep dive and customization: `AGENTS.md`.
 - Russian version: `README.md`.
 
 ## Dev-only checks
-- Repo checks (maintainer only): `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
+- Repo checks (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
 
 ## Contributing
 Contribution guide: `CONTRIBUTING.md`.
