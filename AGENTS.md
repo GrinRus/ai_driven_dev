@@ -3,7 +3,7 @@
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
 
 ## Репозиторий и структура
-- Runtime (плагин): `commands/`, `agents/`, `hooks/`, `tools/`, `config/`, `.claude-plugin/`.
+- Runtime (плагин): `commands/`, `agents/`, `hooks/`, `tools/`, `.claude-plugin/`.
 - Workspace‑шаблоны: `templates/aidd/` (копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
@@ -16,6 +16,9 @@
 - `aidd/**` появляется в workspace после `/feature-dev-aidd:aidd-init` и не хранится в repo (кроме шаблонов).
 - `AGENTS.md` (корень) — dev‑гайд для репозитория; `templates/aidd/AGENTS.md` — user‑гайд для проектов.
 - При изменении поведения: обновите `templates/aidd/**`, `AGENTS.md`, затем проверьте bootstrap (`/feature-dev-aidd:aidd-init`) и smoke.
+- Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
+- Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
+- Permissions/cadence: `aidd/.claude/settings.json` в workspace (если нужна настройка разрешений и cadence).
 
 ## Архитектура путей (plugin cache vs workspace)
 - Плагин копируется в cache Claude Code: записи в `${CLAUDE_PLUGIN_ROOT}` недопустимы.
@@ -29,6 +32,25 @@
 - Дополнительно (если нужно): `python3 -m unittest discover -s tests -t .`.
 - Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
+
+## Минимальные зависимости
+- `python3`, `rg`, `git` обязательны.
+- Опционально: `tree_sitter_language_pack` для call‑graph (без него часть тестов может быть skipped).
+- Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
+
+## Локальный запуск entrypoints
+- Инструменты: `CLAUDE_PLUGIN_ROOT=$PWD tools/<command>.sh ...`
+- Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
+
+## Как добавлять фичи и команды (шаблон)
+1. Runtime‑entrypoint: `tools/<command>.sh` (shebang python, bootstrap `CLAUDE_PLUGIN_ROOT`).
+2. Логика команды: `tools/<command>.py` (или используйте существующий модуль).
+3. Документация: обновите `commands/*.md` и/или `agents/*.md` (allowed‑tools + примеры).
+4. Хуки: если команда участвует в workflow, добавьте вызов в `hooks/hooks.json`.
+5. Шаблоны: если нужны новые workspace‑файлы — обновите `templates/aidd/**`, затем проверьте `/feature-dev-aidd:aidd-init`.
+6. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
+7. Prompt‑версии: после правок в `commands/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
+8. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
 
 ## Workflow (кратко)
 Канонические стадии: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
