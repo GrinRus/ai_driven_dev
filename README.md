@@ -39,12 +39,6 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init
 ```
 
-Для CI или ручного запуска:
-
-```bash
-${CLAUDE_PLUGIN_ROOT}/tools/init.sh
-```
-
 ### 3. Запустите фичу в Claude Code
 
 ```text
@@ -61,7 +55,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 
 Примечания:
 - Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
-- Отвечайте в `AIDD:ANSWERS` (формат `Answer N`) в ответ на ту же команду, которая задала вопросы; синхронизируйте `AIDD:OPEN_QUESTIONS` как `Q1/Q2/...`; при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон. В плане используйте ссылки `PRD QN` вместо дублирования вопросов.
+- Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы; `AIDD:OPEN_QUESTIONS` ведётся как `Q1/Q2/...`; при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон. В плане используйте ссылки `PRD QN` вместо дублирования вопросов.
 
 ## Скрипты и проверки
 
