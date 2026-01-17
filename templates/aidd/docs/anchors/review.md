@@ -22,7 +22,7 @@
 - Пропускать проверку исполнимости tasklist (NEXT_3/ITERATIONS_FULL/TEST_EXECUTION).
 
 ## Repeat runs
-- Повторные `/review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).
+- Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).
 
 ## Output contract
 - Status: READY|WARN|BLOCKED

@@ -1,6 +1,12 @@
 import json
+import sys
+from pathlib import Path
 
-from aidd_runtime.tools import json_patch
+SRC_ROOT = Path(__file__).resolve().parents[2]
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
+from tools import json_patch
 
 
 def test_json_patch_round_trip():

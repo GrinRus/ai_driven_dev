@@ -1,5 +1,5 @@
 ---
-description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /tasks-new)"
+description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /feature-dev-aidd:tasks-new)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
 prompt_version: 1.0.0
@@ -13,14 +13,14 @@ allowed-tools:
   - "Bash(rg:*)"
   - "Bash(sed:*)"
   - "Bash(cat:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/spec-interview` проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью и формирует spec-файл. Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml`. Обновление tasklist выполняется только через `/tasks-new`.
+Команда `/feature-dev-aidd:spec-interview` проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью и формирует spec-файл. Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml`. Обновление tasklist выполняется только через `/feature-dev-aidd:tasks-new`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/spec-interview.md`.
 
 ## Входные артефакты
@@ -30,13 +30,13 @@ disable-model-invocation: false
 - `@aidd/docs/spec/template.spec.yaml`
 
 ## Когда запускать
-- После `/review-spec` (опционально).
-- Можно запускать **до** `/tasks-new` или **после** для дополнительного уточнения.
+- После `/feature-dev-aidd:review-spec` (опционально).
+- Можно запускать **до** `/feature-dev-aidd:tasks-new` или **после** для дополнительного уточнения.
 - Повторно — для следующей волны интервью/уточнений.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage spec-interview` фиксирует стадию `spec-interview`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature --target . <ticket>` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh spec-interview` фиксирует стадию `spec-interview`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . <ticket>` фиксирует активную фичу.
 - AskUserQuestionTool используется только здесь (не в саб-агентах).
 
 ## Что редактируется
@@ -51,10 +51,10 @@ disable-model-invocation: false
 4. Запиши ответы в `aidd/reports/spec/<ticket>.interview.jsonl` (append-only).
 5. Сформируй/обнови `aidd/docs/spec/<ticket>.spec.yaml` по шаблону.
 6. Если нужна синтезация по логу — запусти саб-агента `spec-interview-writer`.
-7. Обнови tasklist только через `/tasks-new` (обязательный шаг для синхронизации).
+7. Обнови tasklist только через `/feature-dev-aidd:tasks-new` (обязательный шаг для синхронизации).
 
 ## Fail-fast и вопросы
-- Нет plan/PRD/research — остановись и попроси завершить `/plan-new` или `/review-spec`.
+- Нет plan/PRD/research — остановись и попроси завершить `/feature-dev-aidd:plan-new` или `/feature-dev-aidd:review-spec`.
 - Если AskUserQuestionTool недоступен — попроси пользователя запустить интервью вручную и записать ответы.
 
 ## Ожидаемый вывод
@@ -63,4 +63,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/spec-interview ABC-123`
+- `/feature-dev-aidd:spec-interview ABC-123`

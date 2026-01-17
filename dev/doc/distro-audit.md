@@ -3,7 +3,7 @@
 ## Scope
 - Плагин из корня репозитория (commands/agents/hooks + `.claude-plugin/*`)
 - Шаблоны workspace в `templates/aidd/`
-- Рантайм-пакет `aidd_runtime/`
+- Рантайм-скрипты `tools/`
 
 ## Критерии
 - **Runtime**: используется хуками/командами/агентами во время работы пользователя.
@@ -20,8 +20,8 @@
 | `agents/` | Агентские промпты (RU) | Claude Code | runtime |
 | `hooks/` | Gate/format/hooks | hooks.json | runtime |
 | `dev/repo_tools/` | CI/smoke и вспомогательные утилиты | CI | dev-only |
-| `aidd_runtime/` | Runtime-пакет | python-скрипты | runtime |
-| `templates/aidd/` | Workspace-шаблоны (`docs/`, `reports/`, `config/`) | `/aidd-init` | docs |
+| `tools/` | Runtime-скрипты | python entrypoints | runtime |
+| `templates/aidd/` | Workspace-шаблоны (`docs/`, `reports/`, `config/`) | `/feature-dev-aidd:aidd-init` | docs |
 | `dev/doc/` | ADR/дизайн/backlog | dev-only | dev-only |
 | `dev/tests/` | Юнит/интеграционные тесты | CI | dev-only |
 

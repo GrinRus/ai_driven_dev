@@ -10,7 +10,7 @@ Updated: YYYY-MM-DD
 
 Ссылка на исследование: `aidd/docs/research/<ticket>.md`
 
-> Этот раздел создаётся автоматически после `/idea-new <ticket>` — заполните вопросы/ответы и обновите статус на READY перед `analyst-check`.
+> Этот раздел создаётся автоматически после `/feature-dev-aidd:idea-new <ticket>` — заполните вопросы/ответы и обновите статус на READY перед `analyst-check`.
 
 Вопрос 1 (Blocker|Clarification): `<Что нужно уточнить?>`  
 Зачем: `<Какое решение/раздел блокирует>`  
@@ -115,7 +115,7 @@ Default: `<Что принять по умолчанию>`
 
 ## 8. План и этапы
 - **Майлстоуны**: `<MVP, Beta, GA>`
-- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source implement --ticket ABC-123`)
+- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket ABC-123`)
 - **Системные интеграции**: `<Сервисы, API, очереди, от которых зависит фича>`
 
 ## 9. Риски и стратегии

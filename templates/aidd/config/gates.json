@@ -151,11 +151,7 @@
       "gate-tests"
     ],
     "command": [
-      "python3",
-      "-m",
-      "aidd_runtime.cli",
-      "qa",
-      "--gate"
+      "${CLAUDE_PLUGIN_ROOT}/tools/qa.sh"
     ],
     "debounce_minutes": 10,
     "timeout": 600,

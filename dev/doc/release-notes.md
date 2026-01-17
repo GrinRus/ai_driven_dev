@@ -37,11 +37,11 @@
 - [ ] Убедиться, что CI (`dev/.github/workflows/ci.yml`) проходит на ветке `main`.
 - [ ] Выполнить локальный прогон CI lint (см. `dev/.github/workflows/ci.yml`).
 - [ ] Проверить промпты: `python3 dev/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part patch --dry-run`, затем `python3 dev/repo_tools/lint-prompts.py --root <workflow-root>` и pytest промптов.
-- [ ] Проверить `templates/aidd/` и идемпотентность `/aidd-init` (новые файлы появляются без перезаписи).
+- [ ] Проверить `templates/aidd/` и идемпотентность `/feature-dev-aidd:aidd-init` (новые файлы появляются без перезаписи).
 - [ ] Убедиться, что dev-only артефакты (например, `dev/doc/backlog.md`) не попали в дистрибутив.
 
 ## Migration: legacy root installs → `./aidd` (marketplace-only)
-- Legacy CLI больше не используется; устанавливайте плагин через marketplace и запускайте `/aidd-init`.
+- Legacy CLI больше не используется; устанавливайте плагин через marketplace и запускайте `/feature-dev-aidd:aidd-init`.
 - Для старых установок: удалите корневые снапшоты `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `scripts`, `templates`, `tools`; перенесите активные маркеры (`.active_ticket/.active_feature`), PRD/plan/research/tasklist и отчёты в `aidd/docs` и `aidd/reports`.
 - Проверьте гейты через `dev/repo_tools/smoke-workflow.sh`. Подробнее — `dev/doc/migration-aidd.md`.
 - [ ] Зафиксировать изменения в `dev/doc/release-notes.md`.
@@ -67,39 +67,39 @@
 ### Added
 - Профили тестов `FAST/TARGETED/FULL/NONE` через `aidd/.cache/test-policy.env` и переменные `AIDD_TEST_*`.
 - Дедуп тестов: кэш `aidd/.cache/format-and-test.last.json` для пропуска повторов без изменений.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check` — отдельная проверка research перед `/plan-new`.
-- `## AIDD:RESEARCH_HINTS` в PRD-шаблоне для передачи путей/ключевых слов в `/researcher`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` — отдельная проверка research перед `/feature-dev-aidd:plan-new`.
+- `## AIDD:RESEARCH_HINTS` в PRD-шаблоне для передачи путей/ключевых слов в `/feature-dev-aidd:researcher`.
 - Новый этап review-plan с агентом `plan-reviewer`, секцией `## Plan Review` в плане и гейтом `plan_review`.
-- Команда `/review-spec`, объединяющая review-plan и review-prd в один шаг.
+- Команда `/feature-dev-aidd:review-spec`, объединяющая review-plan и review-prd в один шаг.
 - Документы `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md` как единый контракт стадий/статусов.
 - `aidd/AGENTS.md` как основной вход для агентного контекста.
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
-- Автосоздание PRD: `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature` и `aidd_runtime.feature_ids` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/idea-new`, `dev/doc/templates/prompts/prompt-agent.md` и `dev/doc/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` описывают новые правила.
-- Каталог `aidd/reports/prd` разворачивается при `/aidd-init` (через `.gitkeep`), ручной `mkdir` больше не нужен.
+- Автосоздание PRD: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` и `tools/feature_ids.py` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/feature-dev-aidd:idea-new`, `dev/doc/templates/prompts/prompt-agent.md` и `dev/doc/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` описывают новые правила.
+- Каталог `aidd/reports/prd` разворачивается при `/feature-dev-aidd:aidd-init` (через `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
-- `/implement` и `implementer` теперь фиксируют test policy, лимит итерации и тест-бюджет, ожидаемый вывод включает `Test profile`/`Tests run`.
-- `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` выбирает задачи через профили (`fastTasks/fullTasks/targetedTask`) и уважает `AIDD_TEST_FORCE` при повторных прогонах.
-- `/idea-new` больше не запускает research; аналитик фиксирует подсказки, а `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research` выполняется на стадии `/researcher`.
+- `/feature-dev-aidd:implement` и `implementer` теперь фиксируют test policy, лимит итерации и тест-бюджет, ожидаемый вывод включает `Test profile`/`Tests run`.
+- `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` выбирает задачи через профили (`fastTasks/fullTasks/targetedTask`) и уважает `AIDD_TEST_FORCE` при повторных прогонах.
+- `/feature-dev-aidd:idea-new` больше не запускает research; аналитик фиксирует подсказки, а `${CLAUDE_PLUGIN_ROOT}/tools/research.sh` выполняется на стадии `/feature-dev-aidd:researcher`.
 - `analyst-check` больше не валидирует research; проверка вынесена в `research-check` и `gate-workflow`.
-- `/plan-new` вызывает `research-check` перед запуском planner.
-- Канонический SDLC обновлён: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa` (для ревью доступен `/review-spec`).
+- `/feature-dev-aidd:plan-new` вызывает `research-check` перед запуском planner.
+- Канонический SDLC обновлён: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa` (для ревью доступен `/feature-dev-aidd:review-spec`).
 - Команды стали “тонкими”, а агенты содержат алгоритмы и stop-conditions; формат вопросов стандартизирован (`Вопрос N (Blocker|Clarification)` + `Зачем/Варианты/Default`).
 - Output-контракт унифицирован (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), поиск стандартизирован на `rg`.
 - Шаблоны research/tasklist/QA обновлены: Context Pack и Definition of reviewed, секции `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`, traceability к AIDD:ACCEPTANCE.
-- `gate-workflow` теперь проверяет `review-plan` перед PRD review и tasklist; для удобства есть `/review-spec`, smoke/тесты синхронизированы с новым порядком.
+- `gate-workflow` теперь проверяет `review-plan` перед PRD review и tasklist; для удобства есть `/feature-dev-aidd:review-spec`, smoke/тесты синхронизированы с новым порядком.
 - Workflow, документация и шаблоны переведены на ticket-first модель: команды принимают `--ticket`, slug-hint стал опциональным алиасом, обновлены README, playbook-и, tasklist-шаблон и smoke-сценарий.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli prd-review-gate` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
+- `${CLAUDE_PLUGIN_ROOT}/tools/prd-review-gate.sh` и `analyst-check` учитывают `Status: draft`: гейты блокируют PRD до тех пор, пока диалог не доведён до READY и PRD Review не переведён в READY; smoke и unit-тесты обновлены под новый сценарий.
 - Промпты команд/агентов унифицированы под `READY/BLOCKED/PENDING`, команды принимают свободные заметки после тикета, а `allowed-tools` синхронизирован с инструментами саб-агентов.
 - Линтер промптов проверяет дубли ключей, запрещённые статусы, HTML-эскейпы `<ticket>`, некорректные формулировки `Checkbox updated` и несоответствие `allowed-tools` ↔ `tools`.
 - Проверки CI используют `dev/repo_tools/ci-lint.sh` и `dev/repo_tools/smoke-workflow.sh` для контроля целостности.
 - CI lint запускает `dev/repo_tools/lint-prompts.py`, dry-run `dev/repo_tools/prompt-version`, юнит-тесты (`dev/tests/test_prompt_lint.py`, `dev/tests/test_prompt_versioning.py`), а `dev/repo_tools/smoke-workflow.sh` проверяет блокировку RU-only изменений промптов.
-- Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`, `<test-runner>`) и ссылки на логи; tasklist/research шаблоны и `/idea-new` CLI фиксируют baseline и списки команд по умолчанию.
+- Аналитик/исследователь/исполнитель работают в agent-first режиме: промпты требуют перечислять просмотренные файлы, команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, `<test-runner>`) и ссылки на логи; tasklist/research шаблоны и `/feature-dev-aidd:idea-new` CLI фиксируют baseline и списки команд по умолчанию.
 - Внутренний backlog (`dev/doc/backlog.md`) оставлен только для разработки и исключён из дистрибутива.
 
 ### Migration
 - Если у вас есть legacy `tasklist.md`, перенесите его вручную в `aidd/docs/tasklist/<ticket>.md` и добавьте front-matter (`Ticket`, `Slug hint`, `Feature`, `Status`, `PRD`, `Plan`, `Research`, `Updated`).
 - Обновите шаблоны: сравните `templates/aidd` с `aidd` и перенесите новые секции в рабочие артефакты.
-- Для активных тикетов перезапустите `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research --ticket <ticket> --auto` и `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli analyst-check --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
+- Для активных тикетов перезапустите `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto` и `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>`, чтобы PRD/research перешли на новые секции «Commands/Reports». При необходимости вручную перенесите новые блоки в существующие документы.
 - Запустите smoke-тесты (`dev/repo_tools/smoke-workflow.sh`) и общий прогон CI lint, чтобы убедиться, что tasklist содержит поля `Reports/Commands`, а промпты не используют устаревшие инструкции `Answer N`.

@@ -43,49 +43,50 @@ Key features:
 ### 2. Initialize the workspace
 
 ```text
-/aidd-init
+/feature-dev-aidd:aidd-init
 ```
 
 For CI or manual use:
 
 ```bash
-PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init
+${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 ```
 
 ### 3. Run a feature in Claude Code
 
 ```text
-/idea-new STORE-123 checkout-discounts
-/researcher STORE-123
-/plan-new STORE-123
-/review-spec STORE-123
-/tasks-new STORE-123
-/implement STORE-123
-/review STORE-123
-/qa STORE-123
+/feature-dev-aidd:idea-new STORE-123 checkout-discounts
+/feature-dev-aidd:researcher STORE-123
+/feature-dev-aidd:plan-new STORE-123
+/feature-dev-aidd:review-spec STORE-123
+/feature-dev-aidd:tasks-new STORE-123
+/feature-dev-aidd:implement STORE-123
+/feature-dev-aidd:review STORE-123
+/feature-dev-aidd:qa STORE-123
 ```
 
 Notes:
-- `/idea-new` takes a `ticket` and an optional `slug-hint`.
-- After `/idea-new`, answer the analyst questions and update the PRD to `Status: READY` (check with `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli analyst-check --ticket STORE-123`).
+- `/feature-dev-aidd:idea-new` takes a `ticket` and an optional `slug-hint`.
+- After `/feature-dev-aidd:idea-new`, answer the analyst questions and update the PRD to `Status: READY` (check with `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket STORE-123`).
 - Capture answers in `AIDD:ANSWERS` (`Answer N` format) and keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when the `AIDD:OPEN_QUESTIONS` section is present, `analyst-check` blocks mismatches.
 - In the plan, reference questions as `PRD QN` instead of duplicating the text.
-- `/review-spec` performs plan review and PRD review in one step.
+- `/feature-dev-aidd:review-spec` performs plan review and PRD review in one step.
 
 ## Scripts and Checks
 
 | Command | Description |
 | --- | --- |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init` | Create `./aidd` from templates (no overwrite) |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research --ticket <ticket>` | Generate research context |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check --ticket <ticket>` | Verify Research status `reviewed` |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli analyst-check --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source <stage> --ticket <ticket>` | Confirm tasklist progress |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasklist-check --ticket <ticket>` | Validate tasklist contract |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
-| `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli index-sync --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.yaml` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Create `./aidd` from templates (no overwrite) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh [--target <path>]` | Diagnose environment, paths, and `aidd/` presence |
+| `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket>` | Generate research context |
+| `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
+| `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
+| `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
+| `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
+| `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
+| `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.yaml` |
 | `dev/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `dev/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
@@ -95,17 +96,17 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/aidd-init` | Initialize workspace (`./aidd`) | `[--target <path>] [--force]` |
-| `/idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
-| `/researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
-| `/plan-new` | Plan + validation | `<TICKET> [note...]` |
-| `/review-spec` | Review plan + PRD | `<TICKET> [note...]` |
-| `/spec-interview` | Spec interview (optional) | `<TICKET> [note...]` |
-| `/tasks-new` | Build tasklist | `<TICKET> [note...]` |
-| `/implement` | Iterative implementation | `<TICKET> [note...] [test=fast\|targeted\|full\|none] [tests=<filters>] [tasks=<task1,task2>]` |
-| `/review` | Code review + tasks | `<TICKET> [note...]` |
-| `/qa` | Final QA check | `<TICKET> [note...]` |
-| `/status` | Ticket status and artifacts | `[<TICKET>]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--target <path>] [--force]` |
+| `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
+| `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
+| `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
+| `/feature-dev-aidd:review-spec` | Review plan + PRD | `<TICKET> [note...]` |
+| `/feature-dev-aidd:spec-interview` | Spec interview (optional) | `<TICKET> [note...]` |
+| `/feature-dev-aidd:tasks-new` | Build tasklist | `<TICKET> [note...]` |
+| `/feature-dev-aidd:implement` | Iterative implementation | `<TICKET> [note...] [test=fast\|targeted\|full\|none] [tests=<filters>] [tasks=<task1,task2>]` |
+| `/feature-dev-aidd:review` | Code review + tasks | `<TICKET> [note...]` |
+| `/feature-dev-aidd:qa` | Final QA check | `<TICKET> [note...]` |
+| `/feature-dev-aidd:status` | Ticket status and artifacts | `[<TICKET>]` |
 
 ## Prerequisites
 - `bash`, `git`, `python3`.
@@ -116,8 +117,9 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 
 ## Path Troubleshooting
 - The plugin lives at the repo root (`commands/`, `agents/`, `hooks/`).
-- Workspace artifacts are created in `./aidd` after `/aidd-init`.
-- If commands or hooks cannot find the workspace, run `/aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
+- Workspace artifacts are created in `./aidd` after `/feature-dev-aidd:aidd-init`.
+- If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
+- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh --target .`.
 
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).

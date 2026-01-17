@@ -6,7 +6,7 @@
 - Для крупных изменений заведите issue или ссылку на ADR/PRD.
 - Работайте из веток `feature/<ticket>` или `feat/<scope>` (см. `config/conventions.json`).
 - Формируйте сообщения коммитов вручную по шаблонам из `config/conventions.json`.
-- Перед PR запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` в рабочем workspace).
+- Перед PR запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` в рабочем workspace).
 - Если используете `pre-commit`, он запускает `dev/repo_tools/ci-lint.sh`.
 - Обновляйте `README.md` и `README.en.md` вместе (и поле _Last sync_).
 - Если трогаете runtime/шаблоны (`commands/`, `agents/`, `hooks/`, `templates/aidd/`), обновляйте связанные доки и тесты.
@@ -15,14 +15,14 @@
 1. **Обсуждение.** Issue или ссылка на ADR/PRD, если меняется архитектура/поведение.
 2. **Ветка.** `git checkout -b feature/<TICKET>` или другой паттерн из `config/conventions.json`.
 3. **Коммиты.** Сообщения - по правилам `config/conventions.json`.
-4. **Тесты.** Запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` для установленного workflow).
+4. **Тесты.** Запустите `dev/repo_tools/ci-lint.sh` (или `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` для установленного workflow).
 5. **Документация.** Обновите README (RU/EN) и связанные файлы в `dev/doc/`.
 6. **PR.** Приложите ссылки на задачи и список проверок.
 
 ## Плагин и шаблоны
 - Канонические промпты и хуки живут в `commands/`, `agents/`, `hooks/`.
-- Шаблоны workspace лежат в `templates/aidd/` (они разворачиваются в `./aidd` командой `/aidd-init`).
-- Рантайм-логика лежит в `aidd_runtime/` и вызывается через `python3 -m aidd_runtime.cli`.
+- Шаблоны workspace лежат в `templates/aidd/` (они разворачиваются в `./aidd` командой `/feature-dev-aidd:aidd-init`).
+- Рантайм-логика живёт в `tools/` (Python-entrypoint скрипты) и вызывается как `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`.
 - Локальный `aidd/` в репозитории используйте только для dogfooding; источником истины остаются `templates/aidd/`.
 
 ## Документация и переводы

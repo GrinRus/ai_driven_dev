@@ -11,30 +11,30 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
+Команда `/feature-dev-aidd:plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `planner` и `validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
 - `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
-- `@aidd/docs/research/<ticket>.md` — проверяется через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check`.
+- `@aidd/docs/research/<ticket>.md` — проверяется через `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`.
 - ADR (если есть) — архитектурные решения/ограничения.
 
 ## Когда запускать
-- После `/idea-new` и `/researcher` (если он нужен), когда PRD готов.
+- После `/feature-dev-aidd:idea-new` и `/feature-dev-aidd:researcher` (если он нужен), когда PRD готов.
 - Повторный запуск — для актуализации плана при изменениях требований.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage plan` фиксирует стадию `plan`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` фиксирует стадию `plan`.
 - Команда должна запускать саб-агентов `planner` и `validator` (Claude: Run agent → planner/validator); при статусе `BLOCKED` возвращает вопросы.
-- Перед запуском planner выполни `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check --ticket <ticket>`.
+- Перед запуском planner выполни `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
 ## Что редактируется
@@ -42,8 +42,8 @@ disable-model-invocation: false
 - При необходимости синхронизируй открытые вопросы/риски с PRD.
 
 ## Пошаговый план
-1. Зафиксируй стадию `plan`: `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage plan`.
-2. Проверь, что PRD `Status: READY`; затем запусти `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research-check --ticket <ticket>` и остановись при ошибке.
+1. Зафиксируй стадию `plan`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan`.
+2. Проверь, что PRD `Status: READY`; затем запусти `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` и остановись при ошибке.
 3. Запусти саб-агента `planner` для генерации/обновления плана; он не должен дублировать вопросы из PRD и должен использовать ссылки `PRD QN` при необходимости.
 4. Если пользователь передал `AIDD:ANSWERS`, зафиксируй их в плане и закрой соответствующие вопросы (перенеси в `AIDD:DECISIONS` или пометь resolved).
 5. Запусти саб-агента `validator`; при `BLOCKED` верни вопросы пользователю.
@@ -60,4 +60,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/plan-new ABC-123`
+- `/feature-dev-aidd:plan-new ABC-123`

@@ -182,13 +182,12 @@ def build_command(description: str = "test command") -> str:
 class PromptLintTests(unittest.TestCase):
     def run_lint(self, root: Path) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
-        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT), env.get("PYTHONPATH")]))
-        env["PYTHONPATH"] = pythonpath
         return subprocess.run(
             [sys.executable, str(REPO_ROOT / "dev" / "repo_tools" / "lint-prompts.py"), "--root", str(root)],
             text=True,
             capture_output=True,
             env=env,
+            cwd=REPO_ROOT,
         )
 
     def write_prompts(

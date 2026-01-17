@@ -8,7 +8,7 @@ from tests.helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 
 class InitAiddTests(unittest.TestCase):
     def run_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
-        """Run aidd_runtime.cli init for the workspace root and return the completed process."""
+        """Run tools/init.sh for the workspace root and return the completed process."""
         project_root = workdir if workdir.name == PROJECT_SUBDIR else workdir / PROJECT_SUBDIR
         project_root.mkdir(parents=True, exist_ok=True)
         return subprocess.run(

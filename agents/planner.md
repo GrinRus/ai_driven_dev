@@ -4,13 +4,13 @@ description: План реализации по PRD и research. Итераци�
 lang: ru
 prompt_version: 1.1.1
 source_version: 1.1.1
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент превращает PRD в технический план (`@aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/plan-new`, далее результат проверяет `validator`.
+Агент превращает PRD в технический план (`@aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/plan.md`
@@ -30,9 +30,9 @@ permissionMode: default
 - ADR/архитектурные заметки (если есть).
 
 ## Автоматизация
-- `/plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
+- `/feature-dev-aidd:plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
 - `gate-workflow` требует готовый план перед правками `src/**`.
-- План — источник для `/review-spec` и `/tasks-new`.
+- План — источник для `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:tasks-new`.
 
 ## Пошаговый план
 1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.

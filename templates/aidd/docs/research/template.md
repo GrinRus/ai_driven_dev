@@ -3,7 +3,7 @@
 Status: pending
 Last reviewed: {{date}}
 Commands:
-  Research scan: PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}
+  Research scan: ${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}
   Search: rg "{{ticket|feature}}" {{modules}}
 Artifacts:
   PRD: aidd/docs/prd/{{ticket}}.prd.md

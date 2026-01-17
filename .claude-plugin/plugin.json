@@ -2,6 +2,12 @@
   "name": "feature-dev-aidd",
   "version": "0.1.0",
   "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
+  "author": {
+    "name": "AI-Driven Dev"
+  },
+  "repository": "https://github.com/GrinRus/ai_driven_dev",
+  "homepage": "https://github.com/GrinRus/ai_driven_dev",
+  "license": "MIT",
   "commands": [
     "./commands/aidd-init.md",
     "./commands/idea-new.md",

@@ -20,4 +20,4 @@
 
 ## Output contract
 - PRD статус: PENDING/BLOCKED до ответов.
-- Следующий шаг: /researcher <ticket>.
+- Следующий шаг: /feature-dev-aidd:researcher <ticket>.

@@ -10,7 +10,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime.tools import reports_pack
+from tools import reports_pack
 
 
 def _write_context(path: Path, payload: dict) -> None:

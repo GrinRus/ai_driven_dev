@@ -7,17 +7,17 @@ source_version: 1.0.0
 allowed-tools:
   - Read
   - "Bash(rg:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-`/status` показывает краткий статус тикета: stage, summary, артефакты, отчёты, последние события и тест‑логи (JSONL). CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
+`/feature-dev-aidd:status` показывает краткий статус тикета: stage, summary, артефакты, отчёты, последние события и тест‑логи (JSONL). CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/<stage>.md`.
 
 ## Входные артефакты
-- `@aidd/docs/index/<ticket>.yaml` — derived‑index (обновляется автоматически при `/status` и после ключевых команд).
+- `@aidd/docs/index/<ticket>.yaml` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
 - `@aidd/reports/events/<ticket>.jsonl` — последние события (если есть).
 - `@aidd/reports/tests/<ticket>.jsonl` — тест‑логи (если есть).
 - `@aidd/docs/.active_ticket`, `@aidd/docs/.active_feature`, `@aidd/docs/.active_stage` — маркеры активного тикета.
@@ -27,15 +27,15 @@ disable-model-invocation: false
 - Перед handoff, чтобы сверить артефакты и события.
 
 ## Автоматические хуки и переменные
-- Команда `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket <ticket> [--refresh]` выводит статус в CLI.
-- `AIDD_INDEX_AUTO=0` отключает авто‑обновление индекса; тогда используйте `--refresh` или запустите `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli index-sync`.
+- Команда `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` выводит статус в CLI.
+- `AIDD_INDEX_AUTO=0` отключает авто‑обновление индекса; тогда используйте `--refresh` или запустите `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`.
 
 ## Что редактируется
 - Ничего (read-only).
 
 ## Пошаговый план
 1. Определи ticket: аргумент команды или `aidd/docs/.active_ticket`.
-2. Запусти `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket <ticket> [--refresh]` — индекс обновится автоматически.
+2. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` — индекс обновится автоматически.
 3. Покажи stage, summary, список артефактов/отчётов и последние события.
 
 ## Fail-fast и вопросы
@@ -45,5 +45,5 @@ disable-model-invocation: false
 - Краткая сводка тикета, список артефактов и последних событий.
 
 ## Примеры CLI
-- `/status ABC-123`
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli status --ticket ABC-123 --refresh`
+- `/feature-dev-aidd:status ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket ABC-123 --refresh`

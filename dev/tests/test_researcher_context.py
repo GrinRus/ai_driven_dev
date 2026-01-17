@@ -1,5 +1,4 @@
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -10,12 +9,12 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime.tools.researcher_context import (
+from tools.researcher_context import (
     ResearcherContextBuilder,
     _columnar_call_graph,
 )
 
-from .helpers import TEMPLATES_ROOT, cli_cmd, write_file
+from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -170,7 +169,7 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("score", reuse_candidates[0])
 
     def test_set_active_feature_refreshes_targets(self) -> None:
-        env = os.environ.copy()
+        env = cli_env()
         result = subprocess.run(
             cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
             text=True,
@@ -201,7 +200,7 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(index_payload.get("ticket"), "demo-checkout")
 
     def test_slug_hint_persists_without_repeating_argument(self) -> None:
-        env = os.environ.copy()
+        env = cli_env()
         first = subprocess.run(
             cli_cmd(
                 "set-active-feature",

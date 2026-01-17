@@ -7,13 +7,13 @@ source_version: 0.1.0
 allowed-tools:
   - Read
   - Write
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli init:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/init.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-`/aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`).
+`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`).
 
 ## Входные артефакты
 - `templates/aidd/**` — источник шаблонов.
@@ -23,18 +23,18 @@ disable-model-invocation: false
 - если в проекте отсутствует `./aidd`.
 
 ## Автоматические хуки и переменные
-- Используется `CLAUDE_PLUGIN_ROOT` для поиска `templates/aidd` и runtime‑модуля `aidd_runtime`.
+- Используется `CLAUDE_PLUGIN_ROOT` для поиска `templates/aidd` и runtime‑скриптов в `tools/`.
 - Дополнительных хуков нет.
 
 ## Что редактируется
 - создаётся `aidd/**` в корне workspace.
 
 ## Пошаговый план
-1. Запусти `PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m aidd_runtime.cli init --target .` (опционально `--force`).
+1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target .` (опционально `--force`).
 2. Убедись, что появились `aidd/docs`, `aidd/reports`, `aidd/docs/{prd,plan,tasklist}`.
 
 ## Fail-fast и вопросы
-- Если `templates/aidd` не найден — переустановите плагин и повторите `/aidd-init`.
+- Если `templates/aidd` не найден — переустановите плагин и повторите `/feature-dev-aidd:aidd-init`.
 - Если нет прав на запись в workspace — запросите доступ и повторите команду.
 
 ## Ожидаемый вывод
@@ -42,5 +42,5 @@ disable-model-invocation: false
 - Сообщение `no changes` при повторном запуске без `--force`.
 
 ## Примеры CLI
-- `PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m aidd_runtime.cli init --target .`
-- `PYTHONPATH="${CLAUDE_PLUGIN_ROOT:-.}" python3 -m aidd_runtime.cli init --target . --force`
+- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target .`
+- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target . --force`

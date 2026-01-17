@@ -10,17 +10,17 @@ allowed-tools:
   - Write
   - Glob
   - "Bash(rg:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/qa` запускает финальную проверку: запускает саб-агента **qa** через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --gate`, обновляет QA секцию tasklist и фиксирует прогресс. После отчёта автоматически формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Выполняется после `/review`.
+Команда `/feature-dev-aidd:qa` запускает финальную проверку: запускает саб-агента **qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`, обновляет QA секцию tasklist и фиксирует прогресс. После отчёта автоматически формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Выполняется после `/feature-dev-aidd:review`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/qa.md`.
 
 ## Входные артефакты
@@ -31,15 +31,15 @@ disable-model-invocation: false
 - Логи тестов/гейтов (если есть).
 
 ## Когда запускать
-- После `/review`, перед релизом.
+- После `/feature-dev-aidd:review`, перед релизом.
 - Повторять при новых изменениях.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage qa` фиксирует стадию `qa`.
-- Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --gate`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --ticket <ticket> --report "aidd/reports/qa/<ticket>.json" --gate` формирует отчёт.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source qa --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source qa --ticket <ticket>` фиксирует новые `[x]`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` фиксирует стадию `qa`.
+- Команда должна запускать саб-агента **qa** (Claude: Run agent → qa) через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report "aidd/reports/qa/<ticket>.json" --gate` формирует отчёт.
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket <ticket>` фиксирует новые `[x]`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md`.
@@ -47,10 +47,10 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.
-2. Запусти саб-агента **qa** через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli qa --gate` и получи отчёт.
+2. Запусти саб-агента **qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` и получи отчёт.
 3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE (AIDD:QA_TRACEABILITY).
-4. Запусти `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source qa --append` — повторный запуск не должен дублировать задачи.
-5. Подтверди прогресс через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`.
+4. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append` — повторный запуск не должен дублировать задачи.
+5. Подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
 
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
@@ -61,4 +61,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/qa ABC-123`
+- `/feature-dev-aidd:qa ABC-123`

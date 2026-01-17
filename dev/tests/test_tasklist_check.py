@@ -1,9 +1,14 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+SRC_ROOT = Path(__file__).resolve().parents[2]
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
 from tests import helpers
-from aidd_runtime.tools import tasklist_check
+from tools import tasklist_check
 
 
 def write_plan(root: Path, ticket: str, iteration_ids: list[str] | None = None) -> None:

@@ -11,7 +11,7 @@ permissionMode: default
 
 ## Контекст
 Ты уточняешь tasklist до состояния “implementer не думает, что делать”.
-Любые вопросы/доп. сведения собираются через `/spec-interview`, а tasklist обновляется только через `/tasks-new`.
+Любые вопросы/доп. сведения собираются через `/feature-dev-aidd:spec-interview`, а tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/tasklist.md`
@@ -48,7 +48,7 @@ permissionMode: default
 5. Если данных недостаточно (контракты/UX/данные/тест‑стратегия не определены):
    - отметь `Status: BLOCKED` в tasklist front‑matter;
    - зафиксируй недостающие сведения в `AIDD:CONTEXT_PACK → Open questions / blockers`;
-   - в ответе потребуй повторный `/spec-interview`, затем `/tasks-new` для синхронизации.
+   - в ответе потребуй повторный `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new` для синхронизации.
 6. Обнови `AIDD:HANDOFF_INBOX` только если есть новые handoff‑задачи (не перезаписывай существующие).
 
 ## Правила детализации (обязательны)
@@ -57,7 +57,7 @@ permissionMode: default
 - Boundaries = список файлов/папок/модулей и явные запреты.
 - Tests = профиль + команды/фильтры (или `profile: none` для чистой документации).
 - `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks).
-- Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/spec-interview`.
+- Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/feature-dev-aidd:spec-interview`.
   Спека обязательна при UI/API/DATA/E2E изменениях.
 
 ## Итерации и прогресс
@@ -76,8 +76,8 @@ permissionMode: default
 6. Обнови tasklist и укажи `Next actions`.
 
 ## Fail-fast и вопросы
-- Если нет plan/PRD/research — `Status: BLOCKED` и запросить `/review-spec`.
-- Если ключевые решения отсутствуют — `Status: BLOCKED` и запросить `/spec-interview`, затем `/tasks-new`.
+- Если нет plan/PRD/research — `Status: BLOCKED` и запросить `/feature-dev-aidd:review-spec`.
+- Если ключевые решения отсутствуют — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
 
 ## Формат ответа
 - `Checkbox updated: ...`

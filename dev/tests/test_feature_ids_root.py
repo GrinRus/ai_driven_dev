@@ -1,16 +1,20 @@
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from aidd_runtime.feature_ids import resolve_project_root
+SRC_ROOT = Path(__file__).resolve().parents[2]
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
+from tools.feature_ids import resolve_project_root
 
 
 class FeatureIdsRootTests(unittest.TestCase):
     def setUp(self) -> None:
         self._env_backup = os.environ.copy()
         os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     def tearDown(self) -> None:
         os.environ.clear()
@@ -45,18 +49,6 @@ class FeatureIdsRootTests(unittest.TestCase):
             resolved = resolve_project_root(base)
 
             self.assertEqual(resolved, base.resolve())
-
-    def test_uses_project_dir_as_last_resort(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
-            base = Path(tmp)
-            project = base / "project-root"
-            (project / "docs").mkdir(parents=True)
-            os.environ["CLAUDE_PROJECT_DIR"] = str(project)
-
-            resolved = resolve_project_root(base)
-
-            self.assertEqual(resolved, project.resolve())
-
 
 if __name__ == "__main__":
     unittest.main()

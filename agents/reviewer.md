@@ -4,7 +4,7 @@ description: Код-ревью по плану/PRD. Выявление риск�
 lang: ru
 prompt_version: 1.0.6
 source_version: 1.0.6
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -29,7 +29,7 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 - Отчёты тестов/гейтов и `aidd/reports/reviewer/<ticket>.json` (если есть).
 
 ## Автоматизация
-- Команда `/review` отвечает за `review-report`, `reviewer-tests`, `tasks-derive`, `progress`.
+- Команда `/feature-dev-aidd:review` отвечает за `review-report`, `reviewer-tests`, `tasks-derive`, `progress`.
   Агент обновляет только tasklist и findings.
 
 ## Пошаговый план

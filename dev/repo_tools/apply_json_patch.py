@@ -13,7 +13,7 @@ SRC_ROOT = ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime.tools import json_patch
+from tools import json_patch
 
 
 def main(argv: list[str] | None = None) -> int:

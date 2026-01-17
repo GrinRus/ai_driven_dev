@@ -5,11 +5,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from aidd_runtime import cli  # noqa: E402
+from tools import research_check  # noqa: E402
 
 from .helpers import ensure_gates_config, ensure_project_root, write_active_feature, write_file, write_json
 
@@ -34,13 +33,8 @@ class ResearchCheckTests(unittest.TestCase):
         return workspace, project_root
 
     @staticmethod
-    def _make_args(workspace: Path, ticket: str) -> SimpleNamespace:
-        return SimpleNamespace(
-            target=str(workspace),
-            ticket=ticket,
-            slug_hint=None,
-            branch=None,
-        )
+    def _make_args(workspace: Path, ticket: str) -> list[str]:
+        return ["--target", str(workspace), "--ticket", ticket]
 
     def test_research_check_blocks_missing_report(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -49,7 +43,7 @@ class ResearchCheckTests(unittest.TestCase):
 
         args = self._make_args(workspace, ticket)
         with self.assertRaises(RuntimeError) as excinfo:
-            cli._research_check_command(args)
+            research_check.main(args)
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
 
@@ -70,7 +64,7 @@ class ResearchCheckTests(unittest.TestCase):
         )
 
         args = self._make_args(workspace, ticket)
-        cli._research_check_command(args)
+        research_check.main(args)
 
 
 if __name__ == "__main__":

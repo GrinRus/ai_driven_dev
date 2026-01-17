@@ -9,7 +9,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime.tools import index_sync
+from tools import index_sync
 
 from .helpers import ensure_project_root, write_active_feature, write_active_stage, write_file
 

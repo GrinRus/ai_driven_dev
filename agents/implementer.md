@@ -4,7 +4,7 @@ description: Реализация по плану/tasklist малыми итер
 lang: ru
 prompt_version: 1.1.14
 source_version: 1.1.14
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress:*), Bash(git:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -30,14 +30,14 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md`, `@aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
 
 ## Автоматизация
-- `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source implement --ticket <ticket>` подтверждает новые `- [x]`.
+- `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket <ticket>` подтверждает новые `- [x]`.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
 - **Лимит итерации:** 1 чекбокс (или 2 тесно связанных). Больше — останавливайся и проси обновить plan/tasklist.
 - **Test budget:** не повторяй запуск тестов без изменения diff. Для повторного прогона используй `AIDD_TEST_FORCE=1` и объясни причину.
-- **Контракт:** если `aidd/.cache/test-policy.env` уже существует (создано командой `/implement`), НЕ перезаписывай его без причины. Перезапись допустима только при повышении риска — и тогда обязательно объясни "Why".
-- **Cadence:** см. `.claude/settings.json → automation.tests.cadence` (on_stop|checkpoint|manual). При `checkpoint` тесты запускаются после `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress` или явного override.
+- **Контракт:** если `aidd/.cache/test-policy.env` уже существует (создано командой `/feature-dev-aidd:implement`), НЕ перезаписывай его без причины. Перезапись допустима только при повышении риска — и тогда обязательно объясни "Why".
+- **Cadence:** см. `.claude/settings.json → automation.tests.cadence` (on_stop|checkpoint|manual). При `checkpoint` тесты запускаются после `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh` или явного override.
 - **Decision matrix (default: fast):**
   - `fast`: небольшой diff в рамках одного модуля, низкий риск.
   - `targeted`: узкий прогон с `AIDD_TEST_TASKS` и/или `AIDD_TEST_FILTERS`.
@@ -57,12 +57,12 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 3. Если `aidd/.cache/test-policy.env` отсутствует — создай его с выбранным профилем и параметрами.
 4. Обнови tasklist: `- [ ] → - [x]`, дата/итерация/результат.
 5. Обнови `AIDD:CONTEXT_PACK` (<=20 строк): фокус, файлы, инварианты, ссылки на план.
-6. Дождись автозапуска проверок по профилю и вызови `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`.
+6. Дождись автозапуска проверок по профилю и вызови `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
 7. Сверь `git diff --stat` с ожидаемыми файлами и зафиксируй отклонения.
 
 ## Fail-fast и вопросы
-- Нет plan/tasklist или статусы не READY — остановись и попроси `/plan-new`/`/tasks-new`/ревью.
-- Если контекст недостаточен для реализации — остановись и попроси `/spec-interview` (опционально).
+- Нет plan/tasklist или статусы не READY — остановись и попроси `/feature-dev-aidd:plan-new`/`/feature-dev-aidd:tasks-new`/ревью.
+- Если контекст недостаточен для реализации — остановись и попроси `/feature-dev-aidd:spec-interview` (опционально).
 - Тесты падают — не продолжай без исправления или явного разрешения на skip.
 - Если нужно выйти за рамки плана — сначала обнови план/tasklist или получи согласование.
 

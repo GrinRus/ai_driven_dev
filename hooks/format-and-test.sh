@@ -16,57 +16,32 @@ import subprocess
 import sys
 import time
 from collections import deque
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parents[1])).resolve()
-PROJECT_ROOT = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())).resolve()
+def _require_plugin_root() -> Path:
+    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    if not raw:
+        print("[format-and-test] CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
+        raise SystemExit(2)
+    return Path(raw).expanduser().resolve()
+
+
+PLUGIN_ROOT = _require_plugin_root()
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+PROJECT_ROOT = Path.cwd().resolve()
 if PROJECT_ROOT.name != "aidd" and (
     (PROJECT_ROOT / "aidd" / "docs").is_dir() or (PROJECT_ROOT / "aidd" / "hooks").is_dir()
 ):
     PROJECT_ROOT = PROJECT_ROOT / "aidd"
 WORKSPACE_ROOT = PROJECT_ROOT.parent if PROJECT_ROOT.name == "aidd" else PROJECT_ROOT
-runtime_root = PLUGIN_ROOT
-if (runtime_root / "aidd_runtime").exists() and str(runtime_root) not in sys.path:
-    sys.path.insert(0, str(runtime_root))
 HOOKS_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-@dataclass(frozen=True)
-class FeatureIdentifiers:
-    ticket: str | None = None
-    slug_hint: str | None = None
-
-    @property
-    def resolved_ticket(self) -> str | None:
-        return (self.ticket or self.slug_hint or "").strip() or None
-
-
-def _run_cli(args: List[str]) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
-    if (runtime_root / "aidd_runtime").exists():
-        existing = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(runtime_root), existing]))
-    cmd = [sys.executable, "-m", "aidd_runtime.cli", "identifiers", *args]
-    return subprocess.run(cmd, text=True, capture_output=True, env=env)
-
-
-def resolve_identifiers(root: Path) -> FeatureIdentifiers:
-    result = _run_cli(["--target", str(root), "--json"])
-    if result.returncode != 0:
-        message = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"Failed to resolve identifiers via aidd_identifiers: {message}")
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Failed to parse identifiers JSON from aidd_identifiers.") from exc
-    return FeatureIdentifiers(
-        ticket=payload.get("ticket"),
-        slug_hint=payload.get("slug_hint"),
-    )
+from tools.feature_ids import FeatureIdentifiers, resolve_identifiers
 
 
 def append_event(
@@ -677,8 +652,6 @@ def clear_checkpoint(path: Path) -> None:
 
 
 def determine_project_dir() -> Path:
-    if "CLAUDE_PROJECT_DIR" in os.environ:
-        return Path(os.environ["CLAUDE_PROJECT_DIR"]).resolve()
     settings_parent = SETTINGS_PATH.parent
     if settings_parent.name == ".claude":
         return settings_parent.parent.resolve()
@@ -687,20 +660,14 @@ def determine_project_dir() -> Path:
 
 def resolve_project_root(raw: Path) -> Path:
     cwd = raw.resolve()
-    aidd_root = os.getenv("AIDD_ROOT")
     env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    project_dir = os.getenv("CLAUDE_PROJECT_DIR")
     candidates: list[Path] = []
-    if aidd_root:
-        candidates.append(Path(aidd_root).expanduser().resolve())
     if env_root:
         candidates.append(Path(env_root).expanduser().resolve())
     if cwd.name == "aidd":
         candidates.append(cwd)
     candidates.append(cwd / "aidd")
     candidates.append(cwd)
-    if project_dir:
-        candidates.append(Path(project_dir).expanduser().resolve())
     for candidate in candidates:
         if (candidate / "docs").is_dir():
             return candidate
@@ -967,7 +934,7 @@ def main() -> int:
         if test_runner:
             details["runner"] = list(test_runner)
         try:
-            from aidd_runtime.reports import tests_log as _tests_log
+            from tools.reports import tests_log as _tests_log
 
             _tests_log.append_log(
                 project_root,

@@ -7,7 +7,6 @@ LINT_ROOT="${ROOT_DIR}"
 
 STATUS=0
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="${ROOT_DIR}/dev:${ROOT_DIR}:${PYTHONPATH:-}"
 
 log()  { printf '[info] %s\n' "$*"; }
 warn() { printf '[warn] %s\n' "$*" >&2; }

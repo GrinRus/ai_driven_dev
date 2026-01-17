@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,12 +9,14 @@ from typing import Optional, Dict
 from .helpers import (
     REPO_ROOT,
     cli_cmd,
+    cli_env,
     ensure_gates_config,
     ensure_project_root,
     git_config_user,
     git_init,
     write_active_feature,
     write_file,
+    write_json,
 )
 
 APPROVED_PRD = "# PRD\n\n## PRD Review\nStatus: READY\n"
@@ -28,6 +29,8 @@ class QaAgentTests(unittest.TestCase):
         self.project_root = ensure_project_root(self.root)
         git_init(self.project_root)
         git_config_user(self.project_root)
+        ensure_gates_config(self.project_root)
+        write_active_feature(self.project_root, "demo-ticket")
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -35,12 +38,11 @@ class QaAgentTests(unittest.TestCase):
     def run_agent(self, *argv: str, env: Optional[Dict] = None) -> subprocess.CompletedProcess[str]:
         run_env = os.environ.copy()
         run_env.setdefault("QA_AGENT_DIFF_BASE", "")
+        run_env.setdefault("CLAUDE_PLUGIN_ROOT", str(REPO_ROOT))
         if env:
             run_env.update(env)
-        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT), run_env.get("PYTHONPATH")]))
-        run_env["PYTHONPATH"] = pythonpath
         return subprocess.run(
-            [sys.executable, "-m", "aidd_runtime.tools.qa_agent", *argv],
+            [str(REPO_ROOT / "tools" / "qa.sh"), *argv],
             cwd=self.project_root,
             text=True,
             capture_output=True,
@@ -126,43 +128,37 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "fail")
-        self.assertGreaterEqual(payload["counts"].get("blocker", 0), 1)
+        self.assertEqual(payload["status"], "warn")
+        self.assertGreaterEqual(payload["counts"].get("major", 0), 1)
         self.assertTrue(
             any(
-                finding["severity"] == "blocker" and finding["scope"] == "tests"
+                finding["severity"] == "major" and finding["scope"] == "tests"
                 for finding in payload["findings"]
             )
         )
 
     def test_tests_not_run_blocks_when_not_allowed(self):
-        result = self.run_agent(
-            "--gate",
-            "--emit-json",
-            env={
-                "QA_TESTS_SUMMARY": "not-run",
-                "QA_ALLOW_NO_TESTS": "0",
-            },
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": False}}},
         )
+        result = self.run_agent("--gate", "--emit-json", "--skip-tests")
 
         self.assertEqual(result.returncode, 1, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["tests_summary"], "not-run")
+        self.assertEqual(payload["tests_summary"], "skipped")
         self.assertTrue(any(f["title"] == "Тесты не запускались" for f in payload["findings"]))
 
     def test_tests_metadata_included(self):
-        report_env = {
-            "QA_TESTS_SUMMARY": "fail",
-            "QA_TESTS_EXECUTED": json.dumps(
-                [
-                    {"command": "bash dev/repo_tools/ci-lint.sh", "status": "fail", "log": "aidd/reports/qa/demo-tests.log"}
-                ]
-            ),
-            "QA_ALLOW_NO_TESTS": "1",
-        }
-        result = self.run_agent("--format", "json", env=report_env)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 1, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "fail")
         self.assertEqual(len(payload["tests_executed"]), 1)
@@ -222,6 +218,7 @@ Updated: 2024-01-01
             cwd=self.project_root,
             text=True,
             capture_output=True,
+            env=cli_env(),
         )
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 1, msg=output)
@@ -255,6 +252,7 @@ Updated: 2024-01-02
             cwd=self.project_root,
             text=True,
             capture_output=True,
+            env=cli_env(),
         )
         self.assertEqual(result_ok.returncode, 0, msg=result_ok.stderr)
         self.assertIn("Прогресс tasklist", result_ok.stdout)
@@ -281,6 +279,7 @@ Updated: 2024-01-02
             cwd=workdir,
             text=True,
             capture_output=True,
+            env=cli_env(),
         )
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)

@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 
-from tests.helpers import HOOKS_DIR, REPO_ROOT, SRC_ROOT, write_active_feature, write_file
+from tests.helpers import HOOKS_DIR, REPO_ROOT, write_active_feature, write_file
 
 
 def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
@@ -31,8 +31,6 @@ def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
     common_env.update(
         {
             "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
-            "CLAUDE_PROJECT_DIR": str(legacy_root),
-            "PYTHONPATH": f"{SRC_ROOT}:{common_env.get('PYTHONPATH','')}",
             "SKIP_AUTO_TESTS": "1",
             "SKIP_FORMAT": "1",
         }

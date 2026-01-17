@@ -8,9 +8,9 @@
 
 | Путь | Назначение | Дистрибутив | Примечание |
 | --- | --- | --- | --- |
-| `aidd_runtime/` | Runtime-пакет | ship | основная кодовая база |
+| `tools/` | Runtime-скрипты (Python entrypoints) | ship | основная кодовая база |
 | `commands/`, `agents/`, `hooks/` | Плагин (prompts + hooks) | ship | runtime Claude Code |
-| `templates/aidd/` | Workspace-шаблоны | ship | для `/aidd-init` |
+| `templates/aidd/` | Workspace-шаблоны | ship | для `/feature-dev-aidd:aidd-init` |
 | `dev/repo_tools/` | Smoke/CI и dev-утилиты | dev-only | не используется в runtime |
 | `.claude-plugin/` | Marketplace + plugin manifest | ship | установка плагина |
 | `pyproject.toml`, `MANIFEST.in` | Packaging | ship | метаданные сборки |
@@ -22,7 +22,7 @@
 | `.tmp-debug/`, `build/`, `.pytest_cache/` | Локальные артефакты | dev-only | ignore |
 
 ## Наблюдения
-- Пользовательские артефакты создаются в `aidd/` через `/aidd-init` и не хранятся в репозитории как источник истины.
+- Пользовательские артефакты создаются в `aidd/` через `/feature-dev-aidd:aidd-init` и не хранятся в репозитории как источник истины.
 - Dev-only артефакты (`dev/tests`, `dev/doc`) не должны попадать в дистрибутив.
 
 ## Вопросы

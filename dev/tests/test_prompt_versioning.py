@@ -94,8 +94,6 @@ def write_prompt(root: Path, name: str, version: str = "1.0.0", kind: str = "age
 class PromptVersioningTests(unittest.TestCase):
     def run_prompt_version(self, root: Path, name: str, kind: str, part: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
-        pythonpath = os.pathsep.join(filter(None, [str(REPO_ROOT), env.get("PYTHONPATH")]))
-        env["PYTHONPATH"] = pythonpath
         return subprocess.run(
             [
                 sys.executable,
@@ -115,6 +113,7 @@ class PromptVersioningTests(unittest.TestCase):
             text=True,
             capture_output=True,
             env=env,
+            cwd=REPO_ROOT,
         )
 
     def test_bump_updates_ru_agent(self) -> None:

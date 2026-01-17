@@ -1,611 +1,501 @@
-#!/usr/bin/env bash
-set -uo pipefail
+#!/usr/bin/env python3
+from __future__ import annotations
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=hooks/lib.sh
-source "${SCRIPT_DIR}/lib.sh"
-HOOK_PREFIX="[gate-workflow]"
-log_stdout() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX"; }
-log_stderr() { printf '%s\n' "$*" | hook_prefix_lines "$HOOK_PREFIX" >&2; }
-
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
-ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-if [[ "$(basename "$ROOT_DIR")" != "aidd" && ( -d "$ROOT_DIR/aidd/docs" || -d "$ROOT_DIR/aidd/hooks" ) ]]; then
-  log_stdout "WARN: detected workspace root; using ${ROOT_DIR}/aidd as project root"
-  ROOT_DIR="$ROOT_DIR/aidd"
-fi
-if [[ ! -d "$ROOT_DIR/docs" ]]; then
-  log_stderr "BLOCK: aidd/docs not found at $ROOT_DIR/docs. Run 'PYTHONPATH=${PLUGIN_ROOT} python3 -m aidd_runtime.cli init --target <workspace>' (or /aidd-init) to bootstrap ./aidd."
-  exit 2
-fi
-export ROOT_DIR
-HOOK_VENDOR_DIR="${SCRIPT_DIR}/_vendor"
-if [[ -d "$HOOK_VENDOR_DIR" ]]; then
-  if [[ -n "${PYTHONPATH:-}" ]]; then
-    export PYTHONPATH="$HOOK_VENDOR_DIR:${PYTHONPATH}"
-  else
-    export PYTHONPATH="$HOOK_VENDOR_DIR"
-  fi
-fi
-hook_runtime_pythonpath "$PLUGIN_ROOT"
-
-EVENT_TYPE="gate-workflow"
-EVENT_STATUS=""
-EVENT_SHOULD_LOG=0
-EVENT_SOURCE="hook gate-workflow"
-trap 'if [[ "${EVENT_SHOULD_LOG:-0}" == "1" ]]; then hook_append_event "$ROOT_DIR" "$EVENT_TYPE" "$EVENT_STATUS" "" "" "$EVENT_SOURCE"; fi' EXIT
-
-cd "$ROOT_DIR"
-
-collect_changed_files() {
-  local files=()
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then
-    while IFS= read -r path; do
-      [[ -n "$path" ]] && files+=("$path")
-    done < <(git diff --name-only HEAD)
-  fi
-  while IFS= read -r path; do
-    [[ -n "$path" ]] && files+=("$path")
-  done < <(git ls-files --others --exclude-standard)
-  if ((${#files[@]} == 0)); then
-    return 0
-  fi
-  printf '%s\n' "${files[@]}" | awk '!seen[$0]++'
-}
-
-payload="$(cat)"
-file_path="$(hook_payload_file_path "$payload")"
-current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
-
-changed_files=()
-if [[ -n "$file_path" ]]; then
-  changed_files+=("$file_path")
-fi
-while IFS= read -r path; do
-  [[ -n "$path" ]] && changed_files+=("$path")
-done < <(collect_changed_files || true)
-
-if ((${#changed_files[@]} > 0)); then
-  deduped=()
-  while IFS= read -r path; do
-    [[ -n "$path" ]] && deduped+=("$path")
-  done < <(printf '%s\n' "${changed_files[@]}" | awk '!seen[$0]++')
-  changed_files=("${deduped[@]}")
-fi
-
-
-if [[ -z "$file_path" && ${#changed_files[@]} -gt 0 ]]; then
-  for candidate in "${changed_files[@]}"; do
-    if [[ "$candidate" =~ (^|/)src/ ]]; then
-      file_path="$candidate"
-      break
-    fi
-  done
-  if [[ -z "$file_path" ]]; then
-    file_path="${changed_files[0]}"
-  fi
-fi
-
-has_src_changes=0
-for candidate in "${changed_files[@]}"; do
-  if [[ "$candidate" =~ (^|/)src/ ]]; then
-    has_src_changes=1
-    break
-  fi
-done
-
-if [[ "${CLAUDE_SKIP_STAGE_CHECKS:-0}" != "1" ]]; then
-  active_stage="$(hook_resolve_stage "docs/.active_stage" || true)"
-  if [[ -n "$active_stage" ]]; then
-    case "$active_stage" in
-      implement|review|qa)
-        : ;;
-      *)
-        if [[ "$has_src_changes" -eq 1 ]]; then
-          log_stderr "BLOCK: активная стадия '$active_stage' не разрешает правки кода. Переключитесь на /implement (или установите стадию вручную)."
-          exit 2
-        fi
-        exit 0
-        ;;
-    esac
-  fi
-fi
-
-ticket_source="$(hook_config_get_str config/gates.json feature_ticket_source docs/.active_ticket)"
-slug_hint_source="$(hook_config_get_str config/gates.json feature_slug_hint_source docs/.active_feature)"
-if [[ -z "$ticket_source" && -z "$slug_hint_source" ]]; then
-  exit 0
-fi
-if [[ -n "$ticket_source" && "$ticket_source" == aidd/* && ! -f "$ticket_source" && -f "${ticket_source#aidd/}" ]]; then
-  ticket_source="${ticket_source#aidd/}"
-fi
-if [[ -n "$slug_hint_source" && "$slug_hint_source" == aidd/* && ! -f "$slug_hint_source" && -f "${slug_hint_source#aidd/}" ]]; then
-  slug_hint_source="${slug_hint_source#aidd/}"
-fi
-if [[ -n "$ticket_source" && ! -f "$ticket_source" ]] && [[ -n "$slug_hint_source" && ! -f "$slug_hint_source" ]]; then
-  exit 0  # нет активной фичи — не блокируем
-fi
-ticket="$(hook_read_ticket "$ticket_source" "$slug_hint_source" || true)"
-slug_hint="$(hook_read_slug "$slug_hint_source" || true)"
-[[ -n "$ticket" ]] || exit 0
-
-# Если правится не код, пропускаем
-if [[ "$has_src_changes" -ne 1 ]]; then
-  exit 0
-fi
-
-EVENT_SHOULD_LOG=1
-EVENT_STATUS="fail"
-
-ensure_template "docs/research/template.md" "docs/research/$ticket.md"
-ensure_template "docs/prd/template.md" "docs/prd/$ticket.prd.md"
-plan_path="docs/plan/$ticket.md"
-if [[ ! -f "$plan_path" ]]; then
-  ensure_template "docs/plan/template.md" "$plan_path"
-  log_stderr "BLOCK: нет плана → запустите /plan-new $ticket"
-  exit 2
-fi
-tasklist_path="docs/tasklist/$ticket.md"
-if [[ ! -f "$tasklist_path" ]]; then
-  ensure_template "docs/tasklist/template.md" "$tasklist_path"
-  log_stderr "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
-  exit 2
-fi
-# Проверим артефакты
-[[ -f "docs/prd/$ticket.prd.md" ]] || { log_stderr "BLOCK: нет PRD → запустите /idea-new $ticket"; exit 2; }
-analyst_cmd=(python3 -m aidd_runtime.cli analyst-check --target "$ROOT_DIR" --ticket "$ticket")
-if [[ -n "$current_branch" ]]; then
-  analyst_cmd+=(--branch "$current_branch")
-fi
-if ! analyst_output="$("${analyst_cmd[@]}" 2>&1)"; then
-  if [[ -n "$analyst_output" ]]; then
-    log_stderr "$analyst_output"
-  fi
-  exit 2
-fi
-if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 -m aidd_runtime.cli plan-review-gate --target "$ROOT_DIR" --ticket "$ticket" --file-path "$file_path" --branch "$current_branch" --skip-on-plan-edit)"; then
-    if [[ -n "$review_msg" ]]; then
-      log_stderr "$review_msg"
-    else
-      log_stderr "BLOCK: Plan Review не готов → выполните /review-spec $ticket"
-    fi
-    exit 2
-  fi
-fi
-if [[ -f "docs/plan/$ticket.md" ]]; then
-  if ! review_msg="$(python3 -m aidd_runtime.cli prd-review-gate --target "$ROOT_DIR" --ticket "$ticket" --slug-hint "$slug_hint" --file-path "$file_path" --branch "$current_branch" --skip-on-prd-edit)"; then
-    if [[ -n "$review_msg" ]]; then
-      log_stderr "$review_msg"
-    else
-      log_stderr "BLOCK: PRD Review не готов → выполните /review-spec $ticket"
-    fi
-    exit 2
-  fi
-fi
-
-if ! research_msg="$(python3 - "$ticket" "$current_branch" <<'PY'
-import datetime as dt
+import io
 import json
+import os
+import re
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from fnmatch import fnmatch
-
-ticket = sys.argv[1]
-branch = sys.argv[2] if len(sys.argv) > 2 else ""
-config_path = Path("config/gates.json")
-if not config_path.exists():
-    raise SystemExit(0)
-try:
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-except Exception:
-    print("WARN: не удалось прочитать config/gates.json; пропускаем проверку Researcher.")
-    raise SystemExit(0)
-
-settings = config.get("researcher") or {}
-if not settings or not settings.get("enabled", True):
-    raise SystemExit(0)
-
-branches = settings.get("branches")
-if branch and isinstance(branches, list) and branches:
-    if not any(fnmatch(branch, pattern) for pattern in branches if isinstance(pattern, str)):
-        raise SystemExit(0)
-
-skip_branches = settings.get("skip_branches")
-if branch and isinstance(skip_branches, list):
-    if any(fnmatch(branch, pattern) for pattern in skip_branches if isinstance(pattern, str)):
-        raise SystemExit(0)
-
-doc_path = Path("docs/research") / f"{ticket}.md"
-context_path = Path("reports/research") / f"{ticket}-context.json"
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
-allow_missing = settings.get("allow_missing", False)
-baseline_phrase = (settings.get("baseline_phrase") or "контекст пуст").strip().lower()
-allow_pending_baseline = bool(settings.get("allow_pending_baseline", False))
-if not doc_path.exists():
-    if allow_missing:
-        raise SystemExit(0)
-    print(f"BLOCK: нет отчёта Researcher для {ticket} → запустите `PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli research --ticket {ticket}` и оформите docs/research/{ticket}.md")
-    raise SystemExit(1)
-
-status = None
-try:
-    doc_text = doc_path.read_text(encoding="utf-8")
-except Exception:
-    print(f"BLOCK: не удалось прочитать docs/research/{ticket}.md.")
-    raise SystemExit(1)
-doc_text_lower = doc_text.lower()
-for line in doc_text.splitlines():
-    stripped = line.strip()
-    if stripped.lower().startswith("status:"):
-        status = stripped.split(":", 1)[1].strip().lower()
-        break
-
-required_statuses = [
-    (item or "").strip().lower()
-    for item in settings.get("require_status", ["reviewed"])
-    if isinstance(item, str)
-]
-if required_statuses:
-    if not status:
-        print(f"BLOCK: docs/research/{ticket}.md не содержит строки `Status:` или она пуста.")
-        raise SystemExit(1)
-    if status not in required_statuses:
-        if status == "pending" and allow_pending_baseline:
-            baseline_ok = bool(baseline_phrase and baseline_phrase in doc_text_lower)
-            if baseline_ok:
-                try:
-                    context = json.loads(context_path.read_text(encoding="utf-8"))
-                except FileNotFoundError:
-                    print(f"BLOCK: отсутствует {context_path}; выполните PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli research для {ticket}.")
-                    raise SystemExit(1)
-                except json.JSONDecodeError:
-                    print(f"BLOCK: повреждён {context_path}; пересоздайте его.")
-                    raise SystemExit(1)
-                profile = context.get("profile") or {}
-                is_new_project = bool(profile.get("is_new_project"))
-                auto_mode = bool(context.get("auto_mode"))
-                if is_new_project and auto_mode:
-                    print("ALLOW_PENDING_BASELINE")
-                    raise SystemExit(0)
-            print(
-                "BLOCK: статус Researcher `pending` допустим только для baseline (требуется отметка и auto_mode для нового проекта)."
-            )
-            raise SystemExit(1)
-        else:
-            print(f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт.")
-            raise SystemExit(1)
-
-min_paths = int(settings.get("minimum_paths", 0) or 0)
-if min_paths > 0:
-    try:
-        targets = json.loads(targets_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        print(f"BLOCK: отсутствует {targets_path} с целевыми директориями Researcher.")
-        raise SystemExit(1)
-    except json.JSONDecodeError:
-        print(f"BLOCK: повреждён файл {targets_path}; пересоберите его командой PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli research.")
-        raise SystemExit(1)
-    paths = targets.get("paths") or []
-    if len(paths) < min_paths:
-        print(f"BLOCK: Researcher targets содержат только {len(paths)} директорий (минимум {min_paths}).")
-        raise SystemExit(1)
-
-freshness_days = settings.get("freshness_days")
-if freshness_days:
-    try:
-        context = json.loads(context_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        print(f"BLOCK: отсутствует {context_path}; выполните PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli research для {ticket}.")
-        raise SystemExit(1)
-    except json.JSONDecodeError:
-        print(f"BLOCK: повреждён {context_path}; пересоздайте его.")
-        raise SystemExit(1)
-    generated_raw = context.get("generated_at")
-    if not isinstance(generated_raw, str) or not generated_raw:
-        print(f"BLOCK: контекст Researcher ({context_path}) не содержит поля generated_at.")
-        raise SystemExit(1)
-    try:
-        if generated_raw.endswith("Z"):
-            generated_dt = dt.datetime.fromisoformat(generated_raw.replace("Z", "+00:00"))
-        else:
-            generated_dt = dt.datetime.fromisoformat(generated_raw)
-    except ValueError:
-        print(f"BLOCK: некорректная метка времени generated_at в {context_path}.")
-        raise SystemExit(1)
-    now = dt.datetime.now(dt.timezone.utc)
-    age_days = (now - generated_dt.astimezone(dt.timezone.utc)).days
-    if age_days > int(freshness_days):
-        print(f"BLOCK: контекст Researcher устарел ({age_days} дней) → обновите PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli research для {ticket}.")
-        raise SystemExit(1)
-
-raise SystemExit(0)
-PY
-)"; then
-  if [[ -n "$research_msg" ]]; then
-    log_stderr "$research_msg"
-  else
-    log_stderr "BLOCK: проверка Researcher не прошла."
-  fi
-  exit 2
-fi
-if [[ "$research_msg" == "ALLOW_PENDING_BASELINE" ]]; then
-  EVENT_STATUS="pass"
-  exit 0
-fi
-
-[[ -f "docs/plan/$ticket.md"    ]] || { log_stderr "BLOCK: нет плана → запустите /plan-new $ticket"; exit 2; }
-if ! python3 - "$ticket" <<'PY'
-import sys
-from pathlib import Path
-
-ticket = sys.argv[1]
-tasklist = Path("docs") / "tasklist" / f"{ticket}.md"
-if not tasklist.exists():
-    sys.exit(1)
-
-lines = tasklist.read_text(encoding="utf-8").splitlines()
-start = None
-end = len(lines)
-for idx, line in enumerate(lines):
-    if line.strip().lower().startswith("## aidd:next_3"):
-        start = idx + 1
-        break
-if start is None:
-    sys.exit(1)
-for idx in range(start, len(lines)):
-    if lines[idx].strip().startswith("##"):
-        end = idx
-        break
-section = lines[start:end]
+from typing import Optional
 
 
-def is_placeholder(text: str) -> bool:
-    lower = text.lower()
-    placeholders = ("<1.", "<2.", "<3.", "<ticket>", "<slug>", "<abc-123>")
-    return any(token in lower for token in placeholders)
+HOOK_PREFIX = "[gate-workflow]"
 
 
-for raw in section:
-    line = raw.strip()
-    if not line.startswith("- ["):
-        continue
-    if not (line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]")):
-        continue
-    if is_placeholder(line):
-        continue
-    sys.exit(0)
-sys.exit(1)
-PY
-then
-  log_stderr "BLOCK: нет задач → запустите /tasks-new $ticket (docs/tasklist/$ticket.md)"
-  exit 2
-fi
+def _bootstrap() -> None:
+    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    if not raw:
+        print(f"{HOOK_PREFIX} CLAUDE_PLUGIN_ROOT is required to run hooks.", file=sys.stderr)
+        raise SystemExit(2)
+    plugin_root = Path(raw).expanduser().resolve()
+    if str(plugin_root) not in sys.path:
+        sys.path.insert(0, str(plugin_root))
+    vendor_dir = Path(__file__).resolve().parent / "_vendor"
+    if vendor_dir.exists():
+        sys.path.insert(0, str(vendor_dir))
 
-if [[ -n "$ticket" ]]; then
-  tasklist_spec_output="$(python3 -m aidd_runtime.cli tasklist-check --target "$ROOT_DIR" --ticket "$ticket" --branch "$current_branch" --quiet-ok 2>&1)"
-  tasklist_spec_status=$?
-  if [[ "$tasklist_spec_status" -ne 0 ]]; then
-    if [[ -n "$tasklist_spec_output" ]]; then
-      log_stderr "$tasklist_spec_output"
-    else
-      log_stderr "BLOCK: tasklist не готов для ${ticket} → запустите /tasks-new ${ticket}"
-    fi
-    exit 2
-  fi
-  reviewer_notice="$(python3 - "$ticket" "$slug_hint" <<'PY'
-import json
-import sys
-from pathlib import Path
 
-ticket = sys.argv[1]
-slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
-config_path = Path("config/gates.json")
-try:
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-except Exception:
-    raise SystemExit(0)
+def _log_stdout(message: str) -> None:
+    from hooks import hooklib
 
-reviewer_cfg = config.get("reviewer") or {}
-if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
-    raise SystemExit(0)
+    if message:
+        print(hooklib.prefix_lines(HOOK_PREFIX, message))
 
-template = str(
-    reviewer_cfg.get("tests_marker")
-    or reviewer_cfg.get("marker")
-    or "aidd/reports/reviewer/{ticket}.json"
-)
-field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
-required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
-required_values = [
-    str(value).strip().lower()
-    for value in (required_values_source if isinstance(required_values_source, list) else ["required"])
-]
-optional_values = reviewer_cfg.get("optionalValues", reviewer_cfg.get("optional_values", []))
-if isinstance(optional_values, list):
-    optional_values = [str(value).strip().lower() for value in optional_values]
-else:
-    optional_values = []
-allowed_values = set(required_values + optional_values)
 
-slug_value = slug_hint.strip() or ticket
-marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
-if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
-    marker_path = Path(*marker_path.parts[1:])
-if not marker_path.exists():
-    if reviewer_cfg.get("warn_on_missing", True):
-        print(
-            f"WARN: reviewer маркер не найден ({marker_path}). Используйте `PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli reviewer-tests --status required` при необходимости."
-        )
-    raise SystemExit(0)
+def _log_stderr(message: str) -> None:
+    from hooks import hooklib
 
-try:
-    data = json.loads(marker_path.read_text(encoding="utf-8"))
-except Exception:
-    print(
-        f"WARN: повреждён маркер reviewer ({marker_path}). Пересоздайте его командой `PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli reviewer-tests --status required`."
-    )
-    raise SystemExit(0)
+    if message:
+        print(hooklib.prefix_lines(HOOK_PREFIX, message), file=sys.stderr)
 
-value = str(data.get(field, "")).strip().lower()
-if allowed_values and value not in allowed_values:
-    label = value or "empty"
-    print(f"WARN: некорректный статус reviewer marker ({label}). Используйте required|optional|skipped.")
-elif value in required_values:
-    print(f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов.")
-PY
-)" || reviewer_notice=""
-  if [[ -n "$reviewer_notice" ]]; then
-    log_stdout "$reviewer_notice"
-  fi
-fi
 
-if [[ -n "$ticket" ]]; then
-  handoff_block="$(python3 - "$ticket" "$slug_hint" "$current_branch" <<'PY'
-import json
-import sys
-from pathlib import Path
+def _select_file_path(paths: list[str]) -> str:
+    for candidate in paths:
+        if re.search(r"(^|/)src/", candidate):
+            return candidate
+    return paths[0] if paths else ""
 
-ticket = sys.argv[1]
-slug_hint = sys.argv[2] if len(sys.argv) > 2 else ""
-branch = sys.argv[3] if len(sys.argv) > 3 else ""
-tasklist_path = Path("docs/tasklist") / f"{ticket}.md"
-prefix = "aidd/" if Path.cwd().name == "aidd" else ""
-if not tasklist_path.exists():
-    raise SystemExit(0)
 
-def resolve_report(path: Path) -> Path | None:
-    if path.exists():
-        return path
-    if path.suffix == ".json":
-        for suffix in (".pack.yaml", ".pack.toon"):
-            candidate = path.with_suffix(suffix)
-            if candidate.exists():
-                return candidate
-    return None
-
-def read_tasklist_section(lines: list[str]) -> str:
+def _next3_has_real_items(tasklist_path: Path) -> bool:
+    if not tasklist_path.exists():
+        return False
+    lines = tasklist_path.read_text(encoding="utf-8").splitlines()
     start = None
     end = len(lines)
     for idx, line in enumerate(lines):
-        if line.strip().lower().startswith("## aidd:handoff_inbox"):
-            start = idx
+        if line.strip().lower().startswith("## aidd:next_3"):
+            start = idx + 1
             break
-    if start is not None:
-        for idx in range(start + 1, len(lines)):
-            if lines[idx].strip().startswith("##"):
-                end = idx
-                break
-        return "\n".join(lines[start:end]).lower()
-    return "\n".join(lines).lower()
+    if start is None:
+        return False
+    for idx in range(start, len(lines)):
+        if lines[idx].strip().startswith("##"):
+            end = idx
+            break
+    section = lines[start:end]
 
-reports = []
-qa_template = None
-try:
-    config = json.loads(Path("config/gates.json").read_text(encoding="utf-8"))
-except Exception:
-    config = {}
-qa_cfg = config.get("qa") or {}
-if isinstance(qa_cfg, dict):
-    qa_template = qa_cfg.get("report")
-if not qa_template:
-    qa_template = "aidd/reports/qa/{ticket}.json"
-slug_value = slug_hint.strip() or ticket
-branch_value = branch.strip() or "detached"
-raw_qa_path = (
-    str(qa_template)
-    .replace("{ticket}", ticket)
-    .replace("{slug}", slug_value)
-    .replace("{branch}", branch_value)
-)
-qa_path = Path(raw_qa_path)
-if not qa_path.is_absolute() and qa_path.parts and qa_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
-    qa_path = Path(*qa_path.parts[1:])
-qa_path = resolve_report(qa_path)
-if qa_path:
-    reports.append(("qa", qa_path, f"{prefix}{qa_path.as_posix()}"))
-research_path = resolve_report(Path("reports/research") / f"{ticket}-context.json")
-if research_path:
-    reports.append(("research", research_path, f"{prefix}{research_path.as_posix()}"))
+    def is_placeholder(text: str) -> bool:
+        lower = text.lower()
+        placeholders = ("<1.", "<2.", "<3.", "<ticket>", "<slug>", "<abc-123>")
+        return any(token in lower for token in placeholders)
 
-review_path = None
-reviewer_cfg = config.get("reviewer") or {}
-review_template = (
-    reviewer_cfg.get("marker")
-    or reviewer_cfg.get("tests_marker")
-    or "aidd/reports/reviewer/{ticket}.json"
-)
-slug_value = slug_hint.strip() or ticket
-raw_path = str(review_template).replace("{ticket}", ticket).replace("{slug}", slug_value)
-review_path = Path(raw_path)
-if not review_path.is_absolute() and review_path.parts and review_path.parts[0] == "aidd" and Path.cwd().name == "aidd":
-    review_path = Path(*review_path.parts[1:])
-if review_path.exists():
-    has_review_report = False
+    for raw in section:
+        line = raw.strip()
+        if not line.startswith("- ["):
+            continue
+        if not (line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]")):
+            continue
+        if is_placeholder(line):
+            continue
+        return True
+    return False
+
+
+def _run_plan_review_gate(root: Path, ticket: str, file_path: str, branch: str) -> tuple[int, str]:
+    from tools import plan_review_gate
+
+    args = ["--target", str(root), "--ticket", ticket, "--file-path", file_path, "--skip-on-plan-edit"]
+    if branch:
+        args.extend(["--branch", branch])
+    parsed = plan_review_gate.parse_args(args)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        status = plan_review_gate.run_gate(parsed)
+    return status, buf.getvalue().strip()
+
+
+def _run_prd_review_gate(root: Path, ticket: str, slug_hint: str, file_path: str, branch: str) -> tuple[int, str]:
+    from tools import prd_review_gate
+
+    args = ["--target", str(root), "--ticket", ticket, "--file-path", file_path, "--skip-on-prd-edit"]
+    if slug_hint:
+        args.extend(["--slug-hint", slug_hint])
+    if branch:
+        args.extend(["--branch", branch])
+    parsed = prd_review_gate.parse_args(args)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        status = prd_review_gate.run_gate(parsed)
+    return status, buf.getvalue().strip()
+
+
+def _run_tasklist_check(root: Path, ticket: str, slug_hint: str, branch: str) -> tuple[int, str]:
+    from tools import tasklist_check
+
+    args = ["--target", str(root), "--ticket", ticket, "--quiet-ok"]
+    if slug_hint:
+        args.extend(["--slug-hint", slug_hint])
+    if branch:
+        args.extend(["--branch", branch])
+    parsed = tasklist_check.parse_args(args)
+    buf = io.StringIO()
+    with redirect_stderr(buf):
+        status = tasklist_check.run_check(parsed)
+    return status, buf.getvalue().strip()
+
+
+def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
+    config_path = root / "config" / "gates.json"
     try:
-        review_payload = json.loads(review_path.read_text(encoding="utf-8"))
+        config = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
-        review_payload = {}
-        has_review_report = True
-    if isinstance(review_payload, dict):
-        kind = str(review_payload.get("kind") or "").strip().lower()
-        stage = str(review_payload.get("stage") or "").strip().lower()
-        if kind == "review" or stage == "review":
-            has_review_report = True
-        elif "findings" in review_payload:
-            has_review_report = True
-    else:
-        has_review_report = True
-    if has_review_report:
-        reports.append(("review", review_path, f"{prefix}{review_path.as_posix()}"))
-try:
-    lines = tasklist_path.read_text(encoding="utf-8").splitlines()
-except Exception:
-    raise SystemExit(0)
-text = read_tasklist_section(lines)
-missing = []
-for name, report_path, marker in reports:
-    marker_lower = marker.lower()
-    alt_marker = marker_lower.replace("aidd/", "")
-    if marker_lower not in text and alt_marker not in text:
-        missing.append((name, marker))
-if missing:
-    items = ", ".join(f"{name}: {marker}" for name, marker in missing)
-    print(
-        f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). "
-        f"Запустите `PYTHONPATH=${{CLAUDE_PLUGIN_ROOT:-.}} python3 -m aidd_runtime.cli tasks-derive --source <qa|research|review> --append --ticket {ticket}`."
+        return ""
+
+    reviewer_cfg = config.get("reviewer") or {}
+    if not reviewer_cfg or not reviewer_cfg.get("enabled", True):
+        return ""
+
+    template = str(
+        reviewer_cfg.get("tests_marker")
+        or reviewer_cfg.get("marker")
+        or "aidd/reports/reviewer/{ticket}.json"
     )
-    raise SystemExit(1)
-PY
-)"
-  if [[ -n "$handoff_block" ]]; then
-    log_stderr "$handoff_block"
-    exit 2
-  fi
-fi
+    field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
+    required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
+    if isinstance(required_values_source, list):
+        required_values = [str(value).strip().lower() for value in required_values_source]
+    else:
+        required_values = ["required"]
+    optional_values = reviewer_cfg.get("optionalValues", reviewer_cfg.get("optional_values", []))
+    if isinstance(optional_values, list):
+        optional_values = [str(value).strip().lower() for value in optional_values]
+    else:
+        optional_values = []
+    allowed_values = set(required_values + optional_values)
 
-progress_args=("--target" "$ROOT_DIR" "--ticket" "$ticket" "--source" "gate")
-if [[ -n "$slug_hint" ]]; then
-  progress_args+=("--slug-hint" "$slug_hint")
-fi
-if [[ -n "$current_branch" ]]; then
-  progress_args+=("--branch" "$current_branch")
-fi
-set +e
-progress_output="$(python3 -m aidd_runtime.cli progress "${progress_args[@]}" 2>&1)"
-progress_status=$?
-set -e
-if [[ "$progress_status" -ne 0 ]]; then
-  if [[ -n "$progress_output" ]]; then
-    log_stderr "$progress_output"
-  else
-    log_stderr "BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением."
-  fi
-  exit 2
-fi
-if [[ -n "$progress_output" ]]; then
-  log_stdout "$progress_output"
-fi
+    slug_value = slug_hint.strip() or ticket
+    marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
+    if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
+        marker_path = root / Path(*marker_path.parts[1:])
+    elif not marker_path.is_absolute():
+        marker_path = root / marker_path
 
-EVENT_STATUS="pass"
-exit 0
+    if not marker_path.exists():
+        if reviewer_cfg.get("warn_on_missing", True):
+            return (
+                "WARN: reviewer маркер не найден ({}). Используйте "
+                "`${{CLAUDE_PLUGIN_ROOT}}/tools/reviewer-tests.sh --status required` при необходимости.".format(
+                    marker_path
+                )
+            )
+        return ""
+
+    try:
+        data = json.loads(marker_path.read_text(encoding="utf-8"))
+    except Exception:
+        return (
+            "WARN: повреждён маркер reviewer ({}). Пересоздайте его командой "
+            "`${{CLAUDE_PLUGIN_ROOT}}/tools/reviewer-tests.sh --status required`.".format(marker_path)
+        )
+
+    value = str(data.get(field, "")).strip().lower()
+    if allowed_values and value not in allowed_values:
+        label = value or "empty"
+        return f"WARN: некорректный статус reviewer marker ({label}). Используйте required|optional|skipped."
+    if value in required_values:
+        return f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов."
+    return ""
+
+
+def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklist_path: Path) -> str:
+    config_path = root / "config" / "gates.json"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        config = {}
+
+    def marker_for(path: Path) -> str:
+        if path.is_absolute():
+            try:
+                rel = path.relative_to(root)
+                rel_str = rel.as_posix()
+            except ValueError:
+                rel_str = path.as_posix()
+        else:
+            rel_str = path.as_posix()
+        if root.name == "aidd" and not rel_str.startswith("aidd/"):
+            return f"aidd/{rel_str}"
+        return rel_str
+
+    def resolve_report(path: Path) -> Optional[Path]:
+        if path.exists():
+            return path
+        if path.suffix == ".json":
+            for suffix in (".pack.yaml", ".pack.toon"):
+                candidate = path.with_suffix(suffix)
+                if candidate.exists():
+                    return candidate
+        return None
+
+    reports: list[tuple[str, Path, str]] = []
+    qa_template = None
+    qa_cfg = config.get("qa") or {}
+    if isinstance(qa_cfg, dict):
+        qa_template = qa_cfg.get("report")
+    if not qa_template:
+        qa_template = "aidd/reports/qa/{ticket}.json"
+    slug_value = slug_hint.strip() or ticket
+    branch_value = branch.strip() or "detached"
+    raw_qa_path = (
+        str(qa_template)
+        .replace("{ticket}", ticket)
+        .replace("{slug}", slug_value)
+        .replace("{branch}", branch_value)
+    )
+    qa_path = Path(raw_qa_path)
+    if not qa_path.is_absolute() and qa_path.parts and qa_path.parts[0] == "aidd" and root.name == "aidd":
+        qa_path = root / Path(*qa_path.parts[1:])
+    elif not qa_path.is_absolute():
+        qa_path = root / qa_path
+    qa_path = resolve_report(qa_path)
+    if qa_path:
+        reports.append(("qa", qa_path, marker_for(qa_path)))
+
+    research_path = resolve_report(root / "reports" / "research" / f"{ticket}-context.json")
+    if research_path:
+        reports.append(("research", research_path, marker_for(research_path)))
+
+    reviewer_cfg = config.get("reviewer") or {}
+    review_template = (
+        reviewer_cfg.get("marker")
+        or reviewer_cfg.get("tests_marker")
+        or "aidd/reports/reviewer/{ticket}.json"
+    )
+    raw_path = str(review_template).replace("{ticket}", ticket).replace("{slug}", slug_value)
+    review_path = Path(raw_path)
+    if not review_path.is_absolute() and review_path.parts and review_path.parts[0] == "aidd" and root.name == "aidd":
+        review_path = root / Path(*review_path.parts[1:])
+    elif not review_path.is_absolute():
+        review_path = root / review_path
+    if review_path.exists():
+        has_review_report = False
+        try:
+            review_payload = json.loads(review_path.read_text(encoding="utf-8"))
+        except Exception:
+            review_payload = {}
+            has_review_report = True
+        if isinstance(review_payload, dict):
+            kind = str(review_payload.get("kind") or "").strip().lower()
+            stage = str(review_payload.get("stage") or "").strip().lower()
+            if kind == "review" or stage == "review":
+                has_review_report = True
+            elif "findings" in review_payload:
+                has_review_report = True
+        else:
+            has_review_report = True
+        if has_review_report:
+            reports.append(("review", review_path, marker_for(review_path)))
+
+    try:
+        lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return ""
+
+    def read_tasklist_section(lines: list[str]) -> str:
+        start = None
+        end = len(lines)
+        for idx, line in enumerate(lines):
+            if line.strip().lower().startswith("## aidd:handoff_inbox"):
+                start = idx
+                break
+        if start is not None:
+            for idx in range(start + 1, len(lines)):
+                if lines[idx].strip().startswith("##"):
+                    end = idx
+                    break
+            return "\n".join(lines[start:end]).lower()
+        return "\n".join(lines).lower()
+
+    text = read_tasklist_section(lines)
+    missing: list[tuple[str, str]] = []
+    for name, report_path, marker in reports:
+        marker_lower = marker.lower()
+        alt_marker = marker_lower.replace("aidd/", "")
+        if marker_lower not in text and alt_marker not in text:
+            missing.append((name, marker))
+    if missing:
+        items = ", ".join(f"{name}: {marker}" for name, marker in missing)
+        return (
+            f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). "
+            f"Запустите `${{CLAUDE_PLUGIN_ROOT}}/tools/tasks-derive.sh --source <qa|research|review> --append --ticket {ticket}`."
+        )
+    return ""
+
+
+def main() -> int:
+    _bootstrap()
+    from hooks import hooklib
+    from tools.analyst_guard import AnalystValidationError, load_settings as load_analyst_settings, validate_prd
+    from tools.progress import ProgressConfig, check_progress
+    from tools.research_guard import ResearchValidationError, load_settings as load_research_settings, validate_research
+
+    root, used_workspace = hooklib.resolve_project_root()
+    if used_workspace:
+        _log_stdout(f"WARN: detected workspace root; using {root} as project root")
+
+    if not (root / "docs").is_dir():
+        _log_stderr(
+            "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
+            "'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target <workspace>' to bootstrap ./aidd.".format(
+                root / "docs"
+            )
+        )
+        return 2
+
+    payload = hooklib.read_hook_payload()
+    file_path = hooklib.payload_file_path(payload) or ""
+
+    current_branch = hooklib.git_current_branch(root)
+    changed_files = hooklib.collect_changed_files(root)
+    if file_path:
+        changed_files.insert(0, file_path)
+    changed_files = list(dict.fromkeys(changed_files))
+
+    if not file_path and changed_files:
+        file_path = _select_file_path(changed_files)
+
+    has_src_changes = any(re.search(r"(^|/)src/", candidate) for candidate in changed_files)
+
+    config_path = root / "config" / "gates.json"
+    ticket_source = hooklib.config_get_str(config_path, "feature_ticket_source", "docs/.active_ticket")
+    slug_hint_source = hooklib.config_get_str(config_path, "feature_slug_hint_source", "docs/.active_feature")
+    if not ticket_source and not slug_hint_source:
+        return 0
+
+    def _resolve_rel(path_str: str | None) -> Path | None:
+        if not path_str:
+            return None
+        raw = Path(path_str)
+        return raw if raw.is_absolute() else root / raw
+
+    ticket_path = _resolve_rel(ticket_source)
+    slug_path = _resolve_rel(slug_hint_source)
+    if ticket_path and ticket_source and ticket_source.startswith("aidd/") and not ticket_path.exists():
+        alt = _resolve_rel(ticket_source[5:])
+        if alt and alt.exists():
+            ticket_path = alt
+    if slug_path and slug_hint_source and slug_hint_source.startswith("aidd/") and not slug_path.exists():
+        alt = _resolve_rel(slug_hint_source[5:])
+        if alt and alt.exists():
+            slug_path = alt
+
+    if not ticket_path and not slug_path:
+        return 0
+    if ticket_path and not ticket_path.exists() and slug_path and not slug_path.exists():
+        return 0
+
+    ticket = hooklib.read_ticket(ticket_path, slug_path)
+    slug_hint = hooklib.read_slug(slug_path) if slug_path else ""
+    if not ticket:
+        return 0
+
+    if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
+        active_stage = hooklib.resolve_stage(root / "docs" / ".active_stage") or ""
+        if active_stage and active_stage not in {"implement", "review", "qa"}:
+            if has_src_changes:
+                _log_stderr(
+                    f"BLOCK: активная стадия '{active_stage}' не разрешает правки кода. "
+                    "Переключитесь на /feature-dev-aidd:implement (или установите стадию вручную)."
+                )
+                return 2
+            return 0
+
+    if not has_src_changes:
+        return 0
+
+    event_status = "fail"
+    event_should_log = True
+    try:
+        hooklib.ensure_template(root, "docs/research/template.md", root / "docs" / "research" / f"{ticket}.md")
+        hooklib.ensure_template(root, "docs/prd/template.md", root / "docs" / "prd" / f"{ticket}.prd.md")
+
+        plan_path = root / "docs" / "plan" / f"{ticket}.md"
+        if not plan_path.exists():
+            hooklib.ensure_template(root, "docs/plan/template.md", plan_path)
+            _log_stderr(f"BLOCK: нет плана → запустите /feature-dev-aidd:plan-new {ticket}")
+            return 2
+
+        tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
+        if not tasklist_path.exists():
+            hooklib.ensure_template(root, "docs/tasklist/template.md", tasklist_path)
+            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
+            return 2
+
+        if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
+            _log_stderr(f"BLOCK: нет PRD → запустите /feature-dev-aidd:idea-new {ticket}")
+            return 2
+
+        analyst_settings = load_analyst_settings(root)
+        try:
+            validate_prd(root, ticket, settings=analyst_settings, branch=current_branch or None)
+        except AnalystValidationError as exc:
+            _log_stderr(str(exc))
+            return 2
+
+        status, output = _run_plan_review_gate(root, ticket, file_path, current_branch)
+        if status != 0:
+            if output:
+                _log_stderr(output)
+            else:
+                _log_stderr(f"BLOCK: Plan Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
+            return 2
+
+        status, output = _run_prd_review_gate(root, ticket, slug_hint, file_path, current_branch)
+        if status != 0:
+            if output:
+                _log_stderr(output)
+            else:
+                _log_stderr(f"BLOCK: PRD Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
+            return 2
+
+        research_settings = load_research_settings(root)
+        try:
+            research_summary = validate_research(root, ticket, settings=research_settings, branch=current_branch or None)
+        except ResearchValidationError as exc:
+            _log_stderr(str(exc))
+            return 2
+
+        if research_summary.skipped_reason == "pending-baseline":
+            event_status = "pass"
+            return 0
+
+        if not _next3_has_real_items(tasklist_path):
+            _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
+            return 2
+
+        status, output = _run_tasklist_check(root, ticket, slug_hint, current_branch)
+        if status != 0:
+            if output:
+                _log_stderr(output)
+            else:
+                _log_stderr(f"BLOCK: tasklist не готов для {ticket} → запустите /feature-dev-aidd:tasks-new {ticket}")
+            return 2
+
+        reviewer_notice = _reviewer_notice(root, ticket, slug_hint)
+        if reviewer_notice:
+            _log_stdout(reviewer_notice)
+
+        handoff_msg = _handoff_block(root, ticket, slug_hint, current_branch, tasklist_path)
+        if handoff_msg:
+            _log_stderr(handoff_msg)
+            return 2
+
+        progress_config = ProgressConfig.load(root)
+        progress_result = check_progress(
+            root=root,
+            ticket=ticket,
+            slug_hint=slug_hint or None,
+            source="gate",
+            branch=current_branch or None,
+            config=progress_config,
+        )
+        if progress_result.exit_code() != 0:
+            if progress_result.message:
+                _log_stderr(progress_result.message)
+            else:
+                _log_stderr("BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением.")
+            return 2
+        if progress_result.message:
+            _log_stdout(progress_result.message)
+
+        event_status = "pass"
+        return 0
+    finally:
+        if event_should_log:
+            hooklib.append_event(root, "gate-workflow", event_status, source="hook gate-workflow")
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

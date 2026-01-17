@@ -17,7 +17,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime import cli
+from tools import research
 
 
 class FakeEngine:
@@ -50,18 +50,15 @@ class ResearchCommandTest(unittest.TestCase):
 
             command_env = cli_env()
             subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "aidd_runtime.cli",
+                cli_cmd(
                     "research",
                     "--target",
-                    project_root,
+                    str(project_root),
                     "--ticket",
                     "TEST-123",
                     "--limit",
                     "1",
-                ],
+                ),
                 cwd=project_root,
                 env=command_env,
                 check=True,
@@ -72,7 +69,7 @@ class ResearchCommandTest(unittest.TestCase):
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
 
-    @mock.patch("aidd_runtime.tools.researcher_context._load_callgraph_engine")
+    @mock.patch("tools.researcher_context._load_callgraph_engine")
     def test_research_command_uses_workspace_root_and_call_graph(self, mock_engine):
         with tempfile.TemporaryDirectory(prefix="aidd-research-ws-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
@@ -95,10 +92,8 @@ class ResearchCommandTest(unittest.TestCase):
             )
 
             mock_engine.return_value = FakeEngine()
-            parser = cli.build_parser()
-            args = parser.parse_args(
+            args = research.parse_args(
                 [
-                    "research",
                     "--target",
                     str(project_root),
                     "--ticket",
@@ -113,7 +108,7 @@ class ResearchCommandTest(unittest.TestCase):
             stdout = io.StringIO()
             stderr = io.StringIO()
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                cli._research_command(args)
+                research.run(args)
 
             output = stdout.getvalue()
             self.assertIn("base=workspace", output, "CLI should log workspace base when scanning from parent")
@@ -153,10 +148,8 @@ class ResearchCommandTest(unittest.TestCase):
             extra_file = extra_dir / "Extra.kt"
             extra_file.write_text("// FOO-7 integration point", encoding="utf-8")
 
-            parser = cli.build_parser()
-            args = parser.parse_args(
+            args = research.parse_args(
                 [
-                    "research",
                     "--target",
                     str(project_root),
                     "--ticket",
@@ -170,7 +163,7 @@ class ResearchCommandTest(unittest.TestCase):
             )
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
-                cli._research_command(args)
+                research.run(args)
 
             context_path = project_root / "reports" / "research" / "FOO-7-context.json"
             self.assertTrue(context_path.exists(), "research context JSON should be generated for parent paths")

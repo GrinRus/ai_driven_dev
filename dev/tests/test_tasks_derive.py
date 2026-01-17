@@ -1,12 +1,11 @@
 import json
-import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from textwrap import dedent
 
-from .helpers import cli_cmd, ensure_project_root, write_active_feature, write_file, write_json
+from .helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file, write_json
 
 
 def _base_tasklist() -> str:
@@ -66,6 +65,7 @@ def test_tasks_derive_from_qa_report(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -100,6 +100,7 @@ def test_tasks_derive_adds_placeholder_when_qa_empty(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -147,6 +148,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -184,6 +186,7 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -214,6 +217,7 @@ def test_tasks_derive_dry_run_does_not_modify(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -248,7 +252,7 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
         json.dumps(pack_payload, indent=2),
     )
 
-    env = os.environ.copy()
+    env = cli_env()
     env["AIDD_PACK_FIRST"] = "1"
     result = subprocess.run(
         cli_cmd(
@@ -302,6 +306,7 @@ def test_tasks_derive_from_review_report(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode == 0, result.stderr
@@ -348,6 +353,7 @@ def test_tasks_derive_idempotent_by_id(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
     assert result.returncode == 0, result.stderr
 
@@ -383,6 +389,7 @@ def test_tasks_derive_idempotent_by_id(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
     assert result.returncode == 0, result.stderr
 
@@ -429,6 +436,7 @@ def test_tasks_derive_replaces_legacy_without_id(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
     assert result.returncode == 0, result.stderr
 
@@ -454,6 +462,7 @@ class TasksDeriveArgsTests(unittest.TestCase):
                 cwd=project_root,
                 text=True,
                 capture_output=True,
+                env=cli_env(),
             )
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -481,7 +490,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
             index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
             self.assertFalse(index_path.exists())
 
-            env = os.environ.copy()
+            env = cli_env()
             env.pop("AIDD_INDEX_AUTO", None)
             result = subprocess.run(
                 cli_cmd(
@@ -525,7 +534,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
             index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
             self.assertFalse(index_path.exists())
 
-            env = os.environ.copy()
+            env = cli_env()
             env["AIDD_INDEX_AUTO"] = "0"
             result = subprocess.run(
                 cli_cmd(

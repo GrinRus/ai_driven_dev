@@ -14,7 +14,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from aidd_runtime.tools.researcher_context import ResearcherContextBuilder
+from tools.researcher_context import ResearcherContextBuilder
 
 
 @unittest.skipUnless(TREE_SITTER_AVAILABLE, "tree-sitter not installed")

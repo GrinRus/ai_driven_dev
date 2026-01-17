@@ -6,9 +6,6 @@ import unittest
 class SettingsPolicyTest(unittest.TestCase):
     SETTINGS_PATH = (
         Path(__file__).resolve().parents[2]
-        / "aidd_runtime"
-        / "data"
-        / "payload"
         / ".claude"
         / "settings.json"
     )

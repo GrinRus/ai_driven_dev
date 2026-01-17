@@ -10,6 +10,7 @@ from .helpers import (
     HOOKS_DIR,
     REPO_ROOT,
     cli_cmd,
+    cli_env,
     git_config_user,
     git_init,
     write_active_feature,
@@ -76,7 +77,6 @@ def run_hook(
         {
             "CLAUDE_SETTINGS_PATH": str(settings_path),
             "SKIP_FORMAT": "1",
-            "CLAUDE_PROJECT_DIR": str(tmp_path),
             "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
         }
     )
@@ -275,10 +275,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     write_active_feature(project, "demo")
-    env = os.environ.copy()
-    python_path = str(REPO_ROOT)
-    existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
+    env = cli_env()
 
     cmd = cli_cmd(
         "reviewer-tests",

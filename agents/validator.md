@@ -4,13 +4,13 @@ description: Валидация исполняемости плана по PRD/R
 lang: ru
 prompt_version: 1.0.5
 source_version: 1.0.5
-tools: Read, Bash(rg:*), Bash(sed:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Validator вызывается внутри `/plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/review-spec` и `/tasks-new`.
+Validator вызывается внутри `/feature-dev-aidd:plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:tasks-new`.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/plan.md`
@@ -29,7 +29,7 @@ Validator вызывается внутри `/plan-new` после генера�
 - `@aidd/docs/research/<ticket>.md` — интеграции/риски/reuse.
 
 ## Автоматизация
-- `/plan-new` прерывается, если validator возвращает `BLOCKED`.
+- `/feature-dev-aidd:plan-new` прерывается, если validator возвращает `BLOCKED`.
 - `gate-workflow` проверяет готовность плана до правок `src/**`.
 
 ## Пошаговый план

@@ -1,9 +1,14 @@
 import argparse
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from aidd_runtime.tools import plan_review_gate
+SRC_ROOT = Path(__file__).resolve().parents[2]
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
+from tools import plan_review_gate
 
 
 def write_plan(root: Path, ticket: str, review_body: str) -> Path:

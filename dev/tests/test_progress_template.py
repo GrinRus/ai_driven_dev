@@ -4,6 +4,7 @@ from textwrap import dedent
 
 from tests.helpers import (
     cli_cmd,
+    cli_env,
     ensure_gates_config,
     ensure_project_root,
     git_config_user,
@@ -83,6 +84,7 @@ def test_progress_detects_new_checkbox_without_modifying_tasklist(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
     assert result.returncode == 0, result.stderr
 
@@ -144,6 +146,7 @@ def test_progress_blocks_without_new_checkbox_for_nested_root(tmp_path):
         cwd=workspace_root,
         text=True,
         capture_output=True,
+        env=cli_env(),
     )
 
     assert result.returncode != 0, result.stderr

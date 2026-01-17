@@ -216,7 +216,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] Research: Status reviewed
 - [ ] Plan: существует и валиден
 - [ ] Review Spec: Plan Review READY + PRD Review READY
-- [ ] Spec interview (optional): spec обновлён; затем `/tasks-new` для синхронизации tasklist
+- [ ] Spec interview (optional): spec обновлён; затем `/feature-dev-aidd:tasks-new` для синхронизации tasklist
 
 ### AIDD:CHECKLIST_IMPLEMENT
 - [ ] Реализован функционал для checkbox #1 из AIDD:NEXT_3
@@ -262,5 +262,5 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - `- [x] <описание> — YYYY-MM-DD (iteration_id: I1) (tests: fast|targeted|full|none) (link: <commit/pr>)`
 - После каждой итерации обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
 - Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
-- Если обновили spec — запусти `/tasks-new` для синхронизации tasklist.
+- Если обновили spec — запусти `/feature-dev-aidd:tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

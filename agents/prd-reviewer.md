@@ -4,13 +4,13 @@ description: Структурное ревью PRD после review-plan. Пр�
 lang: ru
 prompt_version: 1.0.7
 source_version: 1.0.7
-tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент используется командой `/review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items.
+Агент используется командой `/feature-dev-aidd:review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/review-prd.md`
@@ -29,8 +29,8 @@ permissionMode: default
 - `@aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
-- `/review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json` через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli prd-review`.
-- `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/review-spec`.
+- `/feature-dev-aidd:review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json` через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`.
+- `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/feature-dev-aidd:review-spec`.
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции PRD и `## PRD Review`, затем точечно читай ADR/план по нужным пунктам.
@@ -41,7 +41,7 @@ permissionMode: default
 6. Обнови раздел `## PRD Review`.
 
 ## Fail-fast и вопросы
-- Если PRD в статусе draft или отсутствует — остановись и запроси завершение `/idea-new`.
+- Если PRD в статусе draft или отсутствует — остановись и запроси завершение `/feature-dev-aidd:idea-new`.
 - Если plan/research отсутствуют — остановись и запроси недостающие артефакты.
 - При пропущенных секциях/метриках сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 - Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в PRD.

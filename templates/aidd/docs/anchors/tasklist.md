@@ -45,6 +45,6 @@
 - Каждый implement‑чекбокс содержит iteration_id + DoD + Boundaries + Steps + Tests + Acceptance mapping.
 
 ## Output contract
-- Tasklist готов к /implement.
-- Если данных недостаточно для DoD/Boundaries/Tests — запусти `/spec-interview`, затем `/tasks-new` для синхронизации.
-- (Опционально) preflight: `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasklist-check --ticket <ticket>`.
+- Tasklist готов к /feature-dev-aidd:implement.
+- Если данных недостаточно для DoD/Boundaries/Tests — запусти `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new` для синхронизации.
+- (Опционально) preflight: `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>`.

@@ -14,17 +14,17 @@ allowed-tools:
   - "Bash(cat:*)"
   - "Bash(xargs:*)"
   - "Bash(./gradlew:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(git:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/implement` запускает саб-агента **implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
+Команда `/feature-dev-aidd:implement` запускает саб-агента **implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/implement.md`.
 
 ## Входные артефакты
@@ -34,16 +34,16 @@ disable-model-invocation: false
 - `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/research/<ticket>.md` — при необходимости.
 
 ## Когда запускать
-- После `/tasks-new`, когда план и оба ревью готовы (Plan Review + PRD Review через `/review-spec`).
-- Если нужен уточняющий контекст — предварительно запусти `/spec-interview` (опционально).
+- После `/feature-dev-aidd:tasks-new`, когда план и оба ревью готовы (Plan Review + PRD Review через `/feature-dev-aidd:review-spec`).
+- Если нужен уточняющий контекст — предварительно запусти `/feature-dev-aidd:spec-interview` (опционально).
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature --target . <ticket>` фиксирует активную фичу.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage implement` фиксирует стадию `implement`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . <ticket>` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement` фиксирует стадию `implement`.
 - Команда должна запускать саб-агента **implementer** (Claude: Run agent → implementer).
-- `${CLAUDE_PLUGIN_ROOT:-.}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
+- `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
+- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
@@ -69,7 +69,7 @@ Decision matrix (default: `fast`):
 1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
 2. Если переданы аргументы `test=...`, `tasks=...`, `tests=...` — задай test policy в `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений.
 3. Запусти саб-агента **implementer** и передай контекст итерации.
-4. Убедись, что tasklist обновлён и прогресс подтверждён через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`.
+4. Убедись, что tasklist обновлён и прогресс подтверждён через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или ревью не готовы — остановись и попроси завершить предыдущие шаги.
@@ -80,4 +80,4 @@ Decision matrix (default: `fast`):
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Test profile`, `Tests run`, `Next actions`.
 
 ## Примеры CLI
-- `/implement ABC-123`
+- `/feature-dev-aidd:implement ABC-123`

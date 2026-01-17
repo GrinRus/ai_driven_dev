@@ -11,15 +11,15 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/researcher` собирает кодовый контекст: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
+Команда `/feature-dev-aidd:researcher` собирает кодовый контекст: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, затем запускает саб-агента `researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
@@ -29,28 +29,28 @@ disable-model-invocation: false
 - `aidd/reports/research/<ticket>-context.json` — формируется CLI.
 
 ## Когда запускать
-- После `/idea-new`, до `/plan-new`.
+- После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
 - Повторно — при изменениях модулей/рисков.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage research` фиксирует стадию `research`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` обновляет JSON контекст.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` обновляет JSON контекст.
 - Команда должна запускать саб-агента `researcher` (Claude: Run agent → researcher).
-- При необходимости добавь handoff через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source research --append --ticket <ticket>`.
+- При необходимости добавь handoff через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket <ticket>`.
 
 ## Что редактируется
 - `aidd/docs/research/<ticket>.md`.
 - PRD/tasklist — ссылки на отчёт.
 
 ## Пошаговый план
-1. Убедись, что активный ticket задан; при необходимости вызови `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature`.
+1. Убедись, что активный ticket задан; при необходимости вызови `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh`.
 2. Зафиксируй стадию `research`.
-3. Извлеки `## AIDD:RESEARCH_HINTS` и запусти `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli research ...` с `--paths/--keywords/--note`.
+3. Извлеки `## AIDD:RESEARCH_HINTS` и запусти `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` с `--paths/--keywords/--note`.
 4. Запусти саб-агента `researcher` и обнови `aidd/docs/research/<ticket>.md`.
 5. При необходимости добавь handoff-задачи в tasklist.
 
 ## Fail-fast и вопросы
-- Нет активного тикета или PRD — остановись и попроси `/idea-new`.
+- Нет активного тикета или PRD — остановись и попроси `/feature-dev-aidd:idea-new`.
 - Если отчёт остаётся `pending`, верни вопросы/условия для `reviewed`.
 
 ## Ожидаемый вывод
@@ -59,4 +59,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --deep-code`
+- `/feature-dev-aidd:researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --deep-code`

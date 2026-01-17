@@ -11,18 +11,18 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli review-report:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli reviewer-tests:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress:*)"
-  - "Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/review` запускает саб-агента **reviewer** для проверки изменений перед QA и фиксирует замечания в tasklist. После ревью создаётся отчёт и формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Свободный ввод после тикета используй как контекст ревью.
+Команда `/feature-dev-aidd:review` запускает саб-агента **reviewer** для проверки изменений перед QA и фиксирует замечания в tasklist. После ревью создаётся отчёт и формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Свободный ввод после тикета используй как контекст ревью.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review.md`.
 
 ## Входные артефакты
@@ -32,16 +32,16 @@ disable-model-invocation: false
 - Логи тестов/гейтов (если есть), `aidd/reports/reviewer/<ticket>.json`.
 
 ## Когда запускать
-- После `/implement`, до `/qa`.
+- После `/feature-dev-aidd:implement`, до `/feature-dev-aidd:qa`.
 - Повторять до снятия блокеров.
 
 ## Автоматические хуки и переменные
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage review` фиксирует стадию `review`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` фиксирует стадию `review`.
 - Команда должна запускать саб-агента **reviewer** (Claude: Run agent → reviewer).
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli review-report --ticket <ticket>` сохраняет отчёт ревью в `aidd/reports/reviewer/<ticket>.json`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli reviewer-tests --status required|optional|clear` управляет обязательностью тестов.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source review --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
-- `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress --source review --ticket <ticket>` фиксирует новые `[x]`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket <ticket>` сохраняет отчёт ревью в `aidd/reports/reviewer/<ticket>.json`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --status required|optional|clear` управляет обязательностью тестов.
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket <ticket>` фиксирует новые `[x]`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md` (замечания, прогресс).
@@ -50,10 +50,10 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `review`.
 2. Запусти саб-агента **reviewer** и обнови tasklist.
-3. Сохрани отчёт ревью через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli review-report`.
+3. Сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh`.
 4. При необходимости запроси автотесты через `reviewer-tests`.
-5. Запусти `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli tasks-derive --source review --append` — повторный запуск не должен дублировать задачи.
-6. Подтверди прогресс через `PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli progress`.
+5. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append` — повторный запуск не должен дублировать задачи.
+6. Подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
@@ -64,4 +64,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/review ABC-123`
+- `/feature-dev-aidd:review ABC-123`

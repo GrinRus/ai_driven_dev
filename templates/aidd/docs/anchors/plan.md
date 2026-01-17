@@ -27,4 +27,4 @@
 - Дублировать вопросы из PRD в `AIDD:OPEN_QUESTIONS` плана — используй ссылки `PRD QN`.
 
 ## Output contract
-- План готов к validator и /review-spec.
+- План готов к validator и /feature-dev-aidd:review-spec.

@@ -4,7 +4,7 @@ description: Финальная QA-проверка с отчётом по sever
 lang: ru
 prompt_version: 1.0.8
 source_version: 1.0.8
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-feature:*), Bash(PYTHONPATH=${CLAUDE_PLUGIN_ROOT:-.} python3 -m aidd_runtime.cli set-active-stage:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -30,7 +30,7 @@ QA-агент проверяет фичу после ревью и формир�
 - Отчёты тестов/гейтов и diff.
 
 ## Автоматизация
-- Команда `/qa` отвечает за `qa --gate`, `tasks-derive`, `progress`.
+- Команда `/feature-dev-aidd:qa` отвечает за `qa --gate`, `tasks-derive`, `progress`.
   Агент обновляет только tasklist и findings.
 
 ## Пошаговый план

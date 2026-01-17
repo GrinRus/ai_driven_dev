@@ -8,16 +8,9 @@ from typing import Any, Dict, Optional
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-SRC_ROOT = REPO_ROOT
 PROJECT_SUBDIR = "aidd"
 TEMPLATES_ROOT = REPO_ROOT / "templates" / PROJECT_SUBDIR
 HOOKS_DIR = REPO_ROOT / "hooks"
-existing_pythonpath = os.environ.get("PYTHONPATH")
-if existing_pythonpath:
-    if str(SRC_ROOT) not in existing_pythonpath.split(os.pathsep):
-        os.environ["PYTHONPATH"] = os.pathsep.join([str(SRC_ROOT), existing_pythonpath])
-else:
-    os.environ["PYTHONPATH"] = str(SRC_ROOT)
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     "feature_ticket_source": "docs/.active_ticket",
     "feature_slug_hint_source": "docs/.active_feature",
@@ -121,7 +114,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],
         "skip_branches": ["docs/*"],
-        "command": ["python3", "-m", "aidd_runtime.cli", "qa", "--gate"],
+        "command": ["${CLAUDE_PLUGIN_ROOT}/tools/qa.sh"],
         "debounce_minutes": 10,
         "report": "aidd/reports/qa/{ticket}.json",
         "allow_missing_report": False,
@@ -129,6 +122,9 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "warn_on": ["major", "minor"],
         "handoff": True,
         "handoff_mode": "block",
+        "tests": {
+            "commands": ["echo smoke-test-ok"],
+        },
     },
     "reviewer": {
         "enabled": True,
@@ -187,16 +183,10 @@ def run_hook(
     project_root.mkdir(parents=True, exist_ok=True)
     (project_root / "docs").mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env["CLAUDE_PROJECT_DIR"] = str(workspace_root)
     env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     if extra_env:
         env.update(extra_env)
-    existing = env.get("PYTHONPATH")
-    if existing:
-        env["PYTHONPATH"] = os.pathsep.join([str(SRC_ROOT), existing])
-    else:
-        env["PYTHONPATH"] = str(SRC_ROOT)
     config_src = TEMPLATES_ROOT / "config" / "gates.json"
     config_dst = project_root / "config" / "gates.json"
     if config_src.exists() and not config_dst.exists():
@@ -413,7 +403,7 @@ def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
 
 
 def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
-    """Run aidd_runtime.cli init to bootstrap workspace into root."""
+    """Run tools/init.sh to bootstrap workspace into root."""
     ensure_project_root(root)
     subprocess.run(
         cli_cmd("init", "--target", str(root), *extra_args),
@@ -455,15 +445,21 @@ def git_config_user(path: pathlib.Path) -> None:
 
 
 def cli_cmd(*args: str) -> list[str]:
-    """Build a command that invokes the CLI module directly."""
-    return [sys.executable, "-m", "aidd_runtime.cli", *args]
+    """Build a command that invokes the tools entrypoint directly."""
+    if not args:
+        return []
+    cmd = args[0]
+    rest = list(args[1:])
+    if cmd == "context-gc":
+        raise ValueError("context-gc entrypoints removed; use hooks/context-gc-*.sh")
+    script = REPO_ROOT / "tools" / f"{cmd}.sh"
+    return [str(script), *rest]
 
 
 def cli_env(extra_env: Optional[dict[str, str]] = None) -> dict[str, str]:
-    """Return an environment with PYTHONPATH pointing at the runtime sources."""
+    """Return an environment with CLAUDE_PLUGIN_ROOT wired for tools entrypoints."""
     env = os.environ.copy()
+    env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
     if extra_env:
         env.update(extra_env)
-    existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC_ROOT), existing]))
     return env

@@ -12,7 +12,7 @@
 - `BLOCKED` — есть блокеры (нужны данные/решения).
 - `READY` — все ответы получены, критичные секции заполнены.
 
-Кто выставляет: `analyst` (через `/idea-new`).
+Кто выставляет: `analyst` (через `/feature-dev-aidd:idea-new`).
 
 Переходы:
 - `draft → PENDING/BLOCKED` после первичной аналитики.
@@ -48,7 +48,7 @@
 - `BLOCKED` — план требует доработки.
 - `READY` — план прошёл ревью.
 
-Кто выставляет: `plan-reviewer` (через `/review-spec`).
+Кто выставляет: `plan-reviewer` (через `/feature-dev-aidd:review-spec`).
 
 ## PRD Review (`## PRD Review` + report)
 
@@ -57,7 +57,7 @@
 - `BLOCKED` — есть критичные замечания.
 - `READY` — PRD готов к реализации.
 
-Кто выставляет: `prd-reviewer` (через `/review-spec`).
+Кто выставляет: `prd-reviewer` (через `/feature-dev-aidd:review-spec`).
 
 ## Spec Interview (`aidd/docs/spec/<ticket>.spec.yaml`)
 
@@ -66,7 +66,7 @@
 - `ready` — интервью закрыто, решения зафиксированы.
 - `deprecated` — спеку заменили/устарела.
 
-Кто выставляет: `/spec-interview` и агент `spec-interview-writer`.
+Кто выставляет: `/feature-dev-aidd:spec-interview` и агент `spec-interview-writer`.
 
 Примечание:
 - Spec‑интервью опционален; отсутствие spec не блокирует implement.
@@ -79,7 +79,7 @@
 - `READY` — tasklist готов к implement.
 - `WARN` — готов, но с предупреждениями.
 
-Кто выставляет: `/tasks-new` + `tasklist-refiner`.
+Кто выставляет: `/feature-dev-aidd:tasks-new` + `tasklist-refiner`.
 
 Готовность:
 - `Tasklist READY` требует заполненные `AIDD:SPEC_PACK` + `AIDD:TEST_STRATEGY` + `AIDD:TEST_EXECUTION`.

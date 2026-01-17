@@ -15,9 +15,14 @@ WORKSPACE_ROOT=""
 run_cli() {
   local cmd="$1"
   shift
-  local project_dir="${WORKSPACE_ROOT:-$(pwd)}"
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PROJECT_DIR="$project_dir" \
-    PYTHONPATH="${PLUGIN_ROOT}" python3 -m aidd_runtime.cli "$cmd" "$@"
+  local tool_path="$PLUGIN_ROOT/tools/${cmd}.sh"
+  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$tool_path" "$@"
+}
+
+run_hook() {
+  local hook="$1"
+  shift
+  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/${hook}" "$@"
 }
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aidd-smoke.XXXXXX")"
@@ -35,7 +40,7 @@ assert_gate_exit() {
   local note="$2"
   local output rc
   set +e
-  output="$(CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+  output="$(CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
   rc=$?
   set -e
   if [[ "$rc" -ne "$expected" ]]; then
@@ -58,7 +63,6 @@ run_cli init --target . --force >/dev/null
 WORKDIR="${TMP_DIR}/aidd"
 WORKSPACE_ROOT="${TMP_DIR}"
 export CLAUDE_PLUGIN_ROOT="${PLUGIN_ROOT}"
-export CLAUDE_PROJECT_DIR="${WORKSPACE_ROOT}"
 
 log "validate plugin hooks wiring"
 if [[ ! -f "$PLUGIN_ROOT/hooks/hooks.json" ]]; then
@@ -94,18 +98,18 @@ for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
         assert_has("format-and-test.sh", event)
         assert_has("lint-deps.sh", event)
     if event == "SubagentStop":
-        assert_has("aidd_runtime.cli context-gc stop", event)
+        assert_has("context-gc-stop.sh", event)
     if event == "PreToolUse":
-        assert_has("aidd_runtime.cli context-gc pretooluse", event)
+        assert_has("context-gc-pretooluse.sh", event)
     if event == "UserPromptSubmit":
-        assert_has("aidd_runtime.cli context-gc userprompt", event)
+        assert_has("context-gc-userprompt.sh", event)
 PY
 
 log "run context-gc hooks"
-run_cli context-gc precompact >/dev/null
-run_cli context-gc sessionstart >/dev/null
-run_cli context-gc pretooluse >/dev/null
-run_cli context-gc userprompt >/dev/null
+run_hook context-gc-precompact.sh >/dev/null
+run_hook context-gc-sessionstart.sh >/dev/null
+run_hook context-gc-pretooluse.sh >/dev/null
+run_hook context-gc-userprompt.sh >/dev/null
 
 log "create demo source file"
 mkdir -p "$WORKDIR/src/main/kotlin"
@@ -495,7 +499,7 @@ next_3_body = f"""- [ ] Smoke: ready checkbox 1
   - Acceptance mapping: AC-1
   - Risks & mitigations: low → none
 - [ ] Smoke: ready checkbox 2
-  - iteration_id: I2
+  - iteration_id: I1
   - Goal: follow-up
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md
@@ -510,7 +514,7 @@ next_3_body = f"""- [ ] Smoke: ready checkbox 1
   - Acceptance mapping: AC-2
   - Risks & mitigations: low → none
 - [ ] Smoke: ready checkbox 3
-  - iteration_id: I3
+  - iteration_id: I1
   - Goal: follow-up
   - DoD: smoke gate satisfied
   - Boundaries: docs/tasklist/{ticket}.md
@@ -589,8 +593,7 @@ assert_gate_exit 2 "plan iteration mismatch"
 mv "docs/plan/${TICKET}.bak" "docs/plan/${TICKET}.md"
 
 log "gate now allows source edits"
-CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  run_cli set-active-stage --target . implement >/dev/null
+run_cli set-active-stage --target . implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --target . --append >/dev/null
 # Skip progress gate for preset-created artifacts: no code changes yet
@@ -689,8 +692,7 @@ fi
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
-CLAUDE_PLUGIN_ROOT="$WORKDIR" CLAUDE_PROJECT_DIR="$WORKSPACE_ROOT" \
-  run_cli set-active-stage --target . qa >/dev/null
+run_cli set-active-stage --target . qa >/dev/null
 # pre-mark QA checklist items to avoid false blockers from template
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
@@ -795,7 +797,7 @@ popd >/dev/null
 log "negative scenario: gate fails on incorrect target without aidd workflow"
 BAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aidd-smoke-bad-target.XXXXXX")"
 set +e
-bad_output="$(CLAUDE_PROJECT_DIR="$BAD_DIR" CLAUDE_PLUGIN_ROOT="$BAD_DIR" AIDD_ROOT="" "$PLUGIN_ROOT/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
+bad_output="$(cd "$BAD_DIR" && CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/gate-workflow.sh" <<<"$PAYLOAD" 2>&1)"
 bad_rc=$?
 set -e
 if [[ "$bad_rc" -eq 0 ]]; then

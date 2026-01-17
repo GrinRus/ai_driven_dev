@@ -1,6 +1,6 @@
 ---
 name: spec-interview-writer
-description: Build spec.yaml from interview log (tasklist обновляется через /tasks-new).
+description: Build spec.yaml from interview log (tasklist обновляется через /feature-dev-aidd:tasks-new).
 lang: ru
 prompt_version: 1.0.0
 source_version: 1.0.0
@@ -10,7 +10,7 @@ permissionMode: default
 ---
 
 ## Контекст
-Ты собираешь итоговую спецификацию после интервью. AskUserQuestionTool не используется — интервью уже проведено командой `/spec-interview`.
+Ты собираешь итоговую спецификацию после интервью. AskUserQuestionTool не используется — интервью уже проведено командой `/feature-dev-aidd:spec-interview`.
 MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 
 ### READ-ONCE / READ-IF-CHANGED
@@ -34,10 +34,10 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 4. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
 
 ## Fail-fast и вопросы
-- Если interview log отсутствует или пуст — `Status: BLOCKED` и попроси `/spec-interview`.
+- Если interview log отсутствует или пуст — `Status: BLOCKED` и попроси `/feature-dev-aidd:spec-interview`.
 
 ## Формат ответа
 - `Checkbox updated: not-applicable`
 - `Status: READY|BLOCKED|PENDING`
 - `Artifacts updated: aidd/docs/spec/<ticket>.spec.yaml`
-- `Next actions: /tasks-new <ticket> для синхронизации tasklist`
+- `Next actions: /feature-dev-aidd:tasks-new <ticket> для синхронизации tasklist`

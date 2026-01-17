@@ -3,7 +3,7 @@
 ## Goals
 - Run a deep interview at top level (AskUserQuestionTool) and record the log.
 - Produce `aidd/docs/spec/<ticket>.spec.yaml` as the canonical spec (optional step).
-- Tasklist updates happen only via `/tasks-new`.
+- Tasklist updates happen only via `/feature-dev-aidd:tasks-new`.
 - Закрыть decision points по ближайшим `iteration_id` из плана.
 
 ## MUST READ FIRST
@@ -27,4 +27,4 @@
 ## Definition of Done
 - Spec status is READY (если закрыты decision points для ближайших итераций).
 - Blocker open questions are empty (если spec доведён до READY).
-- Tasklist синхронизируется отдельно через `/tasks-new`.
+- Tasklist синхронизируется отдельно через `/feature-dev-aidd:tasks-new`.
