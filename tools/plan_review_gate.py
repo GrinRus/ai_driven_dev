@@ -25,11 +25,6 @@ FENCE_PREFIXES = ("```", "~~~")
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate plan review readiness.")
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
     parser.add_argument("--ticket", required=True, help="Active feature ticket.")
     parser.add_argument("--file-path", default="", help="Path being modified.")
     parser.add_argument("--branch", default="", help="Current branch name.")
@@ -68,14 +63,21 @@ def matches(patterns: Iterable[str], value: str) -> bool:
     return False
 
 
-def detect_project_root(target: Path) -> Path:
-    return resolve_project_root(target)
+def detect_project_root(target: Path | None = None) -> Path:
+    return resolve_project_root(target or Path.cwd())
 
 
-def normalize_path(raw: str) -> str:
+def normalize_path(raw: str, root: Path) -> str:
     if not raw:
         return ""
-    normalized = raw.replace("\\", "/")
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        try:
+            normalized = candidate.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            normalized = candidate.as_posix()
+    else:
+        normalized = candidate.as_posix()
     if normalized.startswith("./"):
         normalized = normalized[2:]
     return normalized.lstrip("/")
@@ -140,7 +142,7 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
 
 
 def run_gate(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    root = detect_project_root()
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -162,7 +164,7 @@ def run_gate(args: argparse.Namespace) -> int:
         print(f"BLOCK: нет плана (docs/plan/{ticket}.md) → выполните /feature-dev-aidd:plan-new {ticket}")
         return 1
 
-    normalized = normalize_path(args.file_path)
+    normalized = normalize_path(args.file_path, root)
     if args.skip_on_plan_edit and normalized.endswith(f"docs/plan/{ticket}.md"):
         return 0
 

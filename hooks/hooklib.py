@@ -78,6 +78,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
 }
 
+_HOOK_PAYLOAD_CACHE: Dict[str, Any] | None = None
+
 
 class HookLibError(RuntimeError):
     """Base hook error for consistent messaging."""
@@ -112,14 +114,19 @@ def _read_payload_text() -> str:
 
 
 def _read_stdin_json() -> Dict[str, Any]:
+    global _HOOK_PAYLOAD_CACHE
+    if _HOOK_PAYLOAD_CACHE is not None:
+        return _HOOK_PAYLOAD_CACHE
     raw = _read_payload_text()
     if not raw.strip():
+        _HOOK_PAYLOAD_CACHE = {}
         return {}
     try:
-        return json.loads(raw)
+        _HOOK_PAYLOAD_CACHE = json.loads(raw)
     except json.JSONDecodeError:
         print("Invalid JSON on stdin for hook", file=sys.stderr)
-        return {}
+        _HOOK_PAYLOAD_CACHE = {}
+    return _HOOK_PAYLOAD_CACHE
 
 
 def read_hook_payload() -> Dict[str, Any]:
@@ -142,7 +149,7 @@ def payload_file_path(payload: Dict[str, Any]) -> Optional[str]:
 
 
 def read_hook_context() -> HookContext:
-    data = _read_stdin_json()
+    data = read_hook_payload()
     return HookContext(
         hook_event_name=str(data.get("hook_event_name", "")),
         session_id=str(data.get("session_id", "")),
@@ -162,8 +169,22 @@ def resolve_project_dir(ctx: HookContext) -> Path:
     return Path.cwd().resolve()
 
 
-def resolve_project_root() -> tuple[Path, bool]:
-    base = Path.cwd().resolve()
+def _resolve_cwd_value(cwd: str | None) -> Path:
+    if cwd:
+        path = Path(cwd).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        return path.resolve()
+    return Path.cwd().resolve()
+
+
+def resolve_project_root(ctx: HookContext | None = None, *, cwd: str | None = None) -> tuple[Path, bool]:
+    if cwd:
+        base = _resolve_cwd_value(cwd)
+    elif ctx:
+        base = resolve_project_dir(ctx)
+    else:
+        base = Path.cwd().resolve()
     if base.name != "aidd":
         if (base / "aidd" / "docs").is_dir() or (base / "aidd" / "hooks").is_dir():
             return (base / "aidd").resolve(), True

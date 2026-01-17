@@ -12,11 +12,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Resolve active feature identifiers (ticket and slug hint).",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--ticket",
         help="Optional ticket override (defaults to docs/.active_ticket).",
     )
@@ -35,7 +30,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    root = resolve_project_root(Path(args.target))
+    root = resolve_project_root(Path.cwd())
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     if args.json:
         payload = {

@@ -24,11 +24,10 @@ def prepare_workspace(tmp_path: Path) -> Path:
 def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
     workspace = prepare_workspace(tmp_path)
     monkeypatch.setenv("USER", "ci-tester")
+    monkeypatch.chdir(workspace)
 
     reviewer_tests.main(
         [
-            "--target",
-            str(workspace),
             "--ticket",
             "demo",
             "--status",
@@ -46,8 +45,6 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
 
     reviewer_tests.main(
         [
-            "--target",
-            str(workspace),
             "--ticket",
             "demo",
             "--status",
@@ -63,8 +60,6 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
 
     reviewer_tests.main(
         [
-            "--target",
-            str(workspace),
             "--ticket",
             "demo",
             "--status",
@@ -78,12 +73,11 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
 def test_reviewer_tests_rejects_unknown_status(tmp_path, monkeypatch):
     workspace = prepare_workspace(tmp_path)
     monkeypatch.setenv("USER", "ci-tester")
+    monkeypatch.chdir(workspace)
 
     try:
         reviewer_tests.main(
             [
-                "--target",
-                str(workspace),
                 "--ticket",
                 "demo",
                 "--status",

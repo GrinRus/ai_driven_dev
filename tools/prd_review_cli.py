@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional
 
 from tools import prd_review
@@ -9,8 +8,7 @@ from tools import runtime
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = prd_review.parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
-    args.target = str(target)
+    _, target = runtime.require_workflow_root()
     exit_code = prd_review.run(args)
     if exit_code == 0:
         context = runtime.resolve_feature_context(

@@ -208,8 +208,6 @@ Updated: 2024-01-01
         result = subprocess.run(
             cli_cmd(
                 "progress",
-                "--target",
-                ".",
                 "--ticket",
                 slug,
                 "--source",
@@ -242,8 +240,6 @@ Updated: 2024-01-02
         result_ok = subprocess.run(
             cli_cmd(
                 "progress",
-                "--target",
-                ".",
                 "--ticket",
                 slug,
                 "--source",
@@ -259,15 +255,12 @@ Updated: 2024-01-02
 
     def test_cli_qa_report_resolves_target_root(self):
         (self.project_root / "docs").mkdir(parents=True, exist_ok=True)
-        workdir = self.root / "outside"
-        workdir.mkdir(parents=True, exist_ok=True)
+        workdir = self.root
         report_rel = "aidd/reports/qa/demo.json"
 
         result = subprocess.run(
             cli_cmd(
                 "qa",
-                "--target",
-                str(self.root),
                 "--ticket",
                 "DEMO-1",
                 "--skip-tests",
@@ -284,4 +277,3 @@ Updated: 2024-01-02
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertTrue((self.project_root / "reports/qa/demo.json").is_file())
-        self.assertFalse((workdir / report_rel).exists())

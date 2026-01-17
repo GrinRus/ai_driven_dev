@@ -56,11 +56,6 @@ def feature_label(ticket: str, slug_hint: str | None = None) -> str:
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate PRD review readiness.")
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--ticket",
         "--slug",
         dest="ticket",
@@ -118,17 +113,17 @@ def matches(patterns: Iterable[str], value: str) -> bool:
     return False
 
 
-def _normalize_file_path(raw: str) -> str:
+def _normalize_file_path(raw: str, root: Path) -> str:
     if not raw:
         return ""
     try:
-        rel = Path(raw).resolve().relative_to(Path.cwd().resolve())
-        return str(rel).replace("\\", "/")
+        rel = Path(raw).resolve().relative_to(root.resolve())
+        normalized = rel.as_posix()
     except Exception:
         normalized = raw.replace("\\", "/")
-        if normalized.startswith("./"):
-            normalized = normalized[2:]
-        return normalized.lstrip("/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.lstrip("/")
 
 
 def _normalize_items(values: Iterable[str] | None, *, suffix: str = "") -> List[str]:
@@ -243,8 +238,8 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     return f"BLOCK: PRD Review не готов → выполните /feature-dev-aidd:review-spec {label or ticket}"
 
 
-def detect_project_root(target: Path) -> Path:
-    return resolve_project_root(target)
+def detect_project_root(target: Path | None = None) -> Path:
+    return resolve_project_root(target or Path.cwd())
 
 
 def extract_dialog_status(content: str) -> str | None:
@@ -263,7 +258,7 @@ def extract_dialog_status(content: str) -> str | None:
 
 
 def run_gate(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    root = detect_project_root()
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
@@ -284,7 +279,7 @@ def run_gate(args: argparse.Namespace) -> int:
 
     code_prefixes = tuple(_normalize_items(gate.get("code_prefixes"), suffix="/") or DEFAULT_CODE_PREFIXES)
     code_globs = tuple(_normalize_items(gate.get("code_globs")))
-    normalized = _normalize_file_path(args.file_path)
+    normalized = _normalize_file_path(args.file_path, root)
     target_suffix = f"docs/prd/{ticket}.prd.md"
     if args.skip_on_prd_edit and normalized.endswith(target_suffix):
         return 0

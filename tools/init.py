@@ -59,12 +59,7 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate workflow scaffolding in the target directory.",
-    )
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root for the workflow (default: current; workflow always lives in ./aidd).",
+        description="Generate workflow scaffolding in the current workspace.",
     )
     parser.add_argument(
         "--commit-mode",
@@ -99,7 +94,7 @@ def main(argv: List[str] | None = None) -> int:
         script_args.append("--force")
     if args.dry_run:
         script_args.append("--dry-run")
-    run_init(Path(args.target).resolve(), script_args)
+    run_init(Path.cwd().resolve(), script_args)
     return 0
 
 

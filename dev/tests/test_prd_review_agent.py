@@ -114,8 +114,6 @@ class PRDReviewAgentTests(unittest.TestCase):
         subprocess.run(
             [
                 str(REPO_ROOT / "tools" / "prd-review.sh"),
-                "--target",
-                str(self.workspace),
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -156,8 +154,6 @@ class PRDReviewAgentTests(unittest.TestCase):
         subprocess.run(
             [
                 str(REPO_ROOT / "tools" / "prd-review.sh"),
-                "--target",
-                str(self.workspace),
                 "--ticket",
                 "demo-feature",
                 "--slug",

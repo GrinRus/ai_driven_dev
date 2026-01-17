@@ -150,13 +150,6 @@ def main(argv: Iterable[str] | None = None) -> int:
         _log_stdout("Usage: gate-qa.sh [--dry-run] [--only qa] [--payload <json>]")
         return 0
 
-    payload_text = args.payload or ""
-    if not payload_text and not sys.stdin.isatty():
-        try:
-            payload_text = sys.stdin.read()
-        except Exception:
-            payload_text = ""
-
     if os.environ.get("CLAUDE_SKIP_QA") == "1":
         return 0
 
@@ -170,14 +163,27 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     dry_run = args.dry_run or os.environ.get("CLAUDE_QA_DRY_RUN") == "1"
 
-    root, used_workspace = hooklib.resolve_project_root()
+    ctx = hooklib.read_hook_context()
+    payload: dict = {}
+    if args.payload:
+        try:
+            payload = json.loads(args.payload)
+        except json.JSONDecodeError:
+            payload = {}
+    elif isinstance(ctx.raw, dict):
+        payload = ctx.raw
+
+    root, used_workspace = hooklib.resolve_project_root(
+        ctx,
+        cwd=payload.get("cwd") if isinstance(payload, dict) else None,
+    )
     if used_workspace:
         _log_stdout(f"WARN: detected workspace root; using {root} as project root")
 
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target <workspace>' to bootstrap ./aidd.".format(
+            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )
@@ -211,12 +217,6 @@ def main(argv: Iterable[str] | None = None) -> int:
     if qa_skip and _matches_any(branch, qa_skip):
         return 0
 
-    payload = {}
-    if payload_text.strip():
-        try:
-            payload = json.loads(payload_text)
-        except json.JSONDecodeError:
-            payload = {}
     file_path = hooklib.payload_file_path(payload) or ""
     if file_path:
         if file_path.startswith(("docs/qa/", "reports/qa/", "aidd/docs/qa/", "aidd/reports/qa/")):
@@ -382,7 +382,14 @@ def main(argv: Iterable[str] | None = None) -> int:
         if status == 0 and qa_cfg.get("handoff", False) and os.environ.get("CLAUDE_SKIP_QA_HANDOFF") != "1":
             if ticket:
                 _log_stdout("handoff: формируем задачи из отчёта QA")
-                handoff_cmd = [str(plugin_root / "tools" / "tasks-derive.sh"), "--source", "qa", "--append", "--ticket", ticket, "--target", str(root)]
+                handoff_cmd = [
+                    str(plugin_root / "tools" / "tasks-derive.sh"),
+                    "--source",
+                    "qa",
+                    "--append",
+                    "--ticket",
+                    ticket,
+                ]
                 if slug_hint and slug_hint != ticket:
                     handoff_cmd.extend(["--slug-hint", slug_hint])
                 if report_path:

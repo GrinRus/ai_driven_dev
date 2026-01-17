@@ -73,8 +73,6 @@ def test_progress_detects_new_checkbox_without_modifying_tasklist(tmp_path):
     result = subprocess.run(
         cli_cmd(
             "progress",
-            "--target",
-            ".",
             "--ticket",
             ticket,
             "--source",
@@ -135,8 +133,6 @@ def test_progress_blocks_without_new_checkbox_for_nested_root(tmp_path):
     result = subprocess.run(
         cli_cmd(
             "progress",
-            "--target",
-            str(project_root),
             "--ticket",
             ticket,
             "--source",

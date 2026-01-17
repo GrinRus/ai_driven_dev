@@ -86,7 +86,7 @@ def _next3_has_real_items(tasklist_path: Path) -> bool:
 def _run_plan_review_gate(root: Path, ticket: str, file_path: str, branch: str) -> tuple[int, str]:
     from tools import plan_review_gate
 
-    args = ["--target", str(root), "--ticket", ticket, "--file-path", file_path, "--skip-on-plan-edit"]
+    args = ["--ticket", ticket, "--file-path", file_path, "--skip-on-plan-edit"]
     if branch:
         args.extend(["--branch", branch])
     parsed = plan_review_gate.parse_args(args)
@@ -99,7 +99,7 @@ def _run_plan_review_gate(root: Path, ticket: str, file_path: str, branch: str) 
 def _run_prd_review_gate(root: Path, ticket: str, slug_hint: str, file_path: str, branch: str) -> tuple[int, str]:
     from tools import prd_review_gate
 
-    args = ["--target", str(root), "--ticket", ticket, "--file-path", file_path, "--skip-on-prd-edit"]
+    args = ["--ticket", ticket, "--file-path", file_path, "--skip-on-prd-edit"]
     if slug_hint:
         args.extend(["--slug-hint", slug_hint])
     if branch:
@@ -114,7 +114,7 @@ def _run_prd_review_gate(root: Path, ticket: str, slug_hint: str, file_path: str
 def _run_tasklist_check(root: Path, ticket: str, slug_hint: str, branch: str) -> tuple[int, str]:
     from tools import tasklist_check
 
-    args = ["--target", str(root), "--ticket", ticket, "--quiet-ok"]
+    args = ["--ticket", ticket, "--quiet-ok"]
     if slug_hint:
         args.extend(["--slug-hint", slug_hint])
     if branch:
@@ -321,20 +321,23 @@ def main() -> int:
     from tools.progress import ProgressConfig, check_progress
     from tools.research_guard import ResearchValidationError, load_settings as load_research_settings, validate_research
 
-    root, used_workspace = hooklib.resolve_project_root()
+    ctx = hooklib.read_hook_context()
+    root, used_workspace = hooklib.resolve_project_root(ctx)
     if used_workspace:
         _log_stdout(f"WARN: detected workspace root; using {root} as project root")
 
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target <workspace>' to bootstrap ./aidd.".format(
+            "'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )
         return 2
 
-    payload = hooklib.read_hook_payload()
+    os.chdir(root)
+
+    payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
 
     current_branch = hooklib.git_current_branch(root)

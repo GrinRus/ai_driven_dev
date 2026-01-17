@@ -104,11 +104,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         description="Perform lightweight PRD review heuristics."
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--ticket",
         help="Feature ticket to analyse (defaults to docs/.active_ticket).",
     )
@@ -298,7 +293,7 @@ def print_text_report(report: Report) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    root = detect_project_root(Path(args.target))
+    root = detect_project_root()
     ticket, slug_hint = detect_feature(root, getattr(args, "ticket", None), getattr(args, "slug_hint", None))
     if not ticket:
         print(

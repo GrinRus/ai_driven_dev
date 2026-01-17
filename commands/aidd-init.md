@@ -1,6 +1,6 @@
 ---
 description: "Развёртывание инфраструктуры AIDD в ./aidd"
-argument-hint: "[--target <path>] [--force]"
+argument-hint: "[--force]"
 lang: ru
 prompt_version: 0.1.0
 source_version: 0.1.0
@@ -30,7 +30,7 @@ disable-model-invocation: false
 - создаётся `aidd/**` в корне workspace.
 
 ## Пошаговый план
-1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target .` (опционально `--force`).
+1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` (опционально `--force`).
 2. Убедись, что появились `aidd/docs`, `aidd/reports`, `aidd/docs/{prd,plan,tasklist}`.
 
 ## Fail-fast и вопросы
@@ -42,5 +42,5 @@ disable-model-invocation: false
 - Сообщение `no changes` при повторном запуске без `--force`.
 
 ## Примеры CLI
-- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target .`
-- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target . --force`
+- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh`
+- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --force`

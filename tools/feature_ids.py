@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -14,15 +13,12 @@ PRD_DIR = Path("docs") / "prd"
 
 def resolve_project_root(raw: Path) -> Path:
     """
-    Prefer plugin root when available.
+    Resolve workflow root from the current workspace.
 
-    Order: CLAUDE_PLUGIN_ROOT -> cwd/aidd -> cwd.
+    Order: cwd (if already aidd) -> cwd/aidd -> cwd.
     """
     cwd = raw.resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
     candidates = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
     if cwd.name == "aidd":
         candidates.append(cwd)
     candidates.append(cwd / "aidd")

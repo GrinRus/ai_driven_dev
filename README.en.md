@@ -77,7 +77,7 @@ Notes:
 | Command | Description |
 | --- | --- |
 | `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Create `./aidd` from templates (no overwrite) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh [--target <path>]` | Diagnose environment, paths, and `aidd/` presence |
+| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Diagnose environment, paths, and `aidd/` presence |
 | `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket>` | Generate research context |
 | `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` |
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
@@ -96,7 +96,7 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--target <path>] [--force]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force]` |
 | `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
@@ -119,7 +119,7 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - The plugin lives at the repo root (`commands/`, `agents/`, `hooks/`).
 - Workspace artifacts are created in `./aidd` after `/feature-dev-aidd:aidd-init`.
 - If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
-- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh --target .`.
+- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).

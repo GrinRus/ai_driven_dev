@@ -59,7 +59,7 @@ git config user.name "Smoke Bot"
 git config user.email "smoke@example.com"
 
 log "bootstrap workflow scaffolding"
-run_cli init --target . --force >/dev/null
+run_cli init --force >/dev/null
 WORKDIR="${TMP_DIR}/aidd"
 WORKSPACE_ROOT="${TMP_DIR}"
 export CLAUDE_PLUGIN_ROOT="${PLUGIN_ROOT}"
@@ -125,14 +125,14 @@ log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
-run_cli set-active-feature --target . "$TICKET" >/dev/null
+run_cli set-active-feature "$TICKET" >/dev/null
 [[ -f "$WORKDIR/docs/.active_ticket" ]] || {
   echo "[smoke] failed to set active ticket" >&2
   exit 1
 }
 
 log "run research targets-only"
-run_cli research --target . --ticket "$TICKET" --targets-only >/dev/null
+run_cli research --ticket "$TICKET" --targets-only >/dev/null
 [[ -f "$WORKDIR/reports/research/${TICKET}-targets.json" ]] || {
   echo "[smoke] research did not create targets" >&2
   exit 1
@@ -173,7 +173,7 @@ PY
 
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
-run_cli research --ticket "$TICKET" --target . --auto --deep-code --call-graph >/dev/null
+run_cli research --ticket "$TICKET" --auto --deep-code --call-graph >/dev/null
 if ! grep -q "\"call_graph\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
   exit 1
@@ -210,7 +210,7 @@ if targets_path.exists():
 PY
 
 log "research-check must pass"
-run_cli research-check --ticket "$TICKET" --target . >/dev/null
+run_cli research-check --ticket "$TICKET" >/dev/null
 
 log "expect block while PRD draft / research handoff pending"
 assert_gate_exit 2 "draft PRD"
@@ -285,7 +285,7 @@ path.write_text(text, encoding="utf-8")
 PY
 
 log "analyst-check must pass"
-run_cli analyst-check --ticket "$TICKET" --target . >/dev/null
+run_cli analyst-check --ticket "$TICKET" >/dev/null
 
 log "expect block until plan exists"
 assert_gate_exit 2 "missing plan"
@@ -330,7 +330,7 @@ path.write_text(text, encoding="utf-8")
 PY
 
 log "plan-review-gate passes"
-run_cli plan-review-gate --target . --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
+run_cli plan-review-gate --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
 
 log "expect block until PRD review READY"
 assert_gate_exit 2 "pending PRD review"
@@ -354,12 +354,12 @@ path.write_text(content, encoding="utf-8")
 PY
 
 log "run prd-review and prd-review-gate"
-run_cli prd-review --target . --ticket "$TICKET" --report "aidd/reports/prd/${TICKET}.json" --emit-text >/dev/null
+run_cli prd-review --ticket "$TICKET" --report "aidd/reports/prd/${TICKET}.json" --emit-text >/dev/null
 [[ -f "$WORKDIR/reports/prd/${TICKET}.json" ]] || {
   echo "[smoke] prd-review did not create report" >&2
   exit 1
 }
-run_cli prd-review-gate --target . --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
+run_cli prd-review-gate --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" >/dev/null
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
@@ -593,9 +593,9 @@ assert_gate_exit 2 "plan iteration mismatch"
 mv "docs/plan/${TICKET}.bak" "docs/plan/${TICKET}.md"
 
 log "gate now allows source edits"
-run_cli set-active-stage --target . implement >/dev/null
-run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
-run_cli tasks-derive --source research --ticket "$TICKET" --target . --append >/dev/null
+run_cli set-active-stage implement >/dev/null
+run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
+run_cli tasks-derive --source research --ticket "$TICKET" --append >/dev/null
 # Skip progress gate for preset-created artifacts: no code changes yet
 CLAUDE_SKIP_TASKLIST_PROGRESS=1 assert_gate_exit 0 "all artifacts ready"
 
@@ -671,7 +671,7 @@ log "gate blocks when checkbox is missing"
 assert_gate_exit 2 "missing progress checkbox"
 
 log "progress CLI reports missing checkbox"
-if progress_output="$(run_cli progress --target . --ticket "$TICKET" --source implement 2>&1)"; then
+if progress_output="$(run_cli progress --ticket "$TICKET" --source implement 2>&1)"; then
   printf '[smoke] expected progress CLI to fail but it succeeded:\n%s\n' "$progress_output" >&2
   exit 1
 fi
@@ -685,14 +685,14 @@ today="$(date +%Y-%m-%d)"
 printf '\n- [x] Smoke iteration — %s • итерация 1\n' "$today" >> "docs/tasklist/${TICKET}.md"
 
 log "progress CLI passes after checkbox update"
-if ! progress_ok="$(run_cli progress --target . --ticket "$TICKET" --source implement --verbose 2>&1)"; then
+if ! progress_ok="$(run_cli progress --ticket "$TICKET" --source implement --verbose 2>&1)"; then
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
-run_cli set-active-stage --target . qa >/dev/null
+run_cli set-active-stage qa >/dev/null
 # pre-mark QA checklist items to avoid false blockers from template
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
@@ -711,7 +711,7 @@ for old, new in replacements.items():
 path.write_text(text, encoding="utf-8")
 PY
 
-if ! run_cli qa --ticket "$TICKET" --target . --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
+if ! run_cli qa --ticket "$TICKET" --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
   echo "[smoke] qa command failed" >&2
   exit 1
 fi
@@ -734,8 +734,8 @@ report_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 PY
 
 log "derive tasklist items from QA report (handoff)"
-run_cli tasks-derive --source qa --ticket "$TICKET" --target . --append >/dev/null
-run_cli tasks-derive --source qa --ticket "$TICKET" --target . --append >/dev/null
+run_cli tasks-derive --source qa --ticket "$TICKET" --append >/dev/null
+run_cli tasks-derive --source qa --ticket "$TICKET" --append >/dev/null
 grep -q "handoff:qa" "docs/tasklist/${TICKET}.md" || {
   echo "[smoke] tasks-derive did not update tasklist" >&2
   exit 1
@@ -745,7 +745,7 @@ qa_handoff_count="$(grep -c "handoff:qa start" "docs/tasklist/${TICKET}.md" || t
   echo "[smoke] expected single QA handoff block, got ${qa_handoff_count}" >&2
   exit 1
 }
-if ! progress_handoff="$(run_cli progress --target . --ticket "$TICKET" --source handoff --verbose 2>&1)"; then
+if ! progress_handoff="$(run_cli progress --ticket "$TICKET" --source handoff --verbose 2>&1)"; then
   printf '[smoke] expected progress handoff check to pass:\n%s\n' "$progress_handoff" >&2
   exit 1
 fi
@@ -761,9 +761,9 @@ cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
   }
 ]
 JSON
-run_cli review-report --ticket "$TICKET" --target . --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
-run_cli tasks-derive --source review --ticket "$TICKET" --target . --append >/dev/null
-run_cli tasks-derive --source review --ticket "$TICKET" --target . --append >/dev/null
+run_cli review-report --ticket "$TICKET" --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
+run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
+run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
 grep -q "handoff:review" "docs/tasklist/${TICKET}.md" || {
   echo "[smoke] review handoff tasks missing" >&2
   exit 1
@@ -779,14 +779,14 @@ log "verify generated artifacts"
 [[ -f "docs/plan/${TICKET}.md" ]]
 
 log "reviewer requests automated tests"
-run_cli reviewer-tests --ticket "$TICKET" --target . --status required >/dev/null
+run_cli reviewer-tests --ticket "$TICKET" --status required >/dev/null
 [[ -f "$WORKDIR/reports/reviewer/${TICKET}.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }
 
 log "reviewer clears test requirement"
-run_cli reviewer-tests --ticket "$TICKET" --target . --status optional >/dev/null
+run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
 grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
 grep -q "Tasklist:" "docs/tasklist/${TICKET}.md"
 

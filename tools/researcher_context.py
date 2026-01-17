@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
-from tools.feature_ids import resolve_identifiers
+from tools.feature_ids import resolve_identifiers, resolve_project_root
 
 
 _DEFAULT_CONFIG = Path("config") / "conventions.json"
@@ -1168,7 +1168,6 @@ def _load_callgraph_engine(engine_name: str) -> Optional[_CallGraphEngine]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Prepare context for the Researcher agent.")
-    parser.add_argument("--target", default=".", help="Project root (default: current directory).")
     parser.add_argument("--config", help="Path to conventions JSON with researcher section.")
     parser.add_argument(
         "--ticket",
@@ -1241,9 +1240,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    root = Path(args.target).resolve()
+    root = resolve_project_root(Path.cwd())
     if not root.exists():
-        parser.error(f"target directory does not exist: {root}")
+        parser.error(f"project root does not exist: {root}")
 
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = identifiers.resolved_ticket

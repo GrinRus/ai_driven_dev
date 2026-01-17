@@ -10,7 +10,7 @@ def resolve_project_root(target: Path, subdir: str = DEFAULT_PROJECT_SUBDIR) -> 
     """
     Treat ``target`` as the workspace root and always resolve the workflow under ``<workspace>/<subdir>``.
 
-    If the caller points directly to the subdir (e.g., ``--target aidd``), the workspace root becomes its parent.
+    If the caller points directly to the subdir (e.g., running inside ``aidd``), the workspace root becomes its parent.
     Workspace-level settings (.claude/, .claude-plugin/) live alongside the workflow subdirectory.
     """
     target = target.resolve()

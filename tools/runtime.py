@@ -28,8 +28,9 @@ def require_plugin_root() -> Path:
     return Path(raw).expanduser().resolve()
 
 
-def resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path]:
-    workspace_root, project_root = resolve_workspace_root(raw_target, DEFAULT_PROJECT_SUBDIR)
+def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tuple[Path, Path]:
+    target = (raw_target or Path.cwd()).resolve()
+    workspace_root, project_root = resolve_workspace_root(target, DEFAULT_PROJECT_SUBDIR)
     if project_root.exists():
         return workspace_root, project_root
     if create:
@@ -39,19 +40,19 @@ def resolve_roots(raw_target: Path, *, create: bool = False) -> tuple[Path, Path
         raise FileNotFoundError(f"workspace directory {workspace_root} does not exist")
     raise FileNotFoundError(
         f"workflow not found at {project_root}. Run '/feature-dev-aidd:aidd-init' or "
-        f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target {workspace_root}' "
+        f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
 
-def require_workflow_root(raw_target: Path) -> tuple[Path, Path]:
+def require_workflow_root(raw_target: Path | None = None) -> tuple[Path, Path]:
     workspace_root, project_root = resolve_roots(raw_target, create=False)
     if (project_root / "docs").exists():
         return workspace_root, project_root
     raise FileNotFoundError(
         f"workflow files not found at {project_root}/docs; "
         f"bootstrap via '/feature-dev-aidd:aidd-init' or "
-        f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target {workspace_root}' "
+        f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 

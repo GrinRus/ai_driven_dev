@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from tools import runtime
 
@@ -20,11 +19,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--slug-hint",
         dest="slug_hint",
         help="Optional slug hint override (defaults to docs/.active_feature).",
-    )
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     parser.add_argument(
         "--status",
@@ -51,7 +45,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),

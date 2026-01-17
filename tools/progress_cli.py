@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Sequence
 
 from tools import progress as _progress
@@ -22,11 +21,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--slug-hint",
         dest="slug_hint",
         help="Optional slug hint override used for messaging.",
-    )
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     parser.add_argument(
         "--branch",
@@ -53,7 +47,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
 
     context = runtime.resolve_feature_context(
         target,

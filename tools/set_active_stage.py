@@ -31,11 +31,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("stage", help="Stage name to persist.")
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--allow-custom",
         action="store_true",
         help="Allow arbitrary stage values (skip validation).",
@@ -45,7 +40,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    root = resolve_aidd_root(Path(args.target))
+    root = resolve_aidd_root(Path.cwd())
     stage = _normalize_stage(args.stage)
     if not args.allow_custom and stage not in VALID_STAGES:
         valid = ", ".join(sorted(VALID_STAGES))

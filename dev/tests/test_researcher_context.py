@@ -171,9 +171,10 @@ class ResearcherContextTests(unittest.TestCase):
     def test_set_active_feature_refreshes_targets(self) -> None:
         env = cli_env()
         result = subprocess.run(
-            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
+            cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -204,23 +205,23 @@ class ResearcherContextTests(unittest.TestCase):
         first = subprocess.run(
             cli_cmd(
                 "set-active-feature",
-                "--target",
-                str(self.root),
                 "--slug-note",
                 "checkout-lite",
                 "demo-checkout",
             ),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
             check=True,
         )
         self.assertEqual(first.returncode, 0, msg=first.stderr)
 
         second = subprocess.run(
-            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
+            cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
             check=True,
         )

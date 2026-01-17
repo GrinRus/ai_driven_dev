@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -40,7 +41,7 @@ class ResearchCommandTest(unittest.TestCase):
             project_root = Path(tmpdir) / "aidd"
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                cli_cmd("init", "--target", str(Path(tmpdir))),
+                cli_cmd("init"),
                 cwd=Path(tmpdir),
                 check=True,
                 stdout=subprocess.PIPE,
@@ -52,8 +53,6 @@ class ResearchCommandTest(unittest.TestCase):
             subprocess.run(
                 cli_cmd(
                     "research",
-                    "--target",
-                    str(project_root),
                     "--ticket",
                     "TEST-123",
                     "--limit",
@@ -76,7 +75,7 @@ class ResearchCommandTest(unittest.TestCase):
             project_root = workspace / "aidd"
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                cli_cmd("init", "--target", str(workspace)),
+                cli_cmd("init"),
                 cwd=workspace,
                 check=True,
                 stdout=subprocess.PIPE,
@@ -94,8 +93,6 @@ class ResearchCommandTest(unittest.TestCase):
             mock_engine.return_value = FakeEngine()
             args = research.parse_args(
                 [
-                    "--target",
-                    str(project_root),
                     "--ticket",
                     "WORK-1",
                     "--auto",
@@ -107,8 +104,13 @@ class ResearchCommandTest(unittest.TestCase):
 
             stdout = io.StringIO()
             stderr = io.StringIO()
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                research.run(args)
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
 
             output = stdout.getvalue()
             self.assertIn("base=workspace", output, "CLI should log workspace base when scanning from parent")
@@ -135,7 +137,7 @@ class ResearchCommandTest(unittest.TestCase):
             project_root = workspace / "aidd"
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                cli_cmd("init", "--target", str(workspace)),
+                cli_cmd("init"),
                 cwd=workspace,
                 check=True,
                 stdout=subprocess.PIPE,
@@ -150,8 +152,6 @@ class ResearchCommandTest(unittest.TestCase):
 
             args = research.parse_args(
                 [
-                    "--target",
-                    str(project_root),
                     "--ticket",
                     "FOO-7",
                     "--paths",
@@ -162,8 +162,13 @@ class ResearchCommandTest(unittest.TestCase):
                 ]
             )
             stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
-                research.run(args)
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout):
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
 
             context_path = project_root / "reports" / "research" / "FOO-7-context.json"
             self.assertTrue(context_path.exists(), "research context JSON should be generated for parent paths")

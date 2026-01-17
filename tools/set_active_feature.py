@@ -19,11 +19,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("ticket", help="Feature ticket identifier to persist.")
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--paths",
         help="Optional colon-separated list of extra paths for Researcher scope.",
     )
@@ -50,7 +45,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    root = resolve_aidd_root(Path(args.target))
+    root = resolve_aidd_root(Path.cwd())
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from tools import runtime
 from tools.research_guard import ResearchValidationError, load_settings, validate_research
@@ -22,11 +21,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional slug hint override for messaging (defaults to docs/.active_feature if present).",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--branch",
         help="Current Git branch used to evaluate config.gates researcher branch rules.",
     )
@@ -35,7 +29,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),

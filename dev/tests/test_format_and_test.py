@@ -279,8 +279,6 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
 
     cmd = cli_cmd(
         "reviewer-tests",
-        "--target",
-        str(tmp_path),
         "--status",
         "force",
     )
@@ -293,8 +291,6 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
 
     cmd_idle = cli_cmd(
         "reviewer-tests",
-        "--target",
-        str(tmp_path),
         "--status",
         "idle",
     )

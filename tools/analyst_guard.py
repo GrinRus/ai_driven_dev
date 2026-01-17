@@ -8,6 +8,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, Optional
 
+from tools.feature_ids import resolve_project_root
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
@@ -319,11 +320,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--ticket", "--slug", dest="ticket", required=True, help="Feature ticket to validate (legacy alias: --slug).")
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Project root (defaults to current working directory).",
-    )
-    parser.add_argument(
         "--branch",
         help="Current Git branch (used to evaluate branch/skip rules in config/gates.json).",
     )
@@ -348,7 +344,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    root = Path(args.target).resolve()
+    root = resolve_project_root(Path.cwd())
     settings = load_settings(root)
     try:
         summary = validate_prd(

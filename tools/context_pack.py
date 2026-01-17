@@ -125,11 +125,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Agent name to embed in the pack filename.",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--output",
         help="Optional output path override (default: aidd/reports/context/<ticket>-<agent>.md).",
     )
@@ -138,7 +133,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),

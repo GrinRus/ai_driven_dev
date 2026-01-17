@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from tools import runtime
 from tools.analyst_guard import AnalystValidationError, load_settings, validate_prd
@@ -20,11 +19,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--slug-hint",
         dest="slug_hint",
         help="Optional slug hint override for messaging (defaults to docs/.active_feature if present).",
-    )
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
     )
     parser.add_argument(
         "--branch",
@@ -50,7 +44,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),

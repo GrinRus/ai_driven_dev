@@ -45,7 +45,8 @@ def main() -> int:
     _bootstrap()
     from hooks import hooklib
 
-    root, _ = hooklib.resolve_project_root()
+    ctx = hooklib.read_hook_context()
+    root, _ = hooklib.resolve_project_root(ctx)
     if not (root / "docs").is_dir():
         return 0
 

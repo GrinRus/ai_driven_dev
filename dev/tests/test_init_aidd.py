@@ -12,7 +12,7 @@ class InitAiddTests(unittest.TestCase):
         project_root = workdir if workdir.name == PROJECT_SUBDIR else workdir / PROJECT_SUBDIR
         project_root.mkdir(parents=True, exist_ok=True)
         return subprocess.run(
-            cli_cmd("init", "--target", str(workdir), *args),
+            cli_cmd("init", *args),
             cwd=workdir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -71,11 +71,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional slug hint override used for templates and keywords (defaults to docs/.active_feature).",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--config",
         help="Path to conventions JSON containing the researcher section (defaults to config/conventions.json).",
     )
@@ -86,7 +81,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--paths-relative",
         choices=("workspace", "aidd"),
-        help="Treat relative paths as workspace-rooted (default) or under aidd/. When omitted, defaults to workspace if target is aidd.",
+        help="Treat relative paths as workspace-rooted (default) or under aidd/.",
     )
     parser.add_argument(
         "--keywords",
@@ -176,7 +171,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def run(args: argparse.Namespace) -> int:
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
 
     ticket, feature_context = runtime.require_ticket(
         target,

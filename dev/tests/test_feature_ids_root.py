@@ -20,16 +20,27 @@ class FeatureIdsRootTests(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self._env_backup)
 
-    def test_prefers_plugin_root(self) -> None:
+    def test_ignores_plugin_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
             base = Path(tmp)
-            plugin = base / "aidd"
+            plugin = base / "plugin"
+            workspace = base / "workspace"
             (plugin / "docs").mkdir(parents=True)
+            (workspace / "aidd" / "docs").mkdir(parents=True)
             os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin)
+
+            resolved = resolve_project_root(workspace)
+
+            self.assertEqual(resolved, (workspace / "aidd").resolve())
+
+    def test_uses_cwd_when_already_aidd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
+            base = Path(tmp) / "aidd"
+            (base / "docs").mkdir(parents=True)
 
             resolved = resolve_project_root(base)
 
-            self.assertEqual(resolved, plugin.resolve())
+            self.assertEqual(resolved, base.resolve())
 
     def test_prefers_aidd_subdir_when_present(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:

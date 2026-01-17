@@ -406,7 +406,7 @@ def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
     """Run tools/init.sh to bootstrap workspace into root."""
     ensure_project_root(root)
     subprocess.run(
-        cli_cmd("init", "--target", str(root), *extra_args),
+        cli_cmd("init", *extra_args),
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

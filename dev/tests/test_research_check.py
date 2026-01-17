@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import sys
 import tempfile
 import unittest
@@ -34,7 +35,7 @@ class ResearchCheckTests(unittest.TestCase):
 
     @staticmethod
     def _make_args(workspace: Path, ticket: str) -> list[str]:
-        return ["--target", str(workspace), "--ticket", ticket]
+        return ["--ticket", ticket]
 
     def test_research_check_blocks_missing_report(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -42,8 +43,13 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
 
         args = self._make_args(workspace, ticket)
-        with self.assertRaises(RuntimeError) as excinfo:
-            research_check.main(args)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
 
@@ -64,7 +70,12 @@ class ResearchCheckTests(unittest.TestCase):
         )
 
         args = self._make_args(workspace, ticket)
-        research_check.main(args)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
 
 
 if __name__ == "__main__":

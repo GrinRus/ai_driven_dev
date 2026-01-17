@@ -37,7 +37,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh tasklist` фиксирует стадию `tasklist`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . <ticket>` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh <ticket>` фиксирует активную фичу.
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
@@ -45,7 +45,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `tasklist`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh tasklist`.
-2. Зафиксируй активную фичу: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . "$1"`.
+2. Зафиксируй активную фичу: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 3. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 4. Если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
 5. Запусти саб-агента **feature-dev-aidd:tasklist-refiner** (без AskUserQuestionTool).

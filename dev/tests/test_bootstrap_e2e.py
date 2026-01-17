@@ -32,10 +32,11 @@ def _run_bootstrap(target: Path, *extra_args: str) -> None:
     project_root = target / PROJECT_SUBDIR
     project_root.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        cli_cmd("init", "--target", str(target), *extra_args),
+        cli_cmd("init", *extra_args),
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        cwd=target,
         env=cli_env(),
     )
 

@@ -30,18 +30,12 @@ def _require_plugin_root() -> Path:
 PLUGIN_ROOT = _require_plugin_root()
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
-PROJECT_ROOT = Path.cwd().resolve()
-if PROJECT_ROOT.name != "aidd" and (
-    (PROJECT_ROOT / "aidd" / "docs").is_dir() or (PROJECT_ROOT / "aidd" / "hooks").is_dir()
-):
-    PROJECT_ROOT = PROJECT_ROOT / "aidd"
-WORKSPACE_ROOT = PROJECT_ROOT.parent if PROJECT_ROOT.name == "aidd" else PROJECT_ROOT
 HOOKS_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from tools.feature_ids import FeatureIdentifiers, resolve_identifiers
+from tools.feature_ids import FeatureIdentifiers, resolve_identifiers, resolve_project_root
 
 
 def append_event(
@@ -74,21 +68,11 @@ def append_event(
 LOG_PREFIX = "[format-and-test]"
 
 
-def resolve_settings_path() -> Path:
+def resolve_settings_path(workspace_root: Path) -> Path:
     env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
     if env_path:
-        return Path(env_path)
-    candidates = [
-        WORKSPACE_ROOT / ".claude" / "settings.json",
-        PLUGIN_ROOT / ".claude" / "settings.json",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
-
-
-SETTINGS_PATH = resolve_settings_path()
+        return Path(env_path).expanduser().resolve()
+    return (workspace_root / ".claude" / "settings.json").resolve()
 COMMON_PATTERNS = (
     "config/",
     "gradle/libs.versions.toml",
@@ -399,14 +383,14 @@ def fail(message: str, code: int = 1) -> int:
     return code
 
 
-def load_config() -> dict | None:
-    if not SETTINGS_PATH.exists():
-        log(f"Конфигурация {SETTINGS_PATH} не найдена — шаги пропущены.")
+def load_config(settings_path: Path) -> dict | None:
+    if not settings_path.exists():
+        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
         return None
     try:
-        return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        return json.loads(settings_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise SystemExit(fail(f"Не удалось разобрать {SETTINGS_PATH}: {exc}", 1))
+        raise SystemExit(fail(f"Не удалось разобрать {settings_path}: {exc}", 1))
 
 
 def run_subprocess(cmd: List[str], strict: bool = True) -> bool:
@@ -651,27 +635,22 @@ def clear_checkpoint(path: Path) -> None:
         return
 
 
-def determine_project_dir() -> Path:
-    settings_parent = SETTINGS_PATH.parent
-    if settings_parent.name == ".claude":
-        return settings_parent.parent.resolve()
-    return settings_parent.resolve()
+def resolve_workspace_root(ctx: object | None) -> Path:
+    env_path = os.environ.get("CLAUDE_SETTINGS_PATH")
+    if env_path:
+        settings_path = Path(env_path).expanduser().resolve()
+        if settings_path.name == "settings.json" and settings_path.parent.name == ".claude":
+            return settings_path.parent.parent.resolve()
+        return settings_path.parent.resolve()
+    if ctx is not None:
+        from hooks import hooklib
 
-
-def resolve_project_root(raw: Path) -> Path:
-    cwd = raw.resolve()
-    env_root = os.getenv("CLAUDE_PLUGIN_ROOT")
-    candidates: list[Path] = []
-    if env_root:
-        candidates.append(Path(env_root).expanduser().resolve())
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    for candidate in candidates:
-        if (candidate / "docs").is_dir():
-            return candidate
-    return cwd
+        base = hooklib.resolve_project_dir(ctx)
+    else:
+        base = Path.cwd().resolve()
+    if base.name == "aidd":
+        return base.parent.resolve()
+    return base.resolve()
 
 def read_active_stage(project_root: Path) -> str:
     override = os.environ.get("CLAUDE_ACTIVE_STAGE")
@@ -687,8 +666,13 @@ def read_active_stage(project_root: Path) -> str:
 
 
 def main() -> int:
-    os.chdir(determine_project_dir())
-    project_root = resolve_project_root(Path.cwd())
+    from hooks import hooklib
+
+    ctx = hooklib.read_hook_context()
+    workspace_root = resolve_workspace_root(ctx)
+    os.chdir(workspace_root)
+    settings_path = resolve_settings_path(workspace_root)
+    project_root = resolve_project_root(workspace_root)
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
@@ -703,7 +687,7 @@ def main() -> int:
             log("Активная стадия не задана — форматирование/тесты пропущены.")
             return 0
 
-    config = load_config()
+    config = load_config(settings_path)
     if config is None:
         return 0
 
@@ -837,7 +821,7 @@ def main() -> int:
         code_exact = normalize_code_files([code_files_raw])
 
     changed_files = [path for path in collect_changed_files() if not is_cache_artifact(path)]
-    identifiers = resolve_identifiers(PROJECT_ROOT)
+    identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
 

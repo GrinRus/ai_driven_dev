@@ -31,11 +31,6 @@ class TasklistCheckResult:
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate tasklist readiness.")
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
     parser.add_argument("--ticket", default=None, help="Feature ticket (defaults to docs/.active_ticket).")
     parser.add_argument("--slug-hint", default=None, help="Optional slug hint override.")
     parser.add_argument("--branch", default="", help="Current branch name for branch filters.")
@@ -328,7 +323,7 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
 
 
 def run_check(args: argparse.Namespace) -> int:
-    root = resolve_project_root(Path(args.target).resolve())
+    root = resolve_project_root(Path.cwd())
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path

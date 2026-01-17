@@ -28,8 +28,6 @@ class ContextPackTests(unittest.TestCase):
             result = subprocess.run(
                 cli_cmd(
                     "context-pack",
-                    "--target",
-                    str(root),
                     "--ticket",
                     "DEMO-1",
                     "--agent",
@@ -37,6 +35,7 @@ class ContextPackTests(unittest.TestCase):
                 ),
                 text=True,
                 capture_output=True,
+                cwd=root,
                 env=cli_env(),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)

@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import tempfile
 import unittest
@@ -22,14 +23,18 @@ def write_plan(root: Path, ticket: str, review_body: str) -> Path:
 def run_gate(root: Path, ticket: str, review_body: str) -> int:
     write_plan(root, ticket, review_body)
     args = argparse.Namespace(
-        target=root,
         ticket=ticket,
         file_path="src/main/kotlin/App.kt",
         branch="",
         config="config/gates.json",
         skip_on_plan_edit=False,
     )
-    return plan_review_gate.run_gate(args)
+    old_cwd = Path.cwd()
+    os.chdir(root)
+    try:
+        return plan_review_gate.run_gate(args)
+    finally:
+        os.chdir(old_cwd)
 
 
 class PlanReviewGateTests(unittest.TestCase):

@@ -16,11 +16,11 @@ from tools import tests_log
 
 
 def test_cli_parses_new_subcommands():
-    prd_review.parse_args(["--target", ".", "--ticket", "DEMO-1"])
+    prd_review.parse_args(["--ticket", "DEMO-1"])
     plan_review_gate.parse_args(["--ticket", "DEMO-1"])
     prd_review_gate.parse_args(["--ticket", "DEMO-1"])
-    tasklist_check.parse_args(["--target", ".", "--ticket", "DEMO-1"])
+    tasklist_check.parse_args(["--ticket", "DEMO-1"])
     researcher_context._build_parser().parse_args([])
-    identifiers.parse_args(["--target", ".", "--json"])
+    identifiers.parse_args(["--json"])
     context_pack.parse_args(["--agent", "implementer"])
     tests_log.parse_args(["--status", "pass"])

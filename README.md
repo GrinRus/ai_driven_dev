@@ -70,7 +70,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 | Команда | Назначение |
 | --- | --- |
 | `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Создать `./aidd` из шаблонов (без перезаписи) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh [--target <path>]` | Диагностика окружения, путей и наличия `aidd/` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |
 | `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket>` | Сгенерировать research-контекст |
 | `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` |
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
@@ -89,7 +89,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--target <path>] [--force]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force]` |
 | `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
@@ -112,7 +112,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 - Плагин живёт в корне репозитория (директории `commands/`, `agents/`, `hooks/`).
 - Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
-- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh --target .`.
+- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).

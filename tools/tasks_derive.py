@@ -377,11 +377,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional slug hint override used for messaging.",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--report",
         help="Optional report path override (default depends on --source).",
     )
@@ -405,7 +400,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
 
     context = runtime.resolve_feature_context(
         target,

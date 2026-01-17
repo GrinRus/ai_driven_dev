@@ -279,14 +279,15 @@ def main() -> int:
     _bootstrap()
     from hooks import hooklib
 
-    root, used_workspace = hooklib.resolve_project_root()
+    ctx = hooklib.read_hook_context()
+    root, used_workspace = hooklib.resolve_project_root(ctx)
     if used_workspace:
         _log_stdout(f"WARN: detected workspace root; using {root} as project root")
 
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target <workspace>' to bootstrap ./aidd.".format(
+            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )
@@ -297,7 +298,7 @@ def main() -> int:
         if stage != "implement":
             return 0
 
-    payload = hooklib.read_hook_payload()
+    payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
 
     config_path = root / "config" / "gates.json"

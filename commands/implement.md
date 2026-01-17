@@ -39,7 +39,7 @@ disable-model-invocation: false
 - Повторять на каждой итерации разработки.
 
 ## Автоматические хуки и переменные
-- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . <ticket>` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh <ticket>` фиксирует активную фичу.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement` фиксирует стадию `implement`.
 - Команда должна запускать саб-агента **feature-dev-aidd:implementer** (Claude: Run agent → feature-dev-aidd:implementer).
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).

@@ -130,11 +130,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional slug hint override used for messaging.",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--branch",
         help="Git branch name for logging (autodetected by default).",
     )
@@ -201,7 +196,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
 
     context = runtime.resolve_feature_context(
         target,
@@ -254,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("[aidd] QA tests completed.", file=sys.stderr)
 
-    qa_args = ["--target", str(target)]
+    qa_args: list[str] = []
     if args.gate:
         qa_args.append("--gate")
     if args.dry_run:

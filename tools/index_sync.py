@@ -246,11 +246,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
     parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint override.")
     parser.add_argument("--slug", help="Optional slug override used in the index file.")
-    parser.add_argument("--target", default=".", help="Workspace root (default: current; workflow lives in ./aidd).")
     parser.add_argument("--output", help="Optional output path override.")
     args = parser.parse_args(argv)
 
-    _, root = runtime.require_workflow_root(Path(args.target).resolve())
+    _, root = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(
         root,
         ticket=getattr(args, "ticket", None),

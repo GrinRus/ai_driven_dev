@@ -43,7 +43,8 @@ def main() -> int:
     from hooks import hooklib
     from tools import prd_review_gate
 
-    root, used_workspace = hooklib.resolve_project_root()
+    ctx = hooklib.read_hook_context()
+    root, used_workspace = hooklib.resolve_project_root(ctx)
     if used_workspace:
         _log_stdout(f"WARN: detected workspace root; using {root} as project root")
 
@@ -51,11 +52,13 @@ def main() -> int:
         _log_stderr(
             f"BLOCK: aidd/docs not found at {root / 'docs'}. "
             "Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh --target <workspace>' to bootstrap ./aidd."
+            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh' from the workspace root to bootstrap ./aidd."
         )
         return 2
 
-    payload = hooklib.read_hook_payload()
+    os.chdir(root)
+
+    payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
 
     config_path = root / "config" / "gates.json"
@@ -89,7 +92,7 @@ def main() -> int:
     event_status = "fail"
     event_should_log = True
     try:
-        args = ["--target", str(root), "--ticket", ticket, "--file-path", file_path, "--skip-on-prd-edit"]
+        args = ["--ticket", ticket, "--file-path", file_path, "--skip-on-prd-edit"]
         branch = hooklib.git_current_branch(root)
         if branch:
             args.extend(["--branch", branch])

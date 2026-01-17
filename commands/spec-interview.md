@@ -36,7 +36,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh spec-interview` фиксирует стадию `spec-interview`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . <ticket>` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh <ticket>` фиксирует активную фичу.
 - AskUserQuestionTool используется только здесь (не в саб-агентах).
 
 ## Что редактируется

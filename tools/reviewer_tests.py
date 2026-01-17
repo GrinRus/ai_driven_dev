@@ -4,7 +4,6 @@ import argparse
 import datetime as dt
 import json
 import os
-from pathlib import Path
 from typing import Sequence
 
 from tools import runtime
@@ -30,11 +29,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional slug hint override for marker metadata.",
     )
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
-    parser.add_argument(
         "--status",
         default="required",
         help="Tests state to store in the marker (default: required).",
@@ -57,7 +51,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root(Path(args.target).resolve())
+    _, target = runtime.require_workflow_root()
 
     ticket, context = runtime.require_ticket(
         target,

@@ -20,12 +20,7 @@ def _check_binary(name: str) -> tuple[bool, str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AIDD install diagnostics.")
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (defaults to current directory).",
-    )
-    args = parser.parse_args(argv)
+    parser.parse_args(argv)
 
     errors: list[str] = []
     rows: list[tuple[str, bool, str]] = []
@@ -64,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         if missing:
             errors.append("Reinstall the plugin to restore missing directories.")
 
-    target = Path(args.target).expanduser().resolve()
+    target = Path.cwd().resolve()
     workspace_root, project_root = resolve_project_root(target, DEFAULT_PROJECT_SUBDIR)
     rows.append(("workspace root", workspace_root.exists(), str(workspace_root)))
     if not workspace_root.exists():
@@ -75,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     if not docs_ok:
         errors.append(
             "Run /feature-dev-aidd:aidd-init or "
-            f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target {workspace_root}' to bootstrap."
+            f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root to bootstrap."
         )
 
     print("AIDD Doctor")

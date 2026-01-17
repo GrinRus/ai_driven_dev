@@ -9,6 +9,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, Optional
 
+from tools.feature_ids import resolve_project_root
 
 class ResearchValidationError(RuntimeError):
     """Raised when researcher validation fails."""
@@ -232,11 +233,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--ticket", "--slug", dest="ticket", required=True, help="Feature ticket to validate (legacy alias: --slug).")
     parser.add_argument(
-        "--target",
-        default=".",
-        help="Project root (defaults to current working directory).",
-    )
-    parser.add_argument(
         "--branch",
         help="Current Git branch (used to evaluate branch/skip rules in config/gates.json).",
     )
@@ -246,12 +242,12 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    root = Path(args.target).resolve()
+    root = resolve_project_root(Path.cwd())
     if not (root / "docs").exists():
         parser.exit(
             1,
             f"BLOCK: expected aidd/docs at {root / 'docs'}. "
-            f"Run '/feature-dev-aidd:aidd-init' or '${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh --target <workspace>'.",
+            f"Run '/feature-dev-aidd:aidd-init' or '${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root.",
         )
     settings = load_settings(root)
     try:

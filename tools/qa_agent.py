@@ -93,11 +93,6 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run heuristic QA checks for the current Claude workflow project."
     )
-    parser.add_argument(
-        "--target",
-        default=".",
-        help="Workspace root (default: current; workflow lives in ./aidd).",
-    )
     parser.add_argument("--ticket", "--slug", dest="ticket", help="Active feature ticket (legacy alias: --slug).")
     parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint used for messaging.")
     parser.add_argument("--branch", help="Current branch name. Autodetected when omitted.")
@@ -414,7 +409,7 @@ def write_report(report_path: Path, payload: dict) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     global ROOT_DIR
-    ROOT_DIR = detect_project_root(Path(args.target))
+    ROOT_DIR = detect_project_root()
     ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
     branch = detect_branch(args.branch)
     files = collect_changed_files()

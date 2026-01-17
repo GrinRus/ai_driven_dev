@@ -6,9 +6,17 @@
 > Ticket — основной идентификатор фичи (`aidd/docs/.active_ticket`), slug-hint при необходимости сохраняется в `aidd/docs/.active_feature` и используется в шаблонах и логах.
 > Текущая стадия фиксируется в `aidd/docs/.active_stage` (`idea/research/plan/review-plan/review-prd/tasklist/implement/review/qa`); команды обновляют маркер и допускают откат на любой этап.
 > Шаблоны workspace хранятся в `templates/aidd/` и разворачиваются командой `/feature-dev-aidd:aidd-init`. Повторный запуск добавляет недостающие файлы и не перезаписывает существующие.
-> Для проверки окружения и путей используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh --target .`.
+> Для проверки окружения и путей используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 > **Важно:** `aidd/` — рабочий snapshot проекта (docs/prd, docs/adr, docs/plan, docs/tasklist, docs/research, reports). Канонические шаблоны правьте в `templates/aidd/**`, а рабочие артефакты — в `aidd/**`.
 > Контекст читается anchors‑first: stage‑anchor → `AIDD:*` секции → full docs; working set (`aidd/reports/context/latest_working_set.md`) — первый источник при наличии.
+
+## Кеш плагина и пути
+
+- Claude Code копирует плагин в локальный кеш; доступ к файлам вне корня плагина запрещён.
+- Пути в `.claude-plugin/plugin.json` должны быть относительными и начинаться с `./`.
+- `${CLAUDE_PLUGIN_ROOT}` указывает на кешированную копию плагина и используется только для ресурсов плагина (`commands/`, `agents/`, `hooks/`, `tools/`, `templates/`).
+- Рабочий root — это workspace, где развёрнут `./aidd`; хуки не гарантируют `cwd`, используйте `cwd` из hook payload.
+- Подробности: [документация Claude Code](https://code.claude.com/docs/en/plugins-reference#plugin-caching-and-file-resolution)
 
 ## Context pack
 

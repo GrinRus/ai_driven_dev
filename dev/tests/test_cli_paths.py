@@ -5,7 +5,8 @@ from tests.helpers import cli_cmd, cli_env
 
 def test_cli_init_creates_aidd_under_workspace(tmp_path):
     result = subprocess.run(
-        cli_cmd("init", "--target", str(tmp_path), "--force"),
+        cli_cmd("init", "--force"),
+        cwd=tmp_path,
         text=True,
         capture_output=True,
         env=cli_env(),
@@ -17,7 +18,7 @@ def test_cli_init_creates_aidd_under_workspace(tmp_path):
 
 def test_cli_command_errors_when_workflow_missing(tmp_path):
     result = subprocess.run(
-        cli_cmd("research", "--target", ".", "--ticket", "DEMO-1", "--targets-only", "--auto"),
+        cli_cmd("research", "--ticket", "DEMO-1", "--targets-only", "--auto"),
         cwd=tmp_path,
         text=True,
         capture_output=True,
