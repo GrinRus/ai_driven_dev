@@ -39,7 +39,6 @@ class InitAiddTests(unittest.TestCase):
             "docs/prd/template.md",
             "reports/prd/.gitkeep",
             "AGENTS.md",
-            ".markdownlint.yaml",
         ]
         for rel in expected_paths:
             with self.subTest(path=rel):

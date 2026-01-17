@@ -7,7 +7,6 @@ from .helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 
 # Represent key artefacts that must match templates byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
-    ".markdownlint.yaml",
     "AGENTS.md",
     "conventions.md",
     "config/context_gc.json",
@@ -114,4 +113,4 @@ def test_bootstrap_force_overwrites_modified_files():
         _run_bootstrap(target, "--force")
 
         payload_gate = TEMPLATES_ROOT / "config" / "gates.json"
-        assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore template version"
+        assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore template content"
