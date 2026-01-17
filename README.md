@@ -117,8 +117,10 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
 - Глубокий разбор и кастомизация: `dev/doc/workflow.md`, `dev/doc/customization.md`.
-- Playbook агентов и QA: `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`.
 - Английская версия: `README.en.md`.
+
+## Dev-only проверки
+- Репозиторные проверки (maintainer only): `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
 
 ## Вклад
 Правила вкладов: `CONTRIBUTING.md`.

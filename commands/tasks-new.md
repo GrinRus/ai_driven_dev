@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:tasks-new` готовит `aidd/docs/tasklist/<ticket>.md` (шаблон + anchors), затем запускает саб-агента **tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
+Команда `/feature-dev-aidd:tasks-new` готовит `aidd/docs/tasklist/<ticket>.md` (шаблон + anchors), затем запускает саб-агента **feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
 Интервью проводится командой `/feature-dev-aidd:spec-interview` (опционально), которая пишет `aidd/docs/spec/<ticket>.spec.yaml`. Tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/tasklist.md`.
 
@@ -48,7 +48,7 @@ disable-model-invocation: false
 2. Зафиксируй активную фичу: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh --target . "$1"`.
 3. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 4. Если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
-5. Запусти саб-агента **tasklist-refiner** (без AskUserQuestionTool).
+5. Запусти саб-агента **feature-dev-aidd:tasklist-refiner** (без AskUserQuestionTool).
 6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` (с iteration_id/DoD/Boundaries/Steps/Tests).
 
 ## Fail-fast и вопросы

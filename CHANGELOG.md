@@ -16,14 +16,14 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - SDLC contract docs: `aidd/docs/sdlc-flow.md` and `aidd/docs/status-machine.md`.
 - `aidd/AGENTS.md` as the primary agent entrypoint.
 - Plan template (`aidd/docs/plan/template.md`) with mandatory executability sections.
-- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`, `dev/doc/qa-playbook.md`, and `aidd/agents/qa.md` with severity guidance.
+- QA gate: `aidd/hooks/gate-qa.sh`, heuristic agent via `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`, and `aidd/agents/qa.md` with severity guidance.
 - CI now executes the QA gate (`dev/.github/workflows/ci.yml`) with diff-aware analysis (`QA_AGENT_DIFF_BASE`).
 - Analyst dialog enforcement: updated `aidd/agents/analyst.md`, PRD template with `## Диалог analyst`, script `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.
 - Progress tracking: script `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, new `tasklist_progress` gate in `config/gates.json`, gate-workflow integration, smoke coverage, and unit tests validating missing/updated checkboxes.
-- Iteration playbooks updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`) reflecting the mandatory tasklist sync.
+- Iteration guidance updated for implementer/reviewer/qa agents, tasklist template guidance (`Checkbox updated: …`), and docs (`README`, `dev/doc/workflow.md`) reflecting the mandatory tasklist sync.
 - Auto PRD scaffolding: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` and `tools/feature_ids.py` now create `aidd/docs/prd/<ticket>.prd.md` with `Status: draft`, so agents/gates always work against an existing artefact.
 - Runtime workflow tools: `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`, `plan-review-gate`, `prd-review-gate`, `research`, and `context-gc-*.sh`.
-- Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, `dev/doc/templates/prompts/prompt-agent.md`, `dev/doc/templates/prompts/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `dev/doc/workflow.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md`, `dev/doc/agents-playbook.md`, ensuring agents log repository inputs and script commands before asking the user.
+- Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, `dev/doc/templates/prompts/prompt-agent.md`, `dev/doc/templates/prompts/prompt-command.md`, PRD/tasklist/research templates, README (RU/EN), `dev/doc/workflow.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Changed
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
@@ -41,7 +41,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
 - Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; legacy `tasklist.md` больше не мигрируется автоматически.
 - `set-active-feature` больше не нормализует front-matter tasklist и не переносит legacy `tasklist.md`.
-- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` и шаблоны tasklist.
+- Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `dev/doc/workflow.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` и шаблоны tasklist.
 - `prd-review-gate`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
 - Hooks call `${CLAUDE_PLUGIN_ROOT}/hooks/*.sh` and runtime tools call `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`; no `claude-workflow` dependency.
 - `dev/repo_tools/ci-lint.sh` запускает линтер промптов, dry-run `dev/repo_tools/prompt-version`, новые тесты (`dev/tests/test_prompt_lint.py`, `dev/tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.

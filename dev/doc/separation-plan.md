@@ -15,5 +15,5 @@
 3. **Поддерживать чистый корень репозитория.**
    - Группировать dev-only материалы и обновлять README/CONTRIBUTING.
 4. **Закрепить аудит в процессах.**
-   - Проверки: `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
+   - Dev-only проверки: `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
    - Регулярно сверять `dev/doc/distro-audit.md` перед релизом.

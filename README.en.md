@@ -124,8 +124,10 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
 - Deep dive and customization: `dev/doc/workflow.md`, `dev/doc/customization.md`.
-- Agent and QA playbooks: `dev/doc/agents-playbook.md`, `dev/doc/qa-playbook.md`.
 - Russian version: `README.md`.
+
+## Dev-only checks
+- Repo checks (maintainer only): `dev/repo_tools/ci-lint.sh`, `dev/repo_tools/smoke-workflow.sh`.
 
 ## Contributing
 Contribution guide: `CONTRIBUTING.md`.

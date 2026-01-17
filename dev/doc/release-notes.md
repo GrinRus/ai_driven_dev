@@ -75,7 +75,7 @@
 - `aidd/AGENTS.md` как основной вход для агентного контекста.
 - Шаблон плана `aidd/docs/plan/template.md` с обязательными секциями и блоком Plan Review.
 - Автосоздание PRD: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` и `tools/feature_ids.py` теперь сразу создают `aidd/docs/prd/<ticket>.prd.md` со статусом `Status: draft`, так что гейты видят артефакт до начала диалога.
-- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/feature-dev-aidd:idea-new`, `dev/doc/templates/prompts/prompt-agent.md` и `dev/doc/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `dev/doc/workflow.md`, `dev/doc/agents-playbook.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` описывают новые правила.
+- Agent-first шаблоны и команды: обновлены `aidd/docs/prd/template.md`, `aidd/docs/tasklist/template.md`, `aidd/docs/research/template.md`, `/feature-dev-aidd:idea-new`, `dev/doc/templates/prompts/prompt-agent.md` и `dev/doc/templates/prompts/prompt-command.md`, чтобы агенты фиксировали используемые команды/артефакты и задавали вопросы только после анализа репозитория. README/README.en, `dev/doc/workflow.md`, `dev/doc/feature-cookbook.md`, `dev/doc/customization.md` описывают новые правила.
 - Каталог `aidd/reports/prd` разворачивается при `/feature-dev-aidd:aidd-init` (через `.gitkeep`), ручной `mkdir` больше не нужен.
 
 ### Changed
