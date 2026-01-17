@@ -8,7 +8,14 @@
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
 - Backlog: `backlog.md` (корень).
-- User‑артефакты: `aidd/**` (docs/reports/config).
+- User‑артефакты: `aidd/**` (docs/reports/config/.cache).
+- Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
+
+## Источник истины (dev vs user)
+- `templates/aidd/**` — источник истины для workspace‑шаблонов; правим шаблоны, а не сгенерированный `aidd/**`.
+- `aidd/**` появляется в workspace после `/feature-dev-aidd:aidd-init` и не хранится в repo (кроме шаблонов).
+- `AGENTS.md` (корень) — dev‑гайд для репозитория; `templates/aidd/AGENTS.md` — user‑гайд для проектов.
+- При изменении поведения: обновите `templates/aidd/**`, `AGENTS.md`, затем проверьте bootstrap (`/feature-dev-aidd:aidd-init`) и smoke.
 
 ## Архитектура путей (plugin cache vs workspace)
 - Плагин копируется в cache Claude Code: записи в `${CLAUDE_PLUGIN_ROOT}` недопустимы.
@@ -20,6 +27,8 @@
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
 - Дополнительно (если нужно): `python3 -m unittest discover -s tests -t .`.
+- Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
+- Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
 
 ## Workflow (кратко)
 Канонические стадии: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
@@ -46,8 +55,9 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `qa.debounce_minutes`
   - `tasklist_progress`
 - Важные env:
-  - `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
-  - `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
+  - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
+  - `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
+  - `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
 
 ## Prompt versioning
 - Semver: `MAJOR.MINOR.PATCH`.
@@ -65,7 +75,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - Reviewer marker: `aidd/reports/reviewer/<ticket>.json`
   - Tests log: `aidd/reports/tests/<ticket>.jsonl`
 - Pack‑first: читать pack (yaml/toon) если есть, иначе JSON.
-- Header (минимум): `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA).
+- Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
 - Budgets (пример):
@@ -74,11 +84,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - PRD pack: findings<=20, action_items<=10
 - Патчи (опционально): RFC6902 в `aidd/reports/<type>/<ticket>.patch.json`.
 - Pack‑only/field filters: `AIDD_PACK_ONLY`, `AIDD_PACK_ALLOW_FIELDS`, `AIDD_PACK_STRIP_FIELDS`.
-
-## Report stats (auto)
-<!-- report-stats:start -->
-No reports found. Run `python3 tests/repo_tools/report_stats.py --write` after reports exist.
-<!-- report-stats:end -->
+- Pack‑env: `AIDD_PACK_FORMAT`, `AIDD_PACK_LIMITS`, `AIDD_PACK_ENFORCE_BUDGET`.
 
 ## Release checklist (сжато)
 - Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.
@@ -87,13 +93,6 @@ No reports found. Run `python3 tests/repo_tools/report_stats.py --write` after r
 - Проверить prompt‑versioning и prompt‑lint (см. выше).
 - Убедиться, что dev‑only артефакты не попали в дистрибутив.
 - Обновить `CHANGELOG.md` (и release notes при необходимости).
-
-## Migration (marketplace‑only → `aidd/`)
-1. Зафиксируйте локальные изменения.
-2. В рабочем проекте удалите legacy‑снапшоты: `.claude/`, `.claude-plugin/`, `config/`, `docs/`, `templates/`, `tools/` (если это старые копии). Не трогайте каталоги плагина в этом репозитории.
-3. Установите плагин через marketplace и запустите `/feature-dev-aidd:aidd-init`.
-4. Перенесите артефакты в `aidd/docs` и `aidd/reports`.
-5. Прогоните `tests/repo_tools/smoke-workflow.sh`.
 
 ## ADR: Workspace в `aidd/`
 - Решение: рабочие артефакты живут в `./aidd`, плагин — в корне репозитория.
@@ -199,161 +198,4 @@ model: inherit
 ## Примеры CLI
 - Приведите пример вызова команды/скрипта (например, `/feature-dev-aidd:implement ABC-123` или `!bash -lc '${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --ticket ABC-123'`).
 - Добавьте подсказки по аргументам и типовым ошибкам.
-```
-
-## Git hook templates
-Эти хуки предназначены для разработки этого репозитория. В пользовательских проектах запускайте нужные хуки через `${CLAUDE_PLUGIN_ROOT}/hooks/*` или адаптируйте скрипты под свой репозиторий.
-
-### Установка
-Создайте файл в `.git/hooks/`, сделайте исполняемым:
-```
-chmod +x .git/hooks/<hook>
-```
-
-### commit-msg
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-MESSAGE_FILE="$1"
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-CONFIG_FILE="${ROOT_DIR}/aidd/config/conventions.json"
-
-# Установите COMMIT_LINT_BYPASS=1, чтобы пропустить проверку (например, для emergency-коммитов).
-if [[ "${COMMIT_LINT_BYPASS:-0}" == "1" ]]; then
-  exit 0
-fi
-
-if [[ ! -f "$CONFIG_FILE" ]]; then
-  printf '[commit-msg] aidd/config/conventions.json не найден, проверка пропущена\n' >&2
-  exit 0
-fi
-
-python3 - "$CONFIG_FILE" "$MESSAGE_FILE" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-config_path = Path(sys.argv[1])
-message_file = Path(sys.argv[2])
-
-data = json.loads(config_path.read_text(encoding="utf-8"))
-commit_cfg = data.get("commit", {})
-mode = commit_cfg.get("mode") or commit_cfg.get("activeMode", "ticket-prefix")
-modes = commit_cfg.get("modes", {})
-mode_cfg = modes.get(mode, {})
-
-first_line = message_file.read_text(encoding="utf-8").splitlines()[0].strip()
-
-if not first_line or first_line.startswith("Merge") or first_line.startswith("#"):
-    sys.exit(0)
-
-patterns = {
-    "ticket-prefix": r"^[A-Z0-9._-]+: .+",
-    "conventional": r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?: .+",
-    "mixed": r"^[A-Z0-9._-]+ (build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?: .+"
-}
-
-pattern = patterns.get(mode)
-if pattern is None:
-    sys.exit(0)
-
-if re.match(pattern, first_line):
-    sys.exit(0)
-
-example = mode_cfg.get("example", "STORE-123: describe change")
-print(f"[commit-msg] Сообщение не соответствует режиму '{mode}'. Пример: {example}", file=sys.stderr)
-sys.exit(1)
-PY
-```
-
-### prepare-commit-msg
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-MESSAGE_FILE="$1"
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-CONFIG_FILE="${ROOT_DIR}/aidd/config/conventions.json"
-
-# Пропустить автозаполнение, если сообщение уже содержит текст (игнорируя комментарии).
-if grep -Eq '^[^#[:space:]]' "$MESSAGE_FILE"; then
-  exit 0
-fi
-
-if [[ ! -f "$CONFIG_FILE" ]]; then
-  exit 0
-fi
-
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
-
-python3 - "$CONFIG_FILE" "$MESSAGE_FILE" "$CURRENT_BRANCH" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-config_path = Path(sys.argv[1])
-message_file = Path(sys.argv[2])
-branch = sys.argv[3]
-
-data = json.loads(config_path.read_text(encoding="utf-8"))
-commit_cfg = data.get("commit", {})
-mode = commit_cfg.get("mode") or commit_cfg.get("activeMode", "ticket-prefix")
-modes = commit_cfg.get("modes", {})
-mode_cfg = modes.get(mode, {})
-example = mode_cfg.get("example", "STORE-123: describe change")
-
-ticket = ""
-if branch:
-    match = re.search(r"[A-Z][A-Z0-9]+-[0-9]+", branch)
-    if match:
-        ticket = match.group(0)
-
-if mode == "ticket-prefix" and ticket:
-    suggestion = f"{ticket}: "
-elif mode == "mixed" and ticket:
-    suggestion = f"{ticket} feat(<scope>): "
-elif mode == "conventional":
-    suggestion = "feat(<scope>): "
-else:
-    suggestion = ""
-
-if not suggestion:
-    sys.exit(0)
-
-original = message_file.read_text(encoding="utf-8", errors="ignore")
-comment_hint = f"# Пример ({mode}): {example}"
-
-message_file.write_text(
-    suggestion + "\n\n" + comment_hint + "\n" + original,
-    encoding="utf-8"
-)
-PY
-```
-
-### pre-push
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-HOOK="${ROOT_DIR}/hooks/format-and-test.sh"
-
-# Установите PRE_PUSH_SKIP=1, чтобы временно отключить проверку.
-if [[ "${PRE_PUSH_SKIP:-0}" == "1" ]]; then
-  exit 0
-fi
-
-if [[ ! -x "$HOOK" ]]; then
-  printf '[pre-push] %s не найден, пропускаем проверки\n' "$HOOK" >&2
-  exit 0
-fi
-
-export STRICT_TESTS="${STRICT_TESTS:-1}"
-export SKIP_FORMAT="${SKIP_FORMAT:-0}"
-
-cd "$ROOT_DIR"
-"$HOOK"
 ```
