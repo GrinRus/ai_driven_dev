@@ -1,6 +1,6 @@
 # AIDD Claude Code Plugin - Language-agnostic Workflow Template
 
-> Готовый плагин для Claude Code: слэш-команды, агенты, хуки и шаблоны для процесса idea → research → plan → review-spec → tasklist → implement → review → qa.
+> Готовый плагин для Claude Code: слэш-команды, агенты, хуки и шаблоны для процесса idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 
 ## Оглавление
 - [Что это](#что-это)
@@ -14,10 +14,10 @@
 - [Лицензия](#лицензия)
 
 ## Что это
-AIDD добавляет к проекту готовый процесс разработки с агентами и гейтами. Вы получаете структуру `aidd/`, набор слэш-команд и скриптов, а также единый способ вести PRD, планы и tasklist.
+AIDD — это AI-Driven Development: LLM работает не как «один большой мозг», а как команда ролей внутри привычного SDLC. Плагин для Claude Code помогает уйти от вайб-коддинга: фиксирует артефакты (PRD/plan/tasklist/отчёты), проводит через quality‑гейты и добавляет агентов, слэш‑команды, хуки и структуру `aidd/`.
 
 Ключевые возможности:
-- Слэш-команды и агенты для цепочки idea → research → plan → review-spec → tasklist → implement → review → qa.
+- Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
@@ -52,6 +52,7 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 /feature-dev-aidd:researcher STORE-123
 /feature-dev-aidd:plan-new STORE-123
 /feature-dev-aidd:review-spec STORE-123
+/feature-dev-aidd:spec-interview STORE-123
 /feature-dev-aidd:tasks-new STORE-123
 /feature-dev-aidd:implement STORE-123
 /feature-dev-aidd:review STORE-123
@@ -59,11 +60,8 @@ ${CLAUDE_PLUGIN_ROOT}/tools/init.sh
 ```
 
 Примечания:
-- `/feature-dev-aidd:idea-new` принимает `ticket` и опциональный `slug-hint`.
-- После `/feature-dev-aidd:idea-new` ответьте аналитику и доведите PRD до `Status: READY` (проверьте `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket STORE-123`).
-- Ответы фиксируйте в `AIDD:ANSWERS` (формат `Answer N`) и синхронизируйте `AIDD:OPEN_QUESTIONS` как `Q1/Q2/...` — при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон.
-- В плане вместо дублирования вопросов используйте ссылки `PRD QN`.
-- `/feature-dev-aidd:review-spec` выполняет review-plan и review-prd в одном шаге.
+- Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
+- Отвечайте в `AIDD:ANSWERS` (формат `Answer N`) в ответ на ту же команду, которая задала вопросы; синхронизируйте `AIDD:OPEN_QUESTIONS` как `Q1/Q2/...`; при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон. В плане используйте ссылки `PRD QN` вместо дублирования вопросов.
 
 ## Скрипты и проверки
 
