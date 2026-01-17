@@ -1,18 +1,11 @@
 import json
-from pathlib import Path
 import unittest
+
+from tests.helpers import REPO_ROOT
 
 
 class SettingsPolicyTest(unittest.TestCase):
-    SETTINGS_PATH = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "claude_workflow_cli"
-        / "data"
-        / "payload"
-        / ".claude"
-        / "settings.json"
-    )
+    SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
 
     @classmethod
     def setUpClass(cls):

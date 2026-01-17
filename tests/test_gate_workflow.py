@@ -6,7 +6,7 @@ import subprocess
 from textwrap import dedent
 
 from .helpers import (
-    PAYLOAD_ROOT,
+    HOOKS_DIR,
     ensure_gates_config,
     ensure_project_root,
     git_config_user,
@@ -39,7 +39,7 @@ REVIEW_REPORT = {"summary": "", "findings": []}
 
 
 def _plugin_hooks():
-    path = PAYLOAD_ROOT / "hooks" / "hooks.json"
+    path = HOOKS_DIR / "hooks.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -232,7 +232,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
-    plan_path = tmp_path / "docs" / "plan" / f"{ticket}.md"
+    plan_path = ensure_project_root(tmp_path) / "docs" / "plan" / f"{ticket}.md"
     with plan_path.open("a", encoding="utf-8") as fh:
         fh.write("- iteration_id: I4\n  - Goal: extra scope\n")
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
@@ -726,7 +726,7 @@ def test_plugin_hooks_cover_workflow_events():
         for entry in entries:
             for hook in entry.get("hooks", []):
                 cmd = hook.get("command", "")
-                assert "${CLAUDE_PLUGIN_ROOT:-./aidd}" in cmd, f"hook command missing aidd guard in {event}: {cmd}"
+                assert "${CLAUDE_PLUGIN_ROOT}" in cmd, f"hook command missing aidd guard in {event}: {cmd}"
 
 
 def _ru_prompt(version: str, name: str = "analyst") -> str:
@@ -938,7 +938,7 @@ def test_hook_uses_aidd_docs_when_workspace_has_legacy_docs(tmp_path):
     assert "legacy" not in combined
 
 
-def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
+def test_hook_requires_plugin_root(tmp_path):
     slug = "demo-checkout"
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, slug)
@@ -949,12 +949,11 @@ def test_hook_handles_missing_plugin_root_but_valid_project(tmp_path):
     write_json(project_root, f"reports/prd/{slug}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
-    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    env = {"CLAUDE_PLUGIN_ROOT": ""}
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
     result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
-    # research pending will still block; key is no crash and correct root resolution
-    assert result.returncode in (0, 2)
-    assert "aidd" in (result.stdout + result.stderr)
+    assert result.returncode == 2
+    assert "CLAUDE_PLUGIN_ROOT is required" in result.stderr
 
 
 def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):
@@ -983,16 +982,15 @@ def test_hook_prefers_aidd_active_markers_over_legacy_docs(tmp_path):
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
-    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(legacy_root)}
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-    result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
+    result = run_hook(tmp_path, "gate-workflow.sh", payload)
     assert result.returncode in (0, 2)
     combined = (result.stdout + result.stderr).lower()
     assert ticket.lower() in combined or "block" not in combined
     assert "legacy" not in combined
 
 
-def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
+def test_hook_allows_with_duplicate_docs(tmp_path):
     legacy_root = tmp_path
     write_file(legacy_root, "docs/prd/legacy.prd.md", "# Legacy")
     project_root = ensure_project_root(legacy_root)
@@ -1022,11 +1020,7 @@ def test_hook_allows_with_plugin_root_empty_and_duplicate_docs(tmp_path):
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
     payload = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-    env = {
-        "CLAUDE_PLUGIN_ROOT": "",
-        "CLAUDE_PROJECT_DIR": str(legacy_root),
-        "CLAUDE_SKIP_TASKLIST_PROGRESS": "1",
-    }
+    env = {"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"}
     result = run_hook(tmp_path, "gate-workflow.sh", payload, extra_env=env)
     assert result.returncode == 0
     combined = (result.stdout + result.stderr).lower()

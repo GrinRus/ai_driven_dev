@@ -1,10 +1,9 @@
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from .helpers import PAYLOAD_ROOT, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
+from .helpers import HOOKS_DIR, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/App.kt"}}'
 
@@ -25,13 +24,12 @@ def test_blocks_when_report_missing(tmp_path):
     write_active_stage(tmp_path, "qa")
     write_file(tmp_path, "src/main/App.kt", "class App")
 
-    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
 
     assert result.returncode != 0
     assert "отчёт QA не создан" in (result.stderr or "")
@@ -54,13 +52,12 @@ def test_allows_when_report_present(tmp_path):
     write_file(tmp_path, "src/main/App.kt", "class App")
     write_file(tmp_path, "reports/qa/qa-ok.json", "{}\n")
 
-    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
 
     assert result.returncode == 0, result.stderr
 
@@ -82,13 +79,12 @@ def test_allows_when_pack_present(tmp_path):
     write_file(tmp_path, "src/main/App.kt", "class App")
     write_file(tmp_path, "reports/qa/qa-pack.pack.yaml", "{}\n")
 
-    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
 
     assert result.returncode == 0, result.stderr
 
@@ -116,11 +112,7 @@ def test_handoff_blocks_when_tasklist_missing(tmp_path):
         json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
     )
 
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
 
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
@@ -150,11 +142,7 @@ def test_handoff_warns_when_configured(tmp_path):
         json.dumps({"tests_summary": "pass", "tests_executed": [], "findings": []}) + "\n",
     )
 
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
 
     assert result.returncode == 0, result.stderr
     combined = (result.stdout + result.stderr).lower()
@@ -176,15 +164,15 @@ def test_skip_env_allows(tmp_path):
     write_active_feature(tmp_path, "qa-skip")
     write_active_stage(tmp_path, "qa")
     write_file(tmp_path, "src/main/App.kt", "class App")
-    os.environ["CLAUDE_SKIP_QA"] = "1"
-    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_SKIP_QA", None)
-        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={
+            "CLAUDE_SKIP_QA": "1",
+            "CLAUDE_SKIP_TASKLIST_PROGRESS": "1",
+        },
+    )
 
     assert result.returncode == 0, result.stderr
 
@@ -206,13 +194,12 @@ def test_debounce_stamp_written_only_on_success(tmp_path):
     write_active_stage(tmp_path, "qa")
     write_file(tmp_path, "src/main/App.kt", "class App")
 
-    os.environ["CLAUDE_SKIP_TASKLIST_PROGRESS"] = "1"
-    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    try:
-        result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
-    finally:
-        os.environ.pop("CLAUDE_SKIP_TASKLIST_PROGRESS", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
 
     assert result.returncode != 0
     stamp_path = tmp_path / "aidd" / "reports" / "qa" / ".gate-qa.qa-fail.stamp"
@@ -220,7 +207,7 @@ def test_debounce_stamp_written_only_on_success(tmp_path):
 
 
 def test_plugin_hooks_include_qa_gate():
-    hooks = json.loads((PAYLOAD_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = json.loads((HOOKS_DIR / "hooks.json").read_text(encoding="utf-8"))
     stop_hooks = hooks.get("hooks", {}).get("Stop", [])
     sub_stop_hooks = hooks.get("hooks", {}).get("SubagentStop", [])
     commands = [
@@ -233,7 +220,7 @@ def test_plugin_hooks_include_qa_gate():
     assert qa_hook.get("timeout") == 60, "gate-qa expected timeout=60s"
 
 
-def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
+def test_gate_qa_requires_plugin_root(tmp_path):
     ensure_gates_config(tmp_path)
     project_root = tmp_path / "aidd"
     project_root.mkdir(exist_ok=True)
@@ -246,11 +233,10 @@ def test_gate_qa_resolves_aidd_root_when_plugin_root_missing(tmp_path):
     write_file(project_root, "docs/research/demo.md", "# Research\nStatus: reviewed\n")
     write_file(project_root, "reports/qa/demo.json", '{"status": "ready"}\n')
 
-    env = {"CLAUDE_PLUGIN_ROOT": "", "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    env = {"CLAUDE_PLUGIN_ROOT": ""}
     result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
-    assert result.returncode in (0, 2)
-    combined = result.stdout + result.stderr
-    assert "/aidd" in combined
+    assert result.returncode == 2
+    assert "CLAUDE_PLUGIN_ROOT is required" in result.stderr
 
 
 class GateQaEventTests(unittest.TestCase):
@@ -273,10 +259,7 @@ class GateQaEventTests(unittest.TestCase):
             write_file(tmp_path, "src/main/App.kt", "class App")
             write_file(tmp_path, "reports/qa/qa-ok.json", "{}\n")
 
-            env = {
-                "CLAUDE_SKIP_TASKLIST_PROGRESS": "1",
-                "CLAUDE_PROJECT_DIR": str(tmp_path),
-            }
+            env = {"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"}
             result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)
 
             self.assertEqual(result.returncode, 0, result.stderr)

@@ -1,10 +1,9 @@
-import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
 
 
 class ContextPackTests(unittest.TestCase):
@@ -26,12 +25,9 @@ class ContextPackTests(unittest.TestCase):
                 "docs/tasklist/DEMO-1.md",
                 "# Tasklist\n\n## AIDD:CONTEXT_PACK\n- Focus: demo\n",
             )
-            env = os.environ.copy()
             result = subprocess.run(
                 cli_cmd(
                     "context-pack",
-                    "--target",
-                    str(root),
                     "--ticket",
                     "DEMO-1",
                     "--agent",
@@ -39,7 +35,8 @@ class ContextPackTests(unittest.TestCase):
                 ),
                 text=True,
                 capture_output=True,
-                env=env,
+                cwd=root,
+                env=cli_env(),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
 

@@ -1,11 +1,11 @@
-# Claude Code Workflow - Language-agnostic Workflow Template
+# AIDD Claude Code Plugin - Language-agnostic Workflow Template
 
-> Готовый шаблон и CLI для подключения Claude Code к любому репозиторию: слэш-команды, безопасные хуки, гейты по стадиям, выборочные проверки.
+> Готовый плагин для Claude Code: слэш-команды, агенты, хуки и шаблоны для процесса idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 
 ## Оглавление
 - [Что это](#что-это)
 - [Быстрый старт](#быстрый-старт)
-- [CLI справка](#cli-справка)
+- [Скрипты и проверки](#скрипты-и-проверки)
 - [Слэш-команды](#слэш-команды)
 - [Предпосылки](#предпосылки)
 - [Диагностика путей](#диагностика-путей)
@@ -14,110 +14,105 @@
 - [Лицензия](#лицензия)
 
 ## Что это
-Claude Code Workflow добавляет к проекту готовый процесс разработки с агентами и гейтами. Вы получаете структуру `aidd/`, набор команд и скриптов, а также единый способ вести PRD, планы и tasklist.
+AIDD — это AI-Driven Development: LLM работает не как «один большой мозг», а как команда ролей внутри привычного SDLC. Плагин для Claude Code помогает уйти от вайб-коддинга: фиксирует артефакты (PRD/plan/tasklist/отчёты), проводит через quality‑гейты и добавляет агентов, слэш‑команды, хуки и структуру `aidd/`.
 
 Ключевые возможности:
-- Слэш-команды и агенты для цепочки idea -> research -> plan -> review-spec -> tasklist -> implement -> review -> qa.
+- Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
-- Конвенции веток и коммитов через `config/conventions.json`.
+- Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
 ## Быстрый старт
 
-### 1. Установите CLI
+### 1. Подключите marketplace и установите плагин
 
-**Вариант A - uv (рекомендуется)**
-
-```bash
-uv tool install claude-workflow-cli --from git+https://github.com/GrinRus/ai_driven_dev.git
-```
-
-**Вариант B - pipx**
-
-```bash
-pipx install git+https://github.com/GrinRus/ai_driven_dev.git
-```
-
-**Вариант C - локально (bash-скрипт)**
-
-```bash
-PAYLOAD_ROOT="/path/to/ai_driven_dev/src/claude_workflow_cli/data/payload/aidd"
-mkdir -p aidd
-(cd aidd && bash "${PAYLOAD_ROOT}/init-claude-workflow.sh" --commit-mode ticket-prefix --enable-ci)
+```text
+/plugin marketplace add GrinRus/ai_driven_dev
+/plugin install feature-dev-aidd@aidd-local
 ```
 
 ### 2. Инициализируйте workspace
 
-```bash
-claude-workflow init --target . --commit-mode ticket-prefix --enable-ci
+```text
+/feature-dev-aidd:aidd-init
 ```
 
 ### 3. Запустите фичу в Claude Code
 
 ```text
-/idea-new STORE-123 checkout-discounts
-/researcher STORE-123
-/plan-new STORE-123
-/review-spec STORE-123
-/tasks-new STORE-123
-/implement STORE-123
-/review STORE-123
-/qa STORE-123
+/feature-dev-aidd:idea-new STORE-123 checkout-discounts
+/feature-dev-aidd:researcher STORE-123
+/feature-dev-aidd:plan-new STORE-123
+/feature-dev-aidd:review-spec STORE-123
+/feature-dev-aidd:spec-interview STORE-123
+/feature-dev-aidd:tasks-new STORE-123
+/feature-dev-aidd:implement STORE-123
+/feature-dev-aidd:review STORE-123
+/feature-dev-aidd:qa STORE-123
 ```
 
 Примечания:
-- `/idea-new` принимает `ticket` и опциональный `slug-hint`.
-- После `/idea-new` ответьте аналитику и доведите PRD до `Status: READY` (проверьте `claude-workflow analyst-check --ticket STORE-123`).
-- Ответы фиксируйте в `AIDD:ANSWERS` (формат `Answer N`) и синхронизируйте `AIDD:OPEN_QUESTIONS` как `Q1/Q2/...` — при наличии секции `AIDD:OPEN_QUESTIONS` `analyst-check` блокирует рассинхрон.
-- В плане вместо дублирования вопросов используйте ссылки `PRD QN`.
-- `/review-spec` выполняет review-plan и review-prd в одном шаге.
+- Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
+- Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы.
 
-## CLI справка
+## Скрипты и проверки
 
 | Команда | Назначение |
 | --- | --- |
-| `claude-workflow init --target .` | Инициализация workspace и payload в `./aidd` |
-| `claude-workflow sync` | Обновление `.claude/` (для `.claude-plugin/` добавьте `--include .claude-plugin`) |
-| `claude-workflow upgrade --force` | Полная перезапись артефактов |
-| `claude-workflow smoke` | E2E smoke-сценарий workflow |
-| `claude-workflow research --ticket <ticket>` | Генерация research-контекста |
-| `claude-workflow research-check --ticket <ticket>` | Проверка Research статуса `reviewed` |
-| `claude-workflow analyst-check --ticket <ticket>` | Проверка PRD статуса `READY` и синхронизации `AIDD:OPEN_QUESTIONS`/`AIDD:ANSWERS` |
-| `claude-workflow qa --ticket <ticket> --gate` | Запуск QA-отчёта и гейта |
-| `claude-workflow progress --source <stage> --ticket <ticket>` | Подтверждение прогресса tasklist |
+| `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Создать `./aidd` из шаблонов (без перезаписи) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket>` | Сгенерировать research-контекст |
+| `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
+| `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
+| `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
+| `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
+| `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
+| `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.yaml` |
+| `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
+| `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
+
+`tests/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
 
 ## Слэш-команды
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
-| `/researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
-| `/plan-new` | План + валидация | `<TICKET> [note...]` |
-| `/review-spec` | Review plan + PRD | `<TICKET> [note...]` |
-| `/tasks-new` | Сформировать tasklist | `<TICKET> [note...]` |
-| `/implement` | Итеративная реализация | `<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]` |
-| `/review` | Код-ревью и задачи | `<TICKET> [note...]` |
-| `/qa` | Финальная QA-проверка | `<TICKET> [note...]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force]` |
+| `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
+| `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
+| `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
+| `/feature-dev-aidd:review-spec` | Review plan + PRD | `<TICKET> [note...]` |
+| `/feature-dev-aidd:spec-interview` | Spec interview (опционально) | `<TICKET> [note...]` |
+| `/feature-dev-aidd:tasks-new` | Сформировать tasklist | `<TICKET> [note...]` |
+| `/feature-dev-aidd:implement` | Итеративная реализация | `<TICKET> [note...] [test=fast\|targeted\|full\|none] [tests=<filters>] [tasks=<task1,task2>]` |
+| `/feature-dev-aidd:review` | Код-ревью и задачи | `<TICKET> [note...]` |
+| `/feature-dev-aidd:qa` | Финальная QA-проверка | `<TICKET> [note...]` |
+| `/feature-dev-aidd:status` | Статус тикета и артефакты | `[<TICKET>]` |
 
 ## Предпосылки
 - `bash`, `git`, `python3`.
-- `uv` или `pipx` для установки CLI.
+- Claude Code с доступом к plugin marketplace.
 - Инструменты сборки/тестов вашего стека (по желанию).
 
 Поддерживаются macOS/Linux. Для Windows используйте WSL или Git Bash.
 
 ## Диагностика путей
-- Все артефакты находятся под `aidd/` (docs, reports, hooks).
-- Если CLI не видит файлы, запускайте с `--target .` или из `aidd/`.
-- Для ручной переадресации используйте `CLAUDE_PLUGIN_ROOT=./aidd`.
+- Плагин живёт в корне репозитория (директории `commands/`, `agents/`, `hooks/`).
+- Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
+- Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
+- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
 ## Документация
-- Базовый workflow: `aidd/docs/sdlc-flow.md`.
-- Глубокий разбор и кастомизация: `doc/dev/workflow.md`, `doc/dev/customization.md`.
-- Playbook агентов и QA: `doc/dev/agents-playbook.md`, `doc/dev/qa-playbook.md`.
+- Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
+- Глубокий разбор и кастомизация: `AGENTS.md`.
 - Английская версия: `README.en.md`.
+
+## Dev-only проверки
+- Репозиторные проверки (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
 
 ## Вклад
 Правила вкладов: `CONTRIBUTING.md`.

@@ -1,17 +1,8 @@
 import json
 import os
-import shutil
 import subprocess
 
-from tests.helpers import PAYLOAD_ROOT, write_active_feature, write_file
-
-
-def _copy_hook(src_name: str, dst_dir):
-    src = PAYLOAD_ROOT / "hooks" / src_name
-    dst = dst_dir / src_name
-    dst_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst)
-    return dst
+from tests.helpers import HOOKS_DIR, REPO_ROOT, write_active_feature, write_file
 
 
 def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
@@ -28,14 +19,8 @@ def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
     write_file(project_root, f"docs/research/{slug}.md", "# Research\nStatus: reviewed\n")
     write_file(project_root, "src/main/kotlin/App.kt", "class App")
 
-    hooks_dir = project_root / "hooks"
-    fmt_path = _copy_hook("format-and-test.sh", hooks_dir)
-    lint_path = _copy_hook("lint-deps.sh", hooks_dir)
-    _copy_hook("lib.sh", hooks_dir)
-    settings_src = PAYLOAD_ROOT.parent / ".claude" / "settings.json"
-    settings_dst = legacy_root / ".claude" / "settings.json"
-    settings_dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(settings_src, settings_dst)
+    fmt_path = HOOKS_DIR / "format-and-test.sh"
+    lint_path = HOOKS_DIR / "lint-deps.sh"
     # minimal config for lint-deps allowlist off
     write_file(project_root, "config/gates.json", json.dumps({"deps_allowlist": False}))
 
@@ -45,9 +30,7 @@ def test_post_hooks_use_project_aidd_root_when_plugin_root_empty(tmp_path):
     common_env = os.environ.copy()
     common_env.update(
         {
-            "CLAUDE_PLUGIN_ROOT": "",
-            "CLAUDE_PROJECT_DIR": str(legacy_root),
-            "PYTHONPATH": f"{PAYLOAD_ROOT.parents[4] / 'src'}:{common_env.get('PYTHONPATH','')}",
+            "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
             "SKIP_AUTO_TESTS": "1",
             "SKIP_FORMAT": "1",
         }

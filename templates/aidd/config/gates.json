@@ -1,0 +1,237 @@
+{
+  "feature_ticket_source": "docs/.active_ticket",
+  "feature_slug_hint_source": "docs/.active_feature",
+  "tests_required": "soft",
+  "tests_gate": {
+    "source_roots": [
+      "src/main",
+      "src",
+      "app",
+      "apps",
+      "packages",
+      "services",
+      "service",
+      "lib",
+      "libs",
+      "backend",
+      "frontend"
+    ],
+    "source_extensions": [
+      ".kt",
+      ".java",
+      ".kts",
+      ".groovy",
+      ".py",
+      ".js",
+      ".jsx",
+      ".ts",
+      ".tsx",
+      ".go",
+      ".rb",
+      ".rs",
+      ".cs",
+      ".php"
+    ],
+    "test_patterns": [
+      "src/test/{rel_dir}/{base}Test{ext}",
+      "src/test/{rel_dir}/{base}Tests{ext}",
+      "tests/{rel_dir}/test_{base}{ext}",
+      "tests/{rel_dir}/{base}_test{ext}",
+      "tests/{rel_dir}/{base}.test{ext}",
+      "tests/{rel_dir}/{base}.spec{ext}",
+      "test/{rel_dir}/test_{base}{ext}",
+      "test/{rel_dir}/{base}_test{ext}",
+      "spec/{rel_dir}/{base}_spec{ext}",
+      "spec/{rel_dir}/{base}Spec{ext}",
+      "__tests__/{rel_dir}/{base}.test{ext}",
+      "__tests__/{rel_dir}/{base}.spec{ext}"
+    ],
+    "exclude_dirs": [
+      "test",
+      "tests",
+      "spec",
+      "specs",
+      "__tests__",
+      "androidTest",
+      "integrationTest",
+      "functionalTest",
+      "testFixtures"
+    ]
+  },
+  "deps_allowlist": false,
+  "prd_review": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "approved_statuses": [
+      "ready"
+    ],
+    "blocking_statuses": [
+      "blocked"
+    ],
+    "allow_missing_section": false,
+    "require_action_items_closed": true,
+    "allow_missing_report": true,
+    "blocking_severities": [
+      "critical"
+    ],
+    "report_path": "aidd/reports/prd/{ticket}.json"
+  },
+  "plan_review": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "approved_statuses": [
+      "ready"
+    ],
+    "blocking_statuses": [
+      "blocked"
+    ],
+    "allow_missing_section": false,
+    "require_action_items_closed": true
+  },
+  "researcher": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "require_status": [
+      "reviewed"
+    ],
+    "freshness_days": 14,
+    "allow_missing": false,
+    "minimum_paths": 1,
+    "allow_pending_baseline": true,
+    "baseline_phrase": "контекст пуст"
+  },
+  "analyst": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "min_questions": 1,
+    "require_ready": true,
+    "allow_blocked": false,
+    "check_open_questions": true,
+    "require_dialog_section": true
+  },
+  "qa": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ],
+    "requires": [
+      "gate-tests"
+    ],
+    "command": [
+      "${CLAUDE_PLUGIN_ROOT}/tools/qa.sh"
+    ],
+    "debounce_minutes": 10,
+    "timeout": 600,
+    "report": "aidd/reports/qa/{ticket}.json",
+    "block_on": [
+      "blocker",
+      "critical"
+    ],
+    "warn_on": [
+      "major",
+      "minor"
+    ],
+    "allow_missing_report": false,
+    "handoff": true,
+    "handoff_mode": "block",
+    "tests": {
+      "commands": [
+        "echo smoke-test-ok"
+      ]
+    }
+  },
+  "reviewer": {
+    "enabled": true,
+    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
+    "tests_field": "tests",
+    "required_values": [
+      "required"
+    ],
+    "optional_values": [
+      "optional",
+      "skipped",
+      "not-required"
+    ],
+    "warn_on_missing": true
+  },
+  "tasklist_spec": {
+    "enabled": true,
+    "branches": [
+      "feature/*",
+      "release/*",
+      "hotfix/*"
+    ],
+    "skip_branches": [
+      "docs/*"
+    ]
+  },
+  "tasklist_progress": {
+    "enabled": true,
+    "code_prefixes": [
+      "src/",
+      "tests/",
+      "test/",
+      "app/",
+      "services/",
+      "backend/",
+      "frontend/",
+      "lib/",
+      "core/",
+      "packages/",
+      "modules/",
+      "cmd/"
+    ],
+    "skip_branches": [
+      "docs/*",
+      "chore/*"
+    ],
+    "allow_missing_tasklist": false,
+    "override_env": "CLAUDE_SKIP_TASKLIST_PROGRESS",
+    "sources": [
+      "manual",
+      "implement",
+      "qa",
+      "review",
+      "gate",
+      "handoff"
+    ]
+  },
+  "tests": {
+    "reviewerGate": {
+      "enabled": false
+    }
+  }
+}

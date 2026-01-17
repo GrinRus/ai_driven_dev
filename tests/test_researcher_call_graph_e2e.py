@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.helpers import REPO_ROOT
+
 try:  # optional dependency
     import tree_sitter_language_pack  # noqa: F401
 except Exception:
@@ -10,11 +12,11 @@ except Exception:
 else:
     TREE_SITTER_AVAILABLE = True
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools.researcher_context import ResearcherContextBuilder
+from tools.researcher_context import ResearcherContextBuilder
 
 
 @unittest.skipUnless(TREE_SITTER_AVAILABLE, "tree-sitter not installed")

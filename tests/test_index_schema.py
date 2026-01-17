@@ -5,11 +5,13 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+from tests.helpers import REPO_ROOT
+
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools import index_sync
+from tools import index_sync
 
 from .helpers import ensure_project_root, write_active_feature, write_active_stage, write_file
 

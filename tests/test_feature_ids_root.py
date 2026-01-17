@@ -1,31 +1,48 @@
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from claude_workflow_cli.feature_ids import resolve_project_root
+from tests.helpers import REPO_ROOT
+
+SRC_ROOT = REPO_ROOT
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
+from tools.feature_ids import resolve_project_root
 
 
 class FeatureIdsRootTests(unittest.TestCase):
     def setUp(self) -> None:
         self._env_backup = os.environ.copy()
         os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
-        os.environ.pop("CLAUDE_PROJECT_DIR", None)
 
     def tearDown(self) -> None:
         os.environ.clear()
         os.environ.update(self._env_backup)
 
-    def test_prefers_plugin_root(self) -> None:
+    def test_ignores_plugin_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
             base = Path(tmp)
-            plugin = base / "aidd"
+            plugin = base / "plugin"
+            workspace = base / "workspace"
             (plugin / "docs").mkdir(parents=True)
+            (workspace / "aidd" / "docs").mkdir(parents=True)
             os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin)
+
+            resolved = resolve_project_root(workspace)
+
+            self.assertEqual(resolved, (workspace / "aidd").resolve())
+
+    def test_uses_cwd_when_already_aidd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
+            base = Path(tmp) / "aidd"
+            (base / "docs").mkdir(parents=True)
 
             resolved = resolve_project_root(base)
 
-            self.assertEqual(resolved, plugin.resolve())
+            self.assertEqual(resolved, base.resolve())
 
     def test_prefers_aidd_subdir_when_present(self) -> None:
         with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
@@ -45,18 +62,6 @@ class FeatureIdsRootTests(unittest.TestCase):
             resolved = resolve_project_root(base)
 
             self.assertEqual(resolved, base.resolve())
-
-    def test_uses_project_dir_as_last_resort(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="feature-ids-") as tmp:
-            base = Path(tmp)
-            project = base / "project-root"
-            (project / "docs").mkdir(parents=True)
-            os.environ["CLAUDE_PROJECT_DIR"] = str(project)
-
-            resolved = resolve_project_root(base)
-
-            self.assertEqual(resolved, project.resolve())
-
 
 if __name__ == "__main__":
     unittest.main()

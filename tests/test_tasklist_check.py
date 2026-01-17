@@ -1,9 +1,16 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+from tests.helpers import REPO_ROOT
+
+SRC_ROOT = REPO_ROOT
+if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
+    sys.path.insert(0, str(SRC_ROOT))
+
 from tests import helpers
-from claude_workflow_cli.tools import tasklist_check
+from tools import tasklist_check
 
 
 def write_plan(root: Path, ticket: str, iteration_ids: list[str] | None = None) -> None:

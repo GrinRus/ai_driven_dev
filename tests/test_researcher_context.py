@@ -1,21 +1,22 @@
 import json
-import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+from tests.helpers import REPO_ROOT
+
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.tools.researcher_context import (
+from tools.researcher_context import (
     ResearcherContextBuilder,
     _columnar_call_graph,
 )
 
-from .helpers import PAYLOAD_ROOT, cli_cmd, write_file
+from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class ResearcherContextTests(unittest.TestCase):
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)
-        template_src = (PAYLOAD_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
+        template_src = (TEMPLATES_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
         write_file(self.root, "docs/prd/template.md", template_src)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
@@ -170,11 +171,12 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("score", reuse_candidates[0])
 
     def test_set_active_feature_refreshes_targets(self) -> None:
-        env = os.environ.copy()
+        env = cli_env()
         result = subprocess.run(
-            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
+            cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -201,27 +203,27 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(index_payload.get("ticket"), "demo-checkout")
 
     def test_slug_hint_persists_without_repeating_argument(self) -> None:
-        env = os.environ.copy()
+        env = cli_env()
         first = subprocess.run(
             cli_cmd(
                 "set-active-feature",
-                "--target",
-                str(self.root),
                 "--slug-note",
                 "checkout-lite",
                 "demo-checkout",
             ),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
             check=True,
         )
         self.assertEqual(first.returncode, 0, msg=first.stderr)
 
         second = subprocess.run(
-            cli_cmd("set-active-feature", "--target", str(self.root), "demo-checkout"),
+            cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
             capture_output=True,
+            cwd=self.workspace,
             env=env,
             check=True,
         )

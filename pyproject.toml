@@ -1,41 +1,11 @@
-[build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "claude-workflow-cli"
+name = "aidd-runtime"
 version = "0.1.0"
-description = "Bootstrap Claude Code workflow assets from the ai_driven_dev template."
-readme = "README.md"
-license = { text = "MIT" }
+description = "Runtime helpers for the AI-driven development workflow plugin."
 requires-python = ">=3.10"
-authors = [
-  { name = "AI-Driven Dev Maintainers" }
-]
-classifiers = [
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
-  "Topic :: Software Development :: Build Tools",
-]
-
-[project.scripts]
-claude-workflow = "claude_workflow_cli.cli:main"
 
 [project.optional-dependencies]
 call-graph = [
   "tree-sitter>=0.23.0",
   "tree-sitter-language-pack>=0.3.0",
-]
-
-[tool.setuptools]
-include-package-data = true
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-claude_workflow_cli = [
-  "data/payload/**",
-  "data/payload/.claude/**"
 ]

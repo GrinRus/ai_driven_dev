@@ -1,21 +1,27 @@
 import sys
-from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+from tests.helpers import REPO_ROOT
+
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli import cli
+from tools import context_pack
+from tools import identifiers
+from tools import plan_review_gate
+from tools import prd_review
+from tools import prd_review_gate
+from tools import researcher_context
+from tools import tasklist_check
+from tools import tests_log
 
 
 def test_cli_parses_new_subcommands():
-    parser = cli.build_parser()
-    parser.parse_args(["prd-review", "--target", ".", "--ticket", "DEMO-1"])
-    parser.parse_args(["plan-review-gate", "--ticket", "DEMO-1"])
-    parser.parse_args(["prd-review-gate", "--ticket", "DEMO-1"])
-    parser.parse_args(["tasklist-check", "--target", ".", "--ticket", "DEMO-1"])
-    parser.parse_args(["researcher-context"])
-    parser.parse_args(["context-gc", "precompact"])
-    parser.parse_args(["identifiers", "--target", ".", "--json"])
-    parser.parse_args(["context-pack", "--agent", "implementer"])
-    parser.parse_args(["tests-log", "--status", "pass"])
+    prd_review.parse_args(["--ticket", "DEMO-1"])
+    plan_review_gate.parse_args(["--ticket", "DEMO-1"])
+    prd_review_gate.parse_args(["--ticket", "DEMO-1"])
+    tasklist_check.parse_args(["--ticket", "DEMO-1"])
+    researcher_context._build_parser().parse_args([])
+    identifiers.parse_args(["--json"])
+    context_pack.parse_args(["--agent", "implementer"])
+    tests_log.parse_args(["--status", "pass"])

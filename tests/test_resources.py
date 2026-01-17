@@ -3,13 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_ROOT = PROJECT_ROOT / "src"
+from tests.helpers import REPO_ROOT
+
+PROJECT_ROOT = REPO_ROOT
+SRC_ROOT = PROJECT_ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli import cli  # noqa: E402
-from claude_workflow_cli.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root  # noqa: E402
+from tools import runtime  # noqa: E402
+from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root  # noqa: E402
 
 
 class ResourcesTests(unittest.TestCase):
@@ -41,18 +43,18 @@ class ResourcesTests(unittest.TestCase):
             project_root.mkdir()
 
             with self.assertRaises(FileNotFoundError) as ctx:
-                cli._require_workflow_root(workspace)
+                runtime.require_workflow_root(workspace)
 
             message = str(ctx.exception)
-            self.assertIn(f"{project_root}/.claude", message)
-            self.assertIn("claude-workflow init --target", message)
+            self.assertIn(f"{project_root}/docs", message)
+            self.assertIn("/feature-dev-aidd:aidd-init", message)
 
     def test_resolve_roots_creates_project_on_demand(self) -> None:
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
 
-            workspace_root, project_root = cli._resolve_roots(workspace, create=True)
+            workspace_root, project_root = runtime.resolve_roots(workspace, create=True)
 
             self.assertEqual(workspace_root, workspace.resolve())
             self.assertEqual(project_root, workspace.resolve() / DEFAULT_PROJECT_SUBDIR)
@@ -64,11 +66,11 @@ class ResourcesTests(unittest.TestCase):
             workspace.mkdir()
 
             with self.assertRaises(FileNotFoundError) as ctx:
-                cli._resolve_roots(workspace, create=False)
+                runtime.resolve_roots(workspace, create=False)
 
             message = str(ctx.exception)
             self.assertIn("workflow not found at", message)
-            self.assertIn(f"claude-workflow init --target {workspace.resolve()}", message)
+            self.assertIn("/feature-dev-aidd:aidd-init", message)
 
 
 if __name__ == "__main__":
