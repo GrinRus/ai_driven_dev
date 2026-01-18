@@ -1444,30 +1444,45 @@ _Статус: новый, приоритет 1. Цель — перейти н�
 
 _Статус: новый, приоритет 2. Перенос из Wave 45/52/61. Цель — end‑to‑end call graph для Researcher + language‑agnostic hooks/init под marketplace‑only._
 
-- [ ] `tools/research.py` + `tools/research.sh`: в `--auto` включать `--deep-code` и call graph для kt/kts/java, для остальных — fast scan; логировать выбранный профиль и добавлять WARN «0 matches → сузить paths/keywords или graph-only».
-- [ ] `tools/researcher_context.py`: разделить fast-scan и graph-scan, добавить `--graph-mode auto|focus|full`, сохранять full graph в sidecar, фиксировать `call_graph_warning`/INSTALL_HINT при отсутствии tree-sitter.
-- [ ] `tools/researcher_context.py` + `tools/reports_pack.py`: гарантировать сохранение `call_graph_*` метаданных (engine/filter/limit/warning) в отчёте и pack.
-- [ ] `tests/test_researcher_context.py` + `tests/test_research_command.py`: кейсы JVM auto graph, non-JVM fast scan, missing tree-sitter warning, zero-matches hint.
-- [ ] `tests/test_gate_researcher.py` + `tests/repo_tools/smoke-workflow.sh`: e2e проверки auto‑режима и наличия `call_graph` в отчётах.
+### Research core: auto profile + graph-mode
+- [ ] W75-1 `tools/researcher_context.py`: разделить fast-scan vs graph-scan, добавить `--graph-mode auto|focus|full`, сохранять full graph в sidecar и columnar, всегда писать `call_graph_*` метаданные (engine/filter/limit/warning), при отсутствии tree-sitter печатать INSTALL_HINT + warning. Deps: -
+- [ ] W75-2 `tools/research.py` + `tools/research.sh`: в `--auto` включать `--deep-code` и call graph для kt/kts/java, для остальных — fast scan; логировать выбранный профиль; WARN «0 matches → сузить paths/keywords или graph-only»; поддержать `--graph-mode`/`--graph-engine none`. Deps: W75-1.
+- [ ] W75-3 `tools/reports_pack.py`: гарантировать сохранение `call_graph_*` метаданных в pack даже при пустом графе (engine/filter/limit/warning), обновить бюджеты/trim при необходимости. Deps: W75-1.
+
+## Wave 76
+
+_Статус: новый, приоритет 2. Цель — docs/adoption для call graph и auto‑profile._
 
 ### Docs & adoption
+- [ ] W76-1 `commands/researcher.md`: описать авто‑сбор graph, `--graph-engine none`, `--graph-mode`, ссылку на `call_graph_full_path`. Deps: W75-1,W75-2.
+- [ ] W76-2 `agents/researcher.md`: требовать проверять `call_graph`/`import_graph`; при пустом графе запускать повторный сбор через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --graph-engine ts --call-graph` или фиксировать WARN. Deps: W75-1.
+- [ ] W76-3 `agents/analyst.md`: упомянуть, что для “тонкого” контекста инициируется research с call graph. Deps: W75-2.
+- [ ] W76-4 `templates/aidd/docs/research/template.md`: добавить секцию с кратким summary call graph и ссылкой на full graph файл. Deps: W75-1.
+- [ ] W76-5 Документация: `AGENTS.md`, `README.md`, `README.en.md` — таблица «когда graph обязателен», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста. Deps: W75-1,W75-2.
 
-- [ ] `commands/researcher.md`: описать авто‑сбор graph, `--graph-engine none`, `--graph-mode`, ссылку на `call_graph_full_path`.
-- [ ] `agents/researcher.md`: требовать проверять `call_graph`/`import_graph`; при пустом графе запускать повторный сбор через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --graph-engine ts --call-graph` или фиксировать WARN.
-- [ ] `agents/analyst.md`: упомянуть, что для “тонкого” контекста инициируется research с call graph.
-- [ ] `templates/aidd/docs/research/template.md`: добавить секцию с кратким summary call graph и ссылкой на full graph файл.
-- [ ] Документация: `AGENTS.md`, `README.md`, `README.en.md` — таблица «когда graph обязателен», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста.
-- [ ] `tests/repo_tools/smoke-workflow.sh`: проверка наличия `call_graph` по умолчанию и `--graph-engine none`.
+## Wave 77
+
+_Статус: новый, приоритет 2. Цель — language‑agnostic hooks/config по умолчанию._
 
 ### Hooks & config
-- [ ] `hooks/format-and-test.sh`: вынести `COMMON_PATTERNS`/`DEFAULT_CODE_PATHS`/`DEFAULT_CODE_EXTENSIONS` в `.claude/settings.json` (новые ключи), добавить дефолты для npm/py/go/rust/.NET; обновить `AGENTS.md` с примерами.
-- [ ] `hooks/lint-deps.sh` + `templates/aidd/config/gates.json` + `templates/aidd/config/allowed-deps.txt`: сделать список dependency‑файлов конфигурируемым (Gradle/npm/py/go/rust/.NET) либо добавить режим “gradle-only”.
-- [ ] `templates/aidd/config/context_gc.json` + `hooks/hooklib.py`: привести guard‑regex к нейтральному набору build tools и синхронизировать дефолты.
+- [ ] W77-1 `hooks/format-and-test.sh`: вынести `COMMON_PATTERNS`/`DEFAULT_CODE_PATHS`/`DEFAULT_CODE_EXTENSIONS` в `.claude/settings.json` (новые ключи), добавить дефолты для npm/py/go/rust/.NET; обновить чтение/валидацию. Deps: -
+- [ ] W77-2 `hooks/lint-deps.sh` + `templates/aidd/config/gates.json` + `templates/aidd/config/allowed-deps.txt`: сделать список dependency‑файлов конфигурируемым (Gradle/npm/py/go/rust/.NET) либо добавить режим “gradle-only”. Deps: -
+- [ ] W77-3 `templates/aidd/config/context_gc.json` + `hooks/hooklib.py`: привести guard‑regex к нейтральному набору build tools и синхронизировать дефолты. Deps: -
+
+## Wave 78
+
+_Статус: новый, приоритет 3. Цель — убрать Gradle‑специфику из init/examples._
 
 ### Init & examples
-- [ ] `tools/init.py` + `commands/aidd-init.md`: убрать Gradle‑специфику из init; опционально добавить `--detect-build-tools` для заполнения `.claude/settings.json`.
-- [ ] Решить судьбу `examples/gradle-demo`: оставить как optional example или пометить legacy; обновить `README.md`, `README.en.md`, `AGENTS.md`.
-- [ ] Пересмотреть gradle helper (если нужен): добавить/удалить helper в `examples/` и зафиксировать в документации.
+- [ ] W78-1 `tools/init.py` + `commands/aidd-init.md`: убрать Gradle‑специфику из init; опционально добавить `--detect-build-tools` для заполнения `.claude/settings.json`. Deps: W77-1.
+- [ ] W78-2 Решить судьбу `examples/gradle-demo`: оставить как optional example или пометить legacy/удалённым; обновить `README.md`, `README.en.md`, `AGENTS.md`. Deps: -
+- [ ] W78-3 Пересмотреть gradle helper (если нужен): добавить/удалить helper в `examples/` и зафиксировать в документации. Deps: W78-2.
+
+## Wave 79
+
+_Статус: новый, приоритет 2. Цель — тесты/смоук для новых режимов и конфигов._
 
 ### Tests
-- [ ] `tests/test_init_aidd.py`, `tests/test_format_and_test.py`, `tests/repo_tools/smoke-workflow.sh`: добавить проверки новых config‑ключей и language‑agnostic поведения.
+- [ ] W79-1 `tests/test_researcher_context.py` + `tests/test_research_command.py`: кейсы JVM auto graph, non-JVM fast scan, missing tree-sitter warning, zero-matches hint, `--graph-mode`. Deps: W75-1,W75-2.
+- [ ] W79-2 `tests/test_gate_researcher.py` + `tests/repo_tools/smoke-workflow.sh`: e2e проверки auto‑режима, наличия `call_graph`, и пути `--graph-engine none`. Deps: W75-2.
+- [ ] W79-3 `tests/test_init_aidd.py`, `tests/test_format_and_test.py`, `tests/repo_tools/smoke-workflow.sh`: проверки новых config‑ключей и language‑agnostic поведения. Deps: W77-1,W78-1.
