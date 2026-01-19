@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 from pathlib import Path
 from typing import List
@@ -25,11 +26,52 @@ def _copy_tree(src: Path, dest: Path, *, force: bool) -> list[Path]:
     return copied
 
 
+def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
+    from tools.test_settings_defaults import detect_build_tools, test_settings_payload
+
+    settings_path = workspace_root / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict = {}
+    if settings_path.exists():
+        try:
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"[aidd:init] skip .claude/settings.json (invalid JSON): {exc}")
+            return
+        if not isinstance(data, dict):
+            data = {}
+
+    detected = detect_build_tools(workspace_root)
+    payload = test_settings_payload(detected)
+    automation = data.setdefault("automation", {})
+    if not isinstance(automation, dict):
+        automation = {}
+        data["automation"] = automation
+    tests_cfg = automation.setdefault("tests", {})
+    if not isinstance(tests_cfg, dict):
+        tests_cfg = {}
+        automation["tests"] = tests_cfg
+
+    updated = False
+    for key, value in payload.items():
+        if force or key not in tests_cfg:
+            tests_cfg[key] = value
+            updated = True
+
+    if updated:
+        settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        tools_label = ", ".join(sorted(detected)) or "default"
+        print(f"[aidd:init] updated .claude/settings.json (build tools: {tools_label})")
+    else:
+        print("[aidd:init] .claude/settings.json already contains automation.tests defaults")
+
+
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
     workspace_root, project_root = runtime.resolve_roots(target, create=True)
     force = "--force" in extra_args
-    ignored = [arg for arg in extra_args if arg != "--force"]
+    detect_build_tools = "--detect-build-tools" in extra_args
+    ignored = [arg for arg in extra_args if arg not in {"--force", "--detect-build-tools"}]
     if ignored:
         print(f"[aidd] init flags ignored in marketplace-only mode: {' '.join(ignored)}")
 
@@ -47,6 +89,8 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         print(f"[aidd:init] copied {len(copied)} files into {project_root}")
     else:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
+    if detect_build_tools:
+        _write_test_settings(workspace_root, force=force)
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
@@ -74,6 +118,11 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Log actions without modifying files.",
     )
+    parser.add_argument(
+        "--detect-build-tools",
+        action="store_true",
+        help="Populate .claude/settings.json with default automation.tests settings.",
+    )
     return parser.parse_args(argv)
 
 
@@ -86,6 +135,8 @@ def main(argv: List[str] | None = None) -> int:
         script_args.append("--force")
     if args.dry_run:
         script_args.append("--dry-run")
+    if args.detect_build_tools:
+        script_args.append("--detect-build-tools")
     run_init(Path.cwd().resolve(), script_args)
     return 0
 

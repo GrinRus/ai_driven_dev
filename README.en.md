@@ -10,6 +10,7 @@
 - [Prerequisites](#prerequisites)
 - [Path Troubleshooting](#path-troubleshooting)
 - [Documentation](#documentation)
+- [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -94,7 +95,7 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
 | `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
@@ -143,6 +144,9 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
 - Deep dive and customization: `AGENTS.md`.
 - Russian version: `README.md`.
+
+## Examples
+Demo projects and helper scripts are not shipped — the repo stays language-agnostic. Keep demos outside the plugin and document them in your workspace docs if needed.
 
 ## Dev-only checks
 - Repo checks (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
