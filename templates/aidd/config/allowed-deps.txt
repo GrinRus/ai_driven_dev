@@ -1,12 +1,9 @@
-# Разрешённые зависимости в формате group:artifact (без версии)
-org.jetbrains.kotlin:kotlin-stdlib
-org.jetbrains.kotlin:kotlin-reflect
-org.jetbrains.kotlinx:kotlinx-coroutines-core
-com.fasterxml.jackson.core:jackson-databind
-com.fasterxml.jackson.module:jackson-module-kotlin
-org.springframework.boot:spring-boot-starter-web
-org.springframework.boot:spring-boot-starter-test
-io.ktor:ktor-server-core
-io.ktor:ktor-server-netty
-org.junit.jupiter:junit-jupiter
-org.assertj:assertj-core
+# Разрешённые зависимости (по одной на строку, без версий).
+# Формат зависит от менеджера:
+# - Gradle/Maven: group:artifact
+# - npm/pnpm/yarn: package или @scope/package
+# - Python: package (pip/poetry/pipenv)
+# - Go: module/path
+# - Rust: crate-name
+# - .NET: PackageId
+# Примечание: если deps_allowlist=true и список пуст — проверки не выполняются.

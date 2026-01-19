@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 import tempfile
@@ -78,6 +79,22 @@ class InitAiddTests(unittest.TestCase):
         content = target.read_text(encoding="utf-8")
         template_content = (TEMPLATES_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertEqual(content, template_content)
+
+    def test_detect_build_tools_populates_settings(self):
+        workdir = self.make_tempdir()
+        (workdir / "package.json").write_text('{"name": "demo"}', encoding="utf-8")
+
+        result = self.run_script(workdir, "--detect-build-tools")
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+
+        settings_path = workdir / ".claude" / "settings.json"
+        self.assertTrue(settings_path.exists(), "settings.json should be created")
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+        tests_cfg = payload.get("automation", {}).get("tests", {})
+        self.assertIn("commonPatterns", tests_cfg)
+        self.assertIn("**/package.json", tests_cfg["commonPatterns"])
+        self.assertIn("codePaths", tests_cfg)
+        self.assertIn("codeExtensions", tests_cfg)
 
 if __name__ == "__main__":
     unittest.main()

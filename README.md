@@ -10,6 +10,7 @@
 - [Предпосылки](#предпосылки)
 - [Диагностика путей](#диагностика-путей)
 - [Документация](#документация)
+- [Примеры](#примеры)
 - [Вклад](#вклад)
 - [Лицензия](#лицензия)
 
@@ -81,7 +82,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
 | `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
@@ -110,6 +111,9 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
 - Глубокий разбор и кастомизация: `AGENTS.md`.
 - Английская версия: `README.en.md`.
+
+## Примеры
+`examples/gradle-demo` и gradle helper больше не поставляются — репозиторий остаётся language‑agnostic. При необходимости держите демо‑проекты вне плагина и описывайте их в документации вашего workspace.
 
 ## Dev-only проверки
 - Репозиторные проверки (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.

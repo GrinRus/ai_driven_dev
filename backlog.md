@@ -1465,14 +1465,14 @@ _Статус: новый, приоритет 2. A) research+docs+tests. Пер�
 _Статус: новый, приоритет 2. B) hooks+init+examples+tests. Цель — language‑agnostic hooks/init под marketplace‑only._
 
 ### Hooks & config
-- [ ] W76-1 `hooks/format-and-test.sh`: вынести `COMMON_PATTERNS`/`DEFAULT_CODE_PATHS`/`DEFAULT_CODE_EXTENSIONS` в `.claude/settings.json` (новые ключи), добавить дефолты для npm/py/go/rust/.NET; обновить чтение/валидацию. Deps: -
-- [ ] W76-2 `hooks/lint-deps.sh` + `templates/aidd/config/gates.json` + `templates/aidd/config/allowed-deps.txt`: сделать список dependency‑файлов конфигурируемым (Gradle/npm/py/go/rust/.NET) либо добавить режим “gradle-only”. Deps: -
-- [ ] W76-3 `templates/aidd/config/context_gc.json` + `hooks/hooklib.py`: привести guard‑regex к нейтральному набору build tools и синхронизировать дефолты. Deps: -
+- [x] W76-1 `hooks/format-and-test.sh`: вынести `COMMON_PATTERNS`/`DEFAULT_CODE_PATHS`/`DEFAULT_CODE_EXTENSIONS` в `.claude/settings.json` (новые ключи), добавить дефолты для npm/py/go/rust/.NET; обновить чтение/валидацию. Deps: -
+- [x] W76-2 `hooks/lint-deps.sh` + `templates/aidd/config/gates.json` + `templates/aidd/config/allowed-deps.txt`: сделать список dependency‑файлов конфигурируемым (Gradle/npm/py/go/rust/.NET) либо добавить режим “gradle-only”. Deps: -
+- [x] W76-3 `templates/aidd/config/context_gc.json` + `hooks/hooklib.py`: привести guard‑regex к нейтральному набору build tools и синхронизировать дефолты. Deps: -
 
 ### Init & examples
-- [ ] W76-4 `tools/init.py` + `commands/aidd-init.md`: убрать Gradle‑специфику из init; опционально добавить `--detect-build-tools` для заполнения `.claude/settings.json`. Deps: W76-1.
-- [ ] W76-5 Решить судьбу `examples/gradle-demo`: оставить как optional example или пометить legacy/удалённым; обновить `README.md`, `README.en.md`, `AGENTS.md`. Deps: -
-- [ ] W76-6 Пересмотреть gradle helper (если нужен): добавить/удалить helper в `examples/` и зафиксировать в документации. Deps: W76-5.
+- [x] W76-4 `tools/init.py` + `commands/aidd-init.md`: убрать Gradle‑специфику из init; опционально добавить `--detect-build-tools` для заполнения `.claude/settings.json`. Deps: W76-1.
+- [x] W76-5 Решить судьбу `examples/gradle-demo`: оставить как optional example или пометить legacy/удалённым; обновить `README.md`, `README.en.md`, `AGENTS.md`. Deps: -
+- [x] W76-6 Пересмотреть gradle helper (если нужен): добавить/удалить helper в `examples/` и зафиксировать в документации. Deps: W76-5.
 
 ### Tests
-- [ ] W76-7 `tests/test_init_aidd.py`, `tests/test_format_and_test.py`, `tests/repo_tools/smoke-workflow.sh`: проверки новых config‑ключей и language‑agnostic поведения. Deps: W76-1,W76-4.
+- [x] W76-7 `tests/test_init_aidd.py`, `tests/test_format_and_test.py`, `tests/repo_tools/smoke-workflow.sh`: проверки новых config‑ключей и language‑agnostic поведения. Deps: W76-1,W76-4.

@@ -27,7 +27,7 @@
     "tail_lines": 400,
     "log_dir": "aidd/reports/logs",
     "min_interval_seconds": 5,
-    "only_for_regex": "(docker\\s+logs|kubectl\\s+logs|journalctl|gradlew|mvn|npm|pnpm|pytest|go\\s+test|cat\\s+)",
+    "only_for_regex": "(docker\\s+logs|kubectl\\s+logs|journalctl|gradle\\w*|mvnw?|npm|pnpm|yarn|bun|pip(?:3)?|poetry|pytest|go\\s+(?:test|build)|cargo\\s+(?:test|build|check)|dotnet\\s+(?:test|build)|cat\\s+)",
     "skip_if_regex": "(--tail\\s+|\\|\\s*tail\\b|>\\s*\\S+|2>\\s*\\S+|--quiet\\b|--silent\\b)"
   },
   "read_guard": {

@@ -138,6 +138,36 @@ def test_common_change_forces_full_suite(tmp_path):
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
+def test_common_patterns_from_settings(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "fullTasks": ["full_task"],
+                    "commonPatterns": ["**/package.json"],
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    write_active_feature(project, "demo")
+    (project / "packages" / "app").mkdir(parents=True, exist_ok=True)
+    (project / "packages" / "app" / "package.json").write_text(
+        '{"name": "demo-app", "dependencies": {"leftpad": "1.0.0"}}',
+        encoding="utf-8",
+    )
+
+    result = run_hook(project, settings)
+
+    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Запуск тестов: /bin/echo full_task" in result.stderr
+
+
 def test_reviewer_marker_forces_full_suite(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)
@@ -156,6 +186,32 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
 
     assert "reviewer запросил тесты" in result.stderr
     assert "Выбранные задачи тестов (full): default_task" in result.stderr
+    assert "Запуск тестов: /bin/echo default_task" in result.stderr
+
+
+def test_custom_code_paths_trigger_tests(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "codePaths": ["docs"],
+                    "codeExtensions": [],
+                    "codeFiles": [],
+                    "reviewerGate": {"enabled": False},
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "docs").mkdir(parents=True, exist_ok=True)
+    (project / "docs" / "guide.txt").write_text("update", encoding="utf-8")
+
+    result = run_hook(project, settings)
+
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 

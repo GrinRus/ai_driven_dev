@@ -9,6 +9,7 @@ depending on the change scope and configuration flags.
 from __future__ import annotations
 
 import datetime as dt
+import fnmatch
 import hashlib
 import json
 import os
@@ -36,6 +37,12 @@ if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
 from tools.feature_ids import FeatureIdentifiers, resolve_identifiers, resolve_project_root
+from tools.test_settings_defaults import (
+    DEFAULT_COMMON_PATTERNS,
+    DEFAULT_CODE_EXTENSIONS,
+    DEFAULT_CODE_FILES,
+    DEFAULT_CODE_PATHS,
+)
 
 
 def append_event(
@@ -73,88 +80,6 @@ def resolve_settings_path(workspace_root: Path) -> Path:
     if env_path:
         return Path(env_path).expanduser().resolve()
     return (workspace_root / ".claude" / "settings.json").resolve()
-COMMON_PATTERNS = (
-    "config/",
-    "gradle/libs.versions.toml",
-    "settings.gradle",
-    "settings.gradle.kts",
-    "build.gradle",
-    "build.gradle.kts",
-    "buildSrc/",
-)
-
-DEFAULT_CODE_PATHS = (
-    "src",
-    "app",
-    "apps",
-    "modules",
-    "packages",
-    "service",
-    "services",
-    "backend",
-    "frontend",
-    "lib",
-    "libs",
-    "server",
-    "client",
-    "core",
-    "domain",
-    "shared",
-    "python",
-    "java",
-    "kotlin",
-)
-
-DEFAULT_CODE_EXTENSIONS = (
-    ".kt",
-    ".kts",
-    ".java",
-    ".groovy",
-    ".gradle",
-    ".gradle.kts",
-    ".scala",
-    ".swift",
-    ".c",
-    ".cc",
-    ".cpp",
-    ".cxx",
-    ".h",
-    ".hpp",
-    ".cs",
-    ".go",
-    ".rb",
-    ".rs",
-    ".py",
-    ".pyi",
-    ".pyx",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".m",
-    ".mm",
-    ".php",
-    ".dart",
-    ".mjs",
-    ".cjs",
-    ".fs",
-    ".fsx",
-    ".fsharp",
-    ".hs",
-    ".erl",
-    ".ex",
-    ".exs",
-    ".cls",
-)
-
-DEFAULT_CODE_FILES = (
-    "build.gradle",
-    "build.gradle.kts",
-    "settings.gradle",
-    "settings.gradle.kts",
-    "pom.xml",
-)
-
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
@@ -171,6 +96,41 @@ def dedupe_preserve(items: Iterable[str]) -> Tuple[str, ...]:
         seen.add(item)
         result.append(item)
     return tuple(result)
+
+
+def normalize_common_patterns(values: Iterable[str] | None) -> Tuple[str, ...]:
+    if values is None:
+        values = DEFAULT_COMMON_PATTERNS
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        text = text.replace("\\", "/").lstrip("./")
+        if not text:
+            continue
+        normalized.append(text.lower())
+    return dedupe_preserve(normalized)
+
+
+def match_common_pattern(path: str, pattern: str) -> bool:
+    if not path or not pattern:
+        return False
+    normalized = path.lstrip("./").lower()
+    pattern = pattern.strip().lower()
+    if not pattern:
+        return False
+    if any(char in pattern for char in "*?["):
+        if fnmatch.fnmatch(normalized, pattern):
+            return True
+        if pattern.startswith("**/") and fnmatch.fnmatch(normalized, pattern[3:]):
+            return True
+        return False
+    if normalized == pattern:
+        return True
+    if pattern.endswith("/"):
+        return normalized.startswith(pattern)
+    return normalized.startswith(pattern + "/")
 
 
 def normalize_code_paths(values: Iterable[str] | None) -> Tuple[str, ...]:
@@ -797,6 +757,8 @@ def main() -> int:
             manual_scope_requested = True
 
     code_paths_raw = tests_cfg.get("codePaths")
+    if code_paths_raw is None:
+        code_paths_raw = tests_cfg.get("code_paths")
     if isinstance(code_paths_raw, list):
         code_prefixes = normalize_code_paths(code_paths_raw)
     elif code_paths_raw is None:
@@ -805,6 +767,8 @@ def main() -> int:
         code_prefixes = normalize_code_paths([code_paths_raw])
 
     code_ext_raw = tests_cfg.get("codeExtensions")
+    if code_ext_raw is None:
+        code_ext_raw = tests_cfg.get("code_extensions")
     if isinstance(code_ext_raw, list):
         code_suffixes = normalize_code_extensions(code_ext_raw)
     elif code_ext_raw is None:
@@ -813,6 +777,8 @@ def main() -> int:
         code_suffixes = normalize_code_extensions([code_ext_raw])
 
     code_files_raw = tests_cfg.get("codeFiles")
+    if code_files_raw is None:
+        code_files_raw = tests_cfg.get("code_files")
     if isinstance(code_files_raw, list):
         code_exact = normalize_code_files(code_files_raw)
     elif code_files_raw is None:
@@ -833,10 +799,18 @@ def main() -> int:
             details["task_count"] = len(test_tasks)
         append_event(project_root, identifiers, status, details)
 
+    common_patterns_raw = tests_cfg.get("commonPatterns")
+    if common_patterns_raw is None:
+        common_patterns_raw = tests_cfg.get("common_patterns")
+    if isinstance(common_patterns_raw, list):
+        common_patterns = normalize_common_patterns(common_patterns_raw)
+    elif common_patterns_raw is None:
+        common_patterns = normalize_common_patterns(None)
+    else:
+        common_patterns = normalize_common_patterns([common_patterns_raw])
+
     common_hits = [
-        path
-        for path in changed_files
-        if any(path == pattern or path.startswith(pattern) for pattern in COMMON_PATTERNS)
+        path for path in changed_files if any(match_common_pattern(path, pattern) for pattern in common_patterns)
     ]
 
     reviewer_cfg = tests_cfg.get("reviewerGate") or {}

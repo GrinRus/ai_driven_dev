@@ -629,6 +629,7 @@ tests["runner"] = ["/bin/echo"]
 tests["fastTasks"] = ["smoke-fast"]
 tests["fullTasks"] = ["smoke-full"]
 tests["targetedTask"] = "smoke-target"
+tests["commonPatterns"] = ["**/package.json"]
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 mkdir -p "$WORKDIR/.cache"
@@ -664,6 +665,22 @@ fmt_force="$(AIDD_TEST_FORCE=1 "$PLUGIN_ROOT/hooks/format-and-test.sh" 2>&1)"
 echo "$fmt_force" | grep -q "AIDD_TEST_FORCE=1" || {
   echo "[smoke] force flag did not bypass dedupe" >&2
   echo "$fmt_force" >&2
+  exit 1
+}
+
+log "common patterns trigger full profile"
+cat <<'JSON' >package.json
+{
+  "name": "smoke-demo",
+  "dependencies": {
+    "leftpad": "1.0.0"
+  }
+}
+JSON
+fmt_common="$("$PLUGIN_ROOT/hooks/format-and-test.sh" 2>&1)"
+echo "$fmt_common" | grep -q "Выбранные задачи тестов (full): smoke-full" || {
+  echo "[smoke] common patterns did not trigger full profile" >&2
+  echo "$fmt_common" >&2
   exit 1
 }
 

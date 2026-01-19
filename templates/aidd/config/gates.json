@@ -59,6 +59,29 @@
     ]
   },
   "deps_allowlist": false,
+  "deps_allowlist_mode": "all",
+  "deps_allowlist_files": [
+    "**/build.gradle",
+    "**/build.gradle.kts",
+    "**/settings.gradle",
+    "**/settings.gradle.kts",
+    "**/gradle/libs.versions.toml",
+    "**/package.json",
+    "**/pyproject.toml",
+    "**/requirements*.txt",
+    "**/Pipfile",
+    "**/setup.py",
+    "**/setup.cfg",
+    "**/go.mod",
+    "**/Cargo.toml",
+    "**/*.csproj",
+    "**/*.fsproj",
+    "**/*.vbproj",
+    "**/Directory.Packages.props",
+    "**/packages.config",
+    "**/global.json",
+    "**/nuget.config"
+  ],
   "prd_review": {
     "enabled": true,
     "branches": [

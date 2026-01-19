@@ -10,6 +10,7 @@
 - [Prerequisites](#prerequisites)
 - [Path Troubleshooting](#path-troubleshooting)
 - [Documentation](#documentation)
+- [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -18,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-17._
+_Last sync with `README.md`: 2026-01-18._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -94,7 +95,7 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
 | `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
@@ -123,6 +124,9 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
 - Deep dive and customization: `AGENTS.md`.
 - Russian version: `README.md`.
+
+## Examples
+`examples/gradle-demo` and the Gradle helper are no longer shipped — the repo stays language-agnostic. Keep demo projects outside the plugin and document them in your workspace docs if needed.
 
 ## Dev-only checks
 - Repo checks (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
