@@ -24,7 +24,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:implement` запускает саб-агента **feature-dev-aidd:implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
+Команда `/feature-dev-aidd:implement` запускает саб-агента **@agent-feature-dev-aidd:implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/implement.md`.
 
 ## Входные артефакты
@@ -41,7 +41,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh <ticket>` фиксирует активную фичу.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement` фиксирует стадию `implement`.
-- Команда должна запускать саб-агента **feature-dev-aidd:implementer** (Claude: Run agent → feature-dev-aidd:implementer).
+- Команда должна запускать саб-агента **@agent-feature-dev-aidd:implementer** (Claude: Run agent → @agent-feature-dev-aidd:implementer).
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
@@ -68,7 +68,7 @@ Decision matrix (default: `fast`):
 ## Пошаговый план
 1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
 2. Если переданы аргументы `test=...`, `tasks=...`, `tests=...` — задай test policy в `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений.
-3. Запусти саб-агента **feature-dev-aidd:implementer** и передай контекст итерации.
+3. Запусти саб-агента **@agent-feature-dev-aidd:implementer** и передай контекст итерации.
 4. Убедись, что tasklist обновлён и прогресс подтверждён через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
 
 ## Fail-fast и вопросы

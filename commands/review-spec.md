@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:review-spec` объединяет ревью плана и PRD и **последовательно запускает саб-агентов** `feature-dev-aidd:plan-reviewer` → `feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
+Команда `/feature-dev-aidd:review-spec` объединяет ревью плана и PRD и **последовательно запускает саб-агентов** `@agent-feature-dev-aidd:plan-reviewer` → `@agent-feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
 
 ## Входные артефакты
@@ -38,7 +38,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-prd` фиксирует стадию `review-prd` перед PRD review.
 - `gate-workflow` требует `Status: READY` в `## Plan Review` и `## PRD Review` перед кодом.
 - Команда `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh --ticket <ticket> --report "aidd/reports/prd/<ticket>.json" --emit-text` сохраняет отчёт PRD.
-- Команда должна **запускать саб-агентов** `feature-dev-aidd:plan-reviewer` и `feature-dev-aidd:prd-reviewer` (Claude: Run agent → feature-dev-aidd:plan-reviewer/feature-dev-aidd:prd-reviewer).
+- Команда должна **запускать саб-агентов** `@agent-feature-dev-aidd:plan-reviewer` и `@agent-feature-dev-aidd:prd-reviewer` (Claude: Run agent → @agent-feature-dev-aidd:plan-reviewer/@agent-feature-dev-aidd:prd-reviewer).
 
 ## Что редактируется
 - `aidd/docs/plan/<ticket>.md` — раздел `## Plan Review`.
@@ -47,10 +47,10 @@ disable-model-invocation: false
 - `aidd/reports/prd/<ticket>.json` — отчёт PRD review.
 
 ## Пошаговый план
-1. Зафиксируй стадию `review-plan`, запусти саб-агента `feature-dev-aidd:plan-reviewer` и обнови `## Plan Review`.
+1. Зафиксируй стадию `review-plan`, запусти саб-агента `@agent-feature-dev-aidd:plan-reviewer` и обнови `## Plan Review`.
 2. Если план в статусе `BLOCKED` — остановись и верни вопросы.
 3. Перед PRD review проверь консистентность PRD: `AIDD:OPEN_QUESTIONS` не содержит вопросов с ответами в `AIDD:ANSWERS`, `Status:` в шапке согласован, `AIDD:METRICS/RISKS/ROLL_OUT` синхронизированы с планом. При несоответствиях верни блокирующие вопросы и попроси обновить PRD.
-4. Зафиксируй стадию `review-prd`, запусти саб-агента `feature-dev-aidd:prd-reviewer` и обнови `## PRD Review`.
+4. Зафиксируй стадию `review-prd`, запусти саб-агента `@agent-feature-dev-aidd:prd-reviewer` и обнови `## PRD Review`.
 5. Перенеси блокирующие action items в tasklist и сохрани отчёт через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`.
 
 ## Fail-fast и вопросы

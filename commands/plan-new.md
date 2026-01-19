@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
+Команда `/feature-dev-aidd:plan-new` строит план реализации по PRD и research, фиксирует стадию `plan`, запускает саб-агентов `@agent-feature-dev-aidd:planner` и `@agent-feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
@@ -33,7 +33,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` фиксирует стадию `plan`.
-- Команда должна запускать саб-агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator` (Claude: Run agent → feature-dev-aidd:planner/feature-dev-aidd:validator); при статусе `BLOCKED` возвращает вопросы.
+- Команда должна запускать саб-агентов `@agent-feature-dev-aidd:planner` и `@agent-feature-dev-aidd:validator` (Claude: Run agent → @agent-feature-dev-aidd:planner/@agent-feature-dev-aidd:validator); при статусе `BLOCKED` возвращает вопросы.
 - Перед запуском planner выполни `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
@@ -44,9 +44,9 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Зафиксируй стадию `plan`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan`.
 2. Проверь, что PRD `Status: READY`; затем запусти `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` и остановись при ошибке.
-3. Запусти саб-агента `feature-dev-aidd:planner` для генерации/обновления плана; он не должен дублировать вопросы из PRD и должен использовать ссылки `PRD QN` при необходимости.
+3. Запусти саб-агента `@agent-feature-dev-aidd:planner` для генерации/обновления плана; он не должен дублировать вопросы из PRD и должен использовать ссылки `PRD QN` при необходимости.
 4. Если пользователь передал `AIDD:ANSWERS`, зафиксируй их в плане и закрой соответствующие вопросы (перенеси в `AIDD:DECISIONS` или пометь resolved).
-5. Запусти саб-агента `feature-dev-aidd:validator`; при `BLOCKED` верни вопросы пользователю.
+5. Запусти саб-агента `@agent-feature-dev-aidd:validator`; при `BLOCKED` верни вопросы пользователю.
 6. Убедись, что план содержит нужные секции (модули/файлы, итерации, тесты, риски).
 
 ## Fail-fast и вопросы
