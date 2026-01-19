@@ -13,6 +13,7 @@ from tools import runtime
 
 _TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
 _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
+_TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
 
 
 def _stable_task_id(prefix: str, *parts: object) -> str:
@@ -31,6 +32,10 @@ def _task_id_from_line(line: str) -> str | None:
         return None
     value = match.group(1).strip()
     return value or None
+
+
+def _is_task_start(line: str) -> bool:
+    return bool(_TASK_START_RE.match(line))
 
 
 def _task_signature(line: str) -> str:
@@ -245,40 +250,74 @@ def _dedupe_tasks(tasks: Sequence[str]) -> List[str]:
     return deduped
 
 
+def _split_task_blocks(lines: Sequence[str]) -> List[List[str]]:
+    blocks: List[List[str]] = []
+    current: List[str] = []
+    for line in lines:
+        if _is_task_start(line):
+            if current:
+                blocks.append(current)
+            current = [line]
+            continue
+        if current:
+            current.append(line)
+        elif line.strip():
+            blocks.append([line])
+    if current:
+        blocks.append(current)
+    return blocks
+
+
+def _flatten_task_blocks(blocks: Sequence[Sequence[str]]) -> List[str]:
+    return [line for block in blocks for line in block]
+
+
 def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, append: bool) -> List[str]:
     if not append:
         return list(new_tasks)
 
-    merged = list(existing)
+    merged_blocks = _split_task_blocks(existing)
+    new_blocks = _split_task_blocks(new_tasks)
     by_id = {}
     by_signature = {}
-    for idx, line in enumerate(merged):
-        task_id = _task_id_from_line(line)
+    for idx, block in enumerate(merged_blocks):
+        if not block or not _is_task_start(block[0]):
+            continue
+        task_id = _task_id_from_line(block[0])
         if task_id:
             by_id[task_id] = idx
-        signature = _task_signature(line)
-        by_signature[signature] = idx
+        signature = _task_signature(block[0])
+        if signature:
+            by_signature[signature] = idx
 
-    for task in new_tasks:
-        task_id = _task_id_from_line(task)
-        signature = _task_signature(task)
+    for block in new_blocks:
+        if not block:
+            continue
+        header = block[0]
+        task_id = _task_id_from_line(header) if _is_task_start(header) else None
+        signature = _task_signature(header) if _is_task_start(header) else ""
         idx = None
         if task_id and task_id in by_id:
             idx = by_id[task_id]
-        elif signature in by_signature:
+        elif signature and signature in by_signature:
             idx = by_signature[signature]
 
         if idx is None:
-            merged.append(task)
-            idx = len(merged) - 1
+            merged_blocks.append(block)
+            idx = len(merged_blocks) - 1
         else:
-            merged[idx] = task
+            existing_block = merged_blocks[idx]
+            if existing_block and len(block) == 1 and len(existing_block) > 1:
+                merged_blocks[idx] = [block[0], *existing_block[1:]]
+            else:
+                merged_blocks[idx] = block
 
         if task_id:
             by_id[task_id] = idx
-        by_signature[signature] = idx
+        if signature:
+            by_signature[signature] = idx
 
-    return merged
+    return _flatten_task_blocks(merged_blocks)
 
 
 def _extract_handoff_block(lines: List[str], source: str) -> tuple[int, int, List[str]]:
