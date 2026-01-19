@@ -9,15 +9,15 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from tests.helpers import REPO_ROOT, cli_cmd, cli_env
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PAYLOAD_ROOT = REPO_ROOT / "src" / "claude_workflow_cli" / "data" / "payload" / "aidd"
-SRC_ROOT = REPO_ROOT / "src"
+
+SRC_ROOT = REPO_ROOT
 
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli import cli
+from tools import research
 
 
 class FakeEngine:
@@ -36,36 +36,27 @@ class FakeEngine:
 
 class ResearchCommandTest(unittest.TestCase):
     def test_research_command_materializes_summary(self):
-        with tempfile.TemporaryDirectory(prefix="claude-workflow-research-") as tmpdir:
-            env = os.environ.copy()
-            env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
+        with tempfile.TemporaryDirectory(prefix="aidd-research-") as tmpdir:
             project_root = Path(tmpdir) / "aidd"
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix"],
-                cwd=project_root,
-                env=env,
+                cli_cmd("init"),
+                cwd=Path(tmpdir),
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=cli_env(),
             )
 
-            command_env = env.copy()
-            pythonpath = os.pathsep.join(filter(None, [str(SRC_ROOT), command_env.get("PYTHONPATH")]))
-            command_env["PYTHONPATH"] = pythonpath
+            command_env = cli_env()
             subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "claude_workflow_cli.cli",
+                cli_cmd(
                     "research",
-                    "--target",
-                    project_root,
                     "--ticket",
                     "TEST-123",
                     "--limit",
                     "1",
-                ],
+                ),
                 cwd=project_root,
                 env=command_env,
                 check=True,
@@ -76,21 +67,19 @@ class ResearchCommandTest(unittest.TestCase):
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
 
-    @mock.patch("claude_workflow_cli.tools.researcher_context._load_callgraph_engine")
+    @mock.patch("tools.researcher_context._load_callgraph_engine")
     def test_research_command_uses_workspace_root_and_call_graph(self, mock_engine):
-        with tempfile.TemporaryDirectory(prefix="claude-workflow-research-ws-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="aidd-research-ws-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
             project_root = workspace / "aidd"
-            env = os.environ.copy()
-            env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix"],
-                cwd=project_root,
-                env=env,
+                cli_cmd("init"),
+                cwd=workspace,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=cli_env(),
             )
 
             code_dir = workspace / "src" / "main" / "kotlin"
@@ -101,12 +90,8 @@ class ResearchCommandTest(unittest.TestCase):
             )
 
             mock_engine.return_value = FakeEngine()
-            parser = cli.build_parser()
-            args = parser.parse_args(
+            args = research.parse_args(
                 [
-                    "research",
-                    "--target",
-                    str(project_root),
                     "--ticket",
                     "WORK-1",
                     "--auto",
@@ -118,8 +103,13 @@ class ResearchCommandTest(unittest.TestCase):
 
             stdout = io.StringIO()
             stderr = io.StringIO()
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                cli._research_command(args)
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
 
             output = stdout.getvalue()
             self.assertIn("base=workspace", output, "CLI should log workspace base when scanning from parent")
@@ -141,19 +131,17 @@ class ResearchCommandTest(unittest.TestCase):
             )
 
     def test_research_command_respects_parent_paths_argument(self):
-        with tempfile.TemporaryDirectory(prefix="claude-workflow-research-parent-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="aidd-research-parent-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
             project_root = workspace / "aidd"
-            env = os.environ.copy()
-            env["CLAUDE_TEMPLATE_DIR"] = str(PAYLOAD_ROOT)
             project_root.mkdir(parents=True, exist_ok=True)
             subprocess.run(
-                ["bash", str(PAYLOAD_ROOT / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix"],
-                cwd=project_root,
-                env=env,
+                cli_cmd("init"),
+                cwd=workspace,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=cli_env(),
             )
 
             extra_dir = workspace / "foo"
@@ -161,12 +149,8 @@ class ResearchCommandTest(unittest.TestCase):
             extra_file = extra_dir / "Extra.kt"
             extra_file.write_text("// FOO-7 integration point", encoding="utf-8")
 
-            parser = cli.build_parser()
-            args = parser.parse_args(
+            args = research.parse_args(
                 [
-                    "research",
-                    "--target",
-                    str(project_root),
                     "--ticket",
                     "FOO-7",
                     "--paths",
@@ -177,8 +161,13 @@ class ResearchCommandTest(unittest.TestCase):
                 ]
             )
             stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
-                cli._research_command(args)
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout):
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
 
             context_path = project_root / "reports" / "research" / "FOO-7-context.json"
             self.assertTrue(context_path.exists(), "research context JSON should be generated for parent paths")

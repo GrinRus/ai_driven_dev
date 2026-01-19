@@ -1,16 +1,16 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional
 
 from .helpers import (
-    PAYLOAD_ROOT,
+    HOOKS_DIR,
     REPO_ROOT,
     cli_cmd,
+    cli_env,
     git_config_user,
     git_init,
     write_active_feature,
@@ -19,7 +19,7 @@ from .helpers import (
     write_json,
 )
 
-HOOK = PAYLOAD_ROOT / "hooks" / "format-and-test.sh"
+HOOK = HOOKS_DIR / "format-and-test.sh"
 
 
 def write_settings(tmp_path: Path, overrides: dict) -> Path:
@@ -77,8 +77,7 @@ def run_hook(
         {
             "CLAUDE_SETTINGS_PATH": str(settings_path),
             "SKIP_FORMAT": "1",
-            "CLAUDE_PROJECT_DIR": str(tmp_path),
-            "CLAUDE_PLUGIN_ROOT": str(tmp_path),
+            "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
         }
     )
     if env:
@@ -276,15 +275,10 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     write_active_feature(project, "demo")
-    env = os.environ.copy()
-    python_path = str(REPO_ROOT / "src")
-    existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = f"{python_path}:{existing}" if existing else python_path
+    env = cli_env()
 
     cmd = cli_cmd(
         "reviewer-tests",
-        "--target",
-        str(tmp_path),
         "--status",
         "force",
     )
@@ -297,8 +291,6 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
 
     cmd_idle = cli_cmd(
         "reviewer-tests",
-        "--target",
-        str(tmp_path),
         "--status",
         "idle",
     )

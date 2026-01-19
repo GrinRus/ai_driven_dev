@@ -14,29 +14,45 @@ from tests.helpers import REPO_ROOT, git_config_user, git_init, write_active_fea
 
 sys.dont_write_bytecode = True
 
-SRC_ROOT = REPO_ROOT / "src"
+SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from claude_workflow_cli.context_gc import working_set_builder  # noqa: E402
-from claude_workflow_cli.context_gc import hooklib  # noqa: E402
+from hooks.context_gc import working_set_builder  # noqa: E402
+from hooks import hooklib  # noqa: E402
 
-USERPROMPT_MODULE = "claude_workflow_cli.context_gc.userprompt_guard"
-PRETOOLUSE_MODULE = "claude_workflow_cli.context_gc.pretooluse_guard"
-PRECOMPACT_MODULE = "claude_workflow_cli.context_gc.precompact_snapshot"
-SESSIONSTART_MODULE = "claude_workflow_cli.context_gc.sessionstart_inject"
-STOP_MODULE = "claude_workflow_cli.context_gc.stop_update"
+USERPROMPT_MODULE = "hooks.context_gc.userprompt_guard"
+PRETOOLUSE_MODULE = "hooks.context_gc.pretooluse_guard"
+PRECOMPACT_MODULE = "hooks.context_gc.precompact_snapshot"
+SESSIONSTART_MODULE = "hooks.context_gc.sessionstart_inject"
+STOP_MODULE = "hooks.context_gc.stop_update"
+HOOK_SCRIPT_MAP = {
+    USERPROMPT_MODULE: REPO_ROOT / "hooks" / "context-gc-userprompt.sh",
+    PRETOOLUSE_MODULE: REPO_ROOT / "hooks" / "context-gc-pretooluse.sh",
+    PRECOMPACT_MODULE: REPO_ROOT / "hooks" / "context-gc-precompact.sh",
+    SESSIONSTART_MODULE: REPO_ROOT / "hooks" / "context-gc-sessionstart.sh",
+    STOP_MODULE: REPO_ROOT / "hooks" / "context-gc-stop.sh",
+}
 
 
 def _env_for_workspace(root: Path) -> dict[str, str]:
     env = os.environ.copy()
-    env["CLAUDE_PROJECT_DIR"] = str(root)
-    env["CLAUDE_PLUGIN_ROOT"] = str(root / "aidd")
+    env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
 
 def _run_hook_script(module: str, payload: dict, env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    script = HOOK_SCRIPT_MAP.get(module)
+    if script:
+        return subprocess.run(
+            [str(script)],
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            cwd=cwd,
+            env=env,
+        )
     return subprocess.run(
         [sys.executable, "-m", module],
         input=json.dumps(payload),
@@ -55,6 +71,16 @@ def _run_hook_script_env_payload(
 ) -> subprocess.CompletedProcess[str]:
     env = dict(env)
     env["HOOK_PAYLOAD"] = json.dumps(payload)
+    script = HOOK_SCRIPT_MAP.get(module)
+    if script:
+        return subprocess.run(
+            [str(script)],
+            input="",
+            text=True,
+            capture_output=True,
+            cwd=cwd,
+            env=env,
+        )
     return subprocess.run(
         [sys.executable, "-m", module],
         input="",
@@ -948,7 +974,7 @@ class PreCompactSnapshotTests(unittest.TestCase):
 
 
 class HooklibResolutionTests(unittest.TestCase):
-    def test_resolve_project_dir_relative_env_uses_ctx_cwd(self) -> None:
+    def test_resolve_project_dir_uses_ctx_cwd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
             ctx = hooklib.HookContext(
@@ -959,8 +985,7 @@ class HooklibResolutionTests(unittest.TestCase):
                 permission_mode=None,
                 raw={},
             )
-            with mock.patch.dict(os.environ, {"CLAUDE_PROJECT_DIR": "."}, clear=False):
-                resolved = hooklib.resolve_project_dir(ctx)
+            resolved = hooklib.resolve_project_dir(ctx)
             self.assertEqual(resolved, root.resolve())
 
     def test_resolve_aidd_root_walks_parents(self) -> None:
@@ -970,7 +995,7 @@ class HooklibResolutionTests(unittest.TestCase):
             (root / "aidd" / "config").mkdir(parents=True, exist_ok=True)
             nested = root / "foo" / "bar" / "baz"
             nested.mkdir(parents=True, exist_ok=True)
-            with mock.patch.dict(os.environ, {"AIDD_ROOT": "", "CLAUDE_PLUGIN_ROOT": ""}, clear=False):
+            with mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": ""}, clear=False):
                 resolved = hooklib.resolve_aidd_root(nested)
             self.assertEqual(resolved, (root / "aidd").resolve())
 

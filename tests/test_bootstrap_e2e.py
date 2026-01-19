@@ -1,51 +1,43 @@
-import json
-import os
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Iterable
 
-from .helpers import PAYLOAD_ROOT, PROJECT_SUBDIR
+from .helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 
-# Represent key artefacts that must match payload byte-for-byte after bootstrap.
+# Represent key artefacts that must match templates byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
-    "commands/idea-new.md",
-    "hooks/gate-workflow.sh",
-    "hooks/gate-qa.sh",
-    "hooks/hooks.json",
+    "AGENTS.md",
+    "conventions.md",
     "config/context_gc.json",
     "config/conventions.json",
+    "config/gates.json",
     "docs/prd/template.md",
     "docs/spec/template.spec.yaml",
     "docs/tasklist/template.md",
     "docs/research/template.md",
-    "commands/review-spec.md",
-    "AGENTS.md",
-    "conventions.md",
+    "docs/anchors/idea.md",
 )
 
 PROJECT_DIRECTORIES = (
-    "agents",
-    "commands",
-    "hooks",
     "config",
     "docs",
     "reports",
 )
-WORKSPACE_DIRECTORIES = (
-    ".claude",
-    ".claude-plugin",
-)
+WORKSPACE_DIRECTORIES = ()
 
 
 def _run_bootstrap(target: Path, *extra_args: str) -> None:
-    env = os.environ.copy()
-    template = PAYLOAD_ROOT
-    env["CLAUDE_TEMPLATE_DIR"] = str(template)
     project_root = target / PROJECT_SUBDIR
     project_root.mkdir(parents=True, exist_ok=True)
-    cmd = ["bash", str(template / "init-claude-workflow.sh"), "--commit-mode", "ticket-prefix", *extra_args]
-    subprocess.run(cmd, cwd=project_root, check=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        cli_cmd("init", *extra_args),
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=target,
+        env=cli_env(),
+    )
 
 
 def _hash_file(path: Path) -> str:
@@ -101,17 +93,11 @@ def test_bootstrap_copies_payload_files_and_directories():
             assert (target / directory).is_dir(), f"{directory} must exist after bootstrap"
 
         for relative in CRITICAL_FILES:
-            payload_file = PAYLOAD_ROOT / relative
+            payload_file = TEMPLATES_ROOT / relative
             project_file = project_root / relative
-            assert payload_file.is_file(), f"payload missing {relative}"
+            assert payload_file.is_file(), f"template missing {relative}"
             assert project_file.is_file(), f"project missing {relative}"
             assert _hash_file(payload_file) == _hash_file(project_file), f"{relative} mismatch vs payload"
-
-        # settings.json must exist, enable the plugin, and avoid $CLAUDE_PROJECT_DIR placeholders.
-        settings_path = target / ".claude" / "settings.json"
-        data = json.loads(settings_path.read_text(encoding="utf-8"))
-        assert data.get("enabledPlugins", {}).get("feature-dev-aidd@aidd-local"), "plugin should be enabled"
-        assert "$CLAUDE_PROJECT_DIR" not in settings_path.read_text(encoding="utf-8"), "placeholders must be rewritten"
 
 
 def test_bootstrap_force_overwrites_modified_files():
@@ -120,11 +106,11 @@ def test_bootstrap_force_overwrites_modified_files():
         _run_bootstrap(target)
 
         project_root = target / PROJECT_SUBDIR
-        gate_workflow = project_root / "hooks" / "gate-workflow.sh"
+        gate_workflow = project_root / "config" / "gates.json"
         gate_workflow.write_text("# modified\n", encoding="utf-8")
         assert "modified" in gate_workflow.read_text(encoding="utf-8")
 
         _run_bootstrap(target, "--force")
 
-        payload_gate = PAYLOAD_ROOT / "hooks" / "gate-workflow.sh"
-        assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore payload version"
+        payload_gate = TEMPLATES_ROOT / "config" / "gates.json"
+        assert _hash_file(gate_workflow) == _hash_file(payload_gate), "force bootstrap must restore template content"

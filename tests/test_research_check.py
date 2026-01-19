@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+from tests.helpers import REPO_ROOT
 
-from claude_workflow_cli import cli  # noqa: E402
+sys.path.append(str(REPO_ROOT))
+
+from tools import research_check  # noqa: E402
 
 from .helpers import ensure_gates_config, ensure_project_root, write_active_feature, write_file, write_json
 
@@ -34,13 +36,8 @@ class ResearchCheckTests(unittest.TestCase):
         return workspace, project_root
 
     @staticmethod
-    def _make_args(workspace: Path, ticket: str) -> SimpleNamespace:
-        return SimpleNamespace(
-            target=str(workspace),
-            ticket=ticket,
-            slug_hint=None,
-            branch=None,
-        )
+    def _make_args(workspace: Path, ticket: str) -> list[str]:
+        return ["--ticket", ticket]
 
     def test_research_check_blocks_missing_report(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -48,8 +45,13 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
 
         args = self._make_args(workspace, ticket)
-        with self.assertRaises(RuntimeError) as excinfo:
-            cli._research_check_command(args)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
 
@@ -70,7 +72,12 @@ class ResearchCheckTests(unittest.TestCase):
         )
 
         args = self._make_args(workspace, ticket)
-        cli._research_check_command(args)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
 
 
 if __name__ == "__main__":

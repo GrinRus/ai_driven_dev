@@ -27,7 +27,12 @@ jobs:
           npm install -g markdownlint-cli
 
       - name: Run ci-lint script
-        run: scripts/ci-lint.sh
+        run: tests/repo_tools/ci-lint.sh
+
+      - name: Bootstrap AIDD workspace for QA gate
+        run: |
+          CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}" \
+            tools/init.sh
 
       - name: Run QA gate
         run: |
@@ -36,4 +41,5 @@ jobs:
           else
             unset QA_AGENT_DIFF_BASE
           fi
-          src/claude_workflow_cli/data/payload/aidd/hooks/gate-qa.sh --payload '{}'
+          export CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}"
+          hooks/gate-qa.sh --payload '{}'
