@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-18._
+_Last sync with `README.md`: 2026-01-19._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -45,6 +45,12 @@ Key features:
 
 ```text
 /feature-dev-aidd:aidd-init
+```
+
+If you want to populate `.claude/settings.json` with `automation.tests` defaults, run:
+
+```text
+/feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
 For CI or manual use:

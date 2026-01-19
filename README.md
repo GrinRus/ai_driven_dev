@@ -40,6 +40,12 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init
 ```
 
+Если хотите сразу заполнить `.claude/settings.json` дефолтами `automation.tests`, используйте:
+
+```text
+/feature-dev-aidd:aidd-init --detect-build-tools
+```
+
 ### 3. Запустите фичу в Claude Code
 
 ```text
