@@ -31,7 +31,6 @@ permissionMode: default
 
 ## Автоматизация
 - Зафиксируй подсказки в `## AIDD:RESEARCH_HINTS` и передай их следующему шагу `/feature-dev-aidd:researcher <ticket>`.
-- Если контекст «тонкий» (мало совпадений/неясные зависимости), инициируй research с call graph (`--graph-mode full` или auto‑режим) и отметь это в PRD.
 - `analyst-check` выполняется после ответов.
 - `rg` используй в два этапа: сначала `aidd/docs/**`, затем — только по модулям из `AIDD:RESEARCH_HINTS` или working set.
 
