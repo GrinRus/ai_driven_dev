@@ -113,7 +113,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Английская версия: `README.en.md`.
 
 ## Примеры
-`examples/gradle-demo` и gradle helper больше не поставляются — репозиторий остаётся language‑agnostic. При необходимости держите демо‑проекты вне плагина и описывайте их в документации вашего workspace.
+Демо‑проекты и вспомогательные скрипты не поставляются — репозиторий остаётся language‑agnostic. При необходимости держите демо‑проекты вне плагина и описывайте их в документации вашего workspace.
 
 ## Dev-only проверки
 - Репозиторные проверки (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.

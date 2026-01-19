@@ -83,6 +83,13 @@ TOML_DEP_LIST_KEYS = {
     "optional-dependencies",
 }
 
+SETUP_PY_KEYS = {
+    "install_requires",
+    "tests_require",
+    "setup_requires",
+    "extras_require",
+}
+
 PIPFILE_LOCK_IGNORE = {
     "_meta",
     "default",
@@ -283,6 +290,48 @@ def _extract_setup_cfg(lines: list[str]) -> set[str]:
     return deps
 
 
+def _extract_string_literals(line: str) -> list[str]:
+    results: list[str] = []
+    for match in re.finditer(r"([\"'])(.+?)\\1", line):
+        value = match.group(2)
+        tail = line[match.end():].lstrip()
+        if tail.startswith(":"):
+            continue
+        cleaned = _clean_requirement(value)
+        if cleaned:
+            results.append(cleaned)
+    return results
+
+
+def _extract_setup_py(lines: list[str]) -> set[str]:
+    deps: set[str] = set()
+    active_key: str | None = None
+    bracket_depth = 0
+    key_re = re.compile(r"\\b(" + "|".join(SETUP_PY_KEYS) + r")\\b\\s*=")
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if active_key:
+            deps.update(_extract_string_literals(stripped))
+            bracket_depth += stripped.count("[") + stripped.count("{") + stripped.count("(")
+            bracket_depth -= stripped.count("]") + stripped.count("}") + stripped.count(")")
+            if bracket_depth <= 0:
+                active_key = None
+                bracket_depth = 0
+            continue
+        match = key_re.search(stripped)
+        if not match:
+            continue
+        remainder = stripped[match.end():]
+        deps.update(_extract_string_literals(remainder))
+        bracket_depth = remainder.count("[") + remainder.count("{") + remainder.count("(")
+        bracket_depth -= remainder.count("]") + remainder.count("}") + remainder.count(")")
+        if bracket_depth > 0:
+            active_key = match.group(1)
+    return deps
+
+
 def _extract_pipfile(lines: list[str]) -> set[str]:
     deps: set[str] = set()
     section: str | None = None
@@ -401,9 +450,11 @@ def _extract_dependencies(path: str, lines: list[str]) -> set[str]:
         return _extract_gradle(lines)
     if name == "package.json":
         return _extract_package_json(lines)
+    if name == "setup.py":
+        return _extract_setup_py(lines)
     if name == "pipfile":
         return _extract_pipfile(lines)
-    if name in {"pyproject.toml", "pipfile.lock", "poetry.lock", "setup.cfg", "setup.py"}:
+    if name in {"pyproject.toml", "pipfile.lock", "poetry.lock", "setup.cfg"}:
         if name == "pipfile.lock":
             return _extract_pipfile_lock(lines)
         if name == "poetry.lock":

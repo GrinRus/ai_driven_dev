@@ -10,7 +10,7 @@
 - Backlog: `backlog.md` (корень).
 - User‑артефакты: `aidd/**` (docs/reports/config/.cache).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
-- Примеры: `examples/gradle-demo` и gradle helper не поставляются — держите демо‑проекты вне плагина и документируйте их в workspace.
+- Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 
 ## Источник истины (dev vs user)
 - `templates/aidd/**` — источник истины для workspace‑шаблонов; правим шаблоны, а не сгенерированный `aidd/**`.

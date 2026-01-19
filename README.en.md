@@ -126,7 +126,7 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - Russian version: `README.md`.
 
 ## Examples
-`examples/gradle-demo` and the Gradle helper are no longer shipped — the repo stays language-agnostic. Keep demo projects outside the plugin and document them in your workspace docs if needed.
+Demo projects and helper scripts are not shipped — the repo stays language-agnostic. Keep demos outside the plugin and document them in your workspace docs if needed.
 
 ## Dev-only checks
 - Repo checks (maintainer only): `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
