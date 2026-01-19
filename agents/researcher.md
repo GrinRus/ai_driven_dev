@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.2
-source_version: 1.2.2
+prompt_version: 1.2.3
+source_version: 1.2.3
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -29,13 +29,14 @@ permissionMode: default
 - slug-hint в `aidd/docs/.active_feature`, ADR/исторические PR.
 
 ## Автоматизация
-- Запускай `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ...]`, используя `## AIDD:RESEARCH_HINTS` из PRD.
+- Запускай `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto [--graph-mode focus|full] [--paths ... --keywords ...]`, используя `## AIDD:RESEARCH_HINTS` из PRD.
+- Проверяй `call_graph`/`import_graph` в `aidd/reports/research/<ticket>-context.json`; если пусто, повтори сбор через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --graph-engine ts --call-graph` или зафиксируй WARN в отчёте.
 - Если сканирование пустое, используй шаблон `aidd/docs/research/template.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции PRD/Research и `## AIDD:RESEARCH_HINTS`, затем точечно читай план/tasklist.
-2. При необходимости обнови JSON через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` и зафиксируй параметры запуска.
+2. При необходимости обнови JSON через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` и зафиксируй параметры запуска; при пустом `call_graph` повтори сбор с `--graph-engine ts --call-graph` или зафиксируй WARN.
 3. Используй `code_index`/call/import graph и `rg` для подтверждения точек интеграции, reuse и тестов.
 4. Заполни отчёт по шаблону: **Context Pack**, integration points, reuse, risks, tests, commands run.
 5. Выставь `Status: reviewed`, если есть: минимум N интеграций, тестовые указатели и список команд; иначе `pending` + TODO.

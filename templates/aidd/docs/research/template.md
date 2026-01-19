@@ -34,6 +34,11 @@ Artifacts:
 ## AIDD:COMMANDS_RUN
 - {{commands_run}}
 
+## AIDD:CALL_GRAPH
+- Summary: {{call_graph_summary}}
+- Full graph: {{call_graph_full_path}}
+- Columnar: {{call_graph_full_columnar_path}}
+
 ## AIDD:TEST_HOOKS
 - {{test_hooks}}
 
@@ -41,6 +46,7 @@ Artifacts:
 - **Entry points:** {{entry_points}}
 - **Reuse candidates:** {{reuse_candidates}}
 - **Integration points:** {{integration_points}}
+- **Call graph:** {{call_graph_summary}} (full: {{call_graph_full_path}})
 - **Test pointers:** {{test_pointers}}
 - **Top risks:** {{risks}}
 - Keep concise; may be longer than AIDD:CONTEXT_PACK.
@@ -68,6 +74,7 @@ Artifacts:
 
 ## Граф вызовов/импортов (если применимо)
 - {{graph-note}} (кто вызывает/импортирует целевой модуль; источники из call graph/import graph для поддерживаемых языков)
+- Полный граф: {{call_graph_full_path}}
 
 ## Паттерны/анти-паттерны
 - **Паттерны:** {{positive-patterns}} (ссылки на код/тесты)
