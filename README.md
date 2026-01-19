@@ -93,6 +93,26 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `/feature-dev-aidd:qa` | Финальная QA-проверка | `<TICKET> [note...]` |
 | `/feature-dev-aidd:status` | Статус тикета и артефакты | `[<TICKET>]` |
 
+## Research call graph
+
+| Сценарий | Graph обязателен | Режим |
+| --- | --- | --- |
+| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) |
+| Смешанный repo с JVM‑модулями | Да (для JVM) | `--auto` |
+| Non‑JVM (py/js/go и т.п.) | Нет | fast‑scan |
+| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` |
+
+Примеры WARN/INSTALL_HINT:
+- `[aidd] WARN: 0 matches for <ticket> → сузить paths/keywords или graph-only.`
+- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
+- `[aidd] WARN: tree-sitter not available: ...`
+
+Troubleshooting пустого контекста:
+- Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
+- Запустите graph-only: `--call-graph --graph-mode full`.
+- Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
+- Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
+
 ## Предпосылки
 - `bash`, `git`, `python3`.
 - Claude Code с доступом к plugin marketplace.

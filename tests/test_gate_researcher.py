@@ -58,7 +58,14 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     )
 
 
-def _write_context(tmp_path: Path, ticket: str, *, is_new: bool, auto_mode: bool) -> None:
+def _write_context(
+    tmp_path: Path,
+    ticket: str,
+    *,
+    is_new: bool,
+    auto_mode: bool,
+    call_graph_engine: str = "auto",
+) -> None:
     write_json(
         tmp_path,
         f"reports/research/{ticket}-context.json",
@@ -67,6 +74,13 @@ def _write_context(tmp_path: Path, ticket: str, *, is_new: bool, auto_mode: bool
             "generated_at": _utc_now(),
             "profile": {"is_new_project": is_new},
             "auto_mode": auto_mode,
+            "call_graph": [],
+            "import_graph": [],
+            "call_graph_engine": call_graph_engine,
+            "call_graph_supported_languages": [],
+            "call_graph_filter": "",
+            "call_graph_limit": 300,
+            "call_graph_warning": "",
         },
     )
 
@@ -80,6 +94,20 @@ def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
         "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
     )
     _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+
+
+def test_researcher_allows_graph_engine_none_for_baseline(tmp_path):
+    ticket = "demo-checkout"
+    _setup_common_artifacts(tmp_path, ticket)
+    write_file(
+        tmp_path,
+        f"docs/research/{ticket}.md",
+        "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
+    )
+    _write_context(tmp_path, ticket, is_new=True, auto_mode=True, call_graph_engine="none")
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr

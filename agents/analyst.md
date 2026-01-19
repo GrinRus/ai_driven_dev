@@ -2,8 +2,8 @@
 name: analyst
 description: Сбор исходной идеи → анализ контекста → PRD draft + вопросы пользователю (READY после ответов).
 lang: ru
-prompt_version: 1.3.3
-source_version: 1.3.3
+prompt_version: 1.3.4
+source_version: 1.3.4
 tools: Read, Write, Glob, Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*), Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -31,6 +31,7 @@ permissionMode: default
 
 ## Автоматизация
 - Зафиксируй подсказки в `## AIDD:RESEARCH_HINTS` и передай их следующему шагу `/feature-dev-aidd:researcher <ticket>`.
+- Если контекст «тонкий» (мало совпадений/неясные зависимости), инициируй research с call graph (`--graph-mode full` или auto‑режим) и отметь это в PRD.
 - `analyst-check` выполняется после ответов.
 - `rg` используй в два этапа: сначала `aidd/docs/**`, затем — только по модулям из `AIDD:RESEARCH_HINTS` или working set.
 

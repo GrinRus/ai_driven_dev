@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "<TICKET> [slug-hint] [note...]"
 lang: ru
-prompt_version: 1.3.3
-source_version: 1.3.3
+prompt_version: 1.3.4
+source_version: 1.3.4
 allowed-tools:
   - Read
   - Edit

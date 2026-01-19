@@ -11,13 +11,19 @@ from typing import Optional
 from tools import runtime
 from tools.researcher_context import (
     ResearcherContextBuilder,
+    _CALLGRAPH_LANGS,
+    _columnar_call_graph,
     _DEFAULT_GRAPH_LIMIT,
+    _emit_call_graph_warning,
     _parse_graph_engine as _research_parse_graph_engine,
     _parse_graph_filter as _research_parse_graph_filter,
+    _parse_graph_mode as _research_parse_graph_mode,
     _parse_keywords as _research_parse_keywords,
     _parse_langs as _research_parse_langs,
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
+    _select_graph_edges,
+    _strip_trim_warning,
 )
 
 
@@ -121,7 +127,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--deep-code",
         action="store_true",
-        help="Collect code symbols/imports/tests for reuse candidates (without building call graph).",
+        help="Collect code symbols/imports/tests for reuse candidates (enables call graph unless --graph-engine none).",
     )
     parser.add_argument(
         "--reuse-only",
@@ -135,7 +141,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--call-graph",
         action="store_true",
-        help="Build call/import graph (supported languages via tree-sitter if available).",
+        help=(
+            "Build call/import graph (tree-sitter when available). Deprecated: graph is built automatically in deep-code "
+            "unless --graph-engine none; use --graph-mode to control focus/full."
+        ),
     )
     parser.add_argument(
         "--graph-engine",
@@ -156,6 +165,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=_DEFAULT_GRAPH_LIMIT,
         help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+    )
+    parser.add_argument(
+        "--graph-mode",
+        choices=["auto", "focus", "full"],
+        default="auto",
+        help="Graph selection for context: auto (full if small), focus (filter+limit), full (no filter/limit).",
     )
     parser.add_argument(
         "--no-template",
@@ -220,6 +235,7 @@ def run(args: argparse.Namespace) -> int:
     languages = _research_parse_langs(getattr(args, "langs", None))
     graph_languages = _research_parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _research_parse_graph_engine(getattr(args, "graph_engine", None))
+    graph_mode = _research_parse_graph_mode(getattr(args, "graph_mode", None))
     auto_filter = "|".join(scope.keywords + [scope.ticket])
     graph_filter = _research_parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
     raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
@@ -230,8 +246,28 @@ def run(args: argparse.Namespace) -> int:
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
 
+    deep_code_enabled = bool(args.deep_code)
+    call_graph_requested = bool(args.call_graph)
+    if args.auto:
+        if deep_code_enabled or call_graph_requested:
+            auto_profile = "graph-scan"
+            auto_reason = "explicit flags"
+        else:
+            callgraph_files = builder._iter_callgraph_files(search_roots, list(_CALLGRAPH_LANGS))
+            if callgraph_files:
+                auto_profile = "graph-scan"
+                auto_reason = "kt/kts/java detected"
+                deep_code_enabled = True
+                call_graph_requested = True
+            else:
+                auto_profile = "fast-scan"
+                auto_reason = "no kt/kts/java detected"
+                deep_code_enabled = False
+                call_graph_requested = False
+        print(f"[aidd] researcher auto profile: {auto_profile} ({auto_reason}).")
+
     collected_context = builder.collect_context(scope, limit=args.limit)
-    if args.deep_code:
+    if deep_code_enabled:
         code_index, reuse_candidates = builder.collect_deep_context(
             scope,
             roots=search_roots,
@@ -245,40 +281,62 @@ def run(args: argparse.Namespace) -> int:
         collected_context["deep_mode"] = True
     else:
         collected_context["deep_mode"] = False
-    if args.call_graph:
+    graph_enabled = graph_engine != "none"
+    should_build_graph = graph_enabled and (call_graph_requested or deep_code_enabled)
+    collected_context["call_graph"] = []
+    collected_context["import_graph"] = []
+    collected_context["call_graph_engine"] = graph_engine
+    collected_context["call_graph_supported_languages"] = []
+    collected_context["call_graph_filter"] = graph_filter
+    collected_context["call_graph_limit"] = graph_limit
+    collected_context["call_graph_warning"] = ""
+    if should_build_graph:
         graph = builder.collect_call_graph(
             scope,
             roots=search_roots,
-            languages=graph_languages or languages or ["kt", "kts", "java"],
+            languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
             engine_name=graph_engine,
             graph_filter=graph_filter,
             graph_limit=graph_limit,
         )
-        collected_context["call_graph"] = graph.get("edges", [])
+        selected_edges, selected_mode = _select_graph_edges(graph, graph_mode, graph_limit)
+        collected_context["call_graph"] = selected_edges
         collected_context["import_graph"] = graph.get("imports", [])
         collected_context["call_graph_engine"] = graph.get("engine", graph_engine)
         collected_context["call_graph_supported_languages"] = graph.get("supported_languages", [])
-        if graph.get("edges_full") is not None:
-            full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
-            full_path = runtime.resolve_path_for_target(full_path, target)
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
-            full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
-            collected_context["call_graph_full_path"] = os.path.relpath(full_path, target)
-        collected_context["call_graph_filter"] = graph_filter
-        collected_context["call_graph_limit"] = graph_limit
-        if graph.get("warning"):
-            collected_context["call_graph_warning"] = graph.get("warning")
-    else:
-        collected_context["call_graph"] = []
-        collected_context["import_graph"] = []
-        collected_context["call_graph_engine"] = graph_engine
-        collected_context["call_graph_supported_languages"] = []
+        warning = graph.get("warning") or ""
+        if selected_mode == "full":
+            warning = _strip_trim_warning(warning)
+        collected_context["call_graph_warning"] = warning
+        _emit_call_graph_warning("[aidd]", warning)
+
+        full_edges = graph.get("edges_full")
+        if full_edges is None:
+            full_edges = graph.get("edges") or []
+        full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
+        full_path = runtime.resolve_path_for_target(full_path, target)
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_payload = {"edges": full_edges, "imports": graph.get("imports", [])}
+        full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
+        collected_context["call_graph_full_path"] = os.path.relpath(full_path, target)
+        columnar_path = full_path.with_suffix(".cjson")
+        try:
+            columnar_payload = _columnar_call_graph(
+                full_payload.get("edges", []),
+                full_payload.get("imports", []),
+            )
+            columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
+            collected_context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, target)
+        except OSError:
+            pass
+    elif graph_engine == "none" and (call_graph_requested or deep_code_enabled):
+        collected_context["call_graph_warning"] = "call graph disabled (graph-engine none)"
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     match_count = len(collected_context["matches"])
     if match_count == 0:
         print(
-            f"[aidd] researcher found 0 matches for `{ticket}` — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
+            f"[aidd] WARN: 0 matches for `{ticket}` → сузить paths/keywords или graph-only.",
+            file=sys.stderr,
         )
         if (
             builder.paths_relative_mode == "aidd"
@@ -309,12 +367,12 @@ def run(args: argparse.Namespace) -> int:
         print(f"[aidd] research pack saved to {rel_pack}.")
     except Exception as exc:
         print(f"[aidd] WARN: failed to generate research pack: {exc}", file=sys.stderr)
-    reuse_count = len(collected_context.get("reuse_candidates") or []) if args.deep_code else 0
-    call_edges = len(collected_context.get("call_graph") or []) if args.call_graph else 0
+    reuse_count = len(collected_context.get("reuse_candidates") or []) if deep_code_enabled else 0
+    call_edges = len(collected_context.get("call_graph") or []) if should_build_graph else 0
     message = f"[aidd] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
-    if args.deep_code:
+    if deep_code_enabled:
         message += f", {reuse_count} reuse candidates"
-    if args.call_graph:
+    if should_build_graph:
         message += f", {call_edges} call edges"
     message += ")."
     print(message)
