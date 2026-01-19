@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.helpers import REPO_ROOT
 
@@ -17,6 +18,15 @@ from tools.researcher_context import (
 )
 
 from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
+
+
+class MissingEngine:
+    name = "tree-sitter"
+    supported_languages = {"kt", "kts", "java"}
+    supported_extensions = {".kt", ".kts", ".java"}
+
+    def build(self, files):
+        return {"edges": [], "imports": [], "warning": "tree-sitter not available: missing parser"}
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -69,6 +79,7 @@ class ResearcherContextTests(unittest.TestCase):
             "docs/research/demo-checkout.md",
             "# Research Summary\n\nStatus: pending\n",
         )
+
 
     def tearDown(self) -> None:  # noqa: D401
         self._tmp.cleanup()
@@ -169,6 +180,23 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("symbols", code_index[0])
         self.assertGreaterEqual(len(reuse_candidates), 1, "reuse candidates should be suggested")
         self.assertIn("score", reuse_candidates[0])
+
+    @mock.patch("tools.researcher_context._load_callgraph_engine")
+    def test_call_graph_warns_when_tree_sitter_missing(self, mock_engine) -> None:
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
+        _, _, roots = builder.describe_targets(scope)
+        mock_engine.return_value = MissingEngine()
+
+        graph = builder.collect_call_graph(
+            scope,
+            roots=roots,
+            languages=["kt"],
+            engine_name="ts",
+        )
+
+        self.assertIn("tree-sitter", graph.get("warning", ""))
+        self.assertIn("edges_full", graph)
 
     def test_set_active_feature_refreshes_targets(self) -> None:
         env = cli_env()

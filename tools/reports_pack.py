@@ -55,6 +55,13 @@ _ESSENTIAL_FIELDS = {
     "slug_hint",
     "generated_at",
     "source_path",
+    "call_graph_full_path",
+    "call_graph_full_columnar_path",
+    "call_graph_warning",
+    "call_graph_engine",
+    "call_graph_supported_languages",
+    "call_graph_filter",
+    "call_graph_limit",
 }
 _ENV_LIMITS_CACHE: Dict[str, Dict[str, int]] | None = None
 _BUDGET_HINT = "Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size."

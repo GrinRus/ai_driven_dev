@@ -173,9 +173,19 @@ PY
 
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
-run_cli research --ticket "$TICKET" --auto --deep-code --call-graph >/dev/null
+run_cli research --ticket "$TICKET" --auto >/dev/null
 if ! grep -q "\"call_graph\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
   echo "[smoke] expected call_graph in research context" >&2
+  exit 1
+fi
+if ! grep -q "\"call_graph_full_path\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
+  echo "[smoke] expected call_graph_full_path in research context" >&2
+  exit 1
+fi
+log "run researcher stage with graph-engine none"
+run_cli research --ticket "$TICKET" --auto --graph-engine none >/dev/null
+if ! grep -q "\"call_graph_engine\": \"none\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
+  echo "[smoke] expected call_graph_engine none in research context" >&2
   exit 1
 fi
 python3 - "$TICKET" <<'PY'

@@ -57,7 +57,7 @@
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.
-- Research: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto --deep-code` → `/feature-dev-aidd:researcher <ticket>`.
+- Research: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (при необходимости: `--graph-mode full`).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
 - Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
@@ -66,6 +66,26 @@
 - QA: `/feature-dev-aidd:qa <ticket>` → отчёт `aidd/reports/qa/<ticket>.json`.
 
 Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, тесты), затем задаём вопросы пользователю.
+
+## Call Graph в Research
+
+| Сценарий | Graph обязателен | Режим | Примечание |
+| --- | --- | --- | --- |
+| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) | Полный граф в sidecar, краткий — в контексте. |
+| Смешанный repo с JVM‑модулями | Да (для JVM) | `--auto` | Уточняйте `--paths` под JVM‑часть. |
+| Non‑JVM (py/js/go и т.п.) | Нет | fast‑scan | Graph можно отключить `--graph-engine none`. |
+| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` | Полный граф помогает навести scope. |
+
+Примеры WARN/INSTALL_HINT:
+- `[aidd] WARN: 0 matches for <ticket> → сузить paths/keywords или graph-only.`
+- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
+- `[aidd] WARN: tree-sitter not available: ...`
+
+Troubleshooting пустого контекста:
+- Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
+- Запустите graph-only: `--call-graph --graph-mode full`.
+- Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
+- Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
 
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).

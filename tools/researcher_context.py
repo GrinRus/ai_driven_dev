@@ -41,6 +41,8 @@ _LANG_SUFFIXES: Dict[str, Tuple[str, ...]] = {
 _DEFAULT_LANGS: Tuple[str, ...] = ("py", "kt", "kts", "java")
 _CALLGRAPH_LANGS = {"kt", "kts", "java"}
 _DEFAULT_GRAPH_LIMIT = 300
+_GRAPH_MODES = {"auto", "focus", "full"}
+_INSTALL_HINT = "INSTALL_HINT: python3 -m pip install tree_sitter_language_pack"
 
 
 def _utc_timestamp() -> str:
@@ -55,6 +57,7 @@ _CALL_GRAPH_FULL_COLS: Tuple[str, ...] = (
     "language",
     "caller_raw",
 )
+_TRIM_WARNING_RE = re.compile(r"(?:^|\s)call graph trimmed to \d+ edges\.?")
 
 
 def _columnar_call_graph(edges: List[Dict[str, Any]], imports: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -77,6 +80,41 @@ def _columnar_call_graph(edges: List[Dict[str, Any]], imports: List[Dict[str, An
         "rows": rows,
         "imports": imports,
     }
+
+
+def _select_graph_edges(
+    graph: Dict[str, Any],
+    graph_mode: str,
+    graph_limit: int,
+) -> Tuple[List[Dict[str, Any]], str]:
+    edges_full = graph.get("edges_full")
+    if edges_full is None:
+        edges_full = graph.get("edges") or []
+    edges_focus = graph.get("edges") or []
+    if graph_mode == "full":
+        return list(edges_full), "full"
+    if graph_mode == "focus":
+        return list(edges_focus), "focus"
+    if len(edges_full) <= graph_limit:
+        return list(edges_full), "full"
+    return list(edges_focus), "focus"
+
+
+def _strip_trim_warning(warning: str) -> str:
+    if not warning:
+        return ""
+    cleaned = _TRIM_WARNING_RE.sub("", warning)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned.strip()
+
+
+def _emit_call_graph_warning(prefix: str, warning: Optional[str]) -> None:
+    if not warning:
+        return
+    if "tree-sitter" not in warning.lower():
+        return
+    print(f"{prefix} {_INSTALL_HINT}", file=sys.stderr)
+    print(f"{prefix} WARN: {warning}", file=sys.stderr)
 
 
 def _unique(items: Iterable[str]) -> List[str]:
@@ -700,25 +738,25 @@ class ResearcherContextBuilder:
     ) -> Dict[str, Any]:
         callgraph_langs = [lang for lang in languages if lang in _CALLGRAPH_LANGS]
         files = self._iter_callgraph_files(roots, callgraph_langs)
+        base: Dict[str, Any] = {
+            "engine": engine_name,
+            "supported_languages": [],
+            "edges": [],
+            "imports": [],
+            "edges_full": [],
+        }
         if not files or not callgraph_langs:
-            return {
-                "engine": engine_name,
-                "supported_languages": [],
-                "edges": [],
-                "imports": [],
-                "warning": "call graph disabled or no supported files",
-            }
+            base["warning"] = "call graph disabled or no supported files"
+            return base
+        if engine_name == "none":
+            base["warning"] = "call graph disabled (graph-engine none)"
+            return base
 
         selected_engine = engine or _load_callgraph_engine(engine_name)
         if selected_engine is None:
-            return {
-                "engine": engine_name,
-                "supported_languages": [],
-                "edges": [],
-                "imports": [],
-                "warning": "call graph engine not available",
-            }
-        result = selected_engine.build(files)
+            base["warning"] = "call graph engine not available"
+            return base
+        result = selected_engine.build(files) or {}
         result.setdefault("engine", selected_engine.name)
         result.setdefault("supported_languages", list(selected_engine.supported_languages))
         edges = result.get("edges") or []
@@ -747,7 +785,9 @@ class ResearcherContextBuilder:
         result["edges"] = trimmed_edges
         result["imports"] = imports
         if trimmed:
-            result["warning"] = (result.get("warning") or "") + f" call graph trimmed to {graph_limit} edges."
+            warning = (result.get("warning") or "").strip()
+            suffix = f"call graph trimmed to {graph_limit} edges."
+            result["warning"] = f"{warning} {suffix}".strip()
         return result
 
     def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
@@ -929,6 +969,15 @@ def _parse_graph_engine(value: Optional[str]) -> str:
         return "auto"
     normalized = value.strip().lower()
     if normalized not in {"auto", "none", "ts"}:
+        return "auto"
+    return normalized
+
+
+def _parse_graph_mode(value: Optional[str]) -> str:
+    if not value:
+        return "auto"
+    normalized = value.strip().lower()
+    if normalized not in _GRAPH_MODES:
         return "auto"
     return normalized
 
@@ -1158,10 +1207,6 @@ def _load_callgraph_engine(engine_name: str) -> Optional[_CallGraphEngine]:
         return None
     if engine_name in {"auto", "ts"}:
         engine = _TreeSitterEngine()
-        if engine._parser_loader is None:
-            if engine_name == "ts":
-                return None
-            return None
         return engine
     return None
 
@@ -1200,13 +1245,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--targets-only", action="store_true", help="Only refresh targets JSON, skip scanning sources.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing files; prints context JSON to stdout.")
-    parser.add_argument("--deep-code", action="store_true", help="Collect code symbols/imports/tests alongside keyword matches.")
+    parser.add_argument(
+        "--deep-code",
+        action="store_true",
+        help="Collect code symbols/imports/tests alongside keyword matches (enables call graph unless --graph-engine none).",
+    )
     parser.add_argument("--reuse-only", action="store_true", help="Skip keyword matches and focus on reuse candidates.")
     parser.add_argument("--langs", help="Comma-separated list of languages to scan (py,kt,kts,java).")
     parser.add_argument(
         "--call-graph",
         action="store_true",
-        help="Build call/import graph for supported languages. Deprecated: graph is built automatically in deep-code unless --graph-engine none.",
+        help=(
+            "Build call/import graph for supported languages. Deprecated: graph is built automatically in deep-code "
+            "unless --graph-engine none; use --graph-mode to control focus/full."
+        ),
     )
     parser.add_argument(
         "--graph-engine",
@@ -1227,6 +1279,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=_DEFAULT_GRAPH_LIMIT,
         help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+    )
+    parser.add_argument(
+        "--graph-mode",
+        choices=["auto", "focus", "full"],
+        default="auto",
+        help="Graph selection for context: auto (full if small), focus (filter+limit), full (no filter/limit).",
     )
     parser.add_argument(
         "--auto",
@@ -1270,6 +1328,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     languages = _parse_langs(args.langs)
     graph_languages = _parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _parse_graph_engine(getattr(args, "graph_engine", None))
+    graph_mode = _parse_graph_mode(getattr(args, "graph_mode", None))
     auto_filter = "|".join(_unique(scope.keywords + [scope.ticket]))
     graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
     raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
@@ -1280,8 +1339,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
 
+    deep_code_enabled = bool(args.deep_code)
+    call_graph_requested = bool(args.call_graph)
+    if args.auto:
+        if deep_code_enabled or call_graph_requested:
+            auto_profile = "graph-scan"
+            auto_reason = "explicit flags"
+        else:
+            callgraph_files = builder._iter_callgraph_files(search_roots, list(_CALLGRAPH_LANGS))
+            if callgraph_files:
+                auto_profile = "graph-scan"
+                auto_reason = "kt/kts/java detected"
+                deep_code_enabled = True
+                call_graph_requested = True
+            else:
+                auto_profile = "fast-scan"
+                auto_reason = "no kt/kts/java detected"
+                deep_code_enabled = False
+                call_graph_requested = False
+        print(f"[researcher] auto profile: {auto_profile} ({auto_reason}).")
+
     context = builder.collect_context(scope, limit=args.limit)
-    if args.deep_code:
+    if deep_code_enabled:
         code_index, reuse_candidates = builder.collect_deep_context(
             scope,
             roots=search_roots,
@@ -1295,10 +1374,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context["deep_mode"] = True
     else:
         context["deep_mode"] = False
-    should_build_graph = args.call_graph or (args.deep_code and graph_engine != "none")
+    graph_enabled = graph_engine != "none"
+    should_build_graph = graph_enabled and (call_graph_requested or deep_code_enabled)
+    context["call_graph"] = []
+    context["import_graph"] = []
+    context["call_graph_engine"] = graph_engine
+    context["call_graph_supported_languages"] = []
+    context["call_graph_filter"] = graph_filter
+    context["call_graph_limit"] = graph_limit
+    context["call_graph_warning"] = ""
     if should_build_graph:
-        graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
-        graph_limit = int(getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT) or _DEFAULT_GRAPH_LIMIT)
         graph = builder.collect_call_graph(
             scope,
             roots=search_roots,
@@ -1307,41 +1392,44 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             graph_filter=graph_filter,
             graph_limit=graph_limit,
         )
-        context["call_graph"] = graph.get("edges", [])
+        selected_edges, selected_mode = _select_graph_edges(graph, graph_mode, graph_limit)
+        context["call_graph"] = selected_edges
         context["import_graph"] = graph.get("imports", [])
         context["call_graph_engine"] = graph.get("engine", graph_engine)
         context["call_graph_supported_languages"] = graph.get("supported_languages", [])
-        if graph.get("edges_full") is not None:
-            full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
-            full_path = _normalize_output_path(root, full_path)
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            full_payload = {"edges": graph.get("edges_full", []), "imports": graph.get("imports", [])}
-            full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
-            context["call_graph_full_path"] = os.path.relpath(full_path, root)
-            columnar_path = full_path.with_suffix(".cjson")
-            try:
-                columnar_payload = _columnar_call_graph(
-                    full_payload.get("edges", []),
-                    full_payload.get("imports", []),
-                )
-                columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
-                context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, root)
-            except OSError:
-                pass
-        context["call_graph_filter"] = graph_filter
-        context["call_graph_limit"] = graph_limit
-        if graph.get("warning"):
-            context["call_graph_warning"] = graph.get("warning")
-    else:
-        context["call_graph"] = []
-        context["import_graph"] = []
-        context["call_graph_engine"] = graph_engine
-        context["call_graph_supported_languages"] = []
+        warning = graph.get("warning") or ""
+        if selected_mode == "full":
+            warning = _strip_trim_warning(warning)
+        context["call_graph_warning"] = warning
+        _emit_call_graph_warning("[researcher]", warning)
+
+        full_edges = graph.get("edges_full")
+        if full_edges is None:
+            full_edges = graph.get("edges") or []
+        full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
+        full_path = _normalize_output_path(root, full_path)
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_payload = {"edges": full_edges, "imports": graph.get("imports", [])}
+        full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
+        context["call_graph_full_path"] = os.path.relpath(full_path, root)
+        columnar_path = full_path.with_suffix(".cjson")
+        try:
+            columnar_payload = _columnar_call_graph(
+                full_payload.get("edges", []),
+                full_payload.get("imports", []),
+            )
+            columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
+            context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, root)
+        except OSError:
+            pass
+    elif graph_engine == "none" and (call_graph_requested or deep_code_enabled):
+        context["call_graph_warning"] = "call graph disabled (graph-engine none)"
     context["auto_mode"] = bool(args.auto)
     match_count = len(context["matches"])
     if match_count == 0:
         print(
-            f"[researcher] 0 matches found for {ticket} — зафиксируйте baseline и статус pending в docs/research/{ticket}.md."
+            f"[researcher] WARN: 0 matches for {ticket} → сузить paths/keywords или graph-only.",
+            file=sys.stderr,
         )
     if args.dry_run:
         print(json.dumps(context, indent=2, ensure_ascii=False))
@@ -1370,10 +1458,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         except Exception:
             full_edges_count = 0
     message = f"[researcher] context saved to {rel_output} ({match_count} matches"
-    if args.deep_code:
+    if deep_code_enabled:
         reuse_count = len(context.get("reuse_candidates") or [])
         message += f", {reuse_count} reuse candidates"
-    if getattr(args, "call_graph", False):
+    if should_build_graph:
         graph_edges = len(context.get("call_graph") or [])
         message += f", {graph_edges} call edges (full: {full_edges_count})"
     message += ")."

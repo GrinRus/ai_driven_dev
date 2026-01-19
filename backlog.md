@@ -1445,20 +1445,20 @@ _Статус: новый, приоритет 1. Цель — перейти н�
 _Статус: новый, приоритет 2. A) research+docs+tests. Перенос из Wave 45/52/61. Цель — end‑to‑end call graph для Researcher._
 
 ### Research core: auto profile + graph-mode
-- [ ] W75-1 `tools/researcher_context.py`: разделить fast-scan vs graph-scan, добавить `--graph-mode auto|focus|full`, сохранять full graph в sidecar и columnar, всегда писать `call_graph_*` метаданные (engine/filter/limit/warning), при отсутствии tree-sitter печатать INSTALL_HINT + warning. Deps: -
-- [ ] W75-2 `tools/research.py` + `tools/research.sh`: в `--auto` включать `--deep-code` и call graph для kt/kts/java, для остальных — fast scan; логировать выбранный профиль; WARN «0 matches → сузить paths/keywords или graph-only»; поддержать `--graph-mode`/`--graph-engine none`. Deps: W75-1.
-- [ ] W75-3 `tools/reports_pack.py`: гарантировать сохранение `call_graph_*` метаданных в pack даже при пустом графе (engine/filter/limit/warning), обновить бюджеты/trim при необходимости. Deps: W75-1.
+- [x] W75-1 `tools/researcher_context.py`: разделить fast-scan vs graph-scan, добавить `--graph-mode auto|focus|full`, сохранять full graph в sidecar и columnar, всегда писать `call_graph_*` метаданные (engine/filter/limit/warning), при отсутствии tree-sitter печатать INSTALL_HINT + warning. Deps: -
+- [x] W75-2 `tools/research.py` + `tools/research.sh`: в `--auto` включать `--deep-code` и call graph для kt/kts/java, для остальных — fast scan; логировать выбранный профиль; WARN «0 matches → сузить paths/keywords или graph-only»; поддержать `--graph-mode`/`--graph-engine none`. Deps: W75-1.
+- [x] W75-3 `tools/reports_pack.py`: гарантировать сохранение `call_graph_*` метаданных в pack даже при пустом графе (engine/filter/limit/warning), обновить бюджеты/trim при необходимости. Deps: W75-1.
 
 ### Docs & adoption
-- [ ] W75-4 `commands/researcher.md`: описать авто‑сбор graph, `--graph-engine none`, `--graph-mode`, ссылку на `call_graph_full_path`. Deps: W75-1,W75-2.
-- [ ] W75-5 `agents/researcher.md`: требовать проверять `call_graph`/`import_graph`; при пустом графе запускать повторный сбор через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --graph-engine ts --call-graph` или фиксировать WARN. Deps: W75-1.
-- [ ] W75-6 `agents/analyst.md`: упомянуть, что для “тонкого” контекста инициируется research с call graph. Deps: W75-2.
-- [ ] W75-7 `templates/aidd/docs/research/template.md`: добавить секцию с кратким summary call graph и ссылкой на full graph файл. Deps: W75-1.
-- [ ] W75-8 Документация: `AGENTS.md`, `README.md`, `README.en.md` — таблица «когда graph обязателен», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста. Deps: W75-1,W75-2.
+- [x] W75-4 `commands/researcher.md`: описать авто‑сбор graph, `--graph-engine none`, `--graph-mode`, ссылку на `call_graph_full_path`. Deps: W75-1,W75-2.
+- [x] W75-5 `agents/researcher.md`: требовать проверять `call_graph`/`import_graph`; при пустом графе запускать повторный сбор через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --graph-engine ts --call-graph` или фиксировать WARN. Deps: W75-1.
+- [x] W75-6 `agents/analyst.md`: упомянуть, что для “тонкого” контекста инициируется research с call graph. Deps: W75-2.
+- [x] W75-7 `templates/aidd/docs/research/template.md`: добавить секцию с кратким summary call graph и ссылкой на full graph файл. Deps: W75-1.
+- [x] W75-8 Документация: `AGENTS.md`, `README.md`, `README.en.md` — таблица «когда graph обязателен», примеры WARN/INSTALL_HINT, troubleshooting для пустого контекста. Deps: W75-1,W75-2.
 
 ### Tests
-- [ ] W75-9 `tests/test_researcher_context.py` + `tests/test_research_command.py`: кейсы JVM auto graph, non-JVM fast scan, missing tree-sitter warning, zero-matches hint, `--graph-mode`. Deps: W75-1,W75-2.
-- [ ] W75-10 `tests/test_gate_researcher.py` + `tests/repo_tools/smoke-workflow.sh`: e2e проверки auto‑режима, наличия `call_graph`, и пути `--graph-engine none`. Deps: W75-2.
+- [x] W75-9 `tests/test_researcher_context.py` + `tests/test_research_command.py`: кейсы JVM auto graph, non-JVM fast scan, missing tree-sitter warning, zero-matches hint, `--graph-mode`. Deps: W75-1,W75-2.
+- [x] W75-10 `tests/test_gate_researcher.py` + `tests/repo_tools/smoke-workflow.sh`: e2e проверки auto‑режима, наличия `call_graph`, и пути `--graph-engine none`. Deps: W75-2.
 
 ## Wave 76
 

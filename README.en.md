@@ -18,7 +18,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-17._
+_Last sync with `README.md`: 2026-01-18._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -105,6 +105,26 @@ Notes:
 | `/feature-dev-aidd:review` | Code review + tasks | `<TICKET> [note...]` |
 | `/feature-dev-aidd:qa` | Final QA check | `<TICKET> [note...]` |
 | `/feature-dev-aidd:status` | Ticket status and artifacts | `[<TICKET>]` |
+
+## Research Call Graph
+
+| Scenario | Graph required | Mode |
+| --- | --- | --- |
+| Kotlin/Java (kt/kts/java) | Yes | `--auto` (focus) |
+| Mixed repo with JVM modules | Yes (for JVM) | `--auto` |
+| Non‑JVM (py/js/go/etc.) | No | fast-scan |
+| Thin context/unclear dependencies | Recommended | `--graph-mode full` |
+
+WARN/INSTALL_HINT examples:
+- `[aidd] WARN: 0 matches for <ticket> — narrow paths/keywords or run graph-only.`
+- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
+- `[aidd] WARN: tree-sitter not available: ...`
+
+Empty context troubleshooting:
+- Narrow `--paths`/`--keywords` (point to real code, not only `aidd/`).
+- Run graph-only: `--call-graph --graph-mode full`.
+- Use `--paths-relative workspace` if code lives outside `aidd/`.
+- Install `tree_sitter_language_pack` if call graph is empty.
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

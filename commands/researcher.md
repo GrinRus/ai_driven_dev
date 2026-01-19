@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "<TICKET> [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.2
-source_version: 1.2.2
+prompt_version: 1.2.3
+source_version: 1.2.3
 allowed-tools:
   - Read
   - Edit
@@ -19,14 +19,14 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:researcher` собирает кодовый контекст: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, затем запускает саб-агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте.
+Команда `/feature-dev-aidd:researcher` собирает кодовый контекст: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, затем запускает саб-агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/<ticket>.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph (если включён) сохраняется в sidecar и указывается в `call_graph_full_path`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `@aidd/docs/prd/<ticket>.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `@aidd/docs/research/template.md` — шаблон.
-- `aidd/reports/research/<ticket>-context.json` — формируется CLI.
+- `aidd/reports/research/<ticket>-context.json` — формируется CLI (содержит `call_graph_full_path`/`call_graph_full_columnar_path`).
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
@@ -34,7 +34,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto --deep-code --call-graph [--paths ... --keywords ... --note ...]` обновляет JSON контекст.
+- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto [--graph-mode focus|full] [--graph-engine none] [--paths ... --keywords ... --note ...]` обновляет JSON контекст (auto: graph-scan для kt/kts/java, fast-scan для остальных).
 - Команда должна запускать саб-агента `feature-dev-aidd:researcher` (Claude: Run agent → feature-dev-aidd:researcher).
 - При необходимости добавь handoff через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket <ticket>`.
 
@@ -59,4 +59,4 @@ disable-model-invocation: false
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/feature-dev-aidd:researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --deep-code`
+- `/feature-dev-aidd:researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --graph-mode full`

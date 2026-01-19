@@ -2,8 +2,8 @@
 name: analyst
 description: Сбор исходной идеи → анализ контекста → PRD draft + вопросы пользователю (READY после ответов).
 lang: ru
-prompt_version: 1.3.3
-source_version: 1.3.3
+prompt_version: 1.3.4
+source_version: 1.3.4
 tools: Read, Write, Glob, Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*), Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
