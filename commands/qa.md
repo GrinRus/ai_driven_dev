@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:qa` запускает финальную проверку: запускает саб-агента **@agent-feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`, обновляет QA секцию tasklist и фиксирует прогресс. После отчёта автоматически формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Выполняется после `/feature-dev-aidd:review`.
+Команда `/feature-dev-aidd:qa` запускает финальную проверку: запускает саб-агента **feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`, обновляет QA секцию tasklist и фиксирует прогресс. После отчёта автоматически формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Выполняется после `/feature-dev-aidd:review`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/qa.md`.
 
 ## Входные артефакты
@@ -36,7 +36,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` фиксирует стадию `qa`.
-- Команда должна запускать саб-агента **@agent-feature-dev-aidd:qa** (Claude: Run agent → @agent-feature-dev-aidd:qa) через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`.
+- Команда должна запускать саб-агента **feature-dev-aidd:qa** (Claude: Run agent → feature-dev-aidd:qa) через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report "aidd/reports/qa/<ticket>.json" --gate` формирует отчёт.
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket <ticket>` фиксирует новые `[x]`.
@@ -47,7 +47,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `qa`.
-2. Запусти саб-агента **@agent-feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` и получи отчёт.
+2. Запусти саб-агента **feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` и получи отчёт.
 3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE (AIDD:QA_TRACEABILITY).
 4. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append` — повторный запуск не должен дублировать задачи.
 5. Подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.

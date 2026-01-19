@@ -50,7 +50,7 @@ disable-model-invocation: false
    - Data/compat/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
 4. Запиши ответы в `aidd/reports/spec/<ticket>.interview.jsonl` (append-only).
 5. Сформируй/обнови `aidd/docs/spec/<ticket>.spec.yaml` по шаблону.
-6. Если нужна синтезация по логу — запусти саб-агента `@agent-feature-dev-aidd:spec-interview-writer`.
+6. Если нужна синтезация по логу — запусти саб-агента `feature-dev-aidd:spec-interview-writer`.
 7. Обнови tasklist только через `/feature-dev-aidd:tasks-new` (обязательный шаг для синхронизации).
 
 ## Fail-fast и вопросы
