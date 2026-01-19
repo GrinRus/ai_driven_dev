@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.9
-source_version: 1.0.9
+prompt_version: 1.0.10
+source_version: 1.0.10
 allowed-tools:
   - Read
   - Edit

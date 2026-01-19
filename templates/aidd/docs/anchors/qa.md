@@ -16,11 +16,14 @@
 - aidd/reports/qa/<ticket>.json
 - AIDD:HANDOFF_INBOX через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append`.
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
+- Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (scope/DoD/Boundaries/Tests).
 
 ## MUST NOT
 - READY при blocker/critical.
 - Прятать gaps — перечислять явно.
 - Придумывать тест‑команды вне `AIDD:TEST_EXECUTION`.
+- Любые правки кода/конфигов/тестов/CI. QA фиксирует только задачи в tasklist.
+- Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 
 ## Repeat runs
 - Повторные запуски QA/`tasks-derive` должны обновлять задачи по стабильному `id` без дублей.

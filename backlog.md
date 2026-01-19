@@ -1476,3 +1476,12 @@ _Статус: новый, приоритет 2. B) hooks+init+examples+tests. �
 
 ### Tests
 - [x] W76-7 `tests/test_init_aidd.py`, `tests/test_format_and_test.py`, `tests/repo_tools/smoke-workflow.sh`: проверки новых config‑ключей и language‑agnostic поведения. Deps: W76-1,W76-4.
+
+## Wave 77
+
+_Статус: новый, приоритет 1. Цель — запретить правки кода на review/qa и закрепить handoff‑контракт._
+
+### EPIC A — Review/QA edit policy + handoff schema
+- [ ] W77-1 `agents/reviewer.md`, `agents/qa.md`: добавить hard‑policy (редактировать только `aidd/docs/tasklist/<ticket>.md`), `MUST NOT` (без правок кода/конфигов/тестов/CI и без «чинить самому»), требование handoff‑задач на каждое замечание (fact→risk→recommendation + `scope/DoD/Boundaries/Tests`), удалить tool `Write`. Обновить `prompt_version/source_version`, прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`. Deps: -
+- [ ] W77-2 `templates/aidd/docs/anchors/{review,qa}.md`: добавить явный запрет правок вне tasklist и правило «каждый finding → handoff в `AIDD:HANDOFF_INBOX`». Для QA указать, что автогенерируемые отчёты в `aidd/reports/**` допустимы. Deps: W77-1.
+- [ ] W77-3 `templates/aidd/docs/tasklist/template.md`: расширить `AIDD:HANDOFF_INBOX` схемой задачи (id, source, scope, DoD, Boundaries, Tests, Notes) и примером заполнения для review/qa. Deps: W77-1.

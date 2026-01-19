@@ -196,9 +196,45 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 
 ## AIDD:HANDOFF_INBOX
 > Сюда падают задачи из Research/Review/QA (с source: aidd/reports/...).
-- [ ] Research: <title> — <recommendation> (source: aidd/reports/research/<ABC-123>-context.json)
-- [ ] Review: <severity> <title> — <recommendation> (source: aidd/reports/reviewer/<ABC-123>.json)
-- [ ] QA: <severity> <title> — <recommendation> (source: aidd/reports/qa/<ABC-123>.json)
+> Формат задачи (обязательно):
+- [ ] <source>: <title> (id: <short-id>)
+  - source: review|qa|research
+  - scope: iteration_id|n/a
+  - DoD: <как проверить, что исправлено>
+  - Boundaries:
+    - must-touch: ["path1", "path2"]
+    - must-not-touch: ["pathX"]
+  - Tests:
+    - profile: fast|targeted|full|none
+    - tasks: ["..."]
+    - filters: ["..."]
+  - Notes: <tradeoffs/риски/почему важно>
+
+> Примеры:
+- [ ] Review: Critical null check in webhook handler (id: review-null-check)
+  - source: review
+  - scope: I2
+  - DoD: webhook rejects empty payload with 4xx + unit test updated
+  - Boundaries:
+    - must-touch: ["src/webhooks/", "tests/webhooks/"]
+    - must-not-touch: ["infra/"]
+  - Tests:
+    - profile: targeted
+    - tasks: ["pytest tests/webhooks/test_handler.py"]
+    - filters: []
+  - Notes: prevents silent 500 on missing payload
+- [ ] QA: AC-3 export fails on empty data (id: qa-export-empty)
+  - source: qa
+  - scope: n/a
+  - DoD: export returns empty CSV with headers + QA traceability updated
+  - Boundaries:
+    - must-touch: ["src/export/"]
+    - must-not-touch: ["db/migrations/"]
+  - Tests:
+    - profile: fast
+    - tasks: []
+    - filters: []
+  - Notes: blocks release for AC-3
 
 ---
 

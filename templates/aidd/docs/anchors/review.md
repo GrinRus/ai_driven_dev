@@ -15,11 +15,14 @@
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
 - aidd/reports/reviewer/<ticket>.json (review report + маркер тестов)
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
+- Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
 
 ## MUST NOT
 - Рефакторинг “ради красоты”.
 - Игнорировать тест‑требования при рисковых изменениях.
 - Пропускать проверку исполнимости tasklist (NEXT_3/ITERATIONS_FULL/TEST_EXECUTION).
+- Любые правки кода/конфигов/тестов/CI. Review фиксирует только задачи в tasklist.
+- Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 
 ## Repeat runs
 - Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).
