@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from dataclasses import dataclass
@@ -117,6 +118,45 @@ def _extract_context_pack(md: str, max_lines: int, max_chars: int) -> Optional[s
     return text or None
 
 
+def _rel_to_root(root: Path, path: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _find_graph_artifacts(aidd_root: Path, ticket: str) -> dict:
+    context_path = aidd_root / "reports" / "research" / f"{ticket}-context.json"
+    edges_path: Optional[Path] = None
+    full_path: Optional[Path] = None
+    if context_path.exists():
+        try:
+            payload = json.loads(context_path.read_text(encoding="utf-8"))
+        except Exception:
+            payload = {}
+        edges_raw = payload.get("call_graph_edges_path")
+        full_raw = payload.get("call_graph_full_path")
+        if isinstance(edges_raw, str) and edges_raw:
+            edges_path = aidd_root / edges_raw if not Path(edges_raw).is_absolute() else Path(edges_raw)
+        if isinstance(full_raw, str) and full_raw:
+            full_path = aidd_root / full_raw if not Path(full_raw).is_absolute() else Path(full_raw)
+    if edges_path is None:
+        candidate = aidd_root / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
+        if candidate.exists():
+            edges_path = candidate
+    pack_path = None
+    for suffix in (".pack.yaml", ".pack.toon"):
+        candidate = aidd_root / "reports" / "research" / f"{ticket}-call-graph{suffix}"
+        if candidate.exists():
+            pack_path = candidate
+            break
+    return {
+        "pack": _rel_to_root(aidd_root, pack_path) if pack_path else None,
+        "edges": _rel_to_root(aidd_root, edges_path) if edges_path else None,
+        "full": _rel_to_root(aidd_root, full_path) if full_path and full_path.exists() else None,
+    }
+
+
 def _run_git(project_dir: Path, args: List[str], timeout: float = 1.5) -> Optional[str]:
     try:
         proc = subprocess.run(
@@ -198,6 +238,20 @@ def build_working_set(project_dir: Path) -> WorkingSet:
             md = _strip_long_code_blocks(_read_text(research))
             parts.append("#### Research (excerpt)")
             parts.append(md[:1200].rstrip())
+            parts.append("")
+
+        graph_artifacts = _find_graph_artifacts(aidd_root, ticket)
+        if graph_artifacts.get("pack") or graph_artifacts.get("edges"):
+            parts.append("#### Call Graph (pack-first)")
+            if graph_artifacts.get("pack"):
+                parts.append(f"- Pack: {graph_artifacts['pack']}")
+            if graph_artifacts.get("edges"):
+                parts.append(f"- Edges view: {graph_artifacts['edges']}")
+                parts.append(f"- Query: rg \"<token>\" {graph_artifacts['edges']}")
+            parts.append(
+                f"- Slice: ${{CLAUDE_PLUGIN_ROOT}}/tools/graph-slice.sh --ticket {ticket} --query \"<token>\""
+            )
+            parts.append("- Raw call-graph JSON is DB-only; do not read it directly.")
             parts.append("")
 
         if tasklist.exists():

@@ -5,6 +5,11 @@
 - Обновить AIDD:CONTEXT_PACK и прогресс в tasklist.
 - Минимизировать Stop → минимизировать лишние тесты.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- MUST NOT: `Read` full `*-call-graph-full.json` или `*.cjson`.
+
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:TEST_EXECUTION + AIDD:NEXT_3
 - aidd/docs/plan/<ticket>.md: границы итерации (DoD)

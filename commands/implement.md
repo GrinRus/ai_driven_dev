@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.14
-source_version: 1.1.14
+prompt_version: 1.1.15
+source_version: 1.1.15
 allowed-tools:
   - Read
   - Edit
@@ -15,6 +15,7 @@ allowed-tools:
   - "Bash(xargs:*)"
   - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(git:*)"

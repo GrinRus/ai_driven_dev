@@ -2,9 +2,9 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.14
-source_version: 1.1.14
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.1.15
+source_version: 1.1.15
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -28,6 +28,7 @@ permissionMode: default
 - `@aidd/docs/tasklist/<ticket>.md` — прогресс и AIDD:NEXT_3.
 - `@aidd/docs/spec/<ticket>.spec.yaml` — спецификация (contracts/risks/tests), если есть.
 - `@aidd/docs/research/<ticket>.md`, `@aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
+- `aidd/reports/research/<ticket>-call-graph.pack.*`, `-call-graph.edges.jsonl` (pack-first) и `*-ast-grep.pack.*` (если есть).
 
 ## Автоматизация
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`.
@@ -63,6 +64,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 ## Fail-fast и вопросы
 - Нет plan/tasklist или статусы не READY — остановись и попроси `/feature-dev-aidd:plan-new`/`/feature-dev-aidd:tasks-new`/ревью.
 - Если контекст недостаточен для реализации — остановись и попроси `/feature-dev-aidd:spec-interview` (опционально).
+- Если для нужных языков отсутствуют `*-call-graph.pack.*`/`edges.jsonl` или `*-ast-grep.pack.*` — добавь blocker/handoff и запроси пересборку research.
 - Тесты падают — не продолжай без исправления или явного разрешения на skip.
 - Если нужно выйти за рамки плана — сначала обнови план/tasklist или получи согласование.
 

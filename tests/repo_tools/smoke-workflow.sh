@@ -64,6 +64,21 @@ WORKDIR="${TMP_DIR}/aidd"
 WORKSPACE_ROOT="${TMP_DIR}"
 export CLAUDE_PLUGIN_ROOT="${PLUGIN_ROOT}"
 
+log "tune gates for smoke (optional deps)"
+python3 - "$WORKDIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+gates_path = root / "config" / "gates.json"
+data = json.loads(gates_path.read_text(encoding="utf-8"))
+call_graph = data.get("call_graph") or {}
+call_graph["required_for_langs"] = []
+data["call_graph"] = call_graph
+gates_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+
 log "validate plugin hooks wiring"
 if [[ ! -f "$PLUGIN_ROOT/hooks/hooks.json" ]]; then
   echo "[smoke] missing plugin hooks at $PLUGIN_ROOT/hooks/hooks.json" >&2

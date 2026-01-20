@@ -210,6 +210,40 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertIn("Focus: checkout flow", ws.text)
             self.assertIn("Files: src/checkout/service.py", ws.text)
 
+    def test_working_set_builder_includes_graph_refs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
+            root = Path(tmpdir)
+            write_active_feature(root, "demo-ticket")
+            write_json(
+                root,
+                "reports/research/demo-ticket-context.json",
+                {
+                    "ticket": "demo-ticket",
+                    "call_graph_edges_path": "reports/research/demo-ticket-call-graph.edges.jsonl",
+                },
+            )
+            write_file(
+                root,
+                "reports/research/demo-ticket-call-graph.edges.jsonl",
+                "{}\n",
+            )
+            write_file(
+                root,
+                "reports/research/demo-ticket-call-graph.pack.yaml",
+                json.dumps({"type": "call-graph", "status": "ok"}),
+            )
+            write_json(
+                root,
+                "config/context_gc.json",
+                {"working_set": {"include_git_status": False}},
+            )
+
+            ws = working_set_builder.build_working_set(root)
+
+            self.assertIn("Call Graph", ws.text)
+            self.assertIn("demo-ticket-call-graph.edges.jsonl", ws.text)
+            self.assertIn("graph-slice.sh", ws.text)
+
     def test_context_pack_limits_applied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)

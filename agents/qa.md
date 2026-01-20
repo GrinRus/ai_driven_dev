@@ -2,9 +2,9 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
-tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.0.11
+source_version: 1.0.11
+tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -39,6 +39,7 @@ QA-агент проверяет фичу после ревью и формир�
 - `@aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
 - `@aidd/docs/plan/<ticket>.md` — тест-стратегия.
 - `@aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
+- `aidd/reports/research/<ticket>-call-graph.pack.*`, `-call-graph.edges.jsonl`, `*-ast-grep.pack.*` (pack/slice only).
 - Отчёты тестов/гейтов и diff.
 
 ## Автоматизация
@@ -48,18 +49,20 @@ QA-агент проверяет фичу после ревью и формир�
 ## Пошаговый план
 1. Сопоставь AIDD:ACCEPTANCE с QA шагами; для каждого AC укажи, как проверено.
 1.1. Убедись, что `AIDD:TEST_EXECUTION` заполнен и QA не придумывает команды.
-2. Сформируй findings с severity и рекомендациями.
+2. При необходимости сверяй интеграции через pack/slice (не raw граф).
+3. Сформируй findings с severity и рекомендациями.
    Findings должны содержать `scope=iteration_id` (или `n/a`) и `blocking: true|false`.
-2.1. Каждый finding превращай в handoff‑задачу для implementer:
+3.1. Каждый finding превращай в handoff‑задачу для implementer:
    - scope: iteration_id (или n/a)
    - DoD: как проверить, что исправлено
    - Boundaries: какие файлы/модули трогать и что не трогать
    - Tests: профиль/задачи/фильтры (или ссылка на `AIDD:TEST_EXECUTION`)
-3. Обнови QA секцию tasklist и отметь выполненные чекбоксы.
-4. Зафиксируй traceability в `AIDD:QA_TRACEABILITY`.
+4. Обнови QA секцию tasklist и отметь выполненные чекбоксы.
+5. Зафиксируй traceability в `AIDD:QA_TRACEABILITY`.
 
 ## Fail-fast и вопросы
 - Если нет AIDD:ACCEPTANCE в PRD — запроси уточнение у владельца.
+- Если отсутствуют `*-call-graph.pack.*`/`edges.jsonl` или `*-ast-grep.pack.*` для нужных языков — зафиксируй blocker/handoff и запроси пересборку research.
 - Вопросы оформляй в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 
 ## Формат ответа

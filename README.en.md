@@ -133,6 +133,13 @@ Empty context troubleshooting:
 - Use `--paths-relative workspace` if code lives outside `aidd/`.
 - Install `tree_sitter_language_pack` if call graph is empty.
 
+Graph artifacts (pack-first):
+- Raw graph is stored in `aidd/reports/research/<ticket>-call-graph-full.json` and **must not be read by LLMs**.
+- Grep-friendly view: `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- Pack summary: `aidd/reports/research/<ticket>-call-graph.pack.yaml` (or `.pack.toon`).
+- Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>"`.
+- Backfill for legacy tickets: `python3 tools/backfill_graph_views.py --root <workspace>`.
+
 ## Prerequisites
 - `bash`, `git`, `python3`.
 - Claude Code with plugin marketplace access.

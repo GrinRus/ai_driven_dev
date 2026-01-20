@@ -24,6 +24,7 @@ class TasklistCheckResult:
     status: str
     message: str = ""
     details: List[str] | None = None
+    warnings: List[str] | None = None
 
     def exit_code(self) -> int:
         return 0 if self.status in {"ok", "skip"} else 2
@@ -319,7 +320,12 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
     if failures:
         return fail("AIDD:NEXT_3 items missing required fields", details=failures)
 
-    return TasklistCheckResult(status="ok")
+    warnings: list[str] = []
+    for section in ("AIDD:QA_TRACEABILITY", "AIDD:CHECKLIST_REVIEW", "AIDD:CHECKLIST_QA"):
+        if not find_section(text, section):
+            warnings.append(f"missing section: ## {section}")
+
+    return TasklistCheckResult(status="ok", warnings=warnings)
 
 
 def run_check(args: argparse.Namespace) -> int:
@@ -348,6 +354,10 @@ def run_check(args: argparse.Namespace) -> int:
                 print(f"[tasklist-check] {entry}", file=sys.stderr)
         print(f"[tasklist-check] FAIL: {result.message}", file=sys.stderr)
         return result.exit_code()
+
+    if result.warnings:
+        for warning in result.warnings:
+            print(f"[tasklist-check] WARN: {warning}", file=sys.stderr)
 
     if result.status == "ok" and not args.quiet_ok:
         print("[tasklist-check] OK: tasklist READY for implement", file=sys.stderr)

@@ -1,0 +1,32 @@
+---
+rules:
+  - id: web-describe-js
+    language: JavaScript
+    rule:
+      pattern: "describe($NAME, $FN)"
+    message: "Test suite (describe)"
+  - id: web-describe-ts
+    language: TypeScript
+    rule:
+      pattern: "describe($NAME, $FN)"
+    message: "Test suite (describe)"
+  - id: web-it-js
+    language: JavaScript
+    rule:
+      pattern: "it($NAME, $FN)"
+    message: "Test case (it)"
+  - id: web-it-ts
+    language: TypeScript
+    rule:
+      pattern: "it($NAME, $FN)"
+    message: "Test case (it)"
+  - id: web-test-js
+    language: JavaScript
+    rule:
+      pattern: "test($NAME, $FN)"
+    message: "Test case (test)"
+  - id: web-test-ts
+    language: TypeScript
+    rule:
+      pattern: "test($NAME, $FN)"
+    message: "Test case (test)"

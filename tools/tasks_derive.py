@@ -228,6 +228,31 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
     return tasks
 
 
+def _derive_tasks_from_ast_grep_pack(payload: Dict, report_label: str) -> List[str]:
+    tasks: List[str] = []
+    rules = payload.get("rules") or []
+    if not isinstance(rules, list):
+        return tasks
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        rule_id = str(rule.get("rule_id") or "").strip()
+        examples = rule.get("examples") or []
+        if not isinstance(examples, list) or not examples:
+            continue
+        example = examples[0] if isinstance(examples[0], dict) else {}
+        path = str(example.get("path") or "").strip()
+        line = example.get("line") or ""
+        message = str(example.get("message") or "").strip()
+        if not path:
+            continue
+        task_id = f"astgrep:{rule_id}:{path}:{line}"
+        details = f" — {message}" if message else ""
+        suffix = _format_task_suffix(report_label, task_id)
+        tasks.append(f"- [ ] Research: ast-grep {rule_id} @ {path}:{line}{details}{suffix}")
+    return tasks
+
+
 def _derive_handoff_placeholder(source: str, ticket: str, report_label: str) -> List[str]:
     task_id = f"{source}:report-{_stable_task_id(source, report_label, ticket)}"
     suffix = _format_task_suffix(report_label, task_id)
@@ -499,6 +524,13 @@ def main(argv: list[str] | None = None) -> int:
         derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
         derived_tasks = _derive_tasks_from_research_context(payload, report_label)
+        for ext in (".pack.yaml", ".pack.toon"):
+            ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep{ext}"
+            if not ast_pack.exists():
+                continue
+            ast_payload = runtime.load_json_file(ast_pack)
+            derived_tasks.extend(_derive_tasks_from_ast_grep_pack(ast_payload, runtime.rel_path(ast_pack, target)))
+            break
     else:
         derived_tasks = []
 

@@ -144,6 +144,17 @@
     "allow_pending_baseline": true,
     "baseline_phrase": "контекст пуст"
   },
+  "call_graph": {
+    "raw_size_mb": 5,
+    "require_pack": true,
+    "require_edges": true,
+    "required_for_langs": [
+      "kt",
+      "kts",
+      "java"
+    ],
+    "allow_ast_grep_fallback": true
+  },
   "analyst": {
     "enabled": true,
     "branches": [

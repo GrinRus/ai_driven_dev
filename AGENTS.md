@@ -88,6 +88,12 @@ Troubleshooting пустого контекста:
 - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
 - Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
 
+## Graph Read Policy (pack-first)
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- MUST NOT: `Read` full `*-call-graph-full.json` или `*.cjson`.
+- JSONL‑streams (`*-call-graph.edges.jsonl`, `*-ast-grep.jsonl`) читаются фрагментами, не целиком.
+
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
 - `aidd/config/gates.json`:

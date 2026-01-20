@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.0.9
+source_version: 1.0.9
 allowed-tools:
   - Read
   - Edit
@@ -12,6 +12,7 @@ allowed-tools:
   - "Bash(rg:*)"
   - "Bash(sed:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"

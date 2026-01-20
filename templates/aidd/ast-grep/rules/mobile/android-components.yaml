@@ -1,0 +1,82 @@
+---
+rules:
+  - id: android-activity-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : Activity() { $$$ }"
+    message: "Android Activity"
+  - id: android-activity-java
+    language: Java
+    rule:
+      pattern: "class $X extends Activity { $$$ }"
+    message: "Android Activity"
+  - id: android-appcompat-activity-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : AppCompatActivity() { $$$ }"
+    message: "Android AppCompatActivity"
+  - id: android-appcompat-activity-java
+    language: Java
+    rule:
+      pattern: "class $X extends AppCompatActivity { $$$ }"
+    message: "Android AppCompatActivity"
+  - id: android-component-activity-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : ComponentActivity() { $$$ }"
+    message: "Android ComponentActivity"
+  - id: android-component-activity-java
+    language: Java
+    rule:
+      pattern: "class $X extends ComponentActivity { $$$ }"
+    message: "Android ComponentActivity"
+  - id: android-fragment-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : Fragment() { $$$ }"
+    message: "Android Fragment"
+  - id: android-fragment-java
+    language: Java
+    rule:
+      pattern: "class $X extends Fragment { $$$ }"
+    message: "Android Fragment"
+  - id: android-service-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : Service() { $$$ }"
+    message: "Android Service"
+  - id: android-service-java
+    language: Java
+    rule:
+      pattern: "class $X extends Service { $$$ }"
+    message: "Android Service"
+  - id: android-application-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : Application() { $$$ }"
+    message: "Android Application"
+  - id: android-application-java
+    language: Java
+    rule:
+      pattern: "class $X extends Application { $$$ }"
+    message: "Android Application"
+  - id: android-broadcast-receiver-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : BroadcastReceiver() { $$$ }"
+    message: "Android BroadcastReceiver"
+  - id: android-broadcast-receiver-java
+    language: Java
+    rule:
+      pattern: "class $X extends BroadcastReceiver { $$$ }"
+    message: "Android BroadcastReceiver"
+  - id: android-content-provider-kt
+    language: Kotlin
+    rule:
+      pattern: "class $X : ContentProvider() { $$$ }"
+    message: "Android ContentProvider"
+  - id: android-content-provider-java
+    language: Java
+    rule:
+      pattern: "class $X extends ContentProvider { $$$ }"
+    message: "Android ContentProvider"

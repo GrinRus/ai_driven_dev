@@ -2,9 +2,9 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.1
-source_version: 1.1.1
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*)
+prompt_version: 1.1.2
+source_version: 1.1.2
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -29,6 +29,8 @@ permissionMode: default
 - `@aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
 - `@aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
 - `@aidd/docs/research/<ticket>.md` — интеграции, риски.
+- `aidd/reports/research/<ticket>-call-graph.pack.*` и `-call-graph.edges.jsonl` (pack-first).
+- `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
 - `@aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).
 - `@aidd/docs/tasklist/<ticket>.md` — обновляемый tasklist.
 
@@ -38,18 +40,19 @@ permissionMode: default
 ## Что нужно сделать
 1. Прочитай plan/PRD/research/spec и текущий tasklist.
 2. Обнови `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY` и `AIDD:TEST_EXECUTION` краткими выводами из spec/plan.
-3. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks.
-4. Сформируй `AIDD:NEXT_3` как 3 ближайших implement‑задачи:
+3. Убедись, что есть секции `AIDD:QA_TRACEABILITY`, `AIDD:CHECKLIST_REVIEW`, `AIDD:CHECKLIST_QA` (добавь при отсутствии).
+4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks.
+5. Сформируй `AIDD:NEXT_3` как 3 ближайших implement‑задачи:
    - каждая задача = 1 итерация;
    - обязательные поля: `iteration_id`, `Goal`, `DoD`, `Boundaries`, `Steps (3–10)`, `Tests (profile/tasks/filters)`;
    - добавить `Acceptance mapping` и `Risks & mitigations`;
    - `Boundaries` должны ссылаться на реальные модули/пути из плана;
    - если тесты должны быть heavy → укажи `profile: full` и причину в Notes.
-5. Если данных недостаточно (контракты/UX/данные/тест‑стратегия не определены):
+6. Если данных недостаточно (контракты/UX/данные/тест‑стратегия не определены):
    - отметь `Status: BLOCKED` в tasklist front‑matter;
    - зафиксируй недостающие сведения в `AIDD:CONTEXT_PACK → Open questions / blockers`;
    - в ответе потребуй повторный `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new` для синхронизации.
-6. Обнови `AIDD:HANDOFF_INBOX` только если есть новые handoff‑задачи (не перезаписывай существующие).
+7. Обнови `AIDD:HANDOFF_INBOX` только если есть новые handoff‑задачи (не перезаписывай существующие).
 
 ## Правила детализации (обязательны)
 - Никаких “обобщённых” чекбоксов. Каждая задача должна быть исполнимой без догадок.
@@ -70,13 +73,15 @@ permissionMode: default
 ## Пошаговый план
 1. Прочитай `AIDD:*` секции tasklist и ключевые блоки plan/PRD/spec.
 2. Заполни `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`.
-3. Сформируй `AIDD:ITERATIONS_FULL` с деталями по итерациям.
-4. Сформируй `AIDD:NEXT_3` в формате DoD/Boundaries/Tests.
-5. Если данных недостаточно — выставь `Status: BLOCKED` и зафиксируй blockers.
-6. Обнови tasklist и укажи `Next actions`.
+3. Добавь (или проверь) секции `AIDD:QA_TRACEABILITY`, `AIDD:CHECKLIST_REVIEW`, `AIDD:CHECKLIST_QA`.
+4. Сформируй `AIDD:ITERATIONS_FULL` с деталями по итерациям.
+5. Сформируй `AIDD:NEXT_3` в формате DoD/Boundaries/Tests.
+6. Если данных недостаточно — выставь `Status: BLOCKED` и зафиксируй blockers.
+7. Обнови tasklist и укажи `Next actions`.
 
 ## Fail-fast и вопросы
 - Если нет plan/PRD/research — `Status: BLOCKED` и запросить `/feature-dev-aidd:review-spec`.
+- Если отсутствуют pack/edges для call-graph или ast-grep там, где они ожидаются — `Status: BLOCKED` и запросить пересборку research.
 - Если ключевые решения отсутствуют — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
 
 ## Формат ответа

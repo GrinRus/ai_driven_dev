@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.1
-source_version: 1.1.1
+prompt_version: 1.1.2
+source_version: 1.1.2
 allowed-tools:
   - Read
   - Edit
@@ -14,6 +14,7 @@ allowed-tools:
   - "Bash(cat:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---

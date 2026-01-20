@@ -126,6 +126,45 @@ class ReportsPackTests(unittest.TestCase):
         self.assertEqual(pack["findings"]["cols"][0], "id")
         self.assertEqual(pack["findings"]["rows"][0][0], "prd-issue-1")
 
+    def test_call_graph_pack_created(self) -> None:
+        payload = {
+            "ticket": "CG-1",
+            "slug": "cg-1",
+            "generated_at": "2024-01-05T00:00:00Z",
+            "call_graph": [
+                {"caller": "demo.A", "callee": "foo", "file": "src/Main.kt", "line": 3, "language": "kotlin"},
+                {"caller": "demo.A", "callee": "bar", "file": "src/Main.kt", "line": 5, "language": "kotlin"},
+            ],
+            "call_graph_edges_stats": {"edges_total": 2, "edges_written": 2},
+            "call_graph_edges_path": "reports/research/CG-1-call-graph.edges.jsonl",
+        }
+        pack = reports_pack.build_call_graph_pack(payload, source_path="reports/research/CG-1-context.json")
+        self.assertEqual(pack["type"], "call-graph")
+        self.assertEqual(pack["status"], "ok")
+        self.assertTrue(pack["entrypoints"])
+
+    def test_call_graph_pack_ok_when_edges_empty_without_warning(self) -> None:
+        payload = {
+            "ticket": "CG-2",
+            "slug": "cg-2",
+            "generated_at": "2024-01-06T00:00:00Z",
+            "call_graph": [],
+            "call_graph_warning": "",
+        }
+        pack = reports_pack.build_call_graph_pack(payload, source_path="reports/research/CG-2-context.json")
+        self.assertEqual(pack["status"], "ok")
+
+    def test_call_graph_pack_unavailable_with_warning(self) -> None:
+        payload = {
+            "ticket": "CG-3",
+            "slug": "cg-3",
+            "generated_at": "2024-01-06T00:00:00Z",
+            "call_graph": [],
+            "call_graph_warning": "tree-sitter not available: missing parser",
+        }
+        pack = reports_pack.build_call_graph_pack(payload, source_path="reports/research/CG-3-context.json")
+        self.assertEqual(pack["status"], "unavailable")
+
     def test_research_pack_budget_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

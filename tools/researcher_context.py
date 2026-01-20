@@ -41,8 +41,59 @@ _LANG_SUFFIXES: Dict[str, Tuple[str, ...]] = {
 _DEFAULT_LANGS: Tuple[str, ...] = ("py", "kt", "kts", "java")
 _CALLGRAPH_LANGS = {"kt", "kts", "java"}
 _DEFAULT_GRAPH_LIMIT = 300
+_DEFAULT_KEYWORD_MIN_LEN = 3
+_DEFAULT_KEYWORD_MAX_COUNT = 25
+_DEFAULT_KEYWORD_SHORT_WHITELIST = {"kt", "kts", "js", "ts"}
+_DEFAULT_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "by",
+    "for",
+    "from",
+    "how",
+    "if",
+    "in",
+    "is",
+    "it",
+    "its",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "we",
+    "with",
+    "без",
+    "в",
+    "во",
+    "все",
+    "для",
+    "если",
+    "и",
+    "или",
+    "как",
+    "не",
+    "на",
+    "но",
+    "по",
+    "при",
+    "с",
+    "со",
+    "то",
+    "это",
+}
 _GRAPH_MODES = {"auto", "focus", "full"}
 _INSTALL_HINT = "INSTALL_HINT: python3 -m pip install tree_sitter_language_pack"
+
+_CAMEL_SPLIT_RE = re.compile(r"([a-z0-9])([A-Z])")
+_TOKEN_SPLIT_RE = re.compile(r"[^\w]+", re.UNICODE)
+_DOD_RE = re.compile(r"\bdod\s*:\s*(.+)", re.IGNORECASE)
 
 
 def _utc_timestamp() -> str:
@@ -129,8 +180,64 @@ def _unique(items: Iterable[str]) -> List[str]:
     return result
 
 
+def _extract_non_negotiables(text: Optional[str]) -> tuple[Optional[str], List[str]]:
+    if not text:
+        return text, []
+    match = _DOD_RE.search(text)
+    if not match:
+        return text, []
+    remainder = text[: match.start()].strip()
+    payload = (match.group(1) or "").strip()
+    return remainder or None, [payload] if payload else []
+
+
+def _tokenize_text(value: str) -> List[str]:
+    if not value:
+        return []
+    cleaned = _CAMEL_SPLIT_RE.sub(r"\1 \2", value)
+    cleaned = cleaned.replace("_", " ").replace("-", " ").replace("/", " ")
+    tokens = [token.strip() for token in _TOKEN_SPLIT_RE.split(cleaned) if token.strip()]
+    return tokens
+
+
+def _normalize_stopwords(raw: Iterable[str]) -> set[str]:
+    stopwords: set[str] = set()
+    for item in raw:
+        token = (str(item) or "").strip().lower()
+        if token:
+            stopwords.add(token)
+    return stopwords
+
+
+def _normalize_keywords(
+    values: Iterable[str],
+    *,
+    stopwords: set[str],
+    min_len: int,
+    short_whitelist: set[str],
+    max_count: int,
+) -> List[str]:
+    tokens: List[str] = []
+    for raw in values:
+        raw_text = (raw or "").strip()
+        if not raw_text:
+            continue
+        for token in _tokenize_text(raw_text):
+            lowered = token.lower()
+            if not lowered:
+                continue
+            if lowered in stopwords:
+                continue
+            if len(lowered) < min_len and lowered not in short_whitelist:
+                continue
+            tokens.append(lowered)
+    tokens = _unique(tokens)
+    if max_count > 0 and len(tokens) > max_count:
+        tokens = tokens[:max_count]
+    return tokens
+
+
 def _identifier_tokens(ticket: str, slug_hint: Optional[str]) -> List[str]:
-    separators = ("-", "_", " ", "/")
     sources = [ticket]
     if slug_hint:
         sources.append(slug_hint)
@@ -141,14 +248,20 @@ def _identifier_tokens(ticket: str, slug_hint: Optional[str]) -> List[str]:
             continue
         if normalized not in tokens:
             tokens.append(normalized)
-        value = normalized
-        for sep in separators:
-            value = value.replace(sep, " ")
-        for token in value.split():
+        for token in _tokenize_text(normalized):
             lowered = token.strip().lower()
             if lowered and lowered not in tokens:
                 tokens.append(lowered)
     return _unique(tokens)
+
+
+def _norm_token_list(values: Iterable[str]) -> List[str]:
+    items: List[str] = []
+    for raw in values:
+        text = str(raw).strip().lower()
+        if text:
+            items.append(text)
+    return items
 
 
 def _normalise_rel(path: str, root: Optional[Path] = None) -> str:
@@ -205,8 +318,12 @@ class Scope:
     slug_hint: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     paths: List[str] = field(default_factory=list)
+    paths_discovered: List[str] = field(default_factory=list)
+    invalid_paths: List[str] = field(default_factory=list)
     docs: List[str] = field(default_factory=list)
     keywords: List[str] = field(default_factory=list)
+    keywords_raw: List[str] = field(default_factory=list)
+    non_negotiables: List[str] = field(default_factory=list)
     manual_notes: List[str] = field(default_factory=list)
 
 
@@ -260,18 +377,31 @@ class ResearcherContextBuilder:
         section = raw.get("researcher", {})
         return section if isinstance(section, dict) else {}
 
+    def _keyword_settings(self) -> Dict[str, Any]:
+        settings = self._settings.get("keyword_settings")
+        return settings if isinstance(settings, dict) else {}
+
+    def call_graph_settings(self) -> Dict[str, Any]:
+        settings = self._settings.get("call_graph")
+        return settings if isinstance(settings, dict) else {}
+
+    def ast_grep_settings(self) -> Dict[str, Any]:
+        settings = self._settings.get("ast_grep")
+        return settings if isinstance(settings, dict) else {}
+
     def build_scope(self, ticket: str, slug_hint: Optional[str] = None) -> Scope:
         ticket_value = (ticket or "").strip()
         if not ticket_value:
             raise ValueError("ticket must be a non-empty string")
         hint_value = (slug_hint or "").strip() or None
+        cleaned_hint, non_negotiables = _extract_non_negotiables(hint_value)
         settings = self._settings
         defaults = settings.get("defaults", {})
         default_paths = defaults.get("paths", ["src"])
         default_docs = defaults.get("docs", ["docs"])
         default_keywords = defaults.get("keywords", [])
 
-        tags = self._resolve_tags(ticket_value, hint_value)
+        tags = self._resolve_tags(ticket_value, cleaned_hint)
         tag_paths: List[str] = []
         tag_docs: List[str] = []
         tag_keywords: List[str] = []
@@ -285,14 +415,51 @@ class ResearcherContextBuilder:
         def _norm_all(values: Sequence[str]) -> List[str]:
             return _unique([_normalise_rel(item, self._paths_base) for item in values])
 
+        keyword_settings = self._keyword_settings()
+        min_len = int(keyword_settings.get("min_len", _DEFAULT_KEYWORD_MIN_LEN))
+        max_count = int(keyword_settings.get("max_count", _DEFAULT_KEYWORD_MAX_COUNT))
+        short_whitelist = set(
+            _normalize_stopwords(keyword_settings.get("short_whitelist", _DEFAULT_KEYWORD_SHORT_WHITELIST))
+        )
+        stopwords = set(_DEFAULT_STOPWORDS)
+        stopwords.update(_normalize_stopwords(keyword_settings.get("stopwords", [])))
+
+        raw_keywords: List[str] = []
+        raw_keywords.extend([item for item in default_keywords if isinstance(item, str)])
+        raw_keywords.extend([item for item in tag_keywords if isinstance(item, str)])
+        raw_keywords.append(ticket_value)
+        if hint_value:
+            raw_keywords.append(hint_value)
+
+        normalise_sources: List[str] = []
+        normalise_sources.extend([item for item in default_keywords if isinstance(item, str)])
+        normalise_sources.extend([item for item in tag_keywords if isinstance(item, str)])
+        normalise_sources.append(ticket_value)
+        if cleaned_hint:
+            normalise_sources.append(cleaned_hint)
+
+        keywords = _normalize_keywords(
+            normalise_sources,
+            stopwords=stopwords,
+            min_len=max(1, min_len),
+            short_whitelist=short_whitelist or _DEFAULT_KEYWORD_SHORT_WHITELIST,
+            max_count=max_count,
+        )
+
         scope = Scope(
             ticket=ticket_value,
             slug_hint=hint_value,
             tags=tags,
             paths=_norm_all(list(default_paths) + list(tag_paths)),
             docs=_norm_all(list(default_docs) + list(tag_docs)),
-            keywords=_unique(default_keywords + tag_keywords + _identifier_tokens(ticket_value, hint_value)),
+            keywords=keywords,
+            keywords_raw=_unique([item.strip() for item in raw_keywords if isinstance(item, str) and item.strip()]),
+            non_negotiables=non_negotiables,
         )
+        scope = self._discover_paths(scope)
+        auto_tags = self._auto_detect_tags(scope)
+        if auto_tags:
+            scope.tags = _unique(scope.tags + auto_tags)
         return scope
 
     def extend_scope(
@@ -317,25 +484,144 @@ class ResearcherContextBuilder:
                 normalised.append(rel)
             scope.paths = _unique(scope.paths + normalised)
         if extra_keywords:
-            scope.keywords = _unique(scope.keywords + [item.strip().lower() for item in extra_keywords])
+            raw_items = [item.strip() for item in extra_keywords if item and item.strip()]
+            scope.keywords_raw = _unique(scope.keywords_raw + raw_items)
+            keyword_settings = self._keyword_settings()
+            min_len = int(keyword_settings.get("min_len", _DEFAULT_KEYWORD_MIN_LEN))
+            max_count = int(keyword_settings.get("max_count", _DEFAULT_KEYWORD_MAX_COUNT))
+            short_whitelist = set(
+                _normalize_stopwords(keyword_settings.get("short_whitelist", _DEFAULT_KEYWORD_SHORT_WHITELIST))
+            )
+            stopwords = set(_DEFAULT_STOPWORDS)
+            stopwords.update(_normalize_stopwords(keyword_settings.get("stopwords", [])))
+            scope.keywords = _unique(
+                scope.keywords
+                + _normalize_keywords(
+                    raw_items,
+                    stopwords=stopwords,
+                    min_len=max(1, min_len),
+                    short_whitelist=short_whitelist or _DEFAULT_KEYWORD_SHORT_WHITELIST,
+                    max_count=max_count,
+                )
+            )
         if extra_notes:
             scope.manual_notes = _unique(scope.manual_notes + [note for note in extra_notes if note])
         return scope
 
+    def _discover_paths(self, scope: Scope) -> Scope:
+        settings = self._settings.get("path_discovery", {})
+        max_discovered = int(settings.get("max_discovered", 12)) if isinstance(settings, dict) else 12
+        keywords = [kw for kw in scope.keywords if kw]
+        discovered: List[str] = []
+        if keywords:
+            discovered.extend(self._discover_paths_from_gradle(keywords, max_discovered=max_discovered))
+            if len(discovered) < max_discovered:
+                discovered.extend(
+                    self._discover_paths_from_keywords(
+                        keywords,
+                        max_discovered=max_discovered - len(discovered),
+                    )
+                )
+        scope.paths_discovered = _unique(scope.paths_discovered + discovered)
+        if scope.paths_discovered:
+            scope.paths = _unique(scope.paths + scope.paths_discovered)
+        return scope
+
+    def _discover_paths_from_gradle(self, keywords: Sequence[str], *, max_discovered: int) -> List[str]:
+        if max_discovered <= 0:
+            return []
+        modules: List[str] = []
+        settings_files = list(self._paths_base.rglob("settings.gradle")) + list(
+            self._paths_base.rglob("settings.gradle.kts")
+        )
+        include_re = re.compile(r"include\s*\(([^)]*)\)", re.IGNORECASE)
+        include_line_re = re.compile(r"^\s*include\s+(.+)$", re.IGNORECASE | re.MULTILINE)
+        quoted_re = re.compile(r"['\"]([^'\"]+)['\"]")
+
+        def normalize_module(raw: str) -> str:
+            cleaned = raw.strip()
+            if not cleaned:
+                return ""
+            if cleaned.startswith(":"):
+                cleaned = cleaned[1:]
+            cleaned = cleaned.replace(":", "/").strip("/")
+            return cleaned
+
+        def collect_from_chunk(chunk: str) -> None:
+            for match in quoted_re.findall(chunk or ""):
+                module = normalize_module(match)
+                if module:
+                    modules.append(module)
+
+        for settings_path in settings_files[:5]:
+            try:
+                data = settings_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for match in include_re.finditer(data):
+                collect_from_chunk(match.group(1))
+            for match in include_line_re.finditer(data):
+                collect_from_chunk(match.group(1))
+        if not modules:
+            return []
+        matches: List[str] = []
+        for module in modules:
+            lowered = module.lower()
+            if not any(kw in lowered for kw in keywords):
+                continue
+            candidate = self._paths_base / module
+            if candidate.exists():
+                matches.append(self._rel_to_base(candidate))
+            if len(matches) >= max_discovered:
+                break
+        return matches
+
+    def _discover_paths_from_keywords(self, keywords: Sequence[str], *, max_discovered: int) -> List[str]:
+        if max_discovered <= 0:
+            return []
+        matches: List[str] = []
+        base = self._paths_base
+        max_depth = 4
+        for root, dirs, _ in os.walk(base):
+            rel = Path(root).relative_to(base)
+            if len(rel.parts) > max_depth:
+                dirs[:] = []
+                continue
+            for name in list(dirs):
+                lowered = name.lower()
+                if any(kw in lowered for kw in keywords):
+                    candidate = Path(root) / name
+                    matches.append(self._rel_to_base(candidate))
+                    if len(matches) >= max_discovered:
+                        return matches
+        return matches
+
     def describe_targets(self, scope: Scope) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Path]]:
         return self._resolve_search_roots(scope)
+
+    def resolve_path_roots(self, scope: Scope) -> List[Path]:
+        roots: List[Path] = []
+        for rel in scope.paths:
+            _, path_obj = self._describe_path(rel)
+            if path_obj is not None:
+                roots.append(path_obj)
+        return roots
 
     def _resolve_search_roots(self, scope: Scope) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Path]]:
         search_roots: List[Path] = []
         path_infos: List[Dict[str, Any]] = []
+        invalid_paths: List[str] = []
         for rel in scope.paths:
             info, path_obj = self._describe_path(rel)
             path_infos.append(info)
             if path_obj is not None:
                 search_roots.append(path_obj)
+            if not info.get("exists", False):
+                invalid_paths.append(info.get("path") or rel)
 
         doc_infos, doc_roots = self._describe_docs(scope.docs)
         search_roots.extend(doc_roots)
+        scope.invalid_paths = _unique(invalid_paths)
         return path_infos, doc_infos, search_roots
 
     def write_targets(self, scope: Scope) -> Path:
@@ -349,8 +635,12 @@ class ResearcherContextBuilder:
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
             "paths": scope.paths,
+            "paths_discovered": scope.paths_discovered,
+            "invalid_paths": scope.invalid_paths,
             "docs": scope.docs,
             "keywords": scope.keywords,
+            "keywords_raw": scope.keywords_raw,
+            "non_negotiables": scope.non_negotiables,
         }
         target_path = report_dir / f"{scope.ticket}-targets.json"
         target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -371,13 +661,17 @@ class ResearcherContextBuilder:
             "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
             "tags": scope.tags,
             "keywords": scope.keywords,
+            "keywords_raw": scope.keywords_raw,
             "paths": path_infos,
+            "paths_discovered": scope.paths_discovered,
+            "invalid_paths": scope.invalid_paths,
             "docs": doc_infos,
             "matches": matches,
             "code_index": code_index,
             "reuse_candidates": reuse_candidates,
             "profile": profile,
             "manual_notes": scope.manual_notes,
+            "non_negotiables": scope.non_negotiables,
         }
 
     def write_context(self, scope: Scope, context: Dict[str, Any], *, output: Optional[Path] = None) -> Path:
@@ -477,10 +771,13 @@ class ResearcherContextBuilder:
         return samples
 
     def _build_project_profile(self, scope: Scope, matches: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+        tests_detected, tests_evidence, suggested_test_tasks = self._detect_tests()
         profile = {
             "is_new_project": len(matches) == 0,
             "src_layers": self._detect_src_layers(),
-            "tests_detected": self._detect_tests(),
+            "tests_detected": tests_detected,
+            "tests_evidence": tests_evidence,
+            "suggested_test_tasks": suggested_test_tasks,
             "config_detected": self._detect_configs(),
             "logging_artifacts": self._detect_logging_artifacts(),
             "recommendations": [],
@@ -504,25 +801,77 @@ class ResearcherContextBuilder:
                 break
         return layers
 
-    def _detect_tests(self) -> bool:
-        candidates = [
-            self._paths_base / "tests",
-            self._paths_base / "test",
-            self._paths_base / "src" / "test",
-            self._paths_base / "src" / "tests",
+    def _detect_tests(self) -> Tuple[bool, List[str], List[str]]:
+        evidence: List[str] = []
+        suggested_tasks: List[str] = []
+        patterns = [
+            "**/src/test",
+            "**/src/tests",
+            "**/test",
+            "**/tests",
+            "**/spec",
+            "**/specs",
+            "**/__tests__",
         ]
+        roots = [self._paths_base]
         if self._paths_base != self.root:
-            candidates.extend(
-                [
-                    self.root / "tests",
-                    self.root / "test",
-                    self.root / "src" / "test",
-                    self.root / "src" / "tests",
-                ]
-            )
-        for candidate in candidates:
-            if candidate.exists():
-                return True
+            roots.append(self.root)
+        for root in roots:
+            if not root.exists():
+                continue
+            for pattern in patterns:
+                try:
+                    iterator = root.glob(pattern)
+                except OSError:
+                    continue
+                for candidate in iterator:
+                    if not candidate.exists():
+                        continue
+                    if self._is_excluded_test_path(candidate):
+                        continue
+                    evidence.append(self._rel_to_base(candidate))
+                    if len(evidence) >= 12:
+                        break
+                if len(evidence) >= 12:
+                    break
+            if len(evidence) >= 12:
+                break
+
+        try:
+            from tools.test_settings_defaults import detect_build_tools
+
+            build_tools = detect_build_tools(self._paths_base if self._paths_base.exists() else self.root)
+        except Exception:
+            build_tools = set()
+        if "gradle" in build_tools:
+            suggested_tasks.append("./gradlew test")
+        if "npm" in build_tools:
+            suggested_tasks.append("npm test")
+        if "python" in build_tools:
+            suggested_tasks.append("pytest")
+        if "go" in build_tools:
+            suggested_tasks.append("go test ./...")
+        if "rust" in build_tools:
+            suggested_tasks.append("cargo test")
+        if "dotnet" in build_tools:
+            suggested_tasks.append("dotnet test")
+
+        return bool(evidence), _unique(evidence), _unique(suggested_tasks)
+
+    def _is_excluded_test_path(self, path: Path) -> bool:
+        for base in (self._paths_base, self.root):
+            try:
+                rel = path.relative_to(base)
+                parts = rel.parts
+                if not parts:
+                    return False
+                if parts[0] in {"docs", "reports", ".cache", ".git"}:
+                    return True
+                if parts[0] == "aidd":
+                    return True
+                return False
+            except ValueError:
+                continue
         return False
 
     def _detect_configs(self) -> bool:
@@ -630,6 +979,38 @@ class ResearcherContextBuilder:
             if lowered in available_tags and lowered not in tags:
                 tags.append(lowered)
         return _unique(tags)
+
+    def _auto_detect_tags(self, scope: Scope) -> List[str]:
+        settings = self._settings
+        auto_cfg = settings.get("auto_tags", {})
+        if not isinstance(auto_cfg, dict):
+            return []
+        slug_text = " ".join(item for item in [scope.ticket, scope.slug_hint] if item).lower()
+        token_set = set(_norm_token_list(_identifier_tokens(scope.ticket, scope.slug_hint)))
+        path_candidates = [item for item in (scope.paths + scope.paths_discovered) if item]
+        detected: List[str] = []
+        for tag, raw in auto_cfg.items():
+            if tag in scope.tags or not isinstance(raw, dict):
+                continue
+            keywords = _norm_token_list(raw.get("slug_keywords") or raw.get("keywords") or [])
+            if keywords:
+                if any(keyword in token_set for keyword in keywords) or any(keyword in slug_text for keyword in keywords):
+                    detected.append(tag)
+                    continue
+            markers = raw.get("path_markers") or raw.get("paths") or []
+            if isinstance(markers, str):
+                markers = [markers]
+            for marker in markers:
+                marker_text = str(marker).strip()
+                if not marker_text:
+                    continue
+                marker_path = Path(marker_text)
+                if not marker_path.is_absolute():
+                    marker_path = self._paths_base / marker_text
+                if marker_path.exists() or any(marker_text in candidate for candidate in path_candidates):
+                    detected.append(tag)
+                    break
+        return _unique(detected)
 
     def _scan_matches(
         self,

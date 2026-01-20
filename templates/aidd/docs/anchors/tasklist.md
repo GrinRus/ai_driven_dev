@@ -5,6 +5,11 @@
 - Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml` (если есть), tasklist содержит краткий `AIDD:SPEC_PACK`.
 - Чекбоксы однозначны (iteration_id/DoD/Boundaries/Steps/Tests) и не требуют дополнительных догадок.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- MUST NOT: `Read` full `*-call-graph-full.json` или `*.cjson`.
+
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md:
   - AIDD:CONTEXT_PACK

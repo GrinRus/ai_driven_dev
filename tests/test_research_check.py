@@ -70,6 +70,9 @@ class ResearchCheckTests(unittest.TestCase):
             f"reports/research/{ticket}-context.json",
             {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
         )
+        ast_pack = project_root / "reports" / "research" / f"{ticket}-ast-grep.pack.yaml"
+        if ast_pack.exists():
+            ast_pack.unlink()
 
         args = self._make_args(workspace, ticket)
         old_cwd = Path.cwd()
@@ -78,6 +81,172 @@ class ResearchCheckTests(unittest.TestCase):
             research_check.main(args)
         finally:
             os.chdir(old_cwd)
+
+    def test_research_check_accepts_ast_grep_fallback(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ast"
+        write_active_feature(project_root, ticket)
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+        write_file(project_root, "src/main/kotlin/App.kt", "class App {}")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-targets.json",
+            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-ast-grep.pack.yaml",
+            {"type": "ast-grep", "status": "ok"},
+        )
+
+        args = self._make_args(workspace, ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+    def test_research_check_blocks_without_evidence(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-block"
+        write_active_feature(project_root, ticket)
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+        write_file(project_root, "src/main/kotlin/App.kt", "class App {}")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-targets.json",
+            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
+        )
+        ast_pack = project_root / "reports" / "research" / f"{ticket}-ast-grep.pack.yaml"
+        if ast_pack.exists():
+            ast_pack.unlink()
+
+        args = self._make_args(workspace, ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+        self.assertIn("evidence", str(excinfo.exception))
+
+    def test_research_check_passes_with_call_graph_pack(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-graph"
+        write_active_feature(project_root, ticket)
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+        write_file(project_root, "src/main/kotlin/App.kt", "class App {}")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-targets.json",
+            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-call-graph.edges.jsonl",
+            "{}\n",
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-call-graph.pack.yaml",
+            {"type": "call-graph", "status": "ok"},
+        )
+
+        args = self._make_args(workspace, ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+    def test_research_check_blocks_with_unavailable_call_graph_pack(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-unavailable"
+        write_active_feature(project_root, ticket)
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+        write_file(project_root, "src/main/kotlin/App.kt", "class App {}")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-targets.json",
+            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
+        )
+        write_file(
+            project_root,
+            f"reports/research/{ticket}-call-graph.edges.jsonl",
+            "{}\n",
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-call-graph.pack.yaml",
+            {"type": "call-graph", "status": "unavailable"},
+        )
+        ast_pack = project_root / "reports" / "research" / f"{ticket}-ast-grep.pack.yaml"
+        if ast_pack.exists():
+            ast_pack.unlink()
+
+        args = self._make_args(workspace, ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+        self.assertIn("evidence", str(excinfo.exception))
+
+    def test_research_check_blocks_for_workspace_paths_without_evidence(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ws"
+        write_active_feature(project_root, ticket)
+        write_file(project_root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+        # Place JVM code in workspace root (outside aidd/)
+        write_file(workspace, "src/main/kotlin/App.kt", "class App {}")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-targets.json",
+            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
+        )
+        ast_pack = project_root / "reports" / "research" / f"{ticket}-ast-grep.pack.yaml"
+        if ast_pack.exists():
+            ast_pack.unlink()
+
+        args = self._make_args(workspace, ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+        self.assertIn("evidence", str(excinfo.exception))
 
 
 if __name__ == "__main__":

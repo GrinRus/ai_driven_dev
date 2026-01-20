@@ -1,0 +1,72 @@
+---
+rules:
+  - id: junit-test
+    language: Java
+    rule:
+      pattern: "@Test"
+    message: "JUnit test annotation"
+  - id: junit-test-kt
+    language: Kotlin
+    rule:
+      pattern: "@Test"
+    message: "JUnit test annotation"
+  - id: junit-parameterized-test
+    language: Java
+    rule:
+      pattern: "@ParameterizedTest"
+    message: "JUnit parameterized test"
+  - id: junit-parameterized-test-kt
+    language: Kotlin
+    rule:
+      pattern: "@ParameterizedTest"
+    message: "JUnit parameterized test"
+  - id: junit-test-factory
+    language: Java
+    rule:
+      pattern: "@TestFactory"
+    message: "JUnit test factory"
+  - id: junit-test-factory-kt
+    language: Kotlin
+    rule:
+      pattern: "@TestFactory"
+    message: "JUnit test factory"
+  - id: kotest-funspec
+    language: Kotlin
+    rule:
+      pattern: "FunSpec"
+    message: "Kotest FunSpec"
+  - id: kotest-stringspec
+    language: Kotlin
+    rule:
+      pattern: "StringSpec"
+    message: "Kotest StringSpec"
+  - id: kotest-describespec
+    language: Kotlin
+    rule:
+      pattern: "DescribeSpec"
+    message: "Kotest DescribeSpec"
+  - id: kotest-behaviorspec
+    language: Kotlin
+    rule:
+      pattern: "BehaviorSpec"
+    message: "Kotest BehaviorSpec"
+  - id: kotest-featurespec
+    language: Kotlin
+    rule:
+      pattern: "FeatureSpec"
+    message: "Kotest FeatureSpec"
+  - id: kotest-freespec
+    language: Kotlin
+    rule:
+      pattern: "FreeSpec"
+    message: "Kotest FreeSpec"
+  - id: kotest-shouldspec
+    language: Kotlin
+    rule:
+      pattern: "ShouldSpec"
+    message: "Kotest ShouldSpec"
+  - id: kotest-wordspec
+    language: Kotlin
+    rule:
+      pattern: "WordSpec"
+    message: "Kotest WordSpec"
