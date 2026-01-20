@@ -1,9 +1,9 @@
 ---
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
-argument-hint: "<TICKET> [slug-hint] [note...]"
+argument-hint: "$1 [slug=<slug-hint>] [note...]"
 lang: ru
-prompt_version: 1.3.4
-source_version: 1.3.4
+prompt_version: 1.3.9
+source_version: 1.3.9
 allowed-tools:
   - Read
   - Edit
@@ -19,12 +19,12 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/feature-dev-aidd:idea-new` фиксирует активный ticket/slug-hint, выставляет стадию `idea`, запускает саб-агента **feature-dev-aidd:analyst** и формирует PRD draft с вопросами. Аналитик фиксирует контекст и заполняет `## AIDD:RESEARCH_HINTS` в PRD. После ответов пользователя следующий обязательный шаг — `/feature-dev-aidd:researcher <ticket>`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
+`/feature-dev-aidd:idea-new` работает inline: фиксирует активный ticket/slug-hint, выставляет стадию `idea`, собирает контекст в Context Pack и явно запускает саб‑агента **agent-feature-dev-aidd:analyst**. Аналитик формирует PRD draft с вопросами и заполняет `## AIDD:RESEARCH_HINTS`. После ответов пользователя следующий обязательный шаг — `/feature-dev-aidd:researcher $1`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/idea.md`.
 
 ## Входные артефакты
-- `@aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
-- `@aidd/docs/research/<ticket>.md`, `aidd/reports/research/*` — если уже есть, использовать как контекст.
+- `aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
+- `aidd/docs/research/$1.md`, `aidd/reports/research/*` — если уже есть, использовать как контекст.
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature` — активные маркеры.
 
 ## Когда запускать
@@ -34,30 +34,62 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` синхронизирует `.active_*` и scaffold'ит PRD.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea` фиксирует стадию `idea`.
-- Команда должна запускать саб-агента **feature-dev-aidd:analyst** (Claude: Run agent → feature-dev-aidd:analyst).
-- `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` — проверка диалога/статуса после ответов.
+- Команда должна запускать саб-агента **agent-feature-dev-aidd:analyst**.
+- `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1` — проверка диалога/статуса после ответов.
 
 ## Что редактируется
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
-- `aidd/docs/prd/<ticket>.prd.md`.
+- `aidd/docs/prd/$1.prd.md`.
+
+## Context Pack (шаблон)
+Файл: `aidd/reports/context/$1.idea.pack.md`.
+
+```md
+# AIDD Context Pack — idea
+ticket: $1
+stage: idea
+agent: agent-feature-dev-aidd:analyst
+generated_at: <UTC ISO-8601>
+
+## Paths
+- prd: aidd/docs/prd/$1.prd.md
+- research: aidd/docs/research/$1.md (if exists)
+- plan: aidd/docs/plan/$1.md (if exists)
+- tasklist: aidd/docs/tasklist/$1.md (if exists)
+- spec: aidd/docs/spec/$1.spec.yaml (if exists)
+- test_policy: aidd/.cache/test-policy.env (if exists)
+
+## What to do now
+- Draft PRD, fill AIDD:RESEARCH_HINTS, ask questions.
+
+## User note
+- $ARGUMENTS (excluding slug=...)
+
+## Git snapshot (optional)
+- branch: <git rev-parse --abbrev-ref HEAD>
+- diffstat: <git diff --stat>
+```
 
 ## Пошаговый план
-1. Зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea`.
-2. Обнови активный тикет/slug: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1" [--slug-note "$2"]`.
-3. Запусти саб-агента **feature-dev-aidd:analyst**; он обновит PRD и заполнит блок `## AIDD:RESEARCH_HINTS` (пути/ключевые слова/заметки).
-4. Если пользователь передал блок `AIDD:ANSWERS`, зафиксируй его в PRD (и при необходимости продублируй ответы в `## Диалог analyst`), синхронизируй `AIDD:OPEN_QUESTIONS` (пронумеруй как `Q1/Q2/...`, удали/перенеси закрытые в `AIDD:DECISIONS`) и обнови `Status/Updated`.
-5. Верни список вопросов и статус PRD; следующий шаг — `/feature-dev-aidd:researcher <ticket>`, затем `/feature-dev-aidd:plan-new`.
+1. Команда (до subagent): зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea`.
+2. Команда (до subagent): зафиксируй активный тикет/slug: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1" [--slug-note "<slug>"]` (slug берётся из аргумента `slug=<...>`, заметка = `$ARGUMENTS` без `slug=...`).
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.idea.pack.md` по шаблону W79-10.
+4. Команда → subagent: **Use the agent-feature-dev-aidd:analyst subagent. First action: Read `aidd/reports/context/$1.idea.pack.md`.**
+5. Subagent: обновляет PRD, заполняет `## AIDD:RESEARCH_HINTS`, формирует вопросы; при наличии `AIDD:ANSWERS` синхронизирует `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS`.
+6. Команда (после subagent): если ответы уже есть — запусти `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1`.
+7. Верни список вопросов и статус PRD; следующий шаг — `/feature-dev-aidd:researcher $1`, затем `/feature-dev-aidd:plan-new`.
 
 ## Fail-fast и вопросы
-- Нет тикета/slug — остановись и запроси корректные аргументы.
+- Нет тикета — остановись и запроси корректные аргументы. `slug=<...>` опционален.
 - Если контекста недостаточно, вопросы формируются как `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`; ответы — `Ответ N: ...`. После фиксации в PRD дублируй вопросы в `AIDD:OPEN_QUESTIONS` с `Q1/Q2/...`, чтобы их можно было ссылать из плана. Для research укажи подсказки в `## AIDD:RESEARCH_HINTS`.
 - Если пользователь отвечает в чате — попроси прислать блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`).
 - Если ответы получены, но вопросы остаются в `AIDD:OPEN_QUESTIONS`, это неконсистентное состояние — синхронизируй их до `/feature-dev-aidd:review-spec`.
 
 ## Ожидаемый вывод
 - Активный ticket/slug зафиксирован в `aidd/docs/.active_*`.
-- `aidd/docs/prd/<ticket>.prd.md` создан/обновлён (PENDING/BLOCKED до ответов).
+- `aidd/docs/prd/$1.prd.md` создан/обновлён (PENDING/BLOCKED до ответов).
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/feature-dev-aidd:idea-new ABC-123 checkout-demo`
+- `/feature-dev-aidd:idea-new ABC-123 slug=checkout-demo`
+- `/feature-dev-aidd:idea-new ABC-123 Уточнить сценарий guest checkout для B2B`

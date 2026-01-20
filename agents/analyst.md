@@ -2,9 +2,9 @@
 name: analyst
 description: Сбор исходной идеи → анализ контекста → PRD draft + вопросы пользователю (READY после ответов).
 lang: ru
-prompt_version: 1.3.4
-source_version: 1.3.4
-tools: Read, Write, Glob, Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*), Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.3.9
+source_version: 1.3.9
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
 model: inherit
 permissionMode: default
 ---
@@ -24,15 +24,17 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` — PRD draft (`Status: draft`, `## Диалог analyst`).
-- `@aidd/docs/research/<ticket>.md` — отчёт Researcher (если уже есть, используй как контекст).
+- `aidd/docs/prd/<ticket>.prd.md` — PRD draft (`Status: draft`, `## Диалог analyst`).
+- `aidd/docs/research/<ticket>.md` — отчёт Researcher (если уже есть, используй как контекст).
 - `aidd/reports/research/<ticket>-context.json`, `aidd/reports/research/<ticket>-targets.json`.
 - `aidd/docs/.active_feature`, `aidd/docs/.active_ticket`.
 
 ## Автоматизация
+- Команда `/feature-dev-aidd:idea-new` отвечает за `set-active-feature/set-active-stage` и запуск `analyst-check` после ответов.
 - Зафиксируй подсказки в `## AIDD:RESEARCH_HINTS` и передай их следующему шагу `/feature-dev-aidd:researcher <ticket>`.
-- `analyst-check` выполняется после ответов.
 - `rg` используй в два этапа: сначала `aidd/docs/**`, затем — только по модулям из `AIDD:RESEARCH_HINTS` или working set.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Проверь активный тикет/slug и прочитай AIDD:* секции в PRD/Research (если есть).
@@ -41,7 +43,6 @@ permissionMode: default
 4. Обнови PRD (обзор, контекст, метрики, сценарии, требования, риски) и источники.
 5. Сформируй вопросы пользователю по шаблону ниже; без ответов оставляй `Status: PENDING` (BLOCKED — при явных блокерах).
 6. После ответов обнови PRD: зафиксируй `AIDD:ANSWERS`, синхронизируй `AIDD:OPEN_QUESTIONS` (пронумеруй как `Q1/Q2/...`, удали/перенеси закрытые в `AIDD:DECISIONS`), обнови `Status/Updated`, сними блокеры.
-7. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>`.
 
 ## Fail-fast и вопросы
 - Нет PRD — попроси `/feature-dev-aidd:idea-new <ticket>`.

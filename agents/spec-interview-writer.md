@@ -2,8 +2,8 @@
 name: spec-interview-writer
 description: Build spec.yaml from interview log (tasklist обновляется через /feature-dev-aidd:tasks-new).
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.4
+source_version: 1.0.4
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*)
 model: inherit
 permissionMode: default
@@ -26,6 +26,8 @@ MUST KNOW FIRST: `aidd/AGENTS.md`, `aidd/docs/anchors/spec-interview.md`.
 
 ## Автоматизация
 - Нет. Агент использует только входные артефакты.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Сформируй `aidd/docs/spec/<ticket>.spec.yaml` по шаблону `aidd.spec.v1`.

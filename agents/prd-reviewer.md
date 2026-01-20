@@ -2,9 +2,9 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
-tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.0.10
+source_version: 1.0.10
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -24,13 +24,15 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
-- `@aidd/docs/plan/<ticket>.md` и ADR.
-- `@aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
+- `aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
+- `aidd/docs/plan/<ticket>.md` и ADR.
+- `aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
 - `/feature-dev-aidd:review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json` через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`.
 - `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/feature-dev-aidd:review-spec`.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции PRD и `## PRD Review`, затем точечно читай ADR/план по нужным пунктам.

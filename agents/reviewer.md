@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.0.14
+source_version: 1.0.14
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -36,12 +36,14 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 
 ## Входные артефакты
 - Diff/PR.
-- `@aidd/docs/prd/<ticket>.prd.md`, `@aidd/docs/plan/<ticket>.md`, `@aidd/docs/tasklist/<ticket>.md`.
+- `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/tasklist/<ticket>.md`.
 - Отчёты тестов/гейтов и `aidd/reports/reviewer/<ticket>.json` (если есть).
 
 ## Автоматизация
 - Команда `/feature-dev-aidd:review` отвечает за `review-report`, `reviewer-tests`, `tasks-derive`, `progress`.
   Агент обновляет только tasklist и findings.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции tasklist/plan, затем точечно сверь изменения с PRD и DoD.

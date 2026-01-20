@@ -1485,3 +1485,31 @@ _Статус: новый, приоритет 1. Цель — запретить
 - [ ] W77-1 `agents/reviewer.md`, `agents/qa.md`: добавить hard‑policy (редактировать только `aidd/docs/tasklist/<ticket>.md`), `MUST NOT` (без правок кода/конфигов/тестов/CI и без «чинить самому»), требование handoff‑задач на каждое замечание (fact→risk→recommendation + `scope/DoD/Boundaries/Tests`), удалить tool `Write`. Обновить `prompt_version/source_version`, прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`. Deps: -
 - [ ] W77-2 `templates/aidd/docs/anchors/{review,qa}.md`: добавить явный запрет правок вне tasklist и правило «каждый finding → handoff в `AIDD:HANDOFF_INBOX`». Для QA указать, что автогенерируемые отчёты в `aidd/reports/**` допустимы. Deps: W77-1.
 - [ ] W77-3 `templates/aidd/docs/tasklist/template.md`: расширить `AIDD:HANDOFF_INBOX` схемой задачи (id, source, scope, DoD, Boundaries, Tests, Notes) и примером заполнения для review/qa. Deps: W77-1.
+
+## Wave 79
+
+_Статус: новый, приоритет 1. Цель — команды остаются inline, контекст передаётся через Context Pack, запуск саб‑агентов явный, аргументы унифицированы._
+
+### EPIC A — Subagent naming + inline orchestrator pattern
+- [x] W79-1 Нормализовать имена саб‑агентов по фактическим типам из `/agents` (использовать `agent-feature-dev-aidd:<name>`), обновить упоминания в `commands/*.md` и `agents/*.md` (включая “Use the … subagent” и ссылки в тексте). Deps: -
+- [x] W79-2 Обновить одноагентные команды‑оркестраторы (`commands/idea-new.md`, `commands/researcher.md`, `commands/tasks-new.md`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `commands/spec-interview.md`) по паттерну: inline (без `context: fork`), сбор контекста → запись pack `aidd/reports/context/$1.<stage>.pack.md` (с `$ARGUMENTS`), затем явная инструкция “Use the agent-feature-dev-aidd:<agent> subagent. First action: Read <pack>.” Для каждой команды явно зафиксировать, что делает команда ДО subagent (stage/CLI/side‑effects), что делает subagent (редактирование артефактов), и что делает команда ПОСЛЕ subagent (report/tasks-derive/progress). Для `spec-interview` — двухфазный паттерн: интервью+лог → pack для `spec-interview-writer` → запуск writer. DoD: в тексте команды есть явная фраза `Use the <agent> subagent` + `First action: Read <pack>`. Deps: W79-1,W79-10.
+- [x] W79-3 Обновить multi‑agent orchestrators (`commands/plan-new.md`, `commands/review-spec.md`): inline + отдельные packs на каждого агента (например, `.planner.pack.md`/`.validator.pack.md`, `.review-plan.pack.md`/`.review-prd.pack.md`), явные инструкции “Use the … subagent; First action: Read <pack>”, и пояснение про запрет nested subagents. DoD: в тексте команды есть явная фраза `Use the <agent> subagent` + `First action: Read <pack>`. Deps: W79-1,W79-10.
+
+### EPIC B — Agent pack consumption + edit permissions
+- [x] W79-4 Добавить правило “если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай его первым шагом и считай источником истины” во все используемые саб‑агенты (analyst, researcher, planner, validator, plan-reviewer, prd-reviewer, spec-interview-writer, tasklist-refiner, implementer, reviewer, qa). Deps: W79-2,W79-3,W79-10.
+- [x] W79-5 Добавить `Edit` в `agents/analyst.md`, `agents/plan-reviewer.md`, `agents/prd-reviewer.md` (решить, оставлять ли `Write`). Deps: -
+- [x] W79-10 Стандартизировать формат Context Pack: единый шаблон с полями `ticket`, `stage`, `agent`, `generated_at`, `paths` (plan/tasklist/prd/spec/research/test-policy), `iteration_focus`/`what_to_do_now`, `user_note=$ARGUMENTS`, опционально `git branch/diffstat`; команды пишут pack по шаблону, агенты используют эти поля как источник истины. Deps: -
+
+### EPIC C — Argument placeholders + idea-new contract
+- [x] W79-6 Заменить `<ticket>` на `$1`/`$ARGUMENTS` в `commands/*.md` там, где это влияет на резолвинг файлов и вызовы CLI (file refs, `--ticket`, примеры). Deps: -
+- [x] W79-7 Уточнить контракт аргументов `/feature-dev-aidd:idea-new` (slug‑hint vs note): выбрать правило (например, `slug=<...>` или строгий `$2` для slug‑hint) и обновить инструкции/примеры. Deps: W79-6.
+
+### EPIC D — Implement/test policy + allowlists
+- [x] W79-8 Выровнять контракт владения `aidd/.cache/test-policy.env` между `commands/implement.md` и `agents/implementer.md` (единый владелец/условия записи). Deps: -
+- [x] W79-9 Сузить `Bash(git:*)` в `commands/implement.md` и `agents/implementer.md` до безопасного набора подкоманд. Deps: -
+
+### EPIC E — Command context hygiene
+- [x] W79-11 Убрать/экранировать `@`‑инлайны больших артефактов в командах (plan/tasklist/prd/spec/research): вместо инлайна оставлять путь строкой и читать через `Read`, упаковывать в Context Pack. Deps: W79-2,W79-6.
+
+### EPIC G — Prompt versioning + lint/tests
+- [x] W79-13 Обновить `prompt_version/source_version` у всех затронутых команд/агентов и прогнать `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py` (обновить тесты при необходимости). Deps: W79-1,W79-2,W79-3,W79-4,W79-5,W79-6,W79-7,W79-8,W79-9,W79-10,W79-11.
