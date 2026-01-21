@@ -14,6 +14,7 @@ from .helpers import (
     run_hook,
     tasklist_ready_text,
     write_active_feature,
+    write_active_stage,
     write_file,
     write_json,
     write_spec_ready,
@@ -187,13 +188,14 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     text = tasklist_path.read_text(encoding="utf-8")
-    text = text.replace("DoD: done", "DoD: ...", 1)
+    text = text.replace("DoD: tasklist ready", "DoD: ...", 1)
     tasklist_path.write_text(text, encoding="utf-8")
     with tasklist_path.open("a", encoding="utf-8") as fh:
         fh.write(f"- [ ] Research handoff (source: aidd/reports/research/{ticket}-context.json)\n")
@@ -208,6 +210,7 @@ def test_tasklist_blocks_when_test_execution_missing(tmp_path):
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)
@@ -229,6 +232,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     write_active_feature(tmp_path, ticket)
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_plan_with_review(tmp_path, ticket)

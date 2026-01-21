@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.1.1
-source_version: 1.1.1
+prompt_version: 1.1.3
+source_version: 1.1.3
 allowed-tools:
   - Read
   - Edit
@@ -49,7 +49,7 @@ disable-model-invocation: false
 3. Создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 4. Если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
 5. Запусти саб-агента **feature-dev-aidd:tasklist-refiner** (без AskUserQuestionTool).
-6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` (с iteration_id/DoD/Boundaries/Steps/Tests).
+6. Убедись, что обновлены `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/feature-dev-aidd:review-spec`.

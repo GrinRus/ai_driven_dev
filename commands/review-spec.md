@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit

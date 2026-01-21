@@ -1485,3 +1485,132 @@ _Статус: новый, приоритет 1. Цель — запретить
 - [ ] W77-1 `agents/reviewer.md`, `agents/qa.md`: добавить hard‑policy (редактировать только `aidd/docs/tasklist/<ticket>.md`), `MUST NOT` (без правок кода/конфигов/тестов/CI и без «чинить самому»), требование handoff‑задач на каждое замечание (fact→risk→recommendation + `scope/DoD/Boundaries/Tests`), удалить tool `Write`. Обновить `prompt_version/source_version`, прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`. Deps: -
 - [ ] W77-2 `templates/aidd/docs/anchors/{review,qa}.md`: добавить явный запрет правок вне tasklist и правило «каждый finding → handoff в `AIDD:HANDOFF_INBOX`». Для QA указать, что автогенерируемые отчёты в `aidd/reports/**` допустимы. Deps: W77-1.
 - [ ] W77-3 `templates/aidd/docs/tasklist/template.md`: расширить `AIDD:HANDOFF_INBOX` схемой задачи (id, source, scope, DoD, Boundaries, Tests, Notes) и примером заполнения для review/qa. Deps: W77-1.
+
+## Wave 80
+
+_Статус: новый, приоритет 1. Цель — hardening промптов и инвариантов tasklist (NEXT_3/статусы/QA/handoff/progress) по итогам аудита._
+
+### EPIC A — NEXT_3 invariant + evidence
+- [x] W80-1 `templates/aidd/docs/anchors/tasklist.md`, `templates/aidd/docs/tasklist/template.md`, `agents/tasklist-refiner.md`, `agents/implementer.md`, `commands/tasks-new.md`, `commands/implement.md`: закрепить инвариант `AIDD:NEXT_3`:
+  - NEXT_3 формируется из open work items: сначала open‑итерации из `AIDD:ITERATIONS_FULL`, затем open handoff‑задачи из `AIDD:HANDOFF_INBOX` (приоритет: Blocking=true → Priority=critical → Priority=high → остальные);
+  - `AIDD:ITERATIONS_FULL` должен иметь машинно‑считываемый state итерации: чекбокс `- [ ]`/`- [x]` или поле `State: open|done|blocked` (предпочтительно чекбокс);
+  - canonical format итерации (в template): `- [ ] I7: <title> (iteration_id: I7)` + строго именованные подполя `DoD/Boundaries/Tests`;
+  - canonical format handoff (для ссылок из NEXT_3): `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`;
+  - `[x]` в NEXT_3 запрещены;
+  - кардинальность: если open_total>=3 → ровно 3; если open_total<3 → open_total; если open_total==0 → один маркер `- (none)`;
+  - запрет истории/подробностей в NEXT_3 (детали только в `AIDD:ITERATIONS_FULL`);
+  - NEXT_3 = thin pointer list: 1–2 строки на пункт + `ref: iteration_id=I7` / `ref: id=review:F6` (без markdown‑якорей; чекер валидирует наличие id);
+  - каждый пункт NEXT_3 содержит `iteration_id` или `id`, а DoD/Boundaries/Tests находятся в `AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`;
+  - evidence для `[x]` в tasklist: `AIDD:PROGRESS_LOG` или `aidd/reports/progress/<ticket>.log` или inline `(link: aidd/reports/...|commit|PR)`;
+  - после отметки `[x]` в `AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX` implementer обязан refresh NEXT_3 (ручной или через normalize `--fix`).
+  Обновить `prompt_version/source_version`, прогнать `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`. Deps: -
+- [x] W80-2 `tools/tasklist_check.py`, `tests/test_tasklist_check.py`: валидировать:
+  - NEXT_3 кардинальность по правилу выше + отсутствие `[x]` + уникальные id;
+  - обязательные поля в NEXT_3 items: `iteration_id|id` + `ref:` на блок (`AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`), а DoD/Boundaries/Tests должны быть в целевом блоке;
+  - определение open items: итерация open = чекбокс `[ ]` или `State=open`; handoff open = чекбокс `[ ]` и/или `Status=open`; если state вычислить нельзя → WARN/BLOCKED + подсказка normalize;
+  - NEXT_3 ⊆ open items (ITERATIONS_FULL + HANDOFF_INBOX), иначе BLOCKED + подсказка normalize;
+  - сортировка NEXT_3: глобально по Blocking=true → Priority (critical>high>medium>low) → kind (handoff vs iteration) → tie‑breaker (plan order для итераций, id для handoff); несортировано → WARN/BLOCKED;
+  - enum‑валидация: `Priority/Status/Blocking/source` в handoff и `State` в итерациях соответствуют каноническим enum‑ам (stage=implement → WARN, stage=review/qa → BLOCKED);
+  - legacy/неизвестные форматы (marker/field) допускаются с WARN на implement, но BLOCK на review/qa до normalize;
+  - классификация severity:
+    - BLOCK всегда: duplicate `## AIDD:*`, status mismatch, NEXT_3 содержит `[x]`, NEXT_3 не ⊆ open items, READY при NOT MET, keyword‑lint “PASS/0 findings” при NOT MET;
+    - WARN на implement / BLOCK на review+qa: legacy форматы, enum mismatch, несортированность NEXT_3, превышение мягких бюджетов.
+  - синхрон `Status` (front‑matter ↔ `AIDD:CONTEXT_PACK Status`), источник истины — front‑matter;
+  - запрет `READY`, если `AIDD:QA_TRACEABILITY` содержит `NOT MET` по любому AC (без override);
+  - тестовый статус: если reviewer‑tests=required или stage=qa → любые test failures/compilation errors => BLOCKED; если optional → WARN (marker: `aidd/reports/reviewer/<ticket>.json`, field `tests`);
+  - evidence для `[x]` ищется в `AIDD:PROGRESS_LOG`, progress archive и inline link.
+  - каждая top-level секция `## AIDD:*` встречается ровно один раз (дубли → BLOCKED + подсказка normalize);
+  - stage=qa берётся из `aidd/docs/.active_stage`, fallback — `AIDD:CONTEXT_PACK Stage`;
+  - если `QA_TRACEABILITY` содержит `NOT MET`, то `AIDD:CHECKLIST_QA` (если есть) или QA‑подсекция в `AIDD:CHECKLIST` не может иметь `[x] acceptance verified`, а строки вида `PASS/0 findings/ready for deploy` запрещены (keyword lint).
+  Добавить фикстуры: next3_open>3, next3_open<3, next3_has_x, status_mismatch, done_without_evidence, qa_not_met_but_ready, duplicate_sections. Deps: W80-1.
+
+### EPIC B — Handoff format + idempotency
+- [x] W80-3 `tools/tasks_derive.py`, `templates/aidd/docs/tasklist/template.md`, `tests/test_tasks_derive.py`: перейти на единый структурированный формат задач в `AIDD:HANDOFF_INBOX`:
+  - обязательные поля: `id`, `source`, `title`, `scope`, `DoD`, `Boundaries`, `Tests`, `Priority`, `Blocking`, `Status`;
+  - enums: `Priority=critical|high|medium|low`, `Status=open|done|blocked`, `Blocking=true|false`, `source=research|review|qa|manual`;
+  - canonical source name: `review` (алиасы `reviewer` → `review`), normalize переписывает маркеры/значения в канон;
+  - `id` — канон; `handoff_id` допускается только как legacy alias при normalize (переписывать в `id`);
+  - стабильный `id` обязателен, повторные derive обновляют по id без дублей; `id` короткий, без двойных префиксов (`review:review:` и т.п.);
+  - legacy-строки вида `Research: ...`, `QA report: ...`, `QA: ...`, `Review: ...`, `Review report: ...` мигрируются/удаляются (оставляем только structured);
+  - `tasks_derive` пишет derived задачи только внутри `<!-- handoff:<source> start --> ... <!-- end -->`;
+  - legacy‑чистка только внутри `## AIDD:HANDOFF_INBOX`, удаляются только строки, матчящие whitelist (например `^- \\[.\\] (Research|QA|Review)( report)?:`) или без обязательных structured‑полей;
+  - ручные задачи живут в `<!-- handoff:manual start --> ... <!-- handoff:manual end -->` (derive/normalize не трогают).
+  - если у задачи есть и checkbox, и `Status` — enforce sync: `[x]` ↔ `Status=done`, `[ ]` ↔ `Status=open` (mismatch → WARN/BLOCKED в tasklist_check).
+  - completion/status поля сохраняются при повторных derive.
+  Deps: -
+
+### EPIC C — Progress log budget
+- [x] W80-4 `tools/progress.py`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`, `agents/implementer.md`: добавить:
+  - дедуп PROGRESS_LOG по `(date, source, iteration_id|handoff_id, short_hash)`;
+  - лимит N=20 строк + лимит длины строки (<=240 chars);
+  - overflow архивировать в `aidd/reports/progress/<ticket>.log`;
+  - запрет narrative-логов (валидируемый формат строки + regex в template), напр.: `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/... msg=...` (msg короткий, без переносов/кавычек; для stage=review/qa link обязателен; допускается `kind=handoff`, check/normalize опираются на формат).
+  - enums: `source=implement|review|qa|research|normalize`, `kind=iteration|handoff`; если формат/enum не совпадает → WARN (BLOCK для stage=review/qa).
+  Добавить `tests/test_progress.py`. Deps: -
+
+### EPIC D — QA status semantics
+- [x] W80-5 `agents/qa.md`, `commands/qa.md`, `templates/aidd/docs/anchors/qa.md`, `templates/aidd/docs/tasklist/template.md`: статус QA вычисляется из:
+  - `AIDD:QA_TRACEABILITY` (NOT MET → BLOCKED; NOT VERIFIED → WARN);
+  - + тестового статуса (если reviewer‑tests=required → failures => BLOCKED; если optional → WARN).
+  - source‑of‑truth для QA‑статуса: front‑matter `Status` (зеркало в `AIDD:CONTEXT_PACK Status`).
+  - если `AIDD:CHECKLIST_QA` отсутствует, QA отмечает чеклист в QA‑подсекции `AIDD:CHECKLIST`.
+  Запрет “PASS/0 findings” при blocker/critical или NOT MET; `AIDD:CHECKLIST_QA` не может утверждать acceptance при `NOT MET`; traceability должна ссылаться на evidence (`aidd/reports/qa/<ticket>.json`, tests report). Обновить `prompt_version/source_version`, прогнать prompt-lint. Deps: W80-2.
+
+### EPIC E — Review guardrails
+- [x] W80-6 `agents/reviewer.md`, `commands/review.md`, `templates/aidd/docs/anchors/review.md`: guardrails:
+  - reviewer не пишет “летопись” в tasklist: summary ≤30 строк, подробности только в `aidd/reports/reviewer/<ticket>.json`;
+  - reviewer обязан проверить исполнимость tasklist (NEXT_3 правило, статус‑синхрон, наличие TEST_EXECUTION);
+  - на каждый finding → handoff‑задача (scope/blocking/DoD/Boundaries/Tests);
+  - reviewer НЕ переписывает `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`;
+  - reviewer/qa MUST NOT создавать новые копии `## AIDD:*` секций (только обновление существующих).
+  - write surface: разрешено редактировать front‑matter `Status/Updated` (и `Stage`, если есть), `AIDD:CHECKLIST_REVIEW`/`AIDD:CHECKLIST_QA`, `AIDD:HANDOFF_INBOX` (через derive), `AIDD:QA_TRACEABILITY` (qa only), `AIDD:CONTEXT_PACK` (только Status/Stage/Blockers summary); запрещено трогать `AIDD:NEXT_3` (кроме запроса normalize/implementer).
+  Обновить `prompt_version/source_version`, прогнать prompt-lint. Deps: W80-1,W80-2.
+
+### EPIC F — Plan vs tasklist drift
+- [x] W80-7 `templates/aidd/docs/tasklist/template.md`, `agents/tasklist-refiner.md`, `tools/tasklist_check.py`, `tests/test_tasklist_check.py`: plan/tasklist drift:
+  - добавить `parent_iteration_id` (строго: ID из plan, не свободный текст);
+  - soft‑WARN если tasklist содержит `iteration_id` вне плана без parent;
+  - refiner обязан ставить parent или создавать handoff “update plan”.
+  - парсить IDs из плана: брать `Plan:` из front‑matter и читать `## AIDD:ITERATIONS` → `iteration_id:`; если plan отсутствует → WARN + handoff “update plan”.
+  Deps: W80-2.
+
+### EPIC G — Prompt hygiene (tools mismatch)
+- [x] W80-8 `commands/researcher.md`: привести allowed-tools в соответствие с инструкциями (tasks-derive/progress) или убрать упоминание недоступных инструментов; обновить `prompt_version/source_version`, прогнать prompt-lint. Deps: -
+
+### EPIC H — Tasklist normalize autofix
+- [x] W80-9 `tools/tasklist_check.py` (или `tools/tasklist_normalize.py`), `tests/test_tasklist_normalize.py`: добавить `--fix` (или отдельную команду), которая:
+  - пересобирает NEXT_3 по правилу W80-1 (open iterations + open handoff, сортировка по blocking/priority);
+  - удаляет `[x]` из NEXT_3;
+  - удаляет legacy‑дубли в HANDOFF_INBOX;
+  - дедупит PROGRESS_LOG и архивирует overflow.
+  - сливает/удаляет дубли `## AIDD:*` секций:
+    - `AIDD:HANDOFF_INBOX` → merge по `id`;
+    - `AIDD:PROGRESS_LOG` → merge+dedup+budget;
+    - `AIDD:QA_TRACEABILITY` → merge по AC-id, статус по худшему (`NOT MET` > `NOT VERIFIED` > `met`), evidence объединять списком;
+    - остальные секции → оставить первую, остальные в backup + подсказка ручной сверки.
+  - normalize переписывает alias‑маркеры handoff (`reviewer` → `review`) и legacy `handoff_id` → `id`;
+  - при merge handoff: сохранять пользовательский checkbox/Status, обновлять title/DoD/Boundaries/Tests из derive (если отличаются).
+  - backup перед записью: `aidd/reports/tasklist_backups/<ticket>/<timestamp>.md`;
+  - `--dry-run` (печатает diff/кол-во правок);
+  - после `--fix` запуск self-check (tasklist_check), fail fast при ошибке.
+  - после `--fix` печатать summary: сколько секций слито, сколько задач дедупнуто, сколько строк перенесено в архив.
+  Deps: W80-2,W80-3,W80-4.
+
+### EPIC I — Budgets for heavy sections
+- [x] W80-10 `templates/aidd/docs/anchors/tasklist.md`, `agents/{implementer,tasklist-refiner,reviewer,qa}.md`, `tools/tasklist_check.py`: зафиксировать budget‑инварианты:
+  - CONTEXT_PACK TL;DR ≤12 bullets;
+  - Blockers summary ≤8 строк;
+  - `AIDD:NEXT_3` item ≤12 строк (иначе WARN → перенос деталей в `AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`);
+  - запрет stacktrace/logs в tasklist (только ссылки на reports);
+  - HANDOFF_INBOX без “простыней” (детали → reports), item >20 lines → WARN.
+  tasklist_check: WARN если TL;DR >12 bullets или blockers >8 строк или tasklist >800 lines; BLOCK если >2000 lines или >200k chars, а также при stacktrace-like паттернах без ссылки на report (>=5 подряд строк `^\s+at\s+`, >=2 `^Caused by:`, или fenced code block > 20 строк). Deps: W80-2.
+
+### EPIC J — Global prompt/tool lint
+- [x] W80-11 `tests/repo_tools/lint-prompts.py` (или новый тест): добавить проверку: если промпт упоминает tool (`claude-workflow X` / `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`) → в allowed-tools должен быть соответствующий `Bash(...)`; добавить ignore list для примеров (code fences/Примеры CLI) и markdown‑ссылок с `tools/`; для `agents/{implementer,tasklist-refiner,reviewer,qa}.md` и `commands/{tasks-new,implement,review,qa}.md` требовать `Write` + `Edit` (и видеть `Read`). Deps: -
+
+### EPIC K — Tasklist check as gate
+- [x] W80-12 `hooks/gate-workflow.sh` (или stage‑hooks), `tools/tasklist_check.py`, `tests/test_gate_workflow.py`: на Stop/SubagentStop запускать `tasklist_check` для активного тикета; при stage=review/qa и BLOCKED → падать, при stage=implement → WARN не блокирует. Тесты: fixture с status mismatch/duplicate sections/NOT MET + “PASS/0 findings” должны блокировать на review/qa. Deps: W80-2.
+  - если `.active_ticket` отсутствует или tasklist не найден → WARN и exit 0 (не блокировать).
+
+### EPIC L — Tasklist check/normalize wrappers (optional)
+- [x] W80-13 `tools/tasklist-check.sh`, `tools/tasklist-normalize.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`: thin‑wrapper для удобного запуска check/normalize из промптов; обновить allowed-tools/примеры. Deps: W80-2,W80-9.

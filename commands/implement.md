@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "<TICKET> [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.14
-source_version: 1.1.14
+prompt_version: 1.1.16
+source_version: 1.1.16
 allowed-tools:
   - Read
   - Edit
@@ -17,6 +17,8 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(git:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
@@ -44,6 +46,7 @@ disable-model-invocation: false
 - Команда должна запускать саб-агента **feature-dev-aidd:implementer** (Claude: Run agent → feature-dev-aidd:implementer).
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket <ticket>` проверяет наличие новых `- [x]`.
+- При рассинхроне tasklist прогоняй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` и, если нужно, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket <ticket> --fix`.
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
@@ -69,7 +72,8 @@ Decision matrix (default: `fast`):
 1. Зафиксируй активную фичу (`set-active-feature`) и стадию `implement`.
 2. Если переданы аргументы `test=...`, `tasks=...`, `tests=...` — задай test policy в `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений.
 3. Запусти саб-агента **feature-dev-aidd:implementer** и передай контекст итерации.
-4. Убедись, что tasklist обновлён и прогресс подтверждён через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
+4. Убедись, что tasklist обновлён (checkbox в `AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`, `AIDD:NEXT_3` refreshed, `AIDD:PROGRESS_LOG` в key=value формате) и прогресс подтверждён через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
+5. При конфликте секций/Next_3 выполни `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` и нормализацию при необходимости.
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или ревью не готовы — остановись и попроси завершить предыдущие шаги.
@@ -81,3 +85,4 @@ Decision matrix (default: `fast`):
 
 ## Примеры CLI
 - `/feature-dev-aidd:implement ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket ABC-123 --dry-run`

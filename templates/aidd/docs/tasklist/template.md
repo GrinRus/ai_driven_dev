@@ -109,8 +109,9 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 
 ## AIDD:ITERATIONS_FULL
 > Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
-- Iteration I1: <краткое название>
-  - iteration_id: I1
+> Канонический формат итерации: `- [ ] I7: <title> (iteration_id: I7)`
+- [ ] I1: <краткое название> (iteration_id: I1)
+  - parent_iteration_id: <I0|none>  # optional
   - Goal: <что именно делаем>
   - Outputs: <артефакты итерации>
   - DoD: <как проверить готовность>
@@ -126,8 +127,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Acceptance mapping: <AC-1, spec:...>
   - Risks & mitigations: <риск → митигация>
   - Dependencies: <сервисы/фичефлаги/данные>
-- Iteration 2: <...>
-  - iteration_id: I2
+- [ ] I2: <...> (iteration_id: I2)
+  - parent_iteration_id: <I1|none>  # optional
   - Goal: <...>
   - Outputs: <...>
   - DoD: <...>
@@ -141,64 +142,28 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Acceptance mapping: <...>
   - Risks & mitigations: <...>
   - Dependencies: <...>
-- Iteration 3..N: <...>
+- [ ] I3..N: <...>
 
 ---
 
 ## AIDD:NEXT_3
-> 3 ближайших implement‑чекбокса (каждый с DoD/Boundaries/Tests). Регулярно обновляй после каждой итерации.
-- [ ] <1. ближайший чекбокс (одна итерация)>
-  - iteration_id: I1
-  - Goal: <что именно делаем>
-  - DoD: <что считается готовым>
-  - Boundaries: <пути/модули + что не трогаем>
-  - Steps:
-    - <шаг 1>
-    - <шаг 2>
-    - <шаг 3>
-  - Tests:
-    - profile: <fast|targeted|full|none>
-    - tasks: <команды/таски>
-    - filters: <фильтры>
-  - Acceptance mapping: <AC-1, spec:...>
-  - Risks & mitigations: <...>
-  - Notes: <важные нюансы>
-- [ ] <2. следующий>
-  - iteration_id: I2
-  - Goal: <...>
-  - DoD: <...>
-  - Boundaries: <...>
-  - Steps:
-    - <...>
-  - Tests:
-    - profile: <fast|targeted|full|none>
-    - tasks: <...>
-    - filters: <...>
-  - Acceptance mapping: <...>
-  - Risks & mitigations: <...>
-  - Notes: <...>
-- [ ] <3. третий>
-  - iteration_id: I3
-  - Goal: <...>
-  - DoD: <...>
-  - Boundaries: <...>
-  - Steps:
-    - <...>
-  - Tests:
-    - profile: <fast|targeted|full|none>
-    - tasks: <...>
-    - filters: <...>
-  - Acceptance mapping: <...>
-  - Risks & mitigations: <...>
-  - Notes: <...>
+> 3 ближайших implement‑чекбокса. Pointer list: 1–2 строки и `ref:` на детализацию.
+- [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
+- [ ] review:F6: <blocking handoff> (ref: id=review:F6)
+- [ ] (none)
 
 ---
 
 ## AIDD:HANDOFF_INBOX
 > Сюда падают задачи из Research/Review/QA (с source: aidd/reports/...).
 > Формат задачи (обязательно):
-- [ ] <source>: <title> (id: <short-id>)
-  - source: review|qa|research
+> Канонический формат: `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
+> Source blocks вставляются задачей derive (`<!-- handoff:<source> start --> ... <!-- end -->`).
+> Ручные задачи храните в `handoff:manual` — derive/normalize их не трогают.
+- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
+  - source: review|qa|research|manual
+  - Report: <aidd/reports/...>
+  - Status: open|done|blocked
   - scope: iteration_id|n/a
   - DoD: <как проверить, что исправлено>
   - Boundaries:
@@ -211,8 +176,14 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Notes: <tradeoffs/риски/почему важно>
 
 > Примеры:
-- [ ] Review: Critical null check in webhook handler (id: review-null-check)
+<!-- handoff:manual start -->
+<!-- handoff:manual end -->
+
+> Примеры:
+- [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
   - source: review
+  - Report: aidd/reports/reviewer/<ticket>.json
+  - Status: open
   - scope: I2
   - DoD: webhook rejects empty payload with 4xx + unit test updated
   - Boundaries:
@@ -223,8 +194,10 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
     - tasks: ["pytest tests/webhooks/test_handler.py"]
     - filters: []
   - Notes: prevents silent 500 on missing payload
-- [ ] QA: AC-3 export fails on empty data (id: qa-export-empty)
+- [ ] AC-3 export fails on empty data (id: qa:export-empty) (Priority: high) (Blocking: true)
   - source: qa
+  - Report: aidd/reports/qa/<ticket>.json
+  - Status: open
   - scope: n/a
   - DoD: export returns empty CSV with headers + QA traceability updated
   - Boundaries:
@@ -240,8 +213,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 
 ## AIDD:QA_TRACEABILITY
 > AC → check → result → evidence.
-- AC-1 → <check> → <pass|fail> → <evidence/link>
-- AC-2 → <check> → <pass|fail> → <evidence/link>
+- AC-1 → <check> → <met|not-met|not-verified> → <evidence/link>
+- AC-2 → <check> → <met|not-met|not-verified> → <evidence/link>
 
 ---
 
@@ -287,16 +260,18 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ## AIDD:PROGRESS_LOG
 > Мини‑лог: фиксируй кратко, обновляй после каждой итерации.
 > Формат записи:
-> `- YYYY-MM-DD Iteration N: <что сделано> (checkbox: <...>) (tests: <...>) (artifacts: <...>)`
-- <YYYY-MM-DD> Iteration 1: ...
+> `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>.log msg=short-note`
+> `- YYYY-MM-DD source=review id=review:F6 kind=handoff hash=def456 link=aidd/reports/reviewer/<ticket>.json msg=blocked`
+- YYYY-MM-DD source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>.log msg=...
 
 ---
 
 ## AIDD:HOW_TO_UPDATE
 - Правило итерации: **1 чекбокс** (или 2 тесно связанных) — затем Stop.
 - Отмечайте чекбоксы так:
-  - `- [x] <описание> — YYYY-MM-DD (iteration_id: I1) (tests: fast|targeted|full|none) (link: <commit/pr>)`
-- После каждой итерации обновляй `AIDD:NEXT_3` и `AIDD:PROGRESS_LOG`.
+  - `- [x] I1: <title> (iteration_id: I1) (link: <commit/pr|report>)`
+  - `- [x] <handoff title> (id: review:F6) (link: <commit/pr|report>)`
+- После каждого [x] обновляй `AIDD:NEXT_3` (pointer list) и добавляй запись в `AIDD:PROGRESS_LOG`.
 - Если меняешь тестовый профиль/команды — обнови `AIDD:TEST_EXECUTION`.
 - Если обновили spec — запусти `/feature-dev-aidd:tasks-new` для синхронизации tasklist.
 - Логи/stacktrace не вставлять в tasklist — только ссылки на `aidd/reports/**`.

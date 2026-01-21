@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -14,6 +15,32 @@ from tools import runtime
 _TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
 _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
 _TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
+_LEGACY_TASK_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s*(Research|QA|Review)(?:\s+report)?\s*:", re.IGNORECASE)
+_SOURCE_ALIASES = {"reviewer": "review"}
+_PRIORITY_MAP = {
+    "blocker": "critical",
+    "critical": "critical",
+    "major": "high",
+    "high": "high",
+    "minor": "low",
+    "low": "low",
+    "info": "low",
+}
+
+
+@dataclass
+class TaskSpec:
+    source: str
+    task_id: str
+    title: str
+    scope: str
+    dod: str
+    priority: str
+    blocking: bool
+    status: str
+    test_profile: str
+    notes: str
+    report_label: str
 
 
 def _stable_task_id(prefix: str, *parts: object) -> str:
@@ -53,6 +80,54 @@ def _task_signature(line: str) -> str:
     return " ".join(normalized.strip().split())
 
 
+def _canonical_source(source: str) -> str:
+    normalized = (source or "").strip().lower()
+    if normalized in _SOURCE_ALIASES:
+        return _SOURCE_ALIASES[normalized]
+    return normalized
+
+
+def _canonical_task_id(source: str, raw_id: str) -> str:
+    prefix = _canonical_source(source)
+    candidate = (raw_id or "").strip()
+    if not candidate:
+        return ""
+    candidate = candidate.replace("reviewer:", "review:")
+    while candidate.startswith(f"{prefix}:{prefix}:"):
+        candidate = candidate[len(prefix) + 1 :]
+    if candidate.startswith(f"{prefix}:"):
+        return candidate
+    return f"{prefix}:{candidate}"
+
+
+def _task_block(spec: TaskSpec) -> List[str]:
+    header = (
+        f"- [ ] {spec.title} (id: {spec.task_id}) "
+        f"(Priority: {spec.priority}) (Blocking: {str(spec.blocking).lower()})"
+    )
+    lines = [
+        header,
+        f"  - source: {spec.source}",
+        f"  - Report: {spec.report_label}",
+        f"  - Status: {spec.status}",
+        f"  - title: {spec.title}",
+        f"  - scope: {spec.scope}",
+        f"  - DoD: {spec.dod}",
+        "  - Boundaries:",
+        "    - must-touch: []",
+        "    - must-not-touch: []",
+        "  - Tests:",
+        f"    - profile: {spec.test_profile}",
+        "    - tasks: []",
+        "    - filters: []",
+    ]
+    if spec.notes:
+        lines.append(f"  - Notes: {spec.notes}")
+    return lines
+
+
+
+
 def _format_task_suffix(report_label: str, task_id: str | None = None) -> str:
     parts = [f"source: {report_label}"]
     if task_id:
@@ -85,42 +160,85 @@ _HANDOFF_SECTION_HINTS: Dict[str, Tuple[str, ...]] = {
 }
 
 
-def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -> List[str]:
+def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -> List[List[str]]:
     raw_findings = payload.get("findings") or []
     findings = _inflate_columnar(raw_findings) if isinstance(raw_findings, dict) else raw_findings
-    tasks: List[str] = []
-    prefix_key = prefix.lower().replace(" ", "-")
+    blocks: List[List[str]] = []
+    source = _canonical_source(prefix.lower())
     for finding in findings:
         if not isinstance(finding, dict):
             continue
         severity = str(finding.get("severity") or "").strip().lower() or "info"
-        scope = str(finding.get("scope") or "").strip()
+        scope = str(finding.get("scope") or "").strip() or "n/a"
         title = str(finding.get("title") or "").strip() or "issue"
-        details = str(finding.get("recommendation") or finding.get("details") or "").strip()
+        recommendation = str(finding.get("recommendation") or "").strip()
+        details = str(finding.get("details") or "").strip()
         raw_id = str(finding.get("id") or "").strip()
         if not raw_id:
-            raw_id = _stable_task_id(prefix_key, scope, title)
-        task_id = f"{prefix_key}:{raw_id}"
-        scope_label = f" ({scope})" if scope else ""
-        details_part = f" — {details}" if details else ""
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] {prefix} [{severity}] {title}{scope_label}{details_part}{suffix}")
-    return tasks
+            raw_id = _stable_task_id(source, scope, title)
+        task_id = _canonical_task_id(source, raw_id)
+        priority = _PRIORITY_MAP.get(severity, "medium")
+        blocking = severity in {"blocker", "critical"}
+        test_profile = "targeted" if severity in {"blocker", "critical", "major"} else "fast"
+        tag = f"{prefix} [{severity}]"
+        full_title = f"{tag} {title}".strip()
+        dod = recommendation or details or f"See {report_label}"
+        notes = details if recommendation and details and details != recommendation else ""
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title=full_title,
+            scope=scope,
+            dod=dod,
+            priority=priority,
+            blocking=blocking,
+            status="open",
+            test_profile=test_profile,
+            notes=notes,
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
+    return blocks
 
 
-def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
-    tasks: List[str] = []
+def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[List[str]]:
+    blocks: List[List[str]] = []
     summary = str(payload.get("tests_summary") or "").strip().lower() or "not-run"
     raw_executed = payload.get("tests_executed") or []
     executed = _inflate_columnar(raw_executed) if isinstance(raw_executed, dict) else raw_executed
+    source = "qa"
     if summary == "fail":
-        task_id = f"qa-tests:{_stable_task_id('qa-tests', 'summary', summary)}"
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] QA tests: {summary}{suffix}")
+        task_id = _canonical_task_id(source, f"qa-tests:{_stable_task_id('qa-tests', 'summary', summary)}")
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title="QA tests failed",
+            scope="tests",
+            dod=f"Tests passing (see {report_label})",
+            priority="high",
+            blocking=True,
+            status="open",
+            test_profile="targeted",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
     if summary in {"skipped", "not-run"}:
-        task_id = f"qa-tests:{_stable_task_id('qa-tests', summary)}"
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] QA tests: запустить автотесты и приложить лог{suffix}")
+        task_id = _canonical_task_id(source, f"qa-tests:{_stable_task_id('qa-tests', summary)}")
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title="QA tests: run missing tests",
+            scope="tests",
+            dod=f"Tests executed and report saved ({report_label})",
+            priority="medium",
+            blocking=False,
+            status="open",
+            test_profile="targeted",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
     for entry in executed:
         if not isinstance(entry, dict):
             continue
@@ -129,16 +247,42 @@ def _derive_tasks_from_tests(payload: Dict, report_label: str) -> List[str]:
             continue
         command = str(entry.get("command") or "").strip()
         log_path = str(entry.get("log") or entry.get("log_path") or "").strip()
-        task_id = f"qa-tests:{_stable_task_id('qa-tests', 'fail', command, log_path)}"
-        details = f" — {command}" if command else ""
-        suffix = _format_task_suffix(report_label, task_id)
-        log_hint = f" (log: {log_path})" if log_path else ""
-        tasks.append(f"- [ ] QA tests: устранить падение{details}{log_hint}{suffix}")
-    if summary == "fail" and not tasks:
-        task_id = f"qa-tests:{_stable_task_id('qa-tests', 'fail', 'summary')}"
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] QA tests: устранить падения тестов{suffix}")
-    return tasks
+        task_id = _canonical_task_id(source, _stable_task_id("qa-tests", "fail", command, log_path))
+        title = "QA tests: fix failure"
+        if command:
+            title = f"QA tests: fix failure ({command})"
+        notes = f"log: {log_path}" if log_path else ""
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title=title,
+            scope="tests",
+            dod=f"Command passes (see {report_label})",
+            priority="high",
+            blocking=True,
+            status="open",
+            test_profile="targeted",
+            notes=notes,
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
+    if summary == "fail" and not blocks:
+        task_id = _canonical_task_id(source, f"qa-tests:{_stable_task_id('qa-tests', 'fail', 'summary')}")
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title="QA tests: fix failures",
+            scope="tests",
+            dod=f"Tests passing (see {report_label})",
+            priority="high",
+            blocking=True,
+            status="open",
+            test_profile="targeted",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
+    return blocks
 
 
 def _inflate_columnar(section: object) -> List[Dict]:
@@ -162,8 +306,8 @@ def _inflate_columnar(section: object) -> List[Dict]:
     return items
 
 
-def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[str]:
-    tasks: List[str] = []
+def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[List[str]]:
+    blocks: List[List[str]] = []
     matches = payload.get("matches") or []
     if isinstance(matches, dict):
         matches = _inflate_columnar(matches)
@@ -183,9 +327,21 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
             text = str(item).strip()
         if not text:
             continue
-        task_id = f"research:{_stable_task_id('research', text)}"
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] Research: {text}{suffix}")
+        task_id = _canonical_task_id("research", _stable_task_id("research", text))
+        spec = TaskSpec(
+            source="research",
+            task_id=task_id,
+            title=f"Research: {text}",
+            scope="n/a",
+            dod=f"Research task reviewed ({report_label})",
+            priority="medium",
+            blocking=False,
+            status="open",
+            test_profile="none",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
 
     manual_notes = payload.get("manual_notes") or []
     if isinstance(manual_notes, str):
@@ -196,9 +352,21 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
         text = str(item.get("note") if isinstance(item, dict) else item).strip()
         if not text:
             continue
-        task_id = f"research:note:{_stable_task_id('research-note', text)}"
-        suffix = _format_task_suffix(report_label, task_id)
-        tasks.append(f"- [ ] Research note: {text}{suffix}")
+        task_id = _canonical_task_id("research", _stable_task_id("research-note", text))
+        spec = TaskSpec(
+            source="research",
+            task_id=task_id,
+            title=f"Research note: {text}",
+            scope="n/a",
+            dod=f"Note captured ({report_label})",
+            priority="low",
+            blocking=False,
+            status="open",
+            test_profile="none",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
     reuse_candidates = payload.get("reuse_candidates") or []
     if isinstance(reuse_candidates, dict):
         reuse_candidates = _inflate_columnar(reuse_candidates)
@@ -217,36 +385,78 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
             if not path:
                 continue
             score = item.get("score") or 0
-            task_id = f"research:reuse:{_stable_task_id('research-reuse', path)}"
-            suffix = _format_task_suffix(report_label, task_id)
-            score_label = f" (score {score})" if score else ""
-            tasks.append(f"- [ ] Reuse candidate: {path}{score_label}{suffix}")
-    if not tasks and (has_context or reuse_candidates):
-        task_id = _stable_task_id("research", report_label, "review")
-        suffix = _format_task_suffix(report_label, f"research:{task_id}")
-        tasks.append(f"- [ ] Research: проверить обновлённый контекст{suffix}")
-    return tasks
+            task_id = _canonical_task_id("research", _stable_task_id("research-reuse", path))
+            score_label = f"score {score}" if score else "score n/a"
+            spec = TaskSpec(
+                source="research",
+                task_id=task_id,
+                title=f"Reuse candidate: {path}",
+                scope="n/a",
+                dod=f"Evaluate reuse candidate ({score_label})",
+                priority="low",
+                blocking=False,
+                status="open",
+                test_profile="none",
+                notes="",
+                report_label=report_label,
+            )
+            blocks.append(_task_block(spec))
+    if not blocks and (has_context or reuse_candidates):
+        task_id = _canonical_task_id("research", _stable_task_id("research", report_label, "review"))
+        spec = TaskSpec(
+            source="research",
+            task_id=task_id,
+            title="Research: review updated context",
+            scope="n/a",
+            dod=f"Context reviewed ({report_label})",
+            priority="medium",
+            blocking=False,
+            status="open",
+            test_profile="none",
+            notes="",
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
+    return blocks
 
 
-def _derive_handoff_placeholder(source: str, ticket: str, report_label: str) -> List[str]:
-    task_id = f"{source}:report-{_stable_task_id(source, report_label, ticket)}"
-    suffix = _format_task_suffix(report_label, task_id)
-    if source == "qa":
-        return [f"- [ ] QA report: подтвердить отсутствие блокеров{suffix}"]
-    if source == "review":
-        return [f"- [ ] Review report: подтвердить отсутствие замечаний{suffix}"]
-    return [f"- [ ] Research: обновить контекст перед следующей итерацией{suffix}"]
+def _derive_handoff_placeholder(source: str, ticket: str, report_label: str) -> List[List[str]]:
+    canonical = _canonical_source(source)
+    task_id = _canonical_task_id(canonical, f"{canonical}-report-{_stable_task_id(canonical, report_label, ticket)}")
+    title = "Research: update context before next iteration"
+    if canonical == "qa":
+        title = "QA report: confirm no blockers"
+    elif canonical == "review":
+        title = "Review report: confirm no findings"
+    spec = TaskSpec(
+        source=canonical,
+        task_id=task_id,
+        title=title,
+        scope="n/a",
+        dod=f"Report reviewed ({report_label})",
+        priority="medium",
+        blocking=False,
+        status="open",
+        test_profile="none",
+        notes="",
+        report_label=report_label,
+    )
+    return [_task_block(spec)]
 
 
-def _dedupe_tasks(tasks: Sequence[str]) -> List[str]:
+def _dedupe_task_blocks(blocks: Sequence[Sequence[str]]) -> List[List[str]]:
     seen = set()
-    deduped: List[str] = []
-    for task in tasks:
-        signature = _task_signature(task)
-        if signature in seen:
+    deduped: List[List[str]] = []
+    for block in blocks:
+        if not block:
             continue
-        seen.add(signature)
-        deduped.append(task)
+        task_id = _task_id_from_line(block[0])
+        signature = _task_signature(block[0])
+        key = task_id or signature
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(list(block))
     return deduped
 
 
@@ -270,6 +480,44 @@ def _split_task_blocks(lines: Sequence[str]) -> List[List[str]]:
 
 def _flatten_task_blocks(blocks: Sequence[Sequence[str]]) -> List[str]:
     return [line for block in blocks for line in block]
+
+
+def _block_checkbox_state(block: Sequence[str]) -> str:
+    if not block:
+        return ""
+    match = _TASK_START_RE.match(block[0])
+    if not match:
+        return ""
+    return "done" if "[x]" in block[0].lower() else "open"
+
+
+def _block_status_value(block: Sequence[str]) -> str:
+    for line in block:
+        match = re.match(r"^\s*-\s*Status\s*:\s*(\S+)\s*$", line, re.IGNORECASE)
+        if match:
+            return match.group(1).strip().lower()
+    return ""
+
+
+def _apply_status_to_block(block: Sequence[str], checkbox: str, status: str) -> List[str]:
+    if not block:
+        return []
+    header = block[0]
+    if checkbox == "done":
+        header = re.sub(r"\[\s*\]", "[x]", header, count=1)
+    elif checkbox == "open":
+        header = re.sub(r"\[\s*[xX]\s*\]", "[ ]", header, count=1)
+    updated = [header]
+    status_applied = False
+    for line in block[1:]:
+        if re.match(r"^\s*-\s*Status\s*:\s*", line, re.IGNORECASE):
+            updated.append(re.sub(r":\s*.*$", f": {status}", line))
+            status_applied = True
+        else:
+            updated.append(line)
+    if not status_applied and status:
+        updated.insert(1, f"  - Status: {status}")
+    return updated
 
 
 def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, append: bool) -> List[str]:
@@ -307,10 +555,19 @@ def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, a
             idx = len(merged_blocks) - 1
         else:
             existing_block = merged_blocks[idx]
-            if existing_block and len(block) == 1 and len(existing_block) > 1:
-                merged_blocks[idx] = [block[0], *existing_block[1:]]
-            else:
-                merged_blocks[idx] = block
+            existing_checkbox = _block_checkbox_state(existing_block)
+            existing_status = _block_status_value(existing_block)
+            desired_status = existing_status or ("done" if existing_checkbox == "done" else "open")
+            desired_checkbox = "done" if existing_status == "done" else existing_checkbox
+            merged = _apply_status_to_block(block, desired_checkbox or "open", desired_status or "open")
+            if existing_block and len(existing_block) > 1:
+                # Preserve extra lines that are not overwritten by the new block.
+                existing_tail = existing_block[1:]
+                if len(block) == 1:
+                    merged = [merged[0], *existing_tail]
+                else:
+                    merged.extend(line for line in existing_tail if line.strip().startswith("- Notes:"))
+            merged_blocks[idx] = merged
 
         if task_id:
             by_id[task_id] = idx
@@ -321,17 +578,19 @@ def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, a
 
 
 def _extract_handoff_block(lines: List[str], source: str) -> tuple[int, int, List[str]]:
-    hint_label = f"handoff:{source}"
+    canonical = _canonical_source(source)
+    hint_label = f"handoff:{canonical}"
+    alias_label = f"handoff:reviewer" if canonical == "review" else ""
     start = -1
     end = -1
     for idx, line in enumerate(lines):
-        if hint_label in line and line.strip().startswith("<!--"):
+        if (hint_label in line or (alias_label and alias_label in line)) and line.strip().startswith("<!--"):
             start = idx
             break
     if start == -1:
         return -1, -1, []
     for idx in range(start + 1, len(lines)):
-        if hint_label in lines[idx] and lines[idx].strip().endswith("-->"):
+        if (hint_label in lines[idx] or (alias_label and alias_label in lines[idx])) and lines[idx].strip().endswith("-->"):
             end = idx + 1
             break
     if end == -1:
@@ -362,6 +621,7 @@ def _apply_handoff_tasks(
     append: bool,
     section_candidates: Sequence[str],
 ) -> tuple[str, Optional[str], bool]:
+    source = _canonical_source(source)
     lines = text.splitlines()
     handoff_start, handoff_end, block = _extract_handoff_block(lines, source)
     block_lines = block[1:-1] if len(block) >= 2 else []
@@ -370,6 +630,10 @@ def _apply_handoff_tasks(
     if handoff_start != -1:
         start_marker = block[0] if block else f"<!-- handoff:{source} start -->"
         end_marker = block[-1] if block else f"<!-- handoff:{source} end -->"
+        if "handoff:reviewer" in start_marker and source == "review":
+            start_marker = start_marker.replace("handoff:reviewer", "handoff:review")
+        if "handoff:reviewer" in end_marker and source == "review":
+            end_marker = end_marker.replace("handoff:reviewer", "handoff:review")
         new_block = [start_marker, *new_tasks, end_marker]
         new_lines = lines[:handoff_start] + new_block + lines[handoff_end:]
         new_text = "\n".join(new_lines)
@@ -493,21 +757,23 @@ def main(argv: list[str] | None = None) -> int:
             raise FileNotFoundError(f"{source} report not found at {report_label}")
         payload = runtime.load_json_file(report_path)
     if source == "qa":
-        derived_tasks = _derive_tasks_from_findings("QA", payload, report_label)
-        derived_tasks.extend(_derive_tasks_from_tests(payload, report_label))
+        derived_blocks = _derive_tasks_from_findings("QA", payload, report_label)
+        derived_blocks.extend(_derive_tasks_from_tests(payload, report_label))
     elif source == "review":
-        derived_tasks = _derive_tasks_from_findings("Review", payload, report_label)
+        derived_blocks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
-        derived_tasks = _derive_tasks_from_research_context(payload, report_label)
+        derived_blocks = _derive_tasks_from_research_context(payload, report_label)
     else:
-        derived_tasks = []
+        derived_blocks = []
 
-    derived_tasks = _dedupe_tasks(derived_tasks)
-    if not derived_tasks:
-        derived_tasks = _dedupe_tasks(_derive_handoff_placeholder(source, ticket, report_label))
-    if not derived_tasks:
+    derived_blocks = _dedupe_task_blocks(derived_blocks)
+    if not derived_blocks:
+        derived_blocks = _dedupe_task_blocks(_derive_handoff_placeholder(source, ticket, report_label))
+    if not derived_blocks:
         print(f"[aidd] no tasks found in {source} report ({report_label}).")
         return 0
+
+    derived_tasks = _flatten_task_blocks(derived_blocks)
 
     tasklist_rel = Path("docs") / "tasklist" / f"{ticket}.md"
     tasklist_path = target / tasklist_rel
@@ -526,14 +792,92 @@ def main(argv: list[str] | None = None) -> int:
         section_candidates=_HANDOFF_SECTION_HINTS.get(source, ()),
     )
 
+    def _block_has_id(block: Sequence[str]) -> bool:
+        return any(_TASK_ID_RE.search(line) for line in block)
+
+    def _block_is_structured(block: Sequence[str]) -> bool:
+        for line in block[1:]:
+            if re.match(
+                r"^\s*-\s*(Status|Priority|Blocking|source|DoD|Boundaries|Tests)\s*:",
+                line,
+                re.IGNORECASE,
+            ):
+                return True
+        return False
+
+    def _clean_legacy_handoff_inbox(raw_text: str) -> str:
+        raw_lines = raw_text.splitlines()
+        start = None
+        end = len(raw_lines)
+        for idx, line in enumerate(raw_lines):
+            if line.strip().lower().startswith("## aidd:handoff_inbox"):
+                start = idx
+                break
+        if start is None:
+            return raw_text
+        for idx in range(start + 1, len(raw_lines)):
+            if raw_lines[idx].strip().startswith("##"):
+                end = idx
+                break
+        header = raw_lines[start]
+        body = raw_lines[start + 1 : end]
+        new_body: List[str] = []
+        manual = False
+        current: List[str] = []
+
+        def flush_block() -> None:
+            nonlocal current
+            if not current:
+                return
+            header_line = current[0]
+            is_legacy = bool(_LEGACY_TASK_RE.match(header_line))
+            is_structured = _block_is_structured(current)
+            if is_legacy and not is_structured:
+                current = []
+                return
+            new_body.extend(current)
+            current = []
+
+        for line in body:
+            if "<!--" in line and "handoff:manual" in line:
+                flush_block()
+                if "start" in line:
+                    manual = True
+                elif "end" in line:
+                    manual = False
+                new_body.append(line)
+                continue
+            if manual:
+                new_body.append(line)
+                continue
+            if _is_task_start(line):
+                flush_block()
+                current = [line]
+                continue
+            if current:
+                current.append(line)
+                continue
+            new_body.append(line)
+        flush_block()
+        merged = raw_lines[:start] + [header, *new_body] + raw_lines[end:]
+        merged_text = "\n".join(merged)
+        if not merged_text.endswith("\n"):
+            merged_text += "\n"
+        return merged_text
+
+    updated_text = _clean_legacy_handoff_inbox(updated_text)
+    if updated_text != tasklist_text:
+        changed = True
+
     section_display = heading_label or "end of file"
     if args.dry_run:
         print(
-            f"[aidd] (dry-run) {len(derived_tasks)} task(s) "
+            f"[aidd] (dry-run) {len(derived_blocks)} task(s) "
             f"from {source} → {tasklist_rel} (section: {section_display})"
         )
-        for task in derived_tasks:
-            print(f"  {task}")
+        for block in derived_blocks:
+            for line in block:
+                print(f"  {line}")
         return 0
 
     if not changed:
@@ -542,7 +886,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tasklist_path.write_text(updated_text, encoding="utf-8")
     print(
-        f"[aidd] added {len(derived_tasks)} task(s) "
+        f"[aidd] added {len(derived_blocks)} task(s) "
         f"from {source} report ({report_label}) to {tasklist_rel} "
         f"(section: {section_display}; mode={'append' if args.append else 'replace'})."
     )
