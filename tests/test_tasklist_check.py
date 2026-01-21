@@ -47,7 +47,10 @@ class TasklistCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             ticket = "DEMO-2"
-            tasklist = helpers.tasklist_ready_text(ticket).replace("iteration_id: I1\n", "")
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- [ ] I1: Bootstrap (iteration_id: I1)",
+                "- [ ] Bootstrap",
+            )
             helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
             write_plan(root, ticket)
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
@@ -62,34 +65,17 @@ class TasklistCheckTests(unittest.TestCase):
             write_plan(root, ticket)
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
             self.assertEqual(result.status, "error")
-            self.assertIn("AIDD:TEST_EXECUTION missing profile", result.message)
+            self.assertTrue(
+                any("AIDD:TEST_EXECUTION missing profile" in entry for entry in result.details or []),
+                result.message,
+            )
 
-    def test_tasklist_check_fails_without_next3_steps(self) -> None:
+    def test_tasklist_check_fails_when_next3_contains_checked_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             ticket = "DEMO-4"
             tasklist = helpers.tasklist_ready_text(ticket)
-            missing_steps_block = (
-                "## AIDD:NEXT_3\n"
-                "- [ ] Task 1\n"
-                "  - iteration_id: I1\n"
-                "  - Goal: setup baseline\n"
-                "  - DoD: done\n"
-                f"  - Boundaries: docs/tasklist/{ticket}.md\n"
-                "  - Steps:\n"
-                "    - update tasklist\n"
-                "    - verify gate\n"
-                "    - record progress\n"
-            )
-            replacement = (
-                "## AIDD:NEXT_3\n"
-                "- [ ] Task 1\n"
-                "  - iteration_id: I1\n"
-                "  - Goal: setup baseline\n"
-                "  - DoD: done\n"
-                f"  - Boundaries: docs/tasklist/{ticket}.md\n"
-            )
-            tasklist = tasklist.replace(missing_steps_block, replacement, 1)
+            tasklist = tasklist.replace("- [ ] I1:", "- [x] I1:", 1)
             helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
             write_plan(root, ticket)
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
@@ -103,7 +89,98 @@ class TasklistCheckTests(unittest.TestCase):
             write_plan(root, ticket, iteration_ids=["I1", "I2", "I3", "I4"])
             result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
             self.assertEqual(result.status, "error")
-            self.assertIn("missing iteration_id", result.message)
+            self.assertTrue(
+                any("missing iteration_id" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_fails_on_duplicate_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-6"
+            tasklist = helpers.tasklist_ready_text(ticket) + "\n## AIDD:PROGRESS_LOG\n- (empty)\n"
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+
+    def test_tasklist_check_warns_on_implicit_iteration_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-7"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- [ ] I1: Bootstrap (iteration_id: I1)",
+                "- [ ] I1: Bootstrap",
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn")
+            self.assertTrue(
+                any("missing explicit iteration_id" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_warns_on_next3_missing_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-8"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "(ref: iteration_id=I1)",
+                "(iteration_id=I1)",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn")
+            self.assertTrue(
+                any("missing ref" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_warns_on_next3_not_top_open_items(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-9"
+            tasklist = helpers.tasklist_ready_text(ticket)
+            tasklist = tasklist.replace(
+                "- [ ] I1: Bootstrap (ref: iteration_id=I1)",
+                "__SWAP__",
+                1,
+            )
+            tasklist = tasklist.replace(
+                "- [ ] I2: Follow-up (ref: iteration_id=I2)",
+                "- [ ] I1: Bootstrap (ref: iteration_id=I1)",
+                1,
+            )
+            tasklist = tasklist.replace(
+                "__SWAP__",
+                "- [ ] I2: Follow-up (ref: iteration_id=I2)",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn")
+            self.assertTrue(
+                any("top open items" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_fails_when_qa_not_met_but_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-10"
+            tasklist = helpers.tasklist_ready_text(ticket).replace("→ met →", "→ not met →", 1)
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("QA_TRACEABILITY NOT MET" in entry for entry in result.details or []),
+                result.message,
+            )
 
 
 if __name__ == "__main__":

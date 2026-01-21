@@ -2,9 +2,9 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
-tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.0.8
+source_version: 1.0.8
+tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)
 model: inherit
 permissionMode: default
 ---

@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "<TICKET> [note...]"
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.0.10
+source_version: 1.0.10
 allowed-tools:
   - Read
   - Edit
@@ -16,6 +16,8 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
@@ -42,6 +44,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --status required|optional|clear` управляет обязательностью тестов.
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket <ticket>` фиксирует новые `[x]`.
+- При проблемах tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` и нормализацию `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket <ticket> --fix`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/<ticket>.md` (замечания, прогресс).
@@ -49,11 +52,12 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Зафиксируй стадию `review`.
-2. Запусти саб-агента **feature-dev-aidd:reviewer** и обнови tasklist.
+2. Запусти саб-агента **feature-dev-aidd:reviewer** и обнови tasklist (handoff + front‑matter Status/Updated).
 3. Сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh`.
 4. При необходимости запроси автотесты через `reviewer-tests`.
 5. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append` — повторный запуск не должен дублировать задачи.
 6. Подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
+7. Если tasklist невалиден — `tasklist-check` → `tasklist-normalize --fix`.
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
@@ -65,3 +69,4 @@ disable-model-invocation: false
 
 ## Примеры CLI
 - `/feature-dev-aidd:review ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket ABC-123`

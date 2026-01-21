@@ -6,18 +6,19 @@
 - Минимизировать Stop → минимизировать лишние тесты.
 
 ## MUST READ FIRST
-- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:TEST_EXECUTION + AIDD:NEXT_3
+- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:TEST_EXECUTION + AIDD:NEXT_3 (pointer list)
 - aidd/docs/plan/<ticket>.md: границы итерации (DoD)
 - aidd/docs/spec/<ticket>.spec.yaml: contracts, risks, test strategy (if exists)
 - aidd/reports/context/latest_working_set.md (если есть)
 
 ## MUST UPDATE
-- aidd/docs/tasklist/<ticket>.md: чекбоксы + AIDD:CONTEXT_PACK + AIDD:PROGRESS_LOG
+- aidd/docs/tasklist/<ticket>.md: чекбоксы + AIDD:CONTEXT_PACK + AIDD:PROGRESS_LOG + NEXT_3 (refresh)
 - aidd/.cache/test-policy.env (если задаёшь профиль явно)
 
 ## MUST NOT
 - Выходить за рамки плана без обновления plan/tasklist.
 - Делать промежуточные Stop до завершения итерации.
+- Добавлять подробности DoD/Steps в AIDD:NEXT_3 — только ref.
 
 ## Stop etiquette
 - Собери микро‑правки в один батч → один Stop после DoD.
