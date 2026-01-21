@@ -402,15 +402,7 @@ class ResearcherContextBuilder:
         default_keywords = defaults.get("keywords", [])
 
         tags = self._resolve_tags(ticket_value, cleaned_hint)
-        tag_paths: List[str] = []
-        tag_docs: List[str] = []
-        tag_keywords: List[str] = []
-        tags_config = settings.get("tags", {})
-        for tag in tags:
-            info = tags_config.get(tag, {})
-            tag_paths.extend(info.get("paths", []))
-            tag_docs.extend(info.get("docs", []))
-            tag_keywords.extend(info.get("keywords", []))
+        tag_paths, tag_docs, tag_keywords = self._collect_tag_payload(tags)
 
         def _norm_all(values: Sequence[str]) -> List[str]:
             return _unique([_normalise_rel(item, self._paths_base) for item in values])
@@ -459,7 +451,30 @@ class ResearcherContextBuilder:
         scope = self._discover_paths(scope)
         auto_tags = self._auto_detect_tags(scope)
         if auto_tags:
+            added_tags = [tag for tag in auto_tags if tag not in scope.tags]
             scope.tags = _unique(scope.tags + auto_tags)
+            if added_tags:
+                extra_paths, extra_docs, extra_keywords = self._collect_tag_payload(added_tags)
+                if extra_paths:
+                    scope.paths = _unique(scope.paths + _norm_all(extra_paths))
+                if extra_docs:
+                    scope.docs = _unique(scope.docs + _norm_all(extra_docs))
+                if extra_keywords:
+                    raw_added = [
+                        item.strip()
+                        for item in extra_keywords
+                        if isinstance(item, str) and item.strip()
+                    ]
+                    if raw_added:
+                        scope.keywords_raw = _unique(scope.keywords_raw + raw_added)
+                        normalise_sources.extend(raw_added)
+                        scope.keywords = _normalize_keywords(
+                            normalise_sources,
+                            stopwords=stopwords,
+                            min_len=max(1, min_len),
+                            short_whitelist=short_whitelist or _DEFAULT_KEYWORD_SHORT_WHITELIST,
+                            max_count=max_count,
+                        )
         return scope
 
     def extend_scope(
@@ -859,15 +874,28 @@ class ResearcherContextBuilder:
         return bool(evidence), _unique(evidence), _unique(suggested_tasks)
 
     def _is_excluded_test_path(self, path: Path) -> bool:
+        excluded_roots = {
+            "docs",
+            "reports",
+            ".cache",
+            ".git",
+            "aidd",
+            "node_modules",
+            ".venv",
+            "venv",
+            "vendor",
+            "dist",
+            "build",
+            "out",
+            "target",
+        }
         for base in (self._paths_base, self.root):
             try:
                 rel = path.relative_to(base)
                 parts = rel.parts
                 if not parts:
                     return False
-                if parts[0] in {"docs", "reports", ".cache", ".git"}:
-                    return True
-                if parts[0] == "aidd":
+                if parts[0] in excluded_roots:
                     return True
                 return False
             except ValueError:
@@ -979,6 +1007,21 @@ class ResearcherContextBuilder:
             if lowered in available_tags and lowered not in tags:
                 tags.append(lowered)
         return _unique(tags)
+
+    def _collect_tag_payload(self, tags: Sequence[str]) -> Tuple[List[str], List[str], List[str]]:
+        settings = self._settings
+        tags_config = settings.get("tags", {})
+        tag_paths: List[str] = []
+        tag_docs: List[str] = []
+        tag_keywords: List[str] = []
+        for tag in tags:
+            info = tags_config.get(tag, {})
+            if not isinstance(info, dict):
+                continue
+            tag_paths.extend([item for item in info.get("paths", []) if isinstance(item, str)])
+            tag_docs.extend([item for item in info.get("docs", []) if isinstance(item, str)])
+            tag_keywords.extend([item for item in info.get("keywords", []) if isinstance(item, str)])
+        return tag_paths, tag_docs, tag_keywords
 
     def _auto_detect_tags(self, scope: Scope) -> List[str]:
         settings = self._settings

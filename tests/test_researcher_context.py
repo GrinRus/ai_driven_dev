@@ -154,6 +154,34 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("docs/research/payments.md", scope.docs)
         self.assertIn("payments", scope.keywords)
 
+    def test_builder_auto_tags_expand_paths_and_keywords(self) -> None:
+        config_path = self.root / "config" / "conventions.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["researcher"]["tags"]["jvm"] = {
+            "paths": ["src/jvm"],
+            "docs": ["docs/research/jvm.md"],
+            "keywords": ["java", "kotlin"],
+        }
+        config["researcher"]["auto_tags"] = {
+            "jvm": {
+                "slug_keywords": ["java"],
+            }
+        }
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        (self.root / "src" / "jvm").mkdir(parents=True, exist_ok=True)
+        write_file(
+            self.root,
+            "docs/research/jvm.md",
+            "# JVM Research\n\nStatus: pending\n",
+        )
+
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-java", slug_hint="demo-java")
+        self.assertIn("jvm", scope.tags)
+        self.assertIn("src/jvm", scope.paths)
+        self.assertIn("docs/research/jvm.md", scope.docs)
+        self.assertIn("java", scope.keywords)
+
     def test_builder_captures_manual_notes_and_profile(self) -> None:
         builder = ResearcherContextBuilder(self.root)
         scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
@@ -197,6 +225,16 @@ class ResearcherContextTests(unittest.TestCase):
 
         self.assertIn("tree-sitter", graph.get("warning", ""))
         self.assertIn("edges_full", graph)
+
+    def test_detect_tests_ignores_vendor_dirs(self) -> None:
+        (self.root / "node_modules" / "pkg" / "test").mkdir(parents=True, exist_ok=True)
+        (self.root / ".venv" / "lib" / "test").mkdir(parents=True, exist_ok=True)
+
+        builder = ResearcherContextBuilder(self.root)
+        detected, evidence, _ = builder._detect_tests()
+
+        self.assertFalse(detected)
+        self.assertEqual(evidence, [])
 
     def test_set_active_feature_refreshes_targets(self) -> None:
         env = cli_env()
