@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.11
-source_version: 1.0.11
+prompt_version: 1.0.12
+source_version: 1.0.12
 allowed-tools:
   - Read
   - Edit
@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:review-spec` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов, и **последовательно запускает саб‑агентов** `agent-feature-dev-aidd:plan-reviewer` → `agent-feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
+Команда `/feature-dev-aidd:review-spec` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов, и **последовательно запускает саб‑агентов** `feature-dev-aidd:plan-reviewer` → `feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
 
 ## Входные артефакты
@@ -38,7 +38,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-prd` фиксирует стадию `review-prd` перед PRD review.
 - `gate-workflow` требует `Status: READY` в `## Plan Review` и `## PRD Review` перед кодом.
 - Команда `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh --ticket $1 --report "aidd/reports/prd/$1.json" --emit-text` сохраняет отчёт PRD.
-- Команда должна **запускать саб-агентов** `agent-feature-dev-aidd:plan-reviewer` и `agent-feature-dev-aidd:prd-reviewer`.
+- Команда должна **запускать саб-агентов** `feature-dev-aidd:plan-reviewer` и `feature-dev-aidd:prd-reviewer`.
 
 ## Что редактируется
 - `aidd/docs/plan/$1.md` — раздел `## Plan Review`.
@@ -55,7 +55,7 @@ disable-model-invocation: false
 # AIDD Context Pack — review-spec/<agent>
 ticket: $1
 stage: review-plan | review-prd
-agent: agent-feature-dev-aidd:<plan-reviewer|prd-reviewer>
+agent: feature-dev-aidd:<plan-reviewer|prd-reviewer>
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -80,12 +80,12 @@ generated_at: <UTC ISO-8601>
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `review-plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review-plan.pack.md` по шаблону W79-10.
-3. Команда → subagent: **Use the agent-feature-dev-aidd:plan-reviewer subagent. First action: Read `aidd/reports/context/$1.review-plan.pack.md`.**
+3. Команда → subagent: **Use the feature-dev-aidd:plan-reviewer subagent. First action: Read `aidd/reports/context/$1.review-plan.pack.md`.**
 4. Subagent (plan-reviewer): обновляет `## Plan Review`. Если `BLOCKED` — остановись и верни вопросы.
 5. Команда (до subagent prd): проверь консистентность PRD (`AIDD:OPEN_QUESTIONS` vs `AIDD:ANSWERS`, статус, метрики/риски).
 6. Команда (до subagent prd): зафиксируй стадию `review-prd` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-prd`.
 7. Команда (до subagent prd): собери Context Pack `aidd/reports/context/$1.review-prd.pack.md` по шаблону W79-10.
-8. Команда → subagent: **Use the agent-feature-dev-aidd:prd-reviewer subagent. First action: Read `aidd/reports/context/$1.review-prd.pack.md`.**
+8. Команда → subagent: **Use the feature-dev-aidd:prd-reviewer subagent. First action: Read `aidd/reports/context/$1.review-prd.pack.md`.**
 9. Subagent (prd-reviewer): обновляет `## PRD Review`.
 10. Команда (после subagent): перенеси блокирующие action items в tasklist и сохрани отчёт через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh --ticket $1 --report "aidd/reports/prd/$1.json" --emit-text`.
 

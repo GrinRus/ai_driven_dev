@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "$1 [slug=<slug-hint>] [note...]"
 lang: ru
-prompt_version: 1.3.9
-source_version: 1.3.9
+prompt_version: 1.3.10
+source_version: 1.3.10
 allowed-tools:
   - Read
   - Edit
@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/feature-dev-aidd:idea-new` работает inline: фиксирует активный ticket/slug-hint, выставляет стадию `idea`, собирает контекст в Context Pack и явно запускает саб‑агента **agent-feature-dev-aidd:analyst**. Аналитик формирует PRD draft с вопросами и заполняет `## AIDD:RESEARCH_HINTS`. После ответов пользователя следующий обязательный шаг — `/feature-dev-aidd:researcher $1`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
+`/feature-dev-aidd:idea-new` работает inline: фиксирует активный ticket/slug-hint, выставляет стадию `idea`, собирает контекст в Context Pack и явно запускает саб‑агента **feature-dev-aidd:analyst**. Аналитик формирует PRD draft с вопросами и заполняет `## AIDD:RESEARCH_HINTS`. После ответов пользователя следующий обязательный шаг — `/feature-dev-aidd:researcher $1`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/idea.md`.
 
 ## Входные артефакты
@@ -34,7 +34,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh` синхронизирует `.active_*` и scaffold'ит PRD.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea` фиксирует стадию `idea`.
-- Команда должна запускать саб-агента **agent-feature-dev-aidd:analyst**.
+- Команда должна запускать саб-агента **feature-dev-aidd:analyst**.
 - `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1` — проверка диалога/статуса после ответов.
 
 ## Что редактируется
@@ -48,7 +48,7 @@ disable-model-invocation: false
 # AIDD Context Pack — idea
 ticket: $1
 stage: idea
-agent: agent-feature-dev-aidd:analyst
+agent: feature-dev-aidd:analyst
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -74,7 +74,7 @@ generated_at: <UTC ISO-8601>
 1. Команда (до subagent): зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea`.
 2. Команда (до subagent): зафиксируй активный тикет/slug: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1" [--slug-note "<slug>"]` (slug берётся из аргумента `slug=<...>`, заметка = `$ARGUMENTS` без `slug=...`).
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.idea.pack.md` по шаблону W79-10.
-4. Команда → subagent: **Use the agent-feature-dev-aidd:analyst subagent. First action: Read `aidd/reports/context/$1.idea.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:analyst subagent. First action: Read `aidd/reports/context/$1.idea.pack.md`.**
 5. Subagent: обновляет PRD, заполняет `## AIDD:RESEARCH_HINTS`, формирует вопросы; при наличии `AIDD:ANSWERS` синхронизирует `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS`.
 6. Команда (после subagent): если ответы уже есть — запусти `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1`.
 7. Верни список вопросов и статус PRD; следующий шаг — `/feature-dev-aidd:researcher $1`, затем `/feature-dev-aidd:plan-new`.

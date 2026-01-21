@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.9
-source_version: 1.2.9
+prompt_version: 1.2.10
+source_version: 1.2.10
 allowed-tools:
   - Read
   - Edit
@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `agent-feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph (если включён) сохраняется в sidecar и указывается в `call_graph_full_path`.
+Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph (если включён) сохраняется в sidecar и указывается в `call_graph_full_path`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
@@ -36,7 +36,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--graph-mode focus|full] [--graph-engine none] [--paths ... --keywords ... --note ...]` обновляет JSON контекст (auto: graph-scan для kt/kts/java, fast-scan для остальных).
-- Команда должна запускать саб-агента `agent-feature-dev-aidd:researcher`.
+- Команда должна запускать саб-агента `feature-dev-aidd:researcher`.
 - Handoff‑задачи (если нужны) добавляет команда через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 
 ## Что редактируется
@@ -50,7 +50,7 @@ disable-model-invocation: false
 # AIDD Context Pack — research
 ticket: $1
 stage: research
-agent: agent-feature-dev-aidd:researcher
+agent: feature-dev-aidd:researcher
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -78,7 +78,7 @@ generated_at: <UTC ISO-8601>
 1. Команда (до subagent): зафиксируй активную фичу `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"` при необходимости и выставь стадию `research` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research`.
 2. Команда (до subagent): извлеки `## AIDD:RESEARCH_HINTS` и запусти `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` с `--paths/--keywords/--note`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону W79-10.
-4. Команда → subagent: **Use the agent-feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
 5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings.
 6. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 

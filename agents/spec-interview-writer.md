@@ -2,8 +2,8 @@
 name: spec-interview-writer
 description: Build spec.yaml from interview log (tasklist обновляется через /feature-dev-aidd:tasks-new).
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*)
 model: inherit
 permissionMode: default

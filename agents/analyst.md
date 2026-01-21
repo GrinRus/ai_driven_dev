@@ -2,8 +2,8 @@
 name: analyst
 description: Сбор исходной идеи → анализ контекста → PRD draft + вопросы пользователю (READY после ответов).
 lang: ru
-prompt_version: 1.3.9
-source_version: 1.3.9
+prompt_version: 1.3.10
+source_version: 1.3.10
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
 model: inherit
 permissionMode: default

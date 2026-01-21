@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.6
-source_version: 1.1.6
+prompt_version: 1.1.7
+source_version: 1.1.7
 allowed-tools:
   - Read
   - Edit
@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:tasks-new` работает inline: готовит `aidd/docs/tasklist/$1.md` (шаблон + anchors), собирает Context Pack и явно запускает саб‑агента **agent-feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
+Команда `/feature-dev-aidd:tasks-new` работает inline: готовит `aidd/docs/tasklist/$1.md` (шаблон + anchors), собирает Context Pack и явно запускает саб‑агента **feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
 Интервью проводится командой `/feature-dev-aidd:spec-interview` (опционально), которая пишет `aidd/docs/spec/$1.spec.yaml`. Tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/tasklist.md`.
 
@@ -50,7 +50,7 @@ disable-model-invocation: false
 # AIDD Context Pack — tasklist
 ticket: $1
 stage: tasklist
-agent: agent-feature-dev-aidd:tasklist-refiner
+agent: feature-dev-aidd:tasklist-refiner
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -77,7 +77,7 @@ generated_at: <UTC ISO-8601>
 2. Команда (до subagent): создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 3. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
 4. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону W79-10.
-5. Команда → subagent: **Use the agent-feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
+5. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
 6. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
 
 ## Fail-fast и вопросы

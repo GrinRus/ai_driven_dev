@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.3
-source_version: 1.1.3
+prompt_version: 1.1.4
+source_version: 1.1.4
 allowed-tools:
   - Read
   - Edit
@@ -19,7 +19,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:plan-new` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов. Команда фиксирует стадию `plan`, запускает `research-check`, пишет отдельные Context Pack для planner/validator и явно запускает саб‑агентов `agent-feature-dev-aidd:planner` и `agent-feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
+Команда `/feature-dev-aidd:plan-new` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов. Команда фиксирует стадию `plan`, запускает `research-check`, пишет отдельные Context Pack для planner/validator и явно запускает саб‑агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
@@ -33,7 +33,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` фиксирует стадию `plan`.
-- Команда должна запускать саб-агентов `agent-feature-dev-aidd:planner` и `agent-feature-dev-aidd:validator`.
+- Команда должна запускать саб-агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`.
 - Перед запуском planner выполни `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
@@ -49,7 +49,7 @@ disable-model-invocation: false
 # AIDD Context Pack — plan/<agent>
 ticket: $1
 stage: plan
-agent: agent-feature-dev-aidd:<planner|validator>
+agent: feature-dev-aidd:<planner|validator>
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -76,10 +76,10 @@ generated_at: <UTC ISO-8601>
 1. Команда (до subagent): зафиксируй стадию `plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): проверь, что PRD `Status: READY`; затем запусти `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1` и остановись при ошибке.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.planner.pack.md` по шаблону W79-10.
-4. Команда → subagent: **Use the agent-feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.planner.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.planner.pack.md`.**
 5. Subagent (planner): обновляет план, учитывает `AIDD:ANSWERS`, закрывает вопросы в `AIDD:DECISIONS`.
 6. Команда (до subagent validator): собери Context Pack `aidd/reports/context/$1.validator.pack.md` по шаблону W79-10.
-7. Команда → subagent: **Use the agent-feature-dev-aidd:validator subagent. First action: Read `aidd/reports/context/$1.validator.pack.md`.**
+7. Команда → subagent: **Use the feature-dev-aidd:validator subagent. First action: Read `aidd/reports/context/$1.validator.pack.md`.**
 8. Subagent (validator): проверяет исполняемость, возвращает `READY|BLOCKED`.
 
 ## Fail-fast и вопросы

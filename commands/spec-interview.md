@@ -2,8 +2,8 @@
 description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /feature-dev-aidd:tasks-new)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 allowed-tools:
   - Read
   - Edit
@@ -20,7 +20,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:spec-interview` работает inline: проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью, пишет Context Pack для writer‑агента и явно запускает саб‑агента **agent-feature-dev-aidd:spec-interview-writer**. Спека хранится в `aidd/docs/spec/$1.spec.yaml`. Обновление tasklist выполняется только через `/feature-dev-aidd:tasks-new`.
+Команда `/feature-dev-aidd:spec-interview` работает inline: проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью, пишет Context Pack для writer‑агента и явно запускает саб‑агента **feature-dev-aidd:spec-interview-writer**. Спека хранится в `aidd/docs/spec/$1.spec.yaml`. Обновление tasklist выполняется только через `/feature-dev-aidd:tasks-new`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/spec-interview.md`.
 
 ## Входные артефакты
@@ -50,7 +50,7 @@ disable-model-invocation: false
 # AIDD Context Pack — spec-interview
 ticket: $1
 stage: spec-interview
-agent: agent-feature-dev-aidd:spec-interview-writer
+agent: feature-dev-aidd:spec-interview-writer
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -80,7 +80,7 @@ generated_at: <UTC ISO-8601>
    - Data/compat/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
 4. Команда (до subagent): запиши ответы в `aidd/reports/spec/$1.interview.jsonl` (append-only).
 5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.spec-interview.pack.md` по шаблону W79-10.
-6. Команда → subagent: **Use the agent-feature-dev-aidd:spec-interview-writer subagent. First action: Read `aidd/reports/context/$1.spec-interview.pack.md`.**
+6. Команда → subagent: **Use the feature-dev-aidd:spec-interview-writer subagent. First action: Read `aidd/reports/context/$1.spec-interview.pack.md`.**
 7. Subagent: формирует/обновляет `aidd/docs/spec/$1.spec.yaml` по шаблону.
 8. Обнови tasklist только через `/feature-dev-aidd:tasks-new` (обязательный шаг для синхронизации).
 

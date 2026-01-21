@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.21
-source_version: 1.1.21
+prompt_version: 1.1.22
+source_version: 1.1.22
 allowed-tools:
   - Read
   - Edit
@@ -30,7 +30,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:implement` работает inline: фиксирует стадию и активную фичу, при необходимости обновляет `test-policy.env`, пишет Context Pack и явно запускает саб‑агента **agent-feature-dev-aidd:implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
+Команда `/feature-dev-aidd:implement` работает inline: фиксирует стадию и активную фичу, при необходимости обновляет `test-policy.env`, пишет Context Pack и явно запускает саб‑агента **feature-dev-aidd:implementer** для следующей итерации по плану и tasklist. Фокус — малые изменения и управляемые проверки. Свободный ввод после тикета используйте как контекст для текущей итерации.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/implement.md`.
 
 ## Входные артефакты
@@ -47,7 +47,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh $1` фиксирует активную фичу.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement` фиксирует стадию `implement`.
-- Команда должна запускать саб-агента **agent-feature-dev-aidd:implementer**.
+- Команда должна запускать саб-агента **feature-dev-aidd:implementer**.
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1` проверяет наличие новых `- [x]`.
 - При рассинхроне tasklist прогоняй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, если нужно, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
@@ -79,7 +79,7 @@ Decision matrix (default: `fast`):
 # AIDD Context Pack — implement
 ticket: $1
 stage: implement
-agent: agent-feature-dev-aidd:implementer
+agent: feature-dev-aidd:implementer
 generated_at: <UTC ISO-8601>
 
 ## Paths
@@ -105,7 +105,7 @@ generated_at: <UTC ISO-8601>
 1. Команда (до subagent): зафиксируй активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"` и стадию `implement` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement`.
 2. Команда (до subagent): если переданы `test=...`, `tasks=...`, `tests=...` — обнови `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений. Команда — единственный владелец записи.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.implement.pack.md` по шаблону W79-10.
-4. Команда → subagent: **Use the agent-feature-dev-aidd:implementer subagent. First action: Read `aidd/reports/context/$1.implement.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read `aidd/reports/context/$1.implement.pack.md`.**
 5. Subagent: реализует следующий пункт, обновляет tasklist (`AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`), обновляет `AIDD:NEXT_3`, добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
 6. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
 7. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.

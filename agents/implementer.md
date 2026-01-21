@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.21
-source_version: 1.1.21
+prompt_version: 1.1.22
+source_version: 1.1.22
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default

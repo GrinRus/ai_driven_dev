@@ -2,8 +2,8 @@
 name: planner
 description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
-prompt_version: 1.1.3
-source_version: 1.1.3
+prompt_version: 1.1.4
+source_version: 1.1.4
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
