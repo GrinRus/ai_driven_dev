@@ -2,8 +2,8 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.11
-source_version: 1.0.11
+prompt_version: 1.0.13
+source_version: 1.0.13
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -39,14 +39,16 @@ QA-агент проверяет фичу после ревью и формир�
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
-- `@aidd/docs/plan/<ticket>.md` — тест-стратегия.
-- `@aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
+- `aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
+- `aidd/docs/plan/<ticket>.md` — тест-стратегия.
+- `aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
 - Отчёты тестов/гейтов и diff.
 
 ## Автоматизация
 - Команда `/feature-dev-aidd:qa` отвечает за `qa --gate`, `tasks-derive`, `progress`.
   Агент обновляет только tasklist и findings.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Сопоставь AIDD:ACCEPTANCE с QA шагами; для каждого AC укажи, как проверено.

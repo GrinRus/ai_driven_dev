@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.3
-source_version: 1.1.3
+prompt_version: 1.1.7
+source_version: 1.1.7
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*)
 model: inherit
 permissionMode: default
@@ -26,14 +26,16 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md`.
 
 ## Входные артефакты
-- `@aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
-- `@aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
-- `@aidd/docs/research/<ticket>.md` — интеграции, риски.
-- `@aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).
-- `@aidd/docs/tasklist/<ticket>.md` — обновляемый tasklist.
+- `aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
+- `aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
+- `aidd/docs/research/<ticket>.md` — интеграции, риски.
+- `aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).
+- `aidd/docs/tasklist/<ticket>.md` — обновляемый tasklist.
 
 ## Автоматизация
 - Нет. Агент работает только с документами.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Что нужно сделать
 1. Прочитай plan/PRD/research/spec и текущий tasklist.

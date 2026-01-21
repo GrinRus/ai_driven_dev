@@ -2,9 +2,9 @@
 name: plan-reviewer
 description: Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review.
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
-tools: Read, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.0.12
+source_version: 1.0.12
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -24,15 +24,17 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/plan/<ticket>.md` — основной документ для ревью.
-- `@aidd/docs/prd/<ticket>.prd.md` — цели, AIDD:ACCEPTANCE, ограничения.
-- `@aidd/docs/research/<ticket>.md` и отчёты `aidd/reports/research/*` — точки интеграции и reuse.
+- `aidd/docs/plan/<ticket>.md` — основной документ для ревью.
+- `aidd/docs/prd/<ticket>.prd.md` — цели, AIDD:ACCEPTANCE, ограничения.
+- `aidd/docs/research/<ticket>.md` и отчёты `aidd/reports/research/*` — точки интеграции и reuse.
 - ADR (если есть) — архитектурные решения и ограничения.
 
 ## Автоматизация
 - `/feature-dev-aidd:review-spec` фиксирует стадию `review-plan` и обновляет раздел `## Plan Review` в плане.
 - `gate-workflow` блокирует переход к PRD review/`tasks-new`, если `Status: READY` в `## Plan Review` не выставлен.
 - Используй `rg` только для точечных проверок упоминаний модулей/рисков в плане и PRD.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции Plan/PRD и `## Plan Review`, затем точечно читай детали, которые влияют на вывод.

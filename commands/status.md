@@ -1,9 +1,9 @@
 ---
 description: "Навигация по тикету: индекс, артефакты и последние события"
-argument-hint: "[<TICKET>]"
+argument-hint: "[$1]"
 lang: ru
-prompt_version: 1.0.0
-source_version: 1.0.0
+prompt_version: 1.0.2
+source_version: 1.0.2
 allowed-tools:
   - Read
   - "Bash(rg:*)"
@@ -18,17 +18,17 @@ disable-model-invocation: false
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/<stage>.md`.
 
 ## Входные артефакты
-- `@aidd/docs/index/<ticket>.yaml` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
-- `@aidd/reports/events/<ticket>.jsonl` — последние события (если есть).
-- `@aidd/reports/tests/<ticket>.jsonl` — тест‑логи (если есть).
-- `@aidd/docs/.active_ticket`, `@aidd/docs/.active_feature`, `@aidd/docs/.active_stage` — маркеры активного тикета.
+- `aidd/docs/index/$1.yaml` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
+- `aidd/reports/events/$1.jsonl` — последние события (если есть).
+- `aidd/reports/tests/$1.jsonl` — тест‑логи (если есть).
+- `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`, `aidd/docs/.active_stage` — маркеры активного тикета.
 
 ## Когда запускать
 - Перед началом работы, чтобы быстро понять контекст.
 - Перед handoff, чтобы сверить артефакты и события.
 
 ## Автоматические хуки и переменные
-- Команда `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` выводит статус в CLI.
+- Команда `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket $1 [--refresh]` выводит статус в CLI.
 - `AIDD_INDEX_AUTO=0` отключает авто‑обновление индекса; тогда используйте `--refresh` или запустите `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`.
 
 ## Что редактируется
@@ -36,7 +36,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Определи ticket: аргумент команды или `aidd/docs/.active_ticket`.
-2. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` — индекс обновится автоматически.
+2. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket $1 [--refresh]` — индекс обновится автоматически.
 3. Покажи stage, summary, список артефактов/отчётов и последние события.
 
 ## Fail-fast и вопросы

@@ -2,8 +2,8 @@
 name: validator
 description: Валидация исполняемости плана по PRD/Research; формирование вопросов.
 lang: ru
-prompt_version: 1.0.5
-source_version: 1.0.5
+prompt_version: 1.0.7
+source_version: 1.0.7
 tools: Read, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -24,13 +24,15 @@ Validator вызывается внутри `/feature-dev-aidd:plan-new` пос�
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
-- `@aidd/docs/plan/<ticket>.md` — черновой план.
-- `@aidd/docs/research/<ticket>.md` — интеграции/риски/reuse.
+- `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
+- `aidd/docs/plan/<ticket>.md` — черновой план.
+- `aidd/docs/research/<ticket>.md` — интеграции/риски/reuse.
 
 ## Автоматизация
 - `/feature-dev-aidd:plan-new` прерывается, если validator возвращает `BLOCKED`.
 - `gate-workflow` проверяет готовность плана до правок `src/**`.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Проверь, что план содержит обязательные секции: Files/Modules touched, Iterations+DoD, Test strategy per iteration, migrations/feature flags, observability. Если есть `AIDD:ANSWERS`, убедись, что блокирующие вопросы закрыты.
