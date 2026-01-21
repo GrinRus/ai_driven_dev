@@ -455,6 +455,7 @@ class ResearcherContextBuilder:
             scope.tags = _unique(scope.tags + auto_tags)
             if added_tags:
                 extra_paths, extra_docs, extra_keywords = self._collect_tag_payload(added_tags)
+                refresh_paths = False
                 if extra_paths:
                     scope.paths = _unique(scope.paths + _norm_all(extra_paths))
                 if extra_docs:
@@ -475,6 +476,9 @@ class ResearcherContextBuilder:
                             short_whitelist=short_whitelist or _DEFAULT_KEYWORD_SHORT_WHITELIST,
                             max_count=max_count,
                         )
+                        refresh_paths = True
+                if refresh_paths:
+                    scope = self._discover_paths(scope)
         return scope
 
     def extend_scope(
@@ -895,7 +899,7 @@ class ResearcherContextBuilder:
                 parts = rel.parts
                 if not parts:
                     return False
-                if parts[0] in excluded_roots:
+                if any(part in excluded_roots for part in parts):
                     return True
                 return False
             except ValueError:
@@ -1388,6 +1392,50 @@ def _parse_graph_filter(value: Optional[str], fallback: str) -> str:
     return value.strip()
 
 
+def _build_call_graph_filter(
+    scope: Scope,
+    builder: "ResearcherContextBuilder",
+    explicit_filter: Optional[str],
+) -> tuple[str, Dict[str, int | str], bool]:
+    if explicit_filter and explicit_filter.strip():
+        return explicit_filter.strip(), {"source": "explicit", "tokens_raw": 0, "tokens_used": 0}, False
+    settings = builder.call_graph_settings()
+    max_tokens = int(settings.get("filter_max_tokens", 20))
+    max_chars = int(settings.get("filter_max_chars", 512))
+
+    tokens = _unique([scope.ticket] + list(scope.keywords))
+    raw_tokens = list(tokens)
+    trimmed = False
+    if max_tokens > 0 and len(tokens) > max_tokens:
+        tokens = tokens[:max_tokens]
+        trimmed = True
+
+    parts: List[str] = []
+    for token in tokens:
+        escaped = re.escape(token)
+        if max_chars > 0:
+            candidate = "|".join(parts + [escaped]) if parts else escaped
+            if len(candidate) > max_chars:
+                trimmed = True
+                break
+        parts.append(escaped)
+
+    if not parts and scope.ticket:
+        parts = [re.escape(scope.ticket)]
+        trimmed = trimmed or len(raw_tokens) > 1
+    filter_regex = "|".join(parts)
+
+    stats: Dict[str, int | str] = {
+        "source": "auto",
+        "tokens_raw": len(raw_tokens),
+        "tokens_used": len(parts),
+        "max_tokens": max_tokens,
+        "max_chars": max_chars,
+        "chars": len(filter_regex),
+    }
+    return filter_regex, stats, trimmed
+
+
 def _parse_graph_engine(value: Optional[str]) -> str:
     if not value:
         return "auto"
@@ -1753,8 +1801,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     graph_languages = _parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _parse_graph_engine(getattr(args, "graph_engine", None))
     graph_mode = _parse_graph_mode(getattr(args, "graph_mode", None))
-    auto_filter = "|".join(_unique(scope.keywords + [scope.ticket]))
-    graph_filter = _parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
+    graph_filter, filter_stats, filter_trimmed = _build_call_graph_filter(
+        scope,
+        builder,
+        getattr(args, "graph_filter", None),
+    )
     raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
     try:
         graph_limit = int(raw_limit)
@@ -1806,6 +1857,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     context["call_graph_supported_languages"] = []
     context["call_graph_filter"] = graph_filter
     context["call_graph_limit"] = graph_limit
+    context["filter_stats"] = filter_stats
+    context["filter_trimmed"] = filter_trimmed
     context["call_graph_warning"] = ""
     if should_build_graph:
         graph = builder.collect_call_graph(

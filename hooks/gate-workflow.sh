@@ -73,6 +73,8 @@ def _next3_has_real_items(tasklist_path: Path) -> bool:
 
     for raw in section:
         line = raw.strip()
+        if line.lower().startswith("- (none)") or "no pending tasks" in line.lower():
+            return True
         if not line.startswith("- ["):
             continue
         if not (line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]")):
@@ -382,10 +384,11 @@ def main() -> int:
     ticket = hooklib.read_ticket(ticket_path, slug_path)
     slug_hint = hooklib.read_slug(slug_path) if slug_path else ""
     if not ticket:
+        _log_stdout("WARN: active ticket not set; skipping tasklist checks.")
         return 0
 
+    active_stage = hooklib.resolve_stage(root / "docs" / ".active_stage") or ""
     if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
-        active_stage = hooklib.resolve_stage(root / "docs" / ".active_stage") or ""
         if active_stage and active_stage not in {"implement", "review", "qa"}:
             if has_src_changes:
                 _log_stderr(
@@ -394,6 +397,25 @@ def main() -> int:
                 )
                 return 2
             return 0
+
+    tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
+    if not tasklist_path.exists():
+        _log_stdout(f"WARN: tasklist missing ({tasklist_path}).")
+        if not has_src_changes:
+            return 0
+    else:
+        status, output = _run_tasklist_check(root, ticket, slug_hint, current_branch)
+        if status != 0:
+            if active_stage in {"review", "qa"}:
+                if output:
+                    _log_stderr(output)
+                else:
+                    _log_stderr(f"BLOCK: tasklist check failed for {ticket}")
+                return 2
+            if output:
+                _log_stdout(output)
+            else:
+                _log_stdout(f"WARN: tasklist check failed for {ticket}")
 
     if not has_src_changes:
         return 0
@@ -410,7 +432,6 @@ def main() -> int:
             _log_stderr(f"BLOCK: нет плана → запустите /feature-dev-aidd:plan-new {ticket}")
             return 2
 
-        tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
         if not tasklist_path.exists():
             hooklib.ensure_template(root, "docs/tasklist/template.md", tasklist_path)
             _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
@@ -456,14 +477,6 @@ def main() -> int:
 
         if not _next3_has_real_items(tasklist_path):
             _log_stderr(f"BLOCK: нет задач → запустите /feature-dev-aidd:tasks-new {ticket} (docs/tasklist/{ticket}.md)")
-            return 2
-
-        status, output = _run_tasklist_check(root, ticket, slug_hint, current_branch)
-        if status != 0:
-            if output:
-                _log_stderr(output)
-            else:
-                _log_stderr(f"BLOCK: tasklist не готов для {ticket} → запустите /feature-dev-aidd:tasks-new {ticket}")
             return 2
 
         reviewer_notice = _reviewer_notice(root, ticket, slug_hint)

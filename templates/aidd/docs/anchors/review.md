@@ -22,6 +22,11 @@
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
 - Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.
+- Write surface (разрешено):
+  - front‑matter: `Status`, `Updated` (и `Stage`, если есть)
+  - `AIDD:CHECKLIST_REVIEW`
+  - `AIDD:HANDOFF_INBOX` (через derive)
+  - `AIDD:CONTEXT_PACK` (только Status/Stage/Blockers summary)
 
 ## MUST NOT
 - Рефакторинг “ради красоты”.
@@ -29,6 +34,7 @@
 - Пропускать проверку исполнимости tasklist (NEXT_3/ITERATIONS_FULL/TEST_EXECUTION).
 - Любые правки кода/конфигов/тестов/CI. Review фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
+- Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
 
 ## Repeat runs
 - Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).

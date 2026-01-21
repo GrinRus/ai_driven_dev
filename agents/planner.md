@@ -2,15 +2,15 @@
 name: planner
 description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
-prompt_version: 1.1.2
-source_version: 1.1.2
+prompt_version: 1.1.4
+source_version: 1.1.4
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент превращает PRD в технический план (`@aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
+Агент превращает PRD в технический план (`aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/plan.md`
@@ -24,17 +24,19 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
-- `@aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
+- `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
+- `aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
 - `aidd/reports/research/<ticket>-call-graph.pack.*` и `-call-graph.edges.jsonl` (pack-first).
 - `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
-- `@aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active_feature`).
+- `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active_feature`).
 - ADR/архитектурные заметки (если есть).
 
 ## Автоматизация
 - `/feature-dev-aidd:plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
 - `gate-workflow` требует готовый план перед правками `src/**`.
 - План — источник для `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:tasks-new`.
+
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
 1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.

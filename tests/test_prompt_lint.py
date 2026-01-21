@@ -106,7 +106,7 @@ def build_agent(name: str) -> str:
             lang: ru
             prompt_version: 1.0.0
             source_version: 1.0.0
-            tools: Read, Write
+            tools: Read, Edit, Write
             model: inherit
             permissionMode: inherit
             ---

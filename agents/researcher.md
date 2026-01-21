@@ -2,9 +2,9 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.4
-source_version: 1.2.4
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.2.10
+source_version: 1.2.10
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -31,15 +31,18 @@ permissionMode: default
 - slug-hint в `aidd/docs/.active_feature`, ADR/исторические PR.
 
 ## Автоматизация
-- Запускай `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto [--graph-mode focus|full] [--paths ... --keywords ...]`, используя `## AIDD:RESEARCH_HINTS` из PRD.
+- Команда `/feature-dev-aidd:researcher` запускает сбор контекста и обновляет `aidd/reports/research/<ticket>-context.json`/`-targets.json`.
 - Проверяй `*-call-graph.pack.*` и `*-call-graph.edges.jsonl` (grep/snippet); при необходимости используй `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh`.
+- Если pack отсутствует/пустой — попроси повторить `/feature-dev-aidd:researcher` с нужными флагами, а не запускай CLI сам.
 - Если graph отсутствует/недоступен — используй `*-ast-grep.pack.*` как evidence, иначе зафиксируй WARN и шаги установки.
 - Если сканирование пустое, используй шаблон `aidd/docs/research/template.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.
 
+Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
+
 ## Пошаговый план
 1. Сначала проверь `AIDD:*` секции PRD/Research и `## AIDD:RESEARCH_HINTS`, затем точечно читай план/tasklist.
-2. При необходимости обнови JSON через `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` и зафиксируй параметры запуска; pack/slice — основной источник, raw JSON не читать.
+2. Проверь наличие `aidd/reports/research/<ticket>-context.json` и `-targets.json`; при отсутствии/пустом графе запроси повторный `/feature-dev-aidd:researcher` с нужными флагами.
 3. Используй `*-ast-grep.pack.*`, `*-call-graph.pack.*`, `edges.jsonl` и `rg` для подтверждения точек интеграции, reuse и тестов.
 4. Заполни отчёт по шаблону: **Context Pack**, integration points, reuse, risks, tests, commands run.
 5. Выставь `Status: reviewed`, если есть: минимум N интеграций, тестовые указатели и список команд; иначе `pending` + TODO.

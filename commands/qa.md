@@ -1,9 +1,9 @@
 ---
 description: "Финальная QA-проверка фичи"
-argument-hint: "<TICKET> [note...]"
+argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
+prompt_version: 1.0.17
+source_version: 1.0.17
 allowed-tools:
   - Read
   - Edit
@@ -14,20 +14,22 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:qa` запускает финальную проверку: запускает саб-агента **feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`, обновляет QA секцию tasklist и фиксирует прогресс. После отчёта автоматически формируются handoff‑задачи в `AIDD:HANDOFF_INBOX`. Выполняется после `/feature-dev-aidd:review`.
+Команда `/feature-dev-aidd:qa` работает inline: фиксирует стадию и активную фичу, запускает `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` для отчёта, пишет Context Pack и явно запускает саб‑агента **feature-dev-aidd:qa**. Агент обновляет QA секцию tasklist; команда формирует handoff‑задачи и фиксирует прогресс. Выполняется после `/feature-dev-aidd:review`.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/qa.md`.
 
 ## Входные артефакты
-- `@aidd/docs/prd/<ticket>.prd.md` (AIDD:ACCEPTANCE).
-- `@aidd/docs/plan/<ticket>.md`.
-- `@aidd/docs/tasklist/<ticket>.md`.
-- `@aidd/docs/spec/<ticket>.spec.yaml` (если есть).
+- `aidd/docs/prd/$1.prd.md` (AIDD:ACCEPTANCE).
+- `aidd/docs/plan/$1.md`.
+- `aidd/docs/tasklist/$1.md`.
+- `aidd/docs/spec/$1.spec.yaml` (если есть).
 - Логи тестов/гейтов (если есть).
 
 ## Когда запускать
@@ -36,21 +38,55 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` фиксирует стадию `qa`.
-- Команда должна запускать саб-агента **feature-dev-aidd:qa** (Claude: Run agent → feature-dev-aidd:qa) через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report "aidd/reports/qa/<ticket>.json" --gate` формирует отчёт.
-- `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket <ticket>` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket <ticket>` фиксирует новые `[x]`.
+- Команда должна запускать саб-агента **feature-dev-aidd:qa**.
+- `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate` формирует отчёт.
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1` фиксирует новые `[x]`.
+- При рассинхроне tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, при необходимости, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Что редактируется
-- `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/reports/qa/<ticket>.json`.
+- `aidd/docs/tasklist/$1.md`.
+- `aidd/reports/qa/$1.json`.
+
+## Context Pack (шаблон)
+Файл: `aidd/reports/context/$1.qa.pack.md`.
+
+```md
+# AIDD Context Pack — qa
+ticket: $1
+stage: qa
+agent: feature-dev-aidd:qa
+generated_at: <UTC ISO-8601>
+
+## Paths
+- plan: aidd/docs/plan/$1.md
+- tasklist: aidd/docs/tasklist/$1.md
+- prd: aidd/docs/prd/$1.prd.md
+- spec: aidd/docs/spec/$1.spec.yaml (if exists)
+- research: aidd/docs/research/$1.md (if exists)
+- test_policy: aidd/.cache/test-policy.env (if exists)
+- qa_report: aidd/reports/qa/$1.json
+
+## What to do now
+- Validate acceptance criteria, add QA traceability + handoff.
+
+## User note
+- $ARGUMENTS
+
+## Git snapshot (optional)
+- branch: <git rev-parse --abbrev-ref HEAD>
+- diffstat: <git diff --stat>
+```
 
 ## Пошаговый план
-1. Зафиксируй стадию `qa`.
-2. Запусти саб-агента **feature-dev-aidd:qa** через `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` и получи отчёт.
-3. Обнови QA секцию tasklist, добавь traceability к AIDD:ACCEPTANCE (AIDD:QA_TRACEABILITY).
-4. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append` — повторный запуск не должен дублировать задачи.
-5. Подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`.
+1. Команда (до subagent): зафиксируй стадию `qa` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
+2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону W79-10.
+4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
+5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests.
+6. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
+7. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
+8. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
@@ -62,3 +98,4 @@ disable-model-invocation: false
 
 ## Примеры CLI
 - `/feature-dev-aidd:qa ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket ABC-123`

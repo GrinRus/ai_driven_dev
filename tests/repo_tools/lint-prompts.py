@@ -17,6 +17,8 @@ STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru"}
 MAX_COMMAND_LINES = 160
+TOOL_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/tools/[A-Za-z0-9_.-]+\.sh")
+TOOL_CLAUDE_WORKFLOW_RE = re.compile(r"\bclaude-workflow\b", re.IGNORECASE)
 
 LANG_SECTION_TITLES = {
     "agent": {
@@ -82,6 +84,17 @@ REQUIRED_STAGE_ANCHORS = [
     "review",
     "qa",
 ]
+
+REQUIRED_WRITE_TOOLS = {
+    "agents/implementer.md",
+    "agents/tasklist-refiner.md",
+    "agents/reviewer.md",
+    "agents/qa.md",
+    "commands/tasks-new.md",
+    "commands/implement.md",
+    "commands/review.md",
+    "commands/qa.md",
+}
 
 CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
@@ -425,8 +438,63 @@ def validate_prompt(info: PromptFile) -> List[str]:
     errors.extend(validate_checkbox_guidance(info))
     errors.extend(validate_agent_references(info))
     errors.extend(validate_question_template(info))
+    errors.extend(validate_tool_mentions(info))
+    errors.extend(validate_required_write_tools(info))
 
     return errors
+
+
+def _iter_tool_scan_lines(info: PromptFile) -> Iterable[str]:
+    lines = info.body.splitlines()
+    in_fence = False
+    skip_examples = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith("## "):
+            skip_examples = stripped.lower() == "## примеры cli"
+        if skip_examples:
+            continue
+        yield re.sub(r"\[[^\]]+\]\([^)]+\)", "", line)
+
+
+def validate_tool_mentions(info: PromptFile) -> List[str]:
+    errors: List[str] = []
+    tool_mentions: set[str] = set()
+    has_claude_workflow = False
+    for line in _iter_tool_scan_lines(info):
+        tool_mentions.update(match.group(0) for match in TOOL_PATH_RE.finditer(line))
+        if TOOL_CLAUDE_WORKFLOW_RE.search(line):
+            has_claude_workflow = True
+
+    if not tool_mentions and not has_claude_workflow:
+        return []
+
+    allowed_tools = set(_normalize_tool_list(info.front_matter.get("allowed-tools") if info.kind == "command" else info.front_matter.get("tools")))
+    allowed_bash = [item for item in allowed_tools if item.startswith("Bash(")]
+
+    if has_claude_workflow and not allowed_bash:
+        errors.append(f"{info.path}: mentions claude-workflow without Bash in allowed-tools")
+
+    for mention in sorted(tool_mentions):
+        if not any(mention in tool for tool in allowed_tools if tool.startswith("Bash(")):
+            errors.append(f"{info.path}: tool `{mention}` mentioned but not in allowed-tools")
+    return errors
+
+
+def validate_required_write_tools(info: PromptFile) -> List[str]:
+    rel_path = str(info.path.as_posix())
+    if not any(rel_path.endswith(path) for path in REQUIRED_WRITE_TOOLS):
+        return []
+    tools = _normalize_tool_list(info.front_matter.get("allowed-tools") if info.kind == "command" else info.front_matter.get("tools"))
+    missing = [name for name in ("Read", "Write", "Edit") if name not in tools]
+    if missing:
+        return [f"{info.path}: missing required tools {missing}"]
+    return []
 
 
 def _extract_headings(text: str) -> set[str]:
