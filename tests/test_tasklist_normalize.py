@@ -273,3 +273,82 @@ def test_tasklist_normalize_migrates_legacy_handoff(tmp_path):
     updated = (project_root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
     assert "Report: legacy" in updated
     assert "source: qa" in updated
+
+
+def test_tasklist_normalize_dry_run_does_not_write_archive(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    ticket = "demo-progress-archive"
+    write_active_feature(project_root, ticket)
+    _write_plan(project_root, ticket)
+
+    progress_entries = "\n".join(
+        [
+            f"- 2026-01-0{idx} source=implement id=I1 kind=iteration hash=abc{idx} link=aidd/reports/tests/demo.log msg=note-{idx}"
+            for idx in range(1, 26)
+        ]
+    )
+
+    tasklist = dedent(
+        f"""\
+        ---
+        Ticket: {ticket}
+        Status: READY
+        Updated: 2024-01-01
+        Plan: aidd/docs/plan/{ticket}.md
+        ---
+
+        ## AIDD:CONTEXT_PACK
+        Status: READY
+
+        ## AIDD:SPEC_PACK
+        - Goal: demo
+
+        ## AIDD:TEST_STRATEGY
+        - Unit: smoke
+
+        ## AIDD:TEST_EXECUTION
+        - profile: none
+        - tasks: []
+        - filters: []
+        - when: manual
+        - reason: docs-only
+
+        ## AIDD:ITERATIONS_FULL
+        - [ ] I1: Bootstrap (iteration_id: I1)
+          - DoD: done
+          - Boundaries: docs/tasklist/{ticket}.md
+          - Tests:
+            - profile: none
+            - tasks: []
+            - filters: []
+
+        ## AIDD:NEXT_3
+        - [ ] I1: Bootstrap (ref: iteration_id=I1)
+
+        ## AIDD:HANDOFF_INBOX
+        <!-- handoff:manual start -->
+        <!-- handoff:manual end -->
+
+        ## AIDD:QA_TRACEABILITY
+        - AC-1 → check → met → evidence
+
+        ## AIDD:CHECKLIST
+        ### AIDD:CHECKLIST_QA
+        - [ ] QA: acceptance criteria verified
+
+        ## AIDD:PROGRESS_LOG
+        {progress_entries}
+        """
+    )
+    write_file(project_root, f"docs/tasklist/{ticket}.md", tasklist)
+
+    result = subprocess.run(
+        cli_cmd("tasklist-check", "--ticket", ticket, "--fix", "--dry-run"),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+    archive_path = project_root / "reports" / "progress" / f"{ticket}.log"
+    assert not archive_path.exists()

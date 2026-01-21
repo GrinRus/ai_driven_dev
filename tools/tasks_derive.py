@@ -16,6 +16,7 @@ _TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
 _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
 _TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
 _LEGACY_TASK_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s*(Research|QA|Review)(?:\s+report)?\s*:", re.IGNORECASE)
+_FIELD_HEADER_RE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9 _-]*)\s*:")
 _SOURCE_ALIASES = {"reviewer": "review"}
 _PRIORITY_MAP = {
     "blocker": "critical",
@@ -26,6 +27,7 @@ _PRIORITY_MAP = {
     "low": "low",
     "info": "low",
 }
+_PRESERVE_FIELDS = {"scope", "dod", "boundaries", "tests", "notes"}
 
 
 @dataclass
@@ -499,6 +501,81 @@ def _block_status_value(block: Sequence[str]) -> str:
     return ""
 
 
+def _split_block_fields(block: Sequence[str]) -> tuple[str, List[Tuple[str, List[str]]], List[str]]:
+    if not block:
+        return "", [], []
+    header = block[0]
+    fields: List[Tuple[str, List[str]]] = []
+    extras: List[str] = []
+    current_key: str | None = None
+    current_lines: List[str] | None = None
+    for line in block[1:]:
+        match = _FIELD_HEADER_RE.match(line)
+        if match:
+            if current_lines is not None and current_key is not None:
+                fields.append((current_key, current_lines))
+            current_key = match.group(1).strip().lower()
+            current_lines = [line]
+            continue
+        if current_lines is not None:
+            current_lines.append(line)
+        else:
+            extras.append(line)
+    if current_lines is not None and current_key is not None:
+        fields.append((current_key, current_lines))
+    return header, fields, extras
+
+
+def _field_has_value(lines: Sequence[str]) -> bool:
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("-"):
+            stripped = stripped.lstrip("-").strip()
+        if ":" in stripped:
+            _, value = stripped.split(":", 1)
+            value = value.strip()
+            if value and value != "[]":
+                return True
+            continue
+        if stripped:
+            return True
+    return False
+
+
+def _merge_block_fields(existing_block: Sequence[str], new_block: Sequence[str]) -> List[str]:
+    if not existing_block:
+        return list(new_block)
+    if not new_block:
+        return list(existing_block)
+    new_header, new_fields, new_extras = _split_block_fields(new_block)
+    _, existing_fields, existing_extras = _split_block_fields(existing_block)
+    existing_map = {key: lines for key, lines in existing_fields}
+    merged_fields: List[List[str]] = []
+    seen_keys: set[str] = set()
+    for key, lines in new_fields:
+        seen_keys.add(key)
+        existing_lines = existing_map.get(key)
+        if existing_lines and key in _PRESERVE_FIELDS and _field_has_value(existing_lines):
+            merged_fields.append(existing_lines)
+        else:
+            merged_fields.append(lines)
+    for key, lines in existing_fields:
+        if key in seen_keys:
+            continue
+        merged_fields.append(lines)
+    merged = [new_header]
+    for field_lines in merged_fields:
+        merged.extend(field_lines)
+    extras = list(new_extras)
+    for line in existing_extras:
+        if line not in extras:
+            extras.append(line)
+    merged.extend(extras)
+    return merged
+
+
 def _apply_status_to_block(block: Sequence[str], checkbox: str, status: str) -> List[str]:
     if not block:
         return []
@@ -560,13 +637,7 @@ def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, a
             desired_status = existing_status or ("done" if existing_checkbox == "done" else "open")
             desired_checkbox = "done" if existing_status == "done" else existing_checkbox
             merged = _apply_status_to_block(block, desired_checkbox or "open", desired_status or "open")
-            if existing_block and len(existing_block) > 1:
-                # Preserve extra lines that are not overwritten by the new block.
-                existing_tail = existing_block[1:]
-                if len(block) == 1:
-                    merged = [merged[0], *existing_tail]
-                else:
-                    merged.extend(line for line in existing_tail if line.strip().startswith("- Notes:"))
+            merged = _merge_block_fields(existing_block, merged)
             merged_blocks[idx] = merged
 
         if task_id:

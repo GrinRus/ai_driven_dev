@@ -489,7 +489,10 @@ def test_tasks_derive_preserves_multiline_task_details(tmp_path):
     assert content.count("id: qa:qa-1") == 1
     assert "Fix spacing v2" in content
     assert "Fix spacing v1" not in content
-    assert "DoD: Fix spacing v2" in content
+    assert "DoD: spacing matches design" in content
+    assert "DoD: Fix spacing v2" not in content
+    assert 'must-touch: ["src/ui/"]' in content
+    assert "profile: fast" in content
     assert "Notes: existing" in content
 
 

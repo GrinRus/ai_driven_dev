@@ -811,6 +811,8 @@ def normalize_progress_section(
     ticket: str,
     root: Path,
     summary: List[str],
+    *,
+    dry_run: bool = False,
 ) -> List[str]:
     body = lines[1:]
     preamble: List[str] = []
@@ -829,12 +831,14 @@ def normalize_progress_section(
         overflow = deduped[:-20]
         deduped = deduped[-20:]
     archive_path = progress_archive_path(root, ticket)
-    if overflow:
+    if overflow and not dry_run:
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         with archive_path.open("a", encoding="utf-8") as fh:
             for entry in overflow:
                 fh.write(progress_entry_line(entry) + "\n")
         summary.append(f"archived {len(overflow)} progress entries -> {archive_path}")
+    elif overflow:
+        summary.append(f"(dry-run) would archive {len(overflow)} progress entries -> {archive_path}")
     if invalid:
         summary.append(f"removed {len(invalid)} invalid progress entries")
     new_lines = [lines[0], *preamble]
@@ -1101,6 +1105,8 @@ def normalize_tasklist(
     root: Path,
     ticket: str,
     text: str,
+    *,
+    dry_run: bool = False,
 ) -> NormalizeResult:
     lines = text.splitlines()
     front, _ = parse_front_matter(lines)
@@ -1117,7 +1123,7 @@ def normalize_tasklist(
             combined = [all_sections[0].lines[0]]
             for entry in all_sections:
                 combined.extend(section_body(entry))
-            return normalize_progress_section(combined, ticket, root, summary)
+            return normalize_progress_section(combined, ticket, root, summary, dry_run=dry_run)
         if title == "AIDD:QA_TRACEABILITY":
             combined = [all_sections[0].lines[0]]
             for entry in all_sections:
@@ -1567,7 +1573,7 @@ def run_check(args: argparse.Namespace) -> int:
                 print(f"[tasklist-check] WARN: tasklist not found: {tasklist_path}", file=sys.stderr)
                 return 0
             original = tasklist_path.read_text(encoding="utf-8")
-            normalized = normalize_tasklist(root, ticket, original)
+            normalized = normalize_tasklist(root, ticket, original, dry_run=args.dry_run)
             if args.dry_run:
                 diff = difflib.unified_diff(
                     original.splitlines(),
