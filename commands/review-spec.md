@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
+prompt_version: 1.0.11
+source_version: 1.0.11
 allowed-tools:
   - Read
   - Edit

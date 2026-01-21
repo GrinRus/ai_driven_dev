@@ -2,8 +2,8 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
+prompt_version: 1.0.11
+source_version: 1.0.11
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -29,7 +29,7 @@ permissionMode: default
 - `aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active_feature`.
 
 ## Автоматизация
-- `/feature-dev-aidd:review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json` через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`.
+- `/feature-dev-aidd:review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json`.
 - `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/feature-dev-aidd:review-spec`.
 
 Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).

@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.8
-source_version: 1.2.8
+prompt_version: 1.2.9
+source_version: 1.2.9
 allowed-tools:
   - Read
   - Edit

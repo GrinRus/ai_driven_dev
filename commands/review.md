@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.14
-source_version: 1.0.14
+prompt_version: 1.0.15
+source_version: 1.0.15
 allowed-tools:
   - Read
   - Edit
@@ -16,6 +16,8 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
@@ -42,6 +44,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` управляет обязательностью тестов (`--clear` удаляет маркер).
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1` фиксирует новые `[x]`.
+- При проблемах tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и нормализацию `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/$1.md` (замечания, прогресс).
@@ -81,11 +84,12 @@ generated_at: <UTC ISO-8601>
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review.pack.md` по шаблону W79-10.
 3. Команда → subagent: **Use the agent-feature-dev-aidd:reviewer subagent. First action: Read `aidd/reports/context/$1.review.pack.md`.**
-4. Subagent: обновляет tasklist с findings/handoff.
+4. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`).
 5. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1`.
 6. Команда (после subagent): при необходимости запроси автотесты через `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` (или `--clear`).
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1`.
 8. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1`.
+9. Если tasklist невалиден — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
@@ -97,3 +101,4 @@ generated_at: <UTC ISO-8601>
 
 ## Примеры CLI
 - `/feature-dev-aidd:review ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket ABC-123`

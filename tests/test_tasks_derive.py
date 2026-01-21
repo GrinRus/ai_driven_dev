@@ -71,6 +71,7 @@ def test_tasks_derive_from_qa_report(tmp_path):
     assert "handoff:qa start" in content
     assert "QA [blocker]" in content
     assert "QA [minor]" in content
+    assert "Report: aidd/reports/qa/demo-checkout.json" in content
     assert content.lower().find("aidd:handoff_inbox") < content.lower().find("handoff:qa"), "block should be under handoff inbox"
 
 
@@ -148,7 +149,8 @@ def test_tasks_derive_from_qa_pack(tmp_path):
     assert result.returncode == 0, result.stderr
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert "QA [major]" in content
-    assert "QA tests: fail" in content
+    assert "QA tests failed" in content
+
 
 def test_tasks_derive_research_appends_existing_block(tmp_path):
     project_root = ensure_project_root(tmp_path)
@@ -184,7 +186,7 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
     assert result.returncode == 0, result.stderr
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert content.count("handoff:research start") == 1
-    assert "existing item" in content
+    assert "existing item" not in content
     assert "Research: Create baseline dirs" in content
     assert "Reuse candidate: src/payments/Client.kt" in content
 
@@ -257,8 +259,8 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
         cwd=project_root,
         text=True,
         capture_output=True,
-        env=env,
-    )
+            env=env,
+        )
 
     assert result.returncode == 0, result.stderr
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
@@ -488,6 +490,9 @@ def test_tasks_derive_preserves_multiline_task_details(tmp_path):
     assert "Fix spacing v2" in content
     assert "Fix spacing v1" not in content
     assert "DoD: spacing matches design" in content
+    assert "DoD: Fix spacing v2" not in content
+    assert 'must-touch: ["src/ui/"]' in content
+    assert "profile: fast" in content
     assert "Notes: existing" in content
 
 
@@ -539,13 +544,13 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
             env = cli_env()
             env.pop("AIDD_INDEX_AUTO", None)
             result = subprocess.run(
-        cli_cmd(
-            "tasks-derive",
-            "--source",
-            "qa",
-            "--ticket",
-            "demo-checkout",
-        ),
+                cli_cmd(
+                    "tasks-derive",
+                    "--source",
+                    "qa",
+                    "--ticket",
+                    "demo-checkout",
+                ),
                 cwd=project_root,
                 text=True,
                 capture_output=True,

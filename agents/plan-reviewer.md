@@ -2,8 +2,8 @@
 name: plan-reviewer
 description: Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review.
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
+prompt_version: 1.0.11
+source_version: 1.0.11
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default

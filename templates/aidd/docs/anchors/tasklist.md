@@ -4,6 +4,7 @@
 - Tasklist — единственный источник для implement/review/qa.
 - Спека хранится в `aidd/docs/spec/<ticket>.spec.yaml` (если есть), tasklist содержит краткий `AIDD:SPEC_PACK`.
 - Чекбоксы однозначны (iteration_id/DoD/Boundaries/Steps/Tests) и не требуют дополнительных догадок.
+- `AIDD:NEXT_3` — pointer list (1–2 строки + ref), без истории и без `[x]`.
 
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md:
@@ -29,11 +30,20 @@
   - AIDD:HANDOFF_INBOX
   - AIDD:CHECKLIST
   - AIDD:QA_TRACEABILITY (если был QA)
+  - AIDD:PROGRESS_LOG
 
 ## MUST NOT
 - Оставлять tasklist без AIDD:NEXT_3 или AIDD:SPEC_PACK.
 - Задавать очевидные вопросы (ответ уже в plan/PRD/research/tasklist).
 - Начинать реализацию кода.
+- Создавать дубли `## AIDD:*` секций.
+- Копировать подробности DoD/Steps/Tests в `AIDD:NEXT_3`.
+
+## Budgets (soft, unless stage=review/qa)
+- `AIDD:CONTEXT_PACK` TL;DR <= 12 bullets.
+- `Blockers summary` <= 8 строк.
+- `AIDD:NEXT_3` item <= 12 строк.
+- `AIDD:HANDOFF_INBOX` item <= 20 строк.
 
 ## Spec required policy
 - Spec обязателен, если есть изменения UI/UX, API‑контрактов, данных/миграций, или e2e на стенде.
@@ -42,6 +52,8 @@
 ## Definition of Done
 - `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION` заполнены.
 - `AIDD:ITERATIONS_FULL` подробен и детальнее плана (iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks).
+- Каждая итерация в `AIDD:ITERATIONS_FULL` размечена state (чекбокс или `State:`).
+- `AIDD:NEXT_3` содержит только ref‑строки на open items (iterations + handoff) и отсортирован по Blocking/Priority.
 - Каждый implement‑чекбокс содержит iteration_id + DoD + Boundaries + Steps + Tests + Acceptance mapping.
 
 ## Output contract

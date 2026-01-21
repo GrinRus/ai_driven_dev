@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.15
-source_version: 1.0.15
+prompt_version: 1.0.16
+source_version: 1.0.16
 allowed-tools:
   - Read
   - Edit
@@ -14,6 +14,8 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: false
@@ -40,6 +42,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate` формирует отчёт.
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1` фиксирует новые `[x]`.
+- При рассинхроне tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, при необходимости, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Что редактируется
 - `aidd/docs/tasklist/$1.md`.
@@ -80,9 +83,10 @@ generated_at: <UTC ISO-8601>
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону W79-10.
 4. Команда → subagent: **Use the agent-feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
-5. Subagent: обновляет QA секцию tasklist и `AIDD:QA_TRACEABILITY`.
+5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests.
 6. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
 7. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
+8. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
@@ -94,3 +98,4 @@ generated_at: <UTC ISO-8601>
 
 ## Примеры CLI
 - `/feature-dev-aidd:qa ABC-123`
+- `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket ABC-123`

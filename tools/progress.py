@@ -5,6 +5,7 @@ import dataclasses
 import fnmatch
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
@@ -73,6 +74,19 @@ DEFAULT_CODE_SUFFIXES = {
 DEFAULT_OVERRIDE_ENV = "CLAUDE_SKIP_TASKLIST_PROGRESS"
 DEFAULT_SOURCES: Tuple[str, ...] = ()
 TASKLIST_DIR = Path("docs") / "tasklist"
+PROGRESS_LOG_MAX_LINES = 20
+PROGRESS_LOG_MAX_LEN = 240
+PROGRESS_LOG_SOURCES = {"implement", "review", "qa", "research", "normalize"}
+PROGRESS_LOG_KINDS = {"iteration", "handoff"}
+PROGRESS_LOG_RE = re.compile(
+    r"^\s*-\s*(?P<date>\d{4}-\d{2}-\d{2})\s+"
+    r"source=(?P<source>[A-Za-z0-9_-]+)\s+"
+    r"id=(?P<item_id>[A-Za-z0-9_.:-]+)\s+"
+    r"kind=(?P<kind>[A-Za-z0-9_-]+)\s+"
+    r"hash=(?P<hash>[A-Za-z0-9]+)"
+    r"(?:\s+link=(?P<link>\S+))?\s+"
+    r"msg=(?P<msg>.+)$"
+)
 
 
 def _normalize_prefix(value: str) -> str:
@@ -335,6 +349,80 @@ def _format_list(items: Sequence[str], prefix: str = "- ", limit: int = 5) -> st
             break
         lines.append(f"{prefix}{item}")
     return "\n".join(lines)
+
+
+def parse_progress_log_lines(lines: Sequence[str]) -> tuple[List[dict], List[str]]:
+    entries: List[dict] = []
+    invalid: List[str] = []
+    for raw in lines:
+        if not raw.strip().startswith("-"):
+            continue
+        stripped = raw.strip().lower()
+        if stripped.startswith("- (empty)") or stripped.startswith("- ..."):
+            continue
+        match = PROGRESS_LOG_RE.match(raw)
+        if not match:
+            invalid.append(raw)
+            continue
+        info = match.groupdict()
+        info["source"] = info["source"].lower()
+        info["kind"] = info["kind"].lower()
+        info["msg"] = info["msg"].strip()
+        entries.append(info)
+    return entries, invalid
+
+
+def dedupe_progress_log(entries: Sequence[dict]) -> List[dict]:
+    seen = set()
+    deduped: List[dict] = []
+    for entry in entries:
+        key = (entry.get("date"), entry.get("source"), entry.get("item_id"), entry.get("hash"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(entry)
+    return deduped
+
+
+def format_progress_log_entry(entry: dict) -> str:
+    parts = [
+        f"- {entry['date']}",
+        f"source={entry['source']}",
+        f"id={entry['item_id']}",
+        f"kind={entry['kind']}",
+        f"hash={entry['hash']}",
+    ]
+    if entry.get("link"):
+        parts.append(f"link={entry['link']}")
+    msg = entry.get("msg") or ""
+    if len(msg) > 200:
+        msg = msg[:197] + "..."
+    parts.append(f"msg={msg}")
+    line = " ".join(parts)
+    if len(line) > PROGRESS_LOG_MAX_LEN:
+        line = line[: PROGRESS_LOG_MAX_LEN - 3] + "..."
+    return line
+
+
+def normalize_progress_log(
+    lines: Sequence[str],
+    *,
+    max_lines: int = PROGRESS_LOG_MAX_LINES,
+) -> tuple[List[str], List[str], List[str]]:
+    entries, invalid = parse_progress_log_lines(lines)
+    deduped = dedupe_progress_log(entries)
+    overflow: List[dict] = []
+    if len(deduped) > max_lines:
+        overflow = deduped[:-max_lines]
+        deduped = deduped[-max_lines:]
+    normalized = [format_progress_log_entry(entry) for entry in deduped]
+    archived = [format_progress_log_entry(entry) for entry in overflow]
+    summary: List[str] = []
+    if invalid:
+        summary.append(f"invalid={len(invalid)}")
+    if overflow:
+        summary.append(f"archived={len(overflow)}")
+    return normalized, archived, summary
 
 
 def _normalize_checkbox_line(line: str) -> str:

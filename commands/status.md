@@ -8,6 +8,7 @@ allowed-tools:
   - Read
   - "Bash(rg:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
