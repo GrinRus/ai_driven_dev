@@ -97,16 +97,19 @@ def _find_binary() -> Optional[str]:
 
 def _parse_json_payload(text: str) -> list[dict]:
     lines = [line for line in text.splitlines() if line.strip()]
-    if not lines:
-        return []
     matches: list[dict] = []
-    for line in lines:
-        try:
-            matches.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
-    if matches:
-        return matches
+    if lines:
+        for line in lines:
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                matches.append(payload)
+            elif isinstance(payload, list):
+                matches.extend(item for item in payload if isinstance(item, dict))
+        if matches:
+            return matches
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:

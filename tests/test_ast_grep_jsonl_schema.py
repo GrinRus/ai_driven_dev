@@ -39,6 +39,12 @@ rules:
         self.assertTrue(blocks[0].lstrip().startswith("id: demo-rule"))
         self.assertTrue(blocks[1].lstrip().startswith("id: second-rule"))
 
+    def test_parse_json_payload_accepts_array(self) -> None:
+        text = '[{"rule_id": "r1", "path": "a", "line": 1}, {"rule_id": "r2", "path": "b", "line": 2}]'
+        payload = ast_grep_scan._parse_json_payload(text)
+        self.assertEqual(len(payload), 2)
+        self.assertTrue(all(isinstance(item, dict) for item in payload))
+
 
 if __name__ == "__main__":
     unittest.main()
