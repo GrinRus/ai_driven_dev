@@ -2,8 +2,8 @@
 name: planner
 description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
-prompt_version: 1.1.4
-source_version: 1.1.4
+prompt_version: 1.1.5
+source_version: 1.1.5
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -26,7 +26,7 @@ permissionMode: default
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
 - `aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
-- `aidd/reports/research/<ticket>-call-graph.pack.*` и `-call-graph.edges.jsonl` (pack-first).
+- `aidd/reports/research/<ticket>-call-graph.pack.*` (pack-first), `graph-slice` pack (предпочтительно) и `-call-graph.edges.jsonl` (только spot-check через `rg`).
 - `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
 - `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active_feature`).
 - ADR/архитектурные заметки (если есть).

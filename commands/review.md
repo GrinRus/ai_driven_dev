@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.16
-source_version: 1.0.16
+prompt_version: 1.0.17
+source_version: 1.0.17
 allowed-tools:
   - Read
   - Edit

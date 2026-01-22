@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.22
-source_version: 1.1.22
+prompt_version: 1.1.23
+source_version: 1.1.23
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -28,7 +28,7 @@ permissionMode: default
 - `aidd/docs/tasklist/<ticket>.md` — прогресс и AIDD:NEXT_3.
 - `aidd/docs/spec/<ticket>.spec.yaml` — спецификация (contracts/risks/tests), если есть.
 - `aidd/docs/research/<ticket>.md`, `aidd/docs/prd/<ticket>.prd.md` — уточнения при необходимости.
-- `aidd/reports/research/<ticket>-call-graph.pack.*`, `-call-graph.edges.jsonl` (pack-first) и `*-ast-grep.pack.*` (если есть).
+- `aidd/reports/research/<ticket>-call-graph.pack.*` (pack-first), `graph-slice` pack (предпочтительно), `-call-graph.edges.jsonl` (только spot-check через `rg`) и `*-ast-grep.pack.*` (если есть).
 
 ## Автоматизация
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`.

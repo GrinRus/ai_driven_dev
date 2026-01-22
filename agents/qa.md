@@ -2,8 +2,8 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.13
-source_version: 1.0.13
+prompt_version: 1.0.14
+source_version: 1.0.14
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -42,7 +42,7 @@ QA-агент проверяет фичу после ревью и формир�
 - `aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
 - `aidd/docs/plan/<ticket>.md` — тест-стратегия.
 - `aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
-- `aidd/reports/research/<ticket>-call-graph.pack.*`, `-call-graph.edges.jsonl`, `*-ast-grep.pack.*` (pack/slice only).
+- `aidd/reports/research/<ticket>-call-graph.pack.*`, `graph-slice` pack (предпочтительно), `-call-graph.edges.jsonl` (только spot-check через `rg`), `*-ast-grep.pack.*`.
 - Отчёты тестов/гейтов и diff.
 
 ## Автоматизация

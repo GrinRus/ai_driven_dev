@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.7
-source_version: 1.1.7
+prompt_version: 1.1.8
+source_version: 1.1.8
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -29,7 +29,7 @@ permissionMode: default
 - `aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
 - `aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
 - `aidd/docs/research/<ticket>.md` — интеграции, риски.
-- `aidd/reports/research/<ticket>-call-graph.pack.*` и `-call-graph.edges.jsonl` (pack-first).
+- `aidd/reports/research/<ticket>-call-graph.pack.*` (pack-first), `graph-slice` pack (предпочтительно) и `-call-graph.edges.jsonl` (только spot-check через `rg`).
 - `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
 - `aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).
 - `aidd/docs/tasklist/<ticket>.md` — обновляемый tasklist.

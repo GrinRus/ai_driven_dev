@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.12
-source_version: 1.2.12
+prompt_version: 1.2.14
+source_version: 1.2.14
 allowed-tools:
   - Read
   - Edit
@@ -29,8 +29,8 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
 - `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
-- `aidd/reports/research/$1-call-graph.pack.*`, `-call-graph.edges.jsonl`.
-- `aidd/reports/research/$1-ast-grep.pack.*`, `-ast-grep.jsonl`.
+- `aidd/reports/research/$1-call-graph.pack.*` (pack-first), `graph-slice` pack (по запросу), `-call-graph.edges.jsonl` (только spot-check через `rg`).
+- `aidd/reports/research/$1-ast-grep.pack.*`, `-ast-grep.jsonl` (только `rg`/фрагменты).
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.

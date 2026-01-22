@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.7
-source_version: 1.1.7
+prompt_version: 1.1.8
+source_version: 1.1.8
 allowed-tools:
   - Read
   - Edit

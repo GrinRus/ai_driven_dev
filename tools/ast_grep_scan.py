@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 AST_GREP_SCHEMA = "aidd.ast_grep_match.v1"
 
@@ -123,6 +124,65 @@ def _has_rule_files(rule_dir: Path) -> bool:
     return False
 
 
+def _split_ruleset(text: str) -> List[str]:
+    lines = text.splitlines()
+    blocks: List[List[str]] = []
+    current: List[str] = []
+    in_rules = False
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped == "---":
+            continue
+        if not in_rules:
+            if stripped == "rules:":
+                in_rules = True
+            continue
+        if raw.startswith("  - "):
+            if current:
+                blocks.append(current)
+                current = []
+            current.append(raw[4:])
+            continue
+        if raw.startswith("    "):
+            current.append(raw[4:])
+    if current:
+        blocks.append(current)
+    return ["\n".join(block).rstrip() + "\n" for block in blocks if block]
+
+
+def _rule_id_from_block(block: str) -> Optional[str]:
+    for line in block.splitlines():
+        if line.startswith("id:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def _expand_ruleset_files(rule_files: Sequence[Path]) -> Tuple[List[Path], Optional[tempfile.TemporaryDirectory]]:
+    expanded: List[Path] = []
+    temp_dir: Optional[tempfile.TemporaryDirectory] = None
+    for rule_file in rule_files:
+        try:
+            text = rule_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if "rules:" not in text:
+            expanded.append(rule_file)
+            continue
+        blocks = _split_ruleset(text)
+        if not blocks:
+            continue
+        if temp_dir is None:
+            temp_dir = tempfile.TemporaryDirectory(prefix="aidd-ast-grep-rules-")
+        for idx, block in enumerate(blocks, start=1):
+            rule_id = _rule_id_from_block(block) or f"rule-{idx}"
+            safe_id = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in rule_id)[:80]
+            filename = f"{rule_file.stem}-{safe_id}.yaml"
+            dest = Path(temp_dir.name) / filename
+            dest.write_text(block, encoding="utf-8")
+            expanded.append(dest)
+    return expanded, temp_dir
+
+
 def _gather_rule_files(rule_dirs: Sequence[Path]) -> List[Path]:
     files: List[Path] = []
     seen: set[Path] = set()
@@ -238,6 +298,7 @@ def scan_ast_grep(
         return None, {"reason": "rules-missing"}
 
     rule_files = _gather_rule_files(rule_dirs)
+    rule_files, temp_dir = _expand_ruleset_files(rule_files)
     if not rule_files:
         return None, {"reason": "rules-missing"}
 

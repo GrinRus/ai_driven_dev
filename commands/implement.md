@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.22
-source_version: 1.1.22
+prompt_version: 1.1.23
+source_version: 1.1.23
 allowed-tools:
   - Read
   - Edit

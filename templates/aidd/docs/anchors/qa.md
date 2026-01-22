@@ -7,7 +7,7 @@
 
 ## Graph Read Policy
 - MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
-- MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
 - MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
 
 ## MUST READ FIRST

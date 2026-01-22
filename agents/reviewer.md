@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.16
-source_version: 1.0.16
+prompt_version: 1.0.17
+source_version: 1.0.17
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
@@ -40,7 +40,7 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 ## Входные артефакты
 - Diff/PR.
 - `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/reports/research/<ticket>-call-graph.pack.*`, `-call-graph.edges.jsonl`, `*-ast-grep.pack.*` (pack/slice only).
+- `aidd/reports/research/<ticket>-call-graph.pack.*`, `graph-slice` pack (предпочтительно), `-call-graph.edges.jsonl` (только spot-check через `rg`), `*-ast-grep.pack.*`.
 - Отчёты тестов/гейтов и `aidd/reports/reviewer/<ticket>.json` (если есть).
 
 ## Автоматизация

@@ -241,11 +241,11 @@ def build_working_set(project_dir: Path) -> WorkingSet:
             if graph_artifacts.get("pack"):
                 parts.append(f"- Pack: {graph_artifacts['pack']}")
             if graph_artifacts.get("edges"):
-                parts.append(f"- Edges view: {graph_artifacts['edges']}")
-                parts.append(f"- Query: rg \"<token>\" {graph_artifacts['edges']}")
-            parts.append(
-                f"- Slice: ${{CLAUDE_PLUGIN_ROOT}}/tools/graph-slice.sh --ticket {ticket} --query \"<token>\""
-            )
+                parts.append(
+                    f"- Slice (prefer): ${{CLAUDE_PLUGIN_ROOT}}/tools/graph-slice.sh --ticket {ticket} --query \"<token>\""
+                )
+                parts.append(f"- Edges view (spot-check): {graph_artifacts['edges']}")
+                parts.append(f"- Spot-check: rg \"<token>\" {graph_artifacts['edges']}")
             parts.append("")
 
         if tasklist.exists():
