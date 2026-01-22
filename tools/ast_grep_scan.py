@@ -74,14 +74,17 @@ def _iter_files(paths: Sequence[Path], *, max_files: int) -> List[Path]:
                 iterator = root.rglob("*")
             except OSError:
                 continue
-            for path in iterator:
-                if max_files and len(files) >= max_files:
-                    break
-                if not path.is_file():
-                    continue
-                if path.suffix.lower() not in DEFAULT_EXTENSIONS:
-                    continue
-                files.append(path)
+            try:
+                for path in iterator:
+                    if max_files and len(files) >= max_files:
+                        break
+                    if not path.is_file():
+                        continue
+                    if path.suffix.lower() not in DEFAULT_EXTENSIONS:
+                        continue
+                    files.append(path)
+            except OSError:
+                continue
         elif root.is_file():
             if root.suffix.lower() in DEFAULT_EXTENSIONS:
                 files.append(root)

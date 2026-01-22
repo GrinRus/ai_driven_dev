@@ -455,8 +455,12 @@ def run(args: argparse.Namespace) -> int:
                     print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
                 else:
                     print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
-    except Exception:
-        pass
+    except Exception as exc:
+        collected_context["ast_grep_stats"] = {"reason": "exception", "error": f"{type(exc).__name__}: {exc}"}
+        print(
+            f"[aidd] WARN: ast-grep scan errored: {type(exc).__name__}: {exc}.",
+            file=sys.stderr,
+        )
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     match_count = len(collected_context["matches"])
     if match_count == 0:
