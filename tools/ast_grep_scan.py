@@ -302,28 +302,30 @@ def scan_ast_grep(
     if not rule_files:
         return None, {"reason": "rules-missing"}
 
-    cmd_base = [binary, "scan"]
-    for rule_file in rule_files:
-        cmd_base.extend(["-r", str(rule_file)])
-    cmd_base.append("--json")
-
     batch_size = cfg.batch_size if cfg.batch_size > 0 else len(files)
     if batch_size <= 0:
         batch_size = len(files) or 1
 
     matches: list[dict] = []
-    scan_meta: dict = {"batches": 0}
+    scan_meta: dict = {"batches": 0, "rules_total": len(rule_files), "rules_scanned": 0}
     scan_failed: dict | None = None
-    for idx in range(0, len(files), batch_size):
-        chunk = files[idx : idx + batch_size]
-        cmd = cmd_base + [str(path) for path in chunk]
-        parsed, meta = _run_scan(cmd, timeout_s=cfg.timeout_s)
-        if parsed is None:
-            scan_failed = meta
-            break
-        scan_meta["batches"] = scan_meta.get("batches", 0) + 1
-        matches.extend(parsed)
-        if cfg.max_matches and len(matches) >= cfg.max_matches:
+    for rule_file in rule_files:
+        rule_batches = 0
+        for idx in range(0, len(files), batch_size):
+            chunk = files[idx : idx + batch_size]
+            cmd = [binary, "scan", "-r", str(rule_file), "--json"] + [str(path) for path in chunk]
+            parsed, meta = _run_scan(cmd, timeout_s=cfg.timeout_s)
+            if parsed is None:
+                meta["rule"] = str(rule_file)
+                scan_failed = meta
+                break
+            scan_meta["batches"] = scan_meta.get("batches", 0) + 1
+            rule_batches += 1
+            matches.extend(parsed)
+            if cfg.max_matches and len(matches) >= cfg.max_matches:
+                break
+        scan_meta["rules_scanned"] = scan_meta.get("rules_scanned", 0) + 1
+        if scan_failed or (cfg.max_matches and len(matches) >= cfg.max_matches):
             break
 
     if scan_failed:
