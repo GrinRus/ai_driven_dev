@@ -190,6 +190,87 @@ class ReportsPackTests(unittest.TestCase):
         pack = reports_pack.build_call_graph_pack(payload, source_path="reports/research/CG-3-context.json")
         self.assertEqual(pack["status"], "unavailable")
 
+    def test_call_graph_pack_preserves_edges_when_trimmed(self) -> None:
+        original_budget = dict(reports_pack.CALL_GRAPH_BUDGET)
+        reports_pack.CALL_GRAPH_BUDGET["max_chars"] = 1200
+        reports_pack.CALL_GRAPH_BUDGET["max_lines"] = 40
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                edges_path = Path(tmpdir) / "CG-4-call-graph.edges.jsonl"
+                edges = []
+                for idx in range(3):
+                    edges.append(
+                        {
+                            "schema": "aidd.call_graph_edge.v1",
+                            "caller": f"demo.Caller{idx}",
+                            "callee": f"demo.Target{idx}",
+                            "caller_file": f"src/{'x'*120}.kt",
+                            "caller_line": idx + 1,
+                            "callee_file": f"src/{'y'*120}.kt",
+                            "callee_line": idx + 1,
+                            "lang": "kotlin",
+                            "type": "call",
+                        }
+                    )
+                edges_path.write_text("\n".join(json.dumps(edge) for edge in edges) + "\n", encoding="utf-8")
+                payload = {
+                    "ticket": "CG-4",
+                    "slug": "cg-4",
+                    "generated_at": "2024-01-06T00:00:00Z",
+                    "call_graph_edges_stats": {"edges_scanned": 3, "edges_written": 3},
+                    "call_graph_edges_path": str(edges_path),
+                }
+                context_path = Path(tmpdir) / "CG-4-context.json"
+                _write_context(context_path, payload)
+                pack_path = reports_pack.write_call_graph_pack(
+                    context_path,
+                    root=Path(tmpdir),
+                    output=Path(tmpdir) / "CG-4-call-graph.pack.yaml",
+                )
+                pack = json.loads(pack_path.read_text(encoding="utf-8"))
+                self.assertGreater(len(pack.get("edges") or []), 0)
+        finally:
+            reports_pack.CALL_GRAPH_BUDGET.update(original_budget)
+
+    def test_ast_grep_pack_auto_trim_meets_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            jsonl_path = tmp_path / "AG-1-ast-grep.jsonl"
+            jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+            lines = []
+            for idx in range(40):
+                lines.append(
+                    json.dumps(
+                        {
+                            "schema": "aidd.ast_grep_match.v1",
+                            "rule_id": f"rule-{idx % 3}",
+                            "path": f"src/Main{idx}.java",
+                            "line": idx + 1,
+                            "col": 1,
+                            "snippet": "x" * 400,
+                            "message": "demo",
+                            "tags": ["jvm"],
+                        }
+                    )
+                )
+            jsonl_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            pack_path = reports_pack.write_ast_grep_pack(
+                jsonl_path,
+                ticket="AG-1",
+                slug_hint="ag-1",
+                root=tmp_path,
+            )
+            pack_text = pack_path.read_text(encoding="utf-8")
+            errors = reports_pack.check_budget(
+                pack_text,
+                max_chars=reports_pack.AST_GREP_BUDGET["max_chars"],
+                max_lines=reports_pack.AST_GREP_BUDGET["max_lines"],
+                label="ast-grep",
+            )
+            self.assertFalse(errors)
+            payload = json.loads(pack_text)
+            self.assertLessEqual(len(payload.get("rules") or []), reports_pack.AST_GREP_LIMITS["rules"])
+
     def test_research_pack_budget_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

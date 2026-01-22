@@ -93,6 +93,18 @@ class ResearcherCallGraphTests(unittest.TestCase):
         self.assertEqual(len(edges), 1)
         self.assertTrue(getattr(edge_stream, "truncated", False))
 
+    def test_suggest_call_graph_limit_scales_with_repo_size(self) -> None:
+        for idx in range(90):
+            (self.root / "src" / f"Auto{idx}.java").write_text(
+                f"class Auto{idx} {{ void run() {{}} }}",
+                encoding="utf-8",
+            )
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-ticket", slug_hint="demo-ticket")
+        _, _, roots = builder.describe_targets(scope)
+        limit = builder.suggest_call_graph_limit(roots, ["java"], 300)
+        self.assertGreaterEqual(limit, 600)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

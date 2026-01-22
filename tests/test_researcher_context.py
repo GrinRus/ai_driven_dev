@@ -191,6 +191,22 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertGreaterEqual(len(reuse_candidates), 1, "reuse candidates should be suggested")
         self.assertIn("score", reuse_candidates[0])
 
+    def test_call_graph_files_skip_ignored_dirs(self) -> None:
+        config_path = self.root / "config" / "conventions.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["researcher"]["ignore_dirs"] = ["build"]
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+        (self.root / "build").mkdir(parents=True, exist_ok=True)
+        write_file(self.root, "build/Generated.kt", "fun build() {}",)
+
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
+        _, _, roots = builder.describe_targets(scope)
+        files = builder._iter_callgraph_files(roots, ["kt"])
+        rel = {path.relative_to(builder.root).as_posix() for path in files}
+        self.assertNotIn("build/Generated.kt", rel)
+
     @mock.patch("tools.researcher_context._load_callgraph_engine")
     def test_call_graph_warns_when_tree_sitter_missing(self, mock_engine) -> None:
         builder = ResearcherContextBuilder(self.root)

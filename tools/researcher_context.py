@@ -88,6 +88,20 @@ _DEFAULT_STOPWORDS = {
     "то",
     "это",
 }
+_DEFAULT_IGNORE_DIRS = {
+    ".git",
+    ".gradle",
+    ".idea",
+    ".venv",
+    "aidd",
+    "build",
+    "dist",
+    "node_modules",
+    "out",
+    "output",
+    "target",
+    "vendor",
+}
 _GRAPH_MODES = {"auto", "focus", "full"}
 _INSTALL_HINT = "INSTALL_HINT: python3 -m pip install tree_sitter_language_pack"
 
@@ -98,6 +112,16 @@ _DOD_RE = re.compile(r"\bdod\s*:\s*(.+)", re.IGNORECASE)
 
 def _utc_timestamp() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _normalize_ignore_dirs(values: Any) -> set[str]:
+    if not values:
+        return set()
+    if isinstance(values, (list, tuple, set)):
+        items = values
+    else:
+        items = [values]
+    return {str(item).strip().lower() for item in items if str(item).strip()}
 
 
 def _edge_matches(edge: Dict[str, Any], regex: Optional[re.Pattern[str]]) -> bool:
@@ -315,6 +339,8 @@ class ResearcherContextBuilder:
         base_config = config_path or (_DEFAULT_CONFIG if _DEFAULT_CONFIG.is_absolute() else self.root / _DEFAULT_CONFIG)
         self.config_path = base_config.resolve()
         self._settings = self._load_settings()
+        ignore_dirs = _normalize_ignore_dirs(self._settings.get("ignore_dirs"))
+        self._ignore_dirs = ignore_dirs or set(_DEFAULT_IGNORE_DIRS)
         default_mode = "workspace" if self.root.name == "aidd" else "aidd"
         config_mode = default_mode
         defaults = self._settings.get("defaults", {})
@@ -327,6 +353,26 @@ class ResearcherContextBuilder:
             config_mode = chosen
         self._paths_base = self.workspace_root if config_mode == "workspace" else self.root
         self._paths_relative_mode = config_mode
+
+    def _is_ignored_path(self, path: Path, *, base: Optional[Path] = None) -> bool:
+        ignore = self._ignore_dirs
+        if not ignore:
+            return False
+        parts: Tuple[str, ...]
+        if base:
+            try:
+                parts = path.relative_to(base).parts
+            except ValueError:
+                parts = path.parts
+        else:
+            parts = path.parts
+        return any(part.lower() in ignore for part in parts)
+
+    def _is_ignored_root(self, path: Path) -> bool:
+        name = path.name.lower()
+        if name != "aidd":
+            return name in self._ignore_dirs
+        return path.resolve() != self.root.resolve()
 
     @property
     def paths_relative_mode(self) -> str:
@@ -357,6 +403,41 @@ class ResearcherContextBuilder:
     def call_graph_settings(self) -> Dict[str, Any]:
         settings = self._settings.get("call_graph")
         return settings if isinstance(settings, dict) else {}
+
+    def suggest_call_graph_limit(
+        self,
+        roots: Sequence[Path],
+        languages: Sequence[str],
+        base_limit: int,
+    ) -> int:
+        settings = self.call_graph_settings()
+        auto = settings.get("edges_max_auto") if isinstance(settings, dict) else None
+        auto_cfg = auto if isinstance(auto, dict) else {}
+
+        def _get_int(key: str, default: int) -> int:
+            try:
+                return int(auto_cfg.get(key, default))
+            except (TypeError, ValueError):
+                return default
+
+        fallback = _get_int("fallback", base_limit)
+        medium_files = _get_int("medium_files", 80)
+        medium_edges = _get_int("medium_edges", 600)
+        large_files = _get_int("large_files", 200)
+        large_edges = _get_int("large_edges", 1000)
+        xlarge_files = _get_int("xlarge_files", 400)
+        xlarge_edges = _get_int("xlarge_edges", 2000)
+
+        files = self._iter_callgraph_files(roots, languages)
+        file_count = len(files)
+        limit = max(base_limit, fallback)
+        if file_count >= xlarge_files:
+            limit = max(limit, xlarge_edges)
+        elif file_count >= large_files:
+            limit = max(limit, large_edges)
+        elif file_count >= medium_files:
+            limit = max(limit, medium_edges)
+        return limit
 
     def ast_grep_settings(self) -> Dict[str, Any]:
         settings = self._settings.get("ast_grep")
@@ -526,6 +607,7 @@ class ResearcherContextBuilder:
         settings_files = list(self._paths_base.rglob("settings.gradle")) + list(
             self._paths_base.rglob("settings.gradle.kts")
         )
+        settings_files = [path for path in settings_files if not self._is_ignored_path(path, base=self._paths_base)]
         include_re = re.compile(r"include\s*\(([^)]*)\)", re.IGNORECASE)
         include_line_re = re.compile(r"^\s*include\s+(.+)$", re.IGNORECASE | re.MULTILINE)
         quoted_re = re.compile(r"['\"]([^'\"]+)['\"]")
@@ -575,8 +657,12 @@ class ResearcherContextBuilder:
         base = self._paths_base
         max_depth = 4
         for root, dirs, _ in os.walk(base):
+            dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
             rel = Path(root).relative_to(base)
             if len(rel.parts) > max_depth:
+                dirs[:] = []
+                continue
+            if self._is_ignored_path(Path(root), base=base):
                 dirs[:] = []
                 continue
             for name in list(dirs):
@@ -1084,11 +1170,22 @@ class ResearcherContextBuilder:
 
     def _iter_files(self, root: Path) -> Iterator[Path]:
         try:
-            for path in root.rglob("*"):
-                if path.is_file() and path.suffix.lower() in _ALLOWED_SUFFIXES:
-                    yield path
+            base_root = root
+            if self._is_ignored_root(base_root):
+                return
+            for base, dirs, files in os.walk(root):
+                dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
+                if self._is_ignored_path(Path(base), base=base_root):
+                    dirs[:] = []
+                    continue
+                for name in files:
+                    path = Path(base) / name
+                    if self._is_ignored_path(path, base=base_root):
+                        continue
+                    if path.suffix.lower() in _ALLOWED_SUFFIXES:
+                        yield path
         except OSError:
-            return iter(())
+            return
 
     def _iter_callgraph_files(self, roots: Sequence[Path], languages: Sequence[str]) -> List[Path]:
         exts: set[str] = set()
@@ -1097,8 +1194,24 @@ class ResearcherContextBuilder:
         files: List[Path] = []
         for root in roots:
             iterator: Iterable[Path]
+            if self._is_ignored_root(root):
+                continue
             if root.is_dir():
-                iterator = root.rglob("*")
+                iterator = []
+                try:
+                    base_root = root
+                    for base, dirs, filenames in os.walk(root):
+                        dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
+                        if self._is_ignored_path(Path(base), base=base_root):
+                            dirs[:] = []
+                            continue
+                        for name in filenames:
+                            path = Path(base) / name
+                            if self._is_ignored_path(path, base=base_root):
+                                continue
+                            iterator.append(path)
+                except OSError:
+                    continue
             else:
                 iterator = [root]
             for path in iterator:
@@ -1209,15 +1322,24 @@ class ResearcherContextBuilder:
 
     def _iter_code_files(self, root: Path, allowed_langs: set[str]) -> Iterator[Path]:
         try:
-            for path in root.rglob("*"):
-                if not path.is_file():
+            base_root = root
+            if self._is_ignored_root(base_root):
+                return
+            for base, dirs, files in os.walk(root):
+                dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
+                if self._is_ignored_path(Path(base), base=base_root):
+                    dirs[:] = []
                     continue
-                lang = _language_for_path(path)
-                if not lang or lang not in allowed_langs:
-                    continue
-                yield path
+                for name in files:
+                    path = Path(base) / name
+                    if self._is_ignored_path(path, base=base_root):
+                        continue
+                    lang = _language_for_path(path)
+                    if not lang or lang not in allowed_langs:
+                        continue
+                    yield path
         except OSError:
-            return iter(())
+            return
 
     def _summarise_code_file(self, path: Path, lang: str) -> Optional[Dict[str, Any]]:
         try:

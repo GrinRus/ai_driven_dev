@@ -5,8 +5,9 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
+import os
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 AST_GREP_SCHEMA = "aidd.ast_grep_match.v1"
 
@@ -20,6 +21,20 @@ LANG_EXTS = {
 }
 
 DEFAULT_EXTENSIONS = sorted({ext for exts in LANG_EXTS.values() for ext in exts})
+DEFAULT_IGNORE_DIRS: Set[str] = {
+    ".git",
+    ".gradle",
+    ".idea",
+    ".venv",
+    "aidd",
+    "build",
+    "dist",
+    "node_modules",
+    "out",
+    "output",
+    "target",
+    "vendor",
+}
 
 
 @dataclass(frozen=True)
@@ -30,6 +45,32 @@ class AstGrepConfig:
     max_matches: int
     timeout_s: int
     batch_size: int
+    ignore_dirs: Set[str]
+
+
+def _normalize_ignore_dirs(values: object) -> Set[str]:
+    if not values:
+        return set()
+    if isinstance(values, (list, tuple, set)):
+        items = values
+    else:
+        items = [values]
+    return {str(item).strip().lower() for item in items if str(item).strip()}
+
+
+def _is_ignored_root(path: Path, ignore_dirs: Set[str]) -> bool:
+    name = path.name.lower()
+    if name == "aidd":
+        return False
+    return name in ignore_dirs
+
+
+def _is_ignored_path(path: Path, *, base_root: Path, ignore_dirs: Set[str]) -> bool:
+    try:
+        parts = path.relative_to(base_root).parts
+    except ValueError:
+        parts = path.parts
+    return any(part.lower() in ignore_dirs for part in parts)
 
 
 def _load_config(root: Path) -> AstGrepConfig:
@@ -51,6 +92,7 @@ def _load_config(root: Path) -> AstGrepConfig:
         max_matches=int(ast_cfg.get("max_matches", 300)),
         timeout_s=int(ast_cfg.get("timeout_s", 60)),
         batch_size=int(ast_cfg.get("batch_size", 120)),
+        ignore_dirs=_normalize_ignore_dirs(researcher.get("ignore_dirs")) or set(DEFAULT_IGNORE_DIRS),
     )
 
 
@@ -64,28 +106,37 @@ def _detect_langs(paths: Iterable[Path]) -> set[str]:
     return detected
 
 
-def _iter_files(paths: Sequence[Path], *, max_files: int) -> List[Path]:
+def _iter_files(paths: Sequence[Path], *, max_files: int, ignore_dirs: Set[str]) -> List[Path]:
     files: List[Path] = []
     for root in paths:
         if max_files and len(files) >= max_files:
             break
         if root.is_dir():
-            try:
-                iterator = root.rglob("*")
-            except OSError:
+            if _is_ignored_root(root, ignore_dirs):
                 continue
             try:
-                for path in iterator:
-                    if max_files and len(files) >= max_files:
-                        break
-                    if not path.is_file():
+                base_root = root
+                for base, dirs, filenames in os.walk(root):
+                    base_path = Path(base)
+                    if _is_ignored_path(base_path, base_root=base_root, ignore_dirs=ignore_dirs):
+                        dirs[:] = []
                         continue
-                    if path.suffix.lower() not in DEFAULT_EXTENSIONS:
-                        continue
-                    files.append(path)
+                    dirs[:] = [name for name in dirs if name.lower() not in ignore_dirs]
+                    for name in filenames:
+                        if max_files and len(files) >= max_files:
+                            break
+                        path = base_path / name
+                        if _is_ignored_path(path, base_root=base_root, ignore_dirs=ignore_dirs):
+                            continue
+                        if path.suffix.lower() not in DEFAULT_EXTENSIONS:
+                            continue
+                        files.append(path)
             except OSError:
                 continue
         elif root.is_file():
+            base_root = root.parent
+            if _is_ignored_path(root, base_root=base_root, ignore_dirs=ignore_dirs):
+                continue
             if root.suffix.lower() in DEFAULT_EXTENSIONS:
                 files.append(root)
     return files
@@ -284,7 +335,7 @@ def scan_ast_grep(
     tags: Optional[Sequence[str]] = None,
 ) -> tuple[Optional[Path], dict]:
     cfg = _load_config(root)
-    files = _iter_files(search_roots, max_files=cfg.max_files)
+    files = _iter_files(search_roots, max_files=cfg.max_files, ignore_dirs=cfg.ignore_dirs)
     detected_langs = _detect_langs(files)
     if cfg.required_for_langs:
         if not (set(cfg.required_for_langs) & detected_langs):

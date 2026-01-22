@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from tools import ast_grep_scan
 
@@ -44,6 +46,37 @@ rules:
         payload = ast_grep_scan._parse_json_payload(text)
         self.assertEqual(len(payload), 2)
         self.assertTrue(all(isinstance(item, dict) for item in payload))
+
+    def test_iter_files_skips_ignored_dirs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ast-grep-scan-") as tmpdir:
+            root = Path(tmpdir)
+            (root / "src").mkdir(parents=True, exist_ok=True)
+            (root / "build").mkdir(parents=True, exist_ok=True)
+            (root / "src" / "Main.java").write_text("class Main {}", encoding="utf-8")
+            (root / "build" / "Generated.java").write_text("class Generated {}", encoding="utf-8")
+
+            files = ast_grep_scan._iter_files(
+                [root],
+                max_files=0,
+                ignore_dirs={"build"},
+            )
+            rel = {path.relative_to(root).as_posix() for path in files}
+            self.assertIn("src/Main.java", rel)
+            self.assertNotIn("build/Generated.java", rel)
+
+    def test_iter_files_allows_aidd_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ast-grep-aidd-") as tmpdir:
+            root = Path(tmpdir) / "aidd"
+            (root / "src").mkdir(parents=True, exist_ok=True)
+            (root / "src" / "Main.java").write_text("class Main {}", encoding="utf-8")
+
+            files = ast_grep_scan._iter_files(
+                [root],
+                max_files=0,
+                ignore_dirs={"aidd"},
+            )
+            rel = {path.relative_to(root).as_posix() for path in files}
+            self.assertIn("src/Main.java", rel)
 
 
 if __name__ == "__main__":

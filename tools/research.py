@@ -327,7 +327,14 @@ def run(args: argparse.Namespace) -> int:
         graph_limit = _DEFAULT_GRAPH_LIMIT
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
-    edges_limit = edges_max if edges_max and edges_max > 0 else graph_limit
+    if edges_max and edges_max > 0:
+        edges_limit = edges_max
+    else:
+        edges_limit = builder.suggest_call_graph_limit(
+            search_roots,
+            graph_languages or languages or list(_CALLGRAPH_LANGS),
+            graph_limit,
+        )
     filter_for_edges = None if graph_mode == "full" else graph_filter
 
     deep_code_enabled = bool(args.deep_code)

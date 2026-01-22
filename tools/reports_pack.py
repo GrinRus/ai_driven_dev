@@ -55,6 +55,7 @@ CALL_GRAPH_LIMITS: Dict[str, int] = {
     "hotspots": 10,
     "edges": 30,
 }
+CALL_GRAPH_EDGE_PATH_CHARS = 160
 
 CALL_GRAPH_BUDGET = {
     "max_chars": 2000,
@@ -64,6 +65,7 @@ CALL_GRAPH_BUDGET = {
 AST_GREP_LIMITS: Dict[str, int] = {
     "rules": 10,
     "matches_per_rule": 5,
+    "snippet_chars": 200,
 }
 
 AST_GREP_BUDGET = {
@@ -657,13 +659,19 @@ def _pack_call_graph_edges(entries: Iterable[Any], limit: int) -> List[Dict[str,
     for entry in _truncate_list(entries, limit):
         if not isinstance(entry, dict):
             continue
+        caller_file = entry.get("caller_file") or entry.get("file")
+        callee_file = entry.get("callee_file") or entry.get("file")
+        if isinstance(caller_file, str):
+            caller_file = _truncate_text(caller_file, CALL_GRAPH_EDGE_PATH_CHARS)
+        if isinstance(callee_file, str):
+            callee_file = _truncate_text(callee_file, CALL_GRAPH_EDGE_PATH_CHARS)
         packed.append(
             {
                 "caller": entry.get("caller"),
                 "callee": entry.get("callee"),
-                "caller_file": entry.get("caller_file") or entry.get("file"),
+                "caller_file": caller_file,
                 "caller_line": entry.get("caller_line") or entry.get("line"),
-                "callee_file": entry.get("callee_file") or entry.get("file"),
+                "callee_file": callee_file,
                 "callee_line": entry.get("callee_line") or entry.get("line"),
                 "lang": entry.get("lang") or entry.get("language"),
                 "type": entry.get("type"),
@@ -804,15 +812,19 @@ def build_ast_grep_pack(
     if schema_version is None:
         schema_version = stats_payload.get("schema")
     packed_rules = []
+    snippet_chars = int(lim.get("snippet_chars", 0) or 0)
     for rule_id, rule_matches in sorted(rules.items()):
         examples: List[Dict[str, Any]] = []
         for entry in _truncate_list(rule_matches, lim["matches_per_rule"]):
+            snippet = entry.get("snippet")
+            if isinstance(snippet, str) and snippet_chars > 0:
+                snippet = snippet[:snippet_chars]
             examples.append(
                 {
                     "path": entry.get("path"),
                     "line": entry.get("line"),
                     "col": entry.get("col"),
-                    "snippet": entry.get("snippet"),
+                    "snippet": snippet,
                     "message": entry.get("message"),
                     "tags": entry.get("tags"),
                 }
@@ -873,22 +885,51 @@ def write_ast_grep_pack(
             source_path = jsonl_path.as_posix()
     else:
         source_path = jsonl_path.as_posix()
-    pack = build_ast_grep_pack(payload, source_path=source_path, limits=limits)
     ext = _pack_extension()
     default_path = jsonl_path.with_name(f"{ticket}-ast-grep{ext}")
     pack_path = (output or default_path).resolve()
-    text = _serialize_pack(pack)
-    errors = check_budget(
-        text,
-        max_chars=AST_GREP_BUDGET["max_chars"],
-        max_lines=AST_GREP_BUDGET["max_lines"],
-        label="ast-grep",
-    )
+
+    base_limits = {**AST_GREP_LIMITS, **(limits or {})}
+    current_limits = dict(base_limits)
+    trimmed = False
+    errors: List[str] = []
+    text = ""
+
+    def _shrink_limits(lim: Dict[str, int]) -> bool:
+        for key in ("matches_per_rule", "rules"):
+            value = int(lim.get(key, 0) or 0)
+            if value > 1:
+                lim[key] = value - 1
+                return True
+        snippet_chars = int(lim.get("snippet_chars", 0) or 0)
+        if snippet_chars > 40:
+            lim["snippet_chars"] = max(40, snippet_chars - 20)
+            return True
+        return False
+
+    while True:
+        pack = build_ast_grep_pack(payload, source_path=source_path, limits=current_limits)
+        text = _serialize_pack(pack)
+        errors = check_budget(
+            text,
+            max_chars=AST_GREP_BUDGET["max_chars"],
+            max_lines=AST_GREP_BUDGET["max_lines"],
+            label="ast-grep",
+        )
+        if not errors:
+            break
+        if not _shrink_limits(current_limits):
+            break
+        trimmed = True
+
     if errors:
         for error in errors:
             print(f"[pack-budget] {error}", file=sys.stderr)
         if _enforce_budget():
             raise ValueError("; ".join(errors))
+    elif trimmed:
+        print("[pack-trim] ast-grep pack trimmed to fit budget.", file=sys.stderr)
+
     return _write_pack_text(text, pack_path)
 
 
@@ -1045,13 +1086,23 @@ def write_call_graph_pack(
     current_limits = dict(base_limits)
     trimmed = False
     errors: List[str] = []
+    edges_total = 0
+    if edges_path and edges_path.exists():
+        edges_total = sum(1 for _ in _iter_jsonl(edges_path))
+    min_edges = 1 if edges_total > 0 else 0
+    if min_edges:
+        current_limits["edges"] = max(int(current_limits.get("edges", 0) or 0), min_edges)
 
-    def _shrink_limits(lim: Dict[str, int]) -> bool:
-        for key in ("edges", "entrypoints", "hotspots"):
+    def _shrink_limits(lim: Dict[str, int], *, min_edges: int) -> bool:
+        for key in ("hotspots", "entrypoints"):
             value = int(lim.get(key, 0) or 0)
             if value <= 0:
                 continue
             lim[key] = max(0, value - 1)
+            return True
+        value = int(lim.get("edges", 0) or 0)
+        if value > min_edges:
+            lim["edges"] = max(min_edges, value - 1)
             return True
         return False
 
@@ -1066,7 +1117,7 @@ def write_call_graph_pack(
         )
         if not errors:
             break
-        if not _shrink_limits(current_limits):
+        if not _shrink_limits(current_limits, min_edges=min_edges):
             break
         trimmed = True
 
