@@ -12,9 +12,12 @@ class CallGraphEdgesSchemaTests(unittest.TestCase):
             {
                 "caller": "demo.Service",
                 "callee": "run",
-                "file": "src/main/kotlin/App.kt",
-                "line": 12,
-                "language": "kotlin",
+                "caller_file": "src/main/kotlin/App.kt",
+                "caller_line": 12,
+                "callee_file": "src/main/kotlin/App.kt",
+                "callee_line": 12,
+                "lang": "kotlin",
+                "type": "call",
             }
         ]
         with tempfile.TemporaryDirectory(prefix="call-graph-edges-") as tmpdir:
@@ -24,7 +27,17 @@ class CallGraphEdgesSchemaTests(unittest.TestCase):
             self.assertFalse(truncated)
             line = output.read_text(encoding="utf-8").splitlines()[0]
             payload = json.loads(line)
-            for key in ("schema", "caller", "callee", "file", "line", "language"):
+            for key in (
+                "schema",
+                "caller",
+                "callee",
+                "caller_file",
+                "caller_line",
+                "callee_file",
+                "callee_line",
+                "lang",
+                "type",
+            ):
                 self.assertIn(key, payload)
             self.assertEqual(payload["schema"], call_graph_views.EDGE_SCHEMA)
 

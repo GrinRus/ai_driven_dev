@@ -119,7 +119,8 @@
       "required_for_langs": [],
       "max_files": 400,
       "max_matches": 300,
-      "timeout_s": 60
+      "timeout_s": 60,
+      "batch_size": 120
     },
     "auto_tags": {
       "jvm": {

@@ -27,7 +27,6 @@ class ResearchSettings:
     branches: list[str] | None = None
     skip_branches: list[str] | None = None
     call_graph_required_for_langs: list[str] | None = None
-    call_graph_raw_size_mb: int = 0
     call_graph_require_pack: bool = True
     call_graph_require_edges: bool = True
     allow_ast_grep_fallback: bool = True
@@ -111,12 +110,6 @@ def load_settings(root: Path) -> ResearchSettings:
     graph_cfg = config.get("call_graph") or {}
     if isinstance(graph_cfg, dict):
         settings.call_graph_required_for_langs = _normalize_langs(graph_cfg.get("required_for_langs"))
-        if "raw_size_mb" in graph_cfg or "raw_threshold_mb" in graph_cfg:
-            raw_value = graph_cfg.get("raw_size_mb", graph_cfg.get("raw_threshold_mb", 0))
-            try:
-                settings.call_graph_raw_size_mb = max(int(raw_value), 0)
-            except (TypeError, ValueError):
-                raise ResearchValidationError("config/gates.json: поле call_graph.raw_size_mb должно быть числом")
         if "require_pack" in graph_cfg:
             settings.call_graph_require_pack = bool(graph_cfg.get("require_pack"))
         if "require_edges" in graph_cfg:
@@ -245,7 +238,7 @@ def _validate_graph_views_and_evidence(
     context_path: Path,
     targets_path: Path,
 ) -> None:
-    if not settings.call_graph_raw_size_mb and not settings.call_graph_required_for_langs:
+    if not settings.call_graph_required_for_langs:
         return
 
     try:
@@ -261,25 +254,8 @@ def _validate_graph_views_and_evidence(
     edges_path = _resolve_report_path(root, context.get("call_graph_edges_path"))
     if edges_path is None:
         edges_path = root / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
-    full_path = _resolve_report_path(root, context.get("call_graph_full_path"))
     pack_path = _find_pack_variant(root, f"{ticket}-call-graph")
     ast_grep_pack = _find_pack_variant(root, f"{ticket}-ast-grep")
-
-    if settings.call_graph_raw_size_mb and full_path and full_path.exists():
-        size_mb = full_path.stat().st_size / (1024 * 1024)
-        if size_mb >= settings.call_graph_raw_size_mb:
-            missing: list[str] = []
-            if settings.call_graph_require_pack and not pack_path:
-                missing.append(f"{ticket}-call-graph.pack.*")
-            if settings.call_graph_require_edges and (not edges_path or not edges_path.exists()):
-                missing.append(f"{ticket}-call-graph.edges.jsonl")
-            if missing:
-                raise ResearchValidationError(
-                    "BLOCK: call-graph raw слишком большой (>{}MB), отсутствуют {} → "
-                    "пересоберите research или запустите backfill.".format(
-                        settings.call_graph_raw_size_mb, ", ".join(missing)
-                    )
-                )
 
     required_langs = settings.call_graph_required_for_langs or []
     if not required_langs:
@@ -298,7 +274,9 @@ def _validate_graph_views_and_evidence(
         return
 
     pack_ok = _is_call_graph_pack_ok(pack_path)
-    graph_ok = pack_ok and (not settings.call_graph_require_edges or (edges_path and edges_path.exists()))
+    pack_required = settings.call_graph_require_pack
+    edges_required = settings.call_graph_require_edges
+    graph_ok = (not pack_required or pack_ok) and (not edges_required or (edges_path and edges_path.exists()))
     ast_ok = bool(ast_grep_pack)
     if graph_ok or (settings.allow_ast_grep_fallback and ast_ok):
         return

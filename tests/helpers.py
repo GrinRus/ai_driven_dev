@@ -108,7 +108,6 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "baseline_phrase": "контекст пуст",
     },
     "call_graph": {
-        "raw_size_mb": 5,
         "require_pack": True,
         "require_edges": True,
         "required_for_langs": ["kt", "kts", "java"],

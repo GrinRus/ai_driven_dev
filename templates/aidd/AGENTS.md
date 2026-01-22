@@ -30,7 +30,7 @@
 ## Graph Read Policy
 - MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
 - MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
-- MUST NOT: `Read` full `*-call-graph-full.json` или `*.cjson`.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
 - JSONL‑streams (`*-call-graph.edges.jsonl`, `*-ast-grep.jsonl`) читать фрагментами, не целиком.
 
 ## Что нельзя делать

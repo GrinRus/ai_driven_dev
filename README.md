@@ -116,16 +116,14 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-- Запустите graph-only: `--call-graph --graph-mode full`.
+- Запустите graph-only: `--call-graph --graph-mode full` (без фильтра; лимит `call_graph.edges_max` всё равно применяется).
 - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
 - Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
 
 Graph artifacts (pack-first):
-- Raw graph хранится в `aidd/reports/research/<ticket>-call-graph-full.json` и **не предназначен для чтения LLM**.
 - Grep-friendly view: `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
 - Pack summary: `aidd/reports/research/<ticket>-call-graph.pack.yaml` (или `.pack.toon`).
-- Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>"`.
-- Backfill для старых тикетов: `python3 tools/backfill_graph_views.py --root <workspace>`.
+- Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 
 ## Предпосылки
 - `bash`, `git`, `python3`.

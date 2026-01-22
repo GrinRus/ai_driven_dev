@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.10
-source_version: 1.2.10
+prompt_version: 1.2.11
+source_version: 1.2.11
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)
 model: inherit
 permissionMode: default

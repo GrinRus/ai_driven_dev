@@ -28,6 +28,7 @@ class AstGrepConfig:
     max_files: int
     max_matches: int
     timeout_s: int
+    batch_size: int
 
 
 def _load_config(root: Path) -> AstGrepConfig:
@@ -48,6 +49,7 @@ def _load_config(root: Path) -> AstGrepConfig:
         max_files=int(ast_cfg.get("max_files", 400)),
         max_matches=int(ast_cfg.get("max_matches", 300)),
         timeout_s=int(ast_cfg.get("timeout_s", 60)),
+        batch_size=int(ast_cfg.get("batch_size", 120)),
     )
 
 
@@ -170,6 +172,30 @@ def _select_rule_dirs(rules_root: Path, tags: Sequence[str]) -> List[Path]:
     return available
 
 
+def _run_scan(cmd: list[str], *, timeout_s: int) -> tuple[Optional[list[dict]], dict]:
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+        )
+    except Exception as exc:
+        return None, {"reason": "scan-failed", "error": str(exc)}
+
+    if result.returncode not in (0, 1):
+        stderr = (result.stderr or "").strip()
+        if stderr and len(stderr) > 400:
+            stderr = stderr[:400].rstrip() + "…"
+        payload = {"reason": "scan-failed", "returncode": result.returncode}
+        if stderr:
+            payload["stderr"] = stderr
+        return None, payload
+
+    return _parse_json_payload(result.stdout), {"returncode": result.returncode}
+
+
 def scan_ast_grep(
     root: Path,
     *,
@@ -198,25 +224,32 @@ def scan_ast_grep(
     if not rule_dirs:
         return None, {"reason": "rules-missing"}
 
-    cmd = [binary, "scan"]
+    cmd_base = [binary, "scan"]
     for rule_dir in rule_dirs:
-        cmd.extend(["-r", str(rule_dir)])
-    cmd.extend(["--json", *[str(path) for path in files]])
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=cfg.timeout_s,
-            check=False,
-        )
-    except Exception:
-        return None, {"reason": "scan-failed"}
+        cmd_base.extend(["-r", str(rule_dir)])
+    cmd_base.append("--json")
 
-    if result.returncode not in (0, 1):
-        return None, {"reason": "scan-failed"}
+    batch_size = cfg.batch_size if cfg.batch_size > 0 else len(files)
+    if batch_size <= 0:
+        batch_size = len(files) or 1
 
-    matches = _parse_json_payload(result.stdout)
+    matches: list[dict] = []
+    scan_meta: dict = {"batches": 0}
+    scan_failed: dict | None = None
+    for idx in range(0, len(files), batch_size):
+        chunk = files[idx : idx + batch_size]
+        cmd = cmd_base + [str(path) for path in chunk]
+        parsed, meta = _run_scan(cmd, timeout_s=cfg.timeout_s)
+        if parsed is None:
+            scan_failed = meta
+            break
+        scan_meta["batches"] = scan_meta.get("batches", 0) + 1
+        matches.extend(parsed)
+        if cfg.max_matches and len(matches) >= cfg.max_matches:
+            break
+
+    if scan_failed:
+        return None, scan_failed
     normalized: list[dict] = []
     truncated = False
     for raw in matches:
@@ -236,5 +269,7 @@ def scan_ast_grep(
         "truncated": truncated,
         "schema": AST_GREP_SCHEMA,
         "rule_packs": [path.name for path in rule_dirs],
+        "batches": scan_meta.get("batches", 0),
+        "batch_size": batch_size,
     }
     return output, stats

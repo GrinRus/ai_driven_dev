@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.10
-source_version: 1.2.10
+prompt_version: 1.2.11
+source_version: 1.2.11
 allowed-tools:
   - Read
   - Edit
@@ -21,7 +21,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph и ast-grep сохраняются как pack/view (raw graph — DB-only).
+Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph и ast-grep сохраняются как pack/view (edges-only, без raw графа).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты

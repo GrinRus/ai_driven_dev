@@ -13,7 +13,6 @@ from tools import runtime
 from tools.researcher_context import (
     ResearcherContextBuilder,
     _CALLGRAPH_LANGS,
-    _columnar_call_graph,
     _DEFAULT_GRAPH_LIMIT,
     _emit_call_graph_warning,
     _parse_graph_engine as _research_parse_graph_engine,
@@ -22,8 +21,6 @@ from tools.researcher_context import (
     _parse_langs as _research_parse_langs,
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
-    _select_graph_edges,
-    _strip_trim_warning,
 )
 
 
@@ -230,13 +227,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--graph-limit",
         type=int,
         default=_DEFAULT_GRAPH_LIMIT,
-        help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+        help=(
+            f"Maximum number of call graph edges when call_graph.edges_max is unset "
+            f"(default: {_DEFAULT_GRAPH_LIMIT})."
+        ),
     )
     parser.add_argument(
         "--graph-mode",
         choices=["auto", "focus", "full"],
         default="auto",
-        help="Graph selection for context: auto (full if small), focus (filter+limit), full (no filter/limit).",
+        help="Graph selection for context: auto (focus unless full), focus (filter+limit), full (no filter).",
     )
     parser.add_argument(
         "--no-template",
@@ -327,6 +327,8 @@ def run(args: argparse.Namespace) -> int:
         graph_limit = _DEFAULT_GRAPH_LIMIT
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
+    edges_limit = edges_max if edges_max and edges_max > 0 else graph_limit
+    filter_for_edges = None if graph_mode == "full" else graph_filter
 
     deep_code_enabled = bool(args.deep_code)
     call_graph_requested = bool(args.call_graph)
@@ -365,12 +367,11 @@ def run(args: argparse.Namespace) -> int:
         collected_context["deep_mode"] = False
     graph_enabled = graph_engine != "none"
     should_build_graph = graph_enabled and (call_graph_requested or deep_code_enabled)
-    collected_context["call_graph"] = []
     collected_context["import_graph"] = []
     collected_context["call_graph_engine"] = graph_engine
     collected_context["call_graph_supported_languages"] = []
-    collected_context["call_graph_filter"] = graph_filter
-    collected_context["call_graph_limit"] = graph_limit
+    collected_context["call_graph_filter"] = filter_for_edges
+    collected_context["call_graph_limit"] = edges_limit
     collected_context["filter_stats"] = filter_stats
     collected_context["filter_trimmed"] = filter_trimmed
     collected_context["call_graph_warning"] = ""
@@ -380,60 +381,38 @@ def run(args: argparse.Namespace) -> int:
             roots=search_roots,
             languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
             engine_name=graph_engine,
-            graph_filter=graph_filter,
-            graph_limit=graph_limit,
+            graph_filter=filter_for_edges,
+            edges_max=edges_limit,
         )
-        selected_edges, selected_mode = _select_graph_edges(graph, graph_mode, graph_limit)
-        collected_context["call_graph"] = selected_edges
+        edge_stream = graph.get("edges_stream")
+        if edge_stream is None:
+            edge_stream = []
         collected_context["import_graph"] = graph.get("imports", [])
         collected_context["call_graph_engine"] = graph.get("engine", graph_engine)
         collected_context["call_graph_supported_languages"] = graph.get("supported_languages", [])
         warning = graph.get("warning") or ""
-        if selected_mode == "full":
-            warning = _strip_trim_warning(warning)
-        collected_context["call_graph_warning"] = warning
         _emit_call_graph_warning("[aidd]", warning)
-
-        full_edges = graph.get("edges_full")
-        if full_edges is None:
-            full_edges = graph.get("edges") or []
-        full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
-        full_path = runtime.resolve_path_for_target(full_path, target)
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_payload = {"edges": full_edges, "imports": graph.get("imports", [])}
-        full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
-        collected_context["call_graph_full_path"] = os.path.relpath(full_path, target)
-        columnar_path = full_path.with_suffix(".cjson")
-        try:
-            columnar_payload = _columnar_call_graph(
-                full_payload.get("edges", []),
-                full_payload.get("imports", []),
-            )
-            columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
-            collected_context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, target)
-        except OSError:
-            pass
         try:
             from tools import call_graph_views
 
-            edges_path = full_path.with_name(f"{ticket}-call-graph.edges.jsonl")
-            max_edges = edges_max if edges_max and edges_max > 0 else None
-            edges_written, truncated = call_graph_views.write_edges_jsonl(
-                full_edges,
-                edges_path,
-                max_edges=max_edges,
-            )
+            edges_path = Path(f"aidd/reports/research/{ticket}-call-graph.edges.jsonl")
+            edges_path = runtime.resolve_path_for_target(edges_path, target)
+            edges_written, _ = call_graph_views.write_edges_jsonl(edge_stream, edges_path)
+            truncated = bool(getattr(edge_stream, "truncated", False))
+            if truncated:
+                suffix = f"call graph truncated to {edges_written} edges."
+                warning = f"{warning} {suffix}".strip()
             collected_context["call_graph_edges_path"] = os.path.relpath(edges_path, target)
             collected_context["call_graph_edges_schema"] = call_graph_views.EDGE_SCHEMA
             collected_context["call_graph_edges_stats"] = {
-                "edges_total": len(full_edges),
+                "edges_scanned": getattr(edge_stream, "edges_scanned", edges_written),
                 "edges_written": edges_written,
-                "edges_limit": max_edges,
-                "truncated": truncated,
+                "edges_limit": edges_limit,
             }
             collected_context["call_graph_edges_truncated"] = truncated
         except OSError:
             pass
+        collected_context["call_graph_warning"] = warning
     elif graph_engine == "none" and (call_graph_requested or deep_code_enabled):
         collected_context["call_graph_warning"] = "call graph disabled (graph-engine none)"
 
@@ -461,7 +440,12 @@ def run(args: argparse.Namespace) -> int:
                 reason = ast_grep_stats.get("reason")
                 if reason == "binary-missing":
                     print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
-                print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
+                if reason == "scan-failed":
+                    detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
+                    detail_suffix = f": {detail}" if detail else ""
+                    print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
+                else:
+                    print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
     except Exception:
         pass
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
@@ -552,7 +536,9 @@ def run(args: argparse.Namespace) -> int:
             print(f"[aidd] ERROR: failed to generate ast-grep pack: {exc}", file=sys.stderr)
             return 2
     reuse_count = len(collected_context.get("reuse_candidates") or []) if deep_code_enabled else 0
-    call_edges = len(collected_context.get("call_graph") or []) if should_build_graph else 0
+    call_edges = 0
+    if should_build_graph:
+        call_edges = (collected_context.get("call_graph_edges_stats") or {}).get("edges_written") or 0
     message = f"[aidd] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if deep_code_enabled:
         message += f", {reuse_count} reuse candidates"

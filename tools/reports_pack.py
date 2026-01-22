@@ -32,7 +32,6 @@ RESEARCH_LIMITS: Dict[str, int] = {
     "tests_evidence": 10,
     "suggested_test_tasks": 10,
     "recommendations": 10,
-    "call_graph": 30,
     "import_graph": 30,
 }
 
@@ -83,8 +82,6 @@ _ESSENTIAL_FIELDS = {
     "slug_hint",
     "generated_at",
     "source_path",
-    "call_graph_full_path",
-    "call_graph_full_columnar_path",
     "call_graph_warning",
     "call_graph_engine",
     "call_graph_supported_languages",
@@ -268,7 +265,6 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
     trimmed_counts: Dict[str, int] = {}
     steps = [
         ("matches", lambda: _trim_columnar_rows(payload, "matches")),
-        ("call_graph", lambda: _trim_columnar_rows(payload, "call_graph")),
         ("import_graph", lambda: _trim_columnar_rows(payload, "import_graph")),
         ("reuse_candidates", lambda: _trim_columnar_rows(payload, "reuse_candidates")),
         ("manual_notes", lambda: _trim_list_field(payload, "manual_notes")),
@@ -293,7 +289,6 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
         ("call_graph_edges_truncated", lambda: _drop_field(payload, "call_graph_edges_truncated")),
         ("call_graph_filter", lambda: _drop_field(payload, "call_graph_filter")),
         ("drop.matches", lambda: _drop_columnar_if_empty(payload, "matches")),
-        ("drop.call_graph", lambda: _drop_columnar_if_empty(payload, "call_graph")),
         ("drop.import_graph", lambda: _drop_columnar_if_empty(payload, "import_graph")),
         ("drop.reuse_candidates", lambda: _drop_columnar_if_empty(payload, "reuse_candidates")),
         ("drop.profile", lambda: _drop_field(payload, "profile")),
@@ -560,10 +555,7 @@ def build_research_context_pack(
         "manual_notes": manual_notes,
         "reuse_candidates": _pack_reuse(payload.get("reuse_candidates") or [], lim["reuse_candidates"]),
         "matches": _pack_matches(payload.get("matches") or [], lim["matches"], lim["match_snippet_chars"]),
-        "call_graph": _pack_call_graph(payload.get("call_graph") or [], lim["call_graph"]),
         "import_graph": _pack_import_graph(payload.get("import_graph") or [], lim["import_graph"]),
-        "call_graph_full_path": payload.get("call_graph_full_path"),
-        "call_graph_full_columnar_path": payload.get("call_graph_full_columnar_path"),
         "call_graph_warning": payload.get("call_graph_warning"),
         "call_graph_engine": payload.get("call_graph_engine"),
         "call_graph_supported_languages": payload.get("call_graph_supported_languages") or [],
@@ -583,7 +575,6 @@ def build_research_context_pack(
         "stats": {
             "matches": len(payload.get("matches") or []),
             "reuse_candidates": len(payload.get("reuse_candidates") or []),
-            "call_graph": len(payload.get("call_graph") or []),
             "import_graph": len(payload.get("import_graph") or []),
         },
     }
@@ -670,9 +661,12 @@ def _pack_call_graph_edges(entries: Iterable[Any], limit: int) -> List[Dict[str,
             {
                 "caller": entry.get("caller"),
                 "callee": entry.get("callee"),
-                "file": entry.get("file"),
-                "line": entry.get("line"),
-                "language": entry.get("language"),
+                "caller_file": entry.get("caller_file") or entry.get("file"),
+                "caller_line": entry.get("caller_line") or entry.get("line"),
+                "callee_file": entry.get("callee_file") or entry.get("file"),
+                "callee_line": entry.get("callee_line") or entry.get("line"),
+                "lang": entry.get("lang") or entry.get("language"),
+                "type": entry.get("type"),
             }
         )
     return packed
@@ -694,19 +688,29 @@ def build_call_graph_pack(
     *,
     source_path: Optional[str] = None,
     limits: Optional[Dict[str, int]] = None,
+    edges_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     lim = {**CALL_GRAPH_LIMITS, **(limits or {})}
-    edges = payload.get("call_graph") or []
-    edges = [edge for edge in edges if isinstance(edge, dict)]
     caller_counts: Dict[str, int] = {}
     file_counts: Dict[str, int] = {}
-    for edge in edges:
+    edges_sample: List[Dict[str, Any]] = []
+    edges_total = 0
+    if edges_path is None:
+        edges_rel = payload.get("call_graph_edges_path")
+        if edges_rel:
+            edges_path = Path(edges_rel)
+
+    for edge in _iter_jsonl(edges_path) if edges_path and edges_path.exists() else []:
+        edges_total += 1
         caller = str(edge.get("caller") or "").strip()
         if caller:
             caller_counts[caller] = caller_counts.get(caller, 0) + 1
-        file_path = str(edge.get("file") or "").strip()
+        file_path = str(edge.get("caller_file") or edge.get("file") or "").strip()
         if file_path:
             file_counts[file_path] = file_counts.get(file_path, 0) + 1
+        if len(edges_sample) < lim["edges"]:
+            edges_sample.append(edge)
+
     entrypoints = [
         {"caller": caller, "count": count}
         for caller, count in sorted(caller_counts.items(), key=lambda item: item[1], reverse=True)
@@ -715,14 +719,17 @@ def build_call_graph_pack(
         {"file": path, "count": count}
         for path, count in sorted(file_counts.items(), key=lambda item: item[1], reverse=True)
     ]
-    warning = payload.get("call_graph_warning") or ""
+    warning = (payload.get("call_graph_warning") or "").strip()
+    if edges_total == 0 and not warning:
+        warning = "call graph produced 0 edges (check filters/paths)."
     warning_lower = warning.lower()
-    unavailable = any(
+    unavailable = edges_total == 0 or any(
         token in warning_lower
         for token in ("tree-sitter", "tree_sitter", "graph-engine none", "call graph disabled", "engine not available")
     )
     status = "unavailable" if unavailable else "ok"
     how_to_enable = _call_graph_how_to_enable(warning) if status != "ok" else None
+    edges_stats = payload.get("call_graph_edges_stats") or {}
     packed = {
         "schema": SCHEMA,
         "pack_version": PACK_VERSION,
@@ -737,17 +744,16 @@ def build_call_graph_pack(
         "warning": warning,
         "how_to_enable": how_to_enable,
         "links": {
-            "full": payload.get("call_graph_full_path"),
-            "columnar": payload.get("call_graph_full_columnar_path"),
             "edges": payload.get("call_graph_edges_path"),
         },
         "entrypoints": _truncate_list(entrypoints, lim["entrypoints"]),
         "hotspots": _truncate_list(hotspots, lim["hotspots"]),
-        "edges": _pack_call_graph_edges(edges, lim["edges"]),
+        "edges": _pack_call_graph_edges(edges_sample, lim["edges"]),
         "stats": {
-            "edges": len(edges),
-            "edges_total": (payload.get("call_graph_edges_stats") or {}).get("edges_total"),
-            "edges_written": (payload.get("call_graph_edges_stats") or {}).get("edges_written"),
+            "edges": len(edges_sample),
+            "edges_total": edges_total,
+            "edges_scanned": edges_stats.get("edges_scanned"),
+            "edges_written": edges_stats.get("edges_written"),
             "edges_truncated": payload.get("call_graph_edges_truncated"),
         },
         "schema_version": payload.get("call_graph_edges_schema"),
@@ -755,21 +761,25 @@ def build_call_graph_pack(
     return packed
 
 
+def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    yield payload
+    except OSError:
+        return
+
+
 def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
-    if not path.exists():
-        return items
-    for line in path.read_text(encoding="utf-8").splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            items.append(payload)
-    return items
+    return list(_iter_jsonl(path)) if path.exists() else []
 
 
 def build_ast_grep_pack(
@@ -1024,7 +1034,14 @@ def write_call_graph_pack(
     else:
         source_path = path.as_posix()
 
-    pack = build_call_graph_pack(payload, source_path=source_path, limits=limits)
+    edges_path = None
+    edges_rel = payload.get("call_graph_edges_path")
+    if edges_rel:
+        candidate = Path(edges_rel)
+        if root and not candidate.is_absolute():
+            candidate = (root / candidate).resolve()
+        edges_path = candidate
+    pack = build_call_graph_pack(payload, source_path=source_path, limits=limits, edges_path=edges_path)
     ext = _pack_extension()
     ticket = payload.get("ticket") or "unknown"
     default_path = path.with_name(f"{ticket}-call-graph{ext}")

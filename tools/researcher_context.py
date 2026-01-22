@@ -100,63 +100,36 @@ def _utc_timestamp() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-_CALL_GRAPH_FULL_COLS: Tuple[str, ...] = (
-    "caller",
-    "callee",
-    "file",
-    "line",
-    "language",
-    "caller_raw",
-)
-_TRIM_WARNING_RE = re.compile(r"(?:^|\s)call graph trimmed to \d+ edges\.?")
+def _edge_matches(edge: Dict[str, Any], regex: Optional[re.Pattern[str]]) -> bool:
+    if not regex:
+        return True
+    return any(
+        regex.search(str(edge.get(key, "")))
+        for key in ("file", "caller", "callee", "caller_raw", "caller_file", "callee_file")
+    )
 
 
-def _columnar_call_graph(edges: List[Dict[str, Any]], imports: List[Dict[str, Any]]) -> Dict[str, Any]:
-    cols = list(_CALL_GRAPH_FULL_COLS)
-    rows = [
-        [
-            edge.get("caller"),
-            edge.get("callee"),
-            edge.get("file"),
-            edge.get("line"),
-            edge.get("language"),
-            edge.get("caller_raw"),
-        ]
-        for edge in edges
-    ]
-    return {
-        "schema": "aidd.call-graph.v1",
-        "generated_at": _utc_timestamp(),
-        "cols": cols,
-        "rows": rows,
-        "imports": imports,
-    }
+class _FilteredEdgeStream:
+    def __init__(self, edges: Iterable[Dict[str, Any]], *, regex: Optional[re.Pattern[str]], max_edges: int) -> None:
+        self._edges = iter(edges)
+        self._regex = regex
+        self._max_edges = max_edges if max_edges and max_edges > 0 else 0
+        self.edges_scanned = 0
+        self.edges_written = 0
+        self.truncated = False
 
-
-def _select_graph_edges(
-    graph: Dict[str, Any],
-    graph_mode: str,
-    graph_limit: int,
-) -> Tuple[List[Dict[str, Any]], str]:
-    edges_full = graph.get("edges_full")
-    if edges_full is None:
-        edges_full = graph.get("edges") or []
-    edges_focus = graph.get("edges") or []
-    if graph_mode == "full":
-        return list(edges_full), "full"
-    if graph_mode == "focus":
-        return list(edges_focus), "focus"
-    if len(edges_full) <= graph_limit:
-        return list(edges_full), "full"
-    return list(edges_focus), "focus"
-
-
-def _strip_trim_warning(warning: str) -> str:
-    if not warning:
-        return ""
-    cleaned = _TRIM_WARNING_RE.sub("", warning)
-    cleaned = re.sub(r"\s{2,}", " ", cleaned)
-    return cleaned.strip()
+    def __iter__(self) -> Iterable[Dict[str, Any]]:
+        for edge in self._edges:
+            self.edges_scanned += 1
+            if not isinstance(edge, dict):
+                continue
+            if not _edge_matches(edge, self._regex):
+                continue
+            if self._max_edges and self.edges_written >= self._max_edges:
+                self.truncated = True
+                break
+            self.edges_written += 1
+            yield edge
 
 
 def _emit_call_graph_warning(prefix: str, warning: Optional[str]) -> None:
@@ -1162,16 +1135,15 @@ class ResearcherContextBuilder:
         engine_name: str = "auto",
         engine: Optional["_CallGraphEngine"] = None,
         graph_filter: Optional[str] = None,
-        graph_limit: int = _DEFAULT_GRAPH_LIMIT,
+        edges_max: int = _DEFAULT_GRAPH_LIMIT,
     ) -> Dict[str, Any]:
         callgraph_langs = [lang for lang in languages if lang in _CALLGRAPH_LANGS]
         files = self._iter_callgraph_files(roots, callgraph_langs)
         base: Dict[str, Any] = {
             "engine": engine_name,
             "supported_languages": [],
-            "edges": [],
             "imports": [],
-            "edges_full": [],
+            "edges_stream": _FilteredEdgeStream((), regex=None, max_edges=0),
         }
         if not files or not callgraph_langs:
             base["warning"] = "call graph disabled or no supported files"
@@ -1184,39 +1156,39 @@ class ResearcherContextBuilder:
         if selected_engine is None:
             base["warning"] = "call graph engine not available"
             return base
-        result = selected_engine.build(files) or {}
-        result.setdefault("engine", selected_engine.name)
-        result.setdefault("supported_languages", list(selected_engine.supported_languages))
-        edges = result.get("edges") or []
-        imports = result.get("imports") or []
-
-        focus_filter = graph_filter or ""
-        trimmed_edges = edges
-        trimmed = False
-        if focus_filter:
+        regex = None
+        if graph_filter:
             try:
-                regex = re.compile(focus_filter, re.IGNORECASE)
-                trimmed_edges = [
-                    edge
-                    for edge in edges
-                    if regex.search(edge.get("file", ""))
-                    or regex.search(str(edge.get("caller", "")))
-                    or regex.search(str(edge.get("callee", "")))
-                ]
+                regex = re.compile(graph_filter, re.IGNORECASE)
             except re.error:
-                trimmed_edges = edges
-        if graph_limit and len(trimmed_edges) > graph_limit:
-            trimmed_edges = trimmed_edges[:graph_limit]
-            trimmed = True
+                regex = None
 
-        result["edges_full"] = edges
-        result["edges"] = trimmed_edges
-        result["imports"] = imports
-        if trimmed:
-            warning = (result.get("warning") or "").strip()
-            suffix = f"call graph trimmed to {graph_limit} edges."
-            result["warning"] = f"{warning} {suffix}".strip()
-        return result
+        warning = ""
+        if hasattr(selected_engine, "_load_error"):
+            warning = getattr(selected_engine, "_load_error") or ""
+
+        if hasattr(selected_engine, "iter_edges"):
+            edges_iter = selected_engine.iter_edges(files)
+            if edges_iter is None:
+                edges_iter = iter(())
+            imports_iter = None
+            if hasattr(selected_engine, "iter_imports"):
+                imports_iter = selected_engine.iter_imports(files)
+            imports = list(imports_iter or [])
+        else:
+            result = selected_engine.build(files) or {}
+            edges_iter = iter(result.get("edges") or [])
+            imports = result.get("imports") or []
+            warning = warning or (result.get("warning") or "")
+
+        edge_stream = _FilteredEdgeStream(edges_iter, regex=regex, max_edges=edges_max)
+        return {
+            "engine": getattr(selected_engine, "name", engine_name),
+            "supported_languages": list(getattr(selected_engine, "supported_languages", [])),
+            "imports": imports,
+            "edges_stream": edge_stream,
+            "warning": warning,
+        }
 
     def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
         index: List[Dict[str, Any]] = []
@@ -1558,8 +1530,13 @@ class _TreeSitterEngine(_CallGraphEngine):
         if self._load_error or not self._parser_loader:
             return {"edges": [], "imports": [], "warning": self._load_error or "tree-sitter unavailable"}
 
-        edges: List[Dict[str, Any]] = []
-        imports: List[Dict[str, Any]] = []
+        edges = list(self.iter_edges(files))
+        imports = list(self.iter_imports(files))
+        return {"edges": edges, "imports": imports}
+
+    def iter_edges(self, files: Sequence[Path]) -> Iterable[Dict[str, Any]]:
+        if self._load_error or not self._parser_loader:
+            return
         for path in files:
             suffix = path.suffix.lower()
             parser = self._parser_for_suffix(suffix)
@@ -1573,9 +1550,21 @@ class _TreeSitterEngine(_CallGraphEngine):
                 tree = parser.parse(source)
             except Exception:
                 continue
-            imports.extend(self._ts_imports(path, source))
-            edges.extend(self._ts_edges(path, source, tree))
-        return {"edges": edges, "imports": imports}
+            yield from self._ts_edges(path, source, tree)
+
+    def iter_imports(self, files: Sequence[Path]) -> Iterable[Dict[str, Any]]:
+        if self._load_error or not self._parser_loader:
+            return
+        for path in files:
+            suffix = path.suffix.lower()
+            parser = self._parser_for_suffix(suffix)
+            if parser is None:
+                continue
+            try:
+                source = path.read_bytes()
+            except OSError:
+                continue
+            yield from self._ts_imports(path, source)
 
     def _ts_imports(self, path: Path, source: bytes) -> List[Dict[str, Any]]:
         # simple text-based import extraction to avoid grammar coupling
@@ -1590,9 +1579,8 @@ class _TreeSitterEngine(_CallGraphEngine):
             collected.append({"file": path.as_posix(), "imports": imports})
         return collected
 
-    def _ts_edges(self, path: Path, source: bytes, tree: Any) -> List[Dict[str, Any]]:
+    def _ts_edges(self, path: Path, source: bytes, tree: Any) -> Iterable[Dict[str, Any]]:
         text = source.decode("utf-8", errors="ignore")
-        edges: List[Dict[str, Any]] = []
         package = ""
         for line in text.splitlines():
             stripped = line.strip()
@@ -1605,7 +1593,7 @@ class _TreeSitterEngine(_CallGraphEngine):
 
         callers: List[Dict[str, Any]] = []
 
-        def walk(node: Any, parents: List[Any]) -> None:
+        def walk(node: Any, parents: List[Any]) -> Iterable[Dict[str, Any]]:
             node_type = getattr(node, "type", "")
             if node_type in {"class_declaration", "object_declaration", "class_body", "interface_declaration"}:
                 # record container scope
@@ -1645,18 +1633,16 @@ class _TreeSitterEngine(_CallGraphEngine):
                     if "id" in parent:
                         caller = parent
                         break
-                edges.append(
-                    {
-                        "caller": (caller.get("fqn") or caller.get("id")) if caller else None,
-                        "caller_raw": caller.get("id") if caller else None,
-                        "callee": callee or None,
-                        "file": path.as_posix(),
-                        "line": getattr(node, "start_point", (0, 0))[0] + 1,
-                        "language": "java" if path.suffix.lower() == ".java" else "kotlin",
-                    }
-                )
+                yield {
+                    "caller": (caller.get("fqn") or caller.get("id")) if caller else None,
+                    "caller_raw": caller.get("id") if caller else None,
+                    "callee": callee or None,
+                    "file": path.as_posix(),
+                    "line": getattr(node, "start_point", (0, 0))[0] + 1,
+                    "language": "java" if path.suffix.lower() == ".java" else "kotlin",
+                }
             for child in getattr(node, "children", []):
-                walk(child, parents + [node])
+                yield from walk(child, parents + [node])
             # pop scopes when leaving node
             if node_type in {
                 "method_declaration",
@@ -1670,8 +1656,7 @@ class _TreeSitterEngine(_CallGraphEngine):
                 if callers:
                     callers.pop()
 
-        walk(tree.root_node, [])
-        return edges
+        return walk(tree.root_node, [])
 
 
 def _load_callgraph_engine(engine_name: str) -> Optional[_CallGraphEngine]:
@@ -1750,13 +1735,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--graph-limit",
         type=int,
         default=_DEFAULT_GRAPH_LIMIT,
-        help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+        help=(
+            f"Maximum number of call graph edges when call_graph.edges_max is unset "
+            f"(default: {_DEFAULT_GRAPH_LIMIT})."
+        ),
     )
     parser.add_argument(
         "--graph-mode",
         choices=["auto", "focus", "full"],
         default="auto",
-        help="Graph selection for context: auto (full if small), focus (filter+limit), full (no filter/limit).",
+        help="Graph selection for context: auto (focus unless full), focus (filter+limit), full (no filter).",
     )
     parser.add_argument(
         "--auto",
@@ -1806,6 +1794,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         builder,
         getattr(args, "graph_filter", None),
     )
+    graph_settings = builder.call_graph_settings()
+    try:
+        edges_max = int(graph_settings.get("edges_max", 0))
+    except (TypeError, ValueError):
+        edges_max = 0
     raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
     try:
         graph_limit = int(raw_limit)
@@ -1813,6 +1806,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         graph_limit = _DEFAULT_GRAPH_LIMIT
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
+    edges_limit = edges_max if edges_max and edges_max > 0 else graph_limit
+    filter_for_edges = None if graph_mode == "full" else graph_filter
 
     deep_code_enabled = bool(args.deep_code)
     call_graph_requested = bool(args.call_graph)
@@ -1851,12 +1846,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context["deep_mode"] = False
     graph_enabled = graph_engine != "none"
     should_build_graph = graph_enabled and (call_graph_requested or deep_code_enabled)
-    context["call_graph"] = []
     context["import_graph"] = []
     context["call_graph_engine"] = graph_engine
     context["call_graph_supported_languages"] = []
-    context["call_graph_filter"] = graph_filter
-    context["call_graph_limit"] = graph_limit
+    context["call_graph_filter"] = filter_for_edges
+    context["call_graph_limit"] = edges_limit
     context["filter_stats"] = filter_stats
     context["filter_trimmed"] = filter_trimmed
     context["call_graph_warning"] = ""
@@ -1866,39 +1860,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             roots=search_roots,
             languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
             engine_name=graph_engine,
-            graph_filter=graph_filter,
-            graph_limit=graph_limit,
+            graph_filter=filter_for_edges,
+            edges_max=edges_limit,
         )
-        selected_edges, selected_mode = _select_graph_edges(graph, graph_mode, graph_limit)
-        context["call_graph"] = selected_edges
+        edge_stream = graph.get("edges_stream")
+        if edge_stream is None:
+            edge_stream = []
         context["import_graph"] = graph.get("imports", [])
         context["call_graph_engine"] = graph.get("engine", graph_engine)
         context["call_graph_supported_languages"] = graph.get("supported_languages", [])
         warning = graph.get("warning") or ""
-        if selected_mode == "full":
-            warning = _strip_trim_warning(warning)
-        context["call_graph_warning"] = warning
         _emit_call_graph_warning("[researcher]", warning)
-
-        full_edges = graph.get("edges_full")
-        if full_edges is None:
-            full_edges = graph.get("edges") or []
-        full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
-        full_path = _normalize_output_path(root, full_path)
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_payload = {"edges": full_edges, "imports": graph.get("imports", [])}
-        full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
-        context["call_graph_full_path"] = os.path.relpath(full_path, root)
-        columnar_path = full_path.with_suffix(".cjson")
         try:
-            columnar_payload = _columnar_call_graph(
-                full_payload.get("edges", []),
-                full_payload.get("imports", []),
-            )
-            columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
-            context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, root)
+            from tools import call_graph_views
+
+            edges_path = Path(f"aidd/reports/research/{ticket}-call-graph.edges.jsonl")
+            edges_path = _normalize_output_path(root, edges_path)
+            edges_written, _ = call_graph_views.write_edges_jsonl(edge_stream, edges_path)
+            truncated = bool(getattr(edge_stream, "truncated", False))
+            if truncated:
+                suffix = f"call graph truncated to {edges_written} edges."
+                warning = f"{warning} {suffix}".strip()
+            context["call_graph_edges_path"] = os.path.relpath(edges_path, root)
+            context["call_graph_edges_schema"] = call_graph_views.EDGE_SCHEMA
+            context["call_graph_edges_stats"] = {
+                "edges_scanned": getattr(edge_stream, "edges_scanned", edges_written),
+                "edges_written": edges_written,
+                "edges_limit": edges_limit,
+            }
+            context["call_graph_edges_truncated"] = truncated
         except OSError:
             pass
+        context["call_graph_warning"] = warning
     elif graph_engine == "none" and (call_graph_requested or deep_code_enabled):
         context["call_graph_warning"] = "call graph disabled (graph-engine none)"
     context["auto_mode"] = bool(args.auto)
@@ -1927,20 +1920,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"[researcher] pack saved to {rel_pack}.")
     except Exception as exc:
         print(f"[researcher] WARN: failed to generate pack: {exc}", file=sys.stderr)
-    full_edges_count = 0
-    if context.get("call_graph_full_path"):
-        try:
-            full_payload = json.loads((root / context["call_graph_full_path"]).read_text(encoding="utf-8"))
-            full_edges_count = len(full_payload.get("edges") or [])
-        except Exception:
-            full_edges_count = 0
     message = f"[researcher] context saved to {rel_output} ({match_count} matches"
     if deep_code_enabled:
         reuse_count = len(context.get("reuse_candidates") or [])
         message += f", {reuse_count} reuse candidates"
     if should_build_graph:
-        graph_edges = len(context.get("call_graph") or [])
-        message += f", {graph_edges} call edges (full: {full_edges_count})"
+        graph_edges = (context.get("call_graph_edges_stats") or {}).get("edges_written") or 0
+        message += f", {graph_edges} call edges"
     message += ")."
     print(message)
     pack_only = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")

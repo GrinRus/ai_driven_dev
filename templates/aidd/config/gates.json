@@ -145,7 +145,6 @@
     "baseline_phrase": "контекст пуст"
   },
   "call_graph": {
-    "raw_size_mb": 5,
     "require_pack": true,
     "require_edges": true,
     "required_for_langs": [

@@ -8,13 +8,21 @@ EDGE_SCHEMA = "aidd.call_graph_edge.v1"
 
 
 def _edge_record(edge: Dict[str, object]) -> Dict[str, object]:
+    caller_file = edge.get("caller_file") or edge.get("file")
+    caller_line = edge.get("caller_line") or edge.get("line")
+    callee_file = edge.get("callee_file") or edge.get("file")
+    callee_line = edge.get("callee_line") or edge.get("line")
+    lang = edge.get("lang") or edge.get("language")
     return {
         "schema": EDGE_SCHEMA,
         "caller": edge.get("caller"),
         "callee": edge.get("callee"),
-        "file": edge.get("file"),
-        "line": edge.get("line"),
-        "language": edge.get("language"),
+        "caller_file": caller_file,
+        "caller_line": caller_line,
+        "callee_file": callee_file,
+        "callee_line": callee_line,
+        "lang": lang,
+        "type": edge.get("type") or "call",
         "caller_raw": edge.get("caller_raw"),
     }
 

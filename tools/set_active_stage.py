@@ -20,7 +20,6 @@ VALID_STAGES = {
     "qa",
 }
 
-
 def _normalize_stage(value: str) -> str:
     return value.strip().lower().replace(" ", "-")
 

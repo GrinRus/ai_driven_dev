@@ -12,10 +12,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools.researcher_context import (
-    ResearcherContextBuilder,
-    _columnar_call_graph,
-)
+from tools.researcher_context import ResearcherContextBuilder
 
 from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
 
@@ -113,21 +110,6 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("src/main", scope.paths)
         self.assertIn("docs/research", scope.docs)
 
-    def test_columnar_call_graph_format(self) -> None:
-        edges = [
-            {
-                "caller": "demo.Service",
-                "callee": "run",
-                "file": "src/main/kotlin/App.kt",
-                "line": 12,
-                "language": "kotlin",
-                "caller_raw": "Service",
-            }
-        ]
-        payload = _columnar_call_graph(edges, [{"file": "src/main/kotlin/App.kt", "imports": ["demo"]}])
-        self.assertEqual(payload.get("cols"), ["caller", "callee", "file", "line", "language", "caller_raw"])
-        self.assertEqual(payload.get("rows")[0][0], "demo.Service")
-
     def test_builder_merges_multiple_tags(self) -> None:
         config_path = self.root / "config" / "conventions.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -224,7 +206,8 @@ class ResearcherContextTests(unittest.TestCase):
         )
 
         self.assertIn("tree-sitter", graph.get("warning", ""))
-        self.assertIn("edges_full", graph)
+        edge_stream = graph.get("edges_stream")
+        self.assertEqual(list(edge_stream or []), [])
 
     def test_detect_tests_ignores_vendor_dirs(self) -> None:
         (self.root / "node_modules" / "pkg" / "test").mkdir(parents=True, exist_ok=True)

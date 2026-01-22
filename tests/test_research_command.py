@@ -141,17 +141,16 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertTrue(context_path.exists(), "research context JSON should be generated")
             payload = json.loads(context_path.read_text(encoding="utf-8"))
             self.assertGreaterEqual(len(payload.get("matches") or []), 1, "workspace code should be indexed")
-            self.assertGreaterEqual(len(payload.get("call_graph") or []), 1, "call graph should include edges")
             self.assertTrue(payload.get("deep_mode"), "auto JVM scan should enable deep mode")
             self.assertIn("call_graph_filter", payload)
             self.assertIn("call_graph_limit", payload)
             self.assertIn("call_graph_warning", payload)
-            full_graph_rel = payload.get("call_graph_full_path")
-            self.assertTrue(full_graph_rel, "call graph full path should be recorded")
-            full_graph_path = project_root / full_graph_rel
-            self.assertTrue(full_graph_path.exists(), "call graph full file should be saved")
-            full_graph = json.loads(full_graph_path.read_text(encoding="utf-8"))
-            self.assertGreaterEqual(len(full_graph.get("edges") or []), 1)
+            edges_rel = payload.get("call_graph_edges_path")
+            self.assertTrue(edges_rel, "call graph edges path should be recorded")
+            edges_path = project_root / edges_rel
+            self.assertTrue(edges_path.exists(), "call graph edges file should be saved")
+            edges = [json.loads(line) for line in edges_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertGreaterEqual(len(edges), 1)
             self.assertTrue(
                 any(match.get("file", "").startswith("src/") for match in payload.get("matches") or []),
                 "matches should be reported relative to workspace root",
@@ -247,7 +246,7 @@ class ResearchCommandTest(unittest.TestCase):
             context_path = project_root / "reports" / "research" / "PY-1-context.json"
             payload = json.loads(context_path.read_text(encoding="utf-8"))
             self.assertFalse(payload.get("deep_mode"), "non-JVM auto scan should remain fast")
-            self.assertEqual(payload.get("call_graph"), [])
+            self.assertFalse(payload.get("call_graph_edges_path"))
 
     @mock.patch("tools.researcher_context._load_callgraph_engine")
     def test_research_command_warns_on_missing_tree_sitter(self, mock_engine):
@@ -392,8 +391,12 @@ class ResearchCommandTest(unittest.TestCase):
 
             context_path = project_root / "reports" / "research" / "GRAPH-1-context.json"
             payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(len(payload.get("call_graph") or []), 2, "full graph mode should keep all edges")
-            self.assertNotIn("trimmed", payload.get("call_graph_warning", ""))
+            edges_rel = payload.get("call_graph_edges_path")
+            self.assertTrue(edges_rel)
+            edges_path = project_root / edges_rel
+            edges = [json.loads(line) for line in edges_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(edges), 2, "full graph mode should keep all edges")
+            self.assertNotIn("truncated", payload.get("call_graph_warning", ""))
 
 
 if __name__ == "__main__":

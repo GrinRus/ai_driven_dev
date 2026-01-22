@@ -64,11 +64,6 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate-stage-writes.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate-tests.sh",
             "timeout": 5
           },
@@ -102,11 +97,6 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate-workflow.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/gate-stage-writes.sh",
             "timeout": 5
           },
           {

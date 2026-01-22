@@ -8,7 +8,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from tools import runtime
 
@@ -20,23 +20,26 @@ def _pack_extension() -> str:
     return ".pack.toon" if os.getenv("AIDD_PACK_FORMAT", "").strip().lower() == "toon" else ".pack.yaml"
 
 
-def _hash_query(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+def _hash_slice_key(query: str, paths: Sequence[str], langs: Sequence[str]) -> str:
+    parts = [query]
+    if paths:
+        parts.append("paths=" + ",".join(paths))
+    if langs:
+        parts.append("langs=" + ",".join(langs))
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:10]
 
 
-def _load_context_edges_path(root: Path, ticket: str) -> Tuple[Optional[Path], Optional[Path]]:
+def _load_context_edges_path(root: Path, ticket: str) -> Optional[Path]:
     context_path = root / "reports" / "research" / f"{ticket}-context.json"
     if not context_path.exists():
-        return None, None
+        return None
     try:
         payload = json.loads(context_path.read_text(encoding="utf-8"))
     except Exception:
-        return None, None
+        return None
     edges_path = payload.get("call_graph_edges_path")
-    full_path = payload.get("call_graph_full_path")
     resolved_edges = runtime.resolve_path_for_target(Path(edges_path), root) if edges_path else None
-    resolved_full = runtime.resolve_path_for_target(Path(full_path), root) if full_path else None
-    return resolved_edges, resolved_full
+    return resolved_edges
 
 
 def _compile_query(query: str) -> re.Pattern[str]:
@@ -47,11 +50,29 @@ def _compile_query(query: str) -> re.Pattern[str]:
 
 
 def _edge_matches(edge: Dict[str, object], pattern: re.Pattern[str]) -> bool:
-    for key in ("caller", "callee", "file", "caller_raw"):
+    for key in ("caller", "callee", "caller_file", "callee_file", "file", "caller_raw"):
         value = edge.get(key)
         if value and pattern.search(str(value)):
             return True
     return False
+
+
+def _edge_matches_paths(edge: Dict[str, object], paths: Sequence[str]) -> bool:
+    if not paths:
+        return True
+    caller_file = str(edge.get("caller_file") or edge.get("file") or "")
+    callee_file = str(edge.get("callee_file") or edge.get("file") or "")
+    for token in paths:
+        if token and (token in caller_file or token in callee_file):
+            return True
+    return False
+
+
+def _edge_matches_lang(edge: Dict[str, object], langs: Sequence[str]) -> bool:
+    if not langs:
+        return True
+    lang = str(edge.get("lang") or edge.get("language") or "").lower()
+    return lang in langs
 
 
 def _iter_edges_from_jsonl(path: Path) -> Iterable[Dict[str, object]]:
@@ -71,23 +92,14 @@ def _iter_edges_from_jsonl(path: Path) -> Iterable[Dict[str, object]]:
         return
 
 
-def _iter_edges_from_full(path: Path) -> Iterable[Dict[str, object]]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    edges = payload.get("edges") if isinstance(payload, dict) else []
-    if not isinstance(edges, list):
-        return []
-    return (edge for edge in edges if isinstance(edge, dict))
-
-
 def _collect_slice(
     edges: Iterable[Dict[str, object]],
     pattern: re.Pattern[str],
     *,
     max_edges: int,
     max_nodes: int,
+    paths: Sequence[str],
+    langs: Sequence[str],
 ) -> Tuple[List[Dict[str, object]], List[str], bool]:
     selected: List[Dict[str, object]] = []
     nodes: List[str] = []
@@ -97,6 +109,10 @@ def _collect_slice(
         if max_edges and len(selected) >= max_edges:
             truncated = True
             break
+        if not _edge_matches_lang(edge, langs):
+            continue
+        if not _edge_matches_paths(edge, paths):
+            continue
         if not _edge_matches(edge, pattern):
             continue
         caller = str(edge.get("caller") or "").strip()
@@ -109,9 +125,12 @@ def _collect_slice(
             {
                 "caller": edge.get("caller"),
                 "callee": edge.get("callee"),
-                "file": edge.get("file"),
-                "line": edge.get("line"),
-                "language": edge.get("language"),
+                "caller_file": edge.get("caller_file") or edge.get("file"),
+                "caller_line": edge.get("caller_line") or edge.get("line"),
+                "callee_file": edge.get("callee_file") or edge.get("file"),
+                "callee_line": edge.get("callee_line") or edge.get("line"),
+                "lang": edge.get("lang") or edge.get("language"),
+                "type": edge.get("type"),
             }
         )
         for node in new_nodes:
@@ -132,6 +151,11 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--query", required=True, help="Regex or token to match in call graph edges.")
     parser.add_argument("--max-edges", type=int, default=40, help="Maximum number of edges to include.")
     parser.add_argument("--max-nodes", type=int, default=20, help="Maximum number of nodes to include.")
+    parser.add_argument(
+        "--paths",
+        help="Optional comma-separated list of path fragments to keep (matches caller/callee file).",
+    )
+    parser.add_argument("--lang", help="Optional comma-separated list of languages to keep (kt,kts,java,py,js).")
     parser.add_argument("--out", default=None, help="Optional output path for the pack.")
     return parser.parse_args(argv)
 
@@ -141,24 +165,19 @@ def main(argv: List[str] | None = None) -> int:
     _, target = runtime.require_workflow_root()
     ticket, context = runtime.require_ticket(target, ticket=args.ticket, slug_hint=None)
 
-    edges_path, full_path = _load_context_edges_path(target, ticket)
+    edges_path = _load_context_edges_path(target, ticket)
     if edges_path is None:
         edges_path = target / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
-    if full_path is None:
-        full_path = target / "reports" / "research" / f"{ticket}-call-graph-full.json"
 
     pattern = _compile_query(args.query)
     max_edges = max(1, int(args.max_edges)) if args.max_edges else 40
     max_nodes = max(1, int(args.max_nodes)) if args.max_nodes else 20
+    paths = [token.strip() for token in str(args.paths or "").split(",") if token.strip()]
+    langs = [token.strip().lower() for token in str(args.lang or "").split(",") if token.strip()]
 
-    edge_source = None
     edges_iter: Iterable[Dict[str, object]]
     if edges_path and edges_path.exists():
-        edge_source = edges_path
         edges_iter = _iter_edges_from_jsonl(edges_path)
-    elif full_path and full_path.exists():
-        edge_source = full_path
-        edges_iter = _iter_edges_from_full(full_path)
     else:
         raise SystemExit("No call-graph edges available; generate research call-graph first.")
 
@@ -167,11 +186,13 @@ def main(argv: List[str] | None = None) -> int:
         pattern,
         max_edges=max_edges,
         max_nodes=max_nodes,
+        paths=paths,
+        langs=langs,
     )
 
     out_dir = target / "reports" / "context"
     ext = _pack_extension()
-    query_hash = _hash_query(args.query)
+    query_hash = _hash_slice_key(args.query, paths, langs)
     default_path = out_dir / f"{ticket}-graph-slice-{query_hash}{ext}"
     output_path = runtime.resolve_path_for_target(Path(args.out), target) if args.out else default_path
     latest_path = out_dir / f"{ticket}-graph-slice.latest{ext}"
@@ -186,8 +207,7 @@ def main(argv: List[str] | None = None) -> int:
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "query": args.query,
         "links": {
-            "edges": runtime.rel_path(edge_source, target) if edge_source else None,
-            "full": runtime.rel_path(full_path, target) if full_path and full_path.exists() else None,
+            "edges": runtime.rel_path(edges_path, target) if edges_path else None,
         },
         "stats": {
             "edges": len(edges),

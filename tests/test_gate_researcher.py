@@ -79,7 +79,6 @@ def _write_context(
             "generated_at": _utc_now(),
             "profile": {"is_new_project": is_new},
             "auto_mode": auto_mode,
-            "call_graph": [],
             "import_graph": [],
             "call_graph_engine": call_graph_engine,
             "call_graph_supported_languages": [],

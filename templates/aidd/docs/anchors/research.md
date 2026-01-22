@@ -8,7 +8,7 @@
 ## Graph Read Policy
 - MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
 - MUST: точечный `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
-- MUST NOT: `Read` full `*-call-graph-full.json` или `*.cjson`.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
 
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:RESEARCH_HINTS
@@ -24,7 +24,7 @@
 - `tests_evidence`/`suggested_test_tasks` помогают понять, где есть тесты и что запускать.
 - `call_graph_edges_path`/`call_graph_edges_stats` указывают view `*-call-graph.edges.jsonl` и его лимиты.
 - `ast_grep_path`/`ast_grep_stats` указывают структурный scan и его лимиты.
-- `*-call-graph.edges.jsonl` schema (v1): `schema`, `caller`, `callee`, `file`, `line`, `language`.
+- `*-call-graph.edges.jsonl` schema (v1): `schema`, `caller`, `callee`, `caller_file`, `caller_line`, `callee_file`, `callee_line`, `lang`, `type`.
 - `*-ast-grep.jsonl` schema (v1): `schema`, `rule_id`, `path`, `line`, `col`, `snippet`, `message`, `tags`.
 
 ## MUST UPDATE
@@ -39,7 +39,7 @@
 ## MUST NOT
 - Писать “возможно” без файлов/команд.
 - Вставлять большие JSON — только ссылки/pack/slice.
-- Читать full call-graph JSON целиком.
+- Читать `*-call-graph.edges.jsonl` целиком (только `rg`/срезы).
 
 ## Output contract
 - Status: reviewed|pending

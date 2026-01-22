@@ -42,7 +42,6 @@ Artifacts:
 - Pack: {{call_graph_pack_path}}
 - Edges view: {{call_graph_edges_path}}
 - Slice: ${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket {{ticket}} --query "<token>"
-- Raw full graph (DB-only, do not read): {{call_graph_full_path}}
 
 ## AIDD:AST_GREP_EVIDENCE
 - Pack: {{ast_grep_pack_path}}
