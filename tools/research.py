@@ -436,11 +436,20 @@ def run(args: argparse.Namespace) -> int:
         else:
             if ast_grep_stats:
                 collected_context["ast_grep_stats"] = ast_grep_stats
-            if ast_grep_stats and ast_grep_stats.get("reason") not in {"disabled", "langs-not-required"}:
+            if ast_grep_stats:
                 reason = ast_grep_stats.get("reason")
-                if reason == "binary-missing":
+                if reason in {"disabled", "langs-not-required"}:
+                    if reason == "disabled":
+                        detail = (
+                            " (set aidd/config/conventions.json: "
+                            "researcher.ast_grep.enabled=true or required_for_langs=[...])"
+                        )
+                    else:
+                        detail = " (adjust researcher.ast_grep.required_for_langs if needed)"
+                    print(f"[aidd] INFO: ast-grep scan skipped ({reason}){detail}.", file=sys.stderr)
+                elif reason == "binary-missing":
                     print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
-                if reason == "scan-failed":
+                elif reason == "scan-failed":
                     detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
                     detail_suffix = f": {detail}" if detail else ""
                     print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
