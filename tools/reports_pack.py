@@ -1041,23 +1041,47 @@ def write_call_graph_pack(
         if root and not candidate.is_absolute():
             candidate = (root / candidate).resolve()
         edges_path = candidate
-    pack = build_call_graph_pack(payload, source_path=source_path, limits=limits, edges_path=edges_path)
-    ext = _pack_extension()
-    ticket = payload.get("ticket") or "unknown"
-    default_path = path.with_name(f"{ticket}-call-graph{ext}")
-    pack_path = (output or default_path).resolve()
-    text = _serialize_pack(pack)
-    errors = check_budget(
-        text,
-        max_chars=CALL_GRAPH_BUDGET["max_chars"],
-        max_lines=CALL_GRAPH_BUDGET["max_lines"],
-        label="call-graph",
-    )
+    base_limits = {**CALL_GRAPH_LIMITS, **(limits or {})}
+    current_limits = dict(base_limits)
+    trimmed = False
+    errors: List[str] = []
+
+    def _shrink_limits(lim: Dict[str, int]) -> bool:
+        for key in ("edges", "entrypoints", "hotspots"):
+            value = int(lim.get(key, 0) or 0)
+            if value <= 0:
+                continue
+            lim[key] = max(0, value - 1)
+            return True
+        return False
+
+    while True:
+        pack = build_call_graph_pack(payload, source_path=source_path, limits=current_limits, edges_path=edges_path)
+        text = _serialize_pack(pack)
+        errors = check_budget(
+            text,
+            max_chars=CALL_GRAPH_BUDGET["max_chars"],
+            max_lines=CALL_GRAPH_BUDGET["max_lines"],
+            label="call-graph",
+        )
+        if not errors:
+            break
+        if not _shrink_limits(current_limits):
+            break
+        trimmed = True
+
     if errors:
         for error in errors:
             print(f"[pack-budget] {error}", file=sys.stderr)
         if _enforce_budget():
             raise ValueError("; ".join(errors))
+    elif trimmed:
+        print("[pack-trim] call-graph pack trimmed to fit budget.", file=sys.stderr)
+
+    ext = _pack_extension()
+    ticket = payload.get("ticket") or "unknown"
+    default_path = path.with_name(f"{ticket}-call-graph{ext}")
+    pack_path = (output or default_path).resolve()
     return _write_pack_text(text, pack_path)
 
 

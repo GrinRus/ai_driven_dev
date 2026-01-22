@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.11
-source_version: 1.2.11
+prompt_version: 1.2.12
+source_version: 1.2.12
 allowed-tools:
   - Read
   - Edit
@@ -28,7 +28,7 @@ disable-model-invocation: false
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
-- `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback).
+- `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
 - `aidd/reports/research/$1-call-graph.pack.*`, `-call-graph.edges.jsonl`.
 - `aidd/reports/research/$1-ast-grep.pack.*`, `-ast-grep.jsonl`.
 
@@ -63,7 +63,7 @@ generated_at: <UTC ISO-8601>
 - tasklist: aidd/docs/tasklist/$1.md (if exists)
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)
-- research_context: aidd/reports/research/$1-context.json
+- research_context: aidd/reports/research/$1-context.json (optional; read only with offset/limit if pack missing)
 - research_targets: aidd/reports/research/$1-targets.json (if exists)
 
 ## What to do now
@@ -92,7 +92,7 @@ generated_at: <UTC ISO-8601>
 
 ## Ожидаемый вывод
 - Обновлённый `aidd/docs/research/$1.md` (status `pending|reviewed`).
-- Актуальный `aidd/reports/research/$1-context.json`.
+- Актуальный `aidd/reports/research/$1-context.json` (не читать целиком — только pack/фрагменты).
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

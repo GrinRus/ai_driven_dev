@@ -1289,7 +1289,7 @@ def _parse_paths(value: Optional[str]) -> List[str]:
     if not value:
         return []
     items = []
-    for chunk in value.split(":"):
+    for chunk in re.split(r"[,:]", value):
         chunk = chunk.strip()
         if not chunk:
             continue

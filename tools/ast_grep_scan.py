@@ -118,9 +118,22 @@ def _has_rule_files(rule_dir: Path) -> bool:
     if not rule_dir.is_dir():
         return False
     for pattern in ("*.yaml", "*.yml"):
-        if any(rule_dir.glob(pattern)):
+        if any(rule_dir.rglob(pattern)):
             return True
     return False
+
+
+def _gather_rule_files(rule_dirs: Sequence[Path]) -> List[Path]:
+    files: List[Path] = []
+    seen: set[Path] = set()
+    for rule_dir in rule_dirs:
+        for pattern in ("*.yaml", "*.yml"):
+            for path in sorted(rule_dir.rglob(pattern)):
+                if path in seen:
+                    continue
+                seen.add(path)
+                files.append(path)
+    return files
 
 
 def _normalize_match(raw: dict) -> dict:
@@ -224,9 +237,13 @@ def scan_ast_grep(
     if not rule_dirs:
         return None, {"reason": "rules-missing"}
 
+    rule_files = _gather_rule_files(rule_dirs)
+    if not rule_files:
+        return None, {"reason": "rules-missing"}
+
     cmd_base = [binary, "scan"]
-    for rule_dir in rule_dirs:
-        cmd_base.extend(["-r", str(rule_dir)])
+    for rule_file in rule_files:
+        cmd_base.extend(["-r", str(rule_file)])
     cmd_base.append("--json")
 
     batch_size = cfg.batch_size if cfg.batch_size > 0 else len(files)

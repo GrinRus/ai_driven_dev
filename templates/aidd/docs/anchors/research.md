@@ -40,6 +40,7 @@
 - Писать “возможно” без файлов/команд.
 - Вставлять большие JSON — только ссылки/pack/slice.
 - Читать `*-call-graph.edges.jsonl` целиком (только `rg`/срезы).
+- Читать `*-context.json` целиком — только pack или фрагменты (offset/limit).
 
 ## Output contract
 - Status: reviewed|pending
