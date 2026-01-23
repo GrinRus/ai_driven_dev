@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tests.helpers import REPO_ROOT
+from tests.helpers import REPO_ROOT, ensure_project_root
 
 SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
@@ -342,3 +342,155 @@ class ReportsPackTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as exc:
                     reports_pack.write_research_context_pack(context_path, root=tmp_path)
             self.assertIn("pack budget exceeded", str(exc.exception))
+
+    def test_rlm_pack_extracts_snippet_from_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-SNIP-1"
+
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "a.py").write_text("Foo()\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes = [
+                {
+                    "schema": "aidd.rlm_node.v1",
+                    "schema_version": "v1",
+                    "node_kind": "file",
+                    "file_id": "file-a",
+                    "id": "file-a",
+                    "path": "src/a.py",
+                    "rev_sha": "rev-a",
+                    "lang": "py",
+                    "prompt_version": "v1",
+                    "summary": "",
+                    "public_symbols": [],
+                    "key_calls": [],
+                    "framework_roles": [],
+                    "test_hooks": [],
+                    "risks": [],
+                    "verification": "passed",
+                    "missing_tokens": [],
+                }
+            ]
+            nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")
+
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            links = [
+                {
+                    "schema": "aidd.rlm_link.v1",
+                    "schema_version": "v1",
+                    "link_id": "link-1",
+                    "src_file_id": "file-a",
+                    "dst_file_id": "file-a",
+                    "type": "calls",
+                    "evidence_ref": {
+                        "path": "src/a.py",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "extractor": "regex",
+                        "match_hash": "hash",
+                    },
+                    "unverified": False,
+                }
+            ]
+            links_path.write_text("\n".join(json.dumps(item) for item in links) + "\n", encoding="utf-8")
+
+            pack_path = reports_pack.write_rlm_pack(
+                nodes_path,
+                links_path,
+                ticket=ticket,
+                slug_hint=ticket,
+                root=project_root,
+            )
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            snippet = payload.get("links")[0].get("evidence_snippet")
+            self.assertEqual(snippet, "Foo()")
+
+    def test_reports_pack_updates_context_for_rlm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-CTX-1"
+
+            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
+            _write_context(
+                context_path,
+                {"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"},
+            )
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v1",
+                        "schema_version": "v1",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "key_calls": [],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            links_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_link.v1",
+                        "schema_version": "v1",
+                        "link_id": "link-1",
+                        "src_file_id": "file-a",
+                        "dst_file_id": "file-a",
+                        "type": "calls",
+                        "evidence_ref": {
+                            "path": "src/a.py",
+                            "line_start": 1,
+                            "line_end": 1,
+                            "extractor": "regex",
+                            "match_hash": "hash",
+                        },
+                        "unverified": False,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            reports_pack.main(
+                [
+                    "--rlm-nodes",
+                    str(nodes_path),
+                    "--rlm-links",
+                    str(links_path),
+                    "--ticket",
+                    ticket,
+                    "--update-context",
+                ]
+            )
+
+            payload = json.loads(context_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("rlm_status"), "ready")
+            self.assertTrue(payload.get("rlm_nodes_path"))
+            self.assertTrue(payload.get("rlm_links_path"))
+            self.assertTrue(payload.get("rlm_pack_path"))
+
+            context_pack = project_root / "reports" / "research" / f"{ticket}-context.pack.yaml"
+            self.assertTrue(context_pack.exists())

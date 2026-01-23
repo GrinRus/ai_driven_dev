@@ -43,6 +43,7 @@ class RlmTargetsTests(unittest.TestCase):
             files = payload.get("files") or []
             self.assertIn("src/app.py", files)
             self.assertNotIn("src/note.txt", files)
+            self.assertEqual(payload.get("paths_base"), "workspace")
 
 
 if __name__ == "__main__":

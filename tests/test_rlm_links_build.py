@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.helpers import ensure_project_root, write_active_feature, write_json
 
@@ -207,6 +208,90 @@ class RlmLinksBuildTests(unittest.TestCase):
             pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
             warnings = pack_payload.get("warnings") or []
             self.assertTrue(any("max_links" in warning for warning in warnings))
+
+    def test_links_build_records_rg_timeout_warning(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-rg-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-6"
+            write_active_feature(project_root, ticket)
+
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "a.py").write_text("print('no match')\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes = [
+                {
+                    "schema": "aidd.rlm_node.v1",
+                    "schema_version": "v1",
+                    "node_kind": "file",
+                    "file_id": "file-a",
+                    "id": "file-a",
+                    "path": "src/a.py",
+                    "rev_sha": "rev-a",
+                    "lang": "py",
+                    "prompt_version": "v1",
+                    "summary": "",
+                    "public_symbols": [],
+                    "key_calls": ["Foo"],
+                    "framework_roles": [],
+                    "test_hooks": [],
+                    "risks": [],
+                    "verification": "passed",
+                    "missing_tokens": [],
+                }
+            ]
+            nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")
+
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {
+                    "ticket": ticket,
+                    "files": ["src/a.py"],
+                },
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch("tools.rlm_links_build._rg_batch_find_matches", return_value=({}, "timeout")):
+                    rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            stats_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            self.assertGreater(stats.get("rg_timeouts") or 0, 0)
+
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            pack_path = reports_pack.write_rlm_pack(
+                nodes_path,
+                links_path,
+                ticket=ticket,
+                slug_hint=ticket,
+                root=project_root,
+            )
+            pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            warnings = pack_payload.get("warnings") or []
+            self.assertTrue(any("timeout" in warning for warning in warnings))
+
+    def test_links_build_fails_when_nodes_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-missing-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-7"
+            write_active_feature(project_root, ticket)
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with self.assertRaises(SystemExit) as exc:
+                    rlm_links_build.main(["--ticket", ticket])
+                self.assertIn("nodes.jsonl", str(exc.exception))
+            finally:
+                os.chdir(old_cwd)
 
 
 if __name__ == "__main__":
