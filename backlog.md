@@ -1703,3 +1703,180 @@ _Статус: новый, приоритет 1. Цель — hardening пром
 
 ### EPIC L — Tasklist check/normalize wrappers (optional)
 - [x] W80-13 `tools/tasklist-check.sh`, `tools/tasklist-normalize.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`: thin‑wrapper для удобного запуска check/normalize из промптов; обновить allowed-tools/примеры. Deps: W80-2,W80-9.
+
+## Wave 81
+
+_Статус: новый, приоритет 1. Цель — переход на RLM evidence (recursive summaries + verified links) вместо call-graph/ast-grep, сохранение pack-first, детерминизм артефактов и поддержка Claude Code plugin._
+
+### EPIC A — RLM contract: артефакты, схемы, бюджеты (P0)
+- [x] W81-1 `templates/aidd/docs/anchors/rlm.md`, `AGENTS.md`, `README.md`, `README.en.md`: ввести anchor **RLM** и формализовать:
+  - что такое RLM evidence в AIDD;
+  - какие артефакты MUST READ FIRST / MUST UPDATE;
+  - “RLM Read Policy”: агенты читают только `*.pack.*` и `rlm-slice`, не читают raw index целиком.
+  **AC:** есть единый текст политики и он подключён во все релевантные anchors (research/plan/implement/review/qa).
+  **Deps:** -
+- [x] W81-2 `tools/schemas/rlm_node.schema.json`, `tools/schemas/rlm_link.schema.json`, `tests/test_rlm_schema.py`: зафиксировать версии и JSONL‑схемы:
+  - `aidd/reports/research/<ticket>-rlm.nodes.jsonl` (node records),
+  - `aidd/reports/research/<ticket>-rlm.links.jsonl` (link records),
+  - минимальный набор обязательных полей + `schema_version`:
+    - file node: `node_kind="file"`, `file_id`, `id` (== `file_id`), `path`, `rev_sha`, `lang`, `prompt_version`, `summary`, `public_symbols[]`, `key_calls[]`, `framework_roles[]`, `test_hooks[]`, `risks[]`, `verification`, `missing_tokens[]`;
+    - dir node: `node_kind="dir"`, `dir_id` (или `file_id` от normalized dir path), `id` (== `dir_id`), `children_file_ids[]` (truncated) + `children_count_total`, `summary`;
+    - link record: `link_id`, `src_file_id`, `dst_file_id`, `type`, `evidence_ref` (структура: `path`, `line_start`, `line_end`, `extractor`, `match_hash`), `unverified`.
+  **AC:** schema-валидация проходит на фикстурах; любые изменения полей требуют bump версии.
+  **Deps:** -
+- [x] W81-3 `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`: добавить секцию `rlm`:
+  - `enabled`, `required_for_langs`, `max_files`, `max_nodes`, `max_links`, `max_file_bytes`,
+  - бюджеты для pack/slice,
+  - ignore dirs (общие),
+  - политика “verification required” для линков.
+  **AC:** конфиг валиден; значения по умолчанию безопасные (не взрывают токены).
+  **Deps:** W81-1,W81-2
+
+### EPIC B — Deterministic targeting: какие файлы RLM имеет право трогать (P0)
+- [x] W81-4 `tools/rlm_targets.py`, `tools/researcher_context.py`, `tools/research.py`: добавить генерацию **RLM targets** на основе:
+  - `targets.paths`/`paths_discovered`,
+  - (опционально) “files touched” из plan/review report,
+  - keyword hits (через `rg`) только внутри targets,
+  - нормализованных keywords (`keywords`), но не `keywords_raw`.
+  Выход: `aidd/reports/research/<ticket>-rlm-targets.json` с детерминированным упорядочиванием.
+  **AC:** одинаковый вход → одинаковый targets.json; никакие build/out/vendor/aidd/** не попадают.
+  **Tests:** unit на сортировку/фильтры/ignore.
+  **Deps:** W81-3
+- [x] W81-5 `tools/rlm_manifest.py`: добавить manifest с hashing:
+  - вводит стабильный `file_id = sha1(normalized_path)` и ревизию `rev_sha = sha1(file_bytes)`;
+  - хранит `file_id`, `rev_sha`, `path`, `lang`, `size`, `prompt_version`;
+  - поддерживает incremental: не пересчитывать nodes, если `rev_sha` не изменился.
+  Выход: `aidd/reports/research/<ticket>-rlm-manifest.json`.
+  **AC:** file node id = `file_id`, dir node id = `dir_id`; пере-запуск без изменений не меняет `file_id/dir_id`, при изменении файла меняется только `rev_sha`, derive остаётся идемпотентным.
+  **Tests:** unit на incremental + стабильность id.
+  **Deps:** W81-4
+
+### EPIC C — RLM extraction: “nodes” и верификация (P0)
+- [x] W81-6 `templates/aidd/rlm/prompts/file_node.md`, `templates/aidd/rlm/prompts/dir_node.md`, `agents/researcher.md`: добавить канонические prompt‑шаблоны для RLM:
+  - **file node**: `summary`, `public_symbols`, `key_calls`, `framework_roles` (web/controller/service/repo), `test_hooks`, `risks`;
+  - **dir node**: “что это за модуль/пакет”, “главные entrypoints”, “где тесты”.
+  Строго JSON output, канонический EN prompt (RU пояснения — в docs); dir_node prompt — docs-only reference, генерация dir nodes описана в W81-21 (без LLM).
+  **AC:** промпт стабилен, короткий, требует JSON без “воды” и соответствует schema (W81-2) как source-of-truth; обновлён `prompt_version/source_version`.
+  **Deps:** W81-2
+- [x] W81-7 `tools/rlm_verify.py`: валидация node output:
+  - проверять, что `public_symbols` реально встречаются в файле (string match, допускаем qualified/short),
+  - проверять, что `key_calls` ссылаются на реально встречающиеся идентификаторы,
+  - проставлять `verification = passed|partial|failed`, `missing_tokens=[...]`.
+  **AC:** любые “выдуманные” символы маркируются как `partial/failed` и не попадают в top evidence pack.
+  **Tests:** unit на фикстурах с fake symbols.
+  **Deps:** W81-6
+- [x] W81-8 `tools/rlm_nodes_build.py`: сборка `*-rlm.nodes.jsonl` по manifest:
+  - режим `--mode=agent-worklist`: не вызывает LLM, а генерит “worklist pack” (список файлов + что из них извлечь) для агента;
+  **AC:** agent-worklist режим работает без API и пишет `*-rlm.worklist.pack.*` + мета `rlm_status=pending`/`rlm_worklist_path`; worklist инкрементален (читает существующий `*-rlm.nodes.jsonl` и включает только missing/outdated `(file_id, rev_sha, prompt_version)`), в записи есть `file_id`, `path`, `rev_sha`, `lang`, `prompt_version`, `size`, `reason=missing|outdated|failed`.
+  **Tests:** unit на генерацию worklist + jsonl output writer.
+  **Deps:** W81-5,W81-7
+
+### EPIC D — RLM links: построение “графа” без AST (P0)
+- [x] W81-9 `tools/rlm_links_build.py`: построить `*-rlm.links.jsonl` из nodes:
+  - линк типы: `imports`, `calls`, `extends/implements`, `config/bean`, `endpoint->handler` (если удаётся);
+  - linking происходит по verified symbols (из W81-7) + fallback на `rg` “definition search” в targets.
+  **AC:** links строятся детерминированно; каждый линк имеет `link_id = sha1(src_file_id + dst_file_id + type + evidence_ref.match_hash)` и `evidence_ref` с `path`, `line_start`, `line_end`, `extractor=rg|regex|manual`, `match_hash = sha1(path + ":" + line_start + ":" + line_end + ":" + matched_text_normalized)`; `matched_text_normalized` = trim + collapse spaces + normalize `\n`; дедуп по `link_id`, сортировка по `(src_path, type, dst_path, match_hash)`; fail-fast только если `nodes.jsonl` отсутствует/пустой (подсказка выполнить W81-27).
+  **Tests:** unit на linking + schema.
+  **Deps:** W81-2,W81-4,W81-7,W81-8
+- [x] W81-10 `tools/rlm_slice.py`, `tools/rlm-slice.sh`: on-demand slice:
+  - вход: `--ticket`, `--query`, `--max_nodes`, `--max_links`, `--paths`, `--lang`;
+  - выход: `aidd/reports/context/<ticket>-rlm-slice-<sha1>.pack.yaml` + `.latest`.
+  **AC:** slice всегда small, deterministic, не требует чтения всего nodes в память (streaming JSONL).
+  **Tests:** unit + smoke.
+  **Deps:** W81-9
+
+### EPIC E — Packs: pack-first как замена graph/ast-grep packs (P0)
+- [x] W81-11 `tools/reports_pack.py`: добавить RLM pack builder:
+  - `aidd/reports/research/<ticket>-rlm.pack.yaml|toon` включает:
+    - entrypoints (top),
+    - hotspots (по кол-ву verified links + keyword hits),
+    - integration points,
+    - test hooks,
+    - “recommended reads” (5–15 файлов).
+  - бюджеты: строгие лимиты на строки/символы.
+  **AC:** pack <= budgets; если не помещается — trim с `pack_trim` stats; evidence snippets извлекаются по `evidence_ref` только для top‑N links (или `evidence_snippet` хранится в links с лимитом длины) с нормализацией строк и max chars.
+  **Tests:** budget tests.
+  **Deps:** W81-8,W81-9
+- [x] W81-12 `tools/tasks_derive.py`: derivation из RLM pack:
+  - stable ids: `rlm:<kind>:<file_id>:<reason_hash>`, где `reason_hash = sha1(normalized_reason + rule_kind + scope)`;
+  - handoff задачи: “проверь интеграцию”, “проверь тест-хук”, “риск: X”.
+  **AC:** derive идемпотентен, не дублирует; пишет structured handoff в формате Wave 80 (`id/source/title/scope/DoD/Boundaries/Tests/Priority/Blocking/Status`), `source=research`, `Status=open`, `Priority/Blocking` вычисляются детерминированно.
+  **Tests:** `tests/test_tasks_derive.py`.
+  **Deps:** W81-11
+
+### EPIC F — Полная замена tree-sitter/ast-grep в research stage (P0/P1)
+- [x] W81-13 `tools/research.py`, `tools/research.sh`, `commands/researcher.md`: заменить pipeline evidence:
+  - новый флаг `--evidence-engine rlm|auto`;
+  - `auto`: всегда RLM (без legacy fallback), поведение по конфигу;
+  - записывать в context/pack ссылки: `rlm_nodes_path`, `rlm_links_path`, `rlm_pack_path`.
+  **AC:** research всегда генерит targets+manifest и worklist pack, выставляет `rlm_status=pending` в `aidd/reports/research/<ticket>-context.json` и в context pack; source-of-truth = context.json, после W81-27 статус обновляется на `ready`; pack строится только если nodes+links уже есть.
+  **Deps:** W81-4,W81-8,W81-11
+- [x] W81-14 `tools/research_guard.py`, `tools/research_check.py`, `templates/aidd/config/gates.json`: обновить gates:
+  - для `required_for_langs` теперь требовать RLM pack + (nodes+links присутствуют);
+  - stage=research: допускает `rlm_status=pending` → WARN, но `worklist+targets+manifest` MUST exist;
+  - stage-aware: stage=implement допускает `rlm_status=pending` → WARN; stage=plan/review/qa требует `rlm_status=ready` + nodes+links → BLOCK;
+  - выдавать actionable hints: как запустить `rlm_nodes_build`/`rlm_slice`.
+  **AC:** gate не упоминает tree-sitter/ast-grep; матрица PASS/WARN/BLOCK прозрачна; source-of-truth для `rlm_status` = `aidd/reports/research/<ticket>-context.json`.
+  **Tests:** `tests/test_research_check.py`.
+  **Deps:** W81-13
+- [x] W81-15 `templates/aidd/docs/anchors/research.md`, `agents/researcher.md`, `agents/{planner,tasklist-refiner,implementer,reviewer,qa}.md`, `commands/{plan-new,tasks-new,implement,review,qa}.md`: переписать anchor/поведение агентов:
+  - MUST READ FIRST: `*-rlm.pack.*` и при необходимости `rlm-slice`;
+  - MUST NOT: читать `*-rlm.nodes.jsonl` целиком.
+  **AC:** промпты агентов/команд не содержат упоминаний tree-sitter/ast-grep; есть fail-fast если RLM pack отсутствует; обновлён `prompt_version/source_version`; allowed-tools содержит `Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)` там, где упоминается slice.
+  **Deps:** W81-11,W81-13
+
+### EPIC G — Полная деактивация и удаление legacy сканеров (P1)
+- [x] W81-16 `templates/aidd/config/conventions.json`, `README*`, `AGENTS.md`: пометить `ast_grep` и `call_graph` как deprecated → disabled by default.
+  **AC:** документация больше не предлагает запуск ast-grep/call-graph как рекомендованный путь.
+  **Deps:** W81-13
+- [ ] W81-17 удалить/выпилить code-paths:
+  - `tools/ast_grep_scan.py` + rules pack (если решаете “полный отказ”),
+  - `call_graph_*` в research.py (edges логика уходит в RLM).
+  **AC:** сборка/тесты репо проходят; никакие команды не ссылаются на удалённые файлы.
+  **Tests:** полный прогон CI.
+  **Deps:** W81-14,W81-15,W81-16
+
+### EPIC I — RLM recursion: dir/module nodes (P0)
+- [x] W81-21 `tools/rlm_nodes_build.py`, `tools/schemas/rlm_node.schema.json`, `tests/test_rlm_nodes_build.py`: добавить второй проход “dir nodes”:
+  - `node_kind=file|dir`;
+  - dir node строится из child nodes (без чтения исходников);
+  - детерминированный порядок child, бюджеты на размер dir summary;
+  - алгоритм: сортировать children по path, выбирать top-K по лимиту, summary = агрегация child summaries + топ symbols + entrypoints; поля соответствуют schema.
+  **AC:** есть и file nodes, и dir nodes; dir nodes строятся из JSON child nodes без LLM по детерминированному алгоритму.
+  **Deps:** W81-2,W81-8
+
+### EPIC J — Working set + index sync migration (P0)
+- [x] W81-22 `hooks/context_gc/working_set_builder.py`, `tools/index_sync.py`, `templates/aidd/AGENTS.md`: миграция working set:
+  - working set ссылается на `*-rlm.pack.*` и `rlm-slice`;
+  - убрать ссылки на graph/ast-grep packs из working set;
+  - добавить “как запросить slice”.
+  **AC:** `latest_working_set.md` всегда pack-first по RLM.
+  **Deps:** W81-10,W81-11
+
+### EPIC N — E2E smoke test pipeline (P1)
+- [x] W81-26 `tests/test_research_rlm_e2e.py`: e2e тест пайплайна:
+  - минимальный repo‑fixture (пара файлов) →
+  - прогон: targets → manifest → (fixture nodes.jsonl) → links → pack → slice → derive.
+  **AC:** один тест проверяет связность всего пайплайна.
+  **Deps:** W81-4,W81-5,W81-8,W81-9,W81-10,W81-11,W81-12
+
+### EPIC O — Claude Code agent flow (P0)
+- [x] W81-27 `agents/researcher.md`, `commands/researcher.md` (опц. `agents/rlm-node-writer.md`): формализовать “agent-worklist → nodes/links → pack”:
+  - агент читает `*-rlm.worklist.pack.*`, генерит `*-rlm.nodes.jsonl` (строго schema), запускает `tools/rlm_verify.py`;
+  - затем запускает `tools/rlm_links_build.py` и `tools/reports_pack.py`.
+  **AC:** после генерации nodes/links/pack агент обновляет `rlm_status=ready` и `rlm_*_path` в `aidd/reports/research/<ticket>-context.json` и context pack; записи пишутся атомарно (tmp → rename) и с последующим `rlm_jsonl_compact`.
+  **Deps:** W81-8,W81-9,W81-11,W81-28
+
+### EPIC P — JSONL compaction/rewrite (P0)
+- [x] W81-28 `tools/rlm_jsonl_compact.py` (или расширить rlm_nodes_build/rlm_links_build): детерминированный rewrite:
+  - nodes.jsonl/links.jsonl без дублей, сортировка, удаление устаревших ревизий;
+  - byte-identical output при повторном прогоне без изменений.
+  **AC:** повторный прогон без изменений даёт byte-identical JSONL.
+  **Deps:** W81-5,W81-8,W81-9
+
+### EPIC Q — rg-budget & batching policy (P1)
+- [x] W81-29 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: performance hardening:
+  - `rlm.rg_timeout_s`, `rlm.max_symbols_per_file`, `rlm.max_definition_hits_per_symbol`, batching запросов;
+  - ограничение link‑поиска при превышении budget → WARN в pack.
+  **AC:** links_build не умирает по времени на больших репо.
+  **Deps:** W81-3,W81-9

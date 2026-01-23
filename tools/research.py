@@ -81,6 +81,10 @@ def _unique_tokens(items: list[str]) -> list[str]:
     return out
 
 
+def _pack_extension() -> str:
+    return ".pack.toon" if os.getenv("AIDD_PACK_FORMAT", "").strip().lower() == "toon" else ".pack.yaml"
+
+
 def _build_call_graph_filter(
     scope,
     builder: ResearcherContextBuilder,
@@ -186,6 +190,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Print context JSON to stdout without writing files (targets are still refreshed).",
+    )
+    parser.add_argument(
+        "--evidence-engine",
+        choices=("rlm", "auto"),
+        default="auto",
+        help="Evidence engine to use (auto defaults to rlm).",
     )
     parser.add_argument(
         "--deep-code",
@@ -301,6 +311,44 @@ def run(args: argparse.Namespace) -> int:
         f"[aidd] researcher targets saved to {rel_targets} "
         f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."
     )
+
+    rlm_targets_path = None
+    rlm_manifest_path = None
+    rlm_worklist_path = None
+    pack_ext = _pack_extension()
+    try:
+        rlm_targets_path = builder.write_rlm_targets(ticket)
+        from tools import rlm_manifest, rlm_nodes_build
+        from tools.rlm_config import load_rlm_settings
+
+        rlm_settings = load_rlm_settings(target)
+        manifest_payload = rlm_manifest.build_manifest(
+            target,
+            ticket,
+            settings=rlm_settings,
+            targets_path=rlm_targets_path,
+        )
+        rlm_manifest_path = target / "reports" / "research" / f"{ticket}-rlm-manifest.json"
+        rlm_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        rlm_manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        worklist_pack = rlm_nodes_build.build_worklist_pack(
+            target,
+            ticket,
+            manifest_path=rlm_manifest_path,
+            nodes_path=target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl",
+        )
+        worklist_name = f"{ticket}-rlm.worklist{pack_ext}"
+        rlm_worklist_path = target / "reports" / "research" / worklist_name
+        rlm_worklist_path.parent.mkdir(parents=True, exist_ok=True)
+        rlm_worklist_path.write_text(
+            json.dumps(worklist_pack, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    except Exception as exc:
+        print(f"[aidd] WARN: failed to generate rlm targets/manifest/worklist: {exc}", file=sys.stderr)
 
     if args.targets_only:
         if not getattr(args, "dry_run", False):
@@ -469,6 +517,16 @@ def run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
+    if rlm_targets_path:
+        collected_context["rlm_targets_path"] = os.path.relpath(rlm_targets_path, target)
+    if rlm_manifest_path:
+        collected_context["rlm_manifest_path"] = os.path.relpath(rlm_manifest_path, target)
+    if rlm_worklist_path:
+        collected_context["rlm_worklist_path"] = os.path.relpath(rlm_worklist_path, target)
+    collected_context["rlm_nodes_path"] = f"reports/research/{ticket}-rlm.nodes.jsonl"
+    collected_context["rlm_links_path"] = f"reports/research/{ticket}-rlm.links.jsonl"
+    collected_context["rlm_pack_path"] = f"reports/research/{ticket}-rlm{pack_ext}"
+    collected_context["rlm_status"] = "pending"
     match_count = len(collected_context["matches"])
     if match_count == 0:
         print(
@@ -515,6 +573,30 @@ def run(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
         return 2
+    rlm_pack_path = None
+    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
+        try:
+            rlm_pack_path = _reports_pack.write_rlm_pack(
+                nodes_path,
+                links_path,
+                ticket=ticket,
+                slug_hint=feature_context.slug_hint,
+                root=target,
+                limits=None,
+            )
+            try:
+                _validate_json_file(rlm_pack_path, "rlm pack")
+            except RuntimeError as exc:
+                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+                return 2
+            rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
+            print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
+        except Exception as exc:
+            print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
+            return 2
+
     if call_graph_requested or deep_code_enabled:
         try:
             graph_pack_path = _reports_pack.write_call_graph_pack(output_path, root=target)

@@ -145,6 +145,7 @@
     "baseline_phrase": "контекст пуст"
   },
   "call_graph": {
+    "deprecated": true,
     "require_pack": true,
     "require_edges": true,
     "required_for_langs": [
@@ -153,6 +154,17 @@
       "java"
     ],
     "allow_ast_grep_fallback": true
+  },
+  "rlm": {
+    "enabled": true,
+    "require_pack": true,
+    "require_nodes": true,
+    "require_links": true,
+    "required_for_langs": [
+      "kt",
+      "kts",
+      "java"
+    ]
   },
   "analyst": {
     "enabled": true,

@@ -113,6 +113,13 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "required_for_langs": ["kt", "kts", "java"],
         "allow_ast_grep_fallback": True,
     },
+    "rlm": {
+        "enabled": True,
+        "require_pack": True,
+        "require_nodes": True,
+        "require_links": True,
+        "required_for_langs": ["kt", "kts", "java"],
+    },
     "analyst": {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],

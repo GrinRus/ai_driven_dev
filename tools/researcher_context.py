@@ -724,6 +724,23 @@ class ResearcherContextBuilder:
         target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return target_path
 
+    def write_rlm_targets(self, ticket: str) -> Path:
+        from tools import rlm_targets
+        from tools.rlm_config import load_rlm_settings
+
+        settings = load_rlm_settings(self.root)
+        payload = rlm_targets.build_targets(
+            self.root,
+            ticket,
+            settings=settings,
+            base_root=self._paths_base,
+        )
+        report_dir = self.root / _REPORT_DIR
+        report_dir.mkdir(parents=True, exist_ok=True)
+        target_path = report_dir / f"{ticket}-rlm-targets.json"
+        target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return target_path
+
     def collect_context(self, scope: Scope, *, limit: int = _MAX_MATCHES) -> Dict[str, Any]:
         path_infos, doc_infos, search_roots = self._resolve_search_roots(scope)
         matches = self._scan_matches(search_roots, scope.keywords, limit=limit)

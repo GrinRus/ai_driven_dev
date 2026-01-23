@@ -125,30 +125,25 @@ def _rel_to_root(root: Path, path: Path) -> str:
         return path.as_posix()
 
 
-def _find_graph_artifacts(aidd_root: Path, ticket: str) -> dict:
+def _find_rlm_artifacts(aidd_root: Path, ticket: str) -> dict:
     context_path = aidd_root / "reports" / "research" / f"{ticket}-context.json"
-    edges_path: Optional[Path] = None
+    pack_path: Optional[Path] = None
     if context_path.exists():
         try:
             payload = json.loads(context_path.read_text(encoding="utf-8"))
         except Exception:
             payload = {}
-        edges_raw = payload.get("call_graph_edges_path")
-        if isinstance(edges_raw, str) and edges_raw:
-            edges_path = aidd_root / edges_raw if not Path(edges_raw).is_absolute() else Path(edges_raw)
-    if edges_path is None:
-        candidate = aidd_root / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
-        if candidate.exists():
-            edges_path = candidate
-    pack_path = None
-    for suffix in (".pack.yaml", ".pack.toon"):
-        candidate = aidd_root / "reports" / "research" / f"{ticket}-call-graph{suffix}"
-        if candidate.exists():
-            pack_path = candidate
-            break
+        pack_raw = payload.get("rlm_pack_path")
+        if isinstance(pack_raw, str) and pack_raw:
+            pack_path = aidd_root / pack_raw if not Path(pack_raw).is_absolute() else Path(pack_raw)
+    if pack_path is None:
+        for suffix in (".pack.yaml", ".pack.toon"):
+            candidate = aidd_root / "reports" / "research" / f"{ticket}-rlm{suffix}"
+            if candidate.exists():
+                pack_path = candidate
+                break
     return {
         "pack": _rel_to_root(aidd_root, pack_path) if pack_path else None,
-        "edges": _rel_to_root(aidd_root, edges_path) if edges_path else None,
     }
 
 
@@ -235,17 +230,13 @@ def build_working_set(project_dir: Path) -> WorkingSet:
             parts.append(md[:1200].rstrip())
             parts.append("")
 
-        graph_artifacts = _find_graph_artifacts(aidd_root, ticket)
-        if graph_artifacts.get("pack") or graph_artifacts.get("edges"):
-            parts.append("#### Call Graph (pack-first)")
-            if graph_artifacts.get("pack"):
-                parts.append(f"- Pack: {graph_artifacts['pack']}")
-            if graph_artifacts.get("edges"):
-                parts.append(
-                    f"- Slice (prefer): ${{CLAUDE_PLUGIN_ROOT}}/tools/graph-slice.sh --ticket {ticket} --query \"<token>\""
-                )
-                parts.append(f"- Edges view (spot-check): {graph_artifacts['edges']}")
-                parts.append(f"- Spot-check: rg \"<token>\" {graph_artifacts['edges']}")
+        rlm_artifacts = _find_rlm_artifacts(aidd_root, ticket)
+        if rlm_artifacts.get("pack"):
+            parts.append("#### RLM Evidence (pack-first)")
+            parts.append(f"- Pack: {rlm_artifacts['pack']}")
+            parts.append(
+                f"- Slice (prefer): ${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-slice.sh --ticket {ticket} --query \"<token>\""
+            )
             parts.append("")
 
         if tasklist.exists():

@@ -82,10 +82,19 @@ def pending_baseline_prd(ticket: str = "demo-checkout") -> str:
     )
 
 
-def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", status: str = "reviewed") -> None:
+def write_research_doc(
+    tmp_path: pathlib.Path,
+    ticket: str = "demo-checkout",
+    status: str = "reviewed",
+    rlm_status: str = "ready",
+) -> None:
     from datetime import datetime, timezone
 
     generated_at = datetime.now(timezone.utc).isoformat()
+    src_path = tmp_path / "src" / "main" / "kotlin" / "App.kt"
+    if not src_path.exists():
+        src_path.parent.mkdir(parents=True, exist_ok=True)
+        src_path.write_text("class App\n", encoding="utf-8")
     write_file(
         tmp_path,
         f"docs/research/{ticket}.md",
@@ -106,13 +115,58 @@ def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", st
             "manual_notes": [],
             "matches": [],
             "targets": {"paths": ["src/main/kotlin"]},
+            "rlm_status": rlm_status,
+            "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
+            "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
+            "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+            "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
+            "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
+            "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.yaml",
         },
     )
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-ast-grep.pack.yaml",
-        {"type": "ast-grep", "status": "ok"},
+        f"reports/research/{ticket}-rlm-targets.json",
+        {"ticket": ticket, "files": ["src/main/kotlin/App.kt"], "generated_at": generated_at},
     )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-rlm-manifest.json",
+        {
+            "ticket": ticket,
+            "files": [
+                {
+                    "file_id": "file-app",
+                    "path": "src/main/kotlin/App.kt",
+                    "rev_sha": "rev-app",
+                    "lang": "kt",
+                    "size": 10,
+                    "prompt_version": "v1",
+                }
+            ],
+        },
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+        {"schema": "aidd.report.pack.v1", "type": "rlm-worklist", "status": "pending"},
+    )
+    if rlm_status == "ready":
+        write_file(
+            tmp_path,
+            f"reports/research/{ticket}-rlm.nodes.jsonl",
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+        )
+        write_file(
+            tmp_path,
+            f"reports/research/{ticket}-rlm.links.jsonl",
+            '{"link_id":"link-1","src_file_id":"file-app","dst_file_id":"file-app","type":"calls","evidence_ref":{"path":"src/main/kotlin/App.kt","line_start":1,"line_end":1,"extractor":"regex","match_hash":"hash"},"unverified":false}\n',
+        )
+        write_json(
+            tmp_path,
+            f"reports/research/{ticket}-rlm.pack.yaml",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
 
 
 def write_prd_with_status(tmp_path: pathlib.Path, ticket: str, status: str, research_status: str = "pending") -> None:

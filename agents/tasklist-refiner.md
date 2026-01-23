@@ -2,9 +2,9 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.8
-source_version: 1.1.8
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)
+prompt_version: 1.1.9
+source_version: 1.1.9
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -29,8 +29,7 @@ permissionMode: default
 - `aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
 - `aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
 - `aidd/docs/research/<ticket>.md` — интеграции, риски.
-- `aidd/reports/research/<ticket>-call-graph.pack.*` (pack-first), `graph-slice` pack (предпочтительно) и `-call-graph.edges.jsonl` (только spot-check через `rg`).
-- `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
+- `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (предпочтительно).
 - `aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).
 - `aidd/docs/tasklist/<ticket>.md` — обновляемый tasklist.
 
@@ -82,7 +81,7 @@ permissionMode: default
 
 ## Fail-fast и вопросы
 - Если нет plan/PRD/research — `Status: BLOCKED` и запросить `/feature-dev-aidd:review-spec`.
-- Если отсутствуют pack/edges для call-graph или ast-grep там, где они ожидаются — `Status: BLOCKED` и запросить пересборку research.
+- Если отсутствует `*-rlm.pack.*` там, где он ожидается — `Status: BLOCKED` и запросить завершение agent‑flow.
 - Если ключевые решения отсутствуют — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
 
 ## Формат ответа

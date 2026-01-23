@@ -12,6 +12,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from tools import runtime
+from tools.rlm_config import file_id_for_path, load_rlm_settings
+
 SCHEMA = "aidd.report.pack.v1"
 PACK_VERSION = "v1"
 
@@ -71,6 +74,22 @@ AST_GREP_LIMITS: Dict[str, int] = {
 AST_GREP_BUDGET = {
     "max_chars": 1600,
     "max_lines": 80,
+}
+
+RLM_LIMITS: Dict[str, int] = {
+    "entrypoints": 15,
+    "hotspots": 15,
+    "integration_points": 15,
+    "test_hooks": 10,
+    "recommended_reads": 15,
+    "risks": 10,
+    "links": 20,
+    "evidence_snippet_chars": 160,
+}
+
+RLM_BUDGET = {
+    "max_chars": 12000,
+    "max_lines": 200,
 }
 
 _PACK_FORMATS = {"yaml", "toon"}
@@ -177,7 +196,9 @@ def _serialize_pack(payload: Dict[str, Any]) -> str:
 
 def _write_pack_text(text: str, pack_path: Path) -> Path:
     pack_path.parent.mkdir(parents=True, exist_ok=True)
-    pack_path.write_text(text, encoding="utf-8")
+    tmp_path = pack_path.with_suffix(pack_path.suffix + ".tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(pack_path)
     return pack_path
 
 
@@ -309,6 +330,33 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
     return text, trimmed, errors
 
 
+def _auto_trim_rlm_pack(payload: Dict[str, Any], max_chars: int, max_lines: int) -> tuple[str, List[str], List[str]]:
+    text = _serialize_pack(payload)
+    errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+    if not errors:
+        return text, [], errors
+    trimmed: List[str] = []
+    for key in (
+        "recommended_reads",
+        "hotspots",
+        "integration_points",
+        "entrypoints",
+        "test_hooks",
+        "risks",
+        "links",
+    ):
+        entries = payload.get(key)
+        if not isinstance(entries, list) or len(entries) <= 1:
+            continue
+        payload[key] = entries[: max(1, len(entries) // 2)]
+        trimmed.append(key)
+        text = _serialize_pack(payload)
+        errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+        if not errors:
+            break
+    return text, trimmed, errors
+
+
 def _truncate_list(items: Iterable[Any], limit: int) -> List[Any]:
     if limit <= 0:
         return []
@@ -321,6 +369,43 @@ def _truncate_text(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[:limit].rstrip()
+
+
+def _extract_evidence_snippet(
+    root: Optional[Path],
+    evidence_ref: Dict[str, Any],
+    *,
+    max_chars: int,
+) -> str:
+    if not root or not evidence_ref:
+        return ""
+    raw_path = evidence_ref.get("path")
+    if not raw_path:
+        return ""
+    path = Path(str(raw_path))
+    abs_path = path if path.is_absolute() else (root / path)
+    if not abs_path.exists() and root.name == "aidd":
+        alt_path = root.parent / path
+        if alt_path.exists():
+            abs_path = alt_path
+    if not abs_path.exists():
+        return ""
+    try:
+        lines = abs_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    try:
+        line_start = int(evidence_ref.get("line_start") or 0)
+        line_end = int(evidence_ref.get("line_end") or line_start)
+    except (TypeError, ValueError):
+        return ""
+    if line_start <= 0 or line_end <= 0:
+        return ""
+    start_idx = max(0, line_start - 1)
+    end_idx = max(start_idx, line_end - 1)
+    snippet = "\n".join(lines[start_idx : end_idx + 1]).strip()
+    normalized = " ".join(snippet.split())
+    return _truncate_text(normalized, max_chars)
 
 
 def _stable_id(*parts: Any) -> str:
@@ -570,6 +655,13 @@ def build_research_context_pack(
         "ast_grep_path": payload.get("ast_grep_path"),
         "ast_grep_schema": payload.get("ast_grep_schema"),
         "ast_grep_stats": payload.get("ast_grep_stats"),
+        "rlm_targets_path": payload.get("rlm_targets_path"),
+        "rlm_manifest_path": payload.get("rlm_manifest_path"),
+        "rlm_worklist_path": payload.get("rlm_worklist_path"),
+        "rlm_nodes_path": payload.get("rlm_nodes_path"),
+        "rlm_links_path": payload.get("rlm_links_path"),
+        "rlm_pack_path": payload.get("rlm_pack_path"),
+        "rlm_status": payload.get("rlm_status"),
         "filter_stats": payload.get("filter_stats"),
         "filter_trimmed": payload.get("filter_trimmed"),
         "deep_mode": payload.get("deep_mode"),
@@ -858,6 +950,307 @@ def build_ast_grep_pack(
     return packed
 
 
+def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    items: List[Dict[str, Any]] = []
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    items.append(payload)
+    except OSError:
+        return []
+    return items
+
+
+def _load_rlm_links_stats(root: Path, ticket: str) -> Optional[Dict[str, Any]]:
+    path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
+    warnings: List[str] = []
+    if stats.get("links_truncated"):
+        warnings.append("rlm links truncated: max_links reached")
+    if int(stats.get("symbols_truncated") or 0) > 0:
+        warnings.append("rlm link symbols truncated: max_symbols_per_file reached")
+    if int(stats.get("candidate_truncated") or 0) > 0:
+        warnings.append("rlm link candidates truncated: max_definition_hits_per_symbol reached")
+    if int(stats.get("rg_timeouts") or 0) > 0:
+        warnings.append("rlm rg timeout during link search")
+    if int(stats.get("rg_errors") or 0) > 0:
+        warnings.append("rlm rg errors during link search")
+    return warnings
+
+
+def _pack_rlm_nodes(nodes: Iterable[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    packed: List[Dict[str, Any]] = []
+    for node in _truncate_list(nodes, limit):
+        if not isinstance(node, dict):
+            continue
+        packed.append(
+            {
+                "file_id": node.get("file_id") or node.get("id"),
+                "path": node.get("path"),
+                "summary": node.get("summary"),
+                "framework_roles": node.get("framework_roles") or [],
+                "test_hooks": node.get("test_hooks") or [],
+                "risks": node.get("risks") or [],
+            }
+        )
+    return packed
+
+
+def _pack_rlm_links(
+    links: Iterable[Dict[str, Any]],
+    *,
+    limit: int,
+    root: Optional[Path],
+    snippet_chars: int,
+) -> List[Dict[str, Any]]:
+    packed: List[Dict[str, Any]] = []
+    for link in _truncate_list(links, limit):
+        if not isinstance(link, dict):
+            continue
+        evidence_ref = link.get("evidence_ref") or {}
+        snippet = _extract_evidence_snippet(root, evidence_ref, max_chars=snippet_chars)
+        packed.append(
+            {
+                "link_id": link.get("link_id"),
+                "src_file_id": link.get("src_file_id"),
+                "dst_file_id": link.get("dst_file_id"),
+                "type": link.get("type"),
+                "evidence_ref": evidence_ref,
+                "evidence_snippet": snippet,
+            }
+        )
+    return packed
+
+
+def build_rlm_pack(
+    nodes: List[Dict[str, Any]],
+    links: List[Dict[str, Any]],
+    *,
+    ticket: Optional[str],
+    slug_hint: Optional[str] = None,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+    root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    env_limits = _env_limits().get("rlm") or {}
+    lim = {**RLM_LIMITS, **env_limits, **(limits or {})}
+
+    file_nodes = [node for node in nodes if node.get("node_kind") == "file"]
+    link_counts: Dict[str, int] = {}
+    for link in links:
+        if link.get("unverified"):
+            continue
+        src = str(link.get("src_file_id") or "")
+        dst = str(link.get("dst_file_id") or "")
+        if src:
+            link_counts[src] = link_counts.get(src, 0) + 1
+        if dst:
+            link_counts[dst] = link_counts.get(dst, 0) + 1
+
+    keyword_hits: set[str] = set()
+    if root and ticket:
+        targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
+        if targets_path.exists():
+            try:
+                targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+            except Exception:
+                targets_payload = {}
+            for raw_path in targets_payload.get("keyword_hits") or []:
+                path_text = str(raw_path).strip()
+                if not path_text:
+                    continue
+                keyword_hits.add(file_id_for_path(Path(path_text)))
+
+    def by_link_count(node: Dict[str, Any]) -> tuple:
+        file_id = str(node.get("file_id") or node.get("id") or "")
+        boost = 1 if file_id and file_id in keyword_hits else 0
+        return (-(link_counts.get(file_id, 0) + boost), str(node.get("path") or ""))
+
+    entry_roles = {"web", "controller", "job", "config", "infra"}
+    entrypoints = [
+        node
+        for node in file_nodes
+        if any(role in entry_roles for role in (node.get("framework_roles") or []))
+    ]
+    entrypoints = sorted(entrypoints, key=by_link_count)
+
+    hotspots = sorted(file_nodes, key=by_link_count)
+
+    integration_roles = {"service", "repo", "config", "infra"}
+    integration_points = [
+        node
+        for node in file_nodes
+        if any(role in integration_roles for role in (node.get("framework_roles") or []))
+    ]
+    integration_points = sorted(integration_points, key=by_link_count)
+
+    test_hooks = [node for node in file_nodes if node.get("test_hooks")]
+    test_hooks = sorted(test_hooks, key=by_link_count)
+
+    risks = [node for node in file_nodes if node.get("risks")]
+    risks = sorted(risks, key=by_link_count)
+
+    recommended = []
+    seen: set[str] = set()
+    for group in (entrypoints, hotspots, integration_points):
+        for node in group:
+            file_id = str(node.get("file_id") or node.get("id") or "")
+            if not file_id or file_id in seen:
+                continue
+            seen.add(file_id)
+            recommended.append(node)
+            if len(recommended) >= lim["recommended_reads"]:
+                break
+        if len(recommended) >= lim["recommended_reads"]:
+            break
+
+    verified_links = [link for link in links if not link.get("unverified")]
+    links_sample = _pack_rlm_links(
+        verified_links,
+        limit=lim["links"],
+        root=root,
+        snippet_chars=lim["evidence_snippet_chars"],
+    )
+    link_stats = _load_rlm_links_stats(root, ticket) if root and ticket else None
+    link_warnings = _rlm_link_warnings(link_stats) if link_stats else []
+
+    packed = {
+        "schema": SCHEMA,
+        "pack_version": PACK_VERSION,
+        "type": "rlm",
+        "kind": "pack",
+        "ticket": ticket,
+        "slug": slug_hint or ticket,
+        "slug_hint": slug_hint,
+        "generated_at": _utc_timestamp(),
+        "status": "ready",
+        "source_path": source_path,
+        "stats": {
+            "nodes": len(file_nodes),
+            "links": len(links),
+            "links_unverified": len([link for link in links if link.get("unverified")]),
+            "links_included": len(links_sample),
+        },
+        "entrypoints": _pack_rlm_nodes(entrypoints, lim["entrypoints"]),
+        "hotspots": _pack_rlm_nodes(hotspots, lim["hotspots"]),
+        "integration_points": _pack_rlm_nodes(integration_points, lim["integration_points"]),
+        "test_hooks": _pack_rlm_nodes(test_hooks, lim["test_hooks"]),
+        "risks": _pack_rlm_nodes(risks, lim["risks"]),
+        "recommended_reads": _pack_rlm_nodes(recommended, lim["recommended_reads"]),
+        "links": links_sample,
+    }
+    if link_stats:
+        packed["stats"]["link_search"] = {
+            "links_truncated": bool(link_stats.get("links_truncated")),
+            "symbols_total": int(link_stats.get("symbols_total") or 0),
+            "symbols_scanned": int(link_stats.get("symbols_scanned") or 0),
+            "symbols_truncated": int(link_stats.get("symbols_truncated") or 0),
+            "candidate_truncated": int(link_stats.get("candidate_truncated") or 0),
+            "rg_calls": int(link_stats.get("rg_calls") or 0),
+            "rg_timeouts": int(link_stats.get("rg_timeouts") or 0),
+            "rg_errors": int(link_stats.get("rg_errors") or 0),
+        }
+    if link_warnings:
+        packed["warnings"] = link_warnings
+    return packed
+
+
+def write_rlm_pack(
+    nodes_path: Path,
+    links_path: Path,
+    *,
+    output: Optional[Path] = None,
+    ticket: Optional[str] = None,
+    slug_hint: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+    root: Optional[Path] = None,
+) -> Path:
+    target = root or nodes_path.parents[2]
+    nodes = _load_jsonl(nodes_path)
+    links = _load_jsonl(links_path)
+    rlm_limits: Dict[str, int] = {}
+    rlm_settings = load_rlm_settings(target)
+    if isinstance(rlm_settings.get("pack_budget"), dict):
+        for key, value in (rlm_settings.get("pack_budget") or {}).items():
+            try:
+                rlm_limits[str(key)] = int(value)
+            except (TypeError, ValueError):
+                continue
+    if limits:
+        for key, value in limits.items():
+            try:
+                rlm_limits[str(key)] = int(value)
+            except (TypeError, ValueError):
+                continue
+    max_chars = int(rlm_limits.get("max_chars") or RLM_BUDGET["max_chars"])
+    max_lines = int(rlm_limits.get("max_lines") or RLM_BUDGET["max_lines"])
+    if not ticket:
+        name = nodes_path.name
+        if "-rlm.nodes.jsonl" in name:
+            ticket = name.replace("-rlm.nodes.jsonl", "")
+    pack = build_rlm_pack(
+        nodes,
+        links,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        source_path=runtime.rel_path(nodes_path, target),
+        limits=rlm_limits or limits,
+        root=target,
+    )
+    ext = _pack_extension()
+    default_name = nodes_path.name.replace("-rlm.nodes.jsonl", f"-rlm{ext}")
+    default_path = nodes_path.with_name(default_name)
+    pack_path = (output or default_path).resolve()
+    text, trimmed, errors = _auto_trim_rlm_pack(
+        pack,
+        max_chars=max_chars,
+        max_lines=max_lines,
+    )
+    if trimmed:
+        print(f"[pack-trim] rlm pack trimmed: {', '.join(trimmed)}", file=sys.stderr)
+    for error in errors:
+        print(f"[pack-budget] {error}", file=sys.stderr)
+    return _write_pack_text(text, pack_path)
+
+
+def _update_rlm_context(
+    context_path: Path,
+    *,
+    root: Path,
+    nodes_path: Path,
+    links_path: Path,
+    pack_path: Path,
+) -> Path:
+    payload = json.loads(context_path.read_text(encoding="utf-8"))
+    payload["rlm_status"] = "ready"
+    payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
+    payload["rlm_links_path"] = runtime.rel_path(links_path, root)
+    payload["rlm_pack_path"] = runtime.rel_path(pack_path, root)
+    tmp_path = context_path.with_suffix(context_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp_path.replace(context_path)
+    return context_path
+
+
 def write_ast_grep_pack(
     jsonl_path: Path,
     *,
@@ -1138,13 +1531,60 @@ def write_call_graph_pack(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Generate pack sidecar for research context JSON.")
-    parser.add_argument("path", help="Path to aidd/reports/research/<ticket>-context.json")
+    parser.add_argument("path", nargs="?", help="Path to aidd/reports/research/<ticket>-context.json")
     parser.add_argument(
         "--output",
         help="Optional output path (default: *.pack.yaml or *.pack.toon when AIDD_PACK_FORMAT=toon).",
     )
+    parser.add_argument("--rlm-nodes", help="Path to <ticket>-rlm.nodes.jsonl to build RLM pack.")
+    parser.add_argument("--rlm-links", help="Path to <ticket>-rlm.links.jsonl to build RLM pack.")
+    parser.add_argument("--ticket", help="Ticket identifier to label RLM pack (optional).")
+    parser.add_argument("--slug-hint", help="Slug hint for RLM pack (optional).")
+    parser.add_argument(
+        "--update-context",
+        action="store_true",
+        help="Update research context.json and regenerate context pack when building RLM pack.",
+    )
     args = parser.parse_args(argv)
 
+    if args.rlm_nodes or args.rlm_links:
+        if not args.rlm_nodes or not args.rlm_links:
+            raise SystemExit("--rlm-nodes and --rlm-links must be provided together.")
+        nodes_path = Path(args.rlm_nodes)
+        links_path = Path(args.rlm_links)
+        output = Path(args.output) if args.output else None
+        ticket = args.ticket
+        if not ticket and "-rlm.nodes.jsonl" in nodes_path.name:
+            ticket = nodes_path.name.replace("-rlm.nodes.jsonl", "")
+        pack_path = write_rlm_pack(
+            nodes_path,
+            links_path,
+            output=output,
+            ticket=ticket,
+            slug_hint=args.slug_hint,
+        )
+        if args.update_context:
+            root = nodes_path.resolve().parents[2]
+            if not ticket:
+                raise SystemExit("ticket is required to update context.json.")
+            context_path = root / "reports" / "research" / f"{ticket}-context.json"
+            if not context_path.exists():
+                raise SystemExit(f"research context not found: {context_path}")
+            _update_rlm_context(
+                context_path,
+                root=root,
+                nodes_path=nodes_path,
+                links_path=links_path,
+                pack_path=pack_path,
+            )
+            write_research_context_pack(context_path, root=root)
+            rel_context = runtime.rel_path(context_path, root)
+            print(f"[aidd] updated rlm_status=ready in {rel_context}.", file=sys.stderr)
+        print(pack_path.as_posix())
+        return 0
+
+    if not args.path:
+        raise SystemExit("context.json path is required unless using --rlm-nodes/--rlm-links.")
     json_path = Path(args.path)
     output = Path(args.output) if args.output else None
     pack_path = write_research_context_pack(json_path, output=output)

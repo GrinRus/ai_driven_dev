@@ -65,6 +65,54 @@
       "Перед выпуском релиза обновите conventions.md вручную, чтобы зафиксировать актуальные правила."
     ]
   },
+  "rlm": {
+    "enabled": true,
+    "required_for_langs": [
+      "kt",
+      "kts",
+      "java"
+    ],
+    "max_files": 500,
+    "max_nodes": 800,
+    "max_links": 2000,
+    "max_file_bytes": 200000,
+    "verification_required": true,
+    "rg_timeout_s": 6,
+    "rg_batch_size": 24,
+    "max_symbols_per_file": 40,
+    "max_definition_hits_per_symbol": 5,
+    "dir_children_limit": 50,
+    "dir_summary_max_chars": 600,
+    "pack_budget": {
+      "max_chars": 12000,
+      "max_lines": 200,
+      "entrypoints": 20,
+      "hotspots": 20,
+      "integration_points": 20,
+      "test_hooks": 15,
+      "recommended_reads": 15,
+      "evidence_snippet_chars": 160
+    },
+    "slice_budget": {
+      "max_nodes": 20,
+      "max_links": 40,
+      "max_chars": 6000
+    },
+    "ignore_dirs": [
+      ".git",
+      ".gradle",
+      ".idea",
+      ".venv",
+      "aidd",
+      "build",
+      "dist",
+      "node_modules",
+      "out",
+      "output",
+      "target",
+      "vendor"
+    ]
+  },
   "researcher": {
     "defaults": {
       "paths": [
@@ -121,6 +169,7 @@
       "vendor"
     ],
     "call_graph": {
+      "deprecated": true,
       "filter_max_chars": 512,
       "filter_max_tokens": 20,
       "edges_max": 0,
@@ -138,6 +187,7 @@
       "max_discovered": 12
     },
     "ast_grep": {
+      "deprecated": true,
       "enabled": false,
       "required_for_langs": [],
       "max_files": 400,

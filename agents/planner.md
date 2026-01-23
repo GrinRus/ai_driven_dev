@@ -2,9 +2,9 @@
 name: planner
 description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
-prompt_version: 1.1.5
-source_version: 1.1.5
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.1.6
+source_version: 1.1.6
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -26,8 +26,7 @@ permissionMode: default
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
 - `aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
-- `aidd/reports/research/<ticket>-call-graph.pack.*` (pack-first), `graph-slice` pack (предпочтительно) и `-call-graph.edges.jsonl` (только spot-check через `rg`).
-- `aidd/reports/research/<ticket>-ast-grep.pack.*` (если есть).
+- `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (предпочтительно).
 - `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active_feature`).
 - ADR/архитектурные заметки (если есть).
 
@@ -51,7 +50,7 @@ permissionMode: default
 
 ## Fail-fast и вопросы
 - Если PRD не READY или research отсутствует — остановись и попроси завершить предыдущие шаги.
-- Если отсутствуют pack/edges для call-graph или ast-grep там, где они ожидаются, зафиксируй blocker и попроси пересобрать research.
+- Если отсутствует `*-rlm.pack.*` там, где он ожидается, зафиксируй blocker и попроси завершить agent‑flow по worklist.
 - При неопределённых интеграциях/миграциях сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 - Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в плане.
 - Не задавай вопросы, на которые уже есть ответы в PRD; вместо этого перенеси их в `AIDD:DECISIONS` и ссылайся на `PRD QN` при необходимости.

@@ -36,7 +36,6 @@
 
 ## Минимальные зависимости
 - `python3`, `rg`, `git` обязательны.
-- Опционально: `tree_sitter_language_pack` для call‑graph (без него часть тестов может быть skipped).
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
@@ -58,7 +57,7 @@
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.
-- Research: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (при необходимости: `--graph-mode full`).
+- Research: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
 - Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
@@ -68,31 +67,21 @@
 
 Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, тесты), затем задаём вопросы пользователю.
 
-## Call Graph в Research
+## RLM в Research
+- Evidence: `aidd/reports/research/<ticket>-rlm.pack.*` и `rlm-slice` pack.
+- Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.*` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.*`.
+- On-demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Legacy `call_graph`/`ast_grep` evidence deprecated и disabled by default.
+- Troubleshooting пустого контекста:
+  - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
+  - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
+  - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
 
-| Сценарий | Graph обязателен | Режим | Примечание |
-| --- | --- | --- | --- |
-| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) | Только edge‑index: `*-call-graph.edges.jsonl` + pack (raw/full не пишется). |
-| Смешанный repo с JVM‑модулями | Да (для JVM) | `--auto` | Уточняйте `--paths` под JVM‑часть. |
-| Non‑JVM (py/js/go и т.п.) | Нет | fast‑scan | Graph можно отключить `--graph-engine none`. |
-| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` | Без фильтра; лимит `call_graph.edges_max` всё равно применяется. |
-
-Примеры WARN/INSTALL_HINT:
-- `[aidd] WARN: 0 matches for <ticket> → сузить paths/keywords или graph-only.`
-- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
-- `[aidd] WARN: tree-sitter not available: ...`
-
-Troubleshooting пустого контекста:
-- Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-- Запустите graph-only: `--call-graph --graph-mode full` (без фильтра, но с `call_graph.edges_max`).
-- Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
-- Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
-
-## Graph Read Policy (pack-first)
-- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
-- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
-- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
-- JSONL‑streams (`*-call-graph.edges.jsonl`, `*-ast-grep.jsonl`) читаются фрагментами, не целиком.
+## RLM Read Policy (pack-first)
+- MUST: читать `aidd/reports/research/<ticket>-rlm.pack.*` first.
+- PREFER: использовать `rlm-slice` pack для узких запросов.
+- MUST NOT: читать `*-rlm.nodes.jsonl` или `*-rlm.links.jsonl` целиком; только spot‑check через `rg`.
+- JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
@@ -119,6 +108,10 @@ Troubleshooting пустого контекста:
 - Naming:
   - Research context: `aidd/reports/research/<ticket>-context.json` + `*.pack.yaml|*.pack.toon`
   - Research targets: `aidd/reports/research/<ticket>-targets.json`
+  - RLM targets: `aidd/reports/research/<ticket>-rlm-targets.json`
+  - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
+  - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
+  - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.yaml|toon`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>.json`
@@ -129,6 +122,7 @@ Troubleshooting пустого контекста:
 - Columnar формат: `cols` + `rows`.
 - Budgets (пример):
   - research context pack: total <= 1200 chars, matches<=20, reuse<=8, import_graph<=30
+  - RLM pack: total <= 12000 chars, entrypoints<=20, hotspots<=20
   - QA pack: findings<=20, tests_executed<=10
   - PRD pack: findings<=20, action_items<=10
 - Патчи (опционально): RFC6902 в `aidd/reports/<type>/<ticket>.patch.json`.

@@ -223,31 +223,27 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, "demo-checkout")
     write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
-    write_json(
-        project_root,
-        "reports/research/demo-checkout-context.json",
-        {
-            "profile": {"recommendations": ["from json"]},
-            "manual_notes": [],
-            "reuse_candidates": [],
-        },
-    )
     pack_payload = {
         "schema": "aidd.report.pack.v1",
-        "type": "research",
-        "kind": "context",
-        "profile": {"recommendations": ["from pack"]},
-        "manual_notes": [],
-        "reuse_candidates": [],
+        "type": "rlm",
+        "kind": "pack",
+        "integration_points": [
+            {"file_id": "file-a", "path": "src/app.py", "summary": "Main app entry"},
+        ],
+        "test_hooks": [
+            {"file_id": "file-b", "path": "tests/test_app.py", "test_hooks": ["pytest"]},
+        ],
+        "risks": [
+            {"file_id": "file-a", "path": "src/app.py", "risks": ["No retry on failure"]},
+        ],
     }
     write_file(
         project_root,
-        "reports/research/demo-checkout-context.pack.yaml",
+        "reports/research/demo-checkout-rlm.pack.yaml",
         json.dumps(pack_payload, indent=2),
     )
 
     env = cli_env()
-    env["AIDD_PACK_FIRST"] = "1"
     result = subprocess.run(
         cli_cmd(
             "tasks-derive",
@@ -264,8 +260,9 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
 
     assert result.returncode == 0, result.stderr
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
-    assert "Research: from pack" in content
-    assert "Research: from json" not in content
+    assert "RLM integration: src/app.py" in content
+    assert "RLM test hook: tests/test_app.py" in content
+    assert "RLM risk: No retry on failure" in content
 
 
 def test_tasks_derive_from_ast_grep_pack(tmp_path):
