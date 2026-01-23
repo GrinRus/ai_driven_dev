@@ -111,7 +111,22 @@ def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", st
     write_json(
         tmp_path,
         f"reports/research/{ticket}-ast-grep.pack.yaml",
-        {"type": "ast-grep", "status": "ok"},
+        {
+            "type": "ast-grep",
+            "kind": "pack",
+            "rules": [
+                {
+                    "rule_id": "jvm.spring.rest",
+                    "examples": [
+                        {
+                            "path": "src/main/kotlin/App.kt",
+                            "line": 3,
+                            "message": "REST endpoint",
+                        }
+                    ],
+                }
+            ],
+        },
     )
 
 

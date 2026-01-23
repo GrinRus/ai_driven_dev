@@ -17,6 +17,8 @@ _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
 _TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
 _LEGACY_TASK_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s*(Research|QA|Review)(?:\s+report)?\s*:", re.IGNORECASE)
 _FIELD_HEADER_RE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9 _-]*)\s*:")
+_TASK_PRIORITY_RE = re.compile(r"\(Priority:\s*([^)]+)\)", re.IGNORECASE)
+_TASK_BLOCKING_RE = re.compile(r"\(Blocking:\s*(true|false)\)", re.IGNORECASE)
 _SOURCE_ALIASES = {"reviewer": "review"}
 _PRIORITY_MAP = {
     "blocker": "critical",
@@ -28,6 +30,7 @@ _PRIORITY_MAP = {
     "info": "low",
 }
 _PRESERVE_FIELDS = {"scope", "dod", "boundaries", "tests", "notes"}
+_RESEARCH_NON_ACTIONABLE_SCOPES = {"", "n/a", "na"}
 
 
 @dataclass
@@ -126,6 +129,41 @@ def _task_block(spec: TaskSpec) -> List[str]:
     if spec.notes:
         lines.append(f"  - Notes: {spec.notes}")
     return lines
+
+
+def _extract_block_field(block: Sequence[str], field: str) -> str:
+    field_key = field.strip().lower()
+    for line in block:
+        match = _FIELD_HEADER_RE.match(line)
+        if not match:
+            continue
+        label = match.group(1).strip().lower()
+        if label != field_key:
+            continue
+        return line.split(":", 1)[1].strip()
+    return ""
+
+
+def _is_actionable_research_block(block: Sequence[str]) -> bool:
+    if not block:
+        return False
+    header = block[0]
+    blocking_match = _TASK_BLOCKING_RE.search(header)
+    if blocking_match and blocking_match.group(1).lower() == "true":
+        return True
+    priority_match = _TASK_PRIORITY_RE.search(header)
+    if priority_match:
+        priority = priority_match.group(1).strip().lower()
+        if priority in {"critical", "high"}:
+            return True
+    scope = _extract_block_field(block, "scope").strip().lower()
+    if scope and scope not in _RESEARCH_NON_ACTIONABLE_SCOPES:
+        return True
+    return False
+
+
+def _filter_research_handoff_blocks(blocks: Sequence[List[str]]) -> List[List[str]]:
+    return [block for block in blocks if _is_actionable_research_block(block)]
 
 
 
@@ -888,11 +926,16 @@ def main(argv: list[str] | None = None) -> int:
         derived_blocks = []
 
     derived_blocks = _dedupe_task_blocks(derived_blocks)
-    if not derived_blocks:
-        derived_blocks = _dedupe_task_blocks(_derive_handoff_placeholder(source, ticket, report_label))
-    if not derived_blocks:
-        print(f"[aidd] no tasks found in {source} report ({report_label}).")
-        return 0
+    if source == "research":
+        derived_blocks = _filter_research_handoff_blocks(derived_blocks)
+        if not derived_blocks:
+            print(f"[aidd] no actionable research tasks found in {report_label}.")
+    else:
+        if not derived_blocks:
+            derived_blocks = _dedupe_task_blocks(_derive_handoff_placeholder(source, ticket, report_label))
+        if not derived_blocks:
+            print(f"[aidd] no tasks found in {source} report ({report_label}).")
+            return 0
 
     derived_tasks = _flatten_task_blocks(derived_blocks)
 
@@ -903,6 +946,10 @@ def main(argv: list[str] | None = None) -> int:
             f"tasklist not found at {tasklist_rel}; create it via /feature-dev-aidd:tasks-new {ticket}."
         )
     tasklist_text = tasklist_path.read_text(encoding="utf-8")
+    if source == "research" and not derived_tasks:
+        existing_start, _, _ = _extract_handoff_block(tasklist_text.splitlines(), source)
+        if existing_start == -1:
+            return 0
 
     updated_text, heading_label, changed = _apply_handoff_tasks(
         tasklist_text,

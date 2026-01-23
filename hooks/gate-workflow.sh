@@ -221,6 +221,33 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
                     return candidate
         return None
 
+    def research_requires_handoff(report_path: Path) -> bool:
+        try:
+            from tools import tasks_derive
+        except Exception:
+            return True
+
+        try:
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except Exception:
+            return True
+
+        label = marker_for(report_path)
+        blocks = tasks_derive._derive_tasks_from_research_context(payload, label)
+        for suffix in (".pack.yaml", ".pack.toon"):
+            ast_path = root / "reports" / "research" / f"{ticket}-ast-grep{suffix}"
+            if not ast_path.exists():
+                continue
+            try:
+                ast_payload = json.loads(ast_path.read_text(encoding="utf-8"))
+            except Exception:
+                ast_payload = {}
+            blocks.extend(tasks_derive._derive_tasks_from_ast_grep_pack(ast_payload, marker_for(ast_path)))
+            break
+        blocks = tasks_derive._dedupe_task_blocks(blocks)
+        blocks = tasks_derive._filter_research_handoff_blocks(blocks)
+        return bool(blocks)
+
     reports: list[tuple[str, Path, str]] = []
     qa_template = None
     qa_cfg = config.get("qa") or {}
@@ -246,7 +273,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
         reports.append(("qa", qa_path, marker_for(qa_path)))
 
     research_path = resolve_report(root / "reports" / "research" / f"{ticket}-context.json")
-    if research_path:
+    if research_path and research_requires_handoff(research_path):
         reports.append(("research", research_path, marker_for(research_path)))
 
     reviewer_cfg = config.get("reviewer") or {}
