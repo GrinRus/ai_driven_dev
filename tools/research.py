@@ -359,6 +359,7 @@ def run(args: argparse.Namespace) -> int:
     graph_languages = _research_parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _research_parse_graph_engine(getattr(args, "graph_engine", None))
     graph_mode = _research_parse_graph_mode(getattr(args, "graph_mode", None))
+    evidence_engine = str(getattr(args, "evidence_engine", "auto")).strip().lower()
     explicit_filter = getattr(args, "graph_filter", None)
     if explicit_filter is not None and not str(explicit_filter).strip():
         explicit_filter = None
@@ -387,7 +388,12 @@ def run(args: argparse.Namespace) -> int:
 
     deep_code_enabled = bool(args.deep_code)
     call_graph_requested = bool(args.call_graph)
-    if args.auto:
+    explicit_graph = bool(call_graph_requested or deep_code_enabled or graph_engine not in {"auto"})
+    if evidence_engine == "rlm" and not explicit_graph:
+        graph_engine = "none"
+        deep_code_enabled = False
+        call_graph_requested = False
+    if args.auto and evidence_engine != "rlm":
         if deep_code_enabled or call_graph_requested:
             auto_profile = "graph-scan"
             auto_reason = "explicit flags"
@@ -472,50 +478,53 @@ def run(args: argparse.Namespace) -> int:
         collected_context["call_graph_warning"] = "call graph disabled (graph-engine none)"
 
     ast_grep_stats = None
-    try:
-        from tools.ast_grep_scan import scan_ast_grep
+    if evidence_engine == "rlm":
+        collected_context["ast_grep_stats"] = {"reason": "rlm-disabled"}
+    else:
+        try:
+            from tools.ast_grep_scan import scan_ast_grep
 
-        ast_output = Path(f"aidd/reports/research/{ticket}-ast-grep.jsonl")
-        ast_output = runtime.resolve_path_for_target(ast_output, target)
-        ast_path, ast_grep_stats = scan_ast_grep(
-            target,
-            ticket=ticket,
-            search_roots=path_roots,
-            output=ast_output,
-            tags=scope.tags,
-        )
-        if ast_path:
-            collected_context["ast_grep_path"] = os.path.relpath(ast_path, target)
-            collected_context["ast_grep_schema"] = ast_grep_stats.get("schema") if ast_grep_stats else None
-            collected_context["ast_grep_stats"] = ast_grep_stats
-        else:
-            if ast_grep_stats:
+            ast_output = Path(f"aidd/reports/research/{ticket}-ast-grep.jsonl")
+            ast_output = runtime.resolve_path_for_target(ast_output, target)
+            ast_path, ast_grep_stats = scan_ast_grep(
+                target,
+                ticket=ticket,
+                search_roots=path_roots,
+                output=ast_output,
+                tags=scope.tags,
+            )
+            if ast_path:
+                collected_context["ast_grep_path"] = os.path.relpath(ast_path, target)
+                collected_context["ast_grep_schema"] = ast_grep_stats.get("schema") if ast_grep_stats else None
                 collected_context["ast_grep_stats"] = ast_grep_stats
-            if ast_grep_stats:
-                reason = ast_grep_stats.get("reason")
-                if reason in {"disabled", "langs-not-required"}:
-                    if reason == "disabled":
-                        detail = (
-                            " (set aidd/config/conventions.json: "
-                            "researcher.ast_grep.enabled=true or required_for_langs=[...])"
-                        )
+            else:
+                if ast_grep_stats:
+                    collected_context["ast_grep_stats"] = ast_grep_stats
+                if ast_grep_stats:
+                    reason = ast_grep_stats.get("reason")
+                    if reason in {"disabled", "langs-not-required"}:
+                        if reason == "disabled":
+                            detail = (
+                                " (set aidd/config/conventions.json: "
+                                "researcher.ast_grep.enabled=true or required_for_langs=[...])"
+                            )
+                        else:
+                            detail = " (adjust researcher.ast_grep.required_for_langs if needed)"
+                        print(f"[aidd] INFO: ast-grep scan skipped ({reason}){detail}.", file=sys.stderr)
+                    elif reason == "binary-missing":
+                        print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
+                    elif reason == "scan-failed":
+                        detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
+                        detail_suffix = f": {detail}" if detail else ""
+                        print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
                     else:
-                        detail = " (adjust researcher.ast_grep.required_for_langs if needed)"
-                    print(f"[aidd] INFO: ast-grep scan skipped ({reason}){detail}.", file=sys.stderr)
-                elif reason == "binary-missing":
-                    print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
-                elif reason == "scan-failed":
-                    detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
-                    detail_suffix = f": {detail}" if detail else ""
-                    print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
-                else:
-                    print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
-    except Exception as exc:
-        collected_context["ast_grep_stats"] = {"reason": "exception", "error": f"{type(exc).__name__}: {exc}"}
-        print(
-            f"[aidd] WARN: ast-grep scan errored: {type(exc).__name__}: {exc}.",
-            file=sys.stderr,
-        )
+                        print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
+        except Exception as exc:
+            collected_context["ast_grep_stats"] = {"reason": "exception", "error": f"{type(exc).__name__}: {exc}"}
+            print(
+                f"[aidd] WARN: ast-grep scan errored: {type(exc).__name__}: {exc}.",
+                file=sys.stderr,
+            )
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     if rlm_targets_path:
         collected_context["rlm_targets_path"] = os.path.relpath(rlm_targets_path, target)

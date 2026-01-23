@@ -50,6 +50,41 @@ def _resolve_roots(target: Path, paths: Sequence[str], *, base_root: Path) -> Li
     return roots
 
 
+def _discover_common_paths(
+    base_root: Path,
+    *,
+    ignore_dirs: set[str],
+    max_depth: int = 4,
+) -> List[str]:
+    base_root = base_root.resolve()
+    candidates = [
+        Path("src/main"),
+        Path("src/test"),
+        Path("frontend/src"),
+        Path("frontend/src/test"),
+        Path("backend/src/main"),
+        Path("backend/src/test"),
+    ]
+    discovered: List[str] = []
+    for candidate in candidates:
+        path = (base_root / candidate).resolve()
+        if path.exists():
+            discovered.append(normalize_path(path.relative_to(base_root)))
+
+    for base, dirs, _ in os.walk(base_root):
+        rel = Path(base).relative_to(base_root)
+        if max_depth and len(rel.parts) > max_depth:
+            dirs[:] = []
+            continue
+        dirs[:] = [name for name in dirs if name.lower() not in ignore_dirs]
+        if not rel.parts:
+            continue
+        rel_str = rel.as_posix()
+        if rel_str.endswith("src/main") or rel_str.endswith("src/test"):
+            discovered.append(normalize_path(rel))
+    return sorted(dict.fromkeys(discovered))
+
+
 def _parse_files_touched(plan_path: Path) -> List[str]:
     if not plan_path.exists():
         return []
@@ -202,6 +237,9 @@ def build_targets(
     max_file_bytes = int(settings.get("max_file_bytes") or 0)
 
     base_root = base_root or paths_base_for(target)
+    auto_paths = _discover_common_paths(base_root, ignore_dirs=ignore_dirs)
+    if auto_paths:
+        paths_discovered = list(dict.fromkeys(paths_discovered + auto_paths))
     roots = _resolve_roots(target, paths + paths_discovered, base_root=base_root)
     touched_roots = _resolve_roots(target, files_touched, base_root=base_root)
     roots = list(dict.fromkeys(roots + touched_roots))

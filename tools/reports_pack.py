@@ -994,6 +994,8 @@ def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
         warnings.append("rlm rg timeout during link search")
     if int(stats.get("rg_errors") or 0) > 0:
         warnings.append("rlm rg errors during link search")
+    if "target_files_total" in stats and int(stats.get("target_files_total") or 0) == 0:
+        warnings.append("rlm link targets empty")
     return warnings
 
 
@@ -1241,7 +1243,44 @@ def _update_rlm_context(
     pack_path: Path,
 ) -> Path:
     payload = json.loads(context_path.read_text(encoding="utf-8"))
-    payload["rlm_status"] = "ready"
+    ticket = str(payload.get("ticket") or "").strip()
+    worklist_path = payload.get("rlm_worklist_path")
+    worklist_status = None
+    worklist_entries = None
+    if isinstance(worklist_path, str) and worklist_path.strip():
+        resolved = runtime.resolve_path_for_target(Path(worklist_path), root)
+        if resolved.exists():
+            try:
+                worklist_payload = json.loads(resolved.read_text(encoding="utf-8"))
+            except Exception:
+                worklist_payload = None
+            if isinstance(worklist_payload, dict):
+                worklist_status = str(worklist_payload.get("status") or "").strip().lower() or None
+                entries = worklist_payload.get("entries")
+                if isinstance(entries, list):
+                    worklist_entries = len(entries)
+    if worklist_status is None and ticket:
+        for suffix in (".pack.yaml", ".pack.toon"):
+            candidate = root / "reports" / "research" / f"{ticket}-rlm.worklist{suffix}"
+            if candidate.exists():
+                try:
+                    worklist_payload = json.loads(candidate.read_text(encoding="utf-8"))
+                except Exception:
+                    worklist_payload = None
+                if isinstance(worklist_payload, dict):
+                    payload["rlm_worklist_path"] = runtime.rel_path(candidate, root)
+                    worklist_status = str(worklist_payload.get("status") or "").strip().lower() or None
+                    entries = worklist_payload.get("entries")
+                    if isinstance(entries, list):
+                        worklist_entries = len(entries)
+                break
+    if worklist_status == "ready" and worklist_entries == 0:
+        rlm_status = "ready"
+    elif worklist_status:
+        rlm_status = "pending"
+    else:
+        rlm_status = "ready"
+    payload["rlm_status"] = rlm_status
     payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
     payload["rlm_links_path"] = runtime.rel_path(links_path, root)
     payload["rlm_pack_path"] = runtime.rel_path(pack_path, root)

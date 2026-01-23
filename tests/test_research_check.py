@@ -59,7 +59,14 @@ class ResearchCheckTests(unittest.TestCase):
             {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
         )
 
-    def _write_rlm_baseline(self, root: Path, ticket: str) -> None:
+    def _write_rlm_baseline(
+        self,
+        root: Path,
+        ticket: str,
+        *,
+        status: str = "pending",
+        entries: list[dict] | None = None,
+    ) -> None:
         write_file(root, "src/main/kotlin/App.kt", "class App {}\n")
         write_json(
             root,
@@ -89,7 +96,12 @@ class ResearchCheckTests(unittest.TestCase):
         write_json(
             root,
             f"reports/research/{ticket}-rlm.worklist.pack.yaml",
-            {"schema": "aidd.report.pack.v1", "type": "rlm-worklist", "status": "pending"},
+            {
+                "schema": "aidd.report.pack.v1",
+                "type": "rlm-worklist",
+                "status": status,
+                "entries": entries if entries is not None else [{"file_id": "file-app"}],
+            },
         )
 
     def test_research_check_blocks_missing_report(self) -> None:
@@ -114,7 +126,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "implement")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
         write_json(
             project_root,
@@ -143,7 +155,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
         write_json(
             project_root,
@@ -175,7 +187,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
 
         write_json(
             project_root,
@@ -204,7 +216,7 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
-        self._write_rlm_baseline(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
 
         nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
         links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"

@@ -348,6 +348,19 @@ def _validate_rlm_evidence(
     )
 
     rlm_status = str(context.get("rlm_status") or "pending").strip().lower()
+    worklist_status = None
+    worklist_entries = None
+    if rlm_worklist_path.exists():
+        payload = _load_pack_payload(rlm_worklist_path)
+        if isinstance(payload, dict):
+            worklist_status = str(payload.get("status") or "").strip().lower() or None
+            entries = payload.get("entries")
+            if isinstance(entries, list):
+                worklist_entries = len(entries)
+    if worklist_status == "ready" and worklist_entries == 0:
+        rlm_status = "ready"
+    elif worklist_status:
+        rlm_status = "pending"
     stage = _load_stage(root)
     ready_required = stage in {"plan", "review", "qa"}
 
@@ -364,7 +377,7 @@ def _validate_rlm_evidence(
         if settings.rlm_require_links and not links_ok:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но links.jsonl отсутствует/пустой. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_links_build.py --ticket {ticket}`."
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`."
             )
         if settings.rlm_require_pack and not pack_ok:
             raise ResearchValidationError(

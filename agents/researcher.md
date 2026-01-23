@@ -2,9 +2,9 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.16
-source_version: 1.2.16
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm_verify.py:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm_links_build.py:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm_jsonl_compact.py:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports_pack.py:*)
+prompt_version: 1.2.17
+source_version: 1.2.17
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports_pack.py:*)
 model: inherit
 permissionMode: default
 ---
@@ -32,7 +32,7 @@ permissionMode: default
 ## Автоматизация
 - Команда `/feature-dev-aidd:researcher` запускает сбор контекста и обновляет `aidd/reports/research/<ticket>-context.json`/`-targets.json` + RLM targets/manifest/worklist.
 - Для RLM связей используй `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh`; `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` — только `rg` для точечной проверки.
-- Если `rlm_status=pending` — используй worklist pack и опиши agent‑flow: nodes.jsonl → `tools/rlm_verify.py` → `tools/rlm_links_build.py` → `tools/rlm_jsonl_compact.py` → `tools/reports_pack.py --rlm-nodes ... --rlm-links ... --update-context`.
+- Если `rlm_status=pending` — используй worklist pack и опиши agent‑flow: nodes.jsonl → `tools/rlm-verify.sh` → `tools/rlm-links-build.sh` → `tools/rlm-jsonl-compact.sh` → `tools/reports_pack.py --rlm-nodes ... --rlm-links ... --update-context`.
 - Если pack отсутствует/пустой — попроси повторить `/feature-dev-aidd:researcher` или агент‑flow по worklist, а не запускай CLI сам.
 - Если сканирование пустое, используй шаблон `aidd/docs/research/template.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
 - Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.

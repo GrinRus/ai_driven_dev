@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
-from tools.rlm_config import base_root_for_label, load_rlm_settings, resolve_source_path
+from tools.rlm_config import base_root_for_label, file_id_for_path, load_rlm_settings, normalize_path, resolve_source_path
 
 
 SCHEMA = "aidd.rlm_link.v1"
@@ -38,6 +38,15 @@ def _iter_nodes(path: Path) -> Iterable[Dict[str, object]]:
 
 
 def _load_targets(path: Path) -> Dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _load_manifest(path: Path) -> Dict:
     if not path.exists():
         return {}
     try:
@@ -279,14 +288,12 @@ def _build_links(
                 key_calls = key_calls[: max_symbols_per_file]
         stats["symbols_scanned"] += len(key_calls)
         src_matches: Dict[str, Optional[Tuple[int, str]]] = {}
-        pending_rg: List[str] = []
+        pending_rg = [symbol for symbol in key_calls if symbol not in rg_cache]
         for symbol in key_calls:
             if symbol in missing:
                 continue
             match = _match_line(text, symbol)
             src_matches[symbol] = match
-            if match is None and symbol not in rg_cache:
-                pending_rg.append(symbol)
         _prime_rg_cache(pending_rg)
         for symbol in key_calls:
             if symbol in missing:
@@ -349,6 +356,50 @@ def _build_links(
                 if max_links and len(links) >= max_links:
                     truncated = True
                     return list(links.values()), truncated, stats
+            if candidates:
+                continue
+            rg_match = rg_cache.get(symbol)
+            if not rg_match:
+                continue
+            rg_path, line_no, line_text = rg_match
+            if not rg_path:
+                continue
+            evidence_ref = _evidence_ref(
+                rg_path,
+                line_no,
+                line_no,
+                line_text,
+                extractor="rg",
+            )
+            dst_path = Path(rg_path)
+            if dst_path.is_absolute():
+                try:
+                    rel = dst_path.relative_to(rg_root)
+                except ValueError:
+                    rel = dst_path
+            else:
+                rel = dst_path
+            dst_file_id = file_id_for_path(Path(normalize_path(rel)))
+            if not dst_file_id or dst_file_id == file_id:
+                continue
+            link_id = hashlib.sha1(
+                f"{file_id}:{dst_file_id}:calls:{evidence_ref['match_hash']}".encode("utf-8")
+            ).hexdigest()
+            if link_id in links:
+                continue
+            links[link_id] = {
+                "schema": SCHEMA,
+                "schema_version": SCHEMA_VERSION,
+                "link_id": link_id,
+                "src_file_id": file_id,
+                "dst_file_id": dst_file_id,
+                "type": "calls",
+                "evidence_ref": evidence_ref,
+                "unverified": True,
+            }
+            if max_links and len(links) >= max_links:
+                truncated = True
+                return list(links.values()), truncated, stats
     return list(links.values()), truncated, stats
 
 
@@ -397,6 +448,21 @@ def main(argv: List[str] | None = None) -> int:
     base_root = base_root_for_label(project_root, paths_base)
 
     settings = load_rlm_settings(project_root)
+    max_files = int(settings.get("max_files") or 0)
+    target_files_source = "targets"
+    if not target_files:
+        manifest_path = project_root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
+        manifest_payload = _load_manifest(manifest_path)
+        manifest_files = [
+            str(item.get("path"))
+            for item in (manifest_payload.get("files") or [])
+            if isinstance(item, dict) and str(item.get("path") or "").strip()
+        ]
+        if max_files and len(manifest_files) > max_files:
+            manifest_files = manifest_files[:max_files]
+        if manifest_files:
+            target_files = manifest_files
+            target_files_source = "manifest"
     max_links = int(settings.get("max_links") or 0)
     max_symbols_per_file = int(settings.get("max_symbols_per_file") or 0)
     max_definition_hits_per_symbol = int(settings.get("max_definition_hits_per_symbol") or 0)
@@ -455,6 +521,8 @@ def main(argv: List[str] | None = None) -> int:
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "links_total": len(links),
         "links_truncated": truncated,
+        "target_files_source": target_files_source,
+        "target_files_total": len(target_files),
         **link_stats,
     }
     _write_stats(stats_path, stats_payload)

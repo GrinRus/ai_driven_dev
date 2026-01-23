@@ -1880,3 +1880,43 @@ _Статус: новый, приоритет 1. Цель — переход н�
   - ограничение link‑поиска при превышении budget → WARN в pack.
   **AC:** links_build не умирает по времени на больших репо.
   **Deps:** W81-3,W81-9
+
+### EPIC R — RLM field hardening (P0/P1)
+- [x] W81-30 `tools/rlm-slice.sh`, `tools/rlm-verify.sh`, `tools/rlm-links-build.sh`, `tools/rlm-jsonl-compact.sh`, `agents/researcher.md`, `commands/researcher.md`: привести entrypoints к рабочему виду в workspace:
+  - `rlm-slice.sh` исполняемый и запускается как Bash tool;
+  - добавить bootstrap‑wrappers для verify/links/compact (CLAUDE_PLUGIN_ROOT + sys.path);
+  - обновить allowed-tools, чтобы agent-flow мог вызывать wrappers.
+  **AC:** команды работают из workspace без `PYTHONPATH`; `Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-*.sh:*)` запускается без permission errors.
+  **Tests:** smoke `--help`/entrypoint для каждого wrapper.
+  **Deps:** W81-27
+- [x] W81-31 `tools/reports_pack.py`, `tools/research_check.py`, `tools/rlm_nodes_build.py`, tests: синхронизировать `rlm_status` с worklist:
+  - `rlm_status=ready` только если worklist пуст/ready и nodes+links есть;
+  - если worklist pending/непустой — сохранять `rlm_status=pending` или вводить `partial` (с gate-правилами);
+  - `research_check` использует worklist как source-of-truth для статуса и выдаёт явные WARN/BLOCK.
+  **AC:** pack не переводит статус в ready при непустом worklist; gates согласованы со статусом.
+  **Tests:** `tests/test_reports_pack.py`, `tests/test_research_check.py`.
+  **Deps:** W81-8,W81-14
+- [x] W81-32 `tools/rlm_links_build.py`, `tools/rlm_manifest.py`, `tools/rlm_targets.py`, tests: расширить набор `target_files` для rg‑поиска:
+  - если `rlm-targets.files` пуст или слишком узок — fallback на manifest files (bounded max_files);
+  - фиксировать в stats источник списка (targets|manifest) и предупреждать при пустом списке.
+  **AC:** `rg` работает даже при keyword‑таргетах, links не “пустеют” из‑за отсутствия target_files.
+  **Tests:** unit на fallback источника и stats.
+  **Deps:** W81-5,W81-9
+- [x] W81-33 `tools/rlm_targets.py`, `templates/aidd/config/conventions.json`, tests: улучшить auto‑discovery путей для монореп:
+  - обнаруживать `**/src/main`, `**/src/test`, `frontend/src`, `backend/src/main` (если есть);
+  - фильтровать несуществующие paths, чтобы не плодить WARN.
+  **AC:** rlm-targets не содержит несуществующих путей; монорепа получает релевантные `paths` без ручного `--paths`.
+  **Tests:** unit на discovery + фильтрацию.
+  **Deps:** W81-4
+- [x] W81-34 `tools/research.py`, tests: RLM‑режим отключает call‑graph по умолчанию:
+  - при `--evidence-engine rlm` не запускать call‑graph/ast‑grep, если они не запрошены явно;
+  - исключить генерацию `*-call-graph.pack.*` и edges в RLM‑режиме.
+  **AC:** RLM‑режим не создаёт legacy артефактов без явного флага.
+  **Tests:** `tests/test_research_rlm_e2e.py` (assert no call-graph artifacts).
+  **Deps:** W81-13
+- [x] W81-35 `tools/rlm_links_build.py`, `tools/schemas/rlm_link.schema.json`, `tools/reports_pack.py`, tests: поддержать unverified links при отсутствии target‑node:
+  - если rg/regex находит определение, но dest‑node нет → создать link с `dst_file_id` от path и `unverified=true`;
+  - pack builder исключает unverified из топ‑evidence.
+  **AC:** unverified links фиксируются в jsonl, но не попадают в pack.
+  **Tests:** unit на unverified link и фильтрацию в pack.
+  **Deps:** W81-9,W81-11

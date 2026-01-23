@@ -8,6 +8,7 @@ from unittest.mock import patch
 from tests.helpers import ensure_project_root, write_active_feature, write_json
 
 from tools import rlm_links_build, reports_pack
+from tools.rlm_config import file_id_for_path
 
 
 class RlmLinksBuildTests(unittest.TestCase):
@@ -292,6 +293,198 @@ class RlmLinksBuildTests(unittest.TestCase):
                 self.assertIn("nodes.jsonl", str(exc.exception))
             finally:
                 os.chdir(old_cwd)
+
+    def test_links_build_fallbacks_to_manifest_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-manifest-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-8"
+            write_active_feature(project_root, ticket)
+
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "a.py").write_text("Foo()\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v1",
+                        "schema_version": "v1",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "key_calls": ["Foo"],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {"ticket": ticket, "paths_base": "workspace", "files": []},
+            )
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-manifest.json",
+                {
+                    "ticket": ticket,
+                    "files": [
+                        {
+                            "file_id": "file-a",
+                            "path": "src/a.py",
+                            "rev_sha": "rev-a",
+                            "lang": "py",
+                            "size": 10,
+                            "prompt_version": "v1",
+                        }
+                    ],
+                },
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            stats_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+            stats = json.loads(stats_path.read_text(encoding="utf-8"))
+            self.assertEqual(stats.get("target_files_source"), "manifest")
+            self.assertEqual(stats.get("target_files_total"), 1)
+
+    def test_links_build_emits_unverified_link_without_dst_node(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-unverified-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-9"
+            write_active_feature(project_root, ticket)
+
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "a.py").write_text("Foo()\n", encoding="utf-8")
+            (workspace / "src" / "b.py").write_text("class Foo:\n    pass\n", encoding="utf-8")
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v1",
+                        "schema_version": "v1",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "key_calls": ["Foo"],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {"ticket": ticket, "files": ["src/a.py", "src/b.py"]},
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            lines = links_path.read_text(encoding="utf-8").splitlines()
+            self.assertTrue(lines)
+            payload = json.loads(lines[0])
+            self.assertTrue(payload.get("unverified"))
+            self.assertEqual(payload.get("dst_file_id"), file_id_for_path(Path("src/b.py")))
+
+    def test_links_build_warns_when_targets_empty(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="rlm-links-empty-") as tmpdir:
+            workspace = Path(tmpdir)
+            project_root = ensure_project_root(workspace)
+            ticket = "RLM-10"
+            write_active_feature(project_root, ticket)
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v1",
+                        "schema_version": "v1",
+                        "node_kind": "file",
+                        "file_id": "file-a",
+                        "id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "",
+                        "public_symbols": [],
+                        "key_calls": [],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            write_json(
+                workspace,
+                f"reports/research/{ticket}-rlm-targets.json",
+                {"ticket": ticket, "files": []},
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                rlm_links_build.main(["--ticket", ticket])
+            finally:
+                os.chdir(old_cwd)
+
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            pack_path = reports_pack.write_rlm_pack(
+                nodes_path,
+                links_path,
+                ticket=ticket,
+                slug_hint=ticket,
+                root=project_root,
+            )
+            pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            warnings = pack_payload.get("warnings") or []
+            self.assertTrue(any("targets empty" in warning for warning in warnings))
 
 
 if __name__ == "__main__":

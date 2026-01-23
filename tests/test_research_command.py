@@ -156,6 +156,55 @@ class ResearchCommandTest(unittest.TestCase):
                 "matches should be reported relative to workspace root",
             )
 
+    @mock.patch("tools.researcher_context._load_callgraph_engine")
+    def test_research_command_rlm_skips_call_graph(self, mock_engine):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-rlm-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            code_dir = workspace / "src" / "main" / "kotlin"
+            code_dir.mkdir(parents=True, exist_ok=True)
+            demo_file = code_dir / "RlmOnly.kt"
+            demo_file.write_text(
+                "package demo\n\nfun rlmOnlyCaller() { /* RLM-1 */ }\n", encoding="utf-8"
+            )
+
+            mock_engine.return_value = FakeEngine()
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "RLM-1",
+                    "--auto",
+                    "--limit",
+                    "5",
+                    "--evidence-engine",
+                    "rlm",
+                ]
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            mock_engine.assert_not_called()
+            context_path = project_root / "reports" / "research" / "RLM-1-context.json"
+            payload = json.loads(context_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload.get("call_graph_edges_path"))
+            call_graph_pack = project_root / "reports" / "research" / "RLM-1-call-graph.pack.yaml"
+            self.assertFalse(call_graph_pack.exists())
+
     def test_research_command_respects_parent_paths_argument(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-parent-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"
