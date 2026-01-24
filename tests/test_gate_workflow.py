@@ -126,6 +126,26 @@ def write_research_doc(
     )
     write_json(
         tmp_path,
+        f"reports/research/{ticket}-ast-grep.pack.yaml",
+        {
+            "type": "ast-grep",
+            "kind": "pack",
+            "rules": [
+                {
+                    "rule_id": "jvm.spring.rest",
+                    "examples": [
+                        {
+                            "path": "src/main/kotlin/App.kt",
+                            "line": 3,
+                            "message": "REST endpoint",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    write_json(
+        tmp_path,
         f"reports/research/{ticket}-rlm-targets.json",
         {"ticket": ticket, "files": ["src/main/kotlin/App.kt"], "generated_at": generated_at},
     )

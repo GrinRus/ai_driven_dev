@@ -175,7 +175,6 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
             "research",
             "--ticket",
             "demo-checkout",
-            "--append",
         ),
         cwd=project_root,
         text=True,
@@ -187,8 +186,8 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert content.count("handoff:research start") == 1
     assert "existing item" not in content
-    assert "Research: Create baseline dirs" in content
-    assert "Reuse candidate: src/payments/Client.kt" in content
+    assert "Research: Create baseline dirs" not in content
+    assert "Reuse candidate: src/payments/Client.kt" not in content
 
 
 def test_tasks_derive_dry_run_does_not_modify(tmp_path):
@@ -263,6 +262,8 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     assert "RLM integration: src/app.py" in content
     assert "RLM test hook: tests/test_app.py" in content
     assert "RLM risk: No retry on failure" in content
+    assert "Research: from pack" not in content
+    assert "Research: from json" not in content
 
 
 def test_tasks_derive_from_ast_grep_pack(tmp_path):
