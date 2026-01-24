@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import os
 import sys
@@ -148,6 +149,50 @@ class ResearchCheckTests(unittest.TestCase):
             research_check.main(args)
         finally:
             os.chdir(old_cwd)
+
+    def test_research_check_warns_partial_pack_in_research(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-partial"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "research")
+        self._write_base_research(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"} for _ in range(6)])
+
+        nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+        nodes_path.parent.mkdir(parents=True, exist_ok=True)
+        nodes_path.write_text(
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+            encoding="utf-8",
+        )
+
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {
+                "ticket": ticket,
+                "generated_at": _timestamp(),
+                "rlm_status": "pending",
+                "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
+                "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
+                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
+            },
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        buffer = tempfile.SpooledTemporaryFile(mode="w+")
+        try:
+            with contextlib.redirect_stderr(buffer):
+                research_check.main(args)
+            buffer.seek(0)
+            output = buffer.read()
+        finally:
+            buffer.close()
+            os.chdir(old_cwd)
+
+        self.assertIn("rlm pack partial", output)
 
     def test_research_check_blocks_pending_in_review(self) -> None:
         workspace, project_root = self._setup_workspace()

@@ -581,6 +581,76 @@ class ResearcherContextBuilder:
             scope.manual_notes = _unique(scope.manual_notes + [note for note in extra_notes if note])
         return scope
 
+    def sync_scope_paths(self, scope: Scope, paths: Iterable[str]) -> Scope:
+        normalised: List[str] = []
+        for item in paths:
+            raw = (item or "").strip()
+            if not raw:
+                continue
+            path_obj = Path(raw)
+            if path_obj.is_absolute():
+                rel = self._rel_to_base(path_obj)
+            else:
+                rel = _normalise_rel(raw, self._paths_base)
+            normalised.append(rel)
+        if not normalised:
+            return scope
+        scope.paths = _unique(normalised)
+        scope.paths_discovered = []
+        scope.invalid_paths = []
+
+        base_tags = self._resolve_tags(scope.ticket, scope.slug_hint)
+        scope.tags = base_tags
+        auto_tags = self._auto_detect_tags(scope, strict_paths=True)
+        if auto_tags:
+            scope.tags = _unique(scope.tags + auto_tags)
+
+        settings = self._settings
+        defaults = settings.get("defaults", {})
+        default_docs = defaults.get("docs", ["docs"])
+        _, tag_docs, tag_keywords = self._collect_tag_payload(scope.tags)
+
+        def _norm_all(values: Sequence[str]) -> List[str]:
+            return _unique([_normalise_rel(item, self._paths_base) for item in values])
+
+        scope.docs = _norm_all(list(default_docs) + list(tag_docs))
+
+        keyword_settings = self._keyword_settings()
+        min_len = int(keyword_settings.get("min_len", _DEFAULT_KEYWORD_MIN_LEN))
+        max_count = int(keyword_settings.get("max_count", _DEFAULT_KEYWORD_MAX_COUNT))
+        short_whitelist = set(
+            _normalize_stopwords(keyword_settings.get("short_whitelist", _DEFAULT_KEYWORD_SHORT_WHITELIST))
+        )
+        stopwords = set(_DEFAULT_STOPWORDS)
+        stopwords.update(_normalize_stopwords(keyword_settings.get("stopwords", [])))
+
+        default_keywords = defaults.get("keywords", [])
+        hint_value = (scope.slug_hint or "").strip() or None
+        cleaned_hint, _ = _extract_non_negotiables(hint_value)
+        raw_keywords: List[str] = []
+        raw_keywords.extend([item for item in default_keywords if isinstance(item, str)])
+        raw_keywords.extend([item for item in tag_keywords if isinstance(item, str)])
+        raw_keywords.append(scope.ticket)
+        if hint_value:
+            raw_keywords.append(hint_value)
+
+        normalise_sources: List[str] = []
+        normalise_sources.extend([item for item in default_keywords if isinstance(item, str)])
+        normalise_sources.extend([item for item in tag_keywords if isinstance(item, str)])
+        normalise_sources.append(scope.ticket)
+        if cleaned_hint:
+            normalise_sources.append(cleaned_hint)
+
+        scope.keywords = _normalize_keywords(
+            normalise_sources,
+            stopwords=stopwords,
+            min_len=max(1, min_len),
+            short_whitelist=short_whitelist or _DEFAULT_KEYWORD_SHORT_WHITELIST,
+            max_count=max_count,
+        )
+        scope.keywords_raw = _unique([item.strip() for item in raw_keywords if isinstance(item, str) and item.strip()])
+        return scope
+
     def _discover_paths(self, scope: Scope) -> Scope:
         settings = self._settings.get("path_discovery", {})
         max_discovered = int(settings.get("max_discovered", 12)) if isinstance(settings, dict) else 12
@@ -697,12 +767,18 @@ class ResearcherContextBuilder:
             if not info.get("exists", False):
                 invalid_paths.append(info.get("path") or rel)
 
+        if scope.paths_discovered:
+            valid_paths = [info.get("path") for info in path_infos if info.get("exists")]
+            scope.paths = _unique([path for path in valid_paths if path])
+            path_infos = [info for info in path_infos if info.get("exists")]
+
         doc_infos, doc_roots = self._describe_docs(scope.docs)
         search_roots.extend(doc_roots)
         scope.invalid_paths = _unique(invalid_paths)
         return path_infos, doc_infos, search_roots
 
     def write_targets(self, scope: Scope) -> Path:
+        self._resolve_search_roots(scope)
         report_dir = self.root / _REPORT_DIR
         report_dir.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -724,7 +800,13 @@ class ResearcherContextBuilder:
         target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return target_path
 
-    def write_rlm_targets(self, ticket: str) -> Path:
+    def write_rlm_targets(
+        self,
+        ticket: str,
+        *,
+        targets_mode: str | None = None,
+        rlm_paths: list[str] | None = None,
+    ) -> Path:
         from tools import rlm_targets
         from tools.rlm_config import load_rlm_settings
 
@@ -733,6 +815,8 @@ class ResearcherContextBuilder:
             self.root,
             ticket,
             settings=settings,
+            targets_mode=targets_mode,
+            paths_override=rlm_paths,
             base_root=self._paths_base,
         )
         report_dir = self.root / _REPORT_DIR
@@ -1103,7 +1187,7 @@ class ResearcherContextBuilder:
             tag_keywords.extend([item for item in info.get("keywords", []) if isinstance(item, str)])
         return tag_paths, tag_docs, tag_keywords
 
-    def _auto_detect_tags(self, scope: Scope) -> List[str]:
+    def _auto_detect_tags(self, scope: Scope, *, strict_paths: bool = False) -> List[str]:
         settings = self._settings
         auto_cfg = settings.get("auto_tags", {})
         if not isinstance(auto_cfg, dict):
@@ -1130,7 +1214,9 @@ class ResearcherContextBuilder:
                 marker_path = Path(marker_text)
                 if not marker_path.is_absolute():
                     marker_path = self._paths_base / marker_text
-                if marker_path.exists() or any(marker_text in candidate for candidate in path_candidates):
+                if (not strict_paths and marker_path.exists()) or any(
+                    marker_text in candidate for candidate in path_candidates
+                ):
                     detected.append(tag)
                     break
         return _unique(detected)

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from tools import runtime
-from tools.rlm_config import file_id_for_path, load_rlm_settings
+from tools.rlm_config import file_id_for_path, load_conventions, load_rlm_settings
 
 SCHEMA = "aidd.report.pack.v1"
 PACK_VERSION = "v1"
@@ -39,8 +39,8 @@ RESEARCH_LIMITS: Dict[str, int] = {
 }
 
 RESEARCH_BUDGET = {
-    "max_chars": 1200,
-    "max_lines": 60,
+    "max_chars": 2000,
+    "max_lines": 120,
 }
 
 QA_LIMITS: Dict[str, int] = {
@@ -89,7 +89,7 @@ RLM_LIMITS: Dict[str, int] = {
 
 RLM_BUDGET = {
     "max_chars": 12000,
-    "max_lines": 200,
+    "max_lines": 240,
 }
 
 _PACK_FORMATS = {"yaml", "toon"}
@@ -217,9 +217,9 @@ def _trim_columnar_rows(payload: Dict[str, Any], key: str) -> bool:
     return True
 
 
-def _trim_list_field(payload: Dict[str, Any], key: str) -> bool:
+def _trim_list_field(payload: Dict[str, Any], key: str, *, min_len: int = 0) -> bool:
     items = payload.get(key)
-    if not isinstance(items, list) or not items:
+    if not isinstance(items, list) or len(items) <= min_len:
         return False
     items.pop()
     return True
@@ -286,6 +286,7 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
         return text, [], []
 
     trimmed_counts: Dict[str, int] = {}
+    trimmed_steps: List[str] = []
     steps = [
         ("matches", lambda: _trim_columnar_rows(payload, "matches")),
         ("import_graph", lambda: _trim_columnar_rows(payload, "import_graph")),
@@ -316,45 +317,217 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
         ("drop.reuse_candidates", lambda: _drop_columnar_if_empty(payload, "reuse_candidates")),
         ("drop.profile", lambda: _drop_field(payload, "profile")),
         ("drop.stats", lambda: _drop_field(payload, "stats")),
+        ("drop.call_graph_edges_path", lambda: _drop_field(payload, "call_graph_edges_path")),
+        ("drop.call_graph_edges_schema", lambda: _drop_field(payload, "call_graph_edges_schema")),
+        ("drop.call_graph_warning", lambda: _drop_field(payload, "call_graph_warning")),
+        ("drop.call_graph_engine", lambda: _drop_field(payload, "call_graph_engine")),
+        ("drop.call_graph_supported_languages", lambda: _drop_field(payload, "call_graph_supported_languages")),
+        ("drop.call_graph_limit", lambda: _drop_field(payload, "call_graph_limit")),
+        ("drop.call_graph_filter", lambda: _drop_field(payload, "call_graph_filter")),
+        ("drop.rlm_targets_path", lambda: _drop_field(payload, "rlm_targets_path")),
+        ("drop.rlm_manifest_path", lambda: _drop_field(payload, "rlm_manifest_path")),
+        ("drop.rlm_worklist_path", lambda: _drop_field(payload, "rlm_worklist_path")),
+        ("drop.rlm_nodes_path", lambda: _drop_field(payload, "rlm_nodes_path")),
+        ("drop.rlm_links_path", lambda: _drop_field(payload, "rlm_links_path")),
+        ("drop.rlm_pack_path", lambda: _drop_field(payload, "rlm_pack_path")),
+        ("drop.rlm_status", lambda: _drop_field(payload, "rlm_status")),
+        ("drop.deep_mode", lambda: _drop_field(payload, "deep_mode")),
+        ("drop.auto_mode", lambda: _drop_field(payload, "auto_mode")),
+        ("drop.tags", lambda: _drop_field(payload, "tags")),
+        ("drop.keywords_raw", lambda: _drop_field(payload, "keywords_raw")),
+        ("drop.keywords", lambda: _drop_field(payload, "keywords")),
+        ("drop.non_negotiables", lambda: _drop_field(payload, "non_negotiables")),
     ]
 
     for name, action in steps:
         while errors and action():
             trimmed_counts[name] = trimmed_counts.get(name, 0) + 1
+            trimmed_steps.append(name)
             text = _serialize_pack(payload)
             errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="research")
         if not errors:
             break
 
+    if trimmed_counts:
+        trim_stats = {"fields_trimmed": trimmed_counts}
+        if trimmed_steps:
+            trim_stats["steps"] = trimmed_steps
+        payload["pack_trim_stats"] = trim_stats
+        text = _serialize_pack(payload)
+        errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="research")
+        if errors and "pack_trim_stats" in payload:
+            payload.pop("pack_trim_stats", None)
+            trimmed_counts["drop.pack_trim_stats"] = trimmed_counts.get("drop.pack_trim_stats", 0) + 1
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="research")
+
     trimmed = [f"{name}(-{count})" for name, count in trimmed_counts.items()]
     return text, trimmed, errors
 
 
-def _auto_trim_rlm_pack(payload: Dict[str, Any], max_chars: int, max_lines: int) -> tuple[str, List[str], List[str]]:
+def _max_snippet_len(payload: Dict[str, Any]) -> Optional[int]:
+    links = payload.get("links")
+    if not isinstance(links, list) or not links:
+        return None
+    lengths = [len(str(link.get("evidence_snippet") or "")) for link in links if isinstance(link, dict)]
+    return max(lengths, default=0)
+
+
+def _trim_evidence_snippets(payload: Dict[str, Any], max_chars: int) -> bool:
+    links = payload.get("links")
+    if not isinstance(links, list) or not links:
+        return False
+    trimmed = False
+    for link in links:
+        if not isinstance(link, dict):
+            continue
+        snippet = link.get("evidence_snippet")
+        if not isinstance(snippet, str):
+            continue
+        if len(snippet) <= max_chars:
+            continue
+        link["evidence_snippet"] = snippet[:max_chars].rstrip()
+        trimmed = True
+    return trimmed
+
+
+def _auto_trim_rlm_pack(
+    payload: Dict[str, Any],
+    max_chars: int,
+    max_lines: int,
+    *,
+    enforce: bool = False,
+    trim_priority: Optional[Iterable[str]] = None,
+) -> tuple[str, List[str], List[str], Dict[str, Any]]:
     text = _serialize_pack(payload)
     errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
     if not errors:
-        return text, [], errors
-    trimmed: List[str] = []
-    for key in (
+        return text, [], errors, {}
+
+    trimmed_counts: Dict[str, int] = {}
+    trimmed_steps: List[str] = []
+    list_fields = (
+        "links",
         "recommended_reads",
         "hotspots",
         "integration_points",
         "entrypoints",
         "test_hooks",
         "risks",
-        "links",
-    ):
-        entries = payload.get(key)
-        if not isinstance(entries, list) or len(entries) <= 1:
-            continue
-        payload[key] = entries[: max(1, len(entries) // 2)]
-        trimmed.append(key)
+    )
+    if trim_priority:
+        ordered: List[str] = []
+        for raw in trim_priority:
+            key = str(raw or "").strip()
+            if not key or key not in list_fields or key in ordered:
+                continue
+            ordered.append(key)
+        for key in list_fields:
+            if key not in ordered:
+                ordered.append(key)
+        list_fields = tuple(ordered)
+    snippet_chars: Optional[int] = None
+    snippet_floor = 0 if enforce else 40
+
+    def _trim_pass(min_len: int, snippet_floor_limit: int) -> None:
+        nonlocal text, errors, snippet_chars
+        while errors:
+            progress = False
+            for key in list_fields:
+                if _trim_list_field(payload, key, min_len=min_len):
+                    trimmed_counts[key] = trimmed_counts.get(key, 0) + 1
+                    trimmed_steps.append(key)
+                    progress = True
+                    break
+            if progress:
+                text = _serialize_pack(payload)
+                errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+                continue
+
+            current_snippet = _max_snippet_len(payload)
+            if current_snippet is not None and current_snippet > snippet_floor_limit:
+                next_limit = max(snippet_floor_limit, current_snippet - 20)
+                if next_limit < current_snippet and _trim_evidence_snippets(payload, next_limit):
+                    snippet_chars = next_limit
+                    trimmed_steps.append("evidence_snippet_chars")
+                    progress = True
+                    text = _serialize_pack(payload)
+                    errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+                    continue
+
+            if not progress:
+                break
+
+    _trim_pass(0 if enforce else 1, snippet_floor)
+    if errors and not enforce:
+        _trim_pass(0, 0)
+
+    trim_stats: Dict[str, Any] = {}
+    if trimmed_counts or snippet_chars is not None:
+        trim_stats = {"enforce": enforce}
+        if trimmed_counts:
+            trim_stats["fields_trimmed"] = trimmed_counts
+        if snippet_chars is not None:
+            trim_stats["evidence_snippet_chars"] = snippet_chars
+        if not enforce:
+            trim_stats["steps"] = trimmed_steps
+        payload["pack_trim_stats"] = trim_stats
         text = _serialize_pack(payload)
         errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
-        if not errors:
-            break
-    return text, trimmed, errors
+
+    if errors and not enforce and "pack_trim_stats" in payload:
+        payload["pack_trim_stats"] = {"enforce": False}
+        trimmed_counts["drop.pack_trim_stats_details"] = (
+            trimmed_counts.get("drop.pack_trim_stats_details", 0) + 1
+        )
+        text = _serialize_pack(payload)
+        errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+        if errors:
+            payload.pop("pack_trim_stats", None)
+            trimmed_counts["drop.pack_trim_stats"] = trimmed_counts.get("drop.pack_trim_stats", 0) + 1
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+
+    if errors and enforce:
+        drop_fields = (
+            "warnings",
+            "stats",
+            "entrypoints",
+            "hotspots",
+            "integration_points",
+            "test_hooks",
+            "risks",
+            "recommended_reads",
+            "links",
+            "slug_hint",
+            "source_path",
+        )
+        for key in drop_fields:
+            if key not in payload:
+                continue
+            payload.pop(key, None)
+            drop_key = f"drop.{key}"
+            trimmed_counts[drop_key] = trimmed_counts.get(drop_key, 0) + 1
+            trimmed_steps.append(drop_key)
+            trim_stats = {"enforce": enforce}
+            if trimmed_counts:
+                trim_stats["fields_trimmed"] = trimmed_counts
+            if snippet_chars is not None:
+                trim_stats["evidence_snippet_chars"] = snippet_chars
+            payload["pack_trim_stats"] = trim_stats
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+            if not errors:
+                break
+        if errors and "pack_trim_stats" in payload:
+            payload["pack_trim_stats"] = {"enforce": enforce}
+            trimmed_counts["drop.pack_trim_stats_details"] = (
+                trimmed_counts.get("drop.pack_trim_stats_details", 0) + 1
+            )
+            text = _serialize_pack(payload)
+            errors = check_budget(text, max_chars=max_chars, max_lines=max_lines, label="rlm")
+    trimmed = [f"{name}(-{count})" for name, count in trimmed_counts.items()]
+    return text, trimmed, errors, trim_stats
 
 
 def _truncate_list(items: Iterable[Any], limit: int) -> List[Any]:
@@ -522,6 +695,15 @@ def _pack_extension() -> str:
     return ".pack.toon" if _pack_format() == "toon" else ".pack.yaml"
 
 
+def _find_pack_variant(root: Path, name: str) -> Optional[Path]:
+    base = root / "reports" / "research"
+    for suffix in (".pack.yaml", ".pack.toon"):
+        candidate = base / f"{name}{suffix}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _split_env(name: str) -> List[str]:
     raw = os.getenv(name, "").strip()
     if not raw:
@@ -577,6 +759,35 @@ def _env_limits() -> Dict[str, Dict[str, int]]:
             parsed[key] = limits
     _ENV_LIMITS_CACHE = parsed
     return _ENV_LIMITS_CACHE
+
+
+def _resolve_reports_root(root: Optional[Path], path: Path) -> Optional[Path]:
+    if root:
+        return root
+    for parent in (path, *path.parents):
+        if (parent / "config" / "conventions.json").exists():
+            return parent
+    return None
+
+
+def _load_research_pack_budget(root: Optional[Path], path: Path) -> Dict[str, int]:
+    resolved = _resolve_reports_root(root, path)
+    if not resolved:
+        return {}
+    cfg = load_conventions(resolved)
+    reports_cfg = cfg.get("reports") if isinstance(cfg.get("reports"), dict) else {}
+    budget = reports_cfg.get("research_pack_budget") if isinstance(reports_cfg.get("research_pack_budget"), dict) else {}
+    parsed: Dict[str, int] = {}
+    for key in ("max_chars", "max_lines"):
+        if key not in budget:
+            continue
+        try:
+            value = int(budget[key])
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            parsed[key] = value
+    return parsed
 
 
 def _pack_tests_executed(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
@@ -986,6 +1197,8 @@ def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
     warnings: List[str] = []
     if stats.get("links_truncated"):
         warnings.append("rlm links truncated: max_links reached")
+    if int(stats.get("target_files_trimmed") or 0) > 0:
+        warnings.append("rlm link targets trimmed: max_files reached")
     if int(stats.get("symbols_truncated") or 0) > 0:
         warnings.append("rlm link symbols truncated: max_symbols_per_file reached")
     if int(stats.get("candidate_truncated") or 0) > 0:
@@ -1043,6 +1256,37 @@ def _pack_rlm_links(
     return packed
 
 
+def _load_rlm_worklist_summary(
+    root: Optional[Path],
+    ticket: Optional[str],
+    *,
+    context: Optional[Dict[str, Any]] = None,
+) -> tuple[Optional[str], Optional[int], Optional[Path]]:
+    if not root or not ticket:
+        return None, None, None
+    worklist_path = None
+    if context:
+        raw = context.get("rlm_worklist_path")
+        if isinstance(raw, str) and raw.strip():
+            worklist_path = runtime.resolve_path_for_target(Path(raw), root)
+    if worklist_path is None and ticket:
+        worklist_path = _find_pack_variant(root, f"{ticket}-rlm.worklist") or (
+            root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+        )
+    if not worklist_path or not worklist_path.exists():
+        return None, None, worklist_path
+    try:
+        payload = json.loads(worklist_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None, None, worklist_path
+    if not isinstance(payload, dict):
+        return None, None, worklist_path
+    worklist_status = str(payload.get("status") or "").strip().lower() or None
+    entries = payload.get("entries")
+    worklist_entries = len(entries) if isinstance(entries, list) else None
+    return worklist_status, worklist_entries, worklist_path
+
+
 def build_rlm_pack(
     nodes: List[Dict[str, Any]],
     links: List[Dict[str, Any]],
@@ -1088,10 +1332,13 @@ def build_rlm_pack(
         return (-(link_counts.get(file_id, 0) + boost), str(node.get("path") or ""))
 
     entry_roles = {"web", "controller", "job", "config", "infra"}
+    exclude_roles = {"model", "dto"}
+
+    def _roles(node: Dict[str, Any]) -> set[str]:
+        return {str(role) for role in (node.get("framework_roles") or []) if str(role)}
+
     entrypoints = [
-        node
-        for node in file_nodes
-        if any(role in entry_roles for role in (node.get("framework_roles") or []))
+        node for node in file_nodes if (_roles(node) & entry_roles) and not (_roles(node) & exclude_roles)
     ]
     entrypoints = sorted(entrypoints, key=by_link_count)
 
@@ -1101,7 +1348,7 @@ def build_rlm_pack(
     integration_points = [
         node
         for node in file_nodes
-        if any(role in integration_roles for role in (node.get("framework_roles") or []))
+        if (_roles(node) & integration_roles) and not (_roles(node) & exclude_roles)
     ]
     integration_points = sorted(integration_points, key=by_link_count)
 
@@ -1125,7 +1372,9 @@ def build_rlm_pack(
         if len(recommended) >= lim["recommended_reads"]:
             break
 
+    links_total = len(links)
     verified_links = [link for link in links if not link.get("unverified")]
+    links_unverified = links_total - len(verified_links)
     links_sample = _pack_rlm_links(
         verified_links,
         limit=lim["links"],
@@ -1134,6 +1383,49 @@ def build_rlm_pack(
     )
     link_stats = _load_rlm_links_stats(root, ticket) if root and ticket else None
     link_warnings = _rlm_link_warnings(link_stats) if link_stats else []
+    fallback_warn_ratio: Optional[float] = None
+    unverified_warn_ratio: Optional[float] = None
+    if root:
+        settings = load_rlm_settings(root)
+        raw_ratio = settings.get("link_fallback_warn_ratio")
+        raw_unverified_ratio = settings.get("link_unverified_warn_ratio")
+        try:
+            ratio_value = float(raw_ratio)
+        except (TypeError, ValueError):
+            ratio_value = None
+        try:
+            unverified_value = float(raw_unverified_ratio)
+        except (TypeError, ValueError):
+            unverified_value = None
+        if ratio_value is not None and 0 < ratio_value <= 1:
+            fallback_warn_ratio = ratio_value
+        if unverified_value is not None and 0 < unverified_value <= 1:
+            unverified_warn_ratio = unverified_value
+    if link_stats and fallback_warn_ratio and file_nodes:
+        fallback_nodes = int(link_stats.get("fallback_nodes") or 0)
+        total_nodes = len(file_nodes)
+        if total_nodes:
+            ratio = fallback_nodes / total_nodes
+            if ratio >= fallback_warn_ratio:
+                link_warnings.append(
+                    "rlm link fallback ratio high: "
+                    f"fallback_nodes={fallback_nodes} total_nodes={total_nodes} ratio={ratio:.2f}"
+                )
+    if unverified_warn_ratio and links_total:
+        ratio = links_unverified / links_total
+        if ratio >= unverified_warn_ratio:
+            link_warnings.append(
+                "rlm unverified links ratio high: "
+                f"unverified={links_unverified} total={links_total} ratio={ratio:.2f}"
+            )
+
+    worklist_status, worklist_entries, _ = _load_rlm_worklist_summary(root, ticket)
+    if worklist_status == "ready" and worklist_entries == 0:
+        pack_status = "ready"
+    elif worklist_status:
+        pack_status = "pending"
+    else:
+        pack_status = "ready"
 
     packed = {
         "schema": SCHEMA,
@@ -1144,12 +1436,13 @@ def build_rlm_pack(
         "slug": slug_hint or ticket,
         "slug_hint": slug_hint,
         "generated_at": _utc_timestamp(),
-        "status": "ready",
+        "status": pack_status,
         "source_path": source_path,
         "stats": {
             "nodes": len(file_nodes),
-            "links": len(links),
-            "links_unverified": len([link for link in links if link.get("unverified")]),
+            "nodes_total": len(file_nodes),
+        "links": links_total,
+        "links_unverified": links_unverified,
             "links_included": len(links_sample),
         },
         "entrypoints": _pack_rlm_nodes(entrypoints, lim["entrypoints"]),
@@ -1171,8 +1464,21 @@ def build_rlm_pack(
             "rg_timeouts": int(link_stats.get("rg_timeouts") or 0),
             "rg_errors": int(link_stats.get("rg_errors") or 0),
         }
-    if link_warnings:
-        packed["warnings"] = link_warnings
+    warnings = list(link_warnings)
+    if worklist_status is not None:
+        packed["stats"]["worklist_status"] = worklist_status
+    if worklist_entries is not None:
+        packed["stats"]["worklist_entries"] = worklist_entries
+        if worklist_entries > 0:
+            warnings.append(f"rlm worklist pending: entries={worklist_entries}")
+            nodes_total = len(file_nodes)
+            threshold = max(1, int(worklist_entries * 0.5))
+            if nodes_total < threshold:
+                warnings.append(
+                    f"rlm pack partial: nodes_total={nodes_total} worklist_entries={worklist_entries}"
+                )
+    if warnings:
+        packed["warnings"] = warnings
     return packed
 
 
@@ -1191,8 +1497,17 @@ def write_rlm_pack(
     links = _load_jsonl(links_path)
     rlm_limits: Dict[str, int] = {}
     rlm_settings = load_rlm_settings(target)
+    pack_budget_cfg = rlm_settings.get("pack_budget") if isinstance(rlm_settings.get("pack_budget"), dict) else {}
+    enforce_budget = bool(pack_budget_cfg.get("enforce"))
+    enforce_flag = enforce_budget or _enforce_budget()
+    trim_priority = None
+    raw_priority = pack_budget_cfg.get("trim_priority")
+    if isinstance(raw_priority, list):
+        trim_priority = [str(item).strip() for item in raw_priority if str(item).strip()]
     if isinstance(rlm_settings.get("pack_budget"), dict):
         for key, value in (rlm_settings.get("pack_budget") or {}).items():
+            if key == "enforce":
+                continue
             try:
                 rlm_limits[str(key)] = int(value)
             except (TypeError, ValueError):
@@ -1222,15 +1537,19 @@ def write_rlm_pack(
     default_name = nodes_path.name.replace("-rlm.nodes.jsonl", f"-rlm{ext}")
     default_path = nodes_path.with_name(default_name)
     pack_path = (output or default_path).resolve()
-    text, trimmed, errors = _auto_trim_rlm_pack(
+    text, trimmed, errors, _trim_stats = _auto_trim_rlm_pack(
         pack,
         max_chars=max_chars,
         max_lines=max_lines,
+        enforce=enforce_flag,
+        trim_priority=trim_priority,
     )
     if trimmed:
         print(f"[pack-trim] rlm pack trimmed: {', '.join(trimmed)}", file=sys.stderr)
     for error in errors:
         print(f"[pack-budget] {error}", file=sys.stderr)
+    if errors and enforce_flag:
+        raise ValueError("; ".join(errors))
     return _write_pack_text(text, pack_path)
 
 
@@ -1244,42 +1563,19 @@ def _update_rlm_context(
 ) -> Path:
     payload = json.loads(context_path.read_text(encoding="utf-8"))
     ticket = str(payload.get("ticket") or "").strip()
-    worklist_path = payload.get("rlm_worklist_path")
-    worklist_status = None
-    worklist_entries = None
-    if isinstance(worklist_path, str) and worklist_path.strip():
-        resolved = runtime.resolve_path_for_target(Path(worklist_path), root)
-        if resolved.exists():
-            try:
-                worklist_payload = json.loads(resolved.read_text(encoding="utf-8"))
-            except Exception:
-                worklist_payload = None
-            if isinstance(worklist_payload, dict):
-                worklist_status = str(worklist_payload.get("status") or "").strip().lower() or None
-                entries = worklist_payload.get("entries")
-                if isinstance(entries, list):
-                    worklist_entries = len(entries)
-    if worklist_status is None and ticket:
-        for suffix in (".pack.yaml", ".pack.toon"):
-            candidate = root / "reports" / "research" / f"{ticket}-rlm.worklist{suffix}"
-            if candidate.exists():
-                try:
-                    worklist_payload = json.loads(candidate.read_text(encoding="utf-8"))
-                except Exception:
-                    worklist_payload = None
-                if isinstance(worklist_payload, dict):
-                    payload["rlm_worklist_path"] = runtime.rel_path(candidate, root)
-                    worklist_status = str(worklist_payload.get("status") or "").strip().lower() or None
-                    entries = worklist_payload.get("entries")
-                    if isinstance(entries, list):
-                        worklist_entries = len(entries)
-                break
-    if worklist_status == "ready" and worklist_entries == 0:
+    worklist_status, worklist_entries, worklist_path = _load_rlm_worklist_summary(
+        root,
+        ticket,
+        context=payload,
+    )
+    if worklist_path and worklist_path.exists():
+        payload["rlm_worklist_path"] = runtime.rel_path(worklist_path, root)
+    nodes_ready = nodes_path.exists() and nodes_path.stat().st_size > 0
+    links_ready = links_path.exists() and links_path.stat().st_size > 0
+    if nodes_ready and links_ready:
         rlm_status = "ready"
-    elif worklist_status:
-        rlm_status = "pending"
     else:
-        rlm_status = "ready"
+        rlm_status = "pending"
     payload["rlm_status"] = rlm_status
     payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
     payload["rlm_links_path"] = runtime.rel_path(links_path, root)
@@ -1400,10 +1696,13 @@ def write_research_context_pack(
     pack = build_research_context_pack(payload, source_path=source_path, limits=limits)
     pack_path = (output or _pack_path_for(path)).resolve()
 
+    budget_override = _load_research_pack_budget(root, path)
+    max_chars = int(budget_override.get("max_chars") or RESEARCH_BUDGET["max_chars"])
+    max_lines = int(budget_override.get("max_lines") or RESEARCH_BUDGET["max_lines"])
     text, trimmed, errors = _auto_trim_research_pack(
         pack,
-        max_chars=RESEARCH_BUDGET["max_chars"],
-        max_lines=RESEARCH_BUDGET["max_lines"],
+        max_chars=max_chars,
+        max_lines=max_lines,
     )
     if trimmed:
         print(f"[pack-trim] research pack trimmed: {', '.join(trimmed)}", file=sys.stderr)
@@ -1618,7 +1917,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             write_research_context_pack(context_path, root=root)
             rel_context = runtime.rel_path(context_path, root)
-            print(f"[aidd] updated rlm_status=ready in {rel_context}.", file=sys.stderr)
+            try:
+                payload = json.loads(context_path.read_text(encoding="utf-8"))
+            except Exception:
+                payload = {}
+            status = str(payload.get("rlm_status") or "ready").strip().lower()
+            print(f"[aidd] updated rlm_status={status} in {rel_context}.", file=sys.stderr)
         print(pack_path.as_posix())
         return 0
 

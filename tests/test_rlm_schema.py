@@ -12,7 +12,7 @@ class RlmSchemaTests(unittest.TestCase):
 
     def test_node_schema_required_fields(self) -> None:
         schema = self._load_schema("rlm_node.schema.json")
-        self.assertEqual(schema.get("schema_version"), "v1")
+        self.assertEqual(schema.get("schema_version"), "v2")
         required_common = schema.get("required_common") or []
         self.assertIn("schema", required_common)
         self.assertIn("schema_version", required_common)
@@ -29,6 +29,7 @@ class RlmSchemaTests(unittest.TestCase):
             "prompt_version",
             "summary",
             "public_symbols",
+            "type_refs",
             "key_calls",
             "framework_roles",
             "test_hooks",

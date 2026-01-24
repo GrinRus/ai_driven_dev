@@ -47,8 +47,8 @@ class RlmPipelineE2ETests(unittest.TestCase):
             nodes_path.parent.mkdir(parents=True, exist_ok=True)
             nodes = [
                 {
-                    "schema": "aidd.rlm_node.v1",
-                    "schema_version": "v1",
+                    "schema": "aidd.rlm_node.v2",
+                    "schema_version": "v2",
                     "node_kind": "file",
                     "file_id": "file-a",
                     "id": "file-a",
@@ -58,6 +58,7 @@ class RlmPipelineE2ETests(unittest.TestCase):
                     "prompt_version": "v1",
                     "summary": "Calls Foo for checkout flow.",
                     "public_symbols": [],
+                    "type_refs": [],
                     "key_calls": ["Foo"],
                     "framework_roles": ["service"],
                     "test_hooks": [],
@@ -66,8 +67,8 @@ class RlmPipelineE2ETests(unittest.TestCase):
                     "missing_tokens": [],
                 },
                 {
-                    "schema": "aidd.rlm_node.v1",
-                    "schema_version": "v1",
+                    "schema": "aidd.rlm_node.v2",
+                    "schema_version": "v2",
                     "node_kind": "file",
                     "file_id": "file-b",
                     "id": "file-b",
@@ -77,6 +78,7 @@ class RlmPipelineE2ETests(unittest.TestCase):
                     "prompt_version": "v1",
                     "summary": "Defines Foo.",
                     "public_symbols": ["Foo"],
+                    "type_refs": [],
                     "key_calls": [],
                     "framework_roles": ["repo"],
                     "test_hooks": [],

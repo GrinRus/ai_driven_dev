@@ -21,14 +21,24 @@ class RlmSliceTests(unittest.TestCase):
             nodes_path.parent.mkdir(parents=True, exist_ok=True)
             nodes = [
                 {
-                    "schema": "aidd.rlm_node.v1",
-                    "schema_version": "v1",
+                    "schema": "aidd.rlm_node.v2",
+                    "schema_version": "v2",
                     "node_kind": "file",
                     "file_id": "file-a",
                     "id": "file-a",
                     "path": "src/a.py",
+                    "rev_sha": "rev-a",
                     "summary": "Foo entrypoint",
                     "lang": "py",
+                    "prompt_version": "v1",
+                    "public_symbols": ["Foo"],
+                    "type_refs": [],
+                    "key_calls": [],
+                    "framework_roles": ["web"],
+                    "test_hooks": [],
+                    "risks": [],
+                    "verification": "passed",
+                    "missing_tokens": [],
                 }
             ]
             nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")

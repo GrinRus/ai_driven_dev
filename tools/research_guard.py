@@ -249,6 +249,31 @@ def _resolve_rlm_path(root: Path, context: dict, key: str, fallback: Path) -> Pa
     return resolved or fallback
 
 
+def _count_rlm_nodes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                node_kind = str(payload.get("node_kind") or "").strip().lower()
+                if node_kind and node_kind != "file":
+                    continue
+                count += 1
+    except OSError:
+        return 0
+    return count
+
+
 def _should_require_rlm(
     root: Path,
     ticket: str,
@@ -367,6 +392,7 @@ def _validate_rlm_evidence(
     nodes_ok = rlm_nodes_path.exists() and rlm_nodes_path.stat().st_size > 0
     links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
     pack_ok = rlm_pack_path.exists()
+    nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
 
     if rlm_status == "ready":
         if settings.rlm_require_nodes and not nodes_ok:
@@ -411,6 +437,14 @@ def _validate_rlm_evidence(
             "nodes/links/pack ещё не собраны.",
             file=sys.stderr,
         )
+        if worklist_entries:
+            threshold = max(1, int(worklist_entries * 0.5))
+            if nodes_total < threshold:
+                print(
+                    "[aidd] WARN: rlm pack partial — "
+                    f"nodes_total={nodes_total} worklist_entries={worklist_entries}.",
+                    file=sys.stderr,
+                )
 
 
 def validate_research(

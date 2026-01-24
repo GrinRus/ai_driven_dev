@@ -11,9 +11,12 @@ class RlmWrapperTests(unittest.TestCase):
     def test_wrappers_help_smoke(self) -> None:
         wrappers = [
             REPO_ROOT / "tools" / "rlm-slice.sh",
+            REPO_ROOT / "tools" / "rlm-nodes-build.sh",
             REPO_ROOT / "tools" / "rlm-verify.sh",
             REPO_ROOT / "tools" / "rlm-links-build.sh",
             REPO_ROOT / "tools" / "rlm-jsonl-compact.sh",
+            REPO_ROOT / "tools" / "rlm-finalize.sh",
+            REPO_ROOT / "tools" / "reports-pack.sh",
         ]
         for wrapper in wrappers:
             with self.subTest(wrapper=wrapper.name):

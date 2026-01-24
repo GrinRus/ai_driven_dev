@@ -152,6 +152,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
     )
     parser.add_argument(
+        "--rlm-paths",
+        help="Comma- or colon-separated list of explicit paths for RLM targets (overrides auto-discovery).",
+    )
+    parser.add_argument(
+        "--targets-mode",
+        choices=("auto", "explicit"),
+        help="Override RLM targets_mode (auto|explicit).",
+    )
+    parser.add_argument(
         "--paths-relative",
         choices=("workspace", "aidd"),
         help="Treat relative paths as workspace-rooted (default) or under aidd/.",
@@ -286,15 +295,20 @@ def run(args: argparse.Namespace) -> int:
         paths_relative=getattr(args, "paths_relative", None),
     )
     scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
+    extra_paths = _research_parse_paths(args.paths)
+    rlm_paths = _research_parse_paths(getattr(args, "rlm_paths", None))
+    if rlm_paths and not extra_paths:
+        scope = builder.sync_scope_paths(scope, rlm_paths)
+        print("[aidd] INFO: research paths synced to --rlm-paths scope.", file=sys.stderr)
     scope = builder.extend_scope(
         scope,
-        extra_paths=_research_parse_paths(args.paths),
+        extra_paths=extra_paths,
         extra_keywords=_research_parse_keywords(args.keywords),
         extra_notes=_research_parse_notes(getattr(args, "notes", None), target),
     )
     _, _, search_roots = builder.describe_targets(scope)
     path_roots = builder.resolve_path_roots(scope)
-    if scope.invalid_paths:
+    if scope.invalid_paths and not scope.paths_discovered:
         missing = ", ".join(scope.invalid_paths[:6])
         suffix = "..." if len(scope.invalid_paths) > 6 else ""
         print(
@@ -317,7 +331,11 @@ def run(args: argparse.Namespace) -> int:
     rlm_worklist_path = None
     pack_ext = _pack_extension()
     try:
-        rlm_targets_path = builder.write_rlm_targets(ticket)
+        rlm_targets_path = builder.write_rlm_targets(
+            ticket,
+            targets_mode=args.targets_mode,
+            rlm_paths=rlm_paths,
+        )
         from tools import rlm_manifest, rlm_nodes_build
         from tools.rlm_config import load_rlm_settings
 

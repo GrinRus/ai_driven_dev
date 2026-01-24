@@ -65,6 +65,12 @@
       "Перед выпуском релиза обновите conventions.md вручную, чтобы зафиксировать актуальные правила."
     ]
   },
+  "reports": {
+    "research_pack_budget": {
+      "max_chars": 2000,
+      "max_lines": 120
+    }
+  },
   "rlm": {
     "enabled": true,
     "required_for_langs": [
@@ -76,22 +82,50 @@
     "max_nodes": 800,
     "max_links": 2000,
     "max_file_bytes": 200000,
+    "targets_mode": "auto",
+    "worklist_paths": [],
+    "worklist_keywords": [],
+    "worklist_max_entries": 500,
     "verification_required": true,
     "rg_timeout_s": 6,
     "rg_batch_size": 24,
     "max_symbols_per_file": 40,
     "max_definition_hits_per_symbol": 5,
+    "link_key_calls_source": "key_calls",
+    "link_type_refs_mode": "additive",
+    "link_type_refs_priority": "prefer",
+    "link_fallback_mode": "types_only",
+    "link_fallback_warn_ratio": 0.3,
+    "link_unverified_warn_ratio": 0.5,
+    "link_rg_verify": "auto",
+    "type_refs_include_prefixes": [],
+    "type_refs_exclude_prefixes": [
+      "java.",
+      "jakarta.",
+      "org.springframework."
+    ],
+    "link_target_threshold": 500,
     "dir_children_limit": 50,
     "dir_summary_max_chars": 600,
     "pack_budget": {
       "max_chars": 12000,
-      "max_lines": 200,
+      "max_lines": 240,
       "entrypoints": 20,
       "hotspots": 20,
       "integration_points": 20,
       "test_hooks": 15,
       "recommended_reads": 15,
-      "evidence_snippet_chars": 160
+      "evidence_snippet_chars": 160,
+      "trim_priority": [
+        "entrypoints",
+        "hotspots",
+        "integration_points",
+        "test_hooks",
+        "risks",
+        "recommended_reads",
+        "links"
+      ],
+      "enforce": false
     },
     "slice_budget": {
       "max_nodes": 20,
@@ -111,6 +145,11 @@
       "output",
       "target",
       "vendor"
+    ],
+    "exclude_path_prefixes": [
+      "aidd/docs",
+      "aidd/reports",
+      "aidd/.cache"
     ]
   },
   "researcher": {

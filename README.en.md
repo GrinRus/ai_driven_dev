@@ -125,6 +125,7 @@ Empty context troubleshooting:
 RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (or `.pack.toon`).
 - Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+- `*-context.pack.*` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

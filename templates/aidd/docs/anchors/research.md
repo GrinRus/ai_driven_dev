@@ -26,6 +26,29 @@
 - `rlm_*_path` указывают targets/manifest/nodes/links/pack.
 - `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` читать фрагментами, не целиком.
 
+## RLM scope controls
+- `worklist_scope` в worklist pack фиксирует `paths/keywords` и ограничивает линковку.
+- `rlm.targets_mode=explicit|auto` управляет auto‑discovery (explicit отключает discovery при заданных paths), либо флаг `--targets-mode explicit` при запуске research.
+- Для явного scope можно передать `--rlm-paths <paths>` (comma/colon‑list) — RLM targets будут построены только по этим путям.
+- Если задан `--rlm-paths` и не указан `--paths`, research paths синхронизируются с RLM scope, чтобы теги/keywords не уводили в другие модули.
+- `rlm.exclude_path_prefixes` помогает отрезать шумные директории (docs/tests/генерация).
+
+## Pack budgets
+- `reports.research_pack_budget` в `config/conventions.json` управляет бюджетом `*-context.pack.*` (default: `max_chars=2000`, `max_lines=120`).
+- Если пак не помещается, используйте меньший scope (`--paths`, `--keywords`) или поднимите бюджет локально для workspace.
+
+Пример:
+```json
+{
+  "reports": {
+    "research_pack_budget": {
+      "max_chars": 2400,
+      "max_lines": 140
+    }
+  }
+}
+```
+
 ## MUST UPDATE
 - aidd/docs/research/<ticket>.md:
   - AIDD:INTEGRATION_POINTS

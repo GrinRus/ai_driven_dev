@@ -198,12 +198,98 @@ class ResearchCommandTest(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            mock_engine.assert_not_called()
-            context_path = project_root / "reports" / "research" / "RLM-1-context.json"
+    def test_research_command_syncs_rlm_paths_when_paths_missing(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-sync-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            frontend_dir = workspace / "frontend"
+            frontend_dir.mkdir(parents=True, exist_ok=True)
+            (frontend_dir / "package.json").write_text('{"name": "frontend"}\n', encoding="utf-8")
+
+            backend_dir = workspace / "backend" / "src" / "main" / "java"
+            backend_dir.mkdir(parents=True, exist_ok=True)
+            (backend_dir / "Focus.java").write_text("package demo;\nclass Focus {}\n", encoding="utf-8")
+
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "SYNC-1",
+                    "--rlm-paths",
+                    "backend/src/main/java",
+                    "--targets-mode",
+                    "explicit",
+                    "--limit",
+                    "5",
+                ]
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            context_path = project_root / "reports" / "research" / "SYNC-1-context.json"
             payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload.get("call_graph_edges_path"))
-            call_graph_pack = project_root / "reports" / "research" / "RLM-1-call-graph.pack.yaml"
-            self.assertFalse(call_graph_pack.exists())
+            paths = [item.get("path") for item in payload.get("paths") or []]
+            self.assertTrue(paths)
+            self.assertTrue(all(path.startswith("backend/src/main/java") for path in paths))
+            self.assertFalse(any("frontend" in path for path in paths))
+            self.assertNotIn("web", payload.get("tags") or [])
+            self.assertFalse(any("frontend" in kw for kw in payload.get("keywords") or []))
+
+    def test_research_command_suppresses_missing_paths_with_discovery(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-paths-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            code_dir = workspace / "backend" / "src" / "main" / "kotlin"
+            code_dir.mkdir(parents=True, exist_ok=True)
+            (code_dir / "BackendDemo.kt").write_text("package demo\n\nclass BackendDemo {}\n", encoding="utf-8")
+
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "backend-demo",
+                    "--limit",
+                    "1",
+                ]
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertNotIn("missing research paths", stderr.getvalue())
+            targets_path = project_root / "reports" / "research" / "backend-demo-targets.json"
+            payload = json.loads(targets_path.read_text(encoding="utf-8"))
+            self.assertNotIn("src/main", payload.get("paths") or [])
 
     def test_research_command_respects_parent_paths_argument(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-parent-") as tmpdir:

@@ -1908,6 +1908,97 @@ _Статус: новый, приоритет 1. Цель — переход н�
   **AC:** rlm-targets не содержит несуществующих путей; монорепа получает релевантные `paths` без ручного `--paths`.
   **Tests:** unit на discovery + фильтрацию.
   **Deps:** W81-4
+
+### EPIC S — RLM field test fixes (P0/P1)
+- [x] W81-34 `tools/researcher_context.py`, `tools/research.py`, `templates/aidd/config/conventions.json`, tests: снизить шум “missing research paths” для монореп:
+  - считать отсутствующие дефолтные пути warning только если нет валидных `paths_discovered`;
+  - при наличии auto‑discovery — исключать несуществующие пути из `scope.paths`/`targets.paths`.
+  **AC:** для монореп предупреждения о `src/main`/`src/test` не появляются, если есть найденные пути; `targets.json` не содержит несуществующих путей.
+  **Tests:** unit на фильтрацию invalid paths + отсутствие WARN при discovery.
+  **Deps:** W81-3,W81-4
+- [x] W81-35 `tools/reports_pack.py`, `tests/test_reports_pack.py`: синхронизировать лог/статус RLM pack с worklist:
+  - логировать фактический `rlm_status` после апдейта, без “ready” при pending;
+  - `pack.status` отражает pending/ready и добавляет warn при `worklist_entries > 0`.
+  **AC:** сообщение и pack‑статус совпадают с `aidd/reports/research/<ticket>-context.json`; при pending есть явный warn в pack.
+  **Tests:** обновить `tests/test_reports_pack.py` на pending case.
+  **Deps:** W81-31
+- [x] W81-36 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: улучшить link‑coverage при пустых `key_calls`:
+  - добавить конфиг `rlm.link_key_calls_source = key_calls|public_symbols|both` (или boolean fallback);
+  - при пустых `key_calls` использовать ограниченный набор `public_symbols` (детерминированно) и логировать stats.
+  **AC:** links строятся даже при пустых `key_calls` (если включён fallback); поведение детерминировано и ограничено по budget.
+  **Tests:** unit на fallback + лимиты.
+  **Deps:** W81-3,W81-9
+- [x] W81-37 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: ограничить rg‑скан по `target_files`:
+  - применять `rlm.max_files` к `target_files` даже если они пришли из targets;
+  - при больших списках предпочитать `keyword_hits` (если есть) и фиксировать `target_files_trimmed` в stats.
+  **AC:** `rg` не сканирует сверх лимита; stats отражают trim и источник списка.
+  **Tests:** unit на trim/источник.
+  **Deps:** W81-3,W81-4,W81-9
+- [x] W81-38 `tools/reports_pack.py`, `tools/research_check.py`, tests: добавить видимость “partial pack”:
+  - пак содержит `worklist_entries`/`nodes_total` и предупреждение при сильном дисбалансе;
+  - `research_check` WARN при `nodes_total << worklist_entries` даже если есть pack.
+  **AC:** partial‑state отражён в pack и gate‑WARN детерминирован.
+  **Tests:** unit на partial pack WARN.
+  **Deps:** W81-11,W81-31
+
+### EPIC T — RLM field run follow-ups (P1)
+- [x] W81-39 `tools/rlm_nodes_build.py`, `templates/aidd/config/conventions.json`, tests: ограничить размер worklist и сделать его управляемым:
+  - добавить `rlm.worklist_max_entries` (или `--worklist-max`) с детерминированным trim;
+  - писать в pack `entries_total`, `entries_trimmed`, `trim_reason=max_entries`.
+  **AC:** worklist capped без изменения порядка; `entries_total/trimmed` отражают факт усечения.
+  **Tests:** unit на trim и стабильность.
+  **Deps:** W81-8,W81-5
+- [x] W81-40 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: снизить false‑positive links при fallback на `public_symbols`:
+  - добавить `rlm.link_fallback_mode=types_only|all` (default `types_only`);
+  - в `types_only` учитывать только PascalCase символы и помечать links как `unverified` (или полностью исключать) при fallback.
+  **AC:** при пустых `key_calls` не создаются ложные links по именам методов (list*/get*/set*).
+  **Tests:** unit на fallback‑mode.
+  **Deps:** W81-36,W81-9
+- [x] W81-41 `tools/rlm_targets.py`, `templates/aidd/config/conventions.json`, tests: исключить workspace‑документацию из RLM roots:
+  - добавить `rlm.exclude_path_prefixes` (default: `aidd/docs`, `aidd/reports`, `aidd/.cache`);
+  - фильтровать `paths/paths_discovered` перед построением roots.
+  **AC:** rlm-targets не содержит `aidd/docs/**` в `paths` и не сканирует их.
+  **Tests:** unit на фильтрацию.
+  **Deps:** W81-4
+- [x] W81-42 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: ограничить `rg`‑скан при больших `target_files`:
+  - добавить `rlm.link_target_threshold` и при `target_files_total >= threshold` использовать `keyword_hits` (если есть);
+  - записывать `target_files_source=keyword_hits` + `target_files_trimmed` в stats.
+  **AC:** при больших repo links_build сканирует ограниченный список без ручной настройки.
+  **Tests:** unit на threshold‑переключение.
+  **Deps:** W81-37,W81-9
+- [x] W81-43 `tools/rlm_nodes_build.py`, `tools/rlm_targets.py`, `templates/aidd/config/conventions.json`, docs/tests: narrow‑worklist режим для монореп:
+  - добавить `--worklist-paths`/`--worklist-keywords` (или `rlm.worklist_paths`, `rlm.worklist_keywords`) для генерации ограниченного worklist;
+  - при наличии фильтра сохранять `worklist_scope` в pack (`paths/keywords` + counts);
+  - обновить `agents/researcher.md`/`commands/researcher.md` с советом запускать narrow‑worklist при `entries_total` >> лимита.
+  **AC:** можно получить worklist < N по явным путям/keywords; pack отражает scope; детерминизм сохранён.
+  **Tests:** unit на фильтрацию worklist по paths/keywords.
+  **Deps:** W81-39,W81-4
+
+### EPIC U — RLM scope & pack hardening (P1)
+- [x] W81-44 `tools/rlm_links_build.py`, tests: учитывать `worklist_scope` при линковке:
+  - если есть `*-rlm.worklist.pack.*` и `worklist_scope.paths/keywords` — ограничивать `target_files/keyword_hits` этим scope;
+  - логировать `target_files_scope=worklist` + counts в stats (и fallback на `targets` при отсутствии scope).
+  **AC:** links/build не уходит в внешние модули при заданном worklist; unverified links снижаются; stats отражают источник.
+  **Tests:** unit на фильтрацию `target_files` по worklist scope.
+  **Deps:** W81-43,W81-9
+- [x] W81-45 `tools/rlm_targets.py`, `templates/aidd/config/conventions.json`, tests: strict‑paths режим для RLM targets:
+  - добавить `rlm.targets_mode=explicit|auto` (default `auto`);
+  - в `explicit` отключать auto‑discovery и tag‑paths, если пользователь задал `paths`;
+  - отражать режим в `rlm-targets.json` (`targets_mode`).
+  **AC:** при explicit‑режиме `paths_discovered` пуст, список файлов ограничен явными путями.
+  **Tests:** unit на поведение explicit/auto.
+  **Deps:** W81-4
+- [x] W81-46 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests: жёсткое соблюдение pack‑budget:
+  - добавить `rlm.pack_budget.enforce=true` и trim‑стратегию (снижение top‑N + обрезка snippets) до достижения лимитов;
+  - писать `pack_trim_stats` для причин/шагов.
+  **AC:** итоговый RLM pack всегда <= `max_chars/max_lines` при enforce.
+  **Tests:** unit на hard‑budget.
+  **Deps:** W81-11
+- [x] W81-47 `templates/aidd/docs/anchors/research.md`, `agents/researcher.md`, `commands/researcher.md`: обновить guidance по scope‑контролю:
+  - описать `worklist_scope`, `targets_mode`, `exclude_path_prefixes`;
+  - показать пример узкого скоупа для снижения unverified links.
+  **AC:** docs/agents отражают новые knobs.
+  **Deps:** W81-44,W81-45
 - [x] W81-34 `tools/research.py`, tests: RLM‑режим отключает call‑graph по умолчанию:
   - при `--evidence-engine rlm` не запускать call‑graph/ast‑grep, если они не запрошены явно;
   - исключить генерацию `*-call-graph.pack.*` и edges в RLM‑режиме.
@@ -1920,3 +2011,166 @@ _Статус: новый, приоритет 1. Цель — переход н�
   **AC:** unverified links фиксируются в jsonl, но не попадают в pack.
   **Tests:** unit на unverified link и фильтрацию в pack.
   **Deps:** W81-9,W81-11
+
+### EPIC V — Field-run fixes (P1)
+- [x] W81-48 `tools/rlm-nodes-build.sh`, `agents/researcher.md`, `commands/researcher.md`: добавить bootstrap‑wrapper для `rlm_nodes_build`:
+  - wrapper выставляет `CLAUDE_PLUGIN_ROOT` + `sys.path`, запускает `tools/rlm_nodes_build.py`;
+  - обновить allowed-tools и примеры agent‑flow (без `PYTHONPATH`).
+  **AC:** `rlm-nodes-build.sh --help` запускается из workspace; agent‑flow работает без ручного `PYTHONPATH`.
+  **Tests:** smoke `--help`.
+  **Deps:** W81-27
+- [x] W81-49 `templates/aidd/rlm/prompts/file_node.md`, `tools/schemas/rlm_node.schema.json`, `tools/rlm_links_build.py`, `tools/rlm_verify.py`, tests: добавить type‑refs для линковки:
+  - в prompt добавить `type_refs[]` (типы полей/параметров/return‑type, особенно для record/DTO);
+  - schema: добавить `type_refs[]` (bump schema_version) и включить в verify;
+  - links_build использует `type_refs` как отдельный источник (merge с key_calls по config).
+  **AC:** links строятся между DTO/record файлами без ручного key_calls; unverified снижаются.
+  **Tests:** unit на `type_refs` (schema + links build).
+  **Deps:** W81-2,W81-6,W81-9
+- [x] W81-50 `templates/aidd/rlm/prompts/file_node.md`, `tools/reports_pack.py`, docs/tests: привести `framework_roles` для моделей/DTO:
+  - добавить роль `model|dto` (guidance) и запретить default `web` для payload‑классов;
+  - entrypoints‑ролям не учитывать `model|dto`, чтобы не раздувать pack.
+  **AC:** DTO‑файлы не попадают в entrypoints без явной роли; pack остаётся компактным.
+  **Tests:** unit на фильтрацию entrypoints по roles.
+  **Deps:** W81-6,W81-11
+- [x] W81-51 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests: стабилизировать соблюдение `max_lines` для RLM pack:
+  - auto‑trim продолжает сокращение списков до прохождения `max_lines` (даже при `enforce=false`);
+  - если `pack_trim_stats` делает pack больше лимита — опционально сворачивать его до `{"enforce": false}`.
+  **AC:** RLM pack не превышает `max_lines` при дефолтном бюджете; предупреждения уменьшаются.
+  **Tests:** unit на max_lines‑trim.
+  **Deps:** W81-11,W81-46
+- [x] W81-52 `tools/rlm_nodes_build.py`, `tools/reports_pack.py`, `agents/researcher.md`: автоматизировать refresh worklist‑статуса:
+  - добавить `--refresh-worklist` (или авто‑refresh в agent‑flow) после записи nodes/links;
+  - обновлять worklist pack и `rlm_status` без ручного повторного запуска.
+  **AC:** после agent‑flow статус становится `ready` без дополнительного шага; worklist корректно очищается.
+  **Tests:** unit на refresh flow.
+  **Deps:** W81-8,W81-27
+- [x] W81-53 `tools/research.py`, `tools/rlm_targets.py`, `tools/researcher_context.py`, docs/tests: добавить CLI‑override для `targets_mode`:
+  - флаг `--targets-mode explicit|auto` в research/rlm_targets;
+  - при `explicit` отключать discovery даже если config `auto`.
+  **AC:** можно зафиксировать scope на `--paths` без правки config; targets_mode отражён в `rlm-targets.json`.
+  **Tests:** unit на флаг explicit.
+  **Deps:** W81-4,W81-45
+
+### EPIC W — Field-run regression fixes (P1)
+- [x] W81-54 `tools/rlm_links_build.py`, `tools/reports_pack.py`, tests: подтверждать links для `type_refs` без fallback‑unverified:
+  - если link построен из `type_refs` и есть evidence (`regex`/`rg`) — считать его verified;
+  - не включать `public_symbols` fallback, если `type_refs` присутствуют (или отдельный флаг приоритетов);
+  - pack включает такие links в evidence.
+  **AC:** `links_included > 0` для DTO‑модулей с `type_refs`; `fallback_nodes` не растёт при наличии `type_refs`.
+  **Tests:** unit на verified links из `type_refs`.
+  **Deps:** W81-49,W81-11
+- [x] W81-55 `tools/rlm_nodes_build.py`, `tools/reports_pack.py`, tests: refresh worklist сохраняет scope:
+  - `--refresh-worklist` читает текущий worklist pack и переиспользует `worklist_scope` (paths/keywords), если args не заданы;
+  - статус не становится `pending` из‑за “расширения” скоупа.
+  **AC:** refresh не расширяет worklist без явных флагов; `rlm_status` остаётся ready при полном покрытии.
+  **Tests:** unit на refresh с scope.
+  **Deps:** W81-52
+- [x] W81-56 `tools/research.py`, `tools/researcher_context.py`, `tools/rlm_targets.py`, docs/tests: явные RLM‑paths при запуске research:
+  - добавить флаг `--rlm-paths` (или использовать `--paths` как override для RLM targets);
+  - при `targets_mode=explicit` использовать только явные RLM‑paths, без дополнительных default paths.
+  **AC:** rlm-targets не содержит чужие roots (например `frontend`) при explicit‑scope.
+  **Tests:** unit на CLI override.
+  **Deps:** W81-53
+- [x] W81-57 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: корректировать stats при type_refs:
+  - добавить `link_type_refs_priority` (например `prefer`), чтобы не учитывать fallback при наличии `type_refs`;
+  - `symbols_source` отражает реальный источник без “+type_refs”, если key_calls пусты.
+  **AC:** stats не вводят в заблуждение, `fallback_nodes` корректен.
+  **Tests:** unit на stats.
+  **Deps:** W81-54
+- [x] W81-58 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests: улучшить trim‑политику для RLM pack:
+  - добавить опцию `pack_budget.trim_priority` (например, `recommended_reads,hotspots,entrypoints,...`);
+  - при `max_lines` сначала тримить high‑cardinality секции.
+  **AC:** pack стабильно укладывается в max_lines без “случайных” срезов важных секций.
+  **Tests:** unit на приоритет trim.
+  **Deps:** W81-51
+
+### EPIC X — Field-run follow-ups (P1)
+- [x] W81-59 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests: стабилизировать research pack budget:
+  - добавить config override для `RESEARCH_BUDGET` (например `reports.research_pack_budget.{max_chars,max_lines}`);
+  - auto‑trim должен продолжаться до укладывания в `max_chars`/`max_lines`, с drop `pack_trim_stats`, если он мешает;
+  **AC:** research pack не превышает `max_chars` при дефолтном бюджете; WARN о превышении пропадает.
+  **Tests:** unit на research pack budget (max_chars).
+  **Deps:** -
+- [x] W81-60 `tools/reports-pack.sh`, `agents/researcher.md`, `commands/researcher.md`, tests: wrapper для `reports_pack.py` без `PYTHONPATH`:
+  - wrapper выставляет `CLAUDE_PLUGIN_ROOT` и `sys.path`, принимает все аргументы `reports_pack.py`;
+  - обновить agent‑flow примеры на wrapper.
+  **AC:** `reports-pack.sh --help` работает из workspace; agent‑flow не требует `PYTHONPATH`.
+  **Tests:** smoke `--help` в `tests/test_rlm_wrappers.py`.
+  **Deps:** W81-48
+- [x] W81-61 `templates/aidd/rlm/prompts/file_node.md`, docs: усилить extraction `type_refs` для Java:
+  - явно требовать `type_refs` из `implements/extends`, record/enum компонентов, public API типов;
+  - добавить короткий пример в prompt/anchor, чтобы сократить fallback‑symbols.
+  **AC:** prompt явно покрывает `implements/extends` и record/enum типы; fallback_nodes снижаются на Java‑модулях.
+  **Deps:** W81-49
+
+### EPIC Y — Field-run tuning follow-ups (P1)
+- [x] W81-62 `templates/aidd/docs/anchors/research.md`, `templates/aidd/conventions.md`, `README*`: задокументировать research pack budget overrides:
+  - описать `reports.research_pack_budget.max_chars/max_lines` и когда их повышать;
+  - добавить короткий пример конфига.
+  - увеличить дефолтный бюджет в шаблонах (например `max_chars=2000`, `max_lines=120`) и отразить это в docs.
+  **AC:** документация содержит knob + пример; дефолтный бюджет увеличен в шаблонах.
+  **Deps:** W81-59
+- [x] W81-63 `templates/aidd/rlm/prompts/file_node.md`, `tests/test_rlm_links_build.py`: усилить extraction `key_calls`:
+  - явно извлекать `key_calls` из вызовов методов/конструкторов/фабрик (особенно Java);
+  - добавить test, где links строятся из `key_calls`, когда `type_refs` отсутствуют и fallback выключен.
+  **AC:** links_build опирается на `key_calls` для Java‑вызовов; fallback_nodes снижаются на модулях без type_refs.
+  **Deps:** W81-49
+- [x] W81-64 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests: предупреждать о высокой доле fallback‑symbols:
+  - добавить `rlm.link_fallback_warn_ratio` (default 0.3);
+  - если fallback_nodes/total_nodes превышает порог — добавить warning в RLM pack.
+  **AC:** pack содержит предупреждение при высокой доле fallback; проще находить слабые node‑summary.
+  **Tests:** unit на warning trigger.
+  **Deps:** W81-57
+
+### EPIC Z — Field-run scope & link quality fixes (P1)
+- [x] W81-65 `tools/research.py`, `tools/researcher_context.py`, `commands/researcher.md`, `templates/aidd/docs/anchors/research.md`: синхронизировать research scope с RLM paths:
+  - если передан `--rlm-paths` и `--paths` не задан — использовать RLM paths как `paths` для research;
+  - теги/keywords формируются только по синхронизированному scope (без шума из несвязанных модулей).
+  **AC:** `--rlm-paths` не приводит к фронтенд‑шуму в context; `paths` совпадают с RLM scope.
+  **Tests:** unit в `tests/test_research_command.py` или `tests/test_researcher_context.py`.
+  **Deps:** W81-4,W81-13
+- [x] W81-66 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: считать rg‑evidence verified при наличии dest‑node:
+  - добавить `rlm.link_rg_verify=auto|never` (default `auto`);
+  - если rg/regex hit указывает на файл с node и `verification != failed` → `unverified=false`;
+  - если dest‑node отсутствует — сохранять `unverified=true`.
+  **AC:** verified links растут без расширения scope; unverified‑ratio снижается в полевых прогонах.
+  **Tests:** unit на verified rg‑link при наличии dest‑node.
+  **Deps:** W81-9,W81-7
+- [x] W81-67 `tools/reports_pack.py`, `templates/aidd/config/conventions.json`, tests/docs: предупреждать о высокой доле unverified links:
+  - добавить `rlm.link_unverified_warn_ratio` (default 0.5);
+  - если `links_unverified/links_total` превышает порог — warning с советом расширить worklist scope или улучшить public_symbols/type_refs.
+  **AC:** pack сигнализирует о низком качестве evidence.
+  **Tests:** unit в `tests/test_reports_pack.py`.
+  **Deps:** W81-11,W81-64
+- [x] W81-68 `templates/aidd/config/conventions.json`, docs/tests: повысить дефолтный RLM pack budget для малых scope:
+  - увеличить `rlm.pack_budget.max_lines` (например до 240) и при необходимости `max_chars`;
+  - задокументировать knob в anchors.
+  **AC:** на малых модулях pack не триммится по дефолту; docs описывают параметры.
+  **Tests:** обновить budget‑tests при изменении дефолта.
+  **Deps:** W81-11,W81-62
+- [x] W81-69 `tools/rlm_links_build.py`, `templates/aidd/config/conventions.json`, tests: фильтрация type_refs по префиксам:
+  - добавить `rlm.type_refs_include_prefixes`/`rlm.type_refs_exclude_prefixes` (default excludes: `java.*`, `jakarta.*`, `org.springframework.*`);
+  - фильтровать `type_refs` перед линковкой, чтобы не плодить внешние unverified.
+  **AC:** внешние типы не доминируют в link stats; unverified‑ratio падает без расширения scope.
+  **Tests:** unit на фильтрацию type_refs.
+  **Deps:** W81-49,W81-9
+- [x] W81-70 `tools/reports_pack.py`, tests/docs: авто‑перевод `rlm_status=ready` при наличии nodes+links:
+  - при `--update-context` и наличии `rlm_nodes_path`+`rlm_links_path` выставлять `rlm_status=ready` после успешного build RLM pack;
+  - если nodes/links отсутствуют — оставлять `rlm_status=pending`;
+  - обновлять context pack синхронно.
+  **AC:** field‑run после nodes/links/pack переводит status в `ready` без ручных правок.
+  **Tests:** unit на `rlm_status=ready` при наличии nodes+links.
+  **Deps:** W81-11,W81-27
+- [x] W81-71 `tools/rlm_links_build.py`, tests: классификация типа линка по evidence‑строке:
+  - если evidence‑строка содержит `import ...` → `type=imports`;
+  - если содержит `extends`/`implements` → `type=extends|implements` (детерминированно);
+  - иначе fallback на `calls`.
+  **AC:** import/extends/implements больше не маркируются как `calls`; `link_id` учитывает новый `type`.
+  **Tests:** unit на классификацию link type.
+  **Deps:** W81-9
+- [x] W81-72 `tools/rlm-finalize.sh`, `tools/rlm_finalize.py`, `agents/researcher.md`, `commands/researcher.md`: утилита финализации RLM после ручного nodes:
+  - цепочка: `rlm_verify` → `rlm_links_build` → `rlm_jsonl_compact` → `reports_pack --update-context`;
+  - пишет `rlm_status=ready` и актуальные `rlm_*_path` в context.json.
+  **AC:** один запуск финализирует RLM после ручной генерации nodes; шаги агент‑flow упрощены.
+  **Tests:** smoke `--help` в `tests/test_rlm_wrappers.py`.
+  **Deps:** W81-27,W81-28,W81-70

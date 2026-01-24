@@ -110,7 +110,8 @@ def verify_nodes(
         text = data.decode("utf-8", errors="replace")
         public_symbols = node.get("public_symbols") or []
         key_calls = node.get("key_calls") or []
-        missing = _validate_symbols(text, list(public_symbols) + list(key_calls))
+        type_refs = node.get("type_refs") or []
+        missing = _validate_symbols(text, list(public_symbols) + list(type_refs) + list(key_calls))
         node["missing_tokens"] = missing
         if not public_symbols and not key_calls:
             node["verification"] = "passed"

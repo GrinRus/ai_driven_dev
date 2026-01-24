@@ -21,3 +21,10 @@
 ## MUST NOT
 - Dump large JSONL into reports.
 - Read full `*-rlm.nodes.jsonl` or `*-rlm.links.jsonl`.
+
+## Pack budgets
+- `rlm.pack_budget.max_lines`/`max_chars` в `config/conventions.json` управляют размером `*-rlm.pack.*` (default: `max_lines=240`, `max_chars=12000`).
+- Если pack триммится слишком агрессивно — поднимите лимиты или сузьте scope.
+
+## Type Refs Notes
+- Для Java включайте в `type_refs` типы из `extends/implements`, record/enum компонентов и публичных API (field/param/return).

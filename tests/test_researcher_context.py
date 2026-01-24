@@ -110,6 +110,22 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("src/main", scope.paths)
         self.assertIn("docs/research", scope.docs)
 
+    def test_builder_filters_invalid_paths_when_discovered(self) -> None:
+        config_path = self.root / "config" / "conventions.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["researcher"]["defaults"]["paths"] = ["src/main"]
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+        (self.workspace / "backend" / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
+
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("backend-demo", slug_hint="backend-demo")
+        builder.describe_targets(scope)
+        targets_path = builder.write_targets(scope)
+        payload = json.loads(targets_path.read_text(encoding="utf-8"))
+        self.assertIn("backend", payload.get("paths") or [])
+        self.assertNotIn("src/main", payload.get("paths") or [])
+
     def test_builder_merges_multiple_tags(self) -> None:
         config_path = self.root / "config" / "conventions.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))

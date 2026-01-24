@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.17
-source_version: 1.2.17
+prompt_version: 1.2.23
+source_version: 1.2.23
 allowed-tools:
   - Read
   - Edit
@@ -16,10 +16,12 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports_pack.py:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
@@ -43,9 +45,13 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--paths ... --keywords ... --note ...]` обновляет JSON контекст и RLM targets/manifest/worklist.
+- Если `entries_total` в worklist слишком большой или trimmed — перегенерируй worklist с `tools/rlm-nodes-build.sh --worklist-paths/--worklist-keywords` (или настрой `rlm.worklist_paths/rlm.worklist_keywords`).
+- Для жёсткого контроля scope включай `rlm.targets_mode=explicit` (или передай `--targets-mode explicit` в `research.sh`) и настраивай `rlm.exclude_path_prefixes`.
+- Для узкого RLM‑scope используй `--rlm-paths <paths>` (comma/colon‑list) при запуске `research.sh`.
+- Если `--rlm-paths` задан и `--paths` не указан — research scope синхронизируется с RLM paths (без лишних tags/keywords).
 - Команда должна запускать саб-агента `feature-dev-aidd:researcher`.
 - Handoff‑задачи (если нужны) добавляет команда через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
-- Когда nodes/links готовы, команда должна запустить `rlm-verify.sh`, `rlm-links-build.sh`, `rlm-jsonl-compact.sh`, затем `reports_pack.py --rlm-nodes ... --rlm-links ... --update-context` для `rlm_status=ready`.
+- Когда nodes/links готовы, команда должна запустить `rlm-finalize.sh --ticket $1` (verify → links → compact → refresh worklist → reports-pack --update-context) для `rlm_status=ready`.
 
 ## Что редактируется
 - `aidd/docs/research/$1.md`.
@@ -88,7 +94,7 @@ generated_at: <UTC ISO-8601>
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону W79-10.
 4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
 5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings.
-6. Команда (после subagent): если `rlm_status=pending`, выполни agent‑flow по worklist: `rlm-verify.sh` → `rlm-links-build.sh` → `rlm-jsonl-compact.sh` → `reports_pack.py --rlm-nodes ... --rlm-links ... --update-context`.
+6. Команда (после subagent): если `rlm_status=pending`, выполни agent‑flow по worklist через `rlm-finalize.sh --ticket $1`.
 7. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 
 ## Fail-fast и вопросы

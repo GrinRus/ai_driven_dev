@@ -8,3 +8,4 @@
 - **Автогейты**: базовый цикл требует готовности PRD/плана/tasklist (`aidd/docs/tasklist/<ticket>.md`) и новых `- [x]` после изменений в коде (`${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <implement|qa|review>`); дополнительные проверки (`tests_required`, `qa`, `deps_allowlist`) настраиваются в `config/gates.json`.
 - **Тесты**: `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается автоматически после записей (`SKIP_AUTO_TESTS=1` отключает автозапуск, `STRICT_TESTS=1` делает падение тестов блокирующим); при необходимости запустите вручную `bash ${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`.
 - **Контроль зависимостей**: актуальный allowlist — `config/allowed-deps.txt`, изменения проходят через ревью.
+- **Бюджеты паков**: лимиты `*-context.pack.*` настраиваются через `reports.research_pack_budget` в `config/conventions.json` (по умолчанию `max_chars=2000`, `max_lines=120`).
