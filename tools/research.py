@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -12,18 +13,14 @@ from tools import runtime
 from tools.researcher_context import (
     ResearcherContextBuilder,
     _CALLGRAPH_LANGS,
-    _columnar_call_graph,
     _DEFAULT_GRAPH_LIMIT,
     _emit_call_graph_warning,
     _parse_graph_engine as _research_parse_graph_engine,
-    _parse_graph_filter as _research_parse_graph_filter,
     _parse_graph_mode as _research_parse_graph_mode,
     _parse_keywords as _research_parse_keywords,
     _parse_langs as _research_parse_langs,
     _parse_notes as _research_parse_notes,
     _parse_paths as _research_parse_paths,
-    _select_graph_edges,
-    _strip_trim_warning,
 )
 
 
@@ -60,6 +57,72 @@ def _ensure_research_doc(
         content = content.replace(placeholder, value)
     destination.write_text(content, encoding="utf-8")
     return destination, True
+
+
+def _validate_json_file(path: Path, label: str) -> None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"{label} invalid JSON at {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{label} invalid JSON payload at {path}: expected object.")
+
+
+def _unique_tokens(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if not item:
+            continue
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _build_call_graph_filter(
+    scope,
+    builder: ResearcherContextBuilder,
+    explicit_filter: Optional[str],
+) -> tuple[str, dict[str, int | str], bool]:
+    if explicit_filter:
+        return explicit_filter.strip(), {"source": "explicit", "tokens_raw": 0, "tokens_used": 0}, False
+    settings = builder.call_graph_settings()
+    max_tokens = int(settings.get("filter_max_tokens", 20))
+    max_chars = int(settings.get("filter_max_chars", 512))
+
+    tokens = _unique_tokens([scope.ticket] + list(scope.keywords))
+    raw_tokens = list(tokens)
+    trimmed = False
+    if max_tokens > 0 and len(tokens) > max_tokens:
+        tokens = tokens[:max_tokens]
+        trimmed = True
+
+    parts: list[str] = []
+    for token in tokens:
+        escaped = re.escape(token)
+        if max_chars > 0:
+            candidate = "|".join(parts + [escaped]) if parts else escaped
+            if len(candidate) > max_chars:
+                trimmed = True
+                break
+        parts.append(escaped)
+
+    if not parts and scope.ticket:
+        parts = [re.escape(scope.ticket)]
+        trimmed = trimmed or len(raw_tokens) > 1
+    filter_regex = "|".join(parts)
+
+    stats = {
+        "source": "auto",
+        "tokens_raw": len(raw_tokens),
+        "tokens_used": len(parts),
+        "max_tokens": max_tokens,
+        "max_chars": max_chars,
+        "chars": len(filter_regex),
+    }
+    return filter_regex, stats, trimmed
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -164,13 +227,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--graph-limit",
         type=int,
         default=_DEFAULT_GRAPH_LIMIT,
-        help=f"Maximum number of call graph edges to keep in focused graph (default: {_DEFAULT_GRAPH_LIMIT}).",
+        help=(
+            f"Maximum number of call graph edges when call_graph.edges_max is unset "
+            f"(default: {_DEFAULT_GRAPH_LIMIT})."
+        ),
     )
     parser.add_argument(
         "--graph-mode",
         choices=["auto", "focus", "full"],
         default="auto",
-        help="Graph selection for context: auto (full if small), focus (filter+limit), full (no filter/limit).",
+        help="Graph selection for context: auto (focus unless full), focus (filter+limit), full (no filter).",
     )
     parser.add_argument(
         "--no-template",
@@ -217,6 +283,15 @@ def run(args: argparse.Namespace) -> int:
         extra_notes=_research_parse_notes(getattr(args, "notes", None), target),
     )
     _, _, search_roots = builder.describe_targets(scope)
+    path_roots = builder.resolve_path_roots(scope)
+    if scope.invalid_paths:
+        missing = ", ".join(scope.invalid_paths[:6])
+        suffix = "..." if len(scope.invalid_paths) > 6 else ""
+        print(
+            f"[aidd] WARN: missing research paths: {missing}{suffix} "
+            "(use --paths-relative workspace or update conventions)",
+            file=sys.stderr,
+        )
 
     targets_path = builder.write_targets(scope)
     rel_targets = targets_path.relative_to(target).as_posix()
@@ -236,8 +311,15 @@ def run(args: argparse.Namespace) -> int:
     graph_languages = _research_parse_langs(getattr(args, "graph_langs", None))
     graph_engine = _research_parse_graph_engine(getattr(args, "graph_engine", None))
     graph_mode = _research_parse_graph_mode(getattr(args, "graph_mode", None))
-    auto_filter = "|".join(scope.keywords + [scope.ticket])
-    graph_filter = _research_parse_graph_filter(getattr(args, "graph_filter", None), fallback=auto_filter)
+    explicit_filter = getattr(args, "graph_filter", None)
+    if explicit_filter is not None and not str(explicit_filter).strip():
+        explicit_filter = None
+    graph_filter, filter_stats, filter_trimmed = _build_call_graph_filter(scope, builder, explicit_filter)
+    graph_settings = builder.call_graph_settings()
+    try:
+        edges_max = int(graph_settings.get("edges_max", 0))
+    except (TypeError, ValueError):
+        edges_max = 0
     raw_limit = getattr(args, "graph_limit", _DEFAULT_GRAPH_LIMIT)
     try:
         graph_limit = int(raw_limit)
@@ -245,6 +327,15 @@ def run(args: argparse.Namespace) -> int:
         graph_limit = _DEFAULT_GRAPH_LIMIT
     if graph_limit <= 0:
         graph_limit = _DEFAULT_GRAPH_LIMIT
+    if edges_max and edges_max > 0:
+        edges_limit = edges_max
+    else:
+        edges_limit = builder.suggest_call_graph_limit(
+            search_roots,
+            graph_languages or languages or list(_CALLGRAPH_LANGS),
+            graph_limit,
+        )
+    filter_for_edges = None if graph_mode == "full" else graph_filter
 
     deep_code_enabled = bool(args.deep_code)
     call_graph_requested = bool(args.call_graph)
@@ -283,12 +374,13 @@ def run(args: argparse.Namespace) -> int:
         collected_context["deep_mode"] = False
     graph_enabled = graph_engine != "none"
     should_build_graph = graph_enabled and (call_graph_requested or deep_code_enabled)
-    collected_context["call_graph"] = []
     collected_context["import_graph"] = []
     collected_context["call_graph_engine"] = graph_engine
     collected_context["call_graph_supported_languages"] = []
-    collected_context["call_graph_filter"] = graph_filter
-    collected_context["call_graph_limit"] = graph_limit
+    collected_context["call_graph_filter"] = filter_for_edges
+    collected_context["call_graph_limit"] = edges_limit
+    collected_context["filter_stats"] = filter_stats
+    collected_context["filter_trimmed"] = filter_trimmed
     collected_context["call_graph_warning"] = ""
     if should_build_graph:
         graph = builder.collect_call_graph(
@@ -296,41 +388,86 @@ def run(args: argparse.Namespace) -> int:
             roots=search_roots,
             languages=graph_languages or languages or list(_CALLGRAPH_LANGS),
             engine_name=graph_engine,
-            graph_filter=graph_filter,
-            graph_limit=graph_limit,
+            graph_filter=filter_for_edges,
+            edges_max=edges_limit,
         )
-        selected_edges, selected_mode = _select_graph_edges(graph, graph_mode, graph_limit)
-        collected_context["call_graph"] = selected_edges
+        edge_stream = graph.get("edges_stream")
+        if edge_stream is None:
+            edge_stream = []
         collected_context["import_graph"] = graph.get("imports", [])
         collected_context["call_graph_engine"] = graph.get("engine", graph_engine)
         collected_context["call_graph_supported_languages"] = graph.get("supported_languages", [])
         warning = graph.get("warning") or ""
-        if selected_mode == "full":
-            warning = _strip_trim_warning(warning)
-        collected_context["call_graph_warning"] = warning
         _emit_call_graph_warning("[aidd]", warning)
-
-        full_edges = graph.get("edges_full")
-        if full_edges is None:
-            full_edges = graph.get("edges") or []
-        full_path = Path(args.output or f"aidd/reports/research/{ticket}-call-graph-full.json")
-        full_path = runtime.resolve_path_for_target(full_path, target)
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_payload = {"edges": full_edges, "imports": graph.get("imports", [])}
-        full_path.write_text(json.dumps(full_payload, indent=2), encoding="utf-8")
-        collected_context["call_graph_full_path"] = os.path.relpath(full_path, target)
-        columnar_path = full_path.with_suffix(".cjson")
         try:
-            columnar_payload = _columnar_call_graph(
-                full_payload.get("edges", []),
-                full_payload.get("imports", []),
-            )
-            columnar_path.write_text(json.dumps(columnar_payload, indent=2), encoding="utf-8")
-            collected_context["call_graph_full_columnar_path"] = os.path.relpath(columnar_path, target)
+            from tools import call_graph_views
+
+            edges_path = Path(f"aidd/reports/research/{ticket}-call-graph.edges.jsonl")
+            edges_path = runtime.resolve_path_for_target(edges_path, target)
+            edges_written, _ = call_graph_views.write_edges_jsonl(edge_stream, edges_path)
+            truncated = bool(getattr(edge_stream, "truncated", False))
+            if truncated:
+                suffix = f"call graph truncated to {edges_written} edges."
+                warning = f"{warning} {suffix}".strip()
+            collected_context["call_graph_edges_path"] = os.path.relpath(edges_path, target)
+            collected_context["call_graph_edges_schema"] = call_graph_views.EDGE_SCHEMA
+            collected_context["call_graph_edges_stats"] = {
+                "edges_scanned": getattr(edge_stream, "edges_scanned", edges_written),
+                "edges_written": edges_written,
+                "edges_limit": edges_limit,
+            }
+            collected_context["call_graph_edges_truncated"] = truncated
         except OSError:
             pass
+        collected_context["call_graph_warning"] = warning
     elif graph_engine == "none" and (call_graph_requested or deep_code_enabled):
         collected_context["call_graph_warning"] = "call graph disabled (graph-engine none)"
+
+    ast_grep_stats = None
+    try:
+        from tools.ast_grep_scan import scan_ast_grep
+
+        ast_output = Path(f"aidd/reports/research/{ticket}-ast-grep.jsonl")
+        ast_output = runtime.resolve_path_for_target(ast_output, target)
+        ast_path, ast_grep_stats = scan_ast_grep(
+            target,
+            ticket=ticket,
+            search_roots=path_roots,
+            output=ast_output,
+            tags=scope.tags,
+        )
+        if ast_path:
+            collected_context["ast_grep_path"] = os.path.relpath(ast_path, target)
+            collected_context["ast_grep_schema"] = ast_grep_stats.get("schema") if ast_grep_stats else None
+            collected_context["ast_grep_stats"] = ast_grep_stats
+        else:
+            if ast_grep_stats:
+                collected_context["ast_grep_stats"] = ast_grep_stats
+            if ast_grep_stats:
+                reason = ast_grep_stats.get("reason")
+                if reason in {"disabled", "langs-not-required"}:
+                    if reason == "disabled":
+                        detail = (
+                            " (set aidd/config/conventions.json: "
+                            "researcher.ast_grep.enabled=true or required_for_langs=[...])"
+                        )
+                    else:
+                        detail = " (adjust researcher.ast_grep.required_for_langs if needed)"
+                    print(f"[aidd] INFO: ast-grep scan skipped ({reason}){detail}.", file=sys.stderr)
+                elif reason == "binary-missing":
+                    print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
+                elif reason == "scan-failed":
+                    detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
+                    detail_suffix = f": {detail}" if detail else ""
+                    print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
+                else:
+                    print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
+    except Exception as exc:
+        collected_context["ast_grep_stats"] = {"reason": "exception", "error": f"{type(exc).__name__}: {exc}"}
+        print(
+            f"[aidd] WARN: ast-grep scan errored: {type(exc).__name__}: {exc}.",
+            file=sys.stderr,
+        )
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     match_count = len(collected_context["matches"])
     if match_count == 0:
@@ -354,6 +491,11 @@ def run(args: argparse.Namespace) -> int:
 
     output = Path(args.output) if args.output else None
     output_path = builder.write_context(scope, collected_context, output=output)
+    try:
+        _validate_json_file(output_path, "research context")
+    except RuntimeError as exc:
+        print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+        return 2
     rel_output = output_path.relative_to(target).as_posix()
     pack_path = None
     try:
@@ -361,14 +503,62 @@ def run(args: argparse.Namespace) -> int:
 
         pack_path = _reports_pack.write_research_context_pack(output_path, root=target)
         try:
+            _validate_json_file(pack_path, "research pack")
+        except RuntimeError as exc:
+            print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+            return 2
+        try:
             rel_pack = pack_path.relative_to(target).as_posix()
         except ValueError:
             rel_pack = pack_path.as_posix()
         print(f"[aidd] research pack saved to {rel_pack}.")
     except Exception as exc:
-        print(f"[aidd] WARN: failed to generate research pack: {exc}", file=sys.stderr)
+        print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
+        return 2
+    if call_graph_requested or deep_code_enabled:
+        try:
+            graph_pack_path = _reports_pack.write_call_graph_pack(output_path, root=target)
+            try:
+                _validate_json_file(graph_pack_path, "call-graph pack")
+            except RuntimeError as exc:
+                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+                return 2
+            try:
+                rel_graph_pack = graph_pack_path.relative_to(target).as_posix()
+            except ValueError:
+                rel_graph_pack = graph_pack_path.as_posix()
+            print(f"[aidd] call-graph pack saved to {rel_graph_pack}.")
+        except Exception as exc:
+            print(f"[aidd] ERROR: failed to generate call-graph pack: {exc}", file=sys.stderr)
+            return 2
+    ast_grep_path = collected_context.get("ast_grep_path")
+    if ast_grep_path:
+        try:
+            abs_ast_grep_path = target / ast_grep_path
+            ast_pack_path = _reports_pack.write_ast_grep_pack(
+                abs_ast_grep_path,
+                ticket=ticket,
+                slug_hint=feature_context.slug_hint,
+                stats=collected_context.get("ast_grep_stats"),
+                root=target,
+            )
+            try:
+                _validate_json_file(ast_pack_path, "ast-grep pack")
+            except RuntimeError as exc:
+                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+                return 2
+            try:
+                rel_ast_pack = ast_pack_path.relative_to(target).as_posix()
+            except ValueError:
+                rel_ast_pack = ast_pack_path.as_posix()
+            print(f"[aidd] ast-grep pack saved to {rel_ast_pack}.")
+        except Exception as exc:
+            print(f"[aidd] ERROR: failed to generate ast-grep pack: {exc}", file=sys.stderr)
+            return 2
     reuse_count = len(collected_context.get("reuse_candidates") or []) if deep_code_enabled else 0
-    call_edges = len(collected_context.get("call_graph") or []) if should_build_graph else 0
+    call_edges = 0
+    if should_build_graph:
+        call_edges = (collected_context.get("call_graph_edges_stats") or {}).get("edges_written") or 0
     message = f"[aidd] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if deep_code_enabled:
         message += f", {reuse_count} reuse candidates"

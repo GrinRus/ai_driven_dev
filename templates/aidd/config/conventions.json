@@ -79,7 +79,172 @@
       ],
       "keywords": []
     },
+    "keyword_settings": {
+      "min_len": 3,
+      "max_count": 25,
+      "short_whitelist": [
+        "kt",
+        "kts",
+        "js",
+        "ts"
+      ],
+      "stopwords": [
+        "в",
+        "и",
+        "не",
+        "для",
+        "во",
+        "все",
+        "как",
+        "это",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "to",
+        "of"
+      ]
+    },
+    "ignore_dirs": [
+      ".git",
+      ".gradle",
+      ".idea",
+      ".venv",
+      "aidd",
+      "build",
+      "dist",
+      "node_modules",
+      "out",
+      "output",
+      "target",
+      "vendor"
+    ],
+    "call_graph": {
+      "filter_max_chars": 512,
+      "filter_max_tokens": 20,
+      "edges_max": 0,
+      "edges_max_auto": {
+        "fallback": 300,
+        "medium_files": 80,
+        "medium_edges": 600,
+        "large_files": 200,
+        "large_edges": 1000,
+        "xlarge_files": 400,
+        "xlarge_edges": 2000
+      }
+    },
+    "path_discovery": {
+      "max_discovered": 12
+    },
+    "ast_grep": {
+      "enabled": false,
+      "required_for_langs": [],
+      "max_files": 400,
+      "max_matches": 300,
+      "timeout_s": 60,
+      "batch_size": 120
+    },
+    "auto_tags": {
+      "jvm": {
+        "slug_keywords": [
+          "jvm",
+          "java",
+          "kotlin",
+          "spring",
+          "gradle"
+        ],
+        "path_markers": [
+          "src/main/java",
+          "src/main/kotlin",
+          "build.gradle",
+          "settings.gradle"
+        ]
+      },
+      "web": {
+        "slug_keywords": [
+          "web",
+          "frontend",
+          "react",
+          "vue",
+          "next"
+        ],
+        "path_markers": [
+          "frontend",
+          "web",
+          "apps/web",
+          "packages/web"
+        ]
+      },
+      "mobile": {
+        "slug_keywords": [
+          "mobile",
+          "android",
+          "ios"
+        ],
+        "path_markers": [
+          "android",
+          "ios",
+          "mobile",
+          "app/src"
+        ]
+      },
+      "common": {
+        "slug_keywords": [
+          "common",
+          "shared",
+          "core"
+        ],
+        "path_markers": [
+          "common",
+          "shared",
+          "core"
+        ]
+      }
+    },
     "tags": {
+      "jvm": {
+        "description": "JVM сервисы и библиотеки.",
+        "paths": [],
+        "docs": [],
+        "keywords": [
+          "java",
+          "kotlin",
+          "spring",
+          "gradle"
+        ]
+      },
+      "web": {
+        "description": "Web/Frontend модули.",
+        "paths": [],
+        "docs": [],
+        "keywords": [
+          "web",
+          "frontend",
+          "react",
+          "vue"
+        ]
+      },
+      "mobile": {
+        "description": "Mobile (Android/iOS) модули.",
+        "paths": [],
+        "docs": [],
+        "keywords": [
+          "android",
+          "ios",
+          "mobile"
+        ]
+      },
+      "common": {
+        "description": "Shared/common модули.",
+        "paths": [],
+        "docs": [],
+        "keywords": [
+          "common",
+          "shared",
+          "core"
+        ]
+      },
       "checkout": {
         "description": "Модули оформления заказа и оплаты.",
         "paths": [

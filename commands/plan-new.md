@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.4
-source_version: 1.1.4
+prompt_version: 1.1.5
+source_version: 1.1.5
 allowed-tools:
   - Read
   - Edit
@@ -14,6 +14,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---

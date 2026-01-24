@@ -54,6 +54,26 @@ run_prompt_version_check() {
   fi
 }
 
+run_prompt_sync_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping prompt/template sync guard"
+    return
+  fi
+  if [[ ! -f "tools/prompt_template_sync.py" ]]; then
+    warn "tools/prompt_template_sync.py missing; skipping"
+    return
+  fi
+  log "running prompt/template sync guard (root: ${ROOT_DIR})"
+  local cmd=(python3 tools/prompt_template_sync.py --root "${ROOT_DIR}")
+  if [[ -n "${AIDD_PAYLOAD_ROOT:-}" ]]; then
+    cmd+=(--payload-root "${AIDD_PAYLOAD_ROOT}")
+  fi
+  if ! "${cmd[@]}"; then
+    err "prompt/template sync guard failed"
+    STATUS=1
+  fi
+}
+
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -230,6 +250,7 @@ cd "$ROOT_DIR"
 
 run_prompt_lint
 run_prompt_version_check
+run_prompt_sync_guard
 run_repo_linters
 
 run_python_tests

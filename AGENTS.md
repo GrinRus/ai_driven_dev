@@ -72,10 +72,10 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 | Сценарий | Graph обязателен | Режим | Примечание |
 | --- | --- | --- | --- |
-| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) | Полный граф в sidecar, краткий — в контексте. |
+| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) | Только edge‑index: `*-call-graph.edges.jsonl` + pack (raw/full не пишется). |
 | Смешанный repo с JVM‑модулями | Да (для JVM) | `--auto` | Уточняйте `--paths` под JVM‑часть. |
 | Non‑JVM (py/js/go и т.п.) | Нет | fast‑scan | Graph можно отключить `--graph-engine none`. |
-| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` | Полный граф помогает навести scope. |
+| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` | Без фильтра; лимит `call_graph.edges_max` всё равно применяется. |
 
 Примеры WARN/INSTALL_HINT:
 - `[aidd] WARN: 0 matches for <ticket> → сузить paths/keywords или graph-only.`
@@ -84,9 +84,15 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-- Запустите graph-only: `--call-graph --graph-mode full`.
+- Запустите graph-only: `--call-graph --graph-mode full` (без фильтра, но с `call_graph.edges_max`).
 - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
 - Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
+
+## Graph Read Policy (pack-first)
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+- JSONL‑streams (`*-call-graph.edges.jsonl`, `*-ast-grep.jsonl`) читаются фрагментами, не целиком.
 
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
@@ -122,7 +128,7 @@ Troubleshooting пустого контекста:
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
 - Budgets (пример):
-  - research context pack: total <= 1200 chars, matches<=20, reuse<=8, call_graph<=30
+  - research context pack: total <= 1200 chars, matches<=20, reuse<=8, import_graph<=30
   - QA pack: findings<=20, tests_executed<=10
   - PRD pack: findings<=20, action_items<=10
 - Патчи (опционально): RFC6902 в `aidd/reports/<type>/<ticket>.patch.json`.

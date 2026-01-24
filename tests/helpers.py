@@ -107,6 +107,12 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_pending_baseline": True,
         "baseline_phrase": "контекст пуст",
     },
+    "call_graph": {
+        "require_pack": True,
+        "require_edges": True,
+        "required_for_langs": ["kt", "kts", "java"],
+        "allow_ast_grep_fallback": True,
+    },
     "analyst": {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],
@@ -364,6 +370,11 @@ def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathl
     target = project_root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    if "reports/research" in target.as_posix() and target.name.endswith("-context.json"):
+        ticket = target.name.replace("-context.json", "")
+        pack_path = target.with_name(f"{ticket}-ast-grep.pack.yaml")
+        if not pack_path.exists():
+            pack_path.write_text(json.dumps({"type": "ast-grep", "status": "ok"}, indent=2), encoding="utf-8")
     return target
 
 

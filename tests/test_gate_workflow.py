@@ -108,6 +108,26 @@ def write_research_doc(tmp_path: pathlib.Path, ticket: str = "demo-checkout", st
             "targets": {"paths": ["src/main/kotlin"]},
         },
     )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-ast-grep.pack.yaml",
+        {
+            "type": "ast-grep",
+            "kind": "pack",
+            "rules": [
+                {
+                    "rule_id": "jvm.spring.rest",
+                    "examples": [
+                        {
+                            "path": "src/main/kotlin/App.kt",
+                            "line": 3,
+                            "message": "REST endpoint",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
 
 
 def write_prd_with_status(tmp_path: pathlib.Path, ticket: str, status: str, research_status: str = "pending") -> None:

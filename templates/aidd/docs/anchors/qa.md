@@ -5,6 +5,11 @@
 - Findings с severity и traceability.
 - Обновить QA чекбоксы, отчёт и handoff‑задачи.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE
 - aidd/docs/tasklist/<ticket>.md: AIDD:CHECKLIST_QA (или QA‑подсекция в AIDD:CHECKLIST) + AIDD:HANDOFF_INBOX + AIDD:TEST_EXECUTION
@@ -17,6 +22,7 @@
 - AIDD:HANDOFF_INBOX через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append`.
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (scope/DoD/Boundaries/Tests).
+- Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.
 - Write surface (разрешено):
   - front‑matter: `Status`, `Updated` (и `Stage`, если есть)
   - `AIDD:CHECKLIST_QA` (или QA‑подсекция в `AIDD:CHECKLIST`)

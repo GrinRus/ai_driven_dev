@@ -56,6 +56,11 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
         f"reports/research/{ticket}-targets.json",
         {"ticket": ticket, "paths": ["src"], "docs": ["docs"], "generated_at": _utc_now()},
     )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-ast-grep.pack.yaml",
+        {"type": "ast-grep", "status": "ok"},
+    )
 
 
 def _write_context(
@@ -74,7 +79,6 @@ def _write_context(
             "generated_at": _utc_now(),
             "profile": {"is_new_project": is_new},
             "auto_mode": auto_mode,
-            "call_graph": [],
             "import_graph": [],
             "call_graph_engine": call_graph_engine,
             "call_graph_supported_languages": [],

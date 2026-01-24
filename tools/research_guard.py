@@ -26,6 +26,10 @@ class ResearchSettings:
     baseline_phrase: str = "контекст пуст"
     branches: list[str] | None = None
     skip_branches: list[str] | None = None
+    call_graph_required_for_langs: list[str] | None = None
+    call_graph_require_pack: bool = True
+    call_graph_require_edges: bool = True
+    allow_ast_grep_fallback: bool = True
 
 
 @dataclass
@@ -54,6 +58,19 @@ def _normalize_patterns(raw: Iterable[str] | None) -> list[str] | None:
         if isinstance(item, str) and item.strip():
             patterns.append(item.strip())
     return patterns or None
+
+
+def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
+    if not raw:
+        return None
+    items: list[str] = []
+    for item in raw:
+        if not item:
+            continue
+        text = str(item).strip().lower()
+        if text:
+            items.append(text)
+    return items or None
 
 
 def load_settings(root: Path) -> ResearchSettings:
@@ -90,6 +107,16 @@ def load_settings(root: Path) -> ResearchSettings:
         settings.branches = _normalize_patterns(raw.get("branches"))
         settings.skip_branches = _normalize_patterns(raw.get("skip_branches"))
 
+    graph_cfg = config.get("call_graph") or {}
+    if isinstance(graph_cfg, dict):
+        settings.call_graph_required_for_langs = _normalize_langs(graph_cfg.get("required_for_langs"))
+        if "require_pack" in graph_cfg:
+            settings.call_graph_require_pack = bool(graph_cfg.get("require_pack"))
+        if "require_edges" in graph_cfg:
+            settings.call_graph_require_edges = bool(graph_cfg.get("require_edges"))
+        if "allow_ast_grep_fallback" in graph_cfg:
+            settings.allow_ast_grep_fallback = bool(graph_cfg.get("allow_ast_grep_fallback"))
+
     return settings
 
 
@@ -109,6 +136,163 @@ def _extract_status(doc_text: str) -> Optional[str]:
         if stripped.lower().startswith("status:"):
             return stripped.split(":", 1)[1].strip().lower()
     return None
+
+
+def _resolve_report_path(root: Path, raw: Optional[str]) -> Optional[Path]:
+    if not raw:
+        return None
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    parts = path.parts
+    if parts and parts[0] == "aidd" and root.name == "aidd":
+        path = Path(*parts[1:])
+    candidate = (root / path).resolve()
+    if candidate.exists():
+        return candidate
+    if root.name == "aidd":
+        workspace_candidate = (root.parent / path).resolve()
+        if workspace_candidate.exists():
+            return workspace_candidate
+    return candidate
+
+
+def _find_pack_variant(root: Path, name: str) -> Path | None:
+    base = root / "reports" / "research"
+    for suffix in (".pack.yaml", ".pack.toon"):
+        candidate = base / f"{name}{suffix}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _load_pack_payload(path: Path) -> Optional[dict]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _is_call_graph_pack_ok(path: Optional[Path]) -> bool:
+    if not path or not path.exists():
+        return False
+    payload = _load_pack_payload(path)
+    if not payload:
+        return False
+    status = payload.get("status")
+    if isinstance(status, str):
+        return status.strip().lower() == "ok"
+    edges = payload.get("edges")
+    return isinstance(edges, list) and bool(edges)
+
+
+def _detect_langs_from_paths(root: Path, paths: Iterable[str], required_langs: Iterable[str]) -> set[str]:
+    exts_by_lang = {
+        "kt": {".kt"},
+        "kts": {".kts"},
+        "java": {".java"},
+        "js": {".js", ".jsx"},
+        "ts": {".ts", ".tsx"},
+        "py": {".py"},
+        "go": {".go"},
+    }
+    wanted = {lang for lang in required_langs if lang in exts_by_lang}
+    if not wanted:
+        return set()
+    found: set[str] = set()
+    max_files = 5000
+    scanned = 0
+    for raw in paths:
+        if scanned >= max_files:
+            break
+        candidate = _resolve_report_path(root, raw)
+        if not candidate or not candidate.exists():
+            continue
+        if candidate.is_file():
+            ext = candidate.suffix.lower()
+            for lang, exts in exts_by_lang.items():
+                if lang in wanted and ext in exts:
+                    found.add(lang)
+            scanned += 1
+            continue
+        for base, _, files in os.walk(candidate):
+            for name in files:
+                scanned += 1
+                if scanned >= max_files:
+                    break
+                ext = Path(name).suffix.lower()
+                for lang, exts in exts_by_lang.items():
+                    if lang in wanted and ext in exts:
+                        found.add(lang)
+            if scanned >= max_files:
+                break
+    return found
+
+
+def _validate_graph_views_and_evidence(
+    root: Path,
+    ticket: str,
+    *,
+    settings: ResearchSettings,
+    context_path: Path,
+    targets_path: Path,
+) -> None:
+    if not settings.call_graph_required_for_langs:
+        return
+
+    try:
+        context = json.loads(context_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ResearchValidationError(
+            f"BLOCK: отсутствует {context_path}; выполните "
+            f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+        )
+    except json.JSONDecodeError:
+        raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
+
+    edges_path = _resolve_report_path(root, context.get("call_graph_edges_path"))
+    if edges_path is None:
+        edges_path = root / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
+    pack_path = _find_pack_variant(root, f"{ticket}-call-graph")
+    ast_grep_pack = _find_pack_variant(root, f"{ticket}-ast-grep")
+
+    required_langs = settings.call_graph_required_for_langs or []
+    if not required_langs:
+        return
+
+    try:
+        targets = json.loads(targets_path.read_text(encoding="utf-8"))
+    except Exception:
+        targets = {}
+    paths = targets.get("paths") or []
+    paths_discovered = targets.get("paths_discovered") or []
+    if not paths and not paths_discovered:
+        paths = ["src"]
+    detected_langs = _detect_langs_from_paths(root, list(paths) + list(paths_discovered), required_langs)
+    if not (set(required_langs) & detected_langs):
+        return
+
+    pack_ok = _is_call_graph_pack_ok(pack_path)
+    pack_required = settings.call_graph_require_pack
+    edges_required = settings.call_graph_require_edges
+    graph_ok = (not pack_required or pack_ok) and (not edges_required or (edges_path and edges_path.exists()))
+    ast_ok = bool(ast_grep_pack)
+    if graph_ok or (settings.allow_ast_grep_fallback and ast_ok):
+        return
+
+    warning = (context.get("call_graph_warning") or "").strip()
+    hints: list[str] = []
+    if "tree-sitter" in warning or "tree_sitter" in warning:
+        hints.append("python3 -m pip install tree_sitter_language_pack")
+    if settings.allow_ast_grep_fallback and not ast_ok:
+        hints.append("install ast-grep or enable ast_grep in conventions.json")
+    hint_text = f" INSTALL_HINT: {'; '.join(hints)}." if hints else ""
+
+    raise ResearchValidationError(
+        "BLOCK: для JVM требуется evidence (call-graph pack+edges ИЛИ ast-grep pack), "
+        "но артефакты отсутствуют. Пересоберите research или добавьте evidence." + hint_text
+    )
 
 
 def validate_research(
@@ -223,6 +407,14 @@ def validate_research(
                 f"BLOCK: контекст Researcher устарел ({age_days} дней) → обновите "
                 f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
             )
+
+    _validate_graph_views_and_evidence(
+        root,
+        ticket,
+        settings=settings,
+        context_path=context_path,
+        targets_path=targets_path,
+    )
 
     return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days)
 

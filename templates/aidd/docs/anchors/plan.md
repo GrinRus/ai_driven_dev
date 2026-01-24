@@ -6,6 +6,11 @@
 - Явный Files/Modules touched.
 - Test strategy per iteration + миграции/флаги + observability.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE, AIDD:ROLL_OUT
 - aidd/docs/research/<ticket>.md: AIDD:INTEGRATION_POINTS, AIDD:REUSE_CANDIDATES, AIDD:RISKS

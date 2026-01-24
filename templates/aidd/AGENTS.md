@@ -27,6 +27,12 @@
   - сначала `rg -n -C 2 "^(## AIDD:|## Plan Review|## PRD Review)" <file>`
   - `sed -n 'X,Yp'` — только если инструмент доступен и нужен contiguous‑блок.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+- JSONL‑streams (`*-call-graph.edges.jsonl`, `*-ast-grep.jsonl`) читать фрагментами, не целиком.
+
 ## Что нельзя делать
 - Менять файлы вне согласованного плана/тасклиста.
 - Продолжать работу без обязательных артефактов и статусов.

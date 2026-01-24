@@ -6,6 +6,11 @@
 - Чекбоксы однозначны (iteration_id/DoD/Boundaries/Steps/Tests) и не требуют дополнительных догадок.
 - `AIDD:NEXT_3` — pointer list (1–2 строки + ref), без истории и без `[x]`.
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+
 ## MUST READ FIRST
 - aidd/docs/tasklist/<ticket>.md:
   - AIDD:CONTEXT_PACK

@@ -50,7 +50,9 @@ class ResearcherCallGraphTests(unittest.TestCase):
             graph_filter="Caller",
         )
         self.assertEqual(graph.get("engine"), "fake")
-        self.assertEqual(len(graph.get("edges") or []), 1)
+        edge_stream = graph.get("edges_stream")
+        edges = list(edge_stream or [])
+        self.assertEqual(len(edges), 1)
         self.assertEqual(len(graph.get("imports") or []), 1)
 
     def test_collect_call_graph_without_engine_returns_warning(self) -> None:
@@ -67,11 +69,12 @@ class ResearcherCallGraphTests(unittest.TestCase):
         engine_name = graph.get("engine")
         if graph.get("warning"):
             self.assertIn(engine_name, ("ts", "tree-sitter"))
-            self.assertEqual(graph.get("edges"), [])
+            edge_stream = graph.get("edges_stream")
+            self.assertEqual(list(edge_stream or []), [])
         else:
             # engine доступен (tree-sitter установлен) — должен вернуть имя движка и какой-то результат/пустой список без warn
             self.assertIn(engine_name, ("tree-sitter", "ts"))
-            self.assertIn("edges", graph)
+            self.assertIn("edges_stream", graph)
 
     def test_collect_call_graph_trimmed_and_full(self) -> None:
         builder = ResearcherContextBuilder(self.root)
@@ -83,11 +86,24 @@ class ResearcherCallGraphTests(unittest.TestCase):
             languages=["kt"],
             engine_name="ts",
             engine=FakeEngine(),
-            graph_limit=1,
+            edges_max=1,
         )
-        self.assertEqual(len(graph.get("edges") or []), 1)
-        self.assertEqual(len(graph.get("edges_full") or []), 2)
-        self.assertTrue(graph.get("warning"))
+        edge_stream = graph.get("edges_stream")
+        edges = list(edge_stream or [])
+        self.assertEqual(len(edges), 1)
+        self.assertTrue(getattr(edge_stream, "truncated", False))
+
+    def test_suggest_call_graph_limit_scales_with_repo_size(self) -> None:
+        for idx in range(90):
+            (self.root / "src" / f"Auto{idx}.java").write_text(
+                f"class Auto{idx} {{ void run() {{}} }}",
+                encoding="utf-8",
+            )
+        builder = ResearcherContextBuilder(self.root)
+        scope = builder.build_scope("demo-ticket", slug_hint="demo-ticket")
+        _, _, roots = builder.describe_targets(scope)
+        limit = builder.suggest_call_graph_limit(roots, ["java"], 300)
+        self.assertGreaterEqual(limit, 600)
 
 
 if __name__ == "__main__":  # pragma: no cover

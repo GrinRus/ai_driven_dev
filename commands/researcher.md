@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.10
-source_version: 1.2.10
+prompt_version: 1.2.14
+source_version: 1.2.14
 allowed-tools:
   - Read
   - Edit
@@ -15,19 +15,22 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph (если включён) сохраняется в sidecar и указывается в `call_graph_full_path`.
+Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph и ast-grep сохраняются как pack/view (edges-only, без raw графа).
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
-- `aidd/reports/research/$1-context.json` — формируется CLI (содержит `call_graph_full_path`/`call_graph_full_columnar_path`).
+- `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
+- `aidd/reports/research/$1-call-graph.pack.*` (pack-first), `graph-slice` pack (по запросу), `-call-graph.edges.jsonl` (только spot-check через `rg`).
+- `aidd/reports/research/$1-ast-grep.pack.*`, `-ast-grep.jsonl` (только `rg`/фрагменты).
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
@@ -35,7 +38,7 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--graph-mode focus|full] [--graph-engine none] [--paths ... --keywords ... --note ...]` обновляет JSON контекст (auto: graph-scan для kt/kts/java, fast-scan для остальных).
+- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--graph-mode focus|full] [--graph-engine none] [--paths ... --keywords ... --note ...]` обновляет JSON контекст и packs (auto: graph-scan для kt/kts/java, fast-scan для остальных).
 - Команда должна запускать саб-агента `feature-dev-aidd:researcher`.
 - Handoff‑задачи (если нужны) добавляет команда через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 
@@ -60,7 +63,7 @@ generated_at: <UTC ISO-8601>
 - tasklist: aidd/docs/tasklist/$1.md (if exists)
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)
-- research_context: aidd/reports/research/$1-context.json
+- research_context: aidd/reports/research/$1-context.json (optional; read only with offset/limit if pack missing)
 - research_targets: aidd/reports/research/$1-targets.json (if exists)
 
 ## What to do now
@@ -84,11 +87,12 @@ generated_at: <UTC ISO-8601>
 
 ## Fail-fast и вопросы
 - Нет активного тикета или PRD — остановись и попроси `/feature-dev-aidd:idea-new`.
+- Если отсутствуют `*-call-graph.pack.*`/`edges.jsonl` или `*-ast-grep.pack.*` для нужных языков — верни BLOCKED и попроси пересборку.
 - Если отчёт остаётся `pending`, верни вопросы/условия для `reviewed`.
 
 ## Ожидаемый вывод
 - Обновлённый `aidd/docs/research/$1.md` (status `pending|reviewed`).
-- Актуальный `aidd/reports/research/$1-context.json`.
+- Актуальный `aidd/reports/research/$1-context.json` (не читать целиком — только pack/фрагменты).
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI

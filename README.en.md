@@ -129,9 +129,14 @@ WARN/INSTALL_HINT examples:
 
 Empty context troubleshooting:
 - Narrow `--paths`/`--keywords` (point to real code, not only `aidd/`).
-- Run graph-only: `--call-graph --graph-mode full`.
+- Run graph-only: `--call-graph --graph-mode full` (no filter; `call_graph.edges_max` still applies).
 - Use `--paths-relative workspace` if code lives outside `aidd/`.
 - Install `tree_sitter_language_pack` if call graph is empty.
+
+Graph artifacts (pack-first):
+- Grep-friendly view: `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
+- Pack summary: `aidd/reports/research/<ticket>-call-graph.pack.yaml` (or `.pack.toon`).
+- Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

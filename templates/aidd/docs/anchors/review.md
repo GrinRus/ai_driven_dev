@@ -5,6 +5,11 @@
 - Вернуть замечания в tasklist (handoff).
 - Управлять обязательностью тестов через reviewer marker (если используется).
 
+## Graph Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
+- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
+- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+
 ## MUST READ FIRST
 - git diff / PR diff
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK, AIDD:CHECKLIST_REVIEW, AIDD:HANDOFF_INBOX
@@ -16,6 +21,7 @@
 - aidd/reports/reviewer/<ticket>.json (review report + маркер тестов)
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
+- Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.
 - Write surface (разрешено):
   - front‑matter: `Status`, `Updated` (и `Stage`, если есть)
   - `AIDD:CHECKLIST_REVIEW`

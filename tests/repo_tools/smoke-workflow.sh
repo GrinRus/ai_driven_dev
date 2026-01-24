@@ -64,6 +64,21 @@ WORKDIR="${TMP_DIR}/aidd"
 WORKSPACE_ROOT="${TMP_DIR}"
 export CLAUDE_PLUGIN_ROOT="${PLUGIN_ROOT}"
 
+log "tune gates for smoke (optional deps)"
+python3 - "$WORKDIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+gates_path = root / "config" / "gates.json"
+data = json.loads(gates_path.read_text(encoding="utf-8"))
+call_graph = data.get("call_graph") or {}
+call_graph["required_for_langs"] = []
+data["call_graph"] = call_graph
+gates_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+
 log "validate plugin hooks wiring"
 if [[ ! -f "$PLUGIN_ROOT/hooks/hooks.json" ]]; then
   echo "[smoke] missing plugin hooks at $PLUGIN_ROOT/hooks/hooks.json" >&2
@@ -174,12 +189,8 @@ PY
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --auto >/dev/null
-if ! grep -q "\"call_graph\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
-  echo "[smoke] expected call_graph in research context" >&2
-  exit 1
-fi
-if ! grep -q "\"call_graph_full_path\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
-  echo "[smoke] expected call_graph_full_path in research context" >&2
+if ! grep -q "\"call_graph_edges_path\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
+  echo "[smoke] expected call_graph_edges_path in research context" >&2
   exit 1
 fi
 log "run researcher stage with graph-engine none"

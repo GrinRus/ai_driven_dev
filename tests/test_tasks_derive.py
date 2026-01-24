@@ -175,7 +175,6 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
             "research",
             "--ticket",
             "demo-checkout",
-            "--append",
         ),
         cwd=project_root,
         text=True,
@@ -187,8 +186,8 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert content.count("handoff:research start") == 1
     assert "existing item" not in content
-    assert "Research: Create baseline dirs" in content
-    assert "Reuse candidate: src/payments/Client.kt" in content
+    assert "Research: Create baseline dirs" not in content
+    assert "Reuse candidate: src/payments/Client.kt" not in content
 
 
 def test_tasks_derive_dry_run_does_not_modify(tmp_path):
@@ -264,8 +263,59 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
 
     assert result.returncode == 0, result.stderr
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
-    assert "Research: from pack" in content
+    assert "Research: from pack" not in content
     assert "Research: from json" not in content
+
+
+def test_tasks_derive_from_ast_grep_pack(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
+    write_json(
+        project_root,
+        "reports/research/demo-checkout-context.json",
+        {"profile": {}, "manual_notes": [], "reuse_candidates": []},
+    )
+    pack_payload = {
+        "schema": "aidd.report.pack.v1",
+        "type": "ast-grep",
+        "kind": "pack",
+        "rules": [
+            {
+                "rule_id": "jvm.spring.rest",
+                "examples": [
+                    {
+                        "path": "src/main/kotlin/App.kt",
+                        "line": 12,
+                        "message": "REST endpoint",
+                    }
+                ],
+            }
+        ],
+    }
+    write_file(
+        project_root,
+        "reports/research/demo-checkout-ast-grep.pack.yaml",
+        json.dumps(pack_payload, indent=2),
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "research",
+            "--ticket",
+            "demo-checkout",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+
+    assert result.returncode == 0, result.stderr
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert "ast-grep jvm.spring.rest" in content
 
 
 def test_tasks_derive_from_review_report(tmp_path):
