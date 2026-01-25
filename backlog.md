@@ -2193,3 +2193,219 @@ _Статус: новый, приоритет 1. Цель — переход н�
   - обновить smoke‑workflow, если ожидает call_graph config.
   **AC:** тестовый набор не ссылается на call_graph; `ci-lint` и smoke проходят.
   **Deps:** W81-73,W81-74
+## Wave 82
+
+_Статус: новый, приоритет 2. Цель — архитектурный профиль + skills как канон кастомизации, плюс унификация промптов и регрессионные проверки._
+
+- [ ] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
+  - шаблон с front‑matter + обязательные секции (Style/Modules/Allowed deps/Invariants/Interfaces/Skills/Conventions);
+  - machine‑readable front‑matter поля и формы:
+    - `schema`, `updated_at`, `style`, `conventions`, `stack_hint` (список строк, multi‑stack);
+    - `modules`: список объектов `{id, roots, responsibility, public_interfaces}`;
+    - `allowed_deps`: список правил `{from, to, kind: allow|deny, note}` (from/to = module.id);
+    - `enabled_skills`: список строк `["testing-node", "formatting", ...]`;
+    - `interfaces`: объект `{api: [...], db: [...], events: [...]}`.
+  - единый канонический путь `aidd/docs/architecture/profile.md` и единый формат ссылок:
+    - PRD: `## AIDD:ARCH_PROFILE`;
+    - Plan: `Architecture Profile: aidd/docs/architecture/profile.md`;
+    - Tasklist: `AIDD:CONTEXT_PACK → References` (или отдельный пункт);
+  - Context Pack шаблоны команд стадий (idea/research/plan/tasklist/spec-interview/review-spec/implement/review/qa) содержат `arch_profile: aidd/docs/architecture/profile.md` в Paths;
+  - anchors/AGENTS (templates/aidd/AGENTS.md + templates/root/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
+  **AC:** профиль существует с front‑matter, ссылки на канонический путь есть во всех шаблонах/якорях/Context Pack, AGENTS упоминает профиль как источник ограничений.
+  **Deps:** -
+- [ ] W82-2 `templates/aidd/skills/**/SKILL.md`, `templates/aidd/skills/index.yaml`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`: добавить базовую библиотеку skills и связать с профилем:
+  - минимальный набор skills (testing‑gradle/node/pytest, formatting, dev-run);
+  - общий контракт SKILL.md: `name`, `version`, `when_to_use`, `commands`, `evidence`, `pitfalls`, `tooling`;
+  - registry `templates/aidd/skills/index.yaml` (skill_id → path → описание);
+  - `skill_id` совпадает с именем директории: `templates/aidd/skills/<skill_id>/SKILL.md` и `index.yaml` использует тот же `skill_id`;
+  - `enabled_skills` в profile + секция “Skills enabled”;
+  - правило “skills‑first для tests/format/run” + fallback (“если skill отсутствует — не выдумывать команды, запросить/добавить skill”).
+  **AC:** skills и registry в templates, профиль их перечисляет, anchors требуют открывать SKILL.md и описывают fallback.
+  **Deps:** W82-1
+- [ ] W82-3 `templates/root/**`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/skills и root‑адаптеров:
+  - `tools/init.sh` — entrypoint команды; `tools/init.py` — реализация, вызываемая entrypoint (без дублирования логики);
+  - копирование `templates/root/**` в workspace root (root `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/aidd.md`, `.github/copilot-instructions.md`) без перезаписи без `--force`;
+  - root `AGENTS.md` — thin‑adapter: указывает на `aidd/AGENTS.md`, Architecture Profile и anchors;
+  - init гарантирует `aidd/docs/architecture/*` и `aidd/skills/**` (и не трогает существующий `aidd/AGENTS.md`);
+  - обновить описание флагов и DoD в команде.
+  **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/skills и root‑адаптеры при отсутствии, не ломая существующие файлы.
+  **Tests:** обновить `tests/test_init_aidd.py` (root‑адаптеры только если их нет, `aidd/AGENTS.md` сохраняется).
+  **Deps:** W82-1,W82-2
+- [ ] W82-4 `tools/detect-stack.(py|sh)`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`, tests: stack‑detector → заполнение profile:
+  - детект langs/build tools по маркерам (package.json/pyproject/go.mod/Cargo.toml/etc);
+  - multi‑stack поддержка: `stack_hint` и `enabled_skills` пополняются без взаимоисключения;
+  - детектор игнорирует `aidd/**`, `.git/**`, `node_modules/**`, `.venv/**`;
+  - флаг `--detect-stack` (или расширение `--detect-build-tools`) заполняет `stack_hint` и `enabled_skills` в profile best‑effort;
+  - формат вывода: `--format json|yaml` → stdout = чистый структурированный output, summary → stderr; без `--format` → stdout = summary;
+  - не перезаписывать существующий profile без `--force`; сохранять markdown body/sections (merge front‑matter).
+  **AC:** init пишет stack_hint/skills при детекте, поддерживает multi‑stack, игнорирует `aidd/**`, не разрушает существующие данные.
+  **Tests:** unit/fixture на детект и non‑destructive init.
+  **Deps:** W82-3
+- [ ] W82-5 `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `commands/*.md`, `agents/implementer.md`, `commands/implement.md`: унификация промптов и команд:
+  - “RLM Read Policy” → “Evidence Read Policy” с RLM‑first + rlm‑slice (agents/anchors/commands);
+  - единый блок “Context precedence & safety” во всех агентах + ключевых anchors;
+  - единый базовый output contract (Checkbox/Status/Artifacts/Next actions) во всех агентах/командах; implementer может иметь расширенные поля поверх базового;
+  - убрать gradlew‑специфику из implementer/implement → skills‑first для тестов/формата;
+  - allowed‑tools стратегия: безопасный superset конкретных раннеров (без `Bash(*)`), например `Bash(npm:*)`, `Bash(pnpm:*)`, `Bash(yarn:*)`, `Bash(pytest:*)`, `Bash(python:*)`, `Bash(go:*)`, `Bash(mvn:*)`, `Bash(./gradlew:*)`, `Bash(make:*)` (если применимо); gradlew можно оставить в allowlist, но не хардкодить в тексте.
+  - при добавлении новых tools/скриптов команд (rlm-slice, loop-pack, review-pack, diff-boundary-check) обновлять allowlist.
+  **AC:** единые блоки/термины в промптах/командах, нет build‑tool hardcode, allowed‑tools согласованы со skills, prompt_version/source_version обновлены.
+  **Tests:** `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
+  **Deps:** W82-2
+- [ ] W82-6 `tests/repo_tools/prompt-regression.sh` (или расширение `lint-prompts.py`), `tests/repo_tools/ci-lint.sh`: prompt‑regression checks:
+  - fail при наличии “Graph Read Policy”;
+  - fail если нет ссылок на architecture profile в агентах/anchors;
+  - fail если Context Pack шаблоны команд стадий (idea/research/plan/tasklist/spec-interview/review-spec/implement/review/qa) не содержат `arch_profile` путь; исключить `status` и `aidd-init`;
+  - fail если нет упоминания `rlm-slice.sh` как primary tool;
+  - fail если не найден “Evidence Read Policy”.
+  **AC:** регресс‑скрипт падает на старых промптах и проходит на новых.
+  **Deps:** W82-5
+- [ ] W82-7 `README.md`, `README.en.md`, `templates/aidd/docs/**`, `CHANGELOG.md`: документация профиля/skills/init:
+  - разделы про Architecture Profile + Skills + stack‑detect;
+  - краткий “how to customize” в templates;
+  - миграция: `/aidd-init` без `--force` добавляет новые артефакты; `--force` или ручная синхронизация — для обновления шаблонов;
+  - пояснение root `AGENTS.md` vs `aidd/AGENTS.md`.
+  - когда и как обновлять Architecture Profile (1–2 предложения).
+  - changelog/metadata при user‑facing изменениях.
+  **AC:** docs отражают новый канон и команды init.
+  **Deps:** W82-1,W82-3,W82-5
+- [ ] W82-8 `tools/arch-profile-validate.(py|sh)`, `tests/repo_tools/ci-lint.sh` (optional): валидатор profile:
+  - проверка front‑matter `schema: aidd.arch_profile.v1` и ключевых секций;
+  - non‑zero exit при отсутствии/битых секциях;
+  - не валидировать существование файла `conventions` на этом wave (только поле);
+  - (опционально) init вызывает валидатор и предупреждает при ошибках.
+  **AC:** валидатор ловит пустой/битый профиль, CI/инициализация видит ошибку или warn.
+
+## Wave 83
+
+_Статус: новый, приоритет 2. Цель — “Ralph loop mode” для implement↔review: loop pack + scope guard + уменьшение читаемого контекста._
+
+- [ ] W83-1 `templates/aidd/docs/loops/README.md`, `templates/aidd/reports/loops/.gitkeep`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/{implement,review,tasklist}.md`, `templates/aidd/AGENTS.md`, `tools/init.sh`, `tools/init.py`: ввести канонический Loop Mode (без runtime‑логики):
+  - добавить `templates/aidd/docs/loops/README.md` с протоколом: “loop = 1 work_item → implement → review → (revise)* → ship” + правила “fresh context / no big paste / ссылки на reports”;
+  - правило: review не инициирует новый scope; всё новое → `AIDD:OUT_OF_SCOPE_BACKLOG`/новый work_item;
+  - добавить `templates/aidd/reports/loops/.gitkeep` (директория должна появиться после `/aidd-init`);
+  - init гарантирует `aidd/docs/loops/README.md` и `aidd/reports/loops/`;
+  - расширить tasklist: `## AIDD:OUT_OF_SCOPE_BACKLOG` (фиксировать побочки вместо расширения текущего work_item);
+  - anchors implement/review/tasklist + `templates/aidd/AGENTS.md`: 5–10 строк о loop‑discipline, запрет scope‑creep, ссылка на `aidd/docs/loops/README.md`.
+  **AC:** после `/aidd-init` есть `aidd/docs/loops/README.md` и `aidd/reports/loops/`; tasklist шаблон содержит `AIDD:OUT_OF_SCOPE_BACKLOG`; anchors явно упоминают loop‑режим и запрещают scope creep.
+  **Deps:** W82-1, W82-2, W82-3
+
+- [ ] W83-2 `tools/loop-pack.sh`, `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`, `tests/test_loop_pack.py`, `tests/fixtures/loop_pack/**`: генерация “Loop Pack” (тонкий входной контекст на один work_item):
+  - `tools/loop-pack.sh` — entrypoint; `tools/loop_pack.py` — реализация (без дубля логики);
+  - вход: `aidd/docs/tasklist/<ticket>.md`, `aidd/docs/architecture/profile.md`, `aidd/skills/index.yaml` + `aidd/skills/**/SKILL.md`;
+  - выбор work_item:
+    - default (stage=implement): если `.active_ticket == --ticket` и `aidd/docs/.active_work_item` существует — использовать его; иначе выбрать первый реальный item из `AIDD:NEXT_3` (игнорируя `(none)`), извлечь `ref: iteration_id=...` или `ref: id=...`, записать `aidd/docs/.active_work_item`;
+    - default (stage=review): читать `aidd/docs/.active_work_item` только если `.active_ticket == --ticket`; если нет — fallback на последний implement из `AIDD:PROGRESS_LOG`, иначе `BLOCKED`;
+    - override: `--work-item iteration_id=I3` или `--work-item id=review:F6` (опционально `--pick-next` для принудительного выбора из NEXT_3);
+  - loop-pack владеет state: после выбора work_item записывает `aidd/docs/.active_ticket` и `aidd/docs/.active_work_item` (work_item_key);
+  - имя файла: `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md` (fs‑safe ключ без `:`); хранить `work_item_id` и `work_item_key` в front‑matter;
+  - front‑matter включает `schema: aidd.loop_pack.v1`, `updated_at`, `ticket`, `boundaries: { allowed_paths: [...], forbidden_paths: [...] }`,
+    а также `skills_required`, `tests_required`, `arch_profile`, `evidence_policy` (для стабильного парсинга);
+  - pack содержит минимум: `work_item_id`, `work_item_key`, `goal`, `do_not_read` (запрещённые источники);
+  - `tests_required` — список `skill_id` (команды берутся только из `SKILL.md`);
+  - `boundaries.allowed_paths` строится из `Expected paths` выбранного work_item в tasklist (W83-6); `forbidden_paths` по умолчанию `[]`;
+  - (опционально) `work_item_excerpt` ≤ 30 строк (вырезка из tasklist для выбранного item);
+  - CLI формат: `--format json|yaml` → stdout = чистый structured output, summary → stderr; без `--format` → stdout = summary (path + work_item).
+  **AC:** stage=implement использует `.active_work_item` только если `.active_ticket` совпадает (иначе пишет новый), stage=review валидирует `.active_ticket` и использует `.active_work_item` только при совпадении (иначе fallback/BLOCKED); имена файлов fs‑safe; pack содержит `schema` и `updated_at`; `--format json` стабилен для unit‑tests; генерация не требует чтения plan/PRD/research.
+  **Deps:** W83-1, W82-1, W82-2, W82-5
+
+- [ ] W83-3 `commands/implement.md`, `agents/implementer.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: loop-pack first на implement:
+  - в `commands/implement.md` сначала выставить `aidd/docs/.active_stage=implement`, затем вызвать `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage implement` (loop-pack выставляет `.active_ticket`/`.active_work_item`) + allowlist tool;
+  - Context Pack `aidd/reports/context/$1.implement.pack.md`: добавить `arch_profile` и `loop_pack` в Paths;
+  - Context Pack: добавить `review_pack: aidd/reports/loops/$1/review.latest.pack.md` (if exists);
+  - subagent instruction: **First action: Read loop_pack**, не tasklist целиком;
+  - `agents/implementer.md`: MUST KNOW FIRST → loop_pack + skills; правило “если новая работа вне pack → AIDD:OUT_OF_SCOPE_BACKLOG, не расширять diff”; запрет больших вставок логов/диффов (только ссылки на `aidd/reports/**`);
+  - `agents/implementer.md`: если `review.latest.pack.md` существует и verdict=REVISE — читать после loop_pack, до кода;
+  - anchors implement: вставить “Loop protocol” (патч A).
+  **AC:** `/feature-dev-aidd:implement` всегда создаёт loop pack и передаёт implementer как primary context; implementer не обязан читать PRD/Plan/Research на каждом прогоне; побочные идеи уходят в out‑of‑scope backlog.
+  **Tests:** lint‑prompts требует loop_pack‑first.
+  **Deps:** W83-2, W82-5
+
+- [ ] W83-4 `tools/review-pack.sh`, `tools/review_pack.py`, `commands/review.md`, `agents/reviewer.md`, `templates/aidd/docs/anchors/review.md`, `tests/test_review_pack.py`: тонкий feedback от review:
+  - `tools/review-pack.sh` entrypoint + `tools/review_pack.py` реализация;
+  - вход: `aidd/reports/reviewer/<ticket>.json`; выход: `aidd/reports/loops/<ticket>/review.latest.pack.md` (≤ 120 строк);
+  - содержимое pack: `verdict: SHIP|REVISE`, top findings (id/severity/1‑line requirement), next_actions (≤ 5), ссылки на handoff ids + reviewer report json;
+  - `commands/review.md`: сначала выставить `aidd/docs/.active_stage=review`, затем вызвать `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review` (loop-pack выставляет `.active_ticket`/`.active_work_item`) + allowlist tool; после `review-report.sh` вызвать `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1`; Context Pack добавить `loop_pack` и `review_pack` в Paths;
+  - `agents/reviewer.md` и anchor review: правило “детали в tasklist/отчётах, без распухания текста” + loop‑protocol (патч B/D).
+  **AC:** `/feature-dev-aidd:review` всегда создаёт `review.latest.pack.md` ≤ 120 строк; следующий implement может опираться на review_pack вместо длинного контекста.
+  **Deps:** W83-2, W82-5
+
+- [ ] W83-5 `tools/diff-boundary-check.sh`, `tools/diff_boundary_check.py`, `commands/implement.md`, `commands/review.md`, `tests/test_diff_boundary_check.py`: scope guard против раздувания diff:
+  - input: `--ticket` (default: resolve loop_pack via `.active_work_item`) или `--loop-pack <path>`;
+  - инструмент читает allowed/forbidden paths из loop_pack front‑matter (или `--allowed path1,path2`), сравнивает с `git diff --name-only` + `git diff --cached --name-only`, игнорирует `aidd/**` и сервисные пути;
+  - non‑zero exit + список нарушений (стабильный вывод для CI);
+  - ignored patterns: `aidd/**`, `.claude/**`, `.cursor/**`, `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` (не игнорировать `.github/workflows/**`);
+  - если boundaries пустые/не найдены → WARN `NO_BOUNDARIES_DEFINED`, exit 0 (поэтапный rollout);
+  - интеграция: implement — после subagent и до `progress.sh`; review — перед отчётом; добавить allowlist tool;
+  - поведение при FAIL: статус `BLOCKED`, рекомендации “откатить лишние файлы или оформить отдельный work_item/обновить boundaries через tasks-new”.
+  **AC:** выход за allowed_paths блокирует команду и печатает список файлов; scope creep перестаёт проходить “по-тихому”.
+  **Deps:** W83-2, W83-3, W83-4
+
+- [ ] W83-6 `agents/tasklist-refiner.md`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`: микро‑итерации, пригодные для loop‑pack:
+  - в `AIDD:ITERATIONS_FULL` добавить поля с фиксированным форматом:
+    - `Expected paths:` список строк `- path/**`
+    - `Size budget:` `max_files: N`, `max_loc: N`
+    - `Skills:` список `- <skill_id>`
+    - `Exit criteria:` 2–5 bullets
+  - `tasklist-refiner` обязан заполнять эти поля; при невозможности — `Status: BLOCKED` и запрос `/spec-interview`;
+  - правило: 1 iteration = 1 work_item; всё лишнее → `AIDD:OUT_OF_SCOPE_BACKLOG`.
+  **AC:** новый tasklist после `/tasks-new` содержит Expected paths/Size budget/Skills/Exit criteria для каждой итерации; loop-pack строится из tasklist без чтения plan/prd.
+  **Deps:** W82-2, W83-1
+
+- [ ] W83-7 `templates/aidd/docs/anchors/{implement,review}.md`, `agents/{implementer,reviewer}.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: минимальные патчи для “Ralph loop дисциплины”:
+  - общий блок “Loop discipline” (патчи A/B) в anchors + implementer/reviewer agents;
+  - порядок чтения: loop_pack → skills → tasklist snippet/код; PRD/Plan/Research только по pointer в pack;
+  - output budget: ≤ 10 bullets внутри findings/next actions; контрактные поля ответа сохраняются; без логов/стектрейсов/диффов (только ссылки на `aidd/reports/**`);
+  - Evidence Read Policy: loop pack фиксирует `evidence_policy: RLM-first` (термин единый с W82);
+  - lint‑prompts: проверка наличия “Loop pack first” + “no big paste”.
+  **AC:** anchors/agents содержат одинаковые loop‑блоки; lint‑prompts валидирует loop‑discipline.
+  **Deps:** W83-2, W83-3, W83-4
+
+- [ ] W83-8 `tests/repo_tools/loop-regression.sh`, `tests/repo_tools/ci-lint.sh`, `README.md`, `README.en.md`, `CHANGELOG.md`: регресс‑контроль и документация loop‑режима:
+  - checks: implement/review commands вызывают `loop-pack.sh`; review command вызывает `review-pack.sh`; anchors implement/review содержат loop‑protocol; loop pack schema = `aidd.loop_pack.v1`;
+  - checks: stage=implement создаёт `.active_work_item`; review вызывает `loop-pack --stage review` до subagent;
+  - loop-regression: базовые checks (loop-pack/review-pack + anchors); расширение loop-step/loop-run — в W83-12.
+  - docs: “Loop mode (implement↔review)” (цикл, loop_pack/review_pack, diff boundary guard, skills → loop pack).
+  **AC:** CI падает без loop‑pack/review‑pack и проходит на новой версии; docs описывают новый режим.
+  **Deps:** W83-3, W83-4, W83-5, W83-7
+
+- [ ] W83-9 `hooks/format-and-test.sh`, `tests/test_hook_loop_mode.py`, `README.md`, `.gitignore`: loop‑режим без автотестов (Ralph loop):
+  - stage-aware: если `aidd/docs/.active_stage = review` и diff пустой/только service → SKIP; иначе normal mode (warn+run);
+  - loop‑mode (`aidd/docs/.active_mode = loop`) на stage=implement: **не запускать тесты по умолчанию**, даже если есть policy; форматирование можно оставить;
+  - тесты запускаются только при явном override (например `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`); при запуске — `mkdir -p aidd/reports/tests`, полный stdout/stderr → `aidd/reports/tests/<ticket>.<ts>.log`, в чат — только summary + ссылка;
+  - ticket source: читать `aidd/docs/.active_ticket` (fallback `unknown`); в loop‑mode владелец `active_ticket` — loop-pack (commands ставят только stage);
+  - anti-spam: если `git diff --name-only` и `git diff --cached --name-only` пустые или только `aidd/**` → не запускать тесты даже при override;
+  - если `.active_stage` отсутствует → normal mode (поведение как сейчас); если `.active_mode` отсутствует → normal mode;
+  - (опционально) `AIDD_HOOK_VERBOSITY=summary|full` (default summary).
+  - `.gitignore`: добавить `aidd/docs/.active_*` (включая `.active_mode`).
+  **AC:** цикл `implement → review → implement → review` не запускает тесты на review и не запускает тесты в loop‑mode без explicit override; implement не спамит логами; тесты не запускаются при пустом diff.
+  **Deps:** W83-3, W83-4
+
+- [ ] W83-10 `tools/review-pack.sh`, `tools/review_pack.py`, `tests/test_review_pack.py`, `templates/aidd/docs/loops/README.md`: сделать Review Pack машинно‑читаемым:
+  - `review.latest.pack.md` получает front‑matter: `schema: aidd.review_pack.v1`, `updated_at`, `ticket`, `work_item_id`, `work_item_key`, `verdict: SHIP|REVISE|BLOCKED`;
+  - источник work_item: читать текущий loop_pack (resolved via `.active_work_item`), иначе оставлять пустым и фиксировать WARN;
+  - `tools/review-pack.sh --format json|yaml` → stdout = structured output (verdict/paths/ids/next_actions), summary → stderr;
+  - `templates/aidd/docs/loops/README.md`: 3–5 строк про automation reliance на `review_pack` front‑matter и `--format json`.
+  **AC:** `review.latest.pack.md` всегда содержит `schema` и `verdict` в front‑matter; `--format json` стабилен и проходит unit‑test; markdown pack остаётся ≤ 120 строк.
+  **Deps:** W83-4, W83-1
+
+- [ ] W83-11 `tools/loop-step.sh`, `tools/loop_step.py`, `tests/test_loop_step.py`, `tests/fixtures/loop_step/**`: “Loop Step” для bash‑цикла (fresh session):
+  - step selection:
+    - если `.active_stage` отсутствует → execute implement;
+    - если `.active_stage == implement` → execute review;
+    - если `.active_stage == review` → `review_pack.verdict`: REVISE→implement, SHIP→exit 0, иначе BLOCKED/REVIEW (deterministic);
+  - runner default: `claude -p --no-session-persistence` (override via `--runner` или `AIDD_LOOP_RUNNER`); runner executes `/feature-dev-aidd:implement <ticket>` or `/feature-dev-aidd:review <ticket>`;
+  - loop-step выставляет `aidd/docs/.active_mode=loop` перед запуском runner;
+  - runner logs → `aidd/reports/loops/<ticket>/cli.<stage>.<ts>.log`, stdout = summary + paths; `--format json|yaml` for structured output;
+  - если `review.latest.pack.md` отсутствует или schema != `aidd.review_pack.v1` → exit `20=BLOCKED` + краткая причина в stdout;
+  - exit codes: `0`=DONE (SHIP), `10`=CONTINUE, `20`=BLOCKED, `30`=ERROR.
+  **AC:** `loop-step --ticket T` чередует implement/review, возвращает 0 только при SHIP; structured output стабилен; unit‑tests со stub runner проверяют exit codes/sequence.
+  **Deps:** W83-3, W83-4, W83-9, W83-10
+
+- [ ] W83-12 `tools/loop-run.sh`, `tools/loop_run.py`, `tests/test_loop_run.py`, `README.md`, `README.en.md`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/loop-regression.sh`: “Loop Run” (крутить до SHIP):
+  - `loop-run` вызывает `loop-step` в цикле; флаги: `--ticket`, `--max-iterations`, `--sleep-seconds`, `--runner`;
+  - пишет прогресс в `aidd/reports/loops/<ticket>/loop.run.log`;
+  - при SHIP очищает `aidd/docs/.active_stage`, `aidd/docs/.active_work_item`, `aidd/docs/.active_mode`, `aidd/docs/.active_ticket`;
+  - docs: manual loop, bash loop (loop-step), one-shot loop-run; объяснить “fresh sessions” (`claude -p --no-session-persistence`);
+  - loop-regression: расширить checks из W83-8 (loop-step/loop-run + docs examples), без дублирования базовых.
+  **AC:** `loop-run --ticket T --max-iterations 5` → exit 0 on SHIP, exit 11 on max-iterations, exit 20 on BLOCKED; docs содержат команды запуска; регрессия падает при отсутствии loop-step/loop-run или сломанных schema.
+  **Deps:** W83-11, W83-8, W83-10
