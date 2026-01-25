@@ -19,7 +19,7 @@ def _bootstrap() -> None:
 
 def main() -> int:
     _bootstrap()
-    from tools import graph_slice as tools_module
+    from tools import rlm_finalize as tools_module
 
     return tools_module.main(sys.argv[1:])
 

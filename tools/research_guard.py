@@ -4,12 +4,14 @@ import argparse
 import datetime as dt
 import json
 import os
+import sys
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, Optional
 
 from tools.feature_ids import resolve_project_root
+from tools.rlm_config import detect_lang
 
 class ResearchValidationError(RuntimeError):
     """Raised when researcher validation fails."""
@@ -26,10 +28,11 @@ class ResearchSettings:
     baseline_phrase: str = "контекст пуст"
     branches: list[str] | None = None
     skip_branches: list[str] | None = None
-    call_graph_required_for_langs: list[str] | None = None
-    call_graph_require_pack: bool = True
-    call_graph_require_edges: bool = True
-    allow_ast_grep_fallback: bool = True
+    rlm_enabled: bool = True
+    rlm_required_for_langs: list[str] | None = None
+    rlm_require_pack: bool = True
+    rlm_require_nodes: bool = True
+    rlm_require_links: bool = True
 
 
 @dataclass
@@ -107,15 +110,17 @@ def load_settings(root: Path) -> ResearchSettings:
         settings.branches = _normalize_patterns(raw.get("branches"))
         settings.skip_branches = _normalize_patterns(raw.get("skip_branches"))
 
-    graph_cfg = config.get("call_graph") or {}
-    if isinstance(graph_cfg, dict):
-        settings.call_graph_required_for_langs = _normalize_langs(graph_cfg.get("required_for_langs"))
-        if "require_pack" in graph_cfg:
-            settings.call_graph_require_pack = bool(graph_cfg.get("require_pack"))
-        if "require_edges" in graph_cfg:
-            settings.call_graph_require_edges = bool(graph_cfg.get("require_edges"))
-        if "allow_ast_grep_fallback" in graph_cfg:
-            settings.allow_ast_grep_fallback = bool(graph_cfg.get("allow_ast_grep_fallback"))
+    rlm_cfg = config.get("rlm") or {}
+    if isinstance(rlm_cfg, dict):
+        if "enabled" in rlm_cfg:
+            settings.rlm_enabled = bool(rlm_cfg.get("enabled"))
+        settings.rlm_required_for_langs = _normalize_langs(rlm_cfg.get("required_for_langs"))
+        if "require_pack" in rlm_cfg:
+            settings.rlm_require_pack = bool(rlm_cfg.get("require_pack"))
+        if "require_nodes" in rlm_cfg:
+            settings.rlm_require_nodes = bool(rlm_cfg.get("require_nodes"))
+        if "require_links" in rlm_cfg:
+            settings.rlm_require_links = bool(rlm_cfg.get("require_links"))
 
     return settings
 
@@ -174,17 +179,25 @@ def _load_pack_payload(path: Path) -> Optional[dict]:
     return payload if isinstance(payload, dict) else None
 
 
-def _is_call_graph_pack_ok(path: Optional[Path]) -> bool:
-    if not path or not path.exists():
-        return False
-    payload = _load_pack_payload(path)
-    if not payload:
-        return False
-    status = payload.get("status")
-    if isinstance(status, str):
-        return status.strip().lower() == "ok"
-    edges = payload.get("edges")
-    return isinstance(edges, list) and bool(edges)
+def _load_stage(root: Path) -> str:
+    stage_path = root / "docs" / ".active_stage"
+    if not stage_path.exists():
+        return ""
+    return stage_path.read_text(encoding="utf-8", errors="replace").strip().lower()
+
+
+def _detect_langs_from_files(files: Iterable[str], required_langs: Iterable[str]) -> set[str]:
+    wanted = {lang for lang in required_langs if lang}
+    if not wanted:
+        return set()
+    found: set[str] = set()
+    for raw in files:
+        if not raw:
+            continue
+        lang = detect_lang(Path(str(raw)))
+        if lang and lang in wanted:
+            found.add(lang)
+    return found
 
 
 def _detect_langs_from_paths(root: Path, paths: Iterable[str], required_langs: Iterable[str]) -> set[str]:
@@ -230,7 +243,71 @@ def _detect_langs_from_paths(root: Path, paths: Iterable[str], required_langs: I
     return found
 
 
-def _validate_graph_views_and_evidence(
+def _resolve_rlm_path(root: Path, context: dict, key: str, fallback: Path) -> Path:
+    raw = context.get(key)
+    resolved = _resolve_report_path(root, raw) if isinstance(raw, str) and raw else None
+    return resolved or fallback
+
+
+def _count_rlm_nodes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                node_kind = str(payload.get("node_kind") or "").strip().lower()
+                if node_kind and node_kind != "file":
+                    continue
+                count += 1
+    except OSError:
+        return 0
+    return count
+
+
+def _should_require_rlm(
+    root: Path,
+    ticket: str,
+    *,
+    settings: ResearchSettings,
+    rlm_targets_path: Path,
+    research_targets_path: Path,
+) -> bool:
+    if not settings.rlm_enabled:
+        return False
+    required_langs = settings.rlm_required_for_langs or []
+    if not required_langs:
+        return True
+    try:
+        targets = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
+    except Exception:
+        targets = {}
+    files = targets.get("files") or []
+    detected = _detect_langs_from_files([str(item) for item in files], required_langs)
+    if detected:
+        return True
+    try:
+        fallback_targets = json.loads(research_targets_path.read_text(encoding="utf-8"))
+    except Exception:
+        fallback_targets = {}
+    paths = fallback_targets.get("paths") or []
+    paths_discovered = fallback_targets.get("paths_discovered") or []
+    if not paths and not paths_discovered:
+        paths = ["src"]
+    detected = _detect_langs_from_paths(root, list(paths) + list(paths_discovered), required_langs)
+    return bool(set(required_langs) & detected)
+
+
+def _validate_rlm_evidence(
     root: Path,
     ticket: str,
     *,
@@ -238,9 +315,6 @@ def _validate_graph_views_and_evidence(
     context_path: Path,
     targets_path: Path,
 ) -> None:
-    if not settings.call_graph_required_for_langs:
-        return
-
     try:
         context = json.loads(context_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -251,48 +325,126 @@ def _validate_graph_views_and_evidence(
     except json.JSONDecodeError:
         raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
 
-    edges_path = _resolve_report_path(root, context.get("call_graph_edges_path"))
-    if edges_path is None:
-        edges_path = root / "reports" / "research" / f"{ticket}-call-graph.edges.jsonl"
-    pack_path = _find_pack_variant(root, f"{ticket}-call-graph")
-    ast_grep_pack = _find_pack_variant(root, f"{ticket}-ast-grep")
-
-    required_langs = settings.call_graph_required_for_langs or []
-    if not required_langs:
-        return
-
-    try:
-        targets = json.loads(targets_path.read_text(encoding="utf-8"))
-    except Exception:
-        targets = {}
-    paths = targets.get("paths") or []
-    paths_discovered = targets.get("paths_discovered") or []
-    if not paths and not paths_discovered:
-        paths = ["src"]
-    detected_langs = _detect_langs_from_paths(root, list(paths) + list(paths_discovered), required_langs)
-    if not (set(required_langs) & detected_langs):
-        return
-
-    pack_ok = _is_call_graph_pack_ok(pack_path)
-    pack_required = settings.call_graph_require_pack
-    edges_required = settings.call_graph_require_edges
-    graph_ok = (not pack_required or pack_ok) and (not edges_required or (edges_path and edges_path.exists()))
-    ast_ok = bool(ast_grep_pack)
-    if graph_ok or (settings.allow_ast_grep_fallback and ast_ok):
-        return
-
-    warning = (context.get("call_graph_warning") or "").strip()
-    hints: list[str] = []
-    if "tree-sitter" in warning or "tree_sitter" in warning:
-        hints.append("python3 -m pip install tree_sitter_language_pack")
-    if settings.allow_ast_grep_fallback and not ast_ok:
-        hints.append("install ast-grep or enable ast_grep in conventions.json")
-    hint_text = f" INSTALL_HINT: {'; '.join(hints)}." if hints else ""
-
-    raise ResearchValidationError(
-        "BLOCK: для JVM требуется evidence (call-graph pack+edges ИЛИ ast-grep pack), "
-        "но артефакты отсутствуют. Пересоберите research или добавьте evidence." + hint_text
+    rlm_targets_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_targets_path",
+        root / "reports" / "research" / f"{ticket}-rlm-targets.json",
     )
+    if not _should_require_rlm(
+        root,
+        ticket,
+        settings=settings,
+        rlm_targets_path=rlm_targets_path,
+        research_targets_path=targets_path,
+    ):
+        return
+
+    rlm_manifest_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_manifest_path",
+        root / "reports" / "research" / f"{ticket}-rlm-manifest.json",
+    )
+    rlm_worklist_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_worklist_path",
+        _find_pack_variant(root, f"{ticket}-rlm.worklist")
+        or (root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"),
+    )
+    rlm_nodes_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_nodes_path",
+        root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl",
+    )
+    rlm_links_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_links_path",
+        root / "reports" / "research" / f"{ticket}-rlm.links.jsonl",
+    )
+    rlm_pack_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_pack_path",
+        _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.yaml"),
+    )
+
+    rlm_status = str(context.get("rlm_status") or "pending").strip().lower()
+    worklist_status = None
+    worklist_entries = None
+    if rlm_worklist_path.exists():
+        payload = _load_pack_payload(rlm_worklist_path)
+        if isinstance(payload, dict):
+            worklist_status = str(payload.get("status") or "").strip().lower() or None
+            entries = payload.get("entries")
+            if isinstance(entries, list):
+                worklist_entries = len(entries)
+    if worklist_status == "ready" and worklist_entries == 0:
+        rlm_status = "ready"
+    elif worklist_status:
+        rlm_status = "pending"
+    stage = _load_stage(root)
+    ready_required = stage in {"plan", "review", "qa"}
+
+    nodes_ok = rlm_nodes_path.exists() and rlm_nodes_path.stat().st_size > 0
+    links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
+    pack_ok = rlm_pack_path.exists()
+    nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
+
+    if rlm_status == "ready":
+        if settings.rlm_require_nodes and not nodes_ok:
+            raise ResearchValidationError(
+                "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует/пустой. "
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --ticket {ticket}`."
+            )
+        if settings.rlm_require_links and not links_ok:
+            raise ResearchValidationError(
+                "BLOCK: rlm_status=ready, но links.jsonl отсутствует/пустой. "
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`."
+            )
+        if settings.rlm_require_pack and not pack_ok:
+            raise ResearchValidationError(
+                "BLOCK: rlm_status=ready, но rlm pack отсутствует. "
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/reports_pack.py` для RLM pack."
+            )
+        return
+
+    if ready_required:
+        raise ResearchValidationError(
+            "BLOCK: rlm_status=pending — требуется rlm_status=ready "
+            "с nodes/links/pack для текущей стадии."
+        )
+
+    missing = []
+    if not rlm_targets_path.exists():
+        missing.append("rlm-targets.json")
+    if not rlm_manifest_path.exists():
+        missing.append("rlm-manifest.json")
+    if not rlm_worklist_path.exists():
+        missing.append("rlm.worklist.pack")
+    if missing:
+        missing_label = ", ".join(missing)
+        raise ResearchValidationError(
+            f"BLOCK: rlm_status=pending, но отсутствуют {missing_label}. "
+            f"Пересоберите research или запустите `${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto`."
+        )
+    if stage in {"research", "implement"}:
+        print(
+            f"[aidd] WARN: rlm_status=pending for stage={stage}; "
+            "nodes/links/pack ещё не собраны.",
+            file=sys.stderr,
+        )
+        if worklist_entries:
+            threshold = max(1, int(worklist_entries * 0.5))
+            if nodes_total < threshold:
+                print(
+                    "[aidd] WARN: rlm pack partial — "
+                    f"nodes_total={nodes_total} worklist_entries={worklist_entries}.",
+                    file=sys.stderr,
+                )
 
 
 def validate_research(
@@ -408,7 +560,7 @@ def validate_research(
                 f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
             )
 
-    _validate_graph_views_and_evidence(
+    _validate_rlm_evidence(
         root,
         ticket,
         settings=settings,

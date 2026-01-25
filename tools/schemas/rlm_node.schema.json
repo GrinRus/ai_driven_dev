@@ -1,0 +1,40 @@
+{
+  "schema": "aidd.rlm_node.schema.v2",
+  "schema_version": "v2",
+  "record_schema": "aidd.rlm_node.v2",
+  "required_common": [
+    "schema",
+    "schema_version",
+    "node_kind",
+    "id"
+  ],
+  "kinds": {
+    "file": {
+      "required": [
+        "file_id",
+        "path",
+        "rev_sha",
+        "lang",
+        "prompt_version",
+        "summary",
+        "public_symbols",
+        "type_refs",
+        "key_calls",
+        "framework_roles",
+        "test_hooks",
+        "risks",
+        "verification",
+        "missing_tokens"
+      ]
+    },
+    "dir": {
+      "required": [
+        "dir_id",
+        "path",
+        "children_file_ids",
+        "children_count_total",
+        "summary"
+      ]
+    }
+  }
+}

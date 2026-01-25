@@ -100,30 +100,20 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `/feature-dev-aidd:qa` | Финальная QA-проверка | `<TICKET> [note...]` |
 | `/feature-dev-aidd:status` | Статус тикета и артефакты | `[<TICKET>]` |
 
-## Research call graph
+## Research RLM
 
-| Сценарий | Graph обязателен | Режим |
-| --- | --- | --- |
-| Kotlin/Java (kt/kts/java) | Да | `--auto` (focus) |
-| Смешанный repo с JVM‑модулями | Да (для JVM) | `--auto` |
-| Non‑JVM (py/js/go и т.п.) | Нет | fast‑scan |
-| Тонкий контекст/неясные зависимости | Рекомендуется | `--graph-mode full` |
-
-Примеры WARN/INSTALL_HINT:
-- `[aidd] WARN: 0 matches for <ticket> → сузить paths/keywords или graph-only.`
-- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
-- `[aidd] WARN: tree-sitter not available: ...`
+RLM evidence используется как основной источник интеграций/рисков/связей (pack-first + slice on demand).
+Legacy `ast_grep` evidence deprecated и disabled by default.
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-- Запустите graph-only: `--call-graph --graph-mode full` (без фильтра; лимит `call_graph.edges_max` всё равно применяется).
 - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
-- Установите `tree_sitter_language_pack`, если call graph пуст из-за отсутствия tree-sitter.
+- Если `rlm_status=pending`, выполните agent‑flow по worklist и пересоберите RLM pack.
 
-Graph artifacts (pack-first):
-- Grep-friendly view: `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
-- Pack summary: `aidd/reports/research/<ticket>-call-graph.pack.yaml` (или `.pack.toon`).
-- Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+RLM artifacts (pack-first):
+- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (или `.pack.toon`).
+- Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+- Бюджет `*-context.pack.*`: `config/conventions.json` → `reports.research_pack_budget` (по умолчанию `max_chars=2000`, `max_lines=120`).
 
 ## Предпосылки
 - `bash`, `git`, `python3`.

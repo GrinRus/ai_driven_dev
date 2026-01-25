@@ -5,16 +5,16 @@
 - Обновить research report и дать handoff в tasklist.
 - Status reviewed — только при воспроизводимом сборе (commands + paths).
 
-## Graph Read Policy
-- MUST: читать `aidd/reports/research/<ticket>-call-graph.pack.*` или `graph-slice` pack.
-- PREFER: для исследования связей использовать `graph-slice` (по ключевым токенам/символам); `rg` по `aidd/reports/research/<ticket>-call-graph.edges.jsonl` — только для точечной проверки 1–2 ребер.
-- MUST NOT: читать raw call-graph артефакты; используйте только pack/edges/slice.
+## RLM Read Policy
+- MUST: читать `aidd/reports/research/<ticket>-rlm.pack.*` first.
+- PREFER: использовать `rlm-slice` pack для узких запросов.
+- MUST NOT: читать `*-rlm.nodes.jsonl` или `*-rlm.links.jsonl` целиком; только spot‑check через `rg`.
 
 ## MUST READ FIRST
 - aidd/docs/prd/<ticket>.prd.md: AIDD:RESEARCH_HINTS
 - aidd/reports/research/<ticket>-context.pack.* (pack-first)
-- aidd/reports/research/<ticket>-ast-grep.pack.* (если есть)
-- aidd/reports/research/<ticket>-call-graph.pack.* (если есть)
+- aidd/reports/research/<ticket>-rlm.pack.* (pack-first)
+- aidd/reports/context/<ticket>-rlm-slice-<sha1>.pack.* (если нужно)
 - aidd/reports/research/<ticket>-context.json (если pack нет)
 - aidd/docs/research/<ticket>.md (если существует)
 
@@ -22,10 +22,32 @@
 - `keywords_raw` и `non_negotiables` хранят исходные подсказки (не идут в фильтры).
 - `paths_discovered` и `invalid_paths` показывают авто‑discovery и проблемы пути.
 - `tests_evidence`/`suggested_test_tasks` помогают понять, где есть тесты и что запускать.
-- `call_graph_edges_path`/`call_graph_edges_stats` указывают view `*-call-graph.edges.jsonl` и его лимиты.
-- `ast_grep_path`/`ast_grep_stats` указывают структурный scan и его лимиты.
-- `*-call-graph.edges.jsonl` schema (v1): `schema`, `caller`, `callee`, `caller_file`, `caller_line`, `callee_file`, `callee_line`, `lang`, `type`.
-- `*-ast-grep.jsonl` schema (v1): `schema`, `rule_id`, `path`, `line`, `col`, `snippet`, `message`, `tags`.
+- `rlm_status` отражает готовность RLM evidence (`pending|ready`).
+- `rlm_*_path` указывают targets/manifest/nodes/links/pack.
+- `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` читать фрагментами, не целиком.
+
+## RLM scope controls
+- `worklist_scope` в worklist pack фиксирует `paths/keywords` и ограничивает линковку.
+- `rlm.targets_mode=explicit|auto` управляет auto‑discovery (explicit отключает discovery при заданных paths), либо флаг `--targets-mode explicit` при запуске research.
+- Для явного scope можно передать `--rlm-paths <paths>` (comma/colon‑list) — RLM targets будут построены только по этим путям.
+- Если задан `--rlm-paths` и не указан `--paths`, research paths синхронизируются с RLM scope, чтобы теги/keywords не уводили в другие модули.
+- `rlm.exclude_path_prefixes` помогает отрезать шумные директории (docs/tests/генерация).
+
+## Pack budgets
+- `reports.research_pack_budget` в `config/conventions.json` управляет бюджетом `*-context.pack.*` (default: `max_chars=2000`, `max_lines=120`).
+- Если пак не помещается, используйте меньший scope (`--paths`, `--keywords`) или поднимите бюджет локально для workspace.
+
+Пример:
+```json
+{
+  "reports": {
+    "research_pack_budget": {
+      "max_chars": 2400,
+      "max_lines": 140
+    }
+  }
+}
+```
 
 ## MUST UPDATE
 - aidd/docs/research/<ticket>.md:
@@ -33,14 +55,12 @@
   - AIDD:REUSE_CANDIDATES
   - AIDD:RISKS
   - AIDD:TEST_HOOKS
-  - AIDD:AST_GREP_EVIDENCE (если есть pack/jsonl)
   - Commands run / paths
 
 ## MUST NOT
 - Писать “возможно” без файлов/команд.
 - Вставлять большие JSON — только ссылки/pack/slice.
-- Читать `*-call-graph.edges.jsonl` целиком (только `rg`/срезы).
-- Читать `*-ast-grep.jsonl` целиком (только `rg`/срезы).
+- Читать `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` целиком (только `rg`/срезы).
 - Читать `*-context.json` целиком — только pack или фрагменты (offset/limit).
 
 ## Output contract

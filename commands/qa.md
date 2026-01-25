@@ -2,14 +2,15 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.17
-source_version: 1.0.17
+prompt_version: 1.0.18
+source_version: 1.0.18
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
@@ -30,6 +31,7 @@ disable-model-invocation: false
 - `aidd/docs/plan/$1.md`.
 - `aidd/docs/tasklist/$1.md`.
 - `aidd/docs/spec/$1.spec.yaml` (если есть).
+- `aidd/reports/research/$1-rlm.pack.*` (pack-first), `rlm-slice` pack (по запросу).
 - Логи тестов/гейтов (если есть).
 
 ## Когда запускать

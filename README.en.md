@@ -113,30 +113,19 @@ Notes:
 | `/feature-dev-aidd:qa` | Final QA check | `<TICKET> [note...]` |
 | `/feature-dev-aidd:status` | Ticket status and artifacts | `[<TICKET>]` |
 
-## Research Call Graph
-
-| Scenario | Graph required | Mode |
-| --- | --- | --- |
-| Kotlin/Java (kt/kts/java) | Yes | `--auto` (focus) |
-| Mixed repo with JVM modules | Yes (for JVM) | `--auto` |
-| Non‑JVM (py/js/go/etc.) | No | fast-scan |
-| Thin context/unclear dependencies | Recommended | `--graph-mode full` |
-
-WARN/INSTALL_HINT examples:
-- `[aidd] WARN: 0 matches for <ticket> — narrow paths/keywords or run graph-only.`
-- `[aidd] INSTALL_HINT: python3 -m pip install tree_sitter_language_pack`
-- `[aidd] WARN: tree-sitter not available: ...`
+## Research RLM
+RLM evidence is the primary integration/risks source (pack-first + slice on demand).
+Legacy `ast_grep` evidence is deprecated and disabled by default.
 
 Empty context troubleshooting:
 - Narrow `--paths`/`--keywords` (point to real code, not only `aidd/`).
-- Run graph-only: `--call-graph --graph-mode full` (no filter; `call_graph.edges_max` still applies).
 - Use `--paths-relative workspace` if code lives outside `aidd/`.
-- Install `tree_sitter_language_pack` if call graph is empty.
+- If `rlm_status=pending`, complete the agent worklist flow and rebuild the RLM pack.
 
-Graph artifacts (pack-first):
-- Grep-friendly view: `aidd/reports/research/<ticket>-call-graph.edges.jsonl`.
-- Pack summary: `aidd/reports/research/<ticket>-call-graph.pack.yaml` (or `.pack.toon`).
-- Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+RLM artifacts (pack-first):
+- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (or `.pack.toon`).
+- Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+- `*-context.pack.*` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

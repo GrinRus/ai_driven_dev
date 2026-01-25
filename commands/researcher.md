@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.14
-source_version: 1.2.14
+prompt_version: 1.2.23
+source_version: 1.2.23
 allowed-tools:
   - Read
   - Edit
@@ -15,13 +15,19 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)"
 model: inherit
 disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. Call graph и ast-grep сохраняются как pack/view (edges-only, без raw графа).
+Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. RLM evidence сохраняется как pack + worklist.
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
@@ -29,8 +35,8 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
 - `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
-- `aidd/reports/research/$1-call-graph.pack.*` (pack-first), `graph-slice` pack (по запросу), `-call-graph.edges.jsonl` (только spot-check через `rg`).
-- `aidd/reports/research/$1-ast-grep.pack.*`, `-ast-grep.jsonl` (только `rg`/фрагменты).
+- `aidd/reports/research/$1-rlm.pack.*` (pack-first), `rlm-slice` pack (по запросу).
+- `aidd/reports/research/$1-rlm-targets.json`, `-rlm-manifest.json`, `-rlm.worklist.pack.*` (если `rlm_status=pending`).
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
@@ -38,9 +44,14 @@ disable-model-invocation: false
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--graph-mode focus|full] [--graph-engine none] [--paths ... --keywords ... --note ...]` обновляет JSON контекст и packs (auto: graph-scan для kt/kts/java, fast-scan для остальных).
+- `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--paths ... --keywords ... --note ...]` обновляет JSON контекст и RLM targets/manifest/worklist.
+- Если `entries_total` в worklist слишком большой или trimmed — перегенерируй worklist с `tools/rlm-nodes-build.sh --worklist-paths/--worklist-keywords` (или настрой `rlm.worklist_paths/rlm.worklist_keywords`).
+- Для жёсткого контроля scope включай `rlm.targets_mode=explicit` (или передай `--targets-mode explicit` в `research.sh`) и настраивай `rlm.exclude_path_prefixes`.
+- Для узкого RLM‑scope используй `--rlm-paths <paths>` (comma/colon‑list) при запуске `research.sh`.
+- Если `--rlm-paths` задан и `--paths` не указан — research scope синхронизируется с RLM paths (без лишних tags/keywords).
 - Команда должна запускать саб-агента `feature-dev-aidd:researcher`.
 - Handoff‑задачи (если нужны) добавляет команда через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
+- Когда nodes/links готовы, команда должна запустить `rlm-finalize.sh --ticket $1` (verify → links → compact → refresh worklist → reports-pack --update-context) для `rlm_status=ready`.
 
 ## Что редактируется
 - `aidd/docs/research/$1.md`.
@@ -67,7 +78,7 @@ generated_at: <UTC ISO-8601>
 - research_targets: aidd/reports/research/$1-targets.json (if exists)
 
 ## What to do now
-- Summarize integration points/reuse/risks, validate call_graph/import_graph.
+- Summarize integration points/reuse/risks, validate RLM pack/slice.
 
 ## User note
 - $ARGUMENTS
@@ -83,11 +94,12 @@ generated_at: <UTC ISO-8601>
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону W79-10.
 4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
 5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings.
-6. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
+6. Команда (после subagent): если `rlm_status=pending`, выполни agent‑flow по worklist через `rlm-finalize.sh --ticket $1`.
+7. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 
 ## Fail-fast и вопросы
 - Нет активного тикета или PRD — остановись и попроси `/feature-dev-aidd:idea-new`.
-- Если отсутствуют `*-call-graph.pack.*`/`edges.jsonl` или `*-ast-grep.pack.*` для нужных языков — верни BLOCKED и попроси пересборку.
+- Если отсутствует `*-rlm.pack.*` (или `rlm_status=pending` на review/qa) — верни BLOCKED и попроси завершить agent‑flow по worklist.
 - Если отчёт остаётся `pending`, верни вопросы/условия для `reviewed`.
 
 ## Ожидаемый вывод
@@ -96,4 +108,4 @@ generated_at: <UTC ISO-8601>
 - Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
-- `/feature-dev-aidd:researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout" --graph-mode full`
+- `/feature-dev-aidd:researcher ABC-123 --paths src/app:src/shared --keywords "payment,checkout"`

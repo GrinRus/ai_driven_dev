@@ -1,0 +1,29 @@
+{
+  "schema": "aidd.rlm_link.schema.v1",
+  "schema_version": "v1",
+  "record_schema": "aidd.rlm_link.v1",
+  "required": [
+    "schema",
+    "schema_version",
+    "link_id",
+    "src_file_id",
+    "dst_file_id",
+    "type",
+    "evidence_ref",
+    "unverified"
+  ],
+  "evidence_ref": {
+    "required": [
+      "path",
+      "line_start",
+      "line_end",
+      "extractor",
+      "match_hash"
+    ],
+    "extractor_enum": [
+      "rg",
+      "regex",
+      "manual"
+    ]
+  }
+}

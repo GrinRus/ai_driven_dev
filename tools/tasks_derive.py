@@ -105,6 +105,24 @@ def _canonical_task_id(source: str, raw_id: str) -> str:
     return f"{prefix}:{candidate}"
 
 
+def _rlm_reason_hash(reason: str, rule_kind: str, scope: str) -> str:
+    normalized_reason = " ".join(str(reason or "").strip().split()).lower()
+    normalized_kind = " ".join(str(rule_kind or "").strip().split()).lower()
+    normalized_scope = " ".join(str(scope or "").strip().split()).lower()
+    digest = hashlib.sha1()
+    digest.update(normalized_reason.encode("utf-8"))
+    digest.update(b"|")
+    digest.update(normalized_kind.encode("utf-8"))
+    digest.update(b"|")
+    digest.update(normalized_scope.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _rlm_task_id(kind: str, file_id: str, reason: str, scope: str) -> str:
+    reason_hash = _rlm_reason_hash(reason, kind, scope)
+    return f"rlm:{kind}:{file_id}:{reason_hash}"
+
+
 def _task_block(spec: TaskSpec) -> List[str]:
     header = (
         f"- [ ] {spec.title} (id: {spec.task_id}) "
@@ -503,6 +521,115 @@ def _derive_tasks_from_ast_grep_pack(payload: Dict, report_label: str) -> List[L
     return blocks
 
 
+def _derive_tasks_from_rlm_pack(payload: Dict, report_label: str) -> List[List[str]]:
+    blocks: List[List[str]] = []
+    source = "research"
+
+    def _node_file_id(node: Dict[str, object], kind: str, path: str) -> str:
+        raw = str(node.get("file_id") or node.get("id") or "").strip()
+        if raw:
+            return raw
+        return _stable_task_id("rlm", kind, path)
+
+    def _make_task(
+        *,
+        kind: str,
+        path: str,
+        file_id: str,
+        title: str,
+        reason: str,
+        priority: str,
+        blocking: bool,
+        test_profile: str,
+        notes: str,
+    ) -> None:
+        task_id = _rlm_task_id(kind, file_id, reason, path)
+        spec = TaskSpec(
+            source=source,
+            task_id=task_id,
+            title=title,
+            scope=path or "n/a",
+            dod=f"Review RLM evidence ({report_label})",
+            priority=priority,
+            blocking=blocking,
+            status="open",
+            test_profile=test_profile,
+            notes=notes,
+            report_label=report_label,
+        )
+        blocks.append(_task_block(spec))
+
+    for node in payload.get("integration_points") or []:
+        if not isinstance(node, dict):
+            continue
+        path = str(node.get("path") or "").strip()
+        if not path:
+            continue
+        file_id = _node_file_id(node, "integration", path)
+        title = f"RLM integration: {path}"
+        summary = str(node.get("summary") or "").strip()
+        _make_task(
+            kind="integration",
+            path=path,
+            file_id=file_id,
+            title=title,
+            reason="integration",
+            priority="medium",
+            blocking=False,
+            test_profile="targeted",
+            notes=summary,
+        )
+
+    for node in payload.get("test_hooks") or []:
+        if not isinstance(node, dict):
+            continue
+        path = str(node.get("path") or "").strip()
+        if not path:
+            continue
+        file_id = _node_file_id(node, "test-hook", path)
+        hooks = node.get("test_hooks") or []
+        hook_label = ", ".join(str(item).strip() for item in hooks if str(item).strip())
+        title = f"RLM test hook: {path}"
+        reason = hook_label or "test-hook"
+        _make_task(
+            kind="test-hook",
+            path=path,
+            file_id=file_id,
+            title=title,
+            reason=reason,
+            priority="low",
+            blocking=False,
+            test_profile="fast",
+            notes=hook_label,
+        )
+
+    for node in payload.get("risks") or []:
+        if not isinstance(node, dict):
+            continue
+        path = str(node.get("path") or "").strip()
+        if not path:
+            continue
+        file_id = _node_file_id(node, "risk", path)
+        risks = node.get("risks") or []
+        for risk in risks:
+            risk_text = str(risk).strip()
+            if not risk_text:
+                continue
+            title = f"RLM risk: {risk_text}"
+            _make_task(
+                kind="risk",
+                path=path,
+                file_id=file_id,
+                title=title,
+                reason=risk_text,
+                priority="high",
+                blocking=False,
+                test_profile="targeted",
+                notes="",
+            )
+    return blocks
+
+
 def _derive_handoff_placeholder(source: str, ticket: str, report_label: str) -> List[List[str]]:
     canonical = _canonical_source(source)
     task_id = _canonical_task_id(canonical, f"{canonical}-report-{_stable_task_id(canonical, report_label, ticket)}")
@@ -898,8 +1025,18 @@ def main(argv: list[str] | None = None) -> int:
         label_path = report_paths.pack_path if source_kind == "pack" else report_paths.json_path
         return payload, runtime.rel_path(label_path, target)
 
+    rlm_pack_path = None
+    if source == "research":
+        for ext in (".pack.yaml", ".pack.toon"):
+            candidate = target / "reports" / "research" / f"{ticket}-rlm{ext}"
+            if candidate.exists():
+                rlm_pack_path = candidate
+                break
+
     is_pack_path = report_path.name.endswith(".pack.yaml") or report_path.name.endswith(".pack.toon")
-    if source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
+    if source == "research" and rlm_pack_path is not None:
+        payload, report_label = _load_with_pack(rlm_pack_path, prefer_pack_first=True)
+    elif source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
     elif source == "qa" and (is_pack_path or not report_path.exists()):
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
@@ -914,14 +1051,17 @@ def main(argv: list[str] | None = None) -> int:
     elif source == "review":
         derived_blocks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
-        derived_blocks = _derive_tasks_from_research_context(payload, report_label)
-        for ext in (".pack.yaml", ".pack.toon"):
-            ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep{ext}"
-            if not ast_pack.exists():
-                continue
-            ast_payload, ast_label = _load_with_pack(ast_pack, prefer_pack_first=True)
-            derived_blocks.extend(_derive_tasks_from_ast_grep_pack(ast_payload, ast_label))
-            break
+        if rlm_pack_path is not None:
+            derived_blocks = _derive_tasks_from_rlm_pack(payload, report_label)
+        else:
+            derived_blocks = _derive_tasks_from_research_context(payload, report_label)
+            for ext in (".pack.yaml", ".pack.toon"):
+                ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep{ext}"
+                if not ast_pack.exists():
+                    continue
+                ast_payload, ast_label = _load_with_pack(ast_pack, prefer_pack_first=True)
+                derived_blocks.extend(_derive_tasks_from_ast_grep_pack(ast_payload, ast_label))
+                break
     else:
         derived_blocks = []
 

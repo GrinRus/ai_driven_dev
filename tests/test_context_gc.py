@@ -210,7 +210,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertIn("Focus: checkout flow", ws.text)
             self.assertIn("Files: src/checkout/service.py", ws.text)
 
-    def test_working_set_builder_includes_graph_refs(self) -> None:
+    def test_working_set_builder_includes_rlm_refs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
             write_active_feature(root, "demo-ticket")
@@ -219,18 +219,13 @@ class WorkingSetBuilderTests(unittest.TestCase):
                 "reports/research/demo-ticket-context.json",
                 {
                     "ticket": "demo-ticket",
-                    "call_graph_edges_path": "reports/research/demo-ticket-call-graph.edges.jsonl",
+                    "rlm_pack_path": "reports/research/demo-ticket-rlm.pack.yaml",
                 },
             )
             write_file(
                 root,
-                "reports/research/demo-ticket-call-graph.edges.jsonl",
-                "{}\n",
-            )
-            write_file(
-                root,
-                "reports/research/demo-ticket-call-graph.pack.yaml",
-                json.dumps({"type": "call-graph", "status": "ok"}),
+                "reports/research/demo-ticket-rlm.pack.yaml",
+                json.dumps({"type": "rlm", "status": "ready"}),
             )
             write_json(
                 root,
@@ -240,9 +235,9 @@ class WorkingSetBuilderTests(unittest.TestCase):
 
             ws = working_set_builder.build_working_set(root)
 
-            self.assertIn("Call Graph", ws.text)
-            self.assertIn("demo-ticket-call-graph.edges.jsonl", ws.text)
-            self.assertIn("graph-slice.sh", ws.text)
+            self.assertIn("RLM Evidence", ws.text)
+            self.assertIn("demo-ticket-rlm.pack.yaml", ws.text)
+            self.assertIn("rlm-slice.sh", ws.text)
 
     def test_context_pack_limits_applied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:

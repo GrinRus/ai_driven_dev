@@ -2,9 +2,9 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.17
-source_version: 1.0.17
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
+prompt_version: 1.0.18
+source_version: 1.0.18
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)
 model: inherit
 permissionMode: default
 ---
@@ -40,7 +40,7 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 ## Входные артефакты
 - Diff/PR.
 - `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/reports/research/<ticket>-call-graph.pack.*`, `graph-slice` pack (предпочтительно), `-call-graph.edges.jsonl` (только spot-check через `rg`), `*-ast-grep.pack.*`.
+- `aidd/reports/research/<ticket>-rlm.pack.*`, `rlm-slice` pack (предпочтительно).
 - Отчёты тестов/гейтов и `aidd/reports/reviewer/<ticket>.json` (если есть).
 
 ## Автоматизация
@@ -65,7 +65,7 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 
 ## Fail-fast и вопросы
 - Если diff выходит за рамки тикета — верни `BLOCKED` и попроси согласование.
-- Если отсутствуют `*-call-graph.pack.*`/`edges.jsonl` или `*-ast-grep.pack.*` для нужных языков — зафиксируй blocker/handoff и запроси пересборку research.
+- Если отсутствует `*-rlm.pack.*` (или `rlm_status=pending` на review/qa) — зафиксируй blocker/handoff и запроси завершение agent‑flow.
 - Вопросы оформляй в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 
 ## Формат ответа

@@ -73,9 +73,9 @@ from pathlib import Path
 root = Path(sys.argv[1])
 gates_path = root / "config" / "gates.json"
 data = json.loads(gates_path.read_text(encoding="utf-8"))
-call_graph = data.get("call_graph") or {}
-call_graph["required_for_langs"] = []
-data["call_graph"] = call_graph
+rlm = data.get("rlm") or {}
+rlm["required_for_langs"] = []
+data["rlm"] = rlm
 gates_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 PY
 
@@ -189,16 +189,22 @@ PY
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --auto >/dev/null
-if ! grep -q "\"call_graph_edges_path\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
-  echo "[smoke] expected call_graph_edges_path in research context" >&2
-  exit 1
-fi
-log "run researcher stage with graph-engine none"
-run_cli research --ticket "$TICKET" --auto --graph-engine none >/dev/null
-if ! grep -q "\"call_graph_engine\": \"none\"" "$WORKDIR/reports/research/${TICKET}-context.json"; then
-  echo "[smoke] expected call_graph_engine none in research context" >&2
-  exit 1
-fi
+python3 - "$TICKET" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+context_path = Path("reports/research") / f"{ticket}-context.json"
+payload = json.loads(context_path.read_text(encoding="utf-8"))
+required = ["rlm_targets_path", "rlm_manifest_path", "rlm_worklist_path", "rlm_status"]
+missing = [key for key in required if not payload.get(key)]
+if missing:
+    raise SystemExit(f"[smoke] missing RLM context fields: {missing}")
+worklist_path = Path(payload["rlm_worklist_path"])
+if not worklist_path.exists():
+    raise SystemExit("[smoke] missing rlm worklist pack")
+PY
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import json

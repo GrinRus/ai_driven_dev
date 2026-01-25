@@ -107,11 +107,12 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "allow_pending_baseline": True,
         "baseline_phrase": "контекст пуст",
     },
-    "call_graph": {
+    "rlm": {
+        "enabled": True,
         "require_pack": True,
-        "require_edges": True,
+        "require_nodes": True,
+        "require_links": True,
         "required_for_langs": ["kt", "kts", "java"],
-        "allow_ast_grep_fallback": True,
     },
     "analyst": {
         "enabled": True,

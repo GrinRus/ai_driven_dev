@@ -14,7 +14,7 @@ Artifacts:
 - Limit: <= 20 lines / <= 1200 chars.
 - Paths discovered: {{paths_discovered}}
 - Invalid paths: {{invalid_paths}}
-- Pack-first: используйте `*.pack.*`, `edges.jsonl`, `ast-grep.jsonl`; не вставляйте raw JSON.
+- Pack-first: используйте `*-rlm.pack.*` и `rlm-slice`; не вставляйте raw JSONL.
 
 ## AIDD:NON_NEGOTIABLES
 - {{non_negotiables}}
@@ -37,16 +37,11 @@ Artifacts:
 ## AIDD:COMMANDS_RUN
 - {{commands_run}}
 
-## AIDD:CALL_GRAPH
-- Summary: {{call_graph_summary}}
-- Pack: {{call_graph_pack_path}}
-- Edges view: {{call_graph_edges_path}}
-- Slice: ${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh --ticket {{ticket}} --query "<token>"
-
-## AIDD:AST_GREP_EVIDENCE
-- Pack: {{ast_grep_pack_path}}
-- JSONL: {{ast_grep_path}}
-- Summary: {{ast_grep_summary}}
+## AIDD:RLM_EVIDENCE
+- Status: {{rlm_status}}
+- Pack: {{rlm_pack_path}}
+- Slice: ${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket {{ticket}} --query "<token>"
+- Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 
 ## AIDD:TEST_HOOKS
 - {{test_hooks}}
@@ -57,7 +52,7 @@ Artifacts:
 - **Entry points:** {{entry_points}}
 - **Reuse candidates:** {{reuse_candidates}}
 - **Integration points:** {{integration_points}}
-- **Call graph:** {{call_graph_summary}} (pack: {{call_graph_pack_path}})
+- **RLM:** {{rlm_summary}} (pack: {{rlm_pack_path}})
 - **Test pointers:** {{test_pointers}}
 - **Top risks:** {{risks}}
 - Keep concise; may be longer than AIDD:CONTEXT_PACK.
@@ -83,9 +78,9 @@ Artifacts:
 ## Принятые практики
 - {{guideline}} (ссылка на тест/лог/контракт, который это подтверждает)
 
-## Граф вызовов/импортов (если применимо)
-- {{graph-note}} (кто вызывает/импортирует целевой модуль; источники из call graph/import graph для поддерживаемых языков)
-- Pack: {{call_graph_pack_path}}
+## RLM evidence (если применимо)
+- {{rlm-note}} (сводка по модулям/связям; используйте rlm-slice для точечных запросов)
+- Pack: {{rlm_pack_path}}
 
 ## Паттерны/анти-паттерны
 - **Паттерны:** {{positive-patterns}} (ссылки на код/тесты)

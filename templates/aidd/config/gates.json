@@ -144,15 +144,16 @@
     "allow_pending_baseline": true,
     "baseline_phrase": "контекст пуст"
   },
-  "call_graph": {
+  "rlm": {
+    "enabled": true,
     "require_pack": true,
-    "require_edges": true,
+    "require_nodes": true,
+    "require_links": true,
     "required_for_langs": [
       "kt",
       "kts",
       "java"
-    ],
-    "allow_ast_grep_fallback": true
+    ]
   },
   "analyst": {
     "enabled": true,
