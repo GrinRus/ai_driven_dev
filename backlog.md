@@ -2362,12 +2362,13 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** CI падает без loop‑pack/review‑pack и проходит на новой версии; docs описывают новый режим.
   **Deps:** W83-3, W83-4, W83-5, W83-7
 
-- [ ] W83-9 `hooks/format-and-test.sh`, `tests/test_hook_loop_mode.py`, `README.md`, `.gitignore`: ослабление хуков для loop‑цикла:
+- [ ] W83-9 `hooks/format-and-test.sh`, `tests/test_hook_loop_mode.py`, `README.md`, `.gitignore`: loop‑режим без автотестов (Ralph loop):
   - stage-aware: если `aidd/docs/.active_stage = review` → SKIP (exit 0, короткая строка “skipped: stage=review”);
-  - stage=implement: `mkdir -p aidd/reports/tests`; полный stdout/stderr тестов писать в `aidd/reports/tests/<ticket>.<ts>.log`, в чат — только summary + ссылка;
+  - loop‑mode (есть `aidd/docs/.active_work_item`) на stage=implement: **не запускать тесты по умолчанию**, даже если есть policy; форматирование можно оставить;
+  - тесты запускаются только при явном override (например `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`); при запуске — `mkdir -p aidd/reports/tests`, полный stdout/stderr → `aidd/reports/tests/<ticket>.<ts>.log`, в чат — только summary + ссылка;
   - ticket source: читать `aidd/docs/.active_ticket` (fallback `unknown`); команды implement/review обязаны выставлять `.active_ticket`;
-  - anti-spam: если `git diff --name-only` и `git diff --cached --name-only` пустые или только `aidd/**` → не запускать тесты;
+  - anti-spam: если `git diff --name-only` и `git diff --cached --name-only` пустые или только `aidd/**` → не запускать тесты даже при override;
   - (опционально) `AIDD_HOOK_VERBOSITY=summary|full` (default summary).
   - `.gitignore`: добавить `aidd/docs/.active_*`.
-  **AC:** цикл `implement → review → implement → review` не запускает тесты на review; implement не спамит логами; тесты не запускаются при пустом diff.
+  **AC:** цикл `implement → review → implement → review` не запускает тесты на review и не запускает тесты в loop‑mode без explicit override; implement не спамит логами; тесты не запускаются при пустом diff.
   **Deps:** W83-3, W83-4
