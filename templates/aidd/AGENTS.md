@@ -32,7 +32,7 @@
 - PREFER: использовать `rlm-slice` pack для узких запросов.
 - MUST NOT: читать `*-rlm.nodes.jsonl` или `*-rlm.links.jsonl` целиком; только spot‑check через `rg`.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читать фрагментами, не целиком.
-- Legacy `call_graph`/`ast_grep` evidence deprecated и disabled by default.
+- Legacy `ast_grep` evidence deprecated и disabled by default.
 
 ## Что нельзя делать
 - Менять файлы вне согласованного плана/тасклиста.

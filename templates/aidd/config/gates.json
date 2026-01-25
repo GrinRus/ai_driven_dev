@@ -144,17 +144,6 @@
     "allow_pending_baseline": true,
     "baseline_phrase": "контекст пуст"
   },
-  "call_graph": {
-    "deprecated": true,
-    "require_pack": true,
-    "require_edges": true,
-    "required_for_langs": [
-      "kt",
-      "kts",
-      "java"
-    ],
-    "allow_ast_grep_fallback": true
-  },
   "rlm": {
     "enabled": true,
     "require_pack": true,

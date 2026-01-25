@@ -119,8 +119,6 @@ class RlmPipelineE2ETests(unittest.TestCase):
             slice_path = project_root / "reports" / "context" / f"{ticket}-rlm-slice.latest.pack.yaml"
             self.assertTrue(pack_path.exists(), "RLM pack should be created")
             self.assertTrue(slice_path.exists(), "RLM slice should be created")
-            call_graph_pack = project_root / "reports" / "research" / f"{ticket}-call-graph.pack.yaml"
-            self.assertFalse(call_graph_pack.exists(), "RLM pipeline should not emit call-graph packs")
 
             tasklist_path = project_root / "docs" / "tasklist" / f"{ticket}.md"
             tasklist_text = tasklist_path.read_text(encoding="utf-8")

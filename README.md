@@ -103,7 +103,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ## Research RLM
 
 RLM evidence используется как основной источник интеграций/рисков/связей (pack-first + slice on demand).
-Legacy `call_graph`/`ast_grep` evidence deprecated и disabled by default.
+Legacy `ast_grep` evidence deprecated и disabled by default.
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).

@@ -73,9 +73,6 @@ from pathlib import Path
 root = Path(sys.argv[1])
 gates_path = root / "config" / "gates.json"
 data = json.loads(gates_path.read_text(encoding="utf-8"))
-call_graph = data.get("call_graph") or {}
-call_graph["required_for_langs"] = []
-data["call_graph"] = call_graph
 rlm = data.get("rlm") or {}
 rlm["required_for_langs"] = []
 data["rlm"] = rlm

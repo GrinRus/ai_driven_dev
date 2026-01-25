@@ -115,7 +115,7 @@ Notes:
 
 ## Research RLM
 RLM evidence is the primary integration/risks source (pack-first + slice on demand).
-Legacy `call_graph`/`ast_grep` evidence is deprecated and disabled by default.
+Legacy `ast_grep` evidence is deprecated and disabled by default.
 
 Empty context troubleshooting:
 - Narrow `--paths`/`--keywords` (point to real code, not only `aidd/`).

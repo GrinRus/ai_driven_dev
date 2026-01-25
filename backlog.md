@@ -2174,3 +2174,22 @@ _Статус: новый, приоритет 1. Цель — переход н�
   **AC:** один запуск финализирует RLM после ручной генерации nodes; шаги агент‑flow упрощены.
   **Tests:** smoke `--help` в `tests/test_rlm_wrappers.py`.
   **Deps:** W81-27,W81-28,W81-70
+
+### EPIC AA — Full call-graph removal (P1)
+- [x] W81-73 `tools/research.py`, `tools/researcher_context.py`, `tools/graph_slice.py`, `tools/call_graph_views.py`, `tools/reports_pack.py`: удалить code-paths call-graph:
+  - убрать флаги `--call-graph`, `--graph-*`, `call_graph_*` поля контекста;
+  - удалить сбор edges/pack и любые ссылки на `call-graph` в reports_pack;
+  - удалить `graph_slice` CLI (или сделать no-op с WARN).
+  **AC:** `rg call_graph` не находит code-paths в `tools/` (кроме legacy docs/guards); сборка research не пишет call-graph артефакты.
+  **Tests:** обновить/удалить unit на call-graph edges/pack.
+  **Deps:** W81-16,W81-17
+- [x] W81-74 `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `hooks/*`, `templates/aidd/AGENTS.md`, `README*`: удалить конфиг/гейты call_graph:
+  - убрать секции `call_graph` и проверки gate‑workflow;
+  - убрать упоминания call‑graph в docs/anchors/agents/commands.
+  **AC:** no call_graph settings in templates; gate не упоминает call_graph.
+  **Deps:** W81-73
+- [x] W81-75 `tests/*`: удалить или переписать тесты call-graph:
+  - `tests/test_researcher_call_graph*.py`, `tests/test_call_graph_edges_jsonl_schema.py`, `tests/test_graph_slice.py`, call-graph кейсы в `tests/test_reports_pack.py`/`tests/test_research_command.py`;
+  - обновить smoke‑workflow, если ожидает call_graph config.
+  **AC:** тестовый набор не ссылается на call_graph; `ci-lint` и smoke проходят.
+  **Deps:** W81-73,W81-74

@@ -71,7 +71,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Evidence: `aidd/reports/research/<ticket>-rlm.pack.*` и `rlm-slice` pack.
 - Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.*` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.*`.
 - On-demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
-- Legacy `call_graph`/`ast_grep` evidence deprecated и disabled by default.
+- Legacy `ast_grep` evidence deprecated и disabled by default.
 - Troubleshooting пустого контекста:
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
   - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
@@ -121,7 +121,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
 - Budgets (пример):
-  - research context pack: total <= 1200 chars, matches<=20, reuse<=8, import_graph<=30
+  - research context pack: total <= 1200 chars, matches<=20, reuse<=8
   - RLM pack: total <= 12000 chars, entrypoints<=20, hotspots<=20
   - QA pack: findings<=20, tests_executed<=10
   - PRD pack: findings<=20, action_items<=10

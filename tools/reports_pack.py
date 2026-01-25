@@ -35,7 +35,6 @@ RESEARCH_LIMITS: Dict[str, int] = {
     "tests_evidence": 10,
     "suggested_test_tasks": 10,
     "recommendations": 10,
-    "import_graph": 30,
 }
 
 RESEARCH_BUDGET = {
@@ -51,18 +50,6 @@ QA_LIMITS: Dict[str, int] = {
 PRD_LIMITS: Dict[str, int] = {
     "findings": 20,
     "action_items": 10,
-}
-
-CALL_GRAPH_LIMITS: Dict[str, int] = {
-    "entrypoints": 10,
-    "hotspots": 10,
-    "edges": 30,
-}
-CALL_GRAPH_EDGE_PATH_CHARS = 160
-
-CALL_GRAPH_BUDGET = {
-    "max_chars": 2000,
-    "max_lines": 80,
 }
 
 AST_GREP_LIMITS: Dict[str, int] = {
@@ -103,12 +90,6 @@ _ESSENTIAL_FIELDS = {
     "slug_hint",
     "generated_at",
     "source_path",
-    "call_graph_warning",
-    "call_graph_engine",
-    "call_graph_supported_languages",
-    "call_graph_filter",
-    "call_graph_limit",
-    "call_graph_edges_path",
 }
 _ENV_LIMITS_CACHE: Dict[str, Dict[str, int]] | None = None
 _BUDGET_HINT = "Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size."
@@ -289,7 +270,6 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
     trimmed_steps: List[str] = []
     steps = [
         ("matches", lambda: _trim_columnar_rows(payload, "matches")),
-        ("import_graph", lambda: _trim_columnar_rows(payload, "import_graph")),
         ("reuse_candidates", lambda: _trim_columnar_rows(payload, "reuse_candidates")),
         ("manual_notes", lambda: _trim_list_field(payload, "manual_notes")),
         ("profile.recommendations", lambda: _trim_profile_recommendations(payload)),
@@ -304,26 +284,13 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
         ("profile.tests_evidence", lambda: _trim_profile_list(payload, "tests_evidence")),
         ("profile.suggested_test_tasks", lambda: _trim_profile_list(payload, "suggested_test_tasks")),
         ("profile.logging_artifacts", lambda: _trim_profile_list(payload, "logging_artifacts")),
-        ("filter_stats", lambda: _drop_field(payload, "filter_stats")),
-        ("filter_trimmed", lambda: _drop_field(payload, "filter_trimmed")),
         ("ast_grep_stats", lambda: _drop_field(payload, "ast_grep_stats")),
         ("ast_grep_path", lambda: _drop_field(payload, "ast_grep_path")),
         ("ast_grep_schema", lambda: _drop_field(payload, "ast_grep_schema")),
-        ("call_graph_edges_stats", lambda: _drop_field(payload, "call_graph_edges_stats")),
-        ("call_graph_edges_truncated", lambda: _drop_field(payload, "call_graph_edges_truncated")),
-        ("call_graph_filter", lambda: _drop_field(payload, "call_graph_filter")),
         ("drop.matches", lambda: _drop_columnar_if_empty(payload, "matches")),
-        ("drop.import_graph", lambda: _drop_columnar_if_empty(payload, "import_graph")),
         ("drop.reuse_candidates", lambda: _drop_columnar_if_empty(payload, "reuse_candidates")),
         ("drop.profile", lambda: _drop_field(payload, "profile")),
         ("drop.stats", lambda: _drop_field(payload, "stats")),
-        ("drop.call_graph_edges_path", lambda: _drop_field(payload, "call_graph_edges_path")),
-        ("drop.call_graph_edges_schema", lambda: _drop_field(payload, "call_graph_edges_schema")),
-        ("drop.call_graph_warning", lambda: _drop_field(payload, "call_graph_warning")),
-        ("drop.call_graph_engine", lambda: _drop_field(payload, "call_graph_engine")),
-        ("drop.call_graph_supported_languages", lambda: _drop_field(payload, "call_graph_supported_languages")),
-        ("drop.call_graph_limit", lambda: _drop_field(payload, "call_graph_limit")),
-        ("drop.call_graph_filter", lambda: _drop_field(payload, "call_graph_filter")),
         ("drop.rlm_targets_path", lambda: _drop_field(payload, "rlm_targets_path")),
         ("drop.rlm_manifest_path", lambda: _drop_field(payload, "rlm_manifest_path")),
         ("drop.rlm_worklist_path", lambda: _drop_field(payload, "rlm_worklist_path")),
@@ -653,30 +620,6 @@ def _pack_reuse(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
     return _columnar(cols, rows)
 
 
-def _pack_call_graph(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
-    cols = ["caller", "callee", "file", "line", "language"]
-    rows: List[List[Any]] = []
-    for entry in _truncate_list(entries, limit):
-        if not isinstance(entry, dict):
-            continue
-        rows.append(
-            [
-                entry.get("caller"),
-                entry.get("callee"),
-                entry.get("file"),
-                entry.get("line"),
-                entry.get("language"),
-            ]
-        )
-    return _columnar(cols, rows)
-
-
-def _pack_import_graph(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
-    cols = ["import"]
-    rows = [[value] for value in _truncate_list(entries or [], limit)]
-    return _columnar(cols, rows)
-
-
 def _pack_findings(entries: Iterable[Any], limit: int, cols: List[str]) -> Dict[str, Any]:
     rows: List[List[Any]] = []
     for entry in _truncate_list(entries, limit):
@@ -853,16 +796,6 @@ def build_research_context_pack(
         "manual_notes": manual_notes,
         "reuse_candidates": _pack_reuse(payload.get("reuse_candidates") or [], lim["reuse_candidates"]),
         "matches": _pack_matches(payload.get("matches") or [], lim["matches"], lim["match_snippet_chars"]),
-        "import_graph": _pack_import_graph(payload.get("import_graph") or [], lim["import_graph"]),
-        "call_graph_warning": payload.get("call_graph_warning"),
-        "call_graph_engine": payload.get("call_graph_engine"),
-        "call_graph_supported_languages": payload.get("call_graph_supported_languages") or [],
-        "call_graph_filter": payload.get("call_graph_filter"),
-        "call_graph_limit": payload.get("call_graph_limit"),
-        "call_graph_edges_path": payload.get("call_graph_edges_path"),
-        "call_graph_edges_schema": payload.get("call_graph_edges_schema"),
-        "call_graph_edges_stats": payload.get("call_graph_edges_stats"),
-        "call_graph_edges_truncated": payload.get("call_graph_edges_truncated"),
         "ast_grep_path": payload.get("ast_grep_path"),
         "ast_grep_schema": payload.get("ast_grep_schema"),
         "ast_grep_stats": payload.get("ast_grep_stats"),
@@ -873,14 +806,11 @@ def build_research_context_pack(
         "rlm_links_path": payload.get("rlm_links_path"),
         "rlm_pack_path": payload.get("rlm_pack_path"),
         "rlm_status": payload.get("rlm_status"),
-        "filter_stats": payload.get("filter_stats"),
-        "filter_trimmed": payload.get("filter_trimmed"),
         "deep_mode": payload.get("deep_mode"),
         "auto_mode": payload.get("auto_mode"),
         "stats": {
             "matches": len(payload.get("matches") or []),
             "reuse_candidates": len(payload.get("reuse_candidates") or []),
-            "import_graph": len(payload.get("import_graph") or []),
         },
     }
 
@@ -953,121 +883,6 @@ def build_prd_pack(
             "findings": len(findings),
             "action_items": len(payload.get("action_items") or []),
         },
-    }
-    return packed
-
-
-def _pack_call_graph_edges(entries: Iterable[Any], limit: int) -> List[Dict[str, Any]]:
-    packed: List[Dict[str, Any]] = []
-    for entry in _truncate_list(entries, limit):
-        if not isinstance(entry, dict):
-            continue
-        caller_file = entry.get("caller_file") or entry.get("file")
-        callee_file = entry.get("callee_file") or entry.get("file")
-        if isinstance(caller_file, str):
-            caller_file = _truncate_text(caller_file, CALL_GRAPH_EDGE_PATH_CHARS)
-        if isinstance(callee_file, str):
-            callee_file = _truncate_text(callee_file, CALL_GRAPH_EDGE_PATH_CHARS)
-        packed.append(
-            {
-                "caller": entry.get("caller"),
-                "callee": entry.get("callee"),
-                "caller_file": caller_file,
-                "caller_line": entry.get("caller_line") or entry.get("line"),
-                "callee_file": callee_file,
-                "callee_line": entry.get("callee_line") or entry.get("line"),
-                "lang": entry.get("lang") or entry.get("language"),
-                "type": entry.get("type"),
-            }
-        )
-    return packed
-
-
-def _call_graph_how_to_enable(warning: str) -> Optional[str]:
-    lowered = (warning or "").lower()
-    if "tree-sitter" in lowered or "tree_sitter" in lowered:
-        return "Install tree_sitter_language_pack: python3 -m pip install tree_sitter_language_pack"
-    if "graph-engine none" in lowered or "call graph disabled" in lowered:
-        return "Run research with --graph-engine ts --call-graph (or enable graph in auto mode)."
-    if "engine not available" in lowered:
-        return "Ensure the call-graph engine is installed and configured for JVM sources."
-    return None
-
-
-def build_call_graph_pack(
-    payload: Dict[str, Any],
-    *,
-    source_path: Optional[str] = None,
-    limits: Optional[Dict[str, int]] = None,
-    edges_path: Optional[Path] = None,
-) -> Dict[str, Any]:
-    lim = {**CALL_GRAPH_LIMITS, **(limits or {})}
-    caller_counts: Dict[str, int] = {}
-    file_counts: Dict[str, int] = {}
-    edges_sample: List[Dict[str, Any]] = []
-    edges_total = 0
-    if edges_path is None:
-        edges_rel = payload.get("call_graph_edges_path")
-        if edges_rel:
-            edges_path = Path(edges_rel)
-
-    for edge in _iter_jsonl(edges_path) if edges_path and edges_path.exists() else []:
-        edges_total += 1
-        caller = str(edge.get("caller") or "").strip()
-        if caller:
-            caller_counts[caller] = caller_counts.get(caller, 0) + 1
-        file_path = str(edge.get("caller_file") or edge.get("file") or "").strip()
-        if file_path:
-            file_counts[file_path] = file_counts.get(file_path, 0) + 1
-        if len(edges_sample) < lim["edges"]:
-            edges_sample.append(edge)
-
-    entrypoints = [
-        {"caller": caller, "count": count}
-        for caller, count in sorted(caller_counts.items(), key=lambda item: item[1], reverse=True)
-    ]
-    hotspots = [
-        {"file": path, "count": count}
-        for path, count in sorted(file_counts.items(), key=lambda item: item[1], reverse=True)
-    ]
-    warning = (payload.get("call_graph_warning") or "").strip()
-    if edges_total == 0 and not warning:
-        warning = "call graph produced 0 edges (check filters/paths)."
-    warning_lower = warning.lower()
-    unavailable = edges_total == 0 or any(
-        token in warning_lower
-        for token in ("tree-sitter", "tree_sitter", "graph-engine none", "call graph disabled", "engine not available")
-    )
-    status = "unavailable" if unavailable else "ok"
-    how_to_enable = _call_graph_how_to_enable(warning) if status != "ok" else None
-    edges_stats = payload.get("call_graph_edges_stats") or {}
-    packed = {
-        "schema": SCHEMA,
-        "pack_version": PACK_VERSION,
-        "type": "call-graph",
-        "kind": "pack",
-        "ticket": payload.get("ticket"),
-        "slug": payload.get("slug"),
-        "slug_hint": payload.get("slug_hint"),
-        "generated_at": payload.get("generated_at"),
-        "source_path": source_path,
-        "status": status,
-        "warning": warning,
-        "how_to_enable": how_to_enable,
-        "links": {
-            "edges": payload.get("call_graph_edges_path"),
-        },
-        "entrypoints": _truncate_list(entrypoints, lim["entrypoints"]),
-        "hotspots": _truncate_list(hotspots, lim["hotspots"]),
-        "edges": _pack_call_graph_edges(edges_sample, lim["edges"]),
-        "stats": {
-            "edges": len(edges_sample),
-            "edges_total": edges_total,
-            "edges_scanned": edges_stats.get("edges_scanned"),
-            "edges_written": edges_stats.get("edges_written"),
-            "edges_truncated": payload.get("call_graph_edges_truncated"),
-        },
-        "schema_version": payload.get("call_graph_edges_schema"),
     }
     return packed
 
@@ -1789,85 +1604,6 @@ def write_prd_pack(
     pack = build_prd_pack(payload, source_path=source_path, limits=lim)
     pack_path = (output or _pack_path_for(path)).resolve()
     return _write_pack(pack, pack_path)
-
-
-def write_call_graph_pack(
-    json_path: Path,
-    *,
-    output: Optional[Path] = None,
-    root: Optional[Path] = None,
-    limits: Optional[Dict[str, int]] = None,
-) -> Path:
-    path = json_path.resolve()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    source_path = None
-    if root:
-        try:
-            source_path = path.relative_to(root).as_posix()
-        except ValueError:
-            source_path = path.as_posix()
-    else:
-        source_path = path.as_posix()
-
-    edges_path = None
-    edges_rel = payload.get("call_graph_edges_path")
-    if edges_rel:
-        candidate = Path(edges_rel)
-        if root and not candidate.is_absolute():
-            candidate = (root / candidate).resolve()
-        edges_path = candidate
-    base_limits = {**CALL_GRAPH_LIMITS, **(limits or {})}
-    current_limits = dict(base_limits)
-    trimmed = False
-    errors: List[str] = []
-    edges_total = 0
-    if edges_path and edges_path.exists():
-        edges_total = sum(1 for _ in _iter_jsonl(edges_path))
-    min_edges = 1 if edges_total > 0 else 0
-    if min_edges:
-        current_limits["edges"] = max(int(current_limits.get("edges", 0) or 0), min_edges)
-
-    def _shrink_limits(lim: Dict[str, int], *, min_edges: int) -> bool:
-        for key in ("hotspots", "entrypoints"):
-            value = int(lim.get(key, 0) or 0)
-            if value <= 0:
-                continue
-            lim[key] = max(0, value - 1)
-            return True
-        value = int(lim.get("edges", 0) or 0)
-        if value > min_edges:
-            lim["edges"] = max(min_edges, value - 1)
-            return True
-        return False
-
-    while True:
-        pack = build_call_graph_pack(payload, source_path=source_path, limits=current_limits, edges_path=edges_path)
-        text = _serialize_pack(pack)
-        errors = check_budget(
-            text,
-            max_chars=CALL_GRAPH_BUDGET["max_chars"],
-            max_lines=CALL_GRAPH_BUDGET["max_lines"],
-            label="call-graph",
-        )
-        if not errors:
-            break
-        if not _shrink_limits(current_limits, min_edges=min_edges):
-            break
-        trimmed = True
-
-    if errors:
-        for error in errors:
-            print(f"[pack-budget] {error}", file=sys.stderr)
-        if _enforce_budget():
-            raise ValueError("; ".join(errors))
-    elif trimmed:
-        print("[pack-trim] call-graph pack trimmed to fit budget.", file=sys.stderr)
-
-    ext = _pack_extension()
-    ticket = payload.get("ticket") or "unknown"
-    default_path = path.with_name(f"{ticket}-call-graph{ext}")
-    pack_path = (output or default_path).resolve()
-    return _write_pack_text(text, pack_path)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

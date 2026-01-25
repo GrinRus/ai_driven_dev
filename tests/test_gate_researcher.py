@@ -100,7 +100,6 @@ def _write_context(
             "generated_at": _utc_now(),
             "profile": {"is_new_project": is_new},
             "auto_mode": auto_mode,
-            "import_graph": [],
             "rlm_status": "pending",
             "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
             "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",

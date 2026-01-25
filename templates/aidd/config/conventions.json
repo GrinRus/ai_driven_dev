@@ -207,21 +207,6 @@
       "target",
       "vendor"
     ],
-    "call_graph": {
-      "deprecated": true,
-      "filter_max_chars": 512,
-      "filter_max_tokens": 20,
-      "edges_max": 0,
-      "edges_max_auto": {
-        "fallback": 300,
-        "medium_files": 80,
-        "medium_edges": 600,
-        "large_files": 200,
-        "large_edges": 1000,
-        "xlarge_files": 400,
-        "xlarge_edges": 2000
-      }
-    },
     "path_discovery": {
       "max_discovered": 12
     },
