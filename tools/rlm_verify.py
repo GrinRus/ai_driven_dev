@@ -111,11 +111,14 @@ def verify_nodes(
         public_symbols = node.get("public_symbols") or []
         key_calls = node.get("key_calls") or []
         type_refs = node.get("type_refs") or []
-        missing = _validate_symbols(text, list(public_symbols) + list(type_refs) + list(key_calls))
+        expected_symbols = [
+            sym for sym in list(public_symbols) + list(type_refs) + list(key_calls) if str(sym).strip()
+        ]
+        missing = _validate_symbols(text, expected_symbols)
         node["missing_tokens"] = missing
-        if not public_symbols and not key_calls:
+        if not expected_symbols:
             node["verification"] = "passed"
-        elif missing and len(missing) >= len(public_symbols) + len(key_calls):
+        elif missing and len(missing) >= len(expected_symbols):
             node["verification"] = "failed"
         elif missing:
             node["verification"] = "partial"

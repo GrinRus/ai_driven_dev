@@ -64,7 +64,10 @@ def main(argv: List[str] | None = None) -> int:
         compact_args.extend(["--links", str(links_path)])
     rlm_jsonl_compact.main(compact_args)
 
-    rlm_nodes_build.main(["--ticket", ticket, "--refresh-worklist"])
+    worklist_args = ["--ticket", ticket, "--refresh-worklist"]
+    if args.nodes:
+        worklist_args.extend(["--nodes", str(nodes_path)])
+    rlm_nodes_build.main(worklist_args)
 
     pack_args = [
         "--rlm-nodes",

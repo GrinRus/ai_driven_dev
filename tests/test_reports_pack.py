@@ -687,7 +687,7 @@ class ReportsPackTests(unittest.TestCase):
             )
 
             payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "ready")
+            self.assertEqual(payload.get("rlm_status"), "pending")
             pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.yaml"
             pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
             self.assertEqual(pack_payload.get("status"), "pending")
