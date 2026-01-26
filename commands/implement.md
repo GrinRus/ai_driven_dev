@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.24
-source_version: 1.1.24
+prompt_version: 1.1.26
+source_version: 1.1.26
 allowed-tools:
   - Read
   - Edit
@@ -13,6 +13,14 @@ allowed-tools:
   - "Bash(sed:*)"
   - "Bash(cat:*)"
   - "Bash(xargs:*)"
+  - "Bash(npm:*)"
+  - "Bash(pnpm:*)"
+  - "Bash(yarn:*)"
+  - "Bash(pytest:*)"
+  - "Bash(python:*)"
+  - "Bash(go:*)"
+  - "Bash(mvn:*)"
+  - "Bash(make:*)"
   - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
@@ -40,6 +48,12 @@ disable-model-invocation: false
 - `aidd/docs/spec/$1.spec.yaml` (если есть).
 - `aidd/docs/prd/$1.prd.md`, `aidd/docs/research/$1.md` — при необходимости.
 
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
+
 ## Когда запускать
 - После `/feature-dev-aidd:tasks-new`, когда план и оба ревью готовы (Plan Review + PRD Review через `/feature-dev-aidd:review-spec`).
 - Если нужен уточняющий контекст — предварительно запусти `/feature-dev-aidd:spec-interview` (опционально).
@@ -53,6 +67,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1` проверяет наличие новых `- [x]`.
 - При рассинхроне tasklist прогоняй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, если нужно, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
+- Для тестов/формата/запуска сначала открой соответствующий `aidd/skills/<skill-id>/SKILL.md` (skills-first).
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
 Профиль задаётся через `aidd/.cache/test-policy.env`. Policy управляет **чем** запускать, а reviewer gate — **обязательностью/эскалацией**. Если аргументы `test=.../tests=.../tasks=...` не переданы — не перезаписывай существующий `test-policy.env`. Команда — единственный владелец записи; implementer не создаёт файл.
@@ -87,6 +102,7 @@ generated_at: <UTC ISO-8601>
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - research: aidd/docs/research/$1.md (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)

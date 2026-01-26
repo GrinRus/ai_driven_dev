@@ -3,6 +3,8 @@
 Status: PENDING
 PRD: `aidd/docs/prd/<ticket>.prd.md`
 Research: `aidd/docs/research/<ticket>.md`
+Architecture Profile: `aidd/docs/architecture/profile.md`
+Rule: Plan MUST NOT violate Allowed dependencies and Invariants.
 
 ## AIDD:CONTEXT_PACK
 - `<краткий контекст итерации>`

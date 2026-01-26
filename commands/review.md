@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.18
-source_version: 1.0.18
+prompt_version: 1.0.20
+source_version: 1.0.20
 allowed-tools:
   - Read
   - Edit
@@ -33,6 +33,12 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md`, `aidd/docs/plan/$1.md`, `aidd/docs/tasklist/$1.md`.
 - `aidd/docs/spec/$1.spec.yaml` (если есть).
 - Логи тестов/гейтов (если есть), `aidd/reports/reviewer/$1.json`.
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:implement`, до `/feature-dev-aidd:qa`.
@@ -65,6 +71,7 @@ generated_at: <UTC ISO-8601>
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - research: aidd/docs/research/$1.md (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)

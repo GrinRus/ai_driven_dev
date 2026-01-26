@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-19._
+_Last sync with `README.md`: 2026-01-20._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -29,6 +29,7 @@ Key features:
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Auto-formatting and selective tests during the `implement` stage.
+- Architecture Profile + Skills as the canonical source for boundaries and test/format/run commands.
 - Unified `AIDD:ANSWERS` format plus Q identifiers in `AIDD:OPEN_QUESTIONS` (the plan references `PRD QN` without duplication).
 - Branch and commit conventions via `aidd/config/conventions.json`.
 
@@ -51,6 +52,12 @@ If you want to populate `.claude/settings.json` with `automation.tests` defaults
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
+```
+
+To prefill `stack_hint` and `enabled_skills` in the Architecture Profile:
+
+```text
+/feature-dev-aidd:aidd-init --detect-stack
 ```
 
 For CI or manual use:
@@ -77,6 +84,11 @@ Notes:
 - Questions can appear after `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec`, and `/feature-dev-aidd:spec-interview` (if you run it).
 - Answer in `AIDD:ANSWERS` (`Answer N` format) in response to the same command that asked the questions; keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when `AIDD:OPEN_QUESTIONS` is present, `analyst-check` blocks mismatches. In the plan, reference `PRD QN` instead of duplicating questions.
 
+### Migration
+- `/feature-dev-aidd:aidd-init` without `--force` adds new artifacts and preserves existing files.
+- Use `--force` or manual template sync when you need updates.
+- Root `AGENTS.md` is a thin adapter; `aidd/AGENTS.md` is the canonical workflow.
+
 ## Scripts and Checks
 
 | Command | Description |
@@ -101,7 +113,7 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools] [--detect-stack]` |
 | `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
@@ -142,6 +154,8 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
+- Architecture Profile: `aidd/docs/architecture/profile.md`.
+- Skills: `aidd/skills/**/SKILL.md`.
 - Deep dive and customization: `AGENTS.md`.
 - Russian version: `README.md`.
 

@@ -67,6 +67,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - <handoff-id> — <1 строка, почему блокирует>
 
 ### References
+- Architecture Profile: aidd/docs/architecture/profile.md
 - Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 - PRD: aidd/docs/prd/<ABC-123>.prd.md (ищи #AIDD:ACCEPTANCE, #AIDD:ROLL_OUT)
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)

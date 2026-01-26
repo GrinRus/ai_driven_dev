@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "$1 [slug=<slug-hint>] [note...]"
 lang: ru
-prompt_version: 1.3.10
-source_version: 1.3.10
+prompt_version: 1.3.13
+source_version: 1.3.13
 allowed-tools:
   - Read
   - Edit
@@ -11,6 +11,7 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)"
@@ -26,6 +27,12 @@ disable-model-invocation: false
 - `aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).
 - `aidd/docs/research/$1.md`, `aidd/reports/research/*` — если уже есть, использовать как контекст.
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature` — активные маркеры.
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - В начале работы над фичей, до плана/кода.
@@ -53,6 +60,7 @@ generated_at: <UTC ISO-8601>
 
 ## Paths
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - research: aidd/docs/research/$1.md (if exists)
 - plan: aidd/docs/plan/$1.md (if exists)
 - tasklist: aidd/docs/tasklist/$1.md (if exists)

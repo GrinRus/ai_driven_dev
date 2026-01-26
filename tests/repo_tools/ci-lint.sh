@@ -74,6 +74,34 @@ run_prompt_sync_guard() {
   fi
 }
 
+run_prompt_regression() {
+  if [[ ! -f "tests/repo_tools/prompt-regression.sh" ]]; then
+    warn "tests/repo_tools/prompt-regression.sh missing; skipping"
+    return
+  fi
+  log "running prompt regression checks"
+  if ! bash tests/repo_tools/prompt-regression.sh; then
+    err "prompt regression checks failed"
+    STATUS=1
+  fi
+}
+
+run_arch_profile_validate() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping arch profile validate"
+    return
+  fi
+  if [[ ! -f "tools/arch-profile-validate.sh" ]]; then
+    warn "tools/arch-profile-validate.sh missing; skipping"
+    return
+  fi
+  log "running arch profile validation (template)"
+  if ! python3 tools/arch-profile-validate.sh --path templates/aidd/docs/architecture/profile.md; then
+    err "arch profile validation failed"
+    STATUS=1
+  fi
+}
+
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -251,6 +279,8 @@ cd "$ROOT_DIR"
 run_prompt_lint
 run_prompt_version_check
 run_prompt_sync_guard
+run_prompt_regression
+run_arch_profile_validate
 run_repo_linters
 
 run_python_tests

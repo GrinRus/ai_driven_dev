@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.6
-source_version: 1.1.6
+prompt_version: 1.1.8
+source_version: 1.1.8
 allowed-tools:
   - Read
   - Edit
@@ -27,6 +27,12 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md` — статус `READY` обязателен.
 - `aidd/docs/research/$1.md` — проверяется через `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`.
 - ADR (если есть) — архитектурные решения/ограничения.
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new` и `/feature-dev-aidd:researcher` (если он нужен), когда PRD готов.
@@ -55,6 +61,7 @@ generated_at: <UTC ISO-8601>
 
 ## Paths
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - research: aidd/docs/research/$1.md
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md (if exists)

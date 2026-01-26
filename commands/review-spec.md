@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.12
-source_version: 1.0.12
+prompt_version: 1.0.15
+source_version: 1.0.15
 allowed-tools:
   - Read
   - Edit
@@ -11,6 +11,7 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
@@ -28,6 +29,12 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md` — PRD и AIDD:ACCEPTANCE.
 - `aidd/docs/research/$1.md` — интеграции и reuse.
 - ADR (если есть).
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:plan-new`, чтобы пройти review-plan и review-prd одним шагом.
@@ -61,6 +68,7 @@ generated_at: <UTC ISO-8601>
 ## Paths
 - plan: aidd/docs/plan/$1.md
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - research: aidd/docs/research/$1.md
 - tasklist: aidd/docs/tasklist/$1.md (if exists)
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
