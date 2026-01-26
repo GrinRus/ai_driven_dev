@@ -188,7 +188,47 @@ def extract_title(block: List[str]) -> str:
 
 
 def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
-    lines = [line.rstrip() for line in block if line.strip()]
+    if not block:
+        return tuple()
+    lines: List[str] = []
+    lines.append(block[0].rstrip())
+
+    wanted_prefixes = (
+        "- goal:",
+        "- dod:",
+        "- boundaries:",
+        "- acceptance mapping:",
+        "- spec:",
+    )
+    capture_expected = False
+    expected_indent = 0
+
+    for raw in block[1:]:
+        line = raw.rstrip()
+        if not line.strip():
+            continue
+        stripped = line.strip()
+        lower = stripped.lower()
+
+        if capture_expected:
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent <= expected_indent and stripped.startswith("-"):
+                capture_expected = False
+            else:
+                if stripped.startswith("-"):
+                    lines.append(line)
+                continue
+
+        if lower.startswith("- expected paths"):
+            lines.append(line)
+            capture_expected = True
+            expected_indent = len(raw) - len(raw.lstrip(" "))
+            continue
+
+        if any(lower.startswith(prefix) for prefix in wanted_prefixes):
+            lines.append(line)
+            continue
+
     if len(lines) > max_lines:
         lines = lines[:max_lines]
     return tuple(lines)
@@ -319,21 +359,6 @@ def write_active_state(root: Path, ticket: str, work_item_key: str) -> None:
     (docs_dir / ".active_work_item").write_text(work_item_key + "\n", encoding="utf-8")
 
 
-def load_skill_index(path: Path) -> Dict[str, str]:
-    if not path.exists():
-        return {}
-    skills: Dict[str, str] = {}
-    current_id: Optional[str] = None
-    for line in read_text(path).splitlines():
-        if "skill_id:" in line:
-            current_id = line.split("skill_id:", 1)[1].strip()
-            continue
-        if current_id and "path:" in line:
-            skills[current_id] = line.split("path:", 1)[1].strip()
-            current_id = None
-    return skills
-
-
 def find_work_item(items: Iterable[WorkItem], key_safe: str) -> Optional[WorkItem]:
     for item in items:
         if item.key_safe == key_safe:
@@ -459,10 +484,12 @@ def build_pack(
             lines.append(f"- {skill}")
     else:
         lines.append("- []")
+    lines.append("")
+    lines.append("## Work item excerpt")
     if work_item.excerpt:
-        lines.append("")
-        lines.append("## Work item excerpt")
         lines.extend([f"> {line}" for line in work_item.excerpt])
+    else:
+        lines.append("> (none)")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -607,12 +634,6 @@ def main(argv: list[str] | None = None) -> int:
     }
     skills_required = list(selected_item.skills)
     tests_required = list(selected_item.skills)
-
-    skill_index_path = target / "skills" / "index.yaml"
-    skill_index = load_skill_index(skill_index_path)
-    missing_skills = [skill for skill in skills_required if skill not in skill_index]
-    if missing_skills:
-        print(f"[loop-pack] missing skill definitions: {', '.join(missing_skills)}", file=sys.stderr)
 
     updated_at = _utc_timestamp()
     pack_text = build_pack(

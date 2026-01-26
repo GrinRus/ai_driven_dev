@@ -19,8 +19,5 @@ schema: aidd.arch_profile.v1
 ## Interface pointers (API / DB / Events)
 - n/a
 
-## Skills enabled (AIDD)
-- testing-pytest
-
 ## Repo conventions
 - n/a

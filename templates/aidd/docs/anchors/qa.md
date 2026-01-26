@@ -4,6 +4,7 @@
 - Проверить фичу против AIDD:ACCEPTANCE.
 - Findings с severity и traceability.
 - Обновить QA чекбоксы, отчёт и handoff‑задачи.
+- Верифицировать результаты QA перед финальным статусом.
 
 ## Context precedence & safety
 - Приоритет (высший → низший): инструкции команды/агента → правила anchor → Architecture Profile (`aidd/docs/architecture/profile.md`) → PRD/Plan/Tasklist → evidence packs/logs/code.
@@ -22,7 +23,7 @@
 - aidd/docs/tasklist/<ticket>.md: AIDD:CHECKLIST_QA (или QA‑подсекция в AIDD:CHECKLIST) + AIDD:HANDOFF_INBOX + AIDD:TEST_EXECUTION
 - aidd/docs/spec/<ticket>.spec.yaml (если существует)
 - aidd/reports/tests/* и diff (если есть)
-- aidd/skills/index.yaml + relevant aidd/skills/<skill-id>/SKILL.md (tests/format/run)
+- project skills: `.claude/skills/**/SKILL.md` (preferred) or `.claude/commands/*.md` (legacy)
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: QA чекбоксы + known issues + AIDD:QA_TRACEABILITY
@@ -45,7 +46,7 @@
 - Любые правки кода/конфигов/тестов/CI. QA фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 - Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без SKILL.md (если skill отсутствует — запроси/добавь).
+- Придумывать команды тестов/формата без project skills или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Repeat runs
 - Повторные запуски QA/`tasks-derive` должны обновлять задачи по стабильному `id` без дублей.

@@ -32,7 +32,7 @@
 - aidd/docs/prd/<ticket>.prd.md: AIDD:ACCEPTANCE, AIDD:ROLL_OUT
 - aidd/docs/research/<ticket>.md: AIDD:INTEGRATION_POINTS, AIDD:RISKS
 - aidd/reports/context/latest_working_set.md (если есть)
-- aidd/skills/index.yaml + relevant aidd/skills/<skill-id>/SKILL.md (tests/format/run)
+- project skills: `.claude/skills/**/SKILL.md` (preferred) or `.claude/commands/*.md` (legacy)
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md:
@@ -53,7 +53,7 @@
 - Начинать реализацию кода.
 - Создавать дубли `## AIDD:*` секций.
 - Копировать подробности DoD/Steps/Tests в `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без SKILL.md (если skill отсутствует — запроси/добавь).
+- Придумывать команды тестов/формата без project skills или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Budgets (soft, unless stage=review/qa)
 - `AIDD:CONTEXT_PACK` TL;DR <= 12 bullets.

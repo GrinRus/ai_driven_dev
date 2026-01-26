@@ -23,7 +23,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
-- Architecture Profile + Skills как канон архитектурных ограничений и команд тестов/формата/запуска.
+- Architecture Profile + project skills (опционально) как канон архитектурных ограничений и команд тестов/формата/запуска.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
@@ -48,7 +48,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
-Для автозаполнения `stack_hint` и `enabled_skills` в Architecture Profile:
+Для автозаполнения `stack_hint` в Architecture Profile:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-stack
@@ -147,6 +147,10 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
 
+Примечание:
+- Ralph plugin использует stop-hook в той же сессии (completion promise). AIDD loop-mode — fresh sessions.
+- Для max-iterations используйте формат с пробелом: `--max-iterations 5` (без `=`).
+
 Правила:
 - Loop pack first, без больших вставок логов/диффов (ссылки на `aidd/reports/**`).
 - Review не расширяет scope: новое → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
@@ -166,10 +170,30 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
 - Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
+## Project skills (опционально)
+Процесс работает лучше, если проект описывает команды тестов/формата/запуска в `.claude/skills/`.
+Это опционально: если skills нет, агенты попросят команды у пользователя. Legacy‑вариант: `.claude/commands/`.
+
+Пример структуры:
+```
+.claude/skills/testing/SKILL.md
+.claude/skills/formatting/SKILL.md
+```
+
+Минимальный пример `SKILL.md`:
+```md
+---
+name: testing
+description: Project test commands
+---
+
+## Commands
+- pytest -q
+```
+
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
 - Architecture Profile: `aidd/docs/architecture/profile.md`.
-- Skills: `aidd/skills/**/SKILL.md`.
 - Глубокий разбор и кастомизация: `AGENTS.md`.
 - Английская версия: `README.en.md`.
 

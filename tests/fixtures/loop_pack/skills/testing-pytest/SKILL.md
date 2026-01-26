@@ -1,4 +1,0 @@
-# testing-pytest
-
-## Commands
-- `pytest`

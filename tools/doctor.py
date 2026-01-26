@@ -72,6 +72,28 @@ def main(argv: list[str] | None = None) -> int:
             "Run /feature-dev-aidd:aidd-init or "
             f"'${{CLAUDE_PLUGIN_ROOT}}/tools/init.sh' from the workspace root to bootstrap."
         )
+    else:
+        critical = [
+            "AGENTS.md",
+            "docs/loops/README.md",
+            "docs/sdlc-flow.md",
+            "docs/status-machine.md",
+        ]
+        for rel in critical:
+            target = project_root / rel
+            ok = target.exists()
+            rows.append((f"{DEFAULT_PROJECT_SUBDIR}/{rel}", ok, str(target)))
+            if not ok:
+                errors.append(f"Missing critical artifact: {target}")
+
+        skills_dir = workspace_root / ".claude" / "skills"
+        rows.append(
+            (
+                f"{DEFAULT_PROJECT_SUBDIR}/.claude/skills",
+                skills_dir.exists(),
+                str(skills_dir),
+            )
+        )
 
     print("AIDD Doctor")
     for name, ok, detail in rows:

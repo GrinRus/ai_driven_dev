@@ -2409,3 +2409,87 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   - loop-regression: расширить checks из W83-8 (loop-step/loop-run + docs examples), без дублирования базовых.
   **AC:** `loop-run --ticket T --max-iterations 5` → exit 0 on SHIP, exit 11 on max-iterations, exit 20 on BLOCKED; docs содержат команды запуска; регрессия падает при отсутствии loop-step/loop-run или сломанных schema.
   **Deps:** W83-11, W83-8, W83-10
+
+## Wave 84
+
+_Статус: новый, приоритет 2. Цель — убрать AIDD skills из репозитория, заменить на рекомендацию project skills, очистить промпты/линты, усилить verify/least‑privilege и сохранить loop‑дисциплину._
+
+- [x] W84-1 `templates/aidd/skills/**`, `templates/aidd/skills/index.yaml`, `.claude-plugin/plugin.json`, `tools/init.{sh,py}`, `commands/aidd-init.md`, `templates/aidd/docs/architecture/profile.md`, tests: убрать AIDD skills из репозитория:
+  - удалить `templates/aidd/skills/**` и `templates/aidd/skills/index.yaml`;
+  - убрать `enabled_skills`/skills‑секцию из архитектурного профиля и связанных шаблонов;
+  - обновить `.claude-plugin/plugin.json`: убрать/почистить `skills`‑пути (если есть);
+  - `aidd-init` больше не копирует skills;
+  - обновить/удалить тесты, ожидавшие skills.
+  **AC:** в репозитории нет `templates/aidd/skills/**`; init не создаёт skills; тесты не требуют skills.
+  **Deps:** W82-2
+
+- [x] W84-2 `agents/*.md`, `commands/*.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `templates/aidd/docs/{tasklist,loops}/template.*`: обновить ссылки/политики вокруг skills:
+  - удалить любые ссылки на `aidd/skills/**` и “AIDD skills-first” в старом смысле;
+  - новое правило:
+    - если есть `.claude/skills/<skill>/SKILL.md` → использовать их;
+    - иначе если есть `.claude/commands/**` → использовать их (legacy);
+    - иначе → попытаться определить команды из repo; если не выходит → BLOCKED + запросить у пользователя команды;
+  - обновить templates loop/tasklist, где упоминаются skills.
+  **AC:** нет ссылок на `aidd/skills/**`; инструкции соответствуют “project skills optional”; templates loop/tasklist не подразумевают встроенные skills.
+  **Deps:** W84-1
+
+- [x] W84-3 `README.md`, `README.en.md`: рекомендация про project skills:
+  - короткий блок: “процесс эффективнее с project-specific skills в `.claude/skills/`” + пример структуры;
+  - явно указать, что это опционально.
+  **AC:** README содержит ясную рекомендацию и пример `.claude/skills`.
+  **Deps:** W84-2
+
+- [x] W84-4 `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/anchors/{implement,review}.md`, `README.md`, `README.en.md`: развести “Ralph plugin” и AIDD loop‑mode:
+  - явно описать, что официальный Ralph loop — stop‑hook в той же сессии с completion promise;
+  - отметить, что AIDD loop‑mode использует fresh sessions (`claude -p --no-session-persistence`);
+  - добавить краткий safety‑блок: completion promise + max‑iterations.
+  - в примерах CLI использовать формат `--max-iterations 5` (без `=`).
+  **AC:** документация не конфликтует по терминологии; есть каноническое определение loop‑протокола в `aidd/docs/loops/README.md` и ссылка из anchors implement/review; пользователь видит разницу и безопасные ограничения.
+  **Deps:** W83-12
+
+- [x] W84-5 `agents/{implementer,reviewer,qa}.md`, `commands/{implement,review,qa}.md`, `templates/aidd/docs/anchors/{implement,review,qa}.md`, `tests/repo_tools/lint-prompts.py`: усилить verify‑шаг в промптах:
+  - добавить явный пункт “verify results” (тесты/QA‑evidence) в пошаговый план;
+  - закрепить, что без верификации нельзя выставлять финальный non‑BLOCKED статус (если не `profile: none`);
+  - линт: проверять наличие verify‑шага в этих промптах.
+  **AC:** промпты содержат verify‑шаг и правила статуса; lint‑prompts ловит отсутствие verify‑шага; финальный non‑BLOCKED статус запрещён без verify при `profile != none`.
+  **Deps:** W82-5
+
+- [x] W84-6 `agents/*.md`, `tests/repo_tools/lint-prompts.py`: stage drift guard:
+  - убрать `set-active-feature.sh` и `set-active-stage.sh` из subagents tools;
+  - добавить hard‑policy “subagents не меняют .active_*; при несоответствии → BLOCKED + перезапуск команды”.
+  **AC:** ни один `agents/*.md` не содержит `set-active-*`; в subagents есть правило BLOCKED при некорректных `.active_*`; reviewer/qa allowlist соответствует edit‑surface (без `Write`).
+  **Deps:** W82-5
+
+- [x] W84-7 `tests/repo_tools/lint-prompts.py` (или новый `tests/repo_tools/prompt-references.sh`), `tools/doctor.sh` (optional): prompt ↔ tooling integrity (plugin-aware):
+  - проверять, что упомянутые `${CLAUDE_PLUGIN_ROOT}/tools/*.sh` и `hooks/*.sh` реально существуют;
+  - проверять критические артефакты в шаблонах (`templates/aidd/**`) и не требовать `aidd/**` до init;
+  - добавить правило: нет ссылок на удалённые skills‑артефакты (`aidd/skills/**`, `templates/aidd/skills/**`);
+  - проверять `.claude-plugin/plugin.json`: пути только с `./` и без `..`, и не указывают на удалённые skills;
+  - запрет ссылок вида `${CLAUDE_PLUGIN_ROOT}/../...` и любых `../` для plugin assets;
+  - валидировать, что ссылки на plugin‑скрипты используют `${CLAUDE_PLUGIN_ROOT}`.
+  **AC:** CI падает при рассинхроне, при ссылках на удалённые skills, или при `../` в plugin assets.
+  **Deps:** -
+
+- [x] W84-8 `templates/aidd/AGENTS.md`, `templates/aidd/docs/anchors/rlm.md`, `agents/*.md`: сократить дублирование канонических политик:
+  - вынести “Context precedence & safety” + “Evidence Read Policy (RLM-first)” в канон;
+  - в агентах оставить короткую ссылку на канон + правило STOP при конфликте.
+  **AC:** канон в одном месте; агенты ссылаются на него вместо копипасты.
+  **Deps:** W82-5
+
+- [x] W84-9 `agents/{reviewer,qa}.md`, `commands/{review,qa}.md`: least‑privilege для review/qa:
+  - убрать `Write` из tools/allowed-tools;
+  - оставить `Edit` как единственный write‑surface для tasklist.
+  **AC:** reviewer/qa не имеют `Write`; edit‑surface соответствует политике; команды review/qa проходят без `Write` на базовом сценарии.
+  **Deps:** W82-5
+
+- [x] W84-10 `tools/init.{sh,py}`, `tools/doctor.sh`, `commands/aidd-init.md`: critical artifacts bootstrap:
+  - `aidd-init` гарантирует наличие `aidd/AGENTS.md`, `aidd/docs/loops/README.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`;
+  - `doctor.sh` валидирует наличие и сообщает об ошибках; отсутствие `.claude/skills` не блокирует.
+  **AC:** init создаёт критические файлы; doctor падает при отсутствии критических; отсутствие `.claude/skills` не ломает.
+  **Deps:** W84-7
+
+- [x] W84-11 `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`: loop pack excerpt quality:
+  - обязательный excerpt: goal/DoD/boundaries/refs на AC или spec (если есть);
+  - без него implementer вынужден читать plan/PRD, что ломает “fresh context”.
+  **AC:** loop pack содержит обязательный excerpt и ссылки на DoD/AC.
+  **Deps:** W83-2

@@ -32,11 +32,11 @@ evidence_policy: RLM-first
   - src/feature/**
 - forbidden_paths: []
 
-## Skills required
+## Skills required (project skills)
 - testing-gradle
 
-## Tests required
+## Tests required (project skills)
 - testing-gradle
 
-## Work item excerpt (optional)
-> ...
+## Work item excerpt (required)
+> goal/DoD/boundaries/refs from the tasklist work item.

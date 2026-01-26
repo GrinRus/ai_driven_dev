@@ -9,6 +9,7 @@
 - [Slash Commands](#slash-commands)
 - [Prerequisites](#prerequisites)
 - [Path Troubleshooting](#path-troubleshooting)
+- [Project skills (optional)](#project-skills-optional)
 - [Documentation](#documentation)
 - [Examples](#examples)
 - [Contributing](#contributing)
@@ -19,7 +20,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-05._
+_Last sync with `README.md`: 2026-01-26._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -30,7 +31,7 @@ Key features:
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Auto-formatting and selective tests during the `implement` stage.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
-- Architecture Profile + Skills as the canonical source for boundaries and test/format/run commands.
+- Architecture Profile + optional project skills as the canonical source for boundaries and test/format/run commands.
 - Unified `AIDD:ANSWERS` format plus Q identifiers in `AIDD:OPEN_QUESTIONS` (the plan references `PRD QN` without duplication).
 - Branch and commit conventions via `aidd/config/conventions.json`.
 
@@ -55,7 +56,7 @@ If you want to populate `.claude/settings.json` with `automation.tests` defaults
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
-To prefill `stack_hint` and `enabled_skills` in the Architecture Profile:
+To prefill `stack_hint` in the Architecture Profile:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-stack
@@ -159,6 +160,10 @@ Commands:
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
 
+Note:
+- Ralph plugin uses a stop-hook in the same session (completion promise). AIDD loop-mode uses fresh sessions.
+- Use the space form for max-iterations: `--max-iterations 5` (no `=`).
+
 Rules:
 - Loop pack first, no large log/diff pastes (use `aidd/reports/**` links).
 - Review does not expand scope: new work → `AIDD:OUT_OF_SCOPE_BACKLOG` or new work item.
@@ -178,10 +183,30 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
 - For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
+## Project skills (optional)
+The workflow works best if your project defines test/format/run commands in `.claude/skills/`.
+This is optional: if no skills are present, agents will ask you for the commands. Legacy option: `.claude/commands/`.
+
+Example structure:
+```
+.claude/skills/testing/SKILL.md
+.claude/skills/formatting/SKILL.md
+```
+
+Minimal `SKILL.md` example:
+```md
+---
+name: testing
+description: Project test commands
+---
+
+## Commands
+- pytest -q
+```
+
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
 - Architecture Profile: `aidd/docs/architecture/profile.md`.
-- Skills: `aidd/skills/**/SKILL.md`.
 - Deep dive and customization: `AGENTS.md`.
 - Russian version: `README.md`.
 

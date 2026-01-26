@@ -66,6 +66,19 @@ def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
         print("[aidd:init] .claude/settings.json already contains automation.tests defaults")
 
 
+def _ensure_project_file(project_root: Path, templates_root: Path, rel_path: str, fallback: str) -> bool:
+    target = project_root / rel_path
+    if target.exists():
+        return False
+    source = templates_root / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.exists():
+        shutil.copy2(source, target)
+    else:
+        target.write_text(fallback, encoding="utf-8")
+    return True
+
+
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
     workspace_root, project_root = runtime.resolve_roots(target, create=True)
@@ -98,15 +111,17 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         else:
             print(f"[aidd:init] no changes in root templates for {workspace_root}")
 
-    loops_readme = project_root / "docs" / "loops" / "README.md"
-    if not loops_readme.exists():
-        template_readme = templates_root / "docs" / "loops" / "README.md"
-        loops_readme.parent.mkdir(parents=True, exist_ok=True)
-        if template_readme.exists():
-            shutil.copy2(template_readme, loops_readme)
-        else:
-            loops_readme.write_text("# Loop Mode\n", encoding="utf-8")
-        print(f"[aidd:init] ensured loop docs at {loops_readme}")
+    ensured = []
+    if _ensure_project_file(project_root, templates_root, "docs/loops/README.md", "# Loop Mode\n"):
+        ensured.append("docs/loops/README.md")
+    if _ensure_project_file(project_root, templates_root, "docs/sdlc-flow.md", "# SDLC Flow\n"):
+        ensured.append("docs/sdlc-flow.md")
+    if _ensure_project_file(project_root, templates_root, "docs/status-machine.md", "# Status Machine\n"):
+        ensured.append("docs/status-machine.md")
+    if _ensure_project_file(project_root, templates_root, "AGENTS.md", "# AGENTS\n"):
+        ensured.append("AGENTS.md")
+    if ensured:
+        print(f"[aidd:init] ensured critical artifacts: {', '.join(ensured)}")
 
     loops_reports = project_root / "reports" / "loops"
     loops_reports.mkdir(parents=True, exist_ok=True)
