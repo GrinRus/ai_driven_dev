@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.9
-source_version: 1.1.9
+prompt_version: 1.1.11
+source_version: 1.1.11
 allowed-tools:
   - Read
   - Edit
@@ -30,6 +30,12 @@ disable-model-invocation: false
 - `aidd/docs/research/$1.md` — reuse и риски.
 - `aidd/docs/spec/$1.spec.yaml` — итоговая спецификация (если есть).
 - Шаблон `aidd/docs/tasklist/template.md` (если файл создаётся с нуля).
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:review-spec`, перед `/feature-dev-aidd:implement`.
@@ -58,6 +64,7 @@ generated_at: <UTC ISO-8601>
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - research: aidd/docs/research/$1.md
 - test_policy: aidd/.cache/test-policy.env (if exists)

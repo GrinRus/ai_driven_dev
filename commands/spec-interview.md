@@ -2,8 +2,8 @@
 description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /feature-dev-aidd:tasks-new)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.5
-source_version: 1.0.5
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - Edit
@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash(rg:*)"
   - "Bash(sed:*)"
   - "Bash(cat:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit
@@ -28,6 +29,12 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md`
 - `aidd/docs/research/$1.md`
 - `aidd/docs/spec/template.spec.yaml`
+
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:review-spec` (опционально).
@@ -57,6 +64,7 @@ generated_at: <UTC ISO-8601>
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md (if exists)
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - spec: aidd/docs/spec/$1.spec.yaml
 - research: aidd/docs/research/$1.md
 - interview_log: aidd/reports/spec/$1.interview.jsonl

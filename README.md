@@ -22,6 +22,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
+- Architecture Profile + Skills как канон архитектурных ограничений и команд тестов/формата/запуска.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
@@ -46,6 +47,12 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
+Для автозаполнения `stack_hint` и `enabled_skills` в Architecture Profile:
+
+```text
+/feature-dev-aidd:aidd-init --detect-stack
+```
+
 ### 3. Запустите фичу в Claude Code
 
 ```text
@@ -63,6 +70,11 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 Примечания:
 - Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
 - Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы.
+
+### Миграция
+- `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
+- Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
+- Root `AGENTS.md` — тонкий адаптер; канон процесса — `aidd/AGENTS.md`.
 
 ## Скрипты и проверки
 
@@ -88,7 +100,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools] [--detect-stack]` |
 | `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
@@ -130,6 +142,8 @@ RLM artifacts (pack-first):
 
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
+- Architecture Profile: `aidd/docs/architecture/profile.md`.
+- Skills: `aidd/skills/**/SKILL.md`.
 - Глубокий разбор и кастомизация: `AGENTS.md`.
 - Английская версия: `README.en.md`.
 
