@@ -686,9 +686,15 @@ SERVICE_PREFIXES = (".claude/", ".cursor/")
 SERVICE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
 AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", "skills/", ".cache/")
 
+def normalize_service_path(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
 
 def is_service_file(path: str, *, aidd_root: bool) -> bool:
-    normalized = path.lstrip("./")
+    normalized = normalize_service_path(path)
     if normalized in SERVICE_FILES:
         return True
     if normalized.startswith("aidd/"):

@@ -130,6 +130,22 @@ class LoopModeHookTests(unittest.TestCase):
             self.assertNotIn("Запуск тестов", result.stderr)
             self.assertIn("Diff пустой/только service", result.stderr)
 
+    def test_service_only_blocks_override_for_dot_claude(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:
+            project = Path(tmpdir) / "aidd"
+            project.mkdir(parents=True, exist_ok=True)
+            git_init(project)
+            git_config_user(project)
+            settings = write_settings(project, {"automation": {"tests": {"changedOnly": False}}})
+            write_active_stage(project, "implement")
+            write_active_feature(project, "loop-5")
+            write_file(project, "docs/.active_mode", "loop\n")
+            seed_repo_with_file(project, ".claude/settings.json", '{"ok": true}\n')
+
+            result = run_hook(project, settings, env={"AIDD_LOOP_TESTS": "1"})
+            self.assertNotIn("Запуск тестов", result.stderr)
+            self.assertIn("Diff пустой/только service", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

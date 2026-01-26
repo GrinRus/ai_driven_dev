@@ -96,6 +96,51 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("NO_BOUNDARIES_DEFINED", result.stdout)
 
+    def test_diff_boundary_ignores_dot_claude(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            git_init(root)
+            git_config_user(root)
+            write_file(root, "docs/.active_ticket", "DEMO-4")
+            write_file(root, "docs/.active_work_item", "iteration_id=I4")
+            write_loop_pack(root, "DEMO-4", "iteration_id=I4", ["src/allowed/**"], [])
+
+            write_file(root, ".claude/settings.json", '{"ok": true}\n')
+            subprocess.run(["git", "add", ".claude/settings.json"], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+            write_file(root, ".claude/settings.json", '{"ok": false}\n')
+
+            result = subprocess.run(
+                cli_cmd("diff-boundary-check", "--ticket", "DEMO-4"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("OK", result.stdout)
+
+    def test_diff_boundary_blocks_untracked_out_of_scope(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            git_init(root)
+            git_config_user(root)
+            write_file(root, "docs/.active_ticket", "DEMO-5")
+            write_file(root, "docs/.active_work_item", "iteration_id=I5")
+            write_loop_pack(root, "DEMO-5", "iteration_id=I5", ["src/allowed/**"], [])
+
+            write_file(root, "src/disallowed/new.py", "print('nope')\n")
+
+            result = subprocess.run(
+                cli_cmd("diff-boundary-check", "--ticket", "DEMO-5"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 2, msg=result.stdout + result.stderr)
+            self.assertIn("OUT_OF_SCOPE src/disallowed/new.py", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

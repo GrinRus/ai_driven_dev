@@ -14,17 +14,25 @@ from tools import runtime
 
 IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
 IGNORE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
+AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", "skills/", ".cache/")
 
 
 def normalize_path(path: str) -> str:
-    return path.lstrip("./")
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
 
 
-def is_ignored(path: str) -> bool:
+def is_ignored(path: str, *, aidd_root: bool) -> bool:
     normalized = normalize_path(path)
     if normalized in IGNORE_FILES:
         return True
-    return any(normalized.startswith(prefix) for prefix in IGNORE_PREFIXES)
+    if any(normalized.startswith(prefix) for prefix in IGNORE_PREFIXES):
+        return True
+    if aidd_root and any(normalized.startswith(prefix) for prefix in AIDD_ROOT_PREFIXES):
+        return True
+    return False
 
 
 def matches_pattern(path: str, pattern: str) -> bool:
@@ -137,6 +145,7 @@ def collect_diff_files(base: Path) -> List[str]:
     git_root = resolve_git_root(base)
     files = set(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
     files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
+    files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
     return sorted(files)
 
 
@@ -178,7 +187,8 @@ def main(argv: List[str] | None = None) -> int:
         print("NO_BOUNDARIES_DEFINED")
         return 0
 
-    diff_files = [path for path in collect_diff_files(target) if not is_ignored(path)]
+    aidd_root = target.name == "aidd"
+    diff_files = [path for path in collect_diff_files(target) if not is_ignored(path, aidd_root=aidd_root)]
     violations: List[str] = []
     for path in diff_files:
         if any(matches_pattern(path, pattern) for pattern in forbidden_paths):
