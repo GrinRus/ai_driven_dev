@@ -288,8 +288,20 @@ def log(message: str) -> None:
     print(f"{LOG_PREFIX} {message}", file=sys.stderr)
 
 
+def resolve_hook_verbosity() -> str:
+    mode = (os.environ.get("AIDD_HOOK_VERBOSITY") or "summary").strip().lower()
+    if mode not in {"summary", "full"}:
+        return "summary"
+    return mode
+
+
 def resolve_test_log_mode() -> str:
-    mode = (os.environ.get("AIDD_TEST_LOG") or "summary").strip().lower()
+    raw = os.environ.get("AIDD_TEST_LOG")
+    if raw:
+        mode = raw.strip().lower()
+        if mode in {"summary", "full"}:
+            return mode
+    mode = resolve_hook_verbosity()
     if mode not in {"summary", "full"}:
         return "summary"
     return mode
@@ -304,11 +316,12 @@ def resolve_test_log_tail_lines() -> int:
     return max(0, value)
 
 
-def ensure_test_log_path(project_root: Path) -> Path:
-    log_dir = project_root / ".cache" / "logs"
+def ensure_test_log_path(project_root: Path, ticket: str) -> Path:
+    log_dir = project_root / "reports" / "tests"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    return log_dir / f"format-and-test.{stamp}.log"
+    label = ticket or "unknown"
+    return log_dir / f"{label}.{stamp}.log"
 
 
 def tail_file_lines(path: Path, max_lines: int) -> str:
@@ -485,8 +498,27 @@ def compute_tests_fingerprint(
     return hasher.hexdigest()
 
 
-def collect_changed_files() -> List[str]:
+def resolve_git_root(base: Path) -> Path:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(base), "rev-parse", "--show-toplevel"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return base
+    if proc.returncode != 0:
+        return base
+    root = proc.stdout.strip()
+    if not root:
+        return base
+    return Path(root).resolve()
+
+
+def collect_changed_files(base: Path) -> List[str]:
     files: set[str] = set()
+    git_root = resolve_git_root(base)
 
     def git_lines(args: Iterable[str]) -> List[str]:
         proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -495,17 +527,17 @@ def collect_changed_files() -> List[str]:
         return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
     # tracked changes
-    proc = subprocess.run([
-        "git",
-        "rev-parse",
-        "--verify",
-        "HEAD",
-    ], text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc = subprocess.run(
+        ["git", "-C", str(git_root), "rev-parse", "--verify", "HEAD"],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     if proc.returncode == 0:
-        files.update(git_lines(["git", "diff", "--name-only", "HEAD"]))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only", "HEAD"]))
 
     # untracked
-    files.update(git_lines(["git", "ls-files", "--others", "--exclude-standard"]))
+    files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
     return sorted(files)
 
 
@@ -625,6 +657,62 @@ def read_active_stage(project_root: Path) -> str:
         return ""
 
 
+def read_active_mode(project_root: Path) -> str:
+    mode_path = project_root / "docs" / ".active_mode"
+    if not mode_path.exists():
+        return ""
+    try:
+        return mode_path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
+
+
+def collect_diff_files(base: Path) -> List[str]:
+    files: set[str] = set()
+    git_root = resolve_git_root(base)
+
+    def git_lines(args: Iterable[str]) -> List[str]:
+        proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if proc.returncode != 0:
+            return []
+        return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+    files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
+    files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
+    return sorted(files)
+
+
+SERVICE_PREFIXES = (".claude/", ".cursor/")
+SERVICE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
+AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", "skills/", ".cache/")
+
+
+def is_service_file(path: str, *, aidd_root: bool) -> bool:
+    normalized = path.lstrip("./")
+    if normalized in SERVICE_FILES:
+        return True
+    if normalized.startswith("aidd/"):
+        inner = normalized[len("aidd/"):]
+        if inner in SERVICE_FILES:
+            return True
+        if any(inner.startswith(prefix) for prefix in SERVICE_PREFIXES):
+            return True
+        if any(inner.startswith(prefix) for prefix in AIDD_ROOT_PREFIXES):
+            return True
+        return False
+    if any(normalized.startswith(prefix) for prefix in SERVICE_PREFIXES):
+        return True
+    if aidd_root and any(normalized.startswith(prefix) for prefix in AIDD_ROOT_PREFIXES):
+        return True
+    return False
+
+
+def service_only(files: List[str], *, aidd_root: bool) -> bool:
+    if not files:
+        return True
+    return all(is_service_file(path, aidd_root=aidd_root) for path in files)
+
+
 def main() -> int:
     from hooks import hooklib
 
@@ -633,18 +721,24 @@ def main() -> int:
     os.chdir(workspace_root)
     settings_path = resolve_settings_path(workspace_root)
     project_root = resolve_project_root(workspace_root)
+    diff_files = collect_diff_files(workspace_root)
+    stage = read_active_stage(project_root)
+    active_mode = read_active_mode(project_root)
+    aidd_root = project_root.name == "aidd"
 
     if env_flag("SKIP_AUTO_TESTS"):
         log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
         return 0
 
     if not env_flag("CLAUDE_SKIP_STAGE_CHECKS"):
-        stage = read_active_stage(project_root)
-        if stage and stage != "implement":
-            log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
-            return 0
         if not stage:
             log("Активная стадия не задана — форматирование/тесты пропущены.")
+            return 0
+        if stage not in {"implement", "review"}:
+            log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
+            return 0
+        if stage == "review" and service_only(diff_files, aidd_root=aidd_root):
+            log("Активная стадия review, diff пустой/только service — форматирование/тесты пропущены.")
             return 0
 
     config = load_config(settings_path)
@@ -786,7 +880,7 @@ def main() -> int:
     else:
         code_exact = normalize_code_files([code_files_raw])
 
-    changed_files = [path for path in collect_changed_files() if not is_cache_artifact(path)]
+    changed_files = [path for path in collect_changed_files(workspace_root) if not is_cache_artifact(path)]
     identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
@@ -953,6 +1047,26 @@ def main() -> int:
     else:
         tests_should_run = True
 
+    loop_mode = active_mode == "loop"
+    loop_tests_override = False
+    loop_tests_flag = env_flag("AIDD_LOOP_TESTS")
+    if loop_tests_flag is not None:
+        loop_tests_override = bool(loop_tests_flag)
+    if policy_force:
+        loop_tests_override = True
+
+    if loop_mode:
+        if stage == "review":
+            tests_should_run = False
+            skip_reason = "loop-mode: review stage — тесты пропущены."
+        elif stage == "implement" and not loop_tests_override:
+            tests_should_run = False
+            skip_reason = "loop-mode: тесты запускаются только с AIDD_LOOP_TESTS=1 или AIDD_TEST_FORCE=1."
+
+    if tests_should_run and service_only(diff_files, aidd_root=aidd_root):
+        tests_should_run = False
+        skip_reason = "Diff пустой/только service — тесты пропущены."
+
     skip_format_flag = os.environ.get("SKIP_FORMAT", "0") == "1"
     format_only_flag = os.environ.get("FORMAT_ONLY", "0") == "1"
     if test_profile == "none":
@@ -1097,18 +1211,15 @@ def main() -> int:
     command = test_runner + test_tasks
     log(f"Запуск тестов: {' '.join(command)}")
     test_log_mode = resolve_test_log_mode()
-    test_log_path = ensure_test_log_path(project_root)
+    test_log_path = ensure_test_log_path(project_root, active_ticket or "unknown")
     log(f"Test log: {test_log_path}")
-    if test_log_mode == "full":
-        result = run_tests_with_tee(command, test_log_path)
-    else:
-        with test_log_path.open("w", encoding="utf-8") as handle:
-            result = subprocess.run(
-                command,
-                text=True,
-                stdout=handle,
-                stderr=subprocess.STDOUT,
-            )
+    with test_log_path.open("w", encoding="utf-8") as handle:
+        result = subprocess.run(
+            command,
+            text=True,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+        )
     status = "success" if result.returncode == 0 else "failed"
     write_dedupe_state(
         cache_path,
@@ -1127,7 +1238,7 @@ def main() -> int:
         record_tests_log("pass")
         return 0
 
-    if test_log_mode == "summary":
+    if test_log_mode == "full":
         tail_lines = resolve_test_log_tail_lines()
         tail = tail_file_lines(test_log_path, tail_lines)
         if tail.strip():

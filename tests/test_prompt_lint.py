@@ -80,6 +80,7 @@ TEMPLATE_ANCHORS = {
         "AIDD:TEST_EXECUTION",
         "AIDD:ITERATIONS_FULL",
         "AIDD:NEXT_3",
+        "AIDD:OUT_OF_SCOPE_BACKLOG",
         "AIDD:HANDOFF_INBOX",
         "AIDD:QA_TRACEABILITY",
         "AIDD:CHECKLIST",
@@ -97,6 +98,9 @@ def build_agent(name: str) -> str:
             "        Варианты: A) ... B) ...\n"
             "        Default: ...\n"
         )
+    loop_markers = ""
+    if name in {"implementer", "reviewer"}:
+        loop_markers = "\n            Loop pack first. Никаких больших вставок логов/диффов.\n"
     return (
         dedent(
             f"""
@@ -113,7 +117,7 @@ def build_agent(name: str) -> str:
 
             ## Контекст
             MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md.
-            Text.
+            Text.{loop_markers}
 
             ## Входные артефакты
             - item

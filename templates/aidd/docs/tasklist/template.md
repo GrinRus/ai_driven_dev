@@ -117,6 +117,17 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Outputs: <артефакты итерации>
   - DoD: <как проверить готовность>
   - Boundaries: <пути/модули + что не трогаем>
+  - Expected paths:
+    - <path1/**>
+    - <path2/**>
+  - Size budget:
+    - max_files: <N>
+    - max_loc: <N>
+  - Skills:
+    - <skill_id>
+  - Exit criteria:
+    - <критерий 1>
+    - <критерий 2>
   - Steps:
     - <шаг 1>
     - <шаг 2>
@@ -134,6 +145,15 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Outputs: <...>
   - DoD: <...>
   - Boundaries: <...>
+  - Expected paths:
+    - <path1/**>
+  - Size budget:
+    - max_files: <N>
+    - max_loc: <N>
+  - Skills:
+    - <skill_id>
+  - Exit criteria:
+    - <...>
   - Steps:
     - <...>
   - Tests:
@@ -152,6 +172,12 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 - [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
 - [ ] review:F6: <blocking handoff> (ref: id=review:F6)
 - [ ] (none)
+
+---
+
+## AIDD:OUT_OF_SCOPE_BACKLOG
+> Побочные идеи/задачи, которые НЕ входят в текущий work_item (без расширения scope).
+- [ ] <идея/задача> (source: implement|review|qa|research|manual)
 
 ---
 

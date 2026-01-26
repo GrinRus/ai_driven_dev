@@ -40,9 +40,11 @@ class InitAiddTests(unittest.TestCase):
             "docs/prd/template.md",
             "docs/architecture/profile.md",
             "docs/architecture/README.md",
+            "docs/loops/README.md",
             "skills/index.yaml",
             "skills/testing-gradle/SKILL.md",
             "reports/prd/.gitkeep",
+            "reports/loops/.gitkeep",
             "AGENTS.md",
         ]
         for rel in expected_paths:
