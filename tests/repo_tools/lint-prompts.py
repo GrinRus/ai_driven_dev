@@ -96,6 +96,11 @@ REQUIRED_WRITE_TOOLS = {
     "commands/qa.md",
 }
 
+LOOP_DISCIPLINE_HINTS = {
+    "agents/implementer.md": ["loop pack first", "больших вставок"],
+    "agents/reviewer.md": ["loop pack first", "больших вставок"],
+}
+
 CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
     "AIDD:NON_NEGOTIABLES",
@@ -136,6 +141,7 @@ TEMPLATE_ANCHORS = {
         "AIDD:TEST_EXECUTION",
         "AIDD:ITERATIONS_FULL",
         "AIDD:NEXT_3",
+        "AIDD:OUT_OF_SCOPE_BACKLOG",
         "AIDD:HANDOFF_INBOX",
         "AIDD:QA_TRACEABILITY",
         "AIDD:CHECKLIST",
@@ -440,6 +446,7 @@ def validate_prompt(info: PromptFile) -> List[str]:
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
     errors.extend(validate_required_write_tools(info))
+    errors.extend(validate_loop_discipline(info))
 
     return errors
 
@@ -494,6 +501,22 @@ def validate_required_write_tools(info: PromptFile) -> List[str]:
     missing = [name for name in ("Read", "Write", "Edit") if name not in tools]
     if missing:
         return [f"{info.path}: missing required tools {missing}"]
+    return []
+
+
+def validate_loop_discipline(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in LOOP_DISCIPLINE_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    body_lower = info.body.lower()
+    missing = [hint for hint in required if hint not in body_lower]
+    if missing:
+        return [f"{info.path}: missing loop discipline markers {missing}"]
     return []
 
 

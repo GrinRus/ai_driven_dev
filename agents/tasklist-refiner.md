@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.11
-source_version: 1.1.11
+prompt_version: 1.1.12
+source_version: 1.1.12
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -12,6 +12,8 @@ permissionMode: default
 ## Контекст
 Ты уточняешь tasklist до состояния “implementer не думает, что делать”.
 Любые вопросы/доп. сведения собираются через `/feature-dev-aidd:spec-interview`, а tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
+
+Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE_BACKLOG`.
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/tasklist.md`
@@ -55,7 +57,7 @@ permissionMode: default
 1. Прочитай plan/PRD/research/spec и текущий tasklist.
 2. Обнови `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY` и `AIDD:TEST_EXECUTION` краткими выводами из spec/plan.
 3. Убедись, что секции `AIDD:QA_TRACEABILITY` и `AIDD:CHECKLIST_*` присутствуют (если нет — вставь из шаблона).
-4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks.
+4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Expected paths/Size budget/Skills/Exit criteria/Steps/Tests/Dependencies/Risks.
 5. Сформируй `AIDD:NEXT_3` как pointer list open work items (итерации + handoff):
    - NEXT_3 содержит только короткие строки с `ref: iteration_id=...` или `ref: id=...`;
    - сортировка: Blocking=true → Priority → kind → tie‑breaker (plan order/id);
@@ -64,14 +66,19 @@ permissionMode: default
    - отметь `Status: BLOCKED` в tasklist front‑matter;
    - зафиксируй недостающие сведения в `AIDD:CONTEXT_PACK → Open questions / blockers`;
    - в ответе потребуй повторный `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new` для синхронизации.
-7. Обнови `AIDD:HANDOFF_INBOX` только если есть новые handoff‑задачи (не перезаписывай существующие; manual‑блок не трогай).
+7. Обнови `AIDD:OUT_OF_SCOPE_BACKLOG`, если в ходе синтеза появились новые работы вне текущих итераций.
+8. Обнови `AIDD:HANDOFF_INBOX` только если есть новые handoff‑задачи (не перезаписывай существующие; manual‑блок не трогай).
 
 ## Правила детализации (обязательны)
 - Никаких “обобщённых” чекбоксов. Каждая задача должна быть исполнимой без догадок.
 - DoD = конкретная проверка результата (что считать готовым).
 - Boundaries = список файлов/папок/модулей и явные запреты.
+- Expected paths = список путей для loop_pack boundaries (1 work_item = 1 набор путей).
+- Size budget = max_files/max_loc для одной итерации.
+- Skills = список skill_id (команды тестов/формата/запуска).
+- Exit criteria = 2–5 буллетов “как понять, что итерация готова”.
 - Tests = профиль + команды/фильтры (или `profile: none` для чистой документации).
-- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Steps/Tests/Dependencies/Risks).
+- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Expected paths/Size budget/Skills/Exit criteria/Steps/Tests/Dependencies/Risks).
 - Если добавляешь итерацию вне плана — укажи `parent_iteration_id` или заведи handoff “update plan” (manual‑блок).
 - Соблюдай budgets: TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк.
 - Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/feature-dev-aidd:spec-interview`.

@@ -22,6 +22,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
+- Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
 - Architecture Profile + Skills как канон архитектурных ограничений и команд тестов/формата/запуска.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
@@ -86,6 +87,11 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` |
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
 | `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
+| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до SHIP |
 | `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
@@ -126,6 +132,26 @@ RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (или `.pack.toon`).
 - Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - Бюджет `*-context.pack.*`: `config/conventions.json` → `reports.research_pack_budget` (по умолчанию `max_chars=2000`, `max_lines=120`).
+
+## Loop mode (implement↔review)
+
+Loop = 1 work_item → implement → review → (revise)* → ship.
+
+Ключевые артефакты:
+- `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md` — тонкий контекст итерации.
+- `aidd/reports/loops/<ticket>/review.latest.pack.md` — краткий feedback с verdict.
+
+Команды:
+- Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
+- Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
+- One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
+- Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
+
+Правила:
+- Loop pack first, без больших вставок логов/диффов (ссылки на `aidd/reports/**`).
+- Review не расширяет scope: новое → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
+- Allowed paths берутся из `Expected paths` итерации (`AIDD:ITERATIONS_FULL`).
+- Loop-mode тесты: implement не запускает тесты по умолчанию; нужен `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`. Review тесты не запускает.
 
 ## Предпосылки
 - `bash`, `git`, `python3`.

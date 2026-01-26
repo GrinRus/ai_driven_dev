@@ -13,3 +13,4 @@ dist/
 .vscode/
 /.claude/
 /aidd/
+aidd/docs/.active_*

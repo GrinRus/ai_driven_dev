@@ -97,6 +97,19 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
             print(f"[aidd:init] copied {len(copied_root)} root files into {workspace_root}")
         else:
             print(f"[aidd:init] no changes in root templates for {workspace_root}")
+
+    loops_readme = project_root / "docs" / "loops" / "README.md"
+    if not loops_readme.exists():
+        template_readme = templates_root / "docs" / "loops" / "README.md"
+        loops_readme.parent.mkdir(parents=True, exist_ok=True)
+        if template_readme.exists():
+            shutil.copy2(template_readme, loops_readme)
+        else:
+            loops_readme.write_text("# Loop Mode\n", encoding="utf-8")
+        print(f"[aidd:init] ensured loop docs at {loops_readme}")
+
+    loops_reports = project_root / "reports" / "loops"
+    loops_reports.mkdir(parents=True, exist_ok=True)
     if detect_build_tools:
         _write_test_settings(workspace_root, force=force)
     if detect_stack:

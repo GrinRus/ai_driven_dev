@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-01-20._
+_Last sync with `README.md`: 2026-02-05._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -29,6 +29,7 @@ Key features:
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Auto-formatting and selective tests during the `implement` stage.
+- Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
 - Architecture Profile + Skills as the canonical source for boundaries and test/format/run commands.
 - Unified `AIDD:ANSWERS` format plus Q identifiers in `AIDD:OPEN_QUESTIONS` (the plan references `PRD QN` without duplication).
 - Branch and commit conventions via `aidd/config/conventions.json`.
@@ -99,6 +100,11 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` |
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
 | `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
+| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until SHIP |
 | `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
@@ -138,6 +144,26 @@ RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (or `.pack.toon`).
 - Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - `*-context.pack.*` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
+
+## Loop mode (implement↔review)
+
+Loop = 1 work_item → implement → review → (revise)* → ship.
+
+Key artifacts:
+- `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md` — thin iteration context.
+- `aidd/reports/loops/<ticket>/review.latest.pack.md` — short feedback with verdict.
+
+Commands:
+- Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
+- Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
+- One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
+- Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
+
+Rules:
+- Loop pack first, no large log/diff pastes (use `aidd/reports/**` links).
+- Review does not expand scope: new work → `AIDD:OUT_OF_SCOPE_BACKLOG` or new work item.
+- Allowed paths come from `Expected paths` per iteration (`AIDD:ITERATIONS_FULL`).
+- Loop-mode tests: implement does not run tests by default; set `AIDD_LOOP_TESTS=1` or `AIDD_TEST_FORCE=1`. Review skips tests.
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

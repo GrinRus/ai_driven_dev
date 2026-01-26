@@ -2279,7 +2279,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
 
 _Статус: новый, приоритет 2. Цель — “Ralph loop mode” для implement↔review: loop pack + scope guard + уменьшение читаемого контекста._
 
-- [ ] W83-1 `templates/aidd/docs/loops/README.md`, `templates/aidd/reports/loops/.gitkeep`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/{implement,review,tasklist}.md`, `templates/aidd/AGENTS.md`, `tools/init.sh`, `tools/init.py`: ввести канонический Loop Mode (без runtime‑логики):
+- [x] W83-1 `templates/aidd/docs/loops/README.md`, `templates/aidd/reports/loops/.gitkeep`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/{implement,review,tasklist}.md`, `templates/aidd/AGENTS.md`, `tools/init.sh`, `tools/init.py`: ввести канонический Loop Mode (без runtime‑логики):
   - добавить `templates/aidd/docs/loops/README.md` с протоколом: “loop = 1 work_item → implement → review → (revise)* → ship” + правила “fresh context / no big paste / ссылки на reports”;
   - правило: review не инициирует новый scope; всё новое → `AIDD:OUT_OF_SCOPE_BACKLOG`/новый work_item;
   - добавить `templates/aidd/reports/loops/.gitkeep` (директория должна появиться после `/aidd-init`);
@@ -2289,7 +2289,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** после `/aidd-init` есть `aidd/docs/loops/README.md` и `aidd/reports/loops/`; tasklist шаблон содержит `AIDD:OUT_OF_SCOPE_BACKLOG`; anchors явно упоминают loop‑режим и запрещают scope creep.
   **Deps:** W82-1, W82-2, W82-3
 
-- [ ] W83-2 `tools/loop-pack.sh`, `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`, `tests/test_loop_pack.py`, `tests/fixtures/loop_pack/**`: генерация “Loop Pack” (тонкий входной контекст на один work_item):
+- [x] W83-2 `tools/loop-pack.sh`, `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`, `tests/test_loop_pack.py`, `tests/fixtures/loop_pack/**`: генерация “Loop Pack” (тонкий входной контекст на один work_item):
   - `tools/loop-pack.sh` — entrypoint; `tools/loop_pack.py` — реализация (без дубля логики);
   - вход: `aidd/docs/tasklist/<ticket>.md`, `aidd/docs/architecture/profile.md`, `aidd/skills/index.yaml` + `aidd/skills/**/SKILL.md`;
   - выбор work_item:
@@ -2308,7 +2308,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** stage=implement использует `.active_work_item` только если `.active_ticket` совпадает (иначе пишет новый), stage=review валидирует `.active_ticket` и использует `.active_work_item` только при совпадении (иначе fallback/BLOCKED); имена файлов fs‑safe; pack содержит `schema` и `updated_at`; `--format json` стабилен для unit‑tests; генерация не требует чтения plan/PRD/research.
   **Deps:** W83-1, W82-1, W82-2, W82-5
 
-- [ ] W83-3 `commands/implement.md`, `agents/implementer.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: loop-pack first на implement:
+- [x] W83-3 `commands/implement.md`, `agents/implementer.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: loop-pack first на implement:
   - в `commands/implement.md` сначала выставить `aidd/docs/.active_stage=implement`, затем вызвать `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage implement` (loop-pack выставляет `.active_ticket`/`.active_work_item`) + allowlist tool;
   - Context Pack `aidd/reports/context/$1.implement.pack.md`: добавить `arch_profile` и `loop_pack` в Paths;
   - Context Pack: добавить `review_pack: aidd/reports/loops/$1/review.latest.pack.md` (if exists);
@@ -2320,7 +2320,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **Tests:** lint‑prompts требует loop_pack‑first.
   **Deps:** W83-2, W82-5
 
-- [ ] W83-4 `tools/review-pack.sh`, `tools/review_pack.py`, `commands/review.md`, `agents/reviewer.md`, `templates/aidd/docs/anchors/review.md`, `tests/test_review_pack.py`: тонкий feedback от review:
+- [x] W83-4 `tools/review-pack.sh`, `tools/review_pack.py`, `commands/review.md`, `agents/reviewer.md`, `templates/aidd/docs/anchors/review.md`, `tests/test_review_pack.py`: тонкий feedback от review:
   - `tools/review-pack.sh` entrypoint + `tools/review_pack.py` реализация;
   - вход: `aidd/reports/reviewer/<ticket>.json`; выход: `aidd/reports/loops/<ticket>/review.latest.pack.md` (≤ 120 строк);
   - содержимое pack: `verdict: SHIP|REVISE`, top findings (id/severity/1‑line requirement), next_actions (≤ 5), ссылки на handoff ids + reviewer report json;
@@ -2329,7 +2329,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** `/feature-dev-aidd:review` всегда создаёт `review.latest.pack.md` ≤ 120 строк; следующий implement может опираться на review_pack вместо длинного контекста.
   **Deps:** W83-2, W82-5
 
-- [ ] W83-5 `tools/diff-boundary-check.sh`, `tools/diff_boundary_check.py`, `commands/implement.md`, `commands/review.md`, `tests/test_diff_boundary_check.py`: scope guard против раздувания diff:
+- [x] W83-5 `tools/diff-boundary-check.sh`, `tools/diff_boundary_check.py`, `commands/implement.md`, `commands/review.md`, `tests/test_diff_boundary_check.py`: scope guard против раздувания diff:
   - input: `--ticket` (default: resolve loop_pack via `.active_work_item`) или `--loop-pack <path>`;
   - инструмент читает allowed/forbidden paths из loop_pack front‑matter (или `--allowed path1,path2`), сравнивает с `git diff --name-only` + `git diff --cached --name-only`, игнорирует `aidd/**` и сервисные пути;
   - non‑zero exit + список нарушений (стабильный вывод для CI);
@@ -2340,7 +2340,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** выход за allowed_paths блокирует команду и печатает список файлов; scope creep перестаёт проходить “по-тихому”.
   **Deps:** W83-2, W83-3, W83-4
 
-- [ ] W83-6 `agents/tasklist-refiner.md`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`: микро‑итерации, пригодные для loop‑pack:
+- [x] W83-6 `agents/tasklist-refiner.md`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`: микро‑итерации, пригодные для loop‑pack:
   - в `AIDD:ITERATIONS_FULL` добавить поля с фиксированным форматом:
     - `Expected paths:` список строк `- path/**`
     - `Size budget:` `max_files: N`, `max_loc: N`
@@ -2351,7 +2351,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** новый tasklist после `/tasks-new` содержит Expected paths/Size budget/Skills/Exit criteria для каждой итерации; loop-pack строится из tasklist без чтения plan/prd.
   **Deps:** W82-2, W83-1
 
-- [ ] W83-7 `templates/aidd/docs/anchors/{implement,review}.md`, `agents/{implementer,reviewer}.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: минимальные патчи для “Ralph loop дисциплины”:
+- [x] W83-7 `templates/aidd/docs/anchors/{implement,review}.md`, `agents/{implementer,reviewer}.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/lint-prompts.py`: минимальные патчи для “Ralph loop дисциплины”:
   - общий блок “Loop discipline” (патчи A/B) в anchors + implementer/reviewer agents;
   - порядок чтения: loop_pack → skills → tasklist snippet/код; PRD/Plan/Research только по pointer в pack;
   - output budget: ≤ 10 bullets внутри findings/next actions; контрактные поля ответа сохраняются; без логов/стектрейсов/диффов (только ссылки на `aidd/reports/**`);
@@ -2360,7 +2360,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** anchors/agents содержат одинаковые loop‑блоки; lint‑prompts валидирует loop‑discipline.
   **Deps:** W83-2, W83-3, W83-4
 
-- [ ] W83-8 `tests/repo_tools/loop-regression.sh`, `tests/repo_tools/ci-lint.sh`, `README.md`, `README.en.md`, `CHANGELOG.md`: регресс‑контроль и документация loop‑режима:
+- [x] W83-8 `tests/repo_tools/loop-regression.sh`, `tests/repo_tools/ci-lint.sh`, `README.md`, `README.en.md`, `CHANGELOG.md`: регресс‑контроль и документация loop‑режима:
   - checks: implement/review commands вызывают `loop-pack.sh`; review command вызывает `review-pack.sh`; anchors implement/review содержат loop‑protocol; loop pack schema = `aidd.loop_pack.v1`;
   - checks: stage=implement создаёт `.active_work_item`; review вызывает `loop-pack --stage review` до subagent;
   - loop-regression: базовые checks (loop-pack/review-pack + anchors); расширение loop-step/loop-run — в W83-12.
@@ -2368,7 +2368,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** CI падает без loop‑pack/review‑pack и проходит на новой версии; docs описывают новый режим.
   **Deps:** W83-3, W83-4, W83-5, W83-7
 
-- [ ] W83-9 `hooks/format-and-test.sh`, `tests/test_hook_loop_mode.py`, `README.md`, `.gitignore`: loop‑режим без автотестов (Ralph loop):
+- [x] W83-9 `hooks/format-and-test.sh`, `tests/test_hook_loop_mode.py`, `README.md`, `.gitignore`: loop‑режим без автотестов (Ralph loop):
   - stage-aware: если `aidd/docs/.active_stage = review` и diff пустой/только service → SKIP; иначе normal mode (warn+run);
   - loop‑mode (`aidd/docs/.active_mode = loop`) на stage=implement: **не запускать тесты по умолчанию**, даже если есть policy; форматирование можно оставить;
   - тесты запускаются только при явном override (например `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`); при запуске — `mkdir -p aidd/reports/tests`, полный stdout/stderr → `aidd/reports/tests/<ticket>.<ts>.log`, в чат — только summary + ссылка;
@@ -2380,7 +2380,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** цикл `implement → review → implement → review` не запускает тесты на review и не запускает тесты в loop‑mode без explicit override; implement не спамит логами; тесты не запускаются при пустом diff.
   **Deps:** W83-3, W83-4
 
-- [ ] W83-10 `tools/review-pack.sh`, `tools/review_pack.py`, `tests/test_review_pack.py`, `templates/aidd/docs/loops/README.md`: сделать Review Pack машинно‑читаемым:
+- [x] W83-10 `tools/review-pack.sh`, `tools/review_pack.py`, `tests/test_review_pack.py`, `templates/aidd/docs/loops/README.md`: сделать Review Pack машинно‑читаемым:
   - `review.latest.pack.md` получает front‑matter: `schema: aidd.review_pack.v1`, `updated_at`, `ticket`, `work_item_id`, `work_item_key`, `verdict: SHIP|REVISE|BLOCKED`;
   - источник work_item: читать текущий loop_pack (resolved via `.active_work_item`), иначе оставлять пустым и фиксировать WARN;
   - `tools/review-pack.sh --format json|yaml` → stdout = structured output (verdict/paths/ids/next_actions), summary → stderr;
@@ -2388,7 +2388,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** `review.latest.pack.md` всегда содержит `schema` и `verdict` в front‑matter; `--format json` стабилен и проходит unit‑test; markdown pack остаётся ≤ 120 строк.
   **Deps:** W83-4, W83-1
 
-- [ ] W83-11 `tools/loop-step.sh`, `tools/loop_step.py`, `tests/test_loop_step.py`, `tests/fixtures/loop_step/**`: “Loop Step” для bash‑цикла (fresh session):
+- [x] W83-11 `tools/loop-step.sh`, `tools/loop_step.py`, `tests/test_loop_step.py`, `tests/fixtures/loop_step/**`: “Loop Step” для bash‑цикла (fresh session):
   - step selection:
     - если `.active_stage` отсутствует → execute implement;
     - если `.active_stage == implement` → execute review;
@@ -2401,7 +2401,7 @@ _Статус: новый, приоритет 2. Цель — “Ralph loop mode
   **AC:** `loop-step --ticket T` чередует implement/review, возвращает 0 только при SHIP; structured output стабилен; unit‑tests со stub runner проверяют exit codes/sequence.
   **Deps:** W83-3, W83-4, W83-9, W83-10
 
-- [ ] W83-12 `tools/loop-run.sh`, `tools/loop_run.py`, `tests/test_loop_run.py`, `README.md`, `README.en.md`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/loop-regression.sh`: “Loop Run” (крутить до SHIP):
+- [x] W83-12 `tools/loop-run.sh`, `tools/loop_run.py`, `tests/test_loop_run.py`, `README.md`, `README.en.md`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/loop-regression.sh`: “Loop Run” (крутить до SHIP):
   - `loop-run` вызывает `loop-step` в цикле; флаги: `--ticket`, `--max-iterations`, `--sleep-seconds`, `--runner`;
   - пишет прогресс в `aidd/reports/loops/<ticket>/loop.run.log`;
   - при SHIP очищает `aidd/docs/.active_stage`, `aidd/docs/.active_work_item`, `aidd/docs/.active_mode`, `aidd/docs/.active_ticket`;

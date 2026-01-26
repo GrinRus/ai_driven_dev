@@ -521,13 +521,14 @@ def test_summary_log_written(tmp_path):
         },
     )
     write_active_stage(project, "implement")
+    write_active_feature(project, "fmt-1")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
     run_hook(project, settings, env={"AIDD_TEST_LOG": "summary"})
 
-    log_dir = project / ".cache" / "logs"
-    logs = sorted(log_dir.glob("format-and-test.*.log"))
+    log_dir = project / "reports" / "tests"
+    logs = sorted(log_dir.glob("fmt-1.*.log"))
     assert logs, "expected summary log file to be created"
     assert "default_task" in logs[-1].read_text(encoding="utf-8")
 
