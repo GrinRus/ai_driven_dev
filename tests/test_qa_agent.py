@@ -77,7 +77,7 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "fail")
+        self.assertEqual(payload["status"], "BLOCKED")
         self.assertGreaterEqual(payload["counts"]["blocker"], 1)
         self.assertTrue(all(finding.get("id") for finding in payload["findings"]))
         self.assertTrue(all("blocking" in finding for finding in payload["findings"]))
@@ -88,7 +88,7 @@ class QaAgentTests(unittest.TestCase):
 
         report_path = self.project_root / "reports" / "qa" / "demo.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps({"status": "pass"}), encoding="utf-8")
+        report_path.write_text(json.dumps({"status": "READY"}), encoding="utf-8")
 
         result = self.run_agent(
             "--emit-json",
@@ -128,7 +128,7 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "warn")
+        self.assertEqual(payload["status"], "WARN")
         self.assertGreaterEqual(payload["counts"].get("major", 0), 1)
         self.assertTrue(
             any(
@@ -277,3 +277,33 @@ Updated: 2024-01-02
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertTrue((self.project_root / "reports/qa/demo.json").is_file())
+
+    def test_manual_qa_items_set_warn(self):
+        write_active_feature(self.project_root, "manual-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/manual-qa.md",
+            "- [ ] QA: manual regression checklist\n",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        self.assertTrue(payload.get("manual_required"))
+        self.assertIn("manual", payload["manual_required"][0].lower())
+
+    def test_dedupes_findings_by_id(self):
+        write_active_feature(self.project_root, "dup-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/dup-qa.md",
+            "- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(len(payload["findings"]), 1)

@@ -9,6 +9,31 @@ from typing import Any, Dict, List, Optional
 
 from tools import runtime
 
+_STATUS_ALIASES = {
+    "ready": "READY",
+    "pass": "READY",
+    "ok": "READY",
+    "ship": "READY",
+    "warn": "WARN",
+    "warning": "WARN",
+    "needs_fixes": "WARN",
+    "needs-fixes": "WARN",
+    "needs fixes": "WARN",
+    "revise": "WARN",
+    "blocked": "BLOCKED",
+    "fail": "BLOCKED",
+    "error": "BLOCKED",
+    "blocker": "BLOCKED",
+}
+
+
+def _normalize_status(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    normalized = _STATUS_ALIASES.get(raw, raw)
+    return str(normalized).strip().upper()
+
 
 def _inflate_columnar(section: object) -> List[Dict]:
     if not isinstance(section, dict):
@@ -73,7 +98,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--status",
-        help="Review status label to store (ready|warn|blocked).",
+        help="Review status label to store (READY|WARN|BLOCKED).",
     )
     parser.add_argument(
         "--summary",
@@ -216,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         record["branch"] = branch
     record.setdefault("generated_at", now)
     if args.status:
-        record["status"] = str(args.status).strip().lower()
+        record["status"] = _normalize_status(args.status)
     if args.summary:
         record["summary"] = str(args.summary).strip()
     if new_findings:

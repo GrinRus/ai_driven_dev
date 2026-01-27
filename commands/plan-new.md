@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.9
-source_version: 1.1.9
+prompt_version: 1.1.10
+source_version: 1.1.10
 allowed-tools:
   - Read
   - Edit
@@ -48,45 +48,21 @@ disable-model-invocation: false
 - `aidd/docs/plan/$1.md` — основной результат.
 
 ## Context Pack (шаблон)
-Файлы:
-- `aidd/reports/context/$1.planner.pack.md`
-- `aidd/reports/context/$1.validator.pack.md`
-
-```md
-# AIDD Context Pack — plan/<agent>
-ticket: $1
-stage: plan
-agent: feature-dev-aidd:<planner|validator>
-generated_at: <UTC ISO-8601>
-
-## Paths
-- prd: aidd/docs/prd/$1.prd.md
-- arch_profile: aidd/docs/architecture/profile.md
-- research: aidd/docs/research/$1.md
-- plan: aidd/docs/plan/$1.md
-- tasklist: aidd/docs/tasklist/$1.md (if exists)
-- spec: aidd/docs/spec/$1.spec.yaml (if exists)
-- test_policy: aidd/.cache/test-policy.env (if exists)
-
-## What to do now
-- planner: draft macro‑plan with iteration_id; validator: validate executability.
-
-## User note
-- $ARGUMENTS
-
-## Git snapshot (optional)
-- branch: <git rev-parse --abbrev-ref HEAD>
-- diffstat: <git diff --stat>
-```
+- Шаблон: `aidd/reports/context/template.context-pack.md`.
+- Файл planner: `aidd/reports/context/$1.planner.pack.md`.
+- Файл validator: `aidd/reports/context/$1.validator.pack.md`.
+- Paths: prd, arch_profile, research, plan, tasklist/spec/test_policy (if exists).
+- What to do now: planner drafts macro-plan with iteration_id; validator validates executability.
+- User note: $ARGUMENTS.
 - При необходимости синхронизируй открытые вопросы/риски с PRD.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): проверь, что PRD `Status: READY`; затем запусти `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1` и остановись при ошибке.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.planner.pack.md` по шаблону W79-10.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.planner.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 4. Команда → subagent: **Use the feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.planner.pack.md`.**
 5. Subagent (planner): обновляет план, учитывает `AIDD:ANSWERS`, закрывает вопросы в `AIDD:DECISIONS`.
-6. Команда (до subagent validator): собери Context Pack `aidd/reports/context/$1.validator.pack.md` по шаблону W79-10.
+6. Команда (до subagent validator): собери Context Pack `aidd/reports/context/$1.validator.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 7. Команда → subagent: **Use the feature-dev-aidd:validator subagent. First action: Read `aidd/reports/context/$1.validator.pack.md`.**
 8. Subagent (validator): проверяет исполняемость, возвращает `READY|BLOCKED`.
 

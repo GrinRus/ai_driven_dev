@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STATUS=0
+TICKET_LITERAL="\$1"
+TICKET_REGEX="\\\$1"
 
 log() { printf '[info] %s\n' "$*"; }
 err() { printf '[error] %s\n' "$*" >&2; STATUS=1; }
@@ -40,10 +42,11 @@ PY
 cd "$ROOT_DIR"
 
 log "checking loop-pack wiring in commands"
-require_rg "loop-pack.sh --ticket \\\$1 --stage implement" "commands/implement.md"
-require_rg "loop-pack.sh --ticket \\\$1 --stage review" "commands/review.md"
-require_rg "review-pack.sh --ticket \\\$1" "commands/review.md"
-check_order "commands/review.md" "loop-pack.sh --ticket \$1 --stage review" "Use the feature-dev-aidd:reviewer subagent"
+require_rg "loop-pack.sh --ticket ${TICKET_REGEX} --stage implement" "commands/implement.md"
+require_rg "aidd/reports/loops/${TICKET_REGEX}/<work_item_key>\\.loop\\.pack\\.md" "commands/implement.md"
+require_rg "loop-pack.sh --ticket ${TICKET_REGEX} --stage review" "commands/review.md"
+require_rg "review-pack.sh --ticket ${TICKET_REGEX}" "commands/review.md"
+check_order "commands/review.md" "loop-pack.sh --ticket ${TICKET_LITERAL} --stage review" "Use the feature-dev-aidd:reviewer subagent"
 
 log "checking loop protocol anchors"
 require_rg "Loop discipline" "templates/aidd/docs/anchors/implement.md"

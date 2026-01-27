@@ -244,7 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     updated_at = _utc_timestamp()
     work_item_id, work_item_key = load_loop_pack_meta(target, ticket)
     if not work_item_id or not work_item_key:
-        print("[review-pack] warning: loop pack metadata not found", file=sys.stderr)
+        raise FileNotFoundError(
+            "loop pack metadata not found (run loop-pack and ensure .active_work_item is set)"
+        )
 
     handoff_ids: List[str] = []
     for entry in findings:

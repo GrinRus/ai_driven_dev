@@ -144,8 +144,13 @@ def build_agent(name: str) -> str:
 
 def build_command(description: str = "test command") -> str:
     verify_step = ""
+    context_pack_hint = ""
     if description in {"implement", "review", "qa"}:
         verify_step = "\n        2. verify results.\n"
+    if description == "review":
+        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.review.pack.md\n"
+    elif description == "qa":
+        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.qa.pack.md\n"
     return dedent(
         f"""
         ---
@@ -160,7 +165,7 @@ def build_command(description: str = "test command") -> str:
         ---
 
         ## Контекст
-        Text.
+        Text.{context_pack_hint}
 
         ## Входные артефакты
         - item

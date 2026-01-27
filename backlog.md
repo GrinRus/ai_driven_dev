@@ -2493,3 +2493,56 @@ _Статус: новый, приоритет 2. Цель — убрать AIDD 
   - без него implementer вынужден читать plan/PRD, что ломает “fresh context”.
   **AC:** loop pack содержит обязательный excerpt и ссылки на DoD/AC.
   **Deps:** W83-2
+
+## Wave 85
+
+_Статус: новый, приоритет 1. Цель — закрыть проблемы AIDD Flow Audit (TST-001): RLM evidence, loop pack дисциплина, review/qa консистентность, tasklist/spec policy._
+
+- [x] W85-1 `tools/research.sh`, `tools/rlm-finalize.sh`, `tools/rlm-verify.sh`, `commands/researcher.md`, `agents/researcher.md`, `templates/aidd/docs/anchors/research.md`, `tests/test_research_check.py`, `tests/test_research_rlm_e2e.py`: гарантировать полный RLM evidence перед `Status: reviewed`:
+  - `rlm_status=ready` допустим только если существуют `*-rlm.pack.*`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`;
+  - при отсутствии полного пакета команда researcher должна ставить `BLOCKED` и требовать `rlm-finalize`;
+  - в prompt команды/агента явно зафиксировать обязательный вызов `rlm-finalize.sh --ticket $1` при `rlm_status=pending` (после subagent), иначе `BLOCKED`;
+  - `research-check` блокирует переходы, если status ready без пакета/links/nodes.
+  **AC:** RLM pack/nodes/links всегда присутствуют при `Status: reviewed`; без них researcher возвращает BLOCKED.
+  **Deps:** -
+
+- [x] W85-2 `commands/review.md`, `commands/qa.md`, `tests/test_context_pack.py`, `tests/repo_tools/lint-prompts.py`: обеспечить обязательное создание context pack для review/qa:
+  - review создаёт `aidd/reports/context/<ticket>.review.pack.md` до subagent;
+  - qa создаёт `aidd/reports/context/<ticket>.qa.pack.md` до subagent;
+  - при неуспешной записи pack → `Status: BLOCKED` + понятный error.
+  **AC:** review/qa всегда имеют соответствующий context pack; lint-проверка падает, если pack не указан в prompt.
+  **Deps:** W84-7
+
+- [x] W85-3 `tools/loop-pack.sh`, `tools/loop_pack.py`, `commands/implement.md`, `tests/test_loop_pack.py`, `tests/repo_tools/loop-regression.sh`: усилить loop-pack выбор и синхронизацию `.active_work_item`:
+  - implement всегда вызывает loop-pack и валидирует существование `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`;
+  - при смене итерации (NEXT_3) loop-pack должен обновлять `.active_work_item` и создавать pack для каждого work_item (I2/I3);
+  - при отсутствии pack → `Status: BLOCKED` + рекомендация rerun.
+  **AC:** на каждом implement итерации создаётся loop pack; `.active_work_item` соответствует последнему pack; регрессия ловит отсутствие pack.
+  **Deps:** W83-2, W83-8
+
+- [x] W85-4 `tools/review_report.py`, `tools/review_pack.py`, `tools/review-pack.sh`, `commands/review.md`, `tests/test_review_pack.py`: синхронизация review report и review pack:
+  - после `/feature-dev-aidd:review` пересобирается `review.latest.pack.md` из актуального `aidd/reports/reviewer/<ticket>.json`;
+  - повторный review перезаписывает pack с новым `updated_at` и verdict;
+  - pack должен ссылаться на текущий `work_item_key` из `.active_work_item`.
+  **AC:** review pack всегда отражает последний review report; verdict и findings совпадают с report.
+  **Deps:** W83-10
+
+- [x] W85-5 `tools/review_report.py`, `tools/qa.py`, `commands/review.md`, `commands/qa.md`, `tests/test_qa_agent.py`: нормализовать статусный словарь для review/qa:
+  - допустимые статусы только `READY|WARN|BLOCKED`;
+  - любые `PASS|NEEDS_FIXES|FAIL` должны мапиться на канон при записи отчётов;
+  - tasklist front‑matter и `AIDD:CONTEXT_PACK Status` синхронизируются с canonical status.
+  **AC:** reviewer/qa отчёты содержат только канонические статусы; tasklist и reports не расходятся.
+  **Deps:** -
+
+- [x] W85-6 `tools/qa.py`, `tools/qa.sh`, `tools/tasks-derive.sh`, `tests/test_qa_agent.py`, `tests/test_gate_qa.py`: QA report vs tasklist consistency:
+  - дедуплицировать findings по id;
+  - если QA чеклисты уже закрыты, report не должен оставаться `fail` из‑за stale checklist;
+  - при наличии manual-only проверок выставлять `WARN` + явный список “manual required”.
+  **AC:** QA report status детерминирован, без дублей; manual gaps дают WARN, не FAIL.
+  **Deps:** W85-5
+
+- [x] W85-7 `commands/tasks-new.md`, `agents/tasklist-refiner.md`, `tools/tasklist_check.py`, `templates/aidd/docs/anchors/tasklist.md`, `tests/test_tasklist_check.py`: enforce spec‑required policy для UI/UX изменений:
+  - если plan/PRD указывает UI/UX или front-end изменения и spec отсутствует — tasklist status = BLOCKED и требование `/feature-dev-aidd:spec-interview`;
+  - `tasklist-check` валидирует, что `AIDD:NEXT_3` не содержит `[x]` элементов.
+  **AC:** UI/UX задачи без spec блокируются; NEXT_3 всегда без закрытых чекбоксов.
+  **Deps:** W83-6, W84-2

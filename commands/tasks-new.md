@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.13
-source_version: 1.1.13
+prompt_version: 1.1.14
+source_version: 1.1.14
 allowed-tools:
   - Read
   - Edit
@@ -51,46 +51,23 @@ disable-model-invocation: false
 - `aidd/docs/tasklist/$1.md` — фронт-маттер + секции `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`.
 
 ## Context Pack (шаблон)
-Файл: `aidd/reports/context/$1.tasklist.pack.md`.
-
-```md
-# AIDD Context Pack — tasklist
-ticket: $1
-stage: tasklist
-agent: feature-dev-aidd:tasklist-refiner
-generated_at: <UTC ISO-8601>
-
-## Paths
-- plan: aidd/docs/plan/$1.md
-- tasklist: aidd/docs/tasklist/$1.md
-- prd: aidd/docs/prd/$1.prd.md
-- arch_profile: aidd/docs/architecture/profile.md
-- spec: aidd/docs/spec/$1.spec.yaml (if exists)
-- research: aidd/docs/research/$1.md
-- test_policy: aidd/.cache/test-policy.env (if exists)
-
-## What to do now
-- Refine AIDD:SPEC_PACK/TEST_* and produce executable NEXT_3.
-
-## User note
-- $ARGUMENTS
-
-## Git snapshot (optional)
-- branch: <git rev-parse --abbrev-ref HEAD>
-- diffstat: <git diff --stat>
-```
+- Шаблон: `aidd/reports/context/template.context-pack.md`.
+- Целевой файл: `aidd/reports/context/$1.tasklist.pack.md` (stage/agent/paths/what-to-do заполняются под tasklist).
+- Paths: plan, tasklist, prd, arch_profile, spec/research/test_policy (if exists).
+- What to do now: refine AIDD:SPEC_PACK/TEST_* and produce executable NEXT_3.
+- User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `tasklist` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh tasklist` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 3. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
-4. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону W79-10.
+4. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 5. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
 6. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/feature-dev-aidd:review-spec`.
-- Если есть UI/API/DATA/E2E изменения и spec отсутствует — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`.
+- Если есть UI/UX или front-end изменения (а также API/DATA/E2E) и spec отсутствует — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`.
 - Если непонятны владельцы/сроки — запроси уточнения.
 
 ## Ожидаемый вывод

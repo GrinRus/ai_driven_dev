@@ -23,7 +23,7 @@ class ReviewPackTests(unittest.TestCase):
             write_file(root, "reports/loops/DEMO-1/iteration_id=I1.loop.pack.md", loop_pack)
             report = {
                 "ticket": "DEMO-1",
-                "status": "ready",
+                "status": "READY",
                 "findings": [
                     {"id": "review:F1", "severity": "minor", "title": "Update tests"},
                 ],
@@ -52,7 +52,17 @@ class ReviewPackTests(unittest.TestCase):
     def test_review_pack_blocked_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            report = {"ticket": "DEMO-2", "status": "blocked", "findings": []}
+            write_file(root, "docs/.active_ticket", "DEMO-2")
+            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            loop_pack = (
+                "---\n"
+                "schema: aidd.loop_pack.v1\n"
+                "work_item_id: I2\n"
+                "work_item_key: iteration_id=I2\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-2/iteration_id=I2.loop.pack.md", loop_pack)
+            report = {"ticket": "DEMO-2", "status": "BLOCKED", "findings": []}
             write_file(root, "reports/reviewer/DEMO-2.json", json.dumps(report, indent=2))
 
             result = subprocess.run(

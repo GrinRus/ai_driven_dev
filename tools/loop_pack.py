@@ -32,6 +32,7 @@ class WorkItem:
     key_raw: str
     key_safe: str
     title: str
+    state: str
     goal: str
     expected_paths: Tuple[str, ...]
     commands: Tuple[str, ...]
@@ -188,6 +189,16 @@ def extract_title(block: List[str]) -> str:
     return title or body
 
 
+def extract_checkbox_state(block: List[str]) -> str:
+    if not block:
+        return "open"
+    match = CHECKBOX_RE.match(block[0])
+    if not match:
+        return "open"
+    state = match.group("state")
+    return "done" if state.lower() == "x" else "open"
+
+
 def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
     if not block:
         return tuple()
@@ -249,6 +260,7 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
         if not item_id:
             continue
         title = extract_title(block)
+        state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
         expected_paths = tuple(extract_list_field(block, "Expected paths"))
         commands = tuple(extract_list_field(block, "Commands"))
@@ -269,6 +281,7 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
                 key_raw=key_raw,
                 key_safe=sanitize_key(key_raw),
                 title=title,
+                state=state,
                 goal=goal or title,
                 expected_paths=expected_paths,
                 commands=commands,
@@ -293,6 +306,7 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
         if not item_id:
             continue
         title = extract_title(block)
+        state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
         key_prefix = "id"
         key_raw = f"{key_prefix}={item_id}"
@@ -304,6 +318,7 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
                 key_raw=key_raw,
                 key_safe=sanitize_key(key_raw),
                 title=title,
+                state=state,
                 goal=goal or title,
                 expected_paths=tuple(),
                 commands=tuple(),
@@ -376,10 +391,22 @@ def find_work_item(items: Iterable[WorkItem], key_safe: str) -> Optional[WorkIte
     return None
 
 
+def is_open_item(item: WorkItem) -> bool:
+    return item.state != "done"
+
+
 def select_first_matching(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]) -> Optional[WorkItem]:
     for ref in refs:
         candidate = find_work_item(items, ref.key_safe)
         if candidate:
+            return candidate
+    return None
+
+
+def select_first_open(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]) -> Optional[WorkItem]:
+    for ref in refs:
+        candidate = find_work_item(items, ref.key_safe)
+        if candidate and is_open_item(candidate):
             return candidate
     return None
 
@@ -503,6 +530,36 @@ def build_pack(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def write_pack_for_item(
+    *,
+    root: Path,
+    output_dir: Path,
+    ticket: str,
+    work_item: WorkItem,
+    arch_profile: str,
+) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str]:
+    boundaries = {
+        "allowed_paths": list(work_item.expected_paths),
+        "forbidden_paths": [],
+    }
+    commands_required = list(work_item.commands)
+    tests_required = list(work_item.tests_required)
+    updated_at = ""
+    pack_text = build_pack(
+        ticket=ticket,
+        work_item=work_item,
+        boundaries=boundaries,
+        commands_required=commands_required,
+        tests_required=tests_required,
+        arch_profile=arch_profile,
+        updated_at=updated_at,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pack_path = output_dir / f"{work_item.key_safe}.loop.pack.md"
+    pack_path.write_text(pack_text, encoding="utf-8")
+    return pack_path, boundaries, commands_required, tests_required, updated_at
+
+
 def dump_yaml(data: object, indent: int = 0) -> List[str]:
     lines: List[str] = []
     prefix = " " * indent
@@ -591,11 +648,14 @@ def main(argv: list[str] | None = None) -> int:
         if active_ticket == ticket and active_work_item and not args.pick_next:
             selected_item = find_work_item(all_items, active_work_item)
             if selected_item:
-                selection_reason = "active"
+                if is_open_item(selected_item):
+                    selection_reason = "active"
+                else:
+                    selected_item = None
         if not selected_item:
             next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
             if next3_refs:
-                selected_item = select_first_matching(next3_refs, all_items)
+                selected_item = select_first_open(next3_refs, all_items)
                 if selected_item:
                     selection_reason = "next3"
     else:
@@ -638,29 +698,45 @@ def main(argv: list[str] | None = None) -> int:
     arch_profile_path = target / "docs" / "architecture" / "profile.md"
     arch_profile = runtime.rel_path(arch_profile_path, target)
 
-    boundaries = {
-        "allowed_paths": list(selected_item.expected_paths),
-        "forbidden_paths": [],
-    }
-    commands_required = list(selected_item.commands)
-    tests_required = list(selected_item.tests_required)
-
-    updated_at = _utc_timestamp()
-    pack_text = build_pack(
-        ticket=ticket,
-        work_item=selected_item,
-        boundaries=boundaries,
-        commands_required=commands_required,
-        tests_required=tests_required,
-        arch_profile=arch_profile,
-        updated_at=updated_at,
-    )
-
     output_dir = target / "reports" / "loops" / ticket
-    output_dir.mkdir(parents=True, exist_ok=True)
-    pack_path = output_dir / f"{selected_item.key_safe}.loop.pack.md"
-    pack_path.write_text(pack_text, encoding="utf-8")
-    rel_path = runtime.rel_path(pack_path, target)
+
+    prewarm_items: List[WorkItem] = []
+    if args.stage == "implement":
+        next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
+        if next3_refs:
+            for ref in next3_refs:
+                candidate = find_work_item(all_items, ref.key_safe)
+                if candidate and is_open_item(candidate):
+                    prewarm_items.append(candidate)
+    prewarm_map: Dict[str, WorkItem] = {selected_item.key_safe: selected_item}
+    for item in prewarm_items:
+        prewarm_map.setdefault(item.key_safe, item)
+
+    selected_pack_path = None
+    boundaries: Dict[str, List[str]] = {}
+    commands_required: List[str] = []
+    tests_required: List[str] = []
+    updated_at = _utc_timestamp()
+
+    for item in prewarm_map.values():
+        pack_path, item_boundaries, item_commands, item_tests, item_updated_at = write_pack_for_item(
+            root=target,
+            output_dir=output_dir,
+            ticket=ticket,
+            work_item=item,
+            arch_profile=arch_profile,
+        )
+        if item.key_safe == selected_item.key_safe:
+            selected_pack_path = pack_path
+            boundaries = item_boundaries
+            commands_required = item_commands
+            tests_required = item_tests
+            updated_at = item_updated_at
+
+    if selected_pack_path is None:
+        raise ValueError("failed to generate loop pack for selected work item")
+
+    rel_path = runtime.rel_path(selected_pack_path, target)
 
     payload = {
         "schema": "aidd.loop_pack.v1",

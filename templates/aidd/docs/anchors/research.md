@@ -3,7 +3,7 @@
 ## Goals
 - Собрать подтверждённые integration points, reuse, risks, test hooks.
 - Обновить research report и дать handoff в tasklist.
-- Status reviewed — только при воспроизводимом сборе (commands + paths).
+- Status reviewed — только при воспроизводимом сборе (commands + paths) и готовом RLM pack/nodes/links (если RLM требуется).
 
 ## Context precedence & safety
 - Приоритет (высший → низший): инструкции команды/агента → правила anchor → Architecture Profile (`aidd/docs/architecture/profile.md`) → PRD/Plan/Tasklist → evidence packs/logs/code.
@@ -71,5 +71,5 @@
 - Читать `*-context.json` целиком — только pack или фрагменты (offset/limit).
 
 ## Output contract
-- Status: reviewed|pending
+- Status: reviewed|pending (reviewed только после `rlm-finalize` и готового RLM pack)
 - Handoff: задачи формата "Research: ..." (source: aidd/reports/research/...).

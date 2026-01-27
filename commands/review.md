@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.22
-source_version: 1.0.22
+prompt_version: 1.0.23
+source_version: 1.0.23
 allowed-tools:
   - Read
   - Edit
@@ -62,44 +62,18 @@ disable-model-invocation: false
 - `aidd/reports/reviewer/$1.json`.
 
 ## Context Pack (шаблон)
-Файл: `aidd/reports/context/$1.review.pack.md`.
-
-```md
-# AIDD Context Pack — review
-ticket: $1
-stage: review
-agent: feature-dev-aidd:reviewer
-generated_at: <UTC ISO-8601>
-
-## Paths
-- plan: aidd/docs/plan/$1.md
-- tasklist: aidd/docs/tasklist/$1.md
-- prd: aidd/docs/prd/$1.prd.md
-- arch_profile: aidd/docs/architecture/profile.md
-- loop_pack: aidd/reports/loops/$1/<work_item_key>.loop.pack.md
-- review_pack: aidd/reports/loops/$1/review.latest.pack.md (if exists)
-- spec: aidd/docs/spec/$1.spec.yaml (if exists)
-- research: aidd/docs/research/$1.md (if exists)
-- test_policy: aidd/.cache/test-policy.env (if exists)
-- review_report: aidd/reports/reviewer/$1.json (if exists)
-
-## What to do now
-- Review diff vs plan/tasklist, add handoff findings.
-
-## User note
-- $ARGUMENTS
-
-## Git snapshot (optional)
-- branch: <git rev-parse --abbrev-ref HEAD>
-- diffstat: <git diff --stat>
-```
+- Шаблон: `aidd/reports/context/template.context-pack.md`.
+- Целевой файл: `aidd/reports/context/$1.review.pack.md` (stage/agent/paths/what-to-do заполняются под review).
+- Paths: plan, tasklist, prd, arch_profile, loop_pack, review_pack (if exists), spec/research/test_policy (if exists), review_report (if exists).
+- What to do now: review diff vs plan/tasklist, add handoff findings.
+- User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review.pack.md` по шаблону W79-10.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.review.pack.md`.**
-5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`).
+5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED`.
 6. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` (при FAIL — BLOCKED).
 8. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1`.
@@ -112,6 +86,7 @@ generated_at: <UTC ISO-8601>
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
 - Если diff не соответствует тикету — остановись и согласуй объём.
+- Если `aidd/reports/context/$1.review.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 
 ## Ожидаемый вывод
 - Обновлённый `aidd/docs/tasklist/$1.md`.
