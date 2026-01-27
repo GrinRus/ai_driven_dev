@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.14
-source_version: 1.1.14
+prompt_version: 1.1.15
+source_version: 1.1.15
 allowed-tools:
   - Read
   - Edit
@@ -14,6 +14,7 @@ allowed-tools:
   - "Bash(cat:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
 model: inherit
 disable-model-invocation: false
@@ -45,6 +46,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh tasklist` фиксирует стадию `tasklist`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh $1` фиксирует активную фичу.
+- `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` подтверждает PRD `Status: READY`.
 - `gate-workflow` проверяет наличие tasklist и новых `- [x]`.
 
 ## Что редактируется
@@ -59,11 +61,12 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `tasklist` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh tasklist` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
-2. Команда (до subagent): создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
-3. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
-4. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-5. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
-6. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
+2. Команда (до subagent): проверь PRD через `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` (при ошибке → `BLOCKED`).
+3. Команда (до subagent): создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
+4. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
+5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+6. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
+7. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
 
 ## Fail-fast и вопросы
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/feature-dev-aidd:review-spec`.

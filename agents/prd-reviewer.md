@@ -2,8 +2,8 @@
 name: prd-reviewer
 description: Структурное ревью PRD после review-plan. Проверка полноты, рисков и метрик.
 lang: ru
-prompt_version: 1.0.17
-source_version: 1.0.17
+prompt_version: 1.0.18
+source_version: 1.0.18
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default

@@ -622,6 +622,50 @@ def validate_plugin_manifest(root: Path) -> List[str]:
             if rel and not (root / rel).exists():
                 errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
 
+    def _normalize_manifest_entries(raw) -> List[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            raw = [raw]
+        if not isinstance(raw, list):
+            return []
+        normalized = []
+        for entry in raw:
+            if not isinstance(entry, str):
+                continue
+            value = entry.strip()
+            if value:
+                normalized.append(value)
+        return sorted(set(normalized))
+
+    def _expected_entries(directory: Path, prefix: str) -> List[str]:
+        if not directory.exists():
+            return []
+        return sorted(
+            f"./{prefix}/{path.name}"
+            for path in directory.glob("*.md")
+            if path.is_file()
+        )
+
+    expected_commands = _expected_entries(root / "commands", "commands")
+    expected_agents = _expected_entries(root / "agents", "agents")
+    manifest_commands = _normalize_manifest_entries(payload.get("commands"))
+    manifest_agents = _normalize_manifest_entries(payload.get("agents"))
+    if manifest_commands:
+        missing = [item for item in expected_commands if item not in manifest_commands]
+        extra = [item for item in manifest_commands if item not in expected_commands]
+        if missing:
+            errors.append(f"{manifest_path}: commands missing entries {missing}")
+        if extra:
+            errors.append(f"{manifest_path}: commands has extra entries {extra}")
+    if manifest_agents:
+        missing = [item for item in expected_agents if item not in manifest_agents]
+        extra = [item for item in manifest_agents if item not in expected_agents]
+        if missing:
+            errors.append(f"{manifest_path}: agents missing entries {missing}")
+        if extra:
+            errors.append(f"{manifest_path}: agents has extra entries {extra}")
+
     return errors
 
 

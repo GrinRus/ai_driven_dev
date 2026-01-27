@@ -68,4 +68,18 @@ for cmd in "${stage_commands[@]}"; do
   fi
 done
 
+prd_required_commands=(
+  plan-new
+  review-spec
+  tasks-new
+  implement
+)
+
+for cmd in "${prd_required_commands[@]}"; do
+  path="${ROOT_DIR}/commands/${cmd}.md"
+  if ! rg -q "prd-check.sh" "$path"; then
+    err "${cmd}: missing prd-check.sh reference"
+  fi
+done
+
 exit $STATUS
