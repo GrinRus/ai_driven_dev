@@ -70,10 +70,6 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1` проверяет наличие новых `- [x]`.
 - При рассинхроне tasklist прогоняй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, если нужно, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 - Не дублируй запуск `format-and-test.sh` вручную — хук уже управляет тест-бюджетом и дедупом.
-- Для тестов/формата/запуска сначала используй project skills:
-  - если есть `.claude/skills/<skill-id>/SKILL.md` → следуй им;
-  - иначе если есть `.claude/commands/*.md` → следуй им (legacy);
-  - иначе попытайся определить команды из repo; если не выходит — BLOCKED и запроси команды у пользователя.
 
 ## Test policy (FAST/TARGETED/FULL/NONE)
 Профиль задаётся через `aidd/.cache/test-policy.env`. Policy управляет **чем** запускать, а reviewer gate — **обязательностью/эскалацией**. Если аргументы `test=.../tests=.../tasks=...` не переданы — не перезаписывай существующий `test-policy.env`. Команда — единственный владелец записи; implementer не создаёт файл.

@@ -35,7 +35,8 @@ class LoopPackTests(unittest.TestCase):
             self.assertEqual(payload.get("work_item_id"), "I1")
             self.assertEqual(payload.get("work_item_key"), "iteration_id=I1")
             self.assertIn("src/feature/**", payload.get("boundaries", {}).get("allowed_paths", []))
-            self.assertIn("testing-pytest", payload.get("skills_required", []))
+            self.assertIn("pytest -q", payload.get("commands_required", []))
+            self.assertIn("pytest -q", payload.get("tests_required", []))
 
             pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id=I1.loop.pack.md"
             self.assertTrue(pack_path.exists(), "loop pack file should exist")

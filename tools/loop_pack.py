@@ -34,7 +34,8 @@ class WorkItem:
     title: str
     goal: str
     expected_paths: Tuple[str, ...]
-    skills: Tuple[str, ...]
+    commands: Tuple[str, ...]
+    tests_required: Tuple[str, ...]
     size_budget: Dict[str, str]
     exit_criteria: Tuple[str, ...]
     excerpt: Tuple[str, ...]
@@ -197,6 +198,8 @@ def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
         "- goal:",
         "- dod:",
         "- boundaries:",
+        "- commands:",
+        "- tests:",
         "- acceptance mapping:",
         "- spec:",
     )
@@ -248,7 +251,12 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
         title = extract_title(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
         expected_paths = tuple(extract_list_field(block, "Expected paths"))
-        skills = tuple(extract_list_field(block, "Skills"))
+        commands = tuple(extract_list_field(block, "Commands"))
+        tests_map = extract_mapping_field(block, "Tests")
+        tests_required: Tuple[str, ...] = tuple()
+        tasks_value = tests_map.get("tasks") or tests_map.get("Tasks")
+        if tasks_value and _strip_placeholder(tasks_value):
+            tests_required = (tasks_value,)
         size_budget = extract_mapping_field(block, "Size budget")
         exit_criteria = tuple(extract_list_field(block, "Exit criteria"))
         key_prefix = "iteration_id"
@@ -263,7 +271,8 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 goal=goal or title,
                 expected_paths=expected_paths,
-                skills=skills,
+                commands=commands,
+                tests_required=tests_required,
                 size_budget=size_budget,
                 exit_criteria=exit_criteria,
                 excerpt=build_excerpt(block),
@@ -297,7 +306,8 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 goal=goal or title,
                 expected_paths=tuple(),
-                skills=tuple(),
+                commands=tuple(),
+                tests_required=tuple(),
                 size_budget={},
                 exit_criteria=tuple(),
                 excerpt=build_excerpt(block),
@@ -379,7 +389,7 @@ def build_front_matter(
     ticket: str,
     work_item: WorkItem,
     boundaries: Dict[str, List[str]],
-    skills_required: List[str],
+    commands_required: List[str],
     tests_required: List[str],
     arch_profile: str,
     evidence_policy: str,
@@ -406,14 +416,14 @@ def build_front_matter(
         lines.extend([f"    - {path}" for path in forbidden_paths])
     else:
         lines.append("  forbidden_paths: []")
-    if skills_required:
-        lines.append("skills_required:")
-        lines.extend([f"  - {skill}" for skill in skills_required])
+    if commands_required:
+        lines.append("commands_required:")
+        lines.extend([f"  - {command}" for command in commands_required])
     else:
-        lines.append("skills_required: []")
+        lines.append("commands_required: []")
     if tests_required:
         lines.append("tests_required:")
-        lines.extend([f"  - {skill}" for skill in tests_required])
+        lines.extend([f"  - {command}" for command in tests_required])
     else:
         lines.append("tests_required: []")
     lines.append(f"arch_profile: {arch_profile}")
@@ -427,7 +437,7 @@ def build_pack(
     ticket: str,
     work_item: WorkItem,
     boundaries: Dict[str, List[str]],
-    skills_required: List[str],
+    commands_required: List[str],
     tests_required: List[str],
     arch_profile: str,
     updated_at: str,
@@ -436,7 +446,7 @@ def build_pack(
         ticket=ticket,
         work_item=work_item,
         boundaries=boundaries,
-        skills_required=skills_required,
+        commands_required=commands_required,
         tests_required=tests_required,
         arch_profile=arch_profile,
         evidence_policy="RLM-first",
@@ -471,17 +481,17 @@ def build_pack(
     else:
         lines.append("  - []")
     lines.append("")
-    lines.append("## Skills required")
-    if skills_required:
-        for skill in skills_required:
-            lines.append(f"- {skill}")
+    lines.append("## Commands required")
+    if commands_required:
+        for command in commands_required:
+            lines.append(f"- {command}")
     else:
         lines.append("- []")
     lines.append("")
     lines.append("## Tests required")
     if tests_required:
-        for skill in tests_required:
-            lines.append(f"- {skill}")
+        for command in tests_required:
+            lines.append(f"- {command}")
     else:
         lines.append("- []")
     lines.append("")
@@ -632,15 +642,15 @@ def main(argv: list[str] | None = None) -> int:
         "allowed_paths": list(selected_item.expected_paths),
         "forbidden_paths": [],
     }
-    skills_required = list(selected_item.skills)
-    tests_required = list(selected_item.skills)
+    commands_required = list(selected_item.commands)
+    tests_required = list(selected_item.tests_required)
 
     updated_at = _utc_timestamp()
     pack_text = build_pack(
         ticket=ticket,
         work_item=selected_item,
         boundaries=boundaries,
-        skills_required=skills_required,
+        commands_required=commands_required,
         tests_required=tests_required,
         arch_profile=arch_profile,
         updated_at=updated_at,
@@ -662,7 +672,7 @@ def main(argv: list[str] | None = None) -> int:
         "selection": selection_reason,
         "path": rel_path,
         "boundaries": boundaries,
-        "skills_required": skills_required,
+        "commands_required": commands_required,
         "tests_required": tests_required,
         "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",

@@ -6,10 +6,6 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Начинай каждую итерацию с `loop_pack` (тонкий контекст). Не вставляй большие куски логов/диффов — только ссылки на `aidd/reports/**`.
 - Review **не** расширяет scope. Любая новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item в tasklist.
 - Fresh context: каждый шаг опирается на pack + ссылки, без “пересказа” больших документов.
-- Команды тестов/формата берутся из project skills:
-  - если есть `.claude/skills/**/SKILL.md` → использовать их;
-  - иначе если есть `.claude/commands/*.md` → использовать их (legacy);
-  - иначе попытаться определить команды из repo; если не выходит → BLOCKED и запросить у пользователя.
 - Loop-mode тесты: implement не запускает тесты по умолчанию; нужен `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`. Review тесты не запускает.
 
 ## Automation notes

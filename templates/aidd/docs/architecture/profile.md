@@ -49,4 +49,4 @@ interfaces:
 
 ## Repo conventions
 - Conventions: `aidd/config/conventions.json`
-- Lint/format policy: <link to project skill or doc>
+- Lint/format policy: <link to project doc>

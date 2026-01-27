@@ -23,7 +23,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Автоформат и выборочные тесты на стадии `implement`.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
-- Architecture Profile + project skills (опционально) как канон архитектурных ограничений и команд тестов/формата/запуска.
+- Architecture Profile как канон архитектурных ограничений и процессов тестов/формата/запуска (если они описаны в проекте).
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
@@ -169,27 +169,6 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
 - Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
-
-## Project skills (опционально)
-Процесс работает лучше, если проект описывает команды тестов/формата/запуска в `.claude/skills/`.
-Это опционально: если skills нет, агенты попросят команды у пользователя. Legacy‑вариант: `.claude/commands/`.
-
-Пример структуры:
-```
-.claude/skills/testing/SKILL.md
-.claude/skills/formatting/SKILL.md
-```
-
-Минимальный пример `SKILL.md`:
-```md
----
-name: testing
-description: Project test commands
----
-
-## Commands
-- pytest -q
-```
 
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).

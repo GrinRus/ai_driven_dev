@@ -459,7 +459,6 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_agent_references(info))
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
-    errors.extend(validate_removed_skill_refs(info))
     errors.extend(validate_verify_steps(info))
     errors.extend(validate_plugin_asset_mentions(info, root))
     errors.extend(validate_required_write_tools(info))
@@ -509,13 +508,6 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
         if not any(mention in tool for tool in allowed_tools if tool.startswith("Bash(")):
             errors.append(f"{info.path}: tool `{mention}` mentioned but not in allowed-tools")
     return errors
-
-
-def validate_removed_skill_refs(info: PromptFile) -> List[str]:
-    body_lower = info.body.lower()
-    if "aidd/skills/" in body_lower or "templates/aidd/skills/" in body_lower:
-        return [f"{info.path}: references removed AIDD skills paths"]
-    return []
 
 
 def validate_verify_steps(info: PromptFile) -> List[str]:
@@ -589,7 +581,7 @@ def validate_plugin_manifest(root: Path) -> List[str]:
         return [f"{manifest_path}: invalid JSON ({exc})"]
 
     errors: List[str] = []
-    for key in ("commands", "agents", "skills", "hooks"):
+    for key in ("commands", "agents", "hooks"):
         entries = payload.get(key)
         if not entries:
             continue
@@ -609,8 +601,6 @@ def validate_plugin_manifest(root: Path) -> List[str]:
             rel = entry[2:] if entry.startswith("./") else entry
             if rel and not (root / rel).exists():
                 errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
-            if "skills" in key and "skills" in entry and "templates/aidd/skills" in entry:
-                errors.append(f"{manifest_path}: `{key}` points to removed skills path ({entry})")
 
     return errors
 

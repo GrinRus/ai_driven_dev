@@ -51,7 +51,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 1. Прочитай plan/PRD/research/spec и текущий tasklist.
 2. Обнови `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY` и `AIDD:TEST_EXECUTION` краткими выводами из spec/plan.
 3. Убедись, что секции `AIDD:QA_TRACEABILITY` и `AIDD:CHECKLIST_*` присутствуют (если нет — вставь из шаблона).
-4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Expected paths/Size budget/Skills/Exit criteria/Steps/Tests/Dependencies/Risks.
+4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks.
 5. Сформируй `AIDD:NEXT_3` как pointer list open work items (итерации + handoff):
    - NEXT_3 содержит только короткие строки с `ref: iteration_id=...` или `ref: id=...`;
    - сортировка: Blocking=true → Priority → kind → tie‑breaker (plan order/id);
@@ -69,10 +69,10 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 - Boundaries = список файлов/папок/модулей и явные запреты.
 - Expected paths = список путей для loop_pack boundaries (1 work_item = 1 набор путей).
 - Size budget = max_files/max_loc для одной итерации.
-- Skills = список skill_id (команды тестов/формата/запуска).
+- Commands = список команд/доков для тестов/формата/запуска.
 - Exit criteria = 2–5 буллетов “как понять, что итерация готова”.
 - Tests = профиль + команды/фильтры (или `profile: none` для чистой документации).
-- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Expected paths/Size budget/Skills/Exit criteria/Steps/Tests/Dependencies/Risks).
+- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks).
 - Если добавляешь итерацию вне плана — укажи `parent_iteration_id` или заведи handoff “update plan” (manual‑блок).
 - Соблюдай budgets: TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк.
 - Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/feature-dev-aidd:spec-interview`.

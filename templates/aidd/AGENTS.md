@@ -9,10 +9,6 @@
 - По умолчанию работаем по контракту: входные артефакты → выходные артефакты → статус.
 - Ответ агента всегда начинается с `Checkbox updated:`.
 - Architecture Profile (`aidd/docs/architecture/profile.md`) — источник архитектурных ограничений.
-- Для тестов/формата/запуска сначала используй project skills:
-  - если есть `.claude/skills/<skill-id>/SKILL.md` → следуй им;
-  - иначе если есть `.claude/commands/*.md` → следуй им (legacy);
-  - иначе попытайся определить команды из репозитория, а если не выходит — `BLOCKED` и запроси команды у пользователя.
 
 ## Global markers policy (subagents)
 - Саб‑агенты не меняют `.active_*` файлы (ticket/feature/stage/work_item).

@@ -111,7 +111,6 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ## AIDD:ITERATIONS_FULL
 > Полный список итераций реализации (от 1 до N). Должен быть **детальнее плана** и не оставлять пробелов.
 > Канонический формат итерации: `- [ ] I7: <title> (iteration_id: I7)`
-> Skills берутся из project skills (`.claude/skills/**`) или `.claude/commands/**` (legacy).
 - [ ] I1: <краткое название> (iteration_id: I1)
   - parent_iteration_id: <I0|none>  # optional
   - Goal: <что именно делаем>
@@ -124,8 +123,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Size budget:
     - max_files: <N>
     - max_loc: <N>
-  - Skills:
-    - <skill_id>
+  - Commands:
+    - <doc/ref or command>
   - Exit criteria:
     - <критерий 1>
     - <критерий 2>
@@ -151,8 +150,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Size budget:
     - max_files: <N>
     - max_loc: <N>
-  - Skills:
-    - <skill_id>
+  - Commands:
+    - <doc/ref or command>
   - Exit criteria:
     - <...>
   - Steps:

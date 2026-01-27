@@ -31,7 +31,6 @@
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK + AIDD:TEST_EXECUTION + AIDD:NEXT_3 (pointer list)
 - aidd/docs/plan/<ticket>.md: границы итерации (DoD)
 - aidd/docs/spec/<ticket>.spec.yaml: contracts, risks, test strategy (if exists)
-- project skills: `.claude/skills/**/SKILL.md` (preferred) or `.claude/commands/*.md` (legacy)
 - aidd/reports/context/latest_working_set.md (если есть)
 
 ## MUST UPDATE
@@ -42,7 +41,7 @@
 - Выходить за рамки плана без обновления plan/tasklist.
 - Делать промежуточные Stop до завершения итерации.
 - Добавлять подробности DoD/Steps в AIDD:NEXT_3 — только ref.
-- Придумывать команды тестов/формата без project skills или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
+- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Stop etiquette
 - Собери микро‑правки в один батч → один Stop после DoD.

@@ -51,10 +51,6 @@ permissionMode: default
 ## Автоматизация
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop; фиксируй `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`.
 - Команда `/feature-dev-aidd:implement` подтверждает прогресс после обновления tasklist.
-- Для тестов/формата/запуска сначала используй project skills:
-  - если есть `.claude/skills/<skill-id>/SKILL.md` → следуй им;
-  - иначе если есть `.claude/commands/*.md` → следуй им (legacy);
-  - иначе попытайся определить команды из repo; если не выходит — `Status: BLOCKED` и запроси команды у пользователя.
 
 Если в сообщении указан путь `aidd/reports/loops/*.loop.pack.md`, прочитай его первым действием. `aidd/reports/context/*.pack.md` — вторым.
 

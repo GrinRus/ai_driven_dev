@@ -23,7 +23,6 @@
 - aidd/docs/tasklist/<ticket>.md: AIDD:CHECKLIST_QA (или QA‑подсекция в AIDD:CHECKLIST) + AIDD:HANDOFF_INBOX + AIDD:TEST_EXECUTION
 - aidd/docs/spec/<ticket>.spec.yaml (если существует)
 - aidd/reports/tests/* и diff (если есть)
-- project skills: `.claude/skills/**/SKILL.md` (preferred) or `.claude/commands/*.md` (legacy)
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: QA чекбоксы + known issues + AIDD:QA_TRACEABILITY
@@ -46,7 +45,7 @@
 - Любые правки кода/конфигов/тестов/CI. QA фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 - Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без project skills или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
+- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Repeat runs
 - Повторные запуски QA/`tasks-derive` должны обновлять задачи по стабильному `id` без дублей.

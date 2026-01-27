@@ -28,7 +28,7 @@
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
 - Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.
 - Prompt regression checks and architecture profile validation in repo CI.
-- AIDD no longer bundles skills; prompts now use optional project skills in `.claude/skills` with `.claude/commands` fallback when available.
+- AIDD no longer bundles runbook guidance; prompts now rely on user-provided steps for test/format/run.
 - `format-and-test.sh` is loop-aware: review skips, loop-mode test gating, and per-run logs in `aidd/reports/tests`.
 - Marketplace manifest uses a GitHub source for the plugin, and `plugin.json` now includes author/repository/homepage/license metadata.
 - Marketplace-only distribution: replaced `claude-workflow` CLI with `${CLAUDE_PLUGIN_ROOT}/tools/*.sh` entrypoints; payload sync/upgrade and release packaging removed.

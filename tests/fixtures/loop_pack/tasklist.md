@@ -12,8 +12,12 @@ Status: READY
   - Boundaries: src/feature/**
   - Expected paths:
     - src/feature/**
-  - Skills:
-    - testing-pytest
+  - Commands:
+    - pytest -q
+  - Tests:
+    - profile: targeted
+    - tasks: pytest -q
+    - filters: []
   - Acceptance mapping: AC-1
   - Exit criteria:
     - core feature works
@@ -23,8 +27,8 @@ Status: READY
   - Boundaries: src/followup/**
   - Expected paths:
     - src/followup/**
-  - Skills:
-    - testing-gradle
+  - Commands:
+    - ./gradlew test
   - Acceptance mapping: AC-2
   - Exit criteria:
     - follow-up done

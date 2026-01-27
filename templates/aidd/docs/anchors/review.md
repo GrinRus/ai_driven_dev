@@ -32,7 +32,6 @@
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK, AIDD:CHECKLIST_REVIEW, AIDD:HANDOFF_INBOX
 - aidd/docs/spec/<ticket>.spec.yaml (если существует)
 - aidd/docs/plan/<ticket>.md: AIDD:FILES_TOUCHED, AIDD:ITERATIONS
-- project skills: `.claude/skills/**/SKILL.md` (preferred) or `.claude/commands/*.md` (legacy)
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
@@ -53,7 +52,7 @@
 - Любые правки кода/конфигов/тестов/CI. Review фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 - Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без project skills или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
+- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Repeat runs
 - Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).

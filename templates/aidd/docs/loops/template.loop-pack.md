@@ -8,10 +8,10 @@ boundaries:
   allowed_paths:
     - src/feature/**
   forbidden_paths: []
-skills_required:
-  - testing-gradle
+commands_required:
+  - <doc/ref or command>
 tests_required:
-  - testing-gradle
+  - <test command>
 arch_profile: aidd/docs/architecture/profile.md
 evidence_policy: RLM-first
 ---
@@ -32,11 +32,11 @@ evidence_policy: RLM-first
   - src/feature/**
 - forbidden_paths: []
 
-## Skills required (project skills)
-- testing-gradle
+## Commands required
+- <doc/ref or command>
 
-## Tests required (project skills)
-- testing-gradle
+## Tests required
+- <test command>
 
 ## Work item excerpt (required)
 > goal/DoD/boundaries/refs from the tasklist work item.

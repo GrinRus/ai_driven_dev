@@ -59,10 +59,6 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1` фиксирует новые `[x]`.
 - При рассинхроне tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, при необходимости, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
-- Для тестов/формата/запуска сначала используй project skills:
-  - если есть `.claude/skills/<skill-id>/SKILL.md` → следуй им;
-  - иначе если есть `.claude/commands/*.md` → следуй им (legacy);
-  - иначе попытайся определить команды из repo; если не выходит — BLOCKED и запроси команды у пользователя.
 
 ## Что редактируется
 - `aidd/docs/tasklist/$1.md`.

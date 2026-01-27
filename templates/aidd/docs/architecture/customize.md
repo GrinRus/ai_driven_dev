@@ -8,4 +8,4 @@ Use the Architecture Profile as the single source of truth for boundaries and in
 ## When to update
 - New modules or changed directory roots.
 - Updated dependency boundaries or invariants.
-- Changes in test/format/run commands (document in project skills or repo docs).
+- Changes in test/format/run procedures.
