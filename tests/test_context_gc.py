@@ -640,6 +640,27 @@ class SessionStartInjectTests(unittest.TestCase):
 
 
 class PreToolUseGuardTests(unittest.TestCase):
+    def test_pretooluse_hook_matches_write_edit_glob(self) -> None:
+        hooks_path = REPO_ROOT / "hooks" / "hooks.json"
+        data = json.loads(hooks_path.read_text(encoding="utf-8"))
+        entries = data.get("hooks", {}).get("PreToolUse", [])
+        matchers = [
+            entry.get("matcher", "")
+            for entry in entries
+            if isinstance(entry, dict)
+        ]
+        self.assertTrue(matchers, "PreToolUse hooks are missing in hooks.json")
+
+        def _allows_write_edit_glob(matcher: str) -> bool:
+            if matcher.strip() == ".*":
+                return True
+            return all(token in matcher for token in ("Write", "Edit", "Glob"))
+
+        self.assertTrue(
+            any(_allows_write_edit_glob(matcher) for matcher in matchers),
+            "PreToolUse matcher must include Write/Edit/Glob",
+        )
+
     def test_pretooluse_guard_wraps_bash_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)

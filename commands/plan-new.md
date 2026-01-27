@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.10
-source_version: 1.1.10
+prompt_version: 1.1.11
+source_version: 1.1.11
 allowed-tools:
   - Read
   - Edit
@@ -13,6 +13,7 @@ allowed-tools:
   - "Bash(sed:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
 model: inherit
@@ -41,7 +42,8 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` фиксирует стадию `plan`.
 - Команда должна запускать саб-агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`.
-- Перед запуском planner выполни `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1`.
+- Перед запуском planner выполни `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1`.
+- Затем выполни `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1`.
 - `gate-workflow` проверяет, что план/тасклист существуют до правок кода.
 
 ## Что редактируется
@@ -58,7 +60,7 @@ disable-model-invocation: false
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
-2. Команда (до subagent): проверь, что PRD `Status: READY`; затем запусти `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1` и остановись при ошибке.
+2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1`; затем `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1` и остановись при ошибке.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.planner.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 4. Команда → subagent: **Use the feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.planner.pack.md`.**
 5. Subagent (planner): обновляет план, учитывает `AIDD:ANSWERS`, закрывает вопросы в `AIDD:DECISIONS`.
