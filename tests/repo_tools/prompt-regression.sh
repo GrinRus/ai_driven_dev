@@ -26,16 +26,13 @@ check_absent() {
 }
 
 check_absent "Graph Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md" \
-  "${ROOT_DIR}/templates/root/AGENTS.md"
+  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
 
 check_present "Evidence Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md" \
-  "${ROOT_DIR}/templates/root/AGENTS.md"
+  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
 
 check_present "aidd/docs/architecture/profile.md" "${ROOT_DIR}/agents" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md" \
-  "${ROOT_DIR}/templates/root/AGENTS.md"
+  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
 
 check_present "rlm-slice.sh" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
   "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"

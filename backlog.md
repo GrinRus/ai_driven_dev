@@ -2197,7 +2197,7 @@ _Статус: новый, приоритет 1. Цель — переход н�
 
 _Статус: новый, приоритет 2. Цель — архитектурный профиль + runbooks как канон кастомизации, плюс унификация промптов и регрессионные проверки._
 
-- [x] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
+- [x] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
   - шаблон с front‑matter + обязательные секции (Style/Modules/Allowed deps/Invariants/Interfaces/Runbooks/Conventions);
   - machine‑readable front‑matter поля и формы:
     - `schema`, `updated_at`, `style`, `conventions`, `stack_hint` (список строк, multi‑stack);
@@ -2210,7 +2210,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
     - Plan: `Architecture Profile: aidd/docs/architecture/profile.md`;
     - Tasklist: `AIDD:CONTEXT_PACK → References` (или отдельный пункт);
   - Context Pack шаблоны команд стадий (idea/research/plan/tasklist/spec-interview/review-spec/implement/review/qa) содержат `arch_profile: aidd/docs/architecture/profile.md` в Paths;
-  - anchors/AGENTS (templates/aidd/AGENTS.md + templates/root/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
+  - anchors/AGENTS (templates/aidd/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
   **AC:** профиль существует с front‑matter, ссылки на канонический путь есть во всех шаблонах/якорях/Context Pack, AGENTS упоминает профиль как источник ограничений.
   **Deps:** -
 - [x] W82-2 `templates/aidd/runbooks/**/RUNBOOK.md`, `templates/aidd/runbooks/index.yaml`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`: добавить базовую библиотеку runbooks и связать с профилем:
@@ -2222,14 +2222,12 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - правило “runbooks‑first для tests/format/run” + fallback (“если runbook отсутствует — не выдумывать команды, запросить/добавить runbook”).
   **AC:** runbooks и registry в templates, профиль их перечисляет, anchors требуют открывать RUNBOOK.md и описывают fallback.
   **Deps:** W82-1
-- [x] W82-3 `templates/root/**`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/runbooks и root‑адаптеров:
+- [x] W82-3 `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/runbooks:
   - `tools/init.sh` — entrypoint команды; `tools/init.py` — реализация, вызываемая entrypoint (без дублирования логики);
-  - копирование `templates/root/**` в workspace root (root `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/aidd.md`, `.github/copilot-instructions.md`) без перезаписи без `--force`;
-  - root `AGENTS.md` — thin‑adapter: указывает на `aidd/AGENTS.md`, Architecture Profile и anchors;
   - init гарантирует `aidd/docs/architecture/*` и `aidd/runbooks/**` (и не трогает существующий `aidd/AGENTS.md`);
   - обновить описание флагов и DoD в команде.
-  **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/runbooks и root‑адаптеры при отсутствии, не ломая существующие файлы.
-  **Tests:** обновить `tests/test_init_aidd.py` (root‑адаптеры только если их нет, `aidd/AGENTS.md` сохраняется).
+  **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/runbooks при отсутствии, не ломая существующие файлы.
+  **Tests:** обновить `tests/test_init_aidd.py` (`aidd/AGENTS.md` сохраняется).
   **Deps:** W82-1,W82-2
 - [x] W82-4 `tools/detect-stack.(py|sh)`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`, tests: stack‑detector → заполнение profile:
   - детект langs/build tools по маркерам (package.json/pyproject/go.mod/Cargo.toml/etc);
@@ -2423,7 +2421,7 @@ _Статус: новый, приоритет 2. Цель — убрать AIDD 
   **AC:** в репозитории нет `templates/aidd/runbooks/**`; init не создаёт runbooks; тесты не требуют runbooks.
   **Deps:** W82-2
 
-- [x] W84-2 `agents/*.md`, `commands/*.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `templates/aidd/docs/{tasklist,loops}/template.*`: обновить ссылки/политики вокруг runbooks:
+- [x] W84-2 `agents/*.md`, `commands/*.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/{tasklist,loops}/template.*`: обновить ссылки/политики вокруг runbooks:
   - удалить любые ссылки на `aidd/runbooks/**` и “AIDD runbooks-first” в старом смысле;
   - новое правило:
     - если есть `commands/<runbook>/RUNBOOK.md` → использовать их;
