@@ -273,6 +273,8 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
             is_manual = any(marker in stripped.lower() for marker in MANUAL_MARKERS)
             if is_manual:
                 manual_required.append(f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}")
+            rel_path = tasklist_path.relative_to(ROOT_DIR)
+            checklist_id = _stable_id("qa-checklist", str(rel_path), stripped)
             label = feature_label(ticket, slug_hint)
             findings.append(
                 Finding(
@@ -281,6 +283,7 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
                     title=f"Незакрыт QA пункт в {tasklist_path.relative_to(ROOT_DIR)}",
                     details=f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}",
                     recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
+                    id=checklist_id,
                 )
             )
     return findings, manual_required

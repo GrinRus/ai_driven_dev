@@ -294,6 +294,24 @@ Updated: 2024-01-02
         self.assertTrue(payload.get("manual_required"))
         self.assertIn("manual", payload["manual_required"][0].lower())
 
+    def test_manual_and_blocker_items_not_deduped(self):
+        write_active_feature(self.project_root, "mixed-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/mixed-qa.md",
+            "- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
+        )
+
+        result = self.run_agent("--format", "json", env={"QA_ALLOW_NO_TESTS": "1"})
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        checklist = [f for f in payload["findings"] if f.get("scope") == "checklist"]
+        severities = {f.get("severity") for f in checklist}
+        self.assertIn("major", severities)
+        self.assertIn("blocker", severities)
+        self.assertEqual(len(checklist), 2)
+
     def test_dedupes_findings_by_id(self):
         write_active_feature(self.project_root, "dup-qa")
         write_file(
