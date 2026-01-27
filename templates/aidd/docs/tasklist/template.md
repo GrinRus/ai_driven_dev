@@ -123,8 +123,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Size budget:
     - max_files: <N>
     - max_loc: <N>
-  - Skills:
-    - <skill_id>
+  - Commands:
+    - <doc/ref or command>
   - Exit criteria:
     - <критерий 1>
     - <критерий 2>
@@ -150,8 +150,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Size budget:
     - max_files: <N>
     - max_loc: <N>
-  - Skills:
-    - <skill_id>
+  - Commands:
+    - <doc/ref or command>
   - Exit criteria:
     - <...>
   - Steps:

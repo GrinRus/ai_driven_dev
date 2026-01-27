@@ -684,7 +684,7 @@ def collect_diff_files(base: Path) -> List[str]:
 
 SERVICE_PREFIXES = (".claude/", ".cursor/")
 SERVICE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
-AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", "skills/", ".cache/")
+AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
 
 def normalize_service_path(path: str) -> str:
     normalized = path.replace("\\", "/")

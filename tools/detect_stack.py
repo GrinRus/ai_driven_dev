@@ -18,16 +18,6 @@ MARKERS: Dict[str, Tuple[str, ...]] = {
     "dotnet": (".sln",),
 }
 
-SKILL_MAP: Dict[str, List[str]] = {
-    "node": ["testing-node", "formatting", "dev-run"],
-    "python": ["testing-pytest", "formatting", "dev-run"],
-    "gradle": ["testing-gradle", "formatting", "dev-run"],
-    "maven": ["formatting", "dev-run"],
-    "go": ["formatting", "dev-run"],
-    "rust": ["formatting", "dev-run"],
-    "dotnet": ["formatting", "dev-run"],
-}
-
 
 def _iter_files(root: Path) -> Iterable[Path]:
     for current, dirs, files in os.walk(root):
@@ -54,10 +44,6 @@ def detect_stack(root: Path) -> Dict[str, object]:
                     break
 
     stack_hint: List[str] = [stack for stack, paths in detected.items() if paths]
-    enabled_skills: List[str] = []
-    for stack in stack_hint:
-        enabled_skills.extend(SKILL_MAP.get(stack, []))
-
     def dedupe(items: List[str]) -> List[str]:
         seen = set()
         ordered: List[str] = []
@@ -70,7 +56,6 @@ def detect_stack(root: Path) -> Dict[str, object]:
 
     return {
         "stack_hint": dedupe(stack_hint),
-        "enabled_skills": dedupe(enabled_skills),
         "detected": {k: v for k, v in detected.items() if v},
         "root": root.as_posix(),
     }
@@ -149,8 +134,7 @@ def update_profile(profile_path: Path, detection: Dict[str, object], *, force: b
         return False
 
     stack_hint = list(detection.get("stack_hint", []))
-    enabled_skills = list(detection.get("enabled_skills", []))
-    if not stack_hint and not enabled_skills:
+    if not stack_hint:
         return False
 
     text = profile_path.read_text(encoding="utf-8")
@@ -161,16 +145,12 @@ def update_profile(profile_path: Path, detection: Dict[str, object], *, force: b
 
     front_lines = front[1:-1]
     existing_stack = _parse_list_block(front_lines, "stack_hint")
-    existing_skills = _parse_list_block(front_lines, "enabled_skills")
-
     merged_stack = _merge_list(existing_stack, stack_hint)
-    merged_skills = _merge_list(existing_skills, enabled_skills)
 
-    if not force and merged_stack == existing_stack and merged_skills == existing_skills:
+    if not force and merged_stack == existing_stack:
         return False
 
     updated_lines = _replace_list_block(front_lines, "stack_hint", merged_stack)
-    updated_lines = _replace_list_block(updated_lines, "enabled_skills", merged_skills)
 
     updated = ["---\n", *updated_lines, "---\n", *body]
     profile_path.write_text("".join(updated), encoding="utf-8")
@@ -179,13 +159,12 @@ def update_profile(profile_path: Path, detection: Dict[str, object], *, force: b
 
 def _render_summary(payload: Dict[str, object]) -> str:
     stacks = ", ".join(payload.get("stack_hint", []) or []) or "none"
-    skills = ", ".join(payload.get("enabled_skills", []) or []) or "none"
-    return f"stack_hint={stacks}; enabled_skills={skills}"
+    return f"stack_hint={stacks}"
 
 
 def _render_yaml(payload: Dict[str, object]) -> str:
     lines = ["schema: aidd.detect_stack.v1"]
-    for key in ("stack_hint", "enabled_skills"):
+    for key in ("stack_hint",):
         items = payload.get(key, []) or []
         lines.append(f"{key}:")
         for item in items:

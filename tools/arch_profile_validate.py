@@ -13,7 +13,6 @@ REQUIRED_HEADINGS = [
     "## Allowed dependencies",
     "## Invariants",
     "## Interface pointers (API / DB / Events)",
-    "## Skills enabled (AIDD)",
     "## Repo conventions",
 ]
 

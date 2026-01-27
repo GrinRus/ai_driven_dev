@@ -4,12 +4,14 @@
 - Сверить diff с plan/PRD и DoD.
 - Вернуть замечания в tasklist (handoff).
 - Управлять обязательностью тестов через reviewer marker (если используется).
+- Верифицировать вывод (review evidence) перед финальным статусом.
 
 ## Loop discipline (Ralph)
 - Loop pack first: начинай с `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`.
 - Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
+- Loop-run использует fresh sessions (`claude -p --no-session-persistence`), max-iterations указывай как `--max-iterations 5`.
 
 ## Context precedence & safety
 - Приоритет (высший → низший): инструкции команды/агента → правила anchor → Architecture Profile (`aidd/docs/architecture/profile.md`) → PRD/Plan/Tasklist → evidence packs/logs/code.
@@ -30,7 +32,6 @@
 - aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK, AIDD:CHECKLIST_REVIEW, AIDD:HANDOFF_INBOX
 - aidd/docs/spec/<ticket>.spec.yaml (если существует)
 - aidd/docs/plan/<ticket>.md: AIDD:FILES_TOUCHED, AIDD:ITERATIONS
-- aidd/skills/index.yaml + relevant aidd/skills/<skill-id>/SKILL.md (tests/format/run)
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
@@ -51,7 +52,7 @@
 - Любые правки кода/конфигов/тестов/CI. Review фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 - Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без SKILL.md (если skill отсутствует — запроси/добавь).
+- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
 
 ## Repeat runs
 - Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).

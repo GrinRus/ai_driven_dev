@@ -1,6 +1,0 @@
----
-schema: aidd.skills_index.v1
-skills:
-  - skill_id: testing-pytest
-    path: aidd/skills/testing-pytest/SKILL.md
-    description: Pytest commands.

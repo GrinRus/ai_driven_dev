@@ -2,8 +2,8 @@
 description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /feature-dev-aidd:tasks-new)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.8
-source_version: 1.0.8
+prompt_version: 1.0.9
+source_version: 1.0.9
 allowed-tools:
   - Read
   - Edit

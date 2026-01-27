@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.25
-source_version: 1.2.25
+prompt_version: 1.2.26
+source_version: 1.2.26
 allowed-tools:
   - Read
   - Edit
@@ -51,7 +51,7 @@ disable-model-invocation: false
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research` фиксирует стадию `research`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket $1 --auto [--paths ... --keywords ... --note ...]` обновляет JSON контекст и RLM targets/manifest/worklist.
-- Если `entries_total` в worklist слишком большой или trimmed — перегенерируй worklist с `tools/rlm-nodes-build.sh --worklist-paths/--worklist-keywords` (или настрой `rlm.worklist_paths/rlm.worklist_keywords`).
+- Если `entries_total` в worklist слишком большой или trimmed — перегенерируй worklist с `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --worklist-paths/--worklist-keywords` (или настрой `rlm.worklist_paths/rlm.worklist_keywords`).
 - Для жёсткого контроля scope включай `rlm.targets_mode=explicit` (или передай `--targets-mode explicit` в `research.sh`) и настраивай `rlm.exclude_path_prefixes`.
 - Для узкого RLM‑scope используй `--rlm-paths <paths>` (comma/colon‑list) при запуске `research.sh`.
 - Если `--rlm-paths` задан и `--paths` не указан — research scope синхронизируется с RLM paths (без лишних tags/keywords).

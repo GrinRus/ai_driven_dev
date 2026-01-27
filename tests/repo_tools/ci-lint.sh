@@ -164,7 +164,7 @@ run_markdownlint() {
   local FILTERED=()
   for file in "${MD_FILES[@]}"; do
     case "$file" in
-      */backlog.md|*/CHANGELOG.md)
+      */backlog.md|*/CHANGELOG.md|*/all-agents-commands-anchors-templates.md)
         continue
         ;;
     esac
