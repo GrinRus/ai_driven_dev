@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -18,6 +19,106 @@ def _default_qa_test_command() -> list[list[str]]:
     return [["bash", str(plugin_root / "hooks" / "format-and-test.sh")]]
 
 
+_TEST_COMMAND_PATTERNS = (
+    r"\b\./gradlew\s+test\b",
+    r"\bgradle\s+test\b",
+    r"\bmvn\s+test\b",
+    r"\bpytest\b",
+    r"\bpython3?\s+-m\s+unittest\b",
+    r"\bgo\s+test\b",
+    r"\bnpm\s+test\b",
+    r"\bpnpm\s+test\b",
+    r"\byarn\s+test\b",
+    r"\bmake\s+test\b",
+    r"\bmake\s+check\b",
+    r"\btox\b",
+)
+
+
+def _read_text(path: Path, *, max_bytes: int = 1_000_000) -> str:
+    try:
+        if path.stat().st_size > max_bytes:
+            return ""
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _normalize_candidate_line(line: str) -> str:
+    text = line.strip()
+    if not text:
+        return ""
+    if text.startswith("run:"):
+        text = text[4:].strip()
+    if text.startswith("script:"):
+        text = text[7:].strip()
+    text = re.sub(r"^[-*]\s+", "", text)
+    text = re.sub(r"^\d+\.\s+", "", text)
+    if text.startswith("`") and text.endswith("`"):
+        text = text[1:-1].strip()
+    if " #" in text:
+        text = text.split(" #", 1)[0].rstrip()
+    return text
+
+
+def _extract_test_commands(text: str) -> list[str]:
+    commands: list[str] = []
+    for line in text.splitlines():
+        candidate = _normalize_candidate_line(line)
+        if not candidate:
+            continue
+        for pattern in _TEST_COMMAND_PATTERNS:
+            match = re.search(pattern, candidate, re.IGNORECASE)
+            if not match:
+                continue
+            cmd = candidate[match.start():].strip().rstrip("`")
+            if cmd:
+                commands.append(cmd)
+            break
+    return commands
+
+
+def _discover_test_commands(root: Path) -> list[list[str]]:
+    commands: list[str] = []
+    seen: set[str] = set()
+
+    search_roots = [root]
+    if root.name == "aidd" and root.parent != root:
+        search_roots.append(root.parent)
+
+    ci_paths: list[Path] = []
+    for base in search_roots:
+        workflows = base / ".github" / "workflows"
+        if workflows.exists():
+            ci_paths.extend(sorted(workflows.glob("*.yml")))
+            ci_paths.extend(sorted(workflows.glob("*.yaml")))
+        ci_paths.append(base / ".gitlab-ci.yml")
+        ci_paths.append(base / ".circleci" / "config.yml")
+        ci_paths.append(base / "Jenkinsfile")
+
+    def _add_commands_from(paths: list[Path]) -> None:
+        for path in paths:
+            if not path.exists() or not path.is_file():
+                continue
+            for cmd in _extract_test_commands(_read_text(path)):
+                if cmd in seen:
+                    continue
+                seen.add(cmd)
+                commands.append(cmd)
+
+    _add_commands_from(ci_paths)
+    if commands:
+        return [shlex.split(cmd) for cmd in commands if cmd.strip()]
+
+    readmes: list[Path] = []
+    for base in search_roots:
+        readmes.extend([path for path in sorted(base.glob("README*")) if path.is_file()])
+        readmes.extend([path for path in sorted(base.glob("readme*")) if path.is_file()])
+    _add_commands_from(readmes)
+
+    return [shlex.split(cmd) for cmd in commands if cmd.strip()]
+
+
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     config_path = root / "config" / "gates.json"
     commands: list[list[str]] = []
@@ -30,7 +131,8 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     qa_cfg = data.get("qa") or {}
     tests_cfg = qa_cfg.get("tests") or {}
     allow_skip = bool(tests_cfg.get("allow_skip", True))
-    raw_commands = tests_cfg.get("commands", _default_qa_test_command())
+    source = str(tests_cfg.get("source") or tests_cfg.get("mode") or "").strip().lower()
+    raw_commands = tests_cfg.get("commands")
     if isinstance(raw_commands, str):
         raw_commands = [raw_commands]
     if isinstance(raw_commands, list):
@@ -45,6 +147,10 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
                     continue
             if parts:
                 commands.append(parts)
+
+    if not commands and source in {"readme-ci", "readme", "ci"}:
+        commands = _discover_test_commands(root)
+        return commands, allow_skip
 
     if not commands:
         commands = _default_qa_test_command()

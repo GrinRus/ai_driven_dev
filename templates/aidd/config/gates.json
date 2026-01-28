@@ -202,9 +202,6 @@
     "handoff": true,
     "handoff_mode": "block",
     "tests": {
-      "commands": [
-        "echo smoke-test-ok"
-      ]
     }
   },
   "reviewer": {

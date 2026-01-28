@@ -30,6 +30,12 @@ class QaAgentTests(unittest.TestCase):
         git_init(self.project_root)
         git_config_user(self.project_root)
         ensure_gates_config(self.project_root)
+        write_file(self.project_root, "README.md", "## QA\n\n```sh\npython3 -m unittest\n```\n")
+        write_file(
+            self.project_root,
+            "test_dummy.py",
+            "import unittest\n\n\nclass DummyTest(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+        )
         write_active_feature(self.project_root, "demo-ticket")
 
     def tearDown(self) -> None:
@@ -264,6 +270,7 @@ Updated: 2024-01-02
                 "--ticket",
                 "DEMO-1",
                 "--skip-tests",
+                "--allow-no-tests",
                 "--report",
                 report_rel,
                 "--format",

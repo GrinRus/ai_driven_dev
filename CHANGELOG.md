@@ -55,6 +55,10 @@
 
 ### Fixes
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
+- RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
+- Tasklist spec-required checks now cover API/DATA/E2E signals and tasklist runs `tasklist-check` post-refine.
+- QA test sourcing updated to README/CI discovery (no default smoke command), with stricter missing-tests handling.
+- Implement loop boundary violations now require BLOCKED status and out-of-scope backlog entry.
 
 ## v0.1.0 (2025-02-XX)
 

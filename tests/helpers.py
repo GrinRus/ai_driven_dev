@@ -137,7 +137,6 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "handoff": True,
         "handoff_mode": "block",
         "tests": {
-            "commands": ["echo smoke-test-ok"],
         },
     },
     "reviewer": {

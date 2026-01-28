@@ -411,12 +411,12 @@ def _validate_rlm_evidence(
         if settings.rlm_require_nodes and not nodes_ok:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --ticket {ticket}`."
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if settings.rlm_require_nodes and (manifest_total or 0) > 0 and nodes_total == 0:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но nodes.jsonl пустой. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --ticket {ticket}`."
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if settings.rlm_require_links and not links_ok:
             raise ResearchValidationError(

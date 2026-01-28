@@ -12,7 +12,7 @@
         "ref": "wave-85"
       },
       "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
-      "version": "0.1.1",
+      "version": "0.1.0",
       "strict": true
     }
   ]

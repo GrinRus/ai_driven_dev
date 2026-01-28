@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.27
-source_version: 1.2.27
+prompt_version: 1.2.28
+source_version: 1.2.28
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)
 model: inherit
 permissionMode: default
@@ -39,7 +39,7 @@ permissionMode: default
 ## Автоматизация
 - Команда `/feature-dev-aidd:researcher` запускает сбор контекста и обновляет `aidd/reports/research/<ticket>-context.json`/`-targets.json` + RLM targets/manifest/worklist.
 - Для RLM связей используй `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh`; `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` — только `rg` для точечной проверки.
-- Если `rlm_status=pending` — используй worklist pack и укажи, что команда обязана выполнить `${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh --ticket <ticket>` (verify → links → compact → refresh worklist → reports-pack --update-context). Без этого не выставляй `Status: reviewed`.
+- Если `rlm_status=pending` — используй worklist pack и укажи, что команда обязана выполнить `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket <ticket>` (если nodes отсутствуют), затем `${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh --ticket <ticket>` (verify → links → compact → refresh worklist → reports-pack --update-context). Без этого не выставляй `Status: reviewed`.
 - Если worklist слишком большой или trimmed — попроси сузить scope через `rlm.worklist_paths/rlm.worklist_keywords` (или `rlm-nodes-build.sh --worklist-paths/--worklist-keywords`) и пересобрать worklist.
 - Для жёсткого контроля scope: `rlm.targets_mode=explicit` (или флаг `--targets-mode explicit` при запуске research) и `rlm.exclude_path_prefixes` для отсечения шумных директорий.
 - Для точечного RLM‑scope используй `--rlm-paths <paths>` (comma/colon‑list) при запуске research.
@@ -54,7 +54,7 @@ permissionMode: default
 2. Проверь наличие `aidd/reports/research/<ticket>-targets.json` и pack; `-context.json` не читай целиком (только фрагменты при необходимости).
 3. Используй `*-rlm.pack.*` и `rlm-slice` как первичные источники фактов; `nodes/links.jsonl` — только `rg` для точечной проверки, `*.jsonl` читать фрагментами.
 4. Заполни отчёт по шаблону: **Context Pack**, integration points, reuse, risks, tests, commands run.
-5. Если `rlm_status=pending` или pack отсутствует — зафиксируй, что требуется `rlm-finalize` (обязательная команда после subagent).
+5. Если `rlm_status=pending` или pack отсутствует — зафиксируй, что требуется `rlm-nodes-build.sh --bootstrap` (если nodes нет) и `rlm-finalize` (обязательные команды после subagent).
 6. Выставь `Status: reviewed` только при готовом RLM pack/nodes/links; иначе `pending` + TODO.
 
 ## Fail-fast и вопросы

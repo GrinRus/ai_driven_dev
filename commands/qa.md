@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.22
-source_version: 1.0.22
+prompt_version: 1.0.23
+source_version: 1.0.23
 allowed-tools:
   - Read
   - Edit

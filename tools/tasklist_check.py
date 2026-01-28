@@ -20,7 +20,7 @@ from tools.feature_ids import resolve_identifiers, resolve_project_root
 PLACEHOLDER_VALUES = {"", "...", "<...>", "tbd", "<tbd>", "todo", "<todo>"}
 NONE_VALUES = {"none", "нет", "n/a", "na"}
 SPEC_PLACEHOLDERS = {"none", "нет", "n/a", "na", "-", "missing"}
-UI_UX_PATTERNS = [
+SPEC_REQUIRED_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         r"\bui\b",
@@ -41,6 +41,31 @@ UI_UX_PATTERNS = [
         r"\bвизуал",
         r"\bмакет",
         r"\blayout\b",
+        r"\bapi\b",
+        r"\bendpoint\b",
+        r"\brest\b",
+        r"\bgrpc\b",
+        r"\bgraphql\b",
+        r"\bcontract\b",
+        r"\bschema\b",
+        r"\bmigration\b",
+        r"\bdb\b",
+        r"\bdatabase\b",
+        r"\bdata\b",
+        r"\btable\b",
+        r"\bcolumn\b",
+        r"\bконтракт\b",
+        r"\bсхем",
+        r"\bмиграц",
+        r"\bбаз",
+        r"\bданн",
+        r"\bтаблиц",
+        r"\bколонк",
+        r"\be2e\b",
+        r"\bend[- ]to[- ]end\b",
+        r"\bstaging\b",
+        r"\bstand\b",
+        r"\bстенд\b",
     )
 ]
 
@@ -783,10 +808,10 @@ def extract_section_text(text: str, titles: Iterable[str]) -> str:
     return "\n".join(collected) if collected else text
 
 
-def mentions_ui_ux(text: str) -> bool:
+def mentions_spec_required(text: str) -> bool:
     if not text:
         return False
-    return any(pattern.search(text) for pattern in UI_UX_PATTERNS)
+    return any(pattern.search(text) for pattern in SPEC_REQUIRED_PATTERNS)
 
 
 def tasklist_path_for(root: Path, ticket: str) -> Path:
@@ -1330,13 +1355,13 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     if (plan_path.exists() or prd_path.exists()) and not (spec_path and spec_path.exists()):
         plan_text = read_text(plan_path) if plan_path.exists() else ""
         prd_text = read_text(prd_path) if prd_path.exists() else ""
-        plan_mentions_ui = mentions_ui_ux(
+        plan_mentions_ui = mentions_spec_required(
             extract_section_text(
                 plan_text,
                 ("AIDD:FILES_TOUCHED", "AIDD:ITERATIONS", "AIDD:ARCHITECTURE", "AIDD:TEST_STRATEGY"),
             )
         )
-        prd_mentions_ui = mentions_ui_ux(
+        prd_mentions_ui = mentions_spec_required(
             extract_section_text(
                 prd_text,
                 ("AIDD:ACCEPTANCE", "AIDD:GOALS", "AIDD:NON_GOALS", "AIDD:ROLL_OUT"),
@@ -1351,7 +1376,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             source_label = ", ".join(sources)
             add_issue(
                 "error",
-                "spec required for UI/UX or frontend changes "
+                "spec required for UI/UX/frontend or API/DATA/E2E changes "
                 f"(detected in {source_label}); missing {rel_path(root, spec_hint_path)}. "
                 "Run /feature-dev-aidd:spec-interview.",
             )
