@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.21
-source_version: 1.0.21
+prompt_version: 1.0.22
+source_version: 1.0.22
 allowed-tools:
   - Read
   - Edit
@@ -65,42 +65,18 @@ disable-model-invocation: false
 - `aidd/reports/qa/$1.json`.
 
 ## Context Pack (шаблон)
-Файл: `aidd/reports/context/$1.qa.pack.md`.
-
-```md
-# AIDD Context Pack — qa
-ticket: $1
-stage: qa
-agent: feature-dev-aidd:qa
-generated_at: <UTC ISO-8601>
-
-## Paths
-- plan: aidd/docs/plan/$1.md
-- tasklist: aidd/docs/tasklist/$1.md
-- prd: aidd/docs/prd/$1.prd.md
-- arch_profile: aidd/docs/architecture/profile.md
-- spec: aidd/docs/spec/$1.spec.yaml (if exists)
-- research: aidd/docs/research/$1.md (if exists)
-- test_policy: aidd/.cache/test-policy.env (if exists)
-- qa_report: aidd/reports/qa/$1.json
-
-## What to do now
-- Validate acceptance criteria, add QA traceability + handoff.
-
-## User note
-- $ARGUMENTS
-
-## Git snapshot (optional)
-- branch: <git rev-parse --abbrev-ref HEAD>
-- diffstat: <git diff --stat>
-```
+- Шаблон: `aidd/reports/context/template.context-pack.md`.
+- Целевой файл: `aidd/reports/context/$1.qa.pack.md` (stage/agent/paths/what-to-do заполняются под qa).
+- Paths: plan, tasklist, prd, arch_profile, spec/research/test_policy (if exists), qa_report.
+- What to do now: validate acceptance criteria, add QA traceability + handoff.
+- User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `qa` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону W79-10.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
-5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests.
+5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED`.
 6. Subagent: выполняет verify results (QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
 8. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
@@ -109,6 +85,7 @@ generated_at: <UTC ISO-8601>
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
 - Отчёт не записался — перезапусти CLI команду и приложи stderr.
+- Если `aidd/reports/context/$1.qa.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 
 ## Ожидаемый вывод
 - Обновлённый tasklist и отчёт QA.

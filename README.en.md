@@ -88,7 +88,7 @@ Notes:
 ### Migration
 - `/feature-dev-aidd:aidd-init` without `--force` adds new artifacts and preserves existing files.
 - Use `--force` or manual template sync when you need updates.
-- Root `AGENTS.md` is a thin adapter; `aidd/AGENTS.md` is the canonical workflow.
+- Root `AGENTS.md` is the repo dev guide; the user workflow guide is `aidd/AGENTS.md` (copied from `templates/aidd/AGENTS.md`).
 
 ## Scripts and Checks
 
@@ -173,6 +173,7 @@ Rules:
 - `bash`, `git`, `python3`.
 - Claude Code with plugin marketplace access.
 - Your stack build/test tools (optional).
+- MCP integrations are optional; `.mcp.json` is not shipped by default.
 
 macOS/Linux are supported. For Windows use WSL or Git Bash.
 
@@ -185,7 +186,7 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 ## Documentation
 - Core workflow overview: `aidd/docs/sdlc-flow.md` (after init).
 - Architecture Profile: `aidd/docs/architecture/profile.md`.
-- Deep dive and customization: `AGENTS.md`.
+- User guide: `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
 - Russian version: `README.md`.
 
 ## Examples

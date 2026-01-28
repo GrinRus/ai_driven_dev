@@ -314,6 +314,7 @@ def _validate_rlm_evidence(
     settings: ResearchSettings,
     context_path: Path,
     targets_path: Path,
+    doc_status: Optional[str] = None,
 ) -> None:
     try:
         context = json.loads(context_path.read_text(encoding="utf-8"))
@@ -387,22 +388,39 @@ def _validate_rlm_evidence(
     elif worklist_status:
         rlm_status = "pending"
     stage = _load_stage(root)
-    ready_required = stage in {"plan", "review", "qa"}
+    normalized_status = (doc_status or "").strip().lower()
+    ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
 
-    nodes_ok = rlm_nodes_path.exists() and rlm_nodes_path.stat().st_size > 0
-    links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
+    manifest_total = None
+    if rlm_manifest_path.exists():
+        try:
+            manifest_payload = json.loads(rlm_manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            manifest_payload = None
+        if isinstance(manifest_payload, dict):
+            files = manifest_payload.get("files")
+            if isinstance(files, list):
+                manifest_total = len(files)
+
+    nodes_ok = rlm_nodes_path.exists()
+    links_ok = rlm_links_path.exists()
     pack_ok = rlm_pack_path.exists()
     nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
 
     if rlm_status == "ready":
         if settings.rlm_require_nodes and not nodes_ok:
             raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует/пустой. "
+                "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует. "
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --ticket {ticket}`."
+            )
+        if settings.rlm_require_nodes and (manifest_total or 0) > 0 and nodes_total == 0:
+            raise ResearchValidationError(
+                "BLOCK: rlm_status=ready, но nodes.jsonl пустой. "
                 f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --ticket {ticket}`."
             )
         if settings.rlm_require_links and not links_ok:
             raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но links.jsonl отсутствует/пустой. "
+                "BLOCK: rlm_status=ready, но links.jsonl отсутствует. "
                 f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`."
             )
         if settings.rlm_require_pack and not pack_ok:
@@ -566,6 +584,7 @@ def validate_research(
         settings=settings,
         context_path=context_path,
         targets_path=targets_path,
+        doc_status=status,
     )
 
     return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days)

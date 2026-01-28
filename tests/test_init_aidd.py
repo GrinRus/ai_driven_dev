@@ -51,16 +51,6 @@ class InitAiddTests(unittest.TestCase):
             with self.subTest(path=rel):
                 self.assertTrue((project_root / rel).exists(), f"{rel} should exist after install")
 
-        root_expected = [
-            "AGENTS.md",
-            "CLAUDE.md",
-            ".cursor/rules/aidd.md",
-            ".github/copilot-instructions.md",
-        ]
-        for rel in root_expected:
-            with self.subTest(path=rel):
-                self.assertTrue((workdir / rel).exists(), f"{rel} should exist in workspace root")
-
         conventions = (project_root / "config/conventions.json").read_text(encoding="utf-8")
         self.assertIn('"mode": "ticket-prefix"', conventions)
 
@@ -81,27 +71,20 @@ class InitAiddTests(unittest.TestCase):
         workdir = self.make_tempdir()
         project_root = workdir / PROJECT_SUBDIR
         target = project_root / "AGENTS.md"
-        root_agents = workdir / "AGENTS.md"
 
         project_root.mkdir(parents=True, exist_ok=True)
         target.write_text("custom placeholder", encoding="utf-8")
-        root_agents.write_text("root placeholder", encoding="utf-8")
 
         # run without force: file should remain untouched
         result_no_force = self.run_script(workdir)
         content = target.read_text(encoding="utf-8")
         self.assertTrue(content.startswith("custom placeholder"))
-        root_content = root_agents.read_text(encoding="utf-8")
-        self.assertTrue(root_content.startswith("root placeholder"))
 
         # run with force: file should be reset to template contents
         self.run_script(workdir, "--force")
         content = target.read_text(encoding="utf-8")
         template_content = (TEMPLATES_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertEqual(content, template_content)
-        root_template = (TEMPLATES_ROOT.parent / "root" / "AGENTS.md").read_text(encoding="utf-8")
-        root_content = root_agents.read_text(encoding="utf-8")
-        self.assertEqual(root_content, root_template)
 
     def test_detect_build_tools_populates_settings(self):
         workdir = self.make_tempdir()

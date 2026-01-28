@@ -42,7 +42,7 @@ def test_tasks_derive_from_qa_report(tmp_path):
         project_root,
         "reports/qa/demo-checkout.json",
         {
-            "status": "warn",
+            "status": "WARN",
             "tests_summary": "pass",
             "tests_executed": [],
             "findings": [
@@ -326,7 +326,7 @@ def test_tasks_derive_from_review_report(tmp_path):
         "reports/reviewer/demo-checkout.json",
         {
             "kind": "review",
-            "status": "warn",
+            "status": "WARN",
             "findings": [
                 {"severity": "major", "scope": "api", "title": "Null guard", "recommendation": "Add guard"},
             ],
@@ -363,7 +363,7 @@ def test_tasks_derive_idempotent_by_id(tmp_path):
         project_root,
         "reports/qa/demo-checkout.json",
         {
-            "status": "warn",
+            "status": "WARN",
             "tests_summary": "pass",
             "tests_executed": [],
             "findings": [
@@ -398,7 +398,7 @@ def test_tasks_derive_idempotent_by_id(tmp_path):
         project_root,
         "reports/qa/demo-checkout.json",
         {
-            "status": "warn",
+            "status": "WARN",
             "tests_summary": "pass",
             "tests_executed": [],
             "findings": [
@@ -443,7 +443,7 @@ def test_tasks_derive_replaces_legacy_without_id(tmp_path):
         project_root,
         "reports/qa/demo-checkout.json",
         {
-            "status": "warn",
+            "status": "WARN",
             "tests_summary": "pass",
             "tests_executed": [],
             "findings": [
@@ -503,7 +503,7 @@ def test_tasks_derive_preserves_multiline_task_details(tmp_path):
         project_root,
         "reports/qa/demo-checkout.json",
         {
-            "status": "warn",
+            "status": "WARN",
             "tests_summary": "pass",
             "tests_executed": [],
             "findings": [
@@ -578,7 +578,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
                 project_root,
                 "reports/qa/demo-checkout.json",
                 {
-                    "status": "warn",
+                    "status": "WARN",
                     "tests_summary": "pass",
                     "tests_executed": [],
                     "findings": [
@@ -620,7 +620,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
                 project_root,
                 "reports/qa/demo-checkout.json",
                 {
-                    "status": "warn",
+                    "status": "WARN",
                     "tests_summary": "pass",
                     "tests_executed": [],
                     "findings": [

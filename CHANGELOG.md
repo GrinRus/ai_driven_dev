@@ -8,7 +8,7 @@
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - Loop mode (Ralph): `loop-pack`, `review-pack`, `diff-boundary-check`, `loop-step`, `loop-run` with loop packs and loop discipline.
 - Architecture Profile templates (`aidd/docs/architecture/profile.md`).
-- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`) and root adapters (`templates/root/**`).
+- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` to validate research artefacts before planning.
 - PRD template section `## AIDD:RESEARCH_HINTS` for passing paths/keywords to `/feature-dev-aidd:researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.

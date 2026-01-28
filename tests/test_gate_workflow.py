@@ -689,7 +689,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
         f"reports/reviewer/{ticket}.json",
         {
             "kind": "review",
-            "status": "warn",
+            "status": "WARN",
             "findings": [{"severity": "major", "title": "Edge case", "recommendation": "Handle error"}],
         },
     )
@@ -735,7 +735,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
         {
             "kind": "review",
             "stage": "review",
-            "status": "ready",
+            "status": "READY",
             "findings": [],
         },
     )
@@ -784,7 +784,7 @@ def test_handoff_uses_configured_qa_report(tmp_path):
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
     write_plan_with_review(tmp_path, ticket)
-    write_json(tmp_path, f"reports/qa/custom/{ticket}.json", {"status": "pass", "findings": []})
+    write_json(tmp_path, f"reports/qa/custom/{ticket}.json", {"status": "READY", "findings": []})
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     with tasklist_path.open("a", encoding="utf-8") as fh:
         fh.write(

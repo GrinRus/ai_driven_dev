@@ -33,6 +33,7 @@ ROOT_DIR = Path.cwd()
 DEFAULT_BLOCKERS = ("blocker", "critical")
 DEFAULT_WARNINGS = ("major", "minor")
 SEVERITY_ORDER = ["blocker", "critical", "major", "minor", "info"]
+MANUAL_MARKERS = ("manual", "ручн")
 
 
 def _normalize_id_text(value: str) -> str:
@@ -239,7 +240,7 @@ def analyse_code_tokens(files: Iterable[str]) -> List[Finding]:
     return findings
 
 
-def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> List[Finding]:
+def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[List[Finding], List[str]]:
     tasklist_dir = ROOT_DIR / "docs" / "tasklist"
     candidates: List[Path] = []
     if ticket:
@@ -249,6 +250,7 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> List[Fi
     else:
         candidates.extend(sorted(tasklist_dir.glob("*.md")))
     findings: List[Finding] = []
+    manual_required: List[str] = []
     for tasklist_path in candidates:
         try:
             lines = tasklist_path.read_text(encoding="utf-8").splitlines()
@@ -268,17 +270,23 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> List[Fi
                 continue
             if "qa" not in stripped.lower():
                 continue
+            is_manual = any(marker in stripped.lower() for marker in MANUAL_MARKERS)
+            if is_manual:
+                manual_required.append(f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}")
+            rel_path = tasklist_path.relative_to(ROOT_DIR)
+            checklist_id = _stable_id("qa-checklist", str(rel_path), stripped)
             label = feature_label(ticket, slug_hint)
             findings.append(
                 Finding(
-                    severity="blocker",
+                    severity="major" if is_manual else "blocker",
                     scope="checklist",
                     title=f"Незакрыт QA пункт в {tasklist_path.relative_to(ROOT_DIR)}",
                     details=f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}",
                     recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
+                    id=checklist_id,
                 )
             )
-    return findings
+    return findings, manual_required
 
 
 def analyse_tests_coverage(files: Sequence[str]) -> List[Finding]:
@@ -356,13 +364,25 @@ def aggregate_findings(
     tests_summary: str,
     tests_executed: List[Dict],
     allow_missing_tests: bool,
-) -> List[Finding]:
+) -> tuple[List[Finding], List[str]]:
     findings: List[Finding] = []
     findings.extend(analyse_code_tokens(files))
-    findings.extend(analyse_tasklist(ticket, slug_hint))
+    tasklist_findings, manual_required = analyse_tasklist(ticket, slug_hint)
+    findings.extend(tasklist_findings)
     findings.extend(analyse_tests_coverage(files))
     findings.extend(analyse_tests_run(tests_summary, tests_executed, allow_missing_tests))
-    return findings
+    return findings, manual_required
+
+
+def dedupe_findings(findings: Sequence[Finding]) -> List[Finding]:
+    seen: set[str] = set()
+    deduped: List[Finding] = []
+    for finding in findings:
+        if finding.id in seen:
+            continue
+        seen.add(finding.id)
+        deduped.append(finding)
+    return deduped
 
 
 def summarise(
@@ -370,7 +390,7 @@ def summarise(
     *,
     blockers_set: Optional[set[str]] = None,
     warnings_set: Optional[set[str]] = None,
-) -> Tuple[str, dict, int, int]:
+) -> Tuple[str, dict, int, int, str]:
     counts = {severity: 0 for severity in SEVERITY_ORDER}
     for finding in findings:
         severity = finding.severity.lower()
@@ -392,18 +412,31 @@ def summarise(
         summary = ", ".join(parts)
     summary = f"Итог: {summary}."
 
-    status = "pass"
     if blockers:
-        status = "fail"
+        status = "BLOCKED"
     elif warnings:
-        status = "warn"
+        status = "WARN"
+    else:
+        status = "READY"
 
-    return summary, counts, blockers, warnings
+    return summary, counts, blockers, warnings, status
 
 
 def write_report(report_path: Path, payload: dict) -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def dedupe_strings(items: Sequence[str]) -> List[str]:
+    seen: set[str] = set()
+    deduped: List[str] = []
+    for item in items:
+        key = item.strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -414,7 +447,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     branch = detect_branch(args.branch)
     files = collect_changed_files()
     tests_summary, tests_executed, allow_missing_tests = load_tests_metadata()
-    findings = aggregate_findings(
+    findings, manual_required = aggregate_findings(
         files,
         ticket,
         slug_hint,
@@ -422,6 +455,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         tests_executed=tests_executed,
         allow_missing_tests=allow_missing_tests,
     )
+    findings = dedupe_findings(findings)
+    manual_required = dedupe_strings(manual_required)
 
     blockers_set = {sev.strip().lower() for sev in args.block_on.split(",") if sev.strip()}
     warnings_set = {sev.strip().lower() for sev in args.warn_on.split(",") if sev.strip()}
@@ -429,7 +464,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for finding in findings:
         finding.blocking = finding.severity.lower() in blockers_set
 
-    summary, counts, blockers, warnings = summarise(
+    summary, counts, blockers, warnings, status = summarise(
         findings,
         blockers_set=blockers_set,
         warnings_set=warnings_set,
@@ -441,7 +476,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     payload = {
         "generated_at": generated_at,
-        "status": "fail" if blockers else ("warn" if warnings else "pass"),
+        "status": status,
         "summary": summary,
         "ticket": ticket,
         "slug_hint": slug_hint,
@@ -449,6 +484,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "counts": counts,
         "files_considered": files,
         "findings": [finding.to_dict() for finding in findings],
+        "manual_required": manual_required,
         "tests_summary": tests_summary,
         "tests_executed": tests_executed,
         "inputs": {

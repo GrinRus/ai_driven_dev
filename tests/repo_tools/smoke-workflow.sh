@@ -205,6 +205,68 @@ worklist_path = Path(payload["rlm_worklist_path"])
 if not worklist_path.exists():
     raise SystemExit("[smoke] missing rlm worklist pack")
 PY
+log "seed minimal RLM nodes"
+python3 - "$TICKET" <<'PY'
+import json
+import sys
+from pathlib import Path
+import os
+
+ticket = sys.argv[1]
+nodes_path = Path("reports/research") / f"{ticket}-rlm.nodes.jsonl"
+nodes_path.parent.mkdir(parents=True, exist_ok=True)
+plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).resolve()
+if plugin_root and str(plugin_root) not in sys.path:
+    sys.path.insert(0, str(plugin_root))
+from tools.rlm_config import (
+    file_id_for_path,
+    load_rlm_settings,
+    paths_base_for,
+    prompt_version,
+    rev_sha_for_bytes,
+    detect_lang,
+)
+
+project_root = Path.cwd().resolve()
+source_path = (project_root / "src/main/kotlin/App.kt").resolve()
+data = source_path.read_bytes()
+base_root = paths_base_for(project_root).resolve()
+try:
+    rel_path = source_path.relative_to(base_root)
+except ValueError:
+    rel_path = source_path
+rel_norm = rel_path.as_posix().lstrip("./")
+settings = load_rlm_settings(project_root)
+prompt_ver = prompt_version(settings)
+file_id = file_id_for_path(Path(rel_norm))
+rev_sha = rev_sha_for_bytes(data)
+lang = detect_lang(source_path)
+nodes = [
+    {
+        "schema": "aidd.rlm_node.v2",
+        "schema_version": "v2",
+        "node_kind": "file",
+        "file_id": file_id,
+        "id": file_id,
+        "path": rel_norm,
+        "rev_sha": rev_sha,
+        "lang": lang,
+        "prompt_version": prompt_ver,
+        "summary": "Smoke baseline node.",
+        "public_symbols": [],
+        "type_refs": [],
+        "key_calls": [],
+        "framework_roles": ["service"],
+        "test_hooks": [],
+        "risks": [],
+        "verification": "passed",
+        "missing_tokens": [],
+    }
+]
+nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")
+PY
+log "finalize RLM evidence"
+run_cli rlm-finalize --ticket "$TICKET" >/dev/null
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import json

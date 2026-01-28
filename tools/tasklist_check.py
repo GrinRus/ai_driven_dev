@@ -19,6 +19,30 @@ from tools.feature_ids import resolve_identifiers, resolve_project_root
 
 PLACEHOLDER_VALUES = {"", "...", "<...>", "tbd", "<tbd>", "todo", "<todo>"}
 NONE_VALUES = {"none", "нет", "n/a", "na"}
+SPEC_PLACEHOLDERS = {"none", "нет", "n/a", "na", "-", "missing"}
+UI_UX_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\bui\b",
+        r"\bux\b",
+        r"\bui/ux\b",
+        r"\bfrontend\b",
+        r"\bfront[- ]end\b",
+        r"/ui/",
+        r"/ux/",
+        r"/frontend/",
+        r"/front-end/",
+        r"\bweb\b",
+        r"\bинтерфейс",
+        r"\bэкран",
+        r"\bстраниц",
+        r"\bформа\b",
+        r"\bдизайн\b",
+        r"\bвизуал",
+        r"\bмакет",
+        r"\blayout\b",
+    )
+]
 
 REQUIRED_SECTIONS = {
     "AIDD:CONTEXT_PACK",
@@ -715,6 +739,56 @@ def resolve_plan_path(root: Path, front: dict[str, str], ticket: str) -> Path:
     return root / "docs" / "plan" / f"{ticket}.md"
 
 
+def resolve_prd_path(root: Path, front: dict[str, str], ticket: str) -> Path:
+    prd = front.get("PRD") or front.get("prd") or ""
+    if prd:
+        raw = Path(prd)
+        if not raw.is_absolute():
+            if raw.parts and raw.parts[0] == "aidd" and root.name == "aidd":
+                return root / Path(*raw.parts[1:])
+            return root / raw
+        return raw
+    return root / "docs" / "prd" / f"{ticket}.prd.md"
+
+
+def resolve_spec_path(root: Path, front: dict[str, str], ticket: str) -> Path | None:
+    spec = front.get("Spec") or front.get("spec") or ""
+    if spec:
+        lowered = spec.strip().lower()
+        if is_placeholder(spec) or lowered in SPEC_PLACEHOLDERS:
+            return None
+        raw = Path(spec)
+        if not raw.is_absolute():
+            if raw.parts and raw.parts[0] == "aidd" and root.name == "aidd":
+                return root / Path(*raw.parts[1:])
+            return root / raw
+        return raw
+    return root / "docs" / "spec" / f"{ticket}.spec.yaml"
+
+
+def rel_path(root: Path, path: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def extract_section_text(text: str, titles: Iterable[str]) -> str:
+    lines = text.splitlines()
+    _, section_map = parse_sections(lines)
+    collected: List[str] = []
+    for title in titles:
+        for section in section_map.get(title, []):
+            collected.extend(section_body(section))
+    return "\n".join(collected) if collected else text
+
+
+def mentions_ui_ux(text: str) -> bool:
+    if not text:
+        return False
+    return any(pattern.search(text) for pattern in UI_UX_PATTERNS)
+
+
 def tasklist_path_for(root: Path, ticket: str) -> Path:
     return root / "docs" / "tasklist" / f"{ticket}.md"
 
@@ -1242,6 +1316,9 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     handoff_items = parse_handoff_items(section_body(handoff_section[0]) if handoff_section else [])
 
     plan_path = resolve_plan_path(root, front, ticket)
+    prd_path = resolve_prd_path(root, front, ticket)
+    spec_path = resolve_spec_path(root, front, ticket)
+    spec_hint_path = spec_path or (root / "docs" / "spec" / f"{ticket}.spec.yaml")
     plan_ids: List[str] = []
     if plan_path.exists():
         plan_ids = parse_plan_iteration_ids(root, plan_path)
@@ -1249,6 +1326,35 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             add_issue(severity_for_stage(stage), "AIDD:ITERATIONS missing iteration_id")
     else:
         add_issue(severity_for_stage(stage), f"plan not found: {plan_path}")
+
+    if (plan_path.exists() or prd_path.exists()) and not (spec_path and spec_path.exists()):
+        plan_text = read_text(plan_path) if plan_path.exists() else ""
+        prd_text = read_text(prd_path) if prd_path.exists() else ""
+        plan_mentions_ui = mentions_ui_ux(
+            extract_section_text(
+                plan_text,
+                ("AIDD:FILES_TOUCHED", "AIDD:ITERATIONS", "AIDD:ARCHITECTURE", "AIDD:TEST_STRATEGY"),
+            )
+        )
+        prd_mentions_ui = mentions_ui_ux(
+            extract_section_text(
+                prd_text,
+                ("AIDD:ACCEPTANCE", "AIDD:GOALS", "AIDD:NON_GOALS", "AIDD:ROLL_OUT"),
+            )
+        )
+        if plan_mentions_ui or prd_mentions_ui:
+            sources = []
+            if plan_mentions_ui:
+                sources.append("plan")
+            if prd_mentions_ui:
+                sources.append("prd")
+            source_label = ", ".join(sources)
+            add_issue(
+                "error",
+                "spec required for UI/UX or frontend changes "
+                f"(detected in {source_label}); missing {rel_path(root, spec_hint_path)}. "
+                "Run /feature-dev-aidd:spec-interview.",
+            )
 
     iteration_ids = [item.item_id for item in iter_items if item.item_id]
     if plan_ids:
