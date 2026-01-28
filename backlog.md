@@ -2624,3 +2624,30 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   - добавить тест на сохранение manual+blocker в одном tasklist.
   **AC:** blocker findings не теряются при наличии manual QA строк; regression‑тест покрывает кейс.
   **Deps:** -
+
+- [x] W85-21 `tools/loop_pack.py`, `tests/test_loop_pack.py`: заполнить updated_at в loop pack и payload:
+  - записывать `_utc_timestamp()` в front matter для всех сгенерированных pack (selected + prewarm);
+  - убедиться, что structured output loop-pack содержит непустой updated_at.
+  **AC:** loop pack front matter содержит непустой updated_at; тест валидирует формат/непустое значение.
+  **Deps:** -
+
+- [x] W85-22 `tools/loop_pack.py`, `tools/loop_step.py`, `commands/implement.md`, `tests/test_loop_pack.py`, `tests/repo_tools/loop-regression.sh`: REVISE не должен перескакивать на NEXT_3:
+  - если `review.latest.pack.md` verdict=REVISE, implement loop-pack выбирает work_item из review pack (work_item_key) или первый handoff id из pack/`AIDD:HANDOFF_INBOX`;
+  - не использовать NEXT_3 пока handoff задачи открыты; `.active_work_item` остаётся на review item;
+  - добавить регрессионный тест на REVISE -> implement selection (loop-step).
+  **AC:** при REVISE следующий implement работает по ревью‑work_item/handoff, а не по следующей итерации.
+  **Deps:** W85-3, W85-4
+
+- [x] W85-23 `tools/review_pack.py`, `tools/review_report.py`, `tests/test_review_pack.py`: улучшить содержание review pack и fresh‑guard:
+  - в топ‑findings использовать поля `message`/`details` как fallback к `title/summary`;
+  - дедуплицировать findings по id/тексту;
+  - если review report обновлён позже pack (или verdict не совпадает со статусом), блокировать loop-step или пересобирать pack.
+  **AC:** review pack показывает осмысленные findings (без n/a) и verdict всегда соответствует status review report.
+  **Deps:** W85-4
+
+- [x] W85-24 `commands/implement.md`, `commands/review.md`, `tools/diff_boundary_check.py`, `tests/repo_tools/loop-regression.sh`: зафиксировать boundary-check evidence:
+  - implement/review обязаны выполнять diff-boundary-check и логировать `OK|OUT_OF_SCOPE|FORBIDDEN|NO_BOUNDARIES_DEFINED`;
+  - OUT_OF_SCOPE/FORBIDDEN блокирует стадию;
+  - добавить регрессионный тест, что boundary-check вызывается и блокирует при нарушении.
+  **AC:** out-of-scope файлы блокируют loop; evidence записано в ответе/логах.
+  **Deps:** -

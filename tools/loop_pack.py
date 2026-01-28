@@ -56,6 +56,13 @@ class WorkItemRef:
         return sanitize_key(self.key_raw)
 
 
+@dataclass(frozen=True)
+class ReviewPackMeta:
+    verdict: str
+    work_item_key: str
+    handoff_ids: Tuple[str, ...]
+
+
 def _utc_timestamp() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -88,6 +95,64 @@ def parse_sections(lines: List[str]) -> Dict[str, List[str]]:
     if current:
         sections[current] = current_lines
     return sections
+
+
+def parse_front_matter(lines: List[str]) -> Dict[str, str]:
+    if not lines or lines[0].strip() != "---":
+        return {}
+    data: Dict[str, str] = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        data[key.strip()] = value.strip()
+    return data
+
+
+def parse_review_pack_handoff_ids(lines: List[str]) -> Tuple[str, ...]:
+    handoff_ids: List[str] = []
+    in_section = False
+    base_indent = 0
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped == "- handoff_ids:":
+            in_section = True
+            base_indent = len(raw) - len(raw.lstrip(" "))
+            continue
+        if not in_section:
+            continue
+        if not stripped:
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent <= base_indent and stripped.startswith("-"):
+            break
+        if indent <= base_indent and stripped:
+            break
+        if raw.lstrip().startswith("-") and indent > base_indent:
+            item = raw.lstrip()[2:].strip()
+            if _strip_placeholder(item):
+                handoff_ids.append(item)
+            continue
+        if indent <= base_indent:
+            break
+    return tuple(handoff_ids)
+
+
+def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
+    pack_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
+    if not pack_path.exists():
+        return ReviewPackMeta("", "", tuple())
+    lines = read_text(pack_path).splitlines()
+    front = parse_front_matter(lines)
+    schema = (front.get("schema") or "").strip()
+    if schema and schema != "aidd.review_pack.v1":
+        return ReviewPackMeta("", "", tuple())
+    verdict = (front.get("verdict") or "").strip().upper()
+    work_item_key = (front.get("work_item_key") or "").strip()
+    handoff_ids = parse_review_pack_handoff_ids(lines)
+    return ReviewPackMeta(verdict, work_item_key, handoff_ids)
 
 
 def split_checkbox_blocks(lines: Iterable[str]) -> List[List[str]]:
@@ -411,6 +476,32 @@ def select_first_open(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]) ->
     return None
 
 
+def normalize_review_handoff_id(value: str) -> Tuple[str, ...]:
+    raw = value.strip()
+    if not raw:
+        return tuple()
+    if raw.startswith("reviewer:"):
+        raw = raw.replace("reviewer:", "review:", 1)
+    if raw.startswith("review:"):
+        return (raw,)
+    return (raw, f"review:{raw}")
+
+
+def is_review_handoff_id(value: str) -> bool:
+    raw = value.strip().lower()
+    return raw.startswith("review:") or raw.startswith("reviewer:")
+
+
+def select_first_open_handoff(handoff_ids: Iterable[str], handoffs: Iterable[WorkItem]) -> Optional[WorkItem]:
+    for item_id in handoff_ids:
+        for candidate_id in normalize_review_handoff_id(item_id):
+            ref = WorkItemRef("id", candidate_id)
+            candidate = find_work_item(handoffs, ref.key_safe)
+            if candidate and is_open_item(candidate):
+                return candidate
+    return None
+
+
 def build_front_matter(
     *,
     ticket: str,
@@ -544,7 +635,7 @@ def write_pack_for_item(
     }
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
-    updated_at = ""
+    updated_at = _utc_timestamp()
     pack_text = build_pack(
         ticket=ticket,
         work_item=work_item,
@@ -631,6 +722,9 @@ def main(argv: list[str] | None = None) -> int:
     active_work_item = read_active_work_item(target)
     selected_item: Optional[WorkItem] = None
     selection_reason = ""
+    review_meta = read_review_pack_meta(target, ticket) if args.stage == "implement" else ReviewPackMeta("", "", tuple())
+    open_handoffs = [item for item in handoffs if is_open_item(item) and is_review_handoff_id(item.item_id)]
+    revise_mode = args.stage == "implement" and review_meta.verdict == "REVISE" and not args.pick_next
 
     if args.work_item:
         raw = args.work_item.strip()
@@ -645,19 +739,39 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"work item {raw} not found in tasklist")
         selection_reason = "override"
     elif args.stage == "implement":
-        if active_ticket == ticket and active_work_item and not args.pick_next:
-            selected_item = find_work_item(all_items, active_work_item)
-            if selected_item:
-                if is_open_item(selected_item):
-                    selection_reason = "active"
-                else:
-                    selected_item = None
+        if revise_mode:
+            review_key = sanitize_key(review_meta.work_item_key) if review_meta.work_item_key else ""
+            if review_key:
+                candidate = find_work_item(all_items, review_key)
+                if candidate and is_open_item(candidate):
+                    selected_item = candidate
+                    selection_reason = "review-pack"
+            if not selected_item and review_meta.handoff_ids:
+                selected_item = select_first_open_handoff(review_meta.handoff_ids, handoffs)
+                if selected_item:
+                    selection_reason = "review-handoff"
+            if not selected_item and open_handoffs:
+                selected_item = open_handoffs[0]
+                selection_reason = "handoff"
+        if not selected_item and active_ticket == ticket and active_work_item and not args.pick_next:
+            if revise_mode and (review_meta.work_item_key or open_handoffs):
+                selected_item = None
+            else:
+                selected_item = find_work_item(all_items, active_work_item)
+                if selected_item:
+                    if is_open_item(selected_item):
+                        selection_reason = "active"
+                    else:
+                        selected_item = None
         if not selected_item:
             next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
             if next3_refs:
-                selected_item = select_first_open(next3_refs, all_items)
-                if selected_item:
-                    selection_reason = "next3"
+                if revise_mode and open_handoffs:
+                    selected_item = None
+                else:
+                    selected_item = select_first_open(next3_refs, all_items)
+                    if selected_item:
+                        selection_reason = "next3"
     else:
         if args.pick_next:
             next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
@@ -679,13 +793,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if not selected_item:
         message = "BLOCKED: work item not found for loop pack selection"
+        reason = "work_item_not_found"
+        if revise_mode:
+            message = "BLOCKED: review pack requires revise but no open review handoff item"
+            reason = "review_revise_missing_handoff"
         if args.format:
             payload = {
                 "schema": "aidd.loop_pack.v1",
                 "status": "blocked",
                 "ticket": ticket,
                 "stage": args.stage,
-                "reason": "work_item_not_found",
+                "reason": reason,
             }
             output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
             print(output)

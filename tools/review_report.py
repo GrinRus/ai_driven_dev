@@ -181,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
         return " ".join(str(value or "").strip().split()).lower()
 
     def _extract_title(entry: Dict, fallback: Optional[Dict[str, Any]] = None) -> str:
-        title = entry.get("title") or entry.get("summary")
+        title = entry.get("title") or entry.get("summary") or entry.get("message") or entry.get("details")
         if not title and fallback:
             title = fallback.get("title")
         return str(title or "").strip() or "issue"
@@ -196,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         parts = [
             _normalize_signature_text(_extract_title(entry, fallback)),
             _normalize_signature_text(_extract_scope(entry, fallback)),
-            _normalize_signature_text(entry.get("details") or entry.get("recommendation") or ""),
+            _normalize_signature_text(entry.get("details") or entry.get("recommendation") or entry.get("message") or ""),
         ]
         return "|".join(parts)
 

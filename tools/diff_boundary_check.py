@@ -15,6 +15,10 @@ from tools import runtime
 IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
 IGNORE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
 AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
+STATUS_OK = "OK"
+STATUS_NO_BOUNDARIES = "NO_BOUNDARIES_DEFINED"
+STATUS_OUT_OF_SCOPE = "OUT_OF_SCOPE"
+STATUS_FORBIDDEN = "FORBIDDEN"
 
 
 def normalize_path(path: str) -> str:
@@ -184,7 +188,7 @@ def main(argv: List[str] | None = None) -> int:
         allowed_paths = override_allowed
 
     if not allowed_paths and not forbidden_paths:
-        print("NO_BOUNDARIES_DEFINED")
+        print(STATUS_NO_BOUNDARIES)
         return 0
 
     aidd_root = target.name == "aidd"
@@ -192,17 +196,17 @@ def main(argv: List[str] | None = None) -> int:
     violations: List[str] = []
     for path in diff_files:
         if any(matches_pattern(path, pattern) for pattern in forbidden_paths):
-            violations.append(f"FORBIDDEN {path}")
+            violations.append(f"{STATUS_FORBIDDEN} {path}")
             continue
         if allowed_paths and not any(matches_pattern(path, pattern) for pattern in allowed_paths):
-            violations.append(f"OUT_OF_SCOPE {path}")
+            violations.append(f"{STATUS_OUT_OF_SCOPE} {path}")
 
     if violations:
         for line in sorted(violations):
             print(line)
         return 2
 
-    print("OK")
+    print(STATUS_OK)
     return 0
 
 

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from tools import runtime
+from tools import review_pack as review_pack_tools
 
 DONE_CODE = 0
 CONTINUE_CODE = 10
@@ -54,12 +55,52 @@ def parse_front_matter(text: str) -> Dict[str, str]:
     return data
 
 
-def read_review_pack(root: Path, ticket: str) -> Tuple[str, str]:
+def read_review_pack(root: Path, ticket: str) -> Tuple[str, str, str]:
     pack_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
     if not pack_path.exists():
-        return "", ""
+        return "", "", ""
     front = parse_front_matter(pack_path.read_text(encoding="utf-8"))
-    return front.get("schema", ""), front.get("verdict", "")
+    return front.get("schema", ""), front.get("verdict", ""), front.get("updated_at", "")
+
+
+def read_review_report(root: Path, ticket: str) -> Dict[str, object]:
+    report_path = root / "reports" / "reviewer" / f"{ticket}.json"
+    if not report_path.exists():
+        return {}
+    try:
+        return json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def parse_timestamp(value: str) -> dt.datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        return dt.datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def check_review_pack_freshness(pack_updated_at: str, report_payload: Dict[str, object], verdict: str) -> str:
+    if not report_payload:
+        return ""
+    report_updated_at = str(report_payload.get("updated_at") or report_payload.get("generated_at") or "").strip()
+    report_stamp = parse_timestamp(report_updated_at) if report_updated_at else None
+    pack_stamp = parse_timestamp(pack_updated_at) if pack_updated_at else None
+    if report_stamp and not pack_stamp:
+        return "review pack updated_at missing"
+    if report_stamp and pack_stamp and report_stamp > pack_stamp:
+        return "review pack stale (report newer than pack)"
+    findings = review_pack_tools.extract_findings(report_payload)
+    expected_verdict = review_pack_tools.verdict_from_status(str(report_payload.get("status") or ""), findings)
+    verdict = verdict.strip().upper()
+    if expected_verdict and verdict and expected_verdict != verdict:
+        return f"review pack verdict mismatch (pack={verdict}, report={expected_verdict})"
+    return ""
 
 
 def resolve_runner(args_runner: str | None) -> List[str]:
@@ -132,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     elif stage == "implement":
         next_stage = "review"
     elif stage == "review":
-        schema, verdict = read_review_pack(target, ticket)
+        schema, verdict, pack_updated_at = read_review_pack(target, ticket)
         if not schema:
             reason = "review pack missing"
             status = "blocked"
@@ -143,6 +184,15 @@ def main(argv: list[str] | None = None) -> int:
             status = "blocked"
             code = BLOCKED_CODE
             return emit_result(args.format, ticket, stage, status, code, verdict, "", reason)
+        freshness_reason = check_review_pack_freshness(
+            pack_updated_at,
+            read_review_report(target, ticket),
+            verdict,
+        )
+        if freshness_reason:
+            status = "blocked"
+            code = BLOCKED_CODE
+            return emit_result(args.format, ticket, stage, status, code, verdict, "", freshness_reason)
         verdict = verdict.strip().upper()
         if verdict == "SHIP":
             status = "done"
