@@ -135,6 +135,21 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "handoff": True,
         "handoff_mode": "block",
         "tests": {
+            "allow_skip": True,
+            "source": "readme-ci",
+            "discover": {
+                "max_files": 20,
+                "max_bytes": 200000,
+                "allow_paths": [
+                    ".github/workflows/*.yml",
+                    ".github/workflows/*.yaml",
+                    ".gitlab-ci.yml",
+                    ".circleci/config.yml",
+                    "Jenkinsfile",
+                    "README*",
+                    "readme*",
+                ],
+            },
         },
     },
     "reviewer": {
@@ -370,7 +385,7 @@ def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathl
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
     if "reports/research" in target.as_posix() and target.name.endswith("-context.json"):
         ticket = target.name.replace("-context.json", "")
-        pack_path = target.with_name(f"{ticket}-ast-grep.pack.yaml")
+        pack_path = target.with_name(f"{ticket}-ast-grep.pack.json")
         if not pack_path.exists():
             pack_path.write_text(json.dumps({"type": "ast-grep", "status": "ok"}, indent=2), encoding="utf-8")
     return target

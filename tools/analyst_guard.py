@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from dataclasses import dataclass
-from fnmatch import fnmatch
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
-from tools.feature_ids import resolve_project_root
+from tools import gates
+from tools.feature_ids import resolve_aidd_root
 
 # Allow Markdown prefixes (headings/bullets/bold) so analyst output doesn't trip the gate.
 QUESTION_RE = re.compile(r"^\s*(?:[#>*-]+\s*)?(?:\*\*)?Вопрос\s+(\d+)\b[^:\n]*:(?:\*\*)?", re.MULTILINE)
@@ -52,28 +51,11 @@ class AnalystCheckSummary:
     answered_count: int
 
 
-def _load_gates_config(root: Path) -> dict:
-    config_path = root / "config" / "gates.json"
-    if not config_path.exists():
-        return {}
-    try:
-        return json.loads(config_path.read_text(encoding="utf-8"))
-    except Exception as exc:  # pragma: no cover - defensive
-        raise AnalystValidationError(f"не удалось прочитать {config_path}: {exc}")
-
-
-def _normalize_patterns(raw: Iterable[str] | None) -> list[str] | None:
-    if not raw:
-        return None
-    patterns: list[str] = []
-    for item in raw:
-        if isinstance(item, str) and item.strip():
-            patterns.append(item.strip())
-    return patterns or None
-
-
 def load_settings(root: Path) -> AnalystSettings:
-    config = _load_gates_config(root)
+    try:
+        config = gates.load_gates_config(root)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise AnalystValidationError(str(exc))
     raw = config.get("analyst") or {}
     settings = AnalystSettings()
 
@@ -93,20 +75,10 @@ def load_settings(root: Path) -> AnalystSettings:
             settings.check_open_questions = bool(raw["check_open_questions"])
         if "require_dialog_section" in raw:
             settings.require_dialog_section = bool(raw["require_dialog_section"])
-        settings.branches = _normalize_patterns(raw.get("branches"))
-        settings.skip_branches = _normalize_patterns(raw.get("skip_branches"))
+        settings.branches = gates.normalize_patterns(raw.get("branches"))
+        settings.skip_branches = gates.normalize_patterns(raw.get("skip_branches"))
 
     return settings
-
-
-def _branch_enabled(branch: Optional[str], settings: AnalystSettings) -> bool:
-    if not branch:
-        return True
-    if settings.skip_branches and any(fnmatch(branch, pattern) for pattern in settings.skip_branches):
-        return False
-    if settings.branches and not any(fnmatch(branch, pattern) for pattern in settings.branches):
-        return False
-    return True
 
 
 def _extract_section(text: str, heading_prefix: str) -> str | None:
@@ -180,7 +152,7 @@ def validate_prd(
     allow_blocked_override: Optional[bool] = None,
     min_questions_override: Optional[int] = None,
 ) -> AnalystCheckSummary:
-    if not settings.enabled or not _branch_enabled(branch, settings):
+    if not settings.enabled or not gates.branch_enabled(branch, allow=settings.branches, skip=settings.skip_branches):
         return AnalystCheckSummary(status=None, question_count=0, answered_count=0)
 
     prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
@@ -344,7 +316,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    root = resolve_project_root(Path.cwd())
+    root = resolve_aidd_root(Path.cwd())
     settings = load_settings(root)
     try:
         summary = validate_prd(

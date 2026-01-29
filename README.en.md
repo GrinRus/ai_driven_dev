@@ -109,7 +109,7 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.yaml` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.json` |
 | `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
@@ -141,9 +141,9 @@ Empty context troubleshooting:
 - If `rlm_status=pending`, complete the agent worklist flow and rebuild the RLM pack.
 
 RLM artifacts (pack-first):
-- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (or `.pack.toon`).
+- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice tool: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
-- `*-context.pack.*` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
+- `*-context.pack.json` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
 
 ## Loop mode (implement↔review)
 

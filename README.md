@@ -96,7 +96,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.yaml` |
+| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.json` |
 | `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
@@ -129,9 +129,9 @@ Troubleshooting пустого контекста:
 - Если `rlm_status=pending`, выполните agent‑flow по worklist и пересоберите RLM pack.
 
 RLM artifacts (pack-first):
-- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.yaml` (или `.pack.toon`).
+- Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
-- Бюджет `*-context.pack.*`: `config/conventions.json` → `reports.research_pack_budget` (по умолчанию `max_chars=2000`, `max_lines=120`).
+- Бюджет `*-context.pack.json`: `config/conventions.json` → `reports.research_pack_budget` (по умолчанию `max_chars=2000`, `max_lines=120`).
 
 ## Loop mode (implement↔review)
 

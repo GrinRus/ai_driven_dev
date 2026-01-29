@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import re
 import sys
@@ -13,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
+from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -63,10 +63,6 @@ class ReviewPackMeta:
     handoff_ids: Tuple[str, ...]
 
 
-def _utc_timestamp() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
 def sanitize_key(value: str) -> str:
     return value.replace(":", "_")
 
@@ -95,20 +91,6 @@ def parse_sections(lines: List[str]) -> Dict[str, List[str]]:
     if current:
         sections[current] = current_lines
     return sections
-
-
-def parse_front_matter(lines: List[str]) -> Dict[str, str]:
-    if not lines or lines[0].strip() != "---":
-        return {}
-    data: Dict[str, str] = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        data[key.strip()] = value.strip()
-    return data
 
 
 def parse_review_pack_handoff_ids(lines: List[str]) -> Tuple[str, ...]:
@@ -635,7 +617,7 @@ def write_pack_for_item(
     }
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
-    updated_at = _utc_timestamp()
+    updated_at = utc_timestamp()
     pack_text = build_pack(
         ticket=ticket,
         work_item=work_item,
@@ -649,28 +631,6 @@ def write_pack_for_item(
     pack_path = output_dir / f"{work_item.key_safe}.loop.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
     return pack_path, boundaries, commands_required, tests_required, updated_at
-
-
-def dump_yaml(data: object, indent: int = 0) -> List[str]:
-    lines: List[str] = []
-    prefix = " " * indent
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, (dict, list)):
-                lines.append(f"{prefix}{key}:")
-                lines.extend(dump_yaml(value, indent + 2))
-            else:
-                lines.append(f"{prefix}{key}: {json.dumps(value)}")
-    elif isinstance(data, list):
-        for item in data:
-            if isinstance(item, (dict, list)):
-                lines.append(f"{prefix}-")
-                lines.extend(dump_yaml(item, indent + 2))
-            else:
-                lines.append(f"{prefix}- {json.dumps(item)}")
-    else:
-        lines.append(f"{prefix}{json.dumps(data)}")
-    return lines
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -834,7 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     boundaries: Dict[str, List[str]] = {}
     commands_required: List[str] = []
     tests_required: List[str] = []
-    updated_at = _utc_timestamp()
+    updated_at = utc_timestamp()
 
     for item in prewarm_map.values():
         pack_path, item_boundaries, item_commands, item_tests, item_updated_at = write_pack_for_item(

@@ -71,7 +71,7 @@ class RlmSliceTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            latest = project_root / "reports" / "context" / f"{ticket}-rlm-slice.latest.pack.yaml"
+            latest = project_root / "reports" / "context" / f"{ticket}-rlm-slice.latest.pack.json"
             self.assertTrue(latest.exists())
             payload = json.loads(latest.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("ticket"), ticket)

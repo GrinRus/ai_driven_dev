@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import datetime as dt
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from tools.io_utils import append_jsonl, read_jsonl, utc_timestamp
 
 def tests_log_path(root: Path, ticket: str) -> Path:
     return root / "reports" / "tests" / f"{ticket}.jsonl"
@@ -24,7 +23,7 @@ def append_log(
     if not ticket:
         return
     payload: Dict[str, Any] = {
-        "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "ts": utc_timestamp(),
         "ticket": ticket,
         "slug_hint": slug_hint or ticket,
         "type": "tests",
@@ -36,27 +35,16 @@ def append_log(
         payload["source"] = source
 
     path = tests_log_path(root, ticket)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    append_jsonl(path, payload)
 
 
 def read_log(root: Path, ticket: str, *, limit: int = 5) -> List[Dict[str, Any]]:
     path = tests_log_path(root, ticket)
     if not path.exists():
         return []
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    events = read_jsonl(path)
+    if not events:
         return []
-    events: List[Dict[str, Any]] = []
-    for raw in reversed(lines):
-        if not raw.strip():
-            continue
-        try:
-            events.append(json.loads(raw))
-        except json.JSONDecodeError:
-            continue
-        if len(events) >= max(limit, 0):
-            break
-    return list(reversed(events))
+    if limit <= 0:
+        return []
+    return events[-max(limit, 0):]

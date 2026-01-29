@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import os
 import subprocess
@@ -13,38 +12,13 @@ from pathlib import Path
 from typing import Dict, List
 
 from tools import runtime
+from tools.io_utils import dump_yaml, utc_timestamp
 
 DONE_CODE = 0
 CONTINUE_CODE = 10
 BLOCKED_CODE = 20
 MAX_ITERATIONS_CODE = 11
 ERROR_CODE = 30
-
-
-def _utc_stamp() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def dump_yaml(data: object, indent: int = 0) -> List[str]:
-    lines: List[str] = []
-    prefix = " " * indent
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, (dict, list)):
-                lines.append(f"{prefix}{key}:")
-                lines.extend(dump_yaml(value, indent + 2))
-            else:
-                lines.append(f"{prefix}{key}: {json.dumps(value)}")
-    elif isinstance(data, list):
-        for item in data:
-            if isinstance(item, (dict, list)):
-                lines.append(f"{prefix}-")
-                lines.extend(dump_yaml(item, indent + 2))
-            else:
-                lines.append(f"{prefix}- {json.dumps(item)}")
-    else:
-        lines.append(f"{prefix}{json.dumps(data)}")
-    return lines
 
 
 def clear_active_state(root: Path) -> None:
@@ -118,9 +92,9 @@ def main(argv: List[str] | None = None) -> int:
                 "exit_code": ERROR_CODE,
                 "log_path": runtime.rel_path(log_path, target),
                 "reason": f"loop-step failed ({result.returncode})",
-                "updated_at": _utc_stamp(),
+                "updated_at": utc_timestamp(),
             }
-            append_log(log_path, f"{_utc_stamp()} iteration={iteration} status=error code={result.returncode}")
+            append_log(log_path, f"{utc_timestamp()} iteration={iteration} status=error code={result.returncode}")
             emit(args.format, payload)
             return ERROR_CODE
         try:
@@ -130,7 +104,7 @@ def main(argv: List[str] | None = None) -> int:
         last_payload = step_payload
         append_log(
             log_path,
-            f"{_utc_stamp()} iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} verdict={step_payload.get('verdict')}",
+            f"{utc_timestamp()} iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} verdict={step_payload.get('verdict')}",
         )
         if result.returncode == DONE_CODE:
             clear_active_state(target)
@@ -140,7 +114,7 @@ def main(argv: List[str] | None = None) -> int:
                 "exit_code": DONE_CODE,
                 "log_path": runtime.rel_path(log_path, target),
                 "last_step": step_payload,
-                "updated_at": _utc_stamp(),
+                "updated_at": utc_timestamp(),
             }
             emit(args.format, payload)
             return DONE_CODE
@@ -151,7 +125,7 @@ def main(argv: List[str] | None = None) -> int:
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
                 "last_step": step_payload,
-                "updated_at": _utc_stamp(),
+                "updated_at": utc_timestamp(),
             }
             emit(args.format, payload)
             return BLOCKED_CODE
@@ -164,7 +138,7 @@ def main(argv: List[str] | None = None) -> int:
         "exit_code": MAX_ITERATIONS_CODE,
         "log_path": runtime.rel_path(log_path, target),
         "last_step": last_payload,
-        "updated_at": _utc_stamp(),
+        "updated_at": utc_timestamp(),
     }
     emit(args.format, payload)
     return MAX_ITERATIONS_CODE

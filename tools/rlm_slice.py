@@ -5,7 +5,6 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -19,7 +18,7 @@ PACK_VERSION = "v1"
 
 
 def _pack_extension() -> str:
-    return ".pack.toon" if os.getenv("AIDD_PACK_FORMAT", "").strip().lower() == "toon" else ".pack.yaml"
+    return ".pack.json"
 
 
 def _hash_slice_key(query: str, paths: Sequence[str], langs: Sequence[str]) -> str:

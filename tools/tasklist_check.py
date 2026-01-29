@@ -10,12 +10,12 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from tools import gates
 from tools import runtime
-from tools.feature_ids import resolve_identifiers, resolve_project_root
+from tools.feature_ids import resolve_aidd_root, resolve_identifiers
 
 
 PLACEHOLDER_VALUES = {"", "...", "<...>", "tbd", "<tbd>", "todo", "<todo>"}
@@ -537,24 +537,15 @@ def load_gate_config(path: Path) -> dict | None:
     if not path.is_file():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+        data = gates.load_gates_config(path)
+    except ValueError:
+        return None
+    if "tasklist_spec" not in data:
         return None
     section = data.get("tasklist_spec")
-    if section is None:
-        return None
     if isinstance(section, bool):
         return {"enabled": section}
     return section if isinstance(section, dict) else None
-
-
-def matches(patterns: Iterable[str], value: str) -> bool:
-    if not value:
-        return False
-    for pattern in patterns or ():
-        if pattern and fnmatch(value, pattern):
-            return True
-    return False
 
 
 def should_skip_gate(gate: dict | None, branch: str) -> tuple[bool, str]:
@@ -563,10 +554,10 @@ def should_skip_gate(gate: dict | None, branch: str) -> tuple[bool, str]:
     enabled = bool(gate.get("enabled", True))
     if not enabled:
         return True, "gate disabled"
-    if branch and matches(gate.get("skip_branches", []), branch):
+    if branch and gates.matches(gate.get("skip_branches"), branch):
         return True, "branch skipped"
     branches = gate.get("branches")
-    if branch and branches and not matches(branches, branch):
+    if branch and branches and not gates.matches(branches, branch):
         return True, "branch not in allowlist"
     return False, ""
 
@@ -1686,7 +1677,7 @@ def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
 
 
 def run_check(args: argparse.Namespace) -> int:
-    root = resolve_project_root(Path.cwd())
+    root = resolve_aidd_root(Path.cwd())
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path

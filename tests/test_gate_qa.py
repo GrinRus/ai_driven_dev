@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools import qa as qa_tools
+
 from .helpers import HOOKS_DIR, ensure_gates_config, run_hook, write_active_feature, write_active_stage, write_file
 
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/App.kt"}}'
@@ -77,7 +79,7 @@ def test_allows_when_pack_present(tmp_path):
     write_active_feature(tmp_path, "qa-pack")
     write_active_stage(tmp_path, "qa")
     write_file(tmp_path, "src/main/App.kt", "class App")
-    write_file(tmp_path, "reports/qa/qa-pack.pack.yaml", "{}\n")
+    write_file(tmp_path, "reports/qa/qa-pack.pack.json", "{}\n")
 
     result = run_hook(
         tmp_path,
@@ -175,6 +177,54 @@ def test_skip_env_allows(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_discovery_respects_allowlist(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "tests": {
+                    "source": "readme-ci",
+                    "discover": {
+                        "max_files": 10,
+                        "max_bytes": 200000,
+                        "allow_paths": ["README*"],
+                    },
+                }
+            }
+        },
+    )
+    write_file(tmp_path, "README.md", "run: pytest\n")
+    write_file(tmp_path, ".github/workflows/ci.yml", "- run: npm test\n")
+
+    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+
+    assert commands == [["pytest"]]
+
+
+def test_discovery_respects_max_files(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "tests": {
+                    "source": "readme-ci",
+                    "discover": {
+                        "max_files": 1,
+                        "max_bytes": 200000,
+                        "allow_paths": ["README*"],
+                    },
+                }
+            }
+        },
+    )
+    write_file(tmp_path, "README-1.md", "pytest\n")
+    write_file(tmp_path, "README-2.md", "npm test\n")
+
+    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+
+    assert commands == [["pytest"]]
 
 
 def test_debounce_stamp_written_only_on_success(tmp_path):

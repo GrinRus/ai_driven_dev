@@ -215,10 +215,9 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
         if path.exists():
             return path
         if path.suffix == ".json":
-            for suffix in (".pack.yaml", ".pack.toon"):
-                candidate = path.with_suffix(suffix)
-                if candidate.exists():
-                    return candidate
+            candidate = path.with_suffix(".pack.json")
+            if candidate.exists():
+                return candidate
         return None
 
     def research_requires_handoff(report_path: Path) -> bool:
@@ -234,16 +233,13 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
 
         label = marker_for(report_path)
         blocks = tasks_derive._derive_tasks_from_research_context(payload, label)
-        for suffix in (".pack.yaml", ".pack.toon"):
-            ast_path = root / "reports" / "research" / f"{ticket}-ast-grep{suffix}"
-            if not ast_path.exists():
-                continue
+        ast_path = root / "reports" / "research" / f"{ticket}-ast-grep.pack.json"
+        if ast_path.exists():
             try:
                 ast_payload = json.loads(ast_path.read_text(encoding="utf-8"))
             except Exception:
                 ast_payload = {}
             blocks.extend(tasks_derive._derive_tasks_from_ast_grep_pack(ast_payload, marker_for(ast_path)))
-            break
         blocks = tasks_derive._dedupe_task_blocks(blocks)
         blocks = tasks_derive._filter_research_handoff_blocks(blocks)
         return bool(blocks)

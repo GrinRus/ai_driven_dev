@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import re
 import sys
@@ -13,10 +12,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
-
-
-def _utc_timestamp() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 
 def read_text(path: Path) -> str:
@@ -24,21 +20,6 @@ def read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except OSError:
         return ""
-
-
-def parse_front_matter(text: str) -> Dict[str, str]:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    data: Dict[str, str] = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        data[key.strip()] = value.strip()
-    return data
 
 
 def load_loop_pack_meta(root: Path, ticket: str) -> Tuple[str, str]:
@@ -227,28 +208,6 @@ def render_pack(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def dump_yaml(data: object, indent: int = 0) -> List[str]:
-    lines: List[str] = []
-    prefix = " " * indent
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, (dict, list)):
-                lines.append(f"{prefix}{key}:")
-                lines.extend(dump_yaml(value, indent + 2))
-            else:
-                lines.append(f"{prefix}{key}: {json.dumps(value)}")
-    elif isinstance(data, list):
-        for item in data:
-            if isinstance(item, (dict, list)):
-                lines.append(f"{prefix}-")
-                lines.extend(dump_yaml(item, indent + 2))
-            else:
-                lines.append(f"{prefix}- {json.dumps(item)}")
-    else:
-        lines.append(f"{prefix}{json.dumps(data)}")
-    return lines
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate review pack from reviewer report.")
     parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active_ticket).")
@@ -273,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     findings = dedupe_findings(extract_findings(payload))
     findings = sort_findings(findings)[:5]
     verdict = verdict_from_status(str(payload.get("status") or ""), findings)
-    updated_at = _utc_timestamp()
+    updated_at = utc_timestamp()
     work_item_id, work_item_key = load_loop_pack_meta(target, ticket)
     if not work_item_id or not work_item_key:
         raise FileNotFoundError(

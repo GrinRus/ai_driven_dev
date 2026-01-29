@@ -95,7 +95,7 @@ class RlmPipelineE2ETests(unittest.TestCase):
                 manifest_path=manifest_path,
                 nodes_path=nodes_path,
             )
-            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.write_text(json.dumps(worklist_pack, indent=2), encoding="utf-8")
 
             old_cwd = Path.cwd()
@@ -115,8 +115,8 @@ class RlmPipelineE2ETests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.yaml"
-            slice_path = project_root / "reports" / "context" / f"{ticket}-rlm-slice.latest.pack.yaml"
+            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+            slice_path = project_root / "reports" / "context" / f"{ticket}-rlm-slice.latest.pack.json"
             self.assertTrue(pack_path.exists(), "RLM pack should be created")
             self.assertTrue(slice_path.exists(), "RLM slice should be created")
 

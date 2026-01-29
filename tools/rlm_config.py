@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Dict, Iterable
 
+from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
+
 
 DEFAULT_PROMPT_VERSION = "v1"
 DEFAULT_IGNORE_DIRS = {
@@ -76,7 +78,8 @@ def load_rlm_settings(root: Path) -> Dict:
 
 
 def workspace_root_for(root: Path) -> Path:
-    return root.parent if root.name == "aidd" else root
+    workspace_root, _ = resolve_workspace_root(root, DEFAULT_PROJECT_SUBDIR)
+    return workspace_root
 
 
 def paths_base_for(root: Path) -> Path:
