@@ -2197,7 +2197,7 @@ _Статус: новый, приоритет 1. Цель — переход н�
 
 _Статус: новый, приоритет 2. Цель — архитектурный профиль + runbooks как канон кастомизации, плюс унификация промптов и регрессионные проверки._
 
-- [x] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
+- [x] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
   - шаблон с front‑matter + обязательные секции (Style/Modules/Allowed deps/Invariants/Interfaces/Runbooks/Conventions);
   - machine‑readable front‑matter поля и формы:
     - `schema`, `updated_at`, `style`, `conventions`, `stack_hint` (список строк, multi‑stack);
@@ -2210,7 +2210,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
     - Plan: `Architecture Profile: aidd/docs/architecture/profile.md`;
     - Tasklist: `AIDD:CONTEXT_PACK → References` (или отдельный пункт);
   - Context Pack шаблоны команд стадий (idea/research/plan/tasklist/spec-interview/review-spec/implement/review/qa) содержат `arch_profile: aidd/docs/architecture/profile.md` в Paths;
-  - anchors/AGENTS (templates/aidd/AGENTS.md + templates/root/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
+  - anchors/AGENTS (templates/aidd/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
   **AC:** профиль существует с front‑matter, ссылки на канонический путь есть во всех шаблонах/якорях/Context Pack, AGENTS упоминает профиль как источник ограничений.
   **Deps:** -
 - [x] W82-2 `templates/aidd/runbooks/**/RUNBOOK.md`, `templates/aidd/runbooks/index.yaml`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`: добавить базовую библиотеку runbooks и связать с профилем:
@@ -2222,14 +2222,12 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - правило “runbooks‑first для tests/format/run” + fallback (“если runbook отсутствует — не выдумывать команды, запросить/добавить runbook”).
   **AC:** runbooks и registry в templates, профиль их перечисляет, anchors требуют открывать RUNBOOK.md и описывают fallback.
   **Deps:** W82-1
-- [x] W82-3 `templates/root/**`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/runbooks и root‑адаптеров:
+- [x] W82-3 `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/runbooks:
   - `tools/init.sh` — entrypoint команды; `tools/init.py` — реализация, вызываемая entrypoint (без дублирования логики);
-  - копирование `templates/root/**` в workspace root (root `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/aidd.md`, `.github/copilot-instructions.md`) без перезаписи без `--force`;
-  - root `AGENTS.md` — thin‑adapter: указывает на `aidd/AGENTS.md`, Architecture Profile и anchors;
   - init гарантирует `aidd/docs/architecture/*` и `aidd/runbooks/**` (и не трогает существующий `aidd/AGENTS.md`);
   - обновить описание флагов и DoD в команде.
-  **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/runbooks и root‑адаптеры при отсутствии, не ломая существующие файлы.
-  **Tests:** обновить `tests/test_init_aidd.py` (root‑адаптеры только если их нет, `aidd/AGENTS.md` сохраняется).
+  **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/runbooks при отсутствии, не ломая существующие файлы.
+  **Tests:** обновить `tests/test_init_aidd.py` (`aidd/AGENTS.md` сохраняется).
   **Deps:** W82-1,W82-2
 - [x] W82-4 `tools/detect-stack.(py|sh)`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`, tests: stack‑detector → заполнение profile:
   - детект langs/build tools по маркерам (package.json/pyproject/go.mod/Cargo.toml/etc);
@@ -2423,7 +2421,7 @@ _Статус: новый, приоритет 2. Цель — убрать AIDD 
   **AC:** в репозитории нет `templates/aidd/runbooks/**`; init не создаёт runbooks; тесты не требуют runbooks.
   **Deps:** W82-2
 
-- [x] W84-2 `agents/*.md`, `commands/*.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `templates/aidd/docs/{tasklist,loops}/template.*`: обновить ссылки/политики вокруг runbooks:
+- [x] W84-2 `agents/*.md`, `commands/*.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/{tasklist,loops}/template.*`: обновить ссылки/политики вокруг runbooks:
   - удалить любые ссылки на `aidd/runbooks/**` и “AIDD runbooks-first” в старом смысле;
   - новое правило:
     - если есть `commands/<runbook>/RUNBOOK.md` → использовать их;
@@ -2493,3 +2491,227 @@ _Статус: новый, приоритет 2. Цель — убрать AIDD 
   - без него implementer вынужден читать plan/PRD, что ломает “fresh context”.
   **AC:** loop pack содержит обязательный excerpt и ссылки на DoD/AC.
   **Deps:** W83-2
+
+## Wave 85
+
+_Статус: новый, приоритет 1. Цель — закрыть проблемы AIDD Flow Audit (TST-001): RLM evidence, loop pack дисциплина, review/qa консистентность, tasklist/spec policy._
+
+- [x] W85-1 `tools/research.sh`, `tools/rlm-finalize.sh`, `tools/rlm-verify.sh`, `commands/researcher.md`, `agents/researcher.md`, `templates/aidd/docs/anchors/research.md`, `tests/test_research_check.py`, `tests/test_research_rlm_e2e.py`: гарантировать полный RLM evidence перед `Status: reviewed`:
+  - `rlm_status=ready` допустим только если существуют `*-rlm.pack.*`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`;
+  - при отсутствии полного пакета команда researcher должна ставить `BLOCKED` и требовать `rlm-finalize`;
+  - в prompt команды/агента явно зафиксировать обязательный вызов `rlm-finalize.sh --ticket $1` при `rlm_status=pending` (после subagent), иначе `BLOCKED`;
+  - `research-check` блокирует переходы, если status ready без пакета/links/nodes.
+  **AC:** RLM pack/nodes/links всегда присутствуют при `Status: reviewed`; без них researcher возвращает BLOCKED.
+  **Deps:** -
+
+- [x] W85-2 `commands/review.md`, `commands/qa.md`, `tests/test_context_pack.py`, `tests/repo_tools/lint-prompts.py`: обеспечить обязательное создание context pack для review/qa:
+  - review создаёт `aidd/reports/context/<ticket>.review.pack.md` до subagent;
+  - qa создаёт `aidd/reports/context/<ticket>.qa.pack.md` до subagent;
+  - при неуспешной записи pack → `Status: BLOCKED` + понятный error.
+  **AC:** review/qa всегда имеют соответствующий context pack; lint-проверка падает, если pack не указан в prompt.
+  **Deps:** W84-7
+
+- [x] W85-3 `tools/loop-pack.sh`, `tools/loop_pack.py`, `commands/implement.md`, `tests/test_loop_pack.py`, `tests/repo_tools/loop-regression.sh`: усилить loop-pack выбор и синхронизацию `.active_work_item`:
+  - implement всегда вызывает loop-pack и валидирует существование `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`;
+  - при смене итерации (NEXT_3) loop-pack должен обновлять `.active_work_item` и создавать pack для каждого work_item (I2/I3);
+  - при отсутствии pack → `Status: BLOCKED` + рекомендация rerun.
+  **AC:** на каждом implement итерации создаётся loop pack; `.active_work_item` соответствует последнему pack; регрессия ловит отсутствие pack.
+  **Deps:** W83-2, W83-8
+
+- [x] W85-4 `tools/review_report.py`, `tools/review_pack.py`, `tools/review-pack.sh`, `commands/review.md`, `tests/test_review_pack.py`: синхронизация review report и review pack:
+  - после `/feature-dev-aidd:review` пересобирается `review.latest.pack.md` из актуального `aidd/reports/reviewer/<ticket>.json`;
+  - повторный review перезаписывает pack с новым `updated_at` и verdict;
+  - pack должен ссылаться на текущий `work_item_key` из `.active_work_item`.
+  **AC:** review pack всегда отражает последний review report; verdict и findings совпадают с report.
+  **Deps:** W83-10
+
+- [x] W85-5 `tools/review_report.py`, `tools/qa.py`, `commands/review.md`, `commands/qa.md`, `tests/test_qa_agent.py`: нормализовать статусный словарь для review/qa:
+  - допустимые статусы только `READY|WARN|BLOCKED`;
+  - любые `PASS|NEEDS_FIXES|FAIL` должны мапиться на канон при записи отчётов;
+  - tasklist front‑matter и `AIDD:CONTEXT_PACK Status` синхронизируются с canonical status.
+  **AC:** reviewer/qa отчёты содержат только канонические статусы; tasklist и reports не расходятся.
+  **Deps:** -
+
+- [x] W85-6 `tools/qa.py`, `tools/qa.sh`, `tools/tasks-derive.sh`, `tests/test_qa_agent.py`, `tests/test_gate_qa.py`: QA report vs tasklist consistency:
+  - дедуплицировать findings по id;
+  - если QA чеклисты уже закрыты, report не должен оставаться `fail` из‑за stale checklist;
+  - при наличии manual-only проверок выставлять `WARN` + явный список “manual required”.
+  **AC:** QA report status детерминирован, без дублей; manual gaps дают WARN, не FAIL.
+  **Deps:** W85-5
+
+- [x] W85-7 `commands/tasks-new.md`, `agents/tasklist-refiner.md`, `tools/tasklist_check.py`, `templates/aidd/docs/anchors/tasklist.md`, `tests/test_tasklist_check.py`: enforce spec‑required policy для UI/UX изменений:
+  - если plan/PRD указывает UI/UX или front-end изменения и spec отсутствует — tasklist status = BLOCKED и требование `/feature-dev-aidd:spec-interview`;
+  - `tasklist-check` валидирует, что `AIDD:NEXT_3` не содержит `[x]` элементов.
+  **AC:** UI/UX задачи без spec блокируются; NEXT_3 всегда без закрытых чекбоксов.
+  **Deps:** W83-6, W84-2
+
+- [x] W85-8 `.claude-plugin/marketplace.json`: устранить несоответствие ref в marketplace манифесте:
+  - обновить `plugins[].source.ref` на актуальную ветку/тег (например, `wave-85` или `main`);
+  **Deps:** -
+
+- [x] W85-9 `hooks/hooks.json`, `tests/test_context_gc.py` (и/или `tests/test_bootstrap_e2e.py`): расширить matcher PreToolUse:
+  - заменить `matcher: "Bash|Read"` на охват `Write|Edit|Glob` (или `.*`), чтобы GC видел все tool-use;
+  - добавить/обновить тест, что matcher учитывает `Write`/`Edit`.
+  **AC:** контекст‑GC запускается на Write/Edit/Glob; тест фиксирует новую матчинговую политику.
+  **Deps:** -
+
+- [x] W85-10 `commands/plan-new.md`, `tools/prd-check.{sh,py}` (или аналог), `tests/test_prd_ready_check.py`: enforce PRD READY перед plan-new:
+  - добавить явный чек `Status: READY` в PRD (скрипт/CLI), вызываемый перед planner;
+  - план‑new возвращает BLOCKED при draft PRD.
+  **AC:** plan-new не стартует planner без READY PRD; есть тест на блокировку.
+  **Deps:** -
+
+- [x] W85-11 `tests/repo_tools/lint-prompts.py` (или `prompt-regression.sh`): guard против упоминаний skills:
+  - добавить проверку, что нет ссылок на `aidd/skills/**` или `templates/aidd/skills/**` в prompts/docs;
+  - оставить нейтральные упоминания слова “skills” без пути допустимыми.
+  **AC:** CI падает при появлении ссылок на skills‑директорию.
+  **Deps:** -
+
+- [x] W85-12 `hooks/format-and-test.sh`, `tests/test_format_and_test.py`: расследовать расхождения тест‑политики:
+  - воспроизвести failures (если актуально), сравнить ожидания тестов с текущим поведением hook;
+  - обновить логику/тесты под актуальную политику (`AIDD_TEST_*`, reviewer marker, common patterns);
+  - добавить regression кейс на “profile=none/fast/targeted/full”.
+  **AC:** `test_format_and_test.py` стабильно проходит; поведение hook задокументировано в тестах.
+  **Deps:** -
+
+- [x] W85-13 `hooks/gate-workflow.sh`, `tests/test_gate_workflow.py`, `tools/gate_workflow.py` (если есть): выверить gate‑workflow поведение:
+  - воспроизвести reported failures и локализовать drift между gate‑логикой и тестами;
+  - поправить gate‑workflow или тесты так, чтобы gate корректно блокировал/разрешал стадии;
+  - добавить/обновить edge‑case тесты на ACTIVE markers и missing artifacts.
+  **AC:** `test_gate_workflow.py` стабильно проходит; gate‑workflow отражает актуальные правила SDLC.
+  **Deps:** -
+
+- [x] W85-14 `AGENTS.md`, `templates/aidd/AGENTS.md`, `README*.md`: устранить путаницу между dev/user AGENTS:
+  - явно обозначить назначение каждого файла (Dev guide vs User guide);
+  - при необходимости добавить ссылку‑навигацию между файлами или переименовать (с обратной совместимостью).
+  **AC:** docs явно объясняют, какой AGENTS.md использовать и когда.
+  **Deps:** -
+
+- [x] W85-15 `.claude-plugin/plugin.json`, `tests/repo_tools/*`: стратегия auto‑discovery vs explicit listing:
+  - определить, поддерживает ли runtime auto‑discovery без ручных списков;
+  - либо перейти на auto‑discovery, либо добавить guard/генератор для sync списков.
+  **AC:** добавление новой команды/агента не требует ручной правки без проверки; CI ловит рассинхрон.
+  **Deps:** -
+
+- [x] W85-16 `commands/*.md`, `agents/*.md`, `tools/prd-check.{sh,py}`, `tests/*`: интеграция PRD‑ready check:
+  - аудит команд, которые используют PRD (plan/review‑spec/tasks/implement);
+  - добавить/задокументировать обязательный `prd-check` где нужно;
+  - добавить тесты на блокировку при draft PRD.
+  **AC:** PRD‑ready проверяется перед критическими стадиями; есть regression‑тест.
+  **Deps:** -
+
+- [x] W85-17 `.mcp.json` (decision): MCP интеграция или явная фиксация отсутствия:
+  - подтвердить, что отсутствие MCP намеренное;
+  - если нужно — добавить `.mcp.json` или заметку в README.
+  **AC:** решение задокументировано; отсутствие MCP не выглядит как баг.
+  **Deps:** -
+
+- [x] W85-18 `tools/*.sh` (python wrappers): привести shebang/именования к единой политике:
+  - зафиксировать правило (например, `.sh` только для shell, `.py` для python);
+  - при необходимости переименовать wrappers или добавить README‑объяснение.
+  **AC:** нет путаницы между расширением и shebang; политика описана.
+  **Deps:** -
+
+- [x] W85-19 `hooks/gate-workflow.sh`, `tools/gate_workflow.py`: снижение размера и сложностей gate‑workflow:
+  - вынести логику из shell в python‑модуль;
+  - оставить shell как thin wrapper;
+  - добавить unit‑тесты на вынесенные функции.
+  **AC:** gate‑workflow легче поддерживать; тесты покрывают ключевые ветки.
+  **Deps:** -
+
+- [x] W85-20 `tools/qa_agent.py`, `tests/test_qa_agent.py`: корректная дедупликация QA checklist findings:
+  - id для checklist включает контент строки, чтобы manual/blocker не схлопывались;
+  - добавить тест на сохранение manual+blocker в одном tasklist.
+  **AC:** blocker findings не теряются при наличии manual QA строк; regression‑тест покрывает кейс.
+  **Deps:** -
+
+- [x] W85-21 `tools/loop_pack.py`, `tests/test_loop_pack.py`: заполнить updated_at в loop pack и payload:
+  - записывать `_utc_timestamp()` в front matter для всех сгенерированных pack (selected + prewarm);
+  - убедиться, что structured output loop-pack содержит непустой updated_at.
+  **AC:** loop pack front matter содержит непустой updated_at; тест валидирует формат/непустое значение.
+  **Deps:** -
+
+- [x] W85-22 `tools/loop_pack.py`, `tools/loop_step.py`, `commands/implement.md`, `tests/test_loop_pack.py`, `tests/repo_tools/loop-regression.sh`: REVISE не должен перескакивать на NEXT_3:
+  - если `review.latest.pack.md` verdict=REVISE, implement loop-pack выбирает work_item из review pack (work_item_key) или первый handoff id из pack/`AIDD:HANDOFF_INBOX`;
+  - не использовать NEXT_3 пока handoff задачи открыты; `.active_work_item` остаётся на review item;
+  - добавить регрессионный тест на REVISE -> implement selection (loop-step).
+  **AC:** при REVISE следующий implement работает по ревью‑work_item/handoff, а не по следующей итерации.
+  **Deps:** W85-3, W85-4
+
+- [x] W85-23 `tools/review_pack.py`, `tools/review_report.py`, `tests/test_review_pack.py`: улучшить содержание review pack и fresh‑guard:
+  - в топ‑findings использовать поля `message`/`details` как fallback к `title/summary`;
+  - дедуплицировать findings по id/тексту;
+  - если review report обновлён позже pack (или verdict не совпадает со статусом), блокировать loop-step или пересобирать pack.
+  **AC:** review pack показывает осмысленные findings (без n/a) и verdict всегда соответствует status review report.
+  **Deps:** W85-4
+
+- [x] W85-24 `commands/implement.md`, `commands/review.md`, `tools/diff_boundary_check.py`, `tests/repo_tools/loop-regression.sh`: зафиксировать boundary-check evidence:
+  - implement/review обязаны выполнять diff-boundary-check и логировать `OK|OUT_OF_SCOPE|FORBIDDEN|NO_BOUNDARIES_DEFINED`;
+  - OUT_OF_SCOPE/FORBIDDEN блокирует стадию;
+  - добавить регрессионный тест, что boundary-check вызывается и блокирует при нарушении.
+  **AC:** out-of-scope файлы блокируют loop; evidence записано в ответе/логах.
+  **Deps:** -
+
+- [x] W85-25 `templates/aidd/config/{gates.json,conventions.json,context_gc.json}`, `templates/aidd/conventions.md`, `AGENTS.md`: вычистить неиспользуемые настройки AIDD flow:
+  - удалить неиспользуемые поля (например, `gates.tests.reviewerGate`, `context_gc.working_set.max_open_questions`, `conventions.rlm.{enabled,required_for_langs,max_nodes,verification_required}`, `conventions.rlm.slice_budget.max_chars`, `researcher.ast_grep.deprecated`);
+  - обновить документацию/гайд по настройкам и примеры, чтобы отражали только поддерживаемые поля;
+  - при необходимости добавить notes о несовместимых изменениях.
+  **AC:** в шаблонах нет “мертвых” полей; docs описывают только реально используемые настройки.
+  **Deps:** -
+
+- [x] W85-26 `tools/feature_ids.py`, `tools/runtime.py`, `tools/tasklist_check.py`, `hooks/gate-*.sh`, `templates/aidd/config/gates.json`: убрать кастомизацию active ticket/slug и унифицировать reviewer marker:
+  - удалить `feature_ticket_source`/`feature_slug_hint_source` из `config/gates.json` и документации;
+  - инструменты и hooks всегда читают `docs/.active_ticket` и `docs/.active_feature`;
+  - `tasklist_check` использует путь marker из `gates.reviewer.tests_marker`;
+  - обновить тесты под стандартные пути (без кастомных источников).
+  **AC:** отсутствуют кастомные пути в gates.json; hooks и CLI‑инструменты работают только со стандартными маркерами; нет рассинхрона.
+  **Deps:** -
+
+- [x] W85-27 `tools/init.py`, `tools/init.sh`, `commands/aidd-init.md`, `AGENTS.md`: удалить флаг `--commit-mode`:
+  - убрать аргумент из CLI, help‑текста и документации;
+  - очистить все упоминания/пример использования;
+  - обновить тесты/сmoke, если проверяют наличие флага.
+  **AC:** `aidd-init --help` не содержит `--commit-mode`, docs не ссылаются на него.
+  **Deps:** -
+
+## Wave 86
+
+### Runtime refactor: pathing, pack format, shared utils
+- [ ] W86-1 `tools/runtime.py`, `tools/feature_ids.py`, `tools/resources.py`, `tools/analyst_guard.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/tasklist_check.py`, `tools/researcher_context.py`, `tools/research_guard.py`, `tools/rlm_config.py`, `tests/test_feature_ids_root.py`, `tests/test_cli_paths.py`, `tests/test_resources.py`: унифицировать root‑resolution:
+  - ввести единый helper (в `tools/runtime.py` или отдельном модуле) для `workspace_root` + `aidd_root`;
+  - deprecate/rename `tools.feature_ids.resolve_project_root`, чтобы исключить двусмысленность;
+  - перевести все runtime‑скрипты на новый helper, обновить тесты путей.
+  **AC:** все runtime tools работают из workspace и пишут только в `aidd/`; нет дубликатов `resolve_project_root`.
+  **Deps:** -
+
+- [ ] W86-2 `tools/reports_pack.py`, `tools/reports/loader.py`, `tools/research.py`, `tools/researcher_context.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/index_sync.py`, `tools/status.py`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/test_reports_pack.py`, `tests/test_index_schema.py`: выровнять формат pack/index:
+  - определить формат (JSON‑pack с явным расширением, либо реальный YAML);
+  - backward‑compat не требуется (проект не в релизе, нет потребителей);
+  - привести README/AGENTS к точному описанию формата.
+  **AC:** pack/index читаются/пишутся единообразно; документы и тесты отражают формат.
+  **Deps:** W86-1
+
+- [ ] W86-3 `tools/loop_pack.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tools/context_pack.py`, `tools/rlm_jsonl_compact.py`, `tools/reports/events.py`, `tools/reports/tests_log.py`, `tests/test_loop_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_review_pack.py`: вынести общие утилиты (JSONL read/write, front‑matter parse, YAML dump, timestamp helpers) в общий модуль:
+  - создать `tools/io_utils.py` (или аналог) и перенести дубли;
+  - адаптировать импорты и тесты.
+  **AC:** дублирующий код удалён; тесты не меняют поведение.
+  **Deps:** -
+
+- [ ] W86-4 `tools/analyst_guard.py`, `tools/research_guard.py`, `tools/tasklist_check.py`, `tools/prd_review_gate.py`, `tools/plan_review_gate.py`, `tools/progress.py`, `tests/test_analyst_dialog.py`, `tests/test_gate_researcher.py`, `tests/test_tasklist_check.py`, `tests/test_gate_prd_review.py`, `tests/test_plan_review_gate.py`: централизовать gates‑config/branch‑filters:
+  - общий helper (`tools/gates.py`) для загрузки `config/gates.json`, matches/skip, нормализации паттернов;
+  - заменить локальные реализации в gate‑скриптах.
+  **AC:** единая логика веток/skip во всех gate‑скриптах; тесты обновлены.
+  **Deps:** W86-1
+
+- [ ] W86-5 `tools/runtime.py`, `tools/progress.py`, `tools/qa_agent.py`, `tests/test_progress.py`, `tests/test_qa_agent.py`: единая логика `detect_branch`:
+  - оставить один источник truth в `tools/runtime.py`;
+  - удалить локальные копии и обновить тесты.
+  **AC:** нет дублирования branch‑detector; поведение неизменно.
+  **Deps:** W86-1
+
+- [ ] W86-6 `tools/qa.py`, `templates/aidd/config/gates.json`, `templates/aidd/AGENTS.md`, `tests/test_gate_qa.py`: ограничить discovery тест‑команд:
+  - добавить лимиты/флаги (max_files/max_bytes, allowlist путей) в `gates.json`;
+  - обновить discovery logic в `tools/qa.py`;
+  - задокументировать и покрыть тестами.
+  **AC:** discovery не сканирует весь workspace без лимитов; поведение описано в templates и тестах.
+  **Deps:** -

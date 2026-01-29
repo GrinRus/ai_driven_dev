@@ -75,7 +75,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ### Миграция
 - `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
 - Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
-- Root `AGENTS.md` — тонкий адаптер; канон процесса — `aidd/AGENTS.md`.
+- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `templates/aidd/AGENTS.md`).
 
 ## Скрипты и проверки
 
@@ -161,6 +161,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - `bash`, `git`, `python3`.
 - Claude Code с доступом к plugin marketplace.
 - Инструменты сборки/тестов вашего стека (по желанию).
+- MCP интеграции опциональны: `.mcp.json` не входит в плагин по умолчанию.
 
 Поддерживаются macOS/Linux. Для Windows используйте WSL или Git Bash.
 
@@ -173,7 +174,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 ## Документация
 - Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
 - Architecture Profile: `aidd/docs/architecture/profile.md`.
-- Глубокий разбор и кастомизация: `AGENTS.md`.
+- Пользовательский гайд: `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
 - Английская версия: `README.en.md`.
 
 ## Примеры

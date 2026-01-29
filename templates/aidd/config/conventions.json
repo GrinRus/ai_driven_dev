@@ -72,21 +72,13 @@
     }
   },
   "rlm": {
-    "enabled": true,
-    "required_for_langs": [
-      "kt",
-      "kts",
-      "java"
-    ],
     "max_files": 500,
-    "max_nodes": 800,
     "max_links": 2000,
     "max_file_bytes": 200000,
     "targets_mode": "auto",
     "worklist_paths": [],
     "worklist_keywords": [],
     "worklist_max_entries": 500,
-    "verification_required": true,
     "rg_timeout_s": 6,
     "rg_batch_size": 24,
     "max_symbols_per_file": 40,
@@ -129,8 +121,7 @@
     },
     "slice_budget": {
       "max_nodes": 20,
-      "max_links": 40,
-      "max_chars": 6000
+      "max_links": 40
     },
     "ignore_dirs": [
       ".git",
@@ -211,7 +202,6 @@
       "max_discovered": 12
     },
     "ast_grep": {
-      "deprecated": true,
       "enabled": false,
       "required_for_langs": [],
       "max_files": 400,

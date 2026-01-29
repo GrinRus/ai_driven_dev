@@ -30,6 +30,12 @@ class QaAgentTests(unittest.TestCase):
         git_init(self.project_root)
         git_config_user(self.project_root)
         ensure_gates_config(self.project_root)
+        write_file(self.project_root, "README.md", "## QA\n\n```sh\npython3 -m unittest\n```\n")
+        write_file(
+            self.project_root,
+            "test_dummy.py",
+            "import unittest\n\n\nclass DummyTest(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+        )
         write_active_feature(self.project_root, "demo-ticket")
 
     def tearDown(self) -> None:
@@ -77,7 +83,7 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "fail")
+        self.assertEqual(payload["status"], "BLOCKED")
         self.assertGreaterEqual(payload["counts"]["blocker"], 1)
         self.assertTrue(all(finding.get("id") for finding in payload["findings"]))
         self.assertTrue(all("blocking" in finding for finding in payload["findings"]))
@@ -88,7 +94,7 @@ class QaAgentTests(unittest.TestCase):
 
         report_path = self.project_root / "reports" / "qa" / "demo.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps({"status": "pass"}), encoding="utf-8")
+        report_path.write_text(json.dumps({"status": "READY"}), encoding="utf-8")
 
         result = self.run_agent(
             "--emit-json",
@@ -128,7 +134,7 @@ class QaAgentTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["status"], "warn")
+        self.assertEqual(payload["status"], "WARN")
         self.assertGreaterEqual(payload["counts"].get("major", 0), 1)
         self.assertTrue(
             any(
@@ -264,6 +270,7 @@ Updated: 2024-01-02
                 "--ticket",
                 "DEMO-1",
                 "--skip-tests",
+                "--allow-no-tests",
                 "--report",
                 report_rel,
                 "--format",
@@ -277,3 +284,51 @@ Updated: 2024-01-02
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertTrue((self.project_root / "reports/qa/demo.json").is_file())
+
+    def test_manual_qa_items_set_warn(self):
+        write_active_feature(self.project_root, "manual-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/manual-qa.md",
+            "- [ ] QA: manual regression checklist\n",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        self.assertTrue(payload.get("manual_required"))
+        self.assertIn("manual", payload["manual_required"][0].lower())
+
+    def test_manual_and_blocker_items_not_deduped(self):
+        write_active_feature(self.project_root, "mixed-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/mixed-qa.md",
+            "- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
+        )
+
+        result = self.run_agent("--format", "json", env={"QA_ALLOW_NO_TESTS": "1"})
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        checklist = [f for f in payload["findings"] if f.get("scope") == "checklist"]
+        severities = {f.get("severity") for f in checklist}
+        self.assertIn("major", severities)
+        self.assertIn("blocker", severities)
+        self.assertEqual(len(checklist), 2)
+
+    def test_dedupes_findings_by_id(self):
+        write_active_feature(self.project_root, "dup-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/dup-qa.md",
+            "- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(len(payload["findings"]), 1)

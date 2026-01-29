@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import datetime as dt
 import os
 import sys
@@ -47,8 +46,8 @@ class ResearchCheckTests(unittest.TestCase):
     def _make_args(ticket: str) -> list[str]:
         return ["--ticket", ticket]
 
-    def _write_base_research(self, root: Path, ticket: str) -> None:
-        write_file(root, f"docs/research/{ticket}.md", "# Research\n\nStatus: reviewed\n")
+    def _write_base_research(self, root: Path, ticket: str, *, status: str = "reviewed") -> None:
+        write_file(root, f"docs/research/{ticket}.md", f"# Research\n\nStatus: {status}\n")
         write_json(
             root,
             f"reports/research/{ticket}-targets.json",
@@ -121,12 +120,12 @@ class ResearchCheckTests(unittest.TestCase):
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
 
-    def test_research_check_passes_pending_with_worklist_in_implement(self) -> None:
+    def test_research_check_blocks_reviewed_pending_in_implement(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-rlm"
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "implement")
-        self._write_base_research(project_root, ticket)
+        self._write_base_research(project_root, ticket, status="reviewed")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
         write_json(
@@ -146,16 +145,19 @@ class ResearchCheckTests(unittest.TestCase):
         old_cwd = Path.cwd()
         os.chdir(workspace)
         try:
-            research_check.main(args)
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
         finally:
             os.chdir(old_cwd)
 
-    def test_research_check_warns_partial_pack_in_research(self) -> None:
+        self.assertIn("rlm_status=pending", str(excinfo.exception))
+
+    def test_research_check_blocks_reviewed_pending_in_research(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-partial"
         write_active_feature(project_root, ticket)
         write_active_stage(project_root, "research")
-        self._write_base_research(project_root, ticket)
+        self._write_base_research(project_root, ticket, status="reviewed")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"} for _ in range(6)])
 
         nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
@@ -182,17 +184,13 @@ class ResearchCheckTests(unittest.TestCase):
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
         os.chdir(workspace)
-        buffer = tempfile.SpooledTemporaryFile(mode="w+")
         try:
-            with contextlib.redirect_stderr(buffer):
+            with self.assertRaises(RuntimeError) as excinfo:
                 research_check.main(args)
-            buffer.seek(0)
-            output = buffer.read()
         finally:
-            buffer.close()
             os.chdir(old_cwd)
 
-        self.assertIn("rlm pack partial", output)
+        self.assertIn("rlm_status=pending", str(excinfo.exception))
 
     def test_research_check_blocks_pending_in_review(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -270,10 +268,7 @@ class ResearchCheckTests(unittest.TestCase):
             '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
             encoding="utf-8",
         )
-        links_path.write_text(
-            '{"link_id":"link-1","src_file_id":"file-app","dst_file_id":"file-app","type":"calls","evidence_ref":{"path":"src/main/kotlin/App.kt","line_start":1,"line_end":1,"extractor":"regex","match_hash":"hash"},"unverified":false}\n',
-            encoding="utf-8",
-        )
+        links_path.write_text("", encoding="utf-8")
         write_json(
             project_root,
             f"reports/research/{ticket}-rlm.pack.yaml",

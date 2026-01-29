@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.13
-source_version: 1.1.13
+prompt_version: 1.1.16
+source_version: 1.1.16
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -76,7 +76,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 - Если добавляешь итерацию вне плана — укажи `parent_iteration_id` или заведи handoff “update plan” (manual‑блок).
 - Соблюдай budgets: TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк.
 - Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/feature-dev-aidd:spec-interview`.
-  Спека обязательна при UI/API/DATA/E2E изменениях.
+  Спека обязательна при UI/UX или front-end изменениях (также при API/DATA/E2E).
 
 ## Итерации и прогресс
 - Итерации берутся из `aidd/docs/plan/<ticket>.md` (AIDD:ITERATIONS и раздел “Итерации и DoD”).

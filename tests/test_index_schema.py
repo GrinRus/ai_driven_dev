@@ -71,7 +71,7 @@ def test_index_sync_includes_pack_variants(tmp_path):
     write_file(
         project_root,
         "reports/qa/DEMO-2.pack.yaml",
-        json.dumps({"status": "warn"}, indent=2),
+        json.dumps({"status": "WARN"}, indent=2),
     )
     write_file(
         project_root,
@@ -88,7 +88,7 @@ def test_index_sync_includes_pack_variants(tmp_path):
     checks = payload.get("checks") or []
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None
-    assert qa_check.get("status") == "warn"
+    assert qa_check.get("status") == "WARN"
 
 
 class IndexSyncEventTests(unittest.TestCase):

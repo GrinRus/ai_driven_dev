@@ -93,6 +93,39 @@ def extract_findings(payload: Dict[str, object]) -> List[Dict[str, object]]:
     return []
 
 
+def normalize_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def finding_summary(entry: Dict[str, object]) -> str:
+    for key in ("recommendation", "title", "summary", "message", "details"):
+        value = entry.get(key)
+        if value:
+            return normalize_text(value)
+    return "n/a"
+
+
+def dedupe_findings(findings: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    seen: set[str] = set()
+    deduped: List[Dict[str, object]] = []
+    for entry in findings:
+        entry_id = normalize_text(entry.get("id")) if entry.get("id") else ""
+        signature = entry_id or normalize_text(
+            "|".join(
+                [
+                    normalize_text(entry.get("title") or entry.get("summary") or entry.get("message") or ""),
+                    normalize_text(entry.get("scope") or ""),
+                    normalize_text(entry.get("details") or entry.get("recommendation") or ""),
+                ]
+            )
+        )
+        if not signature or signature in seen:
+            continue
+        seen.add(signature)
+        deduped.append(entry)
+    return deduped
+
+
 def normalize_severity(value: object) -> str:
     raw = str(value or "").strip().lower()
     return raw or "unknown"
@@ -165,8 +198,7 @@ def render_pack(
         for entry in findings:
             entry_id = str(entry.get("id") or "n/a")
             severity = normalize_severity(entry.get("severity"))
-            requirement = entry.get("recommendation") or entry.get("title") or entry.get("summary") or "n/a"
-            requirement = " ".join(str(requirement).split())
+            requirement = finding_summary(entry)
             lines.append(f"- {entry_id} [{severity}] {requirement}")
     else:
         lines.append("- none")
@@ -238,13 +270,15 @@ def main(argv: list[str] | None = None) -> int:
         raise FileNotFoundError(f"review report not found at {runtime.rel_path(report_path, target)}")
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
-    findings = extract_findings(payload)
+    findings = dedupe_findings(extract_findings(payload))
     findings = sort_findings(findings)[:5]
     verdict = verdict_from_status(str(payload.get("status") or ""), findings)
     updated_at = _utc_timestamp()
     work_item_id, work_item_key = load_loop_pack_meta(target, ticket)
     if not work_item_id or not work_item_key:
-        print("[review-pack] warning: loop pack metadata not found", file=sys.stderr)
+        raise FileNotFoundError(
+            "loop pack metadata not found (run loop-pack and ensure .active_work_item is set)"
+        )
 
     handoff_ids: List[str] = []
     for entry in findings:
@@ -255,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
 
     next_actions: List[str] = []
     for entry in findings:
-        action = entry.get("recommendation") or entry.get("title") or entry.get("summary")
+        action = entry.get("recommendation") or entry.get("title") or entry.get("summary") or entry.get("message") or entry.get("details")
         if action:
             next_actions.append(" ".join(str(action).split()))
     next_actions = list(dict.fromkeys(next_actions))[:5]

@@ -1385,15 +1385,17 @@ def _update_rlm_context(
     )
     if worklist_path and worklist_path.exists():
         payload["rlm_worklist_path"] = runtime.rel_path(worklist_path, root)
-    nodes_ready = nodes_path.exists() and nodes_path.stat().st_size > 0
-    links_ready = links_path.exists() and links_path.stat().st_size > 0
+    nodes_ready = nodes_path.exists()
+    links_ready = links_path.exists()
+    nodes_has_data = nodes_ready and nodes_path.stat().st_size > 0
+    links_has_data = links_ready and links_path.stat().st_size > 0
     if worklist_status is not None:
         if worklist_status == "ready" and worklist_entries == 0 and nodes_ready and links_ready:
             rlm_status = "ready"
         else:
             rlm_status = "pending"
     else:
-        rlm_status = "ready" if nodes_ready and links_ready else "pending"
+        rlm_status = "ready" if nodes_has_data and links_has_data else "pending"
     payload["rlm_status"] = rlm_status
     payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
     payload["rlm_links_path"] = runtime.rel_path(links_path, root)

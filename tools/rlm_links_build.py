@@ -721,7 +721,10 @@ def main(argv: List[str] | None = None) -> int:
         else project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
     )
     if not nodes_path.exists() or nodes_path.stat().st_size == 0:
-        raise SystemExit("rlm links require non-empty nodes.jsonl; run W81-27 agent flow first.")
+        raise SystemExit(
+            "rlm links require non-empty nodes.jsonl; run agent-flow or "
+            "`tools/rlm_nodes_build.py --bootstrap --ticket <ticket>` first."
+        )
 
     targets_path = (
         runtime.resolve_path_for_target(Path(args.targets), project_root)

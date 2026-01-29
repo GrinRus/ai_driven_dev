@@ -91,7 +91,6 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
 
     plugin_root = runtime.require_plugin_root()
     templates_root = plugin_root / "templates" / DEFAULT_PROJECT_SUBDIR
-    root_templates = plugin_root / "templates" / "root"
     if not templates_root.exists():
         raise FileNotFoundError(
             f"templates not found at {templates_root}. "
@@ -104,13 +103,6 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
         print(f"[aidd:init] copied {len(copied)} files into {project_root}")
     else:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
-    if root_templates.exists():
-        copied_root = _copy_tree(root_templates, workspace_root, force=force)
-        if copied_root:
-            print(f"[aidd:init] copied {len(copied_root)} root files into {workspace_root}")
-        else:
-            print(f"[aidd:init] no changes in root templates for {workspace_root}")
-
     ensured = []
     if _ensure_project_file(project_root, templates_root, "docs/loops/README.md", "# Loop Mode\n"):
         ensured.append("docs/loops/README.md")
@@ -144,12 +136,6 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         description="Generate workflow scaffolding in the current workspace.",
     )
     parser.add_argument(
-        "--commit-mode",
-        choices=("ticket-prefix", "conventional", "mixed"),
-        default="ticket-prefix",
-        help="Commit message policy enforced in config/conventions.json.",
-    )
-    parser.add_argument(
         "--enable-ci",
         action="store_true",
         help="Add GitHub Actions workflow (manual trigger).",
@@ -179,7 +165,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
 
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
-    script_args = ["--commit-mode", args.commit_mode]
+    script_args: list[str] = []
     if args.enable_ci:
         script_args.append("--enable-ci")
     if args.force:

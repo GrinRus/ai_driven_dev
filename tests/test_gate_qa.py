@@ -231,7 +231,7 @@ def test_gate_qa_requires_plugin_root(tmp_path):
     write_file(project_root, "docs/prd/demo.prd.md", "# PRD\n\n## PRD Review\nStatus: READY\n")
     write_file(project_root, "docs/plan/demo.md", "# Plan\n\n## Plan Review\nStatus: READY\n")
     write_file(project_root, "docs/research/demo.md", "# Research\nStatus: reviewed\n")
-    write_file(project_root, "reports/qa/demo.json", '{"status": "ready"}\n')
+    write_file(project_root, "reports/qa/demo.json", '{"status": "READY"}\n')
 
     env = {"CLAUDE_PLUGIN_ROOT": ""}
     result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD, extra_env=env)

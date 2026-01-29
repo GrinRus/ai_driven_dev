@@ -17,7 +17,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "working_set": {
         "max_chars": 12000,
         "max_tasks": 40,
-        "max_open_questions": 20,
         "context_pack_max_lines": 20,
         "context_pack_max_chars": 1200,
         "include_git_status": True,

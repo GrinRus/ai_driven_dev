@@ -8,7 +8,7 @@
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - Loop mode (Ralph): `loop-pack`, `review-pack`, `diff-boundary-check`, `loop-step`, `loop-run` with loop packs and loop discipline.
 - Architecture Profile templates (`aidd/docs/architecture/profile.md`).
-- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`) and root adapters (`templates/root/**`).
+- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` to validate research artefacts before planning.
 - PRD template section `## AIDD:RESEARCH_HINTS` for passing paths/keywords to `/feature-dev-aidd:researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
@@ -55,6 +55,10 @@
 
 ### Fixes
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
+- RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
+- Tasklist spec-required checks now cover API/DATA/E2E signals and tasklist runs `tasklist-check` post-refine.
+- QA test sourcing updated to README/CI discovery (no default smoke command), with stricter missing-tests handling.
+- Implement loop boundary violations now require BLOCKED status and out-of-scope backlog entry.
 
 ## v0.1.0 (2025-02-XX)
 

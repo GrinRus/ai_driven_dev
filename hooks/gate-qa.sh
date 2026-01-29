@@ -226,28 +226,10 @@ def main(argv: Iterable[str] | None = None) -> int:
         else:
             return 0
 
-    ticket_source = hooklib.config_get_str(config_path, "feature_ticket_source", "docs/.active_ticket")
-    slug_hint_source = hooklib.config_get_str(config_path, "feature_slug_hint_source", "docs/.active_feature")
-
-    def _resolve_rel(path_str: str | None) -> Path | None:
-        if not path_str:
-            return None
-        raw = Path(path_str)
-        return raw if raw.is_absolute() else root / raw
-
-    ticket_path = _resolve_rel(ticket_source)
-    slug_path = _resolve_rel(slug_hint_source)
-    if ticket_path and ticket_source and ticket_source.startswith("aidd/") and not ticket_path.exists():
-        alt = _resolve_rel(ticket_source[5:])
-        if alt and alt.exists():
-            ticket_path = alt
-    if slug_path and slug_hint_source and slug_hint_source.startswith("aidd/") and not slug_path.exists():
-        alt = _resolve_rel(slug_hint_source[5:])
-        if alt and alt.exists():
-            slug_path = alt
-
-    ticket = hooklib.read_ticket(ticket_path, slug_path) if (ticket_path or slug_path) else None
-    slug_hint = hooklib.read_slug(slug_path) if slug_path else ""
+    ticket_path = root / "docs" / ".active_ticket"
+    slug_path = root / "docs" / ".active_feature"
+    ticket = hooklib.read_ticket(ticket_path, slug_path)
+    slug_hint = hooklib.read_slug(slug_path) if slug_path.exists() else ""
 
     qa_requires = _norm_list(qa_cfg.get("requires", []))
     if qa_requires:

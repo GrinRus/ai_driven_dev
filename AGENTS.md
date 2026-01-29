@@ -1,6 +1,7 @@
 # AGENTS (Repo development guide)
 
 Этот файл — единая dev‑документация репозитория. Все dev‑правила и шаблоны живут здесь.
+User‑гайд для workspace находится в `templates/aidd/AGENTS.md` (копируется в `aidd/AGENTS.md` при init).
 
 ## Репозиторий и структура
 - Runtime (плагин): `commands/`, `agents/`, `hooks/`, `tools/`, `.claude-plugin/`.
@@ -43,7 +44,7 @@
 - Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
 
 ## Как добавлять фичи и команды (шаблон)
-1. Runtime‑entrypoint: `tools/<command>.sh` (shebang python, bootstrap `CLAUDE_PLUGIN_ROOT`).
+1. Runtime‑entrypoint: `tools/<command>.sh` (shebang python, bootstrap `CLAUDE_PLUGIN_ROOT`). Расширение `.sh` сохраняется ради CLI/marketplace совместимости; не переименовывайте в `.py`.
 2. Логика команды: `tools/<command>.py` (или используйте существующий модуль).
 3. Документация: обновите `commands/*.md` и/или `agents/*.md` (allowed‑tools + примеры).
 4. Хуки: если команда участвует в workflow, добавьте вызов в `hooks/hooks.json`.
@@ -86,7 +87,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
 - `aidd/config/gates.json`:
-  - `feature_ticket_source`, `feature_slug_hint_source`
   - `prd_review`, `plan_review`, `researcher`, `analyst`
   - `tests_required` (`disabled|soft|hard`), `tests_gate`
   - `deps_allowlist`
