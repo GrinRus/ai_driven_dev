@@ -136,12 +136,6 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         description="Generate workflow scaffolding in the current workspace.",
     )
     parser.add_argument(
-        "--commit-mode",
-        choices=("ticket-prefix", "conventional", "mixed"),
-        default="ticket-prefix",
-        help="Commit message policy enforced in config/conventions.json.",
-    )
-    parser.add_argument(
         "--enable-ci",
         action="store_true",
         help="Add GitHub Actions workflow (manual trigger).",
@@ -171,7 +165,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
 
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
-    script_args = ["--commit-mode", args.commit_mode]
+    script_args: list[str] = []
     if args.enable_ci:
         script_args.append("--enable-ci")
     if args.force:

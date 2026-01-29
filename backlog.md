@@ -2574,7 +2574,7 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   **AC:** `test_format_and_test.py` стабильно проходит; поведение hook задокументировано в тестах.
   **Deps:** -
 
-- [ ] W85-13 `hooks/gate-workflow.sh`, `tests/test_gate_workflow.py`, `tools/gate_workflow.py` (если есть): выверить gate‑workflow поведение:
+- [x] W85-13 `hooks/gate-workflow.sh`, `tests/test_gate_workflow.py`, `tools/gate_workflow.py` (если есть): выверить gate‑workflow поведение:
   - воспроизвести reported failures и локализовать drift между gate‑логикой и тестами;
   - поправить gate‑workflow или тесты так, чтобы gate корректно блокировал/разрешал стадии;
   - добавить/обновить edge‑case тесты на ACTIVE markers и missing artifacts.
@@ -2612,7 +2612,7 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   **AC:** нет путаницы между расширением и shebang; политика описана.
   **Deps:** -
 
-- [ ] W85-19 `hooks/gate-workflow.sh`, `tools/gate_workflow.py`: снижение размера и сложностей gate‑workflow:
+- [x] W85-19 `hooks/gate-workflow.sh`, `tools/gate_workflow.py`: снижение размера и сложностей gate‑workflow:
   - вынести логику из shell в python‑модуль;
   - оставить shell как thin wrapper;
   - добавить unit‑тесты на вынесенные функции.
@@ -2650,4 +2650,68 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   - OUT_OF_SCOPE/FORBIDDEN блокирует стадию;
   - добавить регрессионный тест, что boundary-check вызывается и блокирует при нарушении.
   **AC:** out-of-scope файлы блокируют loop; evidence записано в ответе/логах.
+  **Deps:** -
+
+- [x] W85-25 `templates/aidd/config/{gates.json,conventions.json,context_gc.json}`, `templates/aidd/conventions.md`, `AGENTS.md`: вычистить неиспользуемые настройки AIDD flow:
+  - удалить неиспользуемые поля (например, `gates.tests.reviewerGate`, `context_gc.working_set.max_open_questions`, `conventions.rlm.{enabled,required_for_langs,max_nodes,verification_required}`, `conventions.rlm.slice_budget.max_chars`, `researcher.ast_grep.deprecated`);
+  - обновить документацию/гайд по настройкам и примеры, чтобы отражали только поддерживаемые поля;
+  - при необходимости добавить notes о несовместимых изменениях.
+  **AC:** в шаблонах нет “мертвых” полей; docs описывают только реально используемые настройки.
+  **Deps:** -
+
+- [x] W85-26 `tools/feature_ids.py`, `tools/runtime.py`, `tools/tasklist_check.py`, `hooks/gate-*.sh`, `templates/aidd/config/gates.json`: убрать кастомизацию active ticket/slug и унифицировать reviewer marker:
+  - удалить `feature_ticket_source`/`feature_slug_hint_source` из `config/gates.json` и документации;
+  - инструменты и hooks всегда читают `docs/.active_ticket` и `docs/.active_feature`;
+  - `tasklist_check` использует путь marker из `gates.reviewer.tests_marker`;
+  - обновить тесты под стандартные пути (без кастомных источников).
+  **AC:** отсутствуют кастомные пути в gates.json; hooks и CLI‑инструменты работают только со стандартными маркерами; нет рассинхрона.
+  **Deps:** -
+
+- [x] W85-27 `tools/init.py`, `tools/init.sh`, `commands/aidd-init.md`, `AGENTS.md`: удалить флаг `--commit-mode`:
+  - убрать аргумент из CLI, help‑текста и документации;
+  - очистить все упоминания/пример использования;
+  - обновить тесты/сmoke, если проверяют наличие флага.
+  **AC:** `aidd-init --help` не содержит `--commit-mode`, docs не ссылаются на него.
+  **Deps:** -
+
+## Wave 86
+
+### Runtime refactor: pathing, pack format, shared utils
+- [ ] W86-1 `tools/runtime.py`, `tools/feature_ids.py`, `tools/resources.py`, `tools/analyst_guard.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/tasklist_check.py`, `tools/researcher_context.py`, `tools/research_guard.py`, `tools/rlm_config.py`, `tests/test_feature_ids_root.py`, `tests/test_cli_paths.py`, `tests/test_resources.py`: унифицировать root‑resolution:
+  - ввести единый helper (в `tools/runtime.py` или отдельном модуле) для `workspace_root` + `aidd_root`;
+  - deprecate/rename `tools.feature_ids.resolve_project_root`, чтобы исключить двусмысленность;
+  - перевести все runtime‑скрипты на новый helper, обновить тесты путей.
+  **AC:** все runtime tools работают из workspace и пишут только в `aidd/`; нет дубликатов `resolve_project_root`.
+  **Deps:** -
+
+- [ ] W86-2 `tools/reports_pack.py`, `tools/reports/loader.py`, `tools/research.py`, `tools/researcher_context.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/index_sync.py`, `tools/status.py`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/test_reports_pack.py`, `tests/test_index_schema.py`: выровнять формат pack/index:
+  - определить формат (JSON‑pack с явным расширением, либо реальный YAML);
+  - backward‑compat не требуется (проект не в релизе, нет потребителей);
+  - привести README/AGENTS к точному описанию формата.
+  **AC:** pack/index читаются/пишутся единообразно; документы и тесты отражают формат.
+  **Deps:** W86-1
+
+- [ ] W86-3 `tools/loop_pack.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tools/context_pack.py`, `tools/rlm_jsonl_compact.py`, `tools/reports/events.py`, `tools/reports/tests_log.py`, `tests/test_loop_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_review_pack.py`: вынести общие утилиты (JSONL read/write, front‑matter parse, YAML dump, timestamp helpers) в общий модуль:
+  - создать `tools/io_utils.py` (или аналог) и перенести дубли;
+  - адаптировать импорты и тесты.
+  **AC:** дублирующий код удалён; тесты не меняют поведение.
+  **Deps:** -
+
+- [ ] W86-4 `tools/analyst_guard.py`, `tools/research_guard.py`, `tools/tasklist_check.py`, `tools/prd_review_gate.py`, `tools/plan_review_gate.py`, `tools/progress.py`, `tests/test_analyst_dialog.py`, `tests/test_gate_researcher.py`, `tests/test_tasklist_check.py`, `tests/test_gate_prd_review.py`, `tests/test_plan_review_gate.py`: централизовать gates‑config/branch‑filters:
+  - общий helper (`tools/gates.py`) для загрузки `config/gates.json`, matches/skip, нормализации паттернов;
+  - заменить локальные реализации в gate‑скриптах.
+  **AC:** единая логика веток/skip во всех gate‑скриптах; тесты обновлены.
+  **Deps:** W86-1
+
+- [ ] W86-5 `tools/runtime.py`, `tools/progress.py`, `tools/qa_agent.py`, `tests/test_progress.py`, `tests/test_qa_agent.py`: единая логика `detect_branch`:
+  - оставить один источник truth в `tools/runtime.py`;
+  - удалить локальные копии и обновить тесты.
+  **AC:** нет дублирования branch‑detector; поведение неизменно.
+  **Deps:** W86-1
+
+- [ ] W86-6 `tools/qa.py`, `templates/aidd/config/gates.json`, `templates/aidd/AGENTS.md`, `tests/test_gate_qa.py`: ограничить discovery тест‑команд:
+  - добавить лимиты/флаги (max_files/max_bytes, allowlist путей) в `gates.json`;
+  - обновить discovery logic в `tools/qa.py`;
+  - задокументировать и покрыть тестами.
+  **AC:** discovery не сканирует весь workspace без лимитов; поведение описано в templates и тестах.
   **Deps:** -

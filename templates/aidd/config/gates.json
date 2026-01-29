@@ -1,6 +1,4 @@
 {
-  "feature_ticket_source": "docs/.active_ticket",
-  "feature_slug_hint_source": "docs/.active_feature",
   "tests_required": "soft",
   "tests_gate": {
     "source_roots": [
@@ -259,10 +257,5 @@
       "gate",
       "handoff"
     ]
-  },
-  "tests": {
-    "reviewerGate": {
-      "enabled": false
-    }
   }
 }

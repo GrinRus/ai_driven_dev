@@ -19,8 +19,6 @@ PROJECT_SUBDIR = "aidd"
 TEMPLATES_ROOT = REPO_ROOT / "templates" / PROJECT_SUBDIR
 HOOKS_DIR = REPO_ROOT / "hooks"
 DEFAULT_GATES_CONFIG: Dict[str, Any] = {
-    "feature_ticket_source": "docs/.active_ticket",
-    "feature_slug_hint_source": "docs/.active_feature",
     "tests_required": "soft",
     "tests_gate": {
         "source_roots": [

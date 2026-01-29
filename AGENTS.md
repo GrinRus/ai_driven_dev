@@ -87,7 +87,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 ## Кастомизация (минимум)
 - `.claude/settings.json`: permissions и automation/tests cadence (`on_stop|checkpoint|manual`).
 - `aidd/config/gates.json`:
-  - `feature_ticket_source`, `feature_slug_hint_source`
   - `prd_review`, `plan_review`, `researcher`, `analyst`
   - `tests_required` (`disabled|soft|hard`), `tests_gate`
   - `deps_allowlist`

@@ -14,6 +14,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from tools import runtime
 from tools.feature_ids import resolve_identifiers, resolve_project_root
 
 
@@ -1592,7 +1593,15 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             add_issue(severity_for_stage(stage), f"handoff {handoff.item_id} marked done without evidence")
 
     # test failures
-    reviewer_marker = root / "reports" / "reviewer" / f"{ticket}.json"
+    slug_hint = None
+    slug_path = root / "docs" / ".active_feature"
+    if slug_path.exists():
+        slug_hint = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
+    reviewer_template = runtime.review_report_template(root)
+    try:
+        reviewer_marker = runtime.reviewer_marker_path(root, reviewer_template, ticket, slug_hint)
+    except Exception:
+        reviewer_marker = root / "reports" / "reviewer" / f"{ticket}.json"
     tests_required = False
     tests_optional = False
     if reviewer_marker.exists():
