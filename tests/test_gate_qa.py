@@ -203,6 +203,29 @@ def test_discovery_respects_allowlist(tmp_path):
     assert commands == [["pytest"]]
 
 
+def test_discovery_preserves_python_pytest_prefix(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "tests": {
+                    "source": "readme-ci",
+                    "discover": {
+                        "max_files": 10,
+                        "max_bytes": 200000,
+                        "allow_paths": ["README*"],
+                    },
+                }
+            }
+        },
+    )
+    write_file(tmp_path, "README.md", "python -m pytest -q\n")
+
+    commands, _ = qa_tools._load_qa_tests_config(tmp_path / "aidd")
+
+    assert commands == [["python", "-m", "pytest", "-q"]]
+
+
 def test_discovery_respects_max_files(tmp_path):
     ensure_gates_config(
         tmp_path,

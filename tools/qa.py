@@ -24,6 +24,7 @@ _TEST_COMMAND_PATTERNS = (
     r"\b\./gradlew\s+test\b",
     r"\bgradle\s+test\b",
     r"\bmvn\s+test\b",
+    r"\bpython3?\s+-m\s+pytest\b",
     r"\bpytest\b",
     r"\bpython3?\s+-m\s+unittest\b",
     r"\bgo\s+test\b",
