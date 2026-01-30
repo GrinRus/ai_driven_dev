@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
-from tools.feature_ids import resolve_project_root
+from tools import gates
+from tools.feature_ids import resolve_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -89,28 +89,6 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         help="Return success when the PRD file itself is being edited.",
     )
     return parser.parse_args(list(argv) if argv is not None else None)
-
-
-def load_gate_config(path: Path) -> dict:
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:  # pragma: no cover - malformed configs are rare
-        return {}
-    section = data.get("prd_review", {})
-    if isinstance(section, bool):
-        return {"enabled": section}
-    return section if isinstance(section, dict) else {}
-
-
-def matches(patterns: Iterable[str], value: str) -> bool:
-    if not value:
-        return False
-    for pattern in patterns or ():
-        if pattern and fnmatch(value, pattern):
-            return True
-    return False
 
 
 def _normalize_file_path(raw: str, root: Path) -> str:
@@ -239,7 +217,7 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
 
 
 def detect_project_root(target: Path | None = None) -> Path:
-    return resolve_project_root(target or Path.cwd())
+    return resolve_aidd_root(target or Path.cwd())
 
 
 def extract_dialog_status(content: str) -> str | None:
@@ -262,7 +240,10 @@ def run_gate(args: argparse.Namespace) -> int:
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
-    gate = load_gate_config(config_path)
+    try:
+        gate = gates.load_gate_section(config_path, "prd_review")
+    except ValueError:
+        gate = {}
 
     ticket = args.ticket.strip()
     slug_hint = args.slug_hint.strip() or None
@@ -271,10 +252,10 @@ def run_gate(args: argparse.Namespace) -> int:
     if not enabled:
         return 0
 
-    if matches(gate.get("skip_branches", []), args.branch):
+    if gates.matches(gate.get("skip_branches"), args.branch):
         return 0
     branches = gate.get("branches")
-    if branches and not matches(branches, args.branch):
+    if branches and not gates.matches(branches, args.branch):
         return 0
 
     code_prefixes = tuple(_normalize_items(gate.get("code_prefixes"), suffix="/") or DEFAULT_CODE_PREFIXES)
@@ -338,15 +319,13 @@ def run_gate(args: argparse.Namespace) -> int:
             return 1
     else:
         if report_path.suffix == ".json":
-            for candidate in (report_path.with_suffix(".pack.yaml"), report_path.with_suffix(".pack.toon")):
-                if not candidate.exists():
-                    continue
+            candidate = report_path.with_suffix(".pack.json")
+            if candidate.exists():
                 try:
                     report_data = json.loads(candidate.read_text(encoding="utf-8"))
                 except Exception:
                     print(format_message("report_corrupted", ticket, slug_hint))
                     return 1
-                break
 
     if report_data is not None:
         raw_findings = report_data.get("findings") or []

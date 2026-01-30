@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
-from tools.feature_ids import resolve_identifiers, resolve_project_root
+from tools.feature_ids import resolve_aidd_root, resolve_identifiers
 
 
 _DEFAULT_CONFIG = Path("config") / "conventions.json"
@@ -1519,7 +1519,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    root = resolve_project_root(Path.cwd())
+    root = resolve_aidd_root(Path.cwd())
     if not root.exists():
         parser.error(f"project root does not exist: {root}")
 

@@ -95,7 +95,7 @@ class ResearchCheckTests(unittest.TestCase):
         )
         write_json(
             root,
-            f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+            f"reports/research/{ticket}-rlm.worklist.pack.json",
             {
                 "schema": "aidd.report.pack.v1",
                 "type": "rlm-worklist",
@@ -137,7 +137,7 @@ class ResearchCheckTests(unittest.TestCase):
                 "rlm_status": "pending",
                 "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
                 "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
             },
         )
 
@@ -176,7 +176,7 @@ class ResearchCheckTests(unittest.TestCase):
                 "rlm_status": "pending",
                 "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
                 "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
                 "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
             },
         )
@@ -209,7 +209,7 @@ class ResearchCheckTests(unittest.TestCase):
                 "rlm_status": "pending",
                 "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
                 "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
             },
         )
 
@@ -271,7 +271,7 @@ class ResearchCheckTests(unittest.TestCase):
         links_path.write_text("", encoding="utf-8")
         write_json(
             project_root,
-            f"reports/research/{ticket}-rlm.pack.yaml",
+            f"reports/research/{ticket}-rlm.pack.json",
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
         )
 
@@ -284,7 +284,7 @@ class ResearchCheckTests(unittest.TestCase):
                 "rlm_status": "ready",
                 "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
                 "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
-                "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.yaml",
+                "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.json",
             },
         )
 

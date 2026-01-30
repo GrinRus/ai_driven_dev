@@ -231,7 +231,7 @@ class RlmNodesBuildTests(unittest.TestCase):
                 nodes_path=nodes_path,
                 worklist_paths=["src"],
             )
-            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
             worklist_path.write_text(
                 json.dumps(worklist_pack, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

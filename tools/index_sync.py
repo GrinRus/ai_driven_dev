@@ -96,12 +96,11 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "reviewer" / f"{ticket}.json",
         root / "reports" / "tests" / f"{ticket}.jsonl",
     ]
-    for ext in (".pack.yaml", ".pack.toon"):
-        candidates.append(root / "reports" / "research" / f"{ticket}-context{ext}")
-        candidates.append(root / "reports" / "research" / f"{ticket}-rlm{ext}")
-        candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist{ext}")
-        candidates.append(root / "reports" / "prd" / f"{ticket}{ext}")
-        candidates.append(root / "reports" / "qa" / f"{ticket}{ext}")
+    candidates.append(root / "reports" / "research" / f"{ticket}-context.pack.json")
+    candidates.append(root / "reports" / "research" / f"{ticket}-rlm.pack.json")
+    candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json")
+    candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")
+    candidates.append(root / "reports" / "qa" / f"{ticket}.pack.json")
     for path in candidates:
         if path.exists():
             reports.append(_rel_path(root, path))
@@ -135,10 +134,7 @@ def _find_report_variant(report_path: Path) -> Optional[Path]:
     if report_path.exists():
         return report_path
     if report_path.suffix == ".json":
-        candidate = report_path.with_suffix(".pack.yaml")
-        if candidate.exists():
-            return candidate
-        candidate = report_path.with_suffix(".pack.toon")
+        candidate = report_path.with_suffix(".pack.json")
         if candidate.exists():
             return candidate
     return None
@@ -241,7 +237,7 @@ def build_index(root: Path, ticket: str, slug: str) -> Dict[str, object]:
 def write_index(root: Path, ticket: str, slug: str, *, output: Optional[Path] = None) -> Path:
     index_dir = root / "docs" / "index"
     index_dir.mkdir(parents=True, exist_ok=True)
-    path = output or (index_dir / f"{ticket}.yaml")
+    path = output or (index_dir / f"{ticket}.json")
     payload = build_index(root, ticket, slug)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path

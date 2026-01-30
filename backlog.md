@@ -954,9 +954,9 @@ _Статус: новый, приоритет 1. Цель — anchors‑first + 
 - [x] AIDD‑anchors в шаблонах: `aidd/docs/{prd,plan,research,tasklist}/template.md` (core + PRD/Plan/Research/Tasklist anchors), затем sync в payload‑копии.
 - [x] Backfill anchors: `tests/repo_tools/upgrade_aidd_docs.py` — пройти по `aidd/docs/{prd,plan,tasklist,research}/**` и добавить отсутствующие `## AIDD:*` секции без перезаписи содержимого.
 - [x] Тесты для апгрейда: `tests/test_upgrade_aidd_docs.py` (минимум 1–2 фикстуры).
-- [x] Контракт отчётов (MVP): `AGENTS.md` (+ payload копия) — naming `reports/<type>/<ticket>-<kind>.pack.yaml`, правило pack‑first, budgets для `reports/research/*-context.pack.yaml`, deterministic output (byte‑identical), whitelist/blacklist полей.
+- [x] Контракт отчётов (MVP): `AGENTS.md` (+ payload копия) — naming `reports/<type>/<ticket>-<kind>.pack.json`, правило pack‑first, budgets для `reports/research/*-context.pack.json`, deterministic output (byte‑identical), whitelist/blacklist полей.
 - [x] Инвентаризация отчётов: таблица top‑3 hotspots с `chars/lines/keys` в `AGENTS.md`.
-- [x] Pack generator (MVP): `src/claude_workflow_cli/tools/reports_pack.py` для `reports/research/<ticket>-context.json` → sidecar `reports/research/<ticket>-context.pack.yaml` (stable order, top‑N, stable IDs).
+- [x] Pack generator (MVP): `src/claude_workflow_cli/tools/reports_pack.py` для `reports/research/<ticket>-context.json` → sidecar `reports/research/<ticket>-context.pack.json` (stable order, top‑N, stable IDs).
 - [x] Single loader API: `src/claude_workflow_cli/reports/loader.py` (например, `load_report()`/`get_report_paths()`), обновить `src/claude_workflow_cli/cli.py` (`tasks-derive --source research`) на pack‑first + fallback в JSON.
 - [x] Тесты: `tests/test_reports_pack.py` (golden + детерминизм), `tests/test_tasks_derive.py` (pack‑first), обновить `src/claude_workflow_cli/data/payload/manifest.json` и прогнать `python3 tools/check_payload_sync.py`.
 - [x] Обновить все агенты и команды под anchors‑first/snippet‑first/read‑once: `aidd/{agents,commands}/*.md` + payload‑копии.
@@ -1169,7 +1169,7 @@ _Статус: новый, приоритет 1. Цель — упростить
 _Статус: новый, приоритет 1. Цель — EP09‑MVP (anchors/attention) + снижение частоты тяжёлых тестов без потери качества._
 
 ### Промпты и контекстная дисциплина (EP09‑MVP)
-- [x] Обновить `aidd/AGENTS.md` и `src/claude_workflow_cli/data/payload/aidd/AGENTS.md`: заменить “что читать прежде всего” на `MUST KNOW FIRST` + read‑once policy; добавить правило “если есть `*.pack.yaml` → читать pack, иначе anchors‑first”; добавить ссылку на working set (`aidd/reports/context/latest_working_set.md`), и указать, что `sdlc-flow` и `status-machine` читаются только при первом входе/изменениях.
+- [x] Обновить `aidd/AGENTS.md` и `src/claude_workflow_cli/data/payload/aidd/AGENTS.md`: заменить “что читать прежде всего” на `MUST KNOW FIRST` + read‑once policy; добавить правило “если есть `*.pack.json` → читать pack, иначе anchors‑first”; добавить ссылку на working set (`aidd/reports/context/latest_working_set.md`), и указать, что `sdlc-flow` и `status-machine` читаются только при первом входе/изменениях.
 - [x] Создать stage‑anchor `aidd/docs/anchors/implement.md` и `src/claude_workflow_cli/data/payload/aidd/docs/anchors/implement.md`: цели, MUST update, MUST NOT, что читать первым, Stop etiquette, дефолты профиля тестов.
 - [x] Обновить `aidd/agents/implementer.md` и `src/claude_workflow_cli/data/payload/aidd/agents/implementer.md`: добавить секцию “Context hygiene” (anchors‑first, snippet‑first через `rg` + `sed`, read‑once policy), “Stop etiquette” (1 чекбокс или 2 связанных до Stop), обязать обновлять `AIDD:CONTEXT_PACK` в tasklist (если секции нет — добавить по шаблону).
 - [x] Обновить `aidd/commands/implement.md` и `src/claude_workflow_cli/data/payload/aidd/commands/implement.md`: первым источником контекста считать working set + `AIDD:CONTEXT_PACK` в tasklist; запретить полные Read без необходимости; подчеркнуть, что `format-and-test.sh` запускается автоматически; ссылаться на stage‑anchor `docs/anchors/implement.md`.
@@ -1501,7 +1501,7 @@ _Статус: новый, приоритет 1. Цель — переработ
 ### EPIC B — P1: Hybrid ast-grep scan
 - [x] W78-7 `tools/ast_grep_scan.py`, `tools/research.py`, `templates/aidd/config/conventions.json`: добавить шаг ast-grep scan (jsonl output), конфиг `ast_grep.enabled/required_for_langs`, graceful warning если cli нет; **scoped scan** только по `targets.paths`/`paths_discovered` с лимитами (max files + max matches). **AC:** `aidd/reports/research/<ticket>-ast-grep.jsonl` создаётся при включении и не раздувает контекст. **DoD:** дефолты в conventions (`enabled=false`, `required_for_langs=[]`, `max_files`, `max_matches`, `timeout_s`). Deps: -
 - [x] W78-8 `templates/aidd/ast-grep/rules/**`: добавить rule-pack (jvm/common/web/mobile) + базовые правила (Spring endpoints, principals, tests). **AC:** ast-grep на JVM repo даёт матчи. Deps: W78-7.
-- [x] W78-9 `tools/reports_pack.py` (или новый pack builder): добавить `*-ast-grep.pack.yaml|toon` с top‑N матчами + ссылкой на jsonl. **AC:** pack в бюджетах, содержит rule_id/file/line/snippet/why. Deps: W78-7.
+- [x] W78-9 `tools/reports_pack.py` (или новый pack builder): добавить `*-ast-grep.pack.json|toon` с top‑N матчами + ссылкой на jsonl. **AC:** pack в бюджетах, содержит rule_id/file/line/snippet/why. Deps: W78-7.
 - [x] W78-10 `templates/aidd/docs/research/template.md`, `agents/researcher.md`, `commands/researcher.md`: секция `AIDD:AST_GREP_EVIDENCE`, pack-first usage; **source-of-truth** для промптов — `agents/` + `commands/`, template только для docs. Bump prompt_version + lint. **AC:** исследователь использует pack как источник фактов. Deps: W78-9.
 - [x] W78-11 `tools/tasks_derive.py`: derivation handoff из ast-grep pack (`astgrep:<rule_id>:<file>:<line>`), без дублей. **AC:** задачи появляются в `AIDD:HANDOFF_INBOX` после researcher. Deps: W78-9.
 
@@ -1515,9 +1515,9 @@ _Статус: новый, приоритет 1. Цель — переработ
 ### EPIC E — P0/P1/P2: Graph views + policy (large graph is DB, not context)
 - [x] W78-16 `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/anchors/{research,plan,tasklist,implement,review,qa}.md`: зафиксировать Graph Read Policy (MUST читать `*.pack.*`/`graph-slice`, `rg` по `*.edges.jsonl`; MUST NOT `Read` full `*-call-graph-full.json`). **Boundaries:** docs only. **DoD:** единый текст правила во всех документах. **Tests:** none. Deps: -
 - [x] W78-17 `tools/research.py`, `tools/reports_pack.py` (или новый `tools/call_graph_views.py`): генерировать grep-friendly view `aidd/reports/research/<ticket>-call-graph.edges.jsonl` + поле `call_graph_edges_path` в context/pack. **DoD:** view пишется автоматически при наличии full graph, формат line‑per‑edge с `caller/callee/file/line/lang`, генерация streaming/чанками (без загрузки full graph целиком). **Tests:** `tests/test_researcher_call_graph.py` (unit) + smoke. Deps: W78-2.
-- [x] W78-18 `tools/reports_pack.py`, `tools/research.py`: отдельный pack `aidd/reports/research/<ticket>-call-graph.pack.yaml|toon` (entrypoints/hotspots/top‑edges + links на full/jsonl), budgets ≤ лимитов. **DoD:** pack всегда создаётся, если есть граф; при отсутствии графа — pack с `status: unavailable` + how‑to‑enable. **Tests:** `tests/test_reports_pack.py` (pack created, budget). Deps: W78-17.
+- [x] W78-18 `tools/reports_pack.py`, `tools/research.py`: отдельный pack `aidd/reports/research/<ticket>-call-graph.pack.json|toon` (entrypoints/hotspots/top‑edges + links на full/jsonl), budgets ≤ лимитов. **DoD:** pack всегда создаётся, если есть граф; при отсутствии графа — pack с `status: unavailable` + how‑to‑enable. **Tests:** `tests/test_reports_pack.py` (pack created, budget). Deps: W78-17.
 - [x] W78-19 `agents/{researcher,planner,tasklist-refiner,implementer,reviewer,qa}.md`: закрепить policy “pack/slice only”, добавить fail‑fast (“если pack отсутствует → blocker/handoff”), добавить allowed tool `Bash(${CLAUDE_PLUGIN_ROOT}/tools/graph-slice.sh:*)`; **source-of-truth** — `agents/` (не `templates/aidd/**`). Bump prompt_version + lint. **DoD:** одинаковые формулировки, без чтения raw graph. **Tests:** `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`. Deps: W78-16,W78-18,W78-20.
-- [x] W78-20 `tools/graph_slice.py`, `tools/graph-slice.sh`: утилита graph-slice (`--ticket`, `--query`, `--max-edges`, `--max-nodes`) → pack в `aidd/reports/context/<ticket>-graph-slice-<sha1>.pack.yaml` + `...-graph-slice.latest.pack.yaml`, input prefer `edges.jsonl` с fallback на raw. **DoD:** slice всегда small и детерминирован, имя включает hash(query); обработка `edges.jsonl` streaming с early-stop по лимитам. **Tests:** unit + smoke (slice created, limits respected). Deps: W78-17.
+- [x] W78-20 `tools/graph_slice.py`, `tools/graph-slice.sh`: утилита graph-slice (`--ticket`, `--query`, `--max-edges`, `--max-nodes`) → pack в `aidd/reports/context/<ticket>-graph-slice-<sha1>.pack.json` + `...-graph-slice.latest.pack.json`, input prefer `edges.jsonl` с fallback на raw. **DoD:** slice всегда small и детерминирован, имя включает hash(query); обработка `edges.jsonl` streaming с early-stop по лимитам. **Tests:** unit + smoke (slice created, limits respected). Deps: W78-17.
 - [x] W78-21 `tools/research_guard.py`, `tools/research_check.py`, `templates/aidd/config/gates.json`: gate для графа — если `*-call-graph-full.json` > N MB, требовать `*-call-graph.pack.*` и `*-call-graph.edges.jsonl`; понятные ошибки и подсказка команд. **DoD:** `research-check` BLOCK, если raw есть, а pack/view нет. **Tests:** `tests/test_research_check.py`, `tests/test_gate_researcher.py`. Deps: W78-17,W78-18.
 - [x] W78-22 `hooks/context_gc/working_set_builder.py`, `templates/aidd/AGENTS.md`: working set ссылается на `call-graph.pack.*`, `edges.jsonl` и пример `graph-slice`; явный запрет читать raw graph. **DoD:** `latest_working_set.md` содержит ссылки/команды, без raw. **Tests:** `tests/test_context_gc.py` (snapshot includes graph refs). Deps: W78-16,W78-18.
 - [x] W78-23 `tools/backfill_graph_views.py`, `README.md`, `README.en.md`: backfill для старых тикетов — найти `*-call-graph-full.json` и сгенерировать missing pack/view. **DoD:** script idempotent, пишет только отсутствующие файлы. **Tests:** none. Deps: W78-17,W78-18.
@@ -1780,14 +1780,14 @@ _Статус: новый, приоритет 1. Цель — переход н�
   **Deps:** W81-2,W81-4,W81-7,W81-8
 - [x] W81-10 `tools/rlm_slice.py`, `tools/rlm-slice.sh`: on-demand slice:
   - вход: `--ticket`, `--query`, `--max_nodes`, `--max_links`, `--paths`, `--lang`;
-  - выход: `aidd/reports/context/<ticket>-rlm-slice-<sha1>.pack.yaml` + `.latest`.
+  - выход: `aidd/reports/context/<ticket>-rlm-slice-<sha1>.pack.json` + `.latest`.
   **AC:** slice всегда small, deterministic, не требует чтения всего nodes в память (streaming JSONL).
   **Tests:** unit + smoke.
   **Deps:** W81-9
 
 ### EPIC E — Packs: pack-first как замена graph/ast-grep packs (P0)
 - [x] W81-11 `tools/reports_pack.py`: добавить RLM pack builder:
-  - `aidd/reports/research/<ticket>-rlm.pack.yaml|toon` включает:
+  - `aidd/reports/research/<ticket>-rlm.pack.json|toon` включает:
     - entrypoints (top),
     - hotspots (по кол-ву verified links + keyword hits),
     - integration points,
@@ -2677,39 +2677,39 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
 ## Wave 86
 
 ### Runtime refactor: pathing, pack format, shared utils
-- [ ] W86-1 `tools/runtime.py`, `tools/feature_ids.py`, `tools/resources.py`, `tools/analyst_guard.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/tasklist_check.py`, `tools/researcher_context.py`, `tools/research_guard.py`, `tools/rlm_config.py`, `tests/test_feature_ids_root.py`, `tests/test_cli_paths.py`, `tests/test_resources.py`: унифицировать root‑resolution:
+- [x] W86-1 `tools/runtime.py`, `tools/feature_ids.py`, `tools/resources.py`, `tools/analyst_guard.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/tasklist_check.py`, `tools/researcher_context.py`, `tools/research_guard.py`, `tools/rlm_config.py`, `tests/test_feature_ids_root.py`, `tests/test_cli_paths.py`, `tests/test_resources.py`: унифицировать root‑resolution:
   - ввести единый helper (в `tools/runtime.py` или отдельном модуле) для `workspace_root` + `aidd_root`;
   - deprecate/rename `tools.feature_ids.resolve_project_root`, чтобы исключить двусмысленность;
   - перевести все runtime‑скрипты на новый helper, обновить тесты путей.
   **AC:** все runtime tools работают из workspace и пишут только в `aidd/`; нет дубликатов `resolve_project_root`.
   **Deps:** -
 
-- [ ] W86-2 `tools/reports_pack.py`, `tools/reports/loader.py`, `tools/research.py`, `tools/researcher_context.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/index_sync.py`, `tools/status.py`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/test_reports_pack.py`, `tests/test_index_schema.py`: выровнять формат pack/index:
+- [x] W86-2 `tools/reports_pack.py`, `tools/reports/loader.py`, `tools/research.py`, `tools/researcher_context.py`, `tools/prd_review.py`, `tools/qa_agent.py`, `tools/index_sync.py`, `tools/status.py`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/test_reports_pack.py`, `tests/test_index_schema.py`: выровнять формат pack/index:
   - определить формат (JSON‑pack с явным расширением, либо реальный YAML);
   - backward‑compat не требуется (проект не в релизе, нет потребителей);
   - привести README/AGENTS к точному описанию формата.
   **AC:** pack/index читаются/пишутся единообразно; документы и тесты отражают формат.
   **Deps:** W86-1
 
-- [ ] W86-3 `tools/loop_pack.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tools/context_pack.py`, `tools/rlm_jsonl_compact.py`, `tools/reports/events.py`, `tools/reports/tests_log.py`, `tests/test_loop_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_review_pack.py`: вынести общие утилиты (JSONL read/write, front‑matter parse, YAML dump, timestamp helpers) в общий модуль:
+- [x] W86-3 `tools/loop_pack.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tools/context_pack.py`, `tools/rlm_jsonl_compact.py`, `tools/reports/events.py`, `tools/reports/tests_log.py`, `tests/test_loop_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_review_pack.py`: вынести общие утилиты (JSONL read/write, front‑matter parse, YAML dump, timestamp helpers) в общий модуль:
   - создать `tools/io_utils.py` (или аналог) и перенести дубли;
   - адаптировать импорты и тесты.
   **AC:** дублирующий код удалён; тесты не меняют поведение.
   **Deps:** -
 
-- [ ] W86-4 `tools/analyst_guard.py`, `tools/research_guard.py`, `tools/tasklist_check.py`, `tools/prd_review_gate.py`, `tools/plan_review_gate.py`, `tools/progress.py`, `tests/test_analyst_dialog.py`, `tests/test_gate_researcher.py`, `tests/test_tasklist_check.py`, `tests/test_gate_prd_review.py`, `tests/test_plan_review_gate.py`: централизовать gates‑config/branch‑filters:
+- [x] W86-4 `tools/analyst_guard.py`, `tools/research_guard.py`, `tools/tasklist_check.py`, `tools/prd_review_gate.py`, `tools/plan_review_gate.py`, `tools/progress.py`, `tests/test_analyst_dialog.py`, `tests/test_gate_researcher.py`, `tests/test_tasklist_check.py`, `tests/test_gate_prd_review.py`, `tests/test_plan_review_gate.py`: централизовать gates‑config/branch‑filters:
   - общий helper (`tools/gates.py`) для загрузки `config/gates.json`, matches/skip, нормализации паттернов;
   - заменить локальные реализации в gate‑скриптах.
   **AC:** единая логика веток/skip во всех gate‑скриптах; тесты обновлены.
   **Deps:** W86-1
 
-- [ ] W86-5 `tools/runtime.py`, `tools/progress.py`, `tools/qa_agent.py`, `tests/test_progress.py`, `tests/test_qa_agent.py`: единая логика `detect_branch`:
+- [x] W86-5 `tools/runtime.py`, `tools/progress.py`, `tools/qa_agent.py`, `tests/test_progress.py`, `tests/test_qa_agent.py`: единая логика `detect_branch`:
   - оставить один источник truth в `tools/runtime.py`;
   - удалить локальные копии и обновить тесты.
   **AC:** нет дублирования branch‑detector; поведение неизменно.
   **Deps:** W86-1
 
-- [ ] W86-6 `tools/qa.py`, `templates/aidd/config/gates.json`, `templates/aidd/AGENTS.md`, `tests/test_gate_qa.py`: ограничить discovery тест‑команд:
+- [x] W86-6 `tools/qa.py`, `templates/aidd/config/gates.json`, `templates/aidd/AGENTS.md`, `tests/test_gate_qa.py`: ограничить discovery тест‑команд:
   - добавить лимиты/флаги (max_files/max_bytes, allowlist путей) в `gates.json`;
   - обновить discovery logic в `tools/qa.py`;
   - задокументировать и покрыть тестами.

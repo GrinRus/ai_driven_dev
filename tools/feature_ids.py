@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
 ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
 SLUG_HINT_FILE = Path("docs") / ".active_feature"
@@ -11,23 +12,10 @@ PRD_TEMPLATE_FILE = Path("docs") / "prd" / "template.md"
 PRD_DIR = Path("docs") / "prd"
 
 
-def resolve_project_root(raw: Path) -> Path:
-    """
-    Resolve workflow root from the current workspace.
-
-    Order: cwd (if already aidd) -> cwd/aidd -> cwd.
-    """
-    cwd = raw.resolve()
-    candidates = []
-    if cwd.name == "aidd":
-        candidates.append(cwd)
-    candidates.append(cwd / "aidd")
-    candidates.append(cwd)
-    for candidate in candidates:
-        docs_dir = candidate / "docs"
-        if docs_dir.is_dir():
-            return candidate
-    return cwd
+def resolve_aidd_root(raw: Path) -> Path:
+    """Resolve workflow root for any path inside the workspace."""
+    _, project_root = resolve_workspace_root(raw, DEFAULT_PROJECT_SUBDIR)
+    return project_root
 
 
 def _read_text(path: Path) -> Optional[str]:
@@ -53,7 +41,7 @@ class FeatureIdentifiers:
 
 
 def read_identifiers(root: Path) -> FeatureIdentifiers:
-    root = resolve_project_root(root)
+    root = resolve_aidd_root(root)
     ticket = _read_text(root / ACTIVE_TICKET_FILE)
     slug_hint = _read_text(root / SLUG_HINT_FILE)
     if ticket:
@@ -82,7 +70,7 @@ def resolve_identifiers(
 def scaffold_prd(root: Path, ticket: str) -> bool:
     """Ensure docs/prd/<ticket>.prd.md exists by copying the template."""
 
-    root = resolve_project_root(root)
+    root = resolve_aidd_root(root)
     ticket_value = ticket.strip()
     if not ticket_value:
         return False
@@ -115,7 +103,7 @@ def write_identifiers(
     slug_hint: Optional[str] = None,
     scaffold_prd_file: bool = True,
 ) -> None:
-    root = resolve_project_root(root)
+    root = resolve_aidd_root(root)
     ticket_value = ticket.strip()
     if not ticket_value:
         raise ValueError("ticket must be a non-empty string")

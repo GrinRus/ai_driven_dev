@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -16,13 +17,14 @@ from tools import runtime
 
 def _default_qa_test_command() -> list[list[str]]:
     plugin_root = runtime.require_plugin_root()
-    return [["bash", str(plugin_root / "hooks" / "format-and-test.sh")]]
+    return [[sys.executable, str(plugin_root / "hooks" / "format-and-test.sh")]]
 
 
 _TEST_COMMAND_PATTERNS = (
     r"\b\./gradlew\s+test\b",
     r"\bgradle\s+test\b",
     r"\bmvn\s+test\b",
+    r"\bpython3?\s+-m\s+pytest\b",
     r"\bpytest\b",
     r"\bpython3?\s+-m\s+unittest\b",
     r"\bgo\s+test\b",
@@ -32,6 +34,18 @@ _TEST_COMMAND_PATTERNS = (
     r"\bmake\s+test\b",
     r"\bmake\s+check\b",
     r"\btox\b",
+)
+
+DEFAULT_DISCOVERY_MAX_FILES = 20
+DEFAULT_DISCOVERY_MAX_BYTES = 200_000
+DEFAULT_DISCOVERY_ALLOWLIST = (
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
+    ".gitlab-ci.yml",
+    ".circleci/config.yml",
+    "Jenkinsfile",
+    "README*",
+    "readme*",
 )
 
 
@@ -78,9 +92,65 @@ def _extract_test_commands(text: str) -> list[str]:
     return commands
 
 
-def _discover_test_commands(root: Path) -> list[list[str]]:
+def _normalize_discovery_config(tests_cfg: dict) -> tuple[int, int, list[str]]:
+    raw = tests_cfg.get("discover") if isinstance(tests_cfg, dict) else {}
+    if not isinstance(raw, dict):
+        raw = {}
+
+    max_files = raw.get("max_files", DEFAULT_DISCOVERY_MAX_FILES)
+    max_bytes = raw.get("max_bytes", DEFAULT_DISCOVERY_MAX_BYTES)
+    try:
+        max_files = max(int(max_files), 0)
+    except (TypeError, ValueError):
+        max_files = DEFAULT_DISCOVERY_MAX_FILES
+    try:
+        max_bytes = max(int(max_bytes), 0)
+    except (TypeError, ValueError):
+        max_bytes = DEFAULT_DISCOVERY_MAX_BYTES
+
+    allow_paths = raw.get("allow_paths") or raw.get("allowlist")
+    if isinstance(allow_paths, str):
+        allow_paths = [allow_paths]
+    allowlist = [str(item).strip() for item in allow_paths or [] if str(item).strip()]
+    if not allowlist:
+        allowlist = list(DEFAULT_DISCOVERY_ALLOWLIST)
+    return max_files, max_bytes, allowlist
+
+
+def _is_allowed_path(path: Path, base: Path, allowlist: list[str]) -> bool:
+    if not allowlist:
+        return True
+    try:
+        rel = path.relative_to(base)
+        rel_str = rel.as_posix()
+    except ValueError:
+        rel_str = path.as_posix()
+    rel_str = rel_str.lstrip("./")
+    return any(fnmatch(rel_str, pattern) for pattern in allowlist)
+
+
+def _is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
+def _discover_test_commands(
+    root: Path,
+    *,
+    max_files: int,
+    max_bytes: int,
+    allow_paths: list[str],
+) -> list[list[str]]:
     commands: list[str] = []
     seen: set[str] = set()
+    seen_files: set[Path] = set()
+    files_seen = 0
+
+    if max_files == 0:
+        return []
 
     search_roots = [root]
     if root.name == "aidd" and root.parent != root:
@@ -96,17 +166,29 @@ def _discover_test_commands(root: Path) -> list[list[str]]:
         ci_paths.append(base / ".circleci" / "config.yml")
         ci_paths.append(base / "Jenkinsfile")
 
-    def _add_commands_from(paths: list[Path]) -> None:
+    def _add_commands_from(paths: list[Path], *, base: Path) -> None:
+        nonlocal files_seen
         for path in paths:
+            if max_files and files_seen >= max_files:
+                return
             if not path.exists() or not path.is_file():
                 continue
-            for cmd in _extract_test_commands(_read_text(path)):
+            if not _is_allowed_path(path, base, allow_paths):
+                continue
+            resolved = path.resolve()
+            if resolved in seen_files:
+                continue
+            seen_files.add(resolved)
+            files_seen += 1
+            for cmd in _extract_test_commands(_read_text(path, max_bytes=max_bytes)):
                 if cmd in seen:
                     continue
                 seen.add(cmd)
                 commands.append(cmd)
 
-    _add_commands_from(ci_paths)
+    for base in search_roots:
+        base_ci = [path for path in ci_paths if _is_relative_to(path, base)]
+        _add_commands_from(base_ci, base=base)
     if commands:
         return [shlex.split(cmd) for cmd in commands if cmd.strip()]
 
@@ -114,7 +196,9 @@ def _discover_test_commands(root: Path) -> list[list[str]]:
     for base in search_roots:
         readmes.extend([path for path in sorted(base.glob("README*")) if path.is_file()])
         readmes.extend([path for path in sorted(base.glob("readme*")) if path.is_file()])
-    _add_commands_from(readmes)
+    for base in search_roots:
+        base_readmes = [path for path in readmes if _is_relative_to(path, base)]
+        _add_commands_from(base_readmes, base=base)
 
     return [shlex.split(cmd) for cmd in commands if cmd.strip()]
 
@@ -128,10 +212,17 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     except (FileNotFoundError, json.JSONDecodeError):
         return _default_qa_test_command(), allow_skip
 
-    qa_cfg = data.get("qa") or {}
-    tests_cfg = qa_cfg.get("tests") or {}
+    qa_cfg = data.get("qa")
+    if isinstance(qa_cfg, bool):
+        qa_cfg = {"enabled": qa_cfg}
+    if not isinstance(qa_cfg, dict):
+        qa_cfg = {}
+    tests_cfg = qa_cfg.get("tests")
+    if not isinstance(tests_cfg, dict):
+        tests_cfg = {}
     allow_skip = bool(tests_cfg.get("allow_skip", True))
     source = str(tests_cfg.get("source") or tests_cfg.get("mode") or "").strip().lower()
+    max_files, max_bytes, allow_paths = _normalize_discovery_config(tests_cfg)
     raw_commands = tests_cfg.get("commands")
     if isinstance(raw_commands, str):
         raw_commands = [raw_commands]
@@ -149,7 +240,7 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
                 commands.append(parts)
 
     if not commands and source in {"readme-ci", "readme", "ci"}:
-        commands = _discover_test_commands(root)
+        commands = _discover_test_commands(root, max_files=max_files, max_bytes=max_bytes, allow_paths=allow_paths)
         return commands, allow_skip
 
     if not commands:

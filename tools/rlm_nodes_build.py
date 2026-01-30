@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -29,7 +28,7 @@ BOOTSTRAP_SUMMARY_PREFIX = "Auto bootstrap node for"
 
 
 def _pack_extension() -> str:
-    return ".pack.toon" if os.getenv("AIDD_PACK_FORMAT", "").strip().lower() == "toon" else ".pack.yaml"
+    return ".pack.json"
 
 
 def _load_manifest(path: Path) -> Dict:

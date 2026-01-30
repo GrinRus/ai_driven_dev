@@ -137,11 +137,9 @@ def _find_rlm_artifacts(aidd_root: Path, ticket: str) -> dict:
         if isinstance(pack_raw, str) and pack_raw:
             pack_path = aidd_root / pack_raw if not Path(pack_raw).is_absolute() else Path(pack_raw)
     if pack_path is None:
-        for suffix in (".pack.yaml", ".pack.toon"):
-            candidate = aidd_root / "reports" / "research" / f"{ticket}-rlm{suffix}"
-            if candidate.exists():
-                pack_path = candidate
-                break
+        candidate = aidd_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+        if candidate.exists():
+            pack_path = candidate
     return {
         "pack": _rel_to_root(aidd_root, pack_path) if pack_path else None,
     }

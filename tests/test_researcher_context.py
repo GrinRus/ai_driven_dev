@@ -234,7 +234,7 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertIn("Status: draft", prd_body)
         self.assertIn("docs/research/demo-checkout.md", prd_body)
 
-        index_path = self.root / "docs" / "index" / "demo-checkout.yaml"
+        index_path = self.root / "docs" / "index" / "demo-checkout.json"
         self.assertTrue(index_path.exists(), "Index should be generated on set-active-feature")
         index_payload = json.loads(index_path.read_text(encoding="utf-8"))
         self.assertEqual(index_payload.get("ticket"), "demo-checkout")

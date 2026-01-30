@@ -40,14 +40,14 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 
 ## Политика чтения
 - Anchors‑first: stage‑anchor → `AIDD:*` секции → только потом full docs.
-- Если рядом есть `*.pack.yaml` (или `*.pack.toon` при `AIDD_PACK_FORMAT=toon`) — читать pack; полный JSON только при need‑to‑know.
+- Если рядом есть `*.pack.json` — читать pack; полный JSON только при need‑to‑know.
 - Ищи якоря: `AIDD:CONTEXT_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`, `AIDD:HANDOFF_INBOX`, `AIDD:ACCEPTANCE`.
 - Snippet‑first:
   - сначала `rg -n -C 2 "^(## AIDD:|## Plan Review|## PRD Review)" <file>`
   - `sed -n 'X,Yp'` — только если инструмент доступен и нужен contiguous‑блок.
 
 ## Evidence Read Policy (RLM-first)
-- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читать фрагментами, не целиком.
@@ -66,6 +66,9 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 - Spec: `aidd/docs/spec/<ticket>.spec.yaml`
 - Tasklist: `aidd/docs/tasklist/<ticket>.md`
 - Reports: `aidd/reports/**`
+
+## QA discovery
+- Discovery тест‑команд ограничен настройками `aidd/config/gates.json` → `qa.tests.discover` (allow_paths/max_files/max_bytes).
 
 ## Формат вопросов к пользователю
 ```

@@ -31,7 +31,7 @@ disable-model-invocation: false
 - `aidd/docs/spec/template.spec.yaml`
 
 ## Evidence Read Policy (RLM-first)
-- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - Legacy `ast_grep` evidence is fallback-only.

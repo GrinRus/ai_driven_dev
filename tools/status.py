@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     from tools.reports import events as _events
     from tools.reports import tests_log as _tests_log
 
-    index_path = target / "docs" / "index" / f"{ticket}.yaml"
+    index_path = target / "docs" / "index" / f"{ticket}.json"
     if args.refresh or not index_path.exists():
         _index_sync.write_index(target, ticket, slug)
 

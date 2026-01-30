@@ -171,7 +171,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         )
 
         patch_path = report_path.with_suffix(".patch.json")
-        pack_path = report_path.with_suffix(".pack.yaml")
+        pack_path = report_path.with_suffix(".pack.json")
         self.assertTrue(patch_path.exists(), "PRD patch should be written")
         self.assertTrue(pack_path.exists(), "PRD pack should be written")
         self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")

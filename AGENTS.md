@@ -69,8 +69,8 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, тесты), затем задаём вопросы пользователю.
 
 ## RLM в Research
-- Evidence: `aidd/reports/research/<ticket>-rlm.pack.*` и `rlm-slice` pack.
-- Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.*` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.*`.
+- Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
+- Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.json` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.json`.
 - On-demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Legacy `ast_grep` evidence deprecated и disabled by default.
 - Troubleshooting пустого контекста:
@@ -79,7 +79,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
 
 ## Evidence Read Policy (RLM-first)
-- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
@@ -91,6 +91,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `tests_required` (`disabled|soft|hard`), `tests_gate`
   - `deps_allowlist`
   - `qa.debounce_minutes`
+  - `qa.tests.discover` (allow_paths/max_files/max_bytes)
   - `tasklist_progress`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
@@ -106,17 +107,17 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Reports format (MVP)
 - Naming:
-  - Research context: `aidd/reports/research/<ticket>-context.json` + `*.pack.yaml|*.pack.toon`
+  - Research context: `aidd/reports/research/<ticket>-context.json` + `aidd/reports/research/<ticket>-context.pack.json`
   - Research targets: `aidd/reports/research/<ticket>-targets.json`
   - RLM targets: `aidd/reports/research/<ticket>-rlm-targets.json`
   - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
   - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
-  - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.yaml|toon`
+  - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>.json`
   - Tests log: `aidd/reports/tests/<ticket>.jsonl`
-- Pack‑first: читать pack (yaml/toon) если есть, иначе JSON.
+- Pack‑first: читать `*.pack.json` если есть, иначе JSON.
 - Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
@@ -127,7 +128,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - PRD pack: findings<=20, action_items<=10
 - Патчи (опционально): RFC6902 в `aidd/reports/<type>/<ticket>.patch.json`.
 - Pack‑only/field filters: `AIDD_PACK_ONLY`, `AIDD_PACK_ALLOW_FIELDS`, `AIDD_PACK_STRIP_FIELDS`.
-- Pack‑env: `AIDD_PACK_FORMAT`, `AIDD_PACK_LIMITS`, `AIDD_PACK_ENFORCE_BUDGET`.
+- Pack‑env: `AIDD_PACK_LIMITS`, `AIDD_PACK_ENFORCE_BUDGET`.
 
 ## Release checklist (сжато)
 - Обновить `README.md`/`README.en.md` и `AGENTS.md` при изменении поведения.

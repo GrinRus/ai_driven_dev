@@ -79,7 +79,6 @@ RLM_BUDGET = {
     "max_lines": 240,
 }
 
-_PACK_FORMATS = {"yaml", "toon"}
 _ESSENTIAL_FIELDS = {
     "schema",
     "pack_version",
@@ -629,21 +628,15 @@ def _pack_findings(entries: Iterable[Any], limit: int, cols: List[str]) -> Dict[
     return _columnar(cols, rows)
 
 
-def _pack_format() -> str:
-    value = os.getenv("AIDD_PACK_FORMAT", "yaml").strip().lower()
-    return value if value in _PACK_FORMATS else "yaml"
-
-
 def _pack_extension() -> str:
-    return ".pack.toon" if _pack_format() == "toon" else ".pack.yaml"
+    return ".pack.json"
 
 
 def _find_pack_variant(root: Path, name: str) -> Optional[Path]:
     base = root / "reports" / "research"
-    for suffix in (".pack.yaml", ".pack.toon"):
-        candidate = base / f"{name}{suffix}"
-        if candidate.exists():
-            return candidate
+    candidate = base / f"{name}.pack.json"
+    if candidate.exists():
+        return candidate
     return None
 
 
@@ -1086,7 +1079,7 @@ def _load_rlm_worklist_summary(
             worklist_path = runtime.resolve_path_for_target(Path(raw), root)
     if worklist_path is None and ticket:
         worklist_path = _find_pack_variant(root, f"{ticket}-rlm.worklist") or (
-            root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
         )
     if not worklist_path or not worklist_path.exists():
         return None, None, worklist_path
@@ -1613,7 +1606,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("path", nargs="?", help="Path to aidd/reports/research/<ticket>-context.json")
     parser.add_argument(
         "--output",
-        help="Optional output path (default: *.pack.yaml or *.pack.toon when AIDD_PACK_FORMAT=toon).",
+        help="Optional output path (default: *.pack.json).",
     )
     parser.add_argument("--rlm-nodes", help="Path to <ticket>-rlm.nodes.jsonl to build RLM pack.")
     parser.add_argument("--rlm-links", help="Path to <ticket>-rlm.links.jsonl to build RLM pack.")

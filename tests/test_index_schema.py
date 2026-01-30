@@ -70,12 +70,12 @@ def test_index_sync_includes_pack_variants(tmp_path):
     write_file(project_root, "docs/prd/DEMO-2.prd.md", "# Demo PRD\n")
     write_file(
         project_root,
-        "reports/qa/DEMO-2.pack.yaml",
+        "reports/qa/DEMO-2.pack.json",
         json.dumps({"status": "WARN"}, indent=2),
     )
     write_file(
         project_root,
-        "reports/research/DEMO-2-context.pack.toon",
+        "reports/research/DEMO-2-context.pack.json",
         json.dumps({"status": "ok"}, indent=2),
     )
 
@@ -83,8 +83,8 @@ def test_index_sync_includes_pack_variants(tmp_path):
     payload = json.loads(index_path.read_text(encoding="utf-8"))
 
     reports = payload.get("reports") or []
-    assert "aidd/reports/qa/DEMO-2.pack.yaml" in reports
-    assert "aidd/reports/research/DEMO-2-context.pack.toon" in reports
+    assert "aidd/reports/qa/DEMO-2.pack.json" in reports
+    assert "aidd/reports/research/DEMO-2-context.pack.json" in reports
     checks = payload.get("checks") or []
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None

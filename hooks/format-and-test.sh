@@ -36,7 +36,7 @@ VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from tools.feature_ids import FeatureIdentifiers, resolve_identifiers, resolve_project_root
+from tools.feature_ids import FeatureIdentifiers, resolve_aidd_root, resolve_identifiers
 from tools.test_settings_defaults import (
     DEFAULT_COMMON_PATTERNS,
     DEFAULT_CODE_EXTENSIONS,
@@ -726,7 +726,7 @@ def main() -> int:
     workspace_root = resolve_workspace_root(ctx)
     os.chdir(workspace_root)
     settings_path = resolve_settings_path(workspace_root)
-    project_root = resolve_project_root(workspace_root)
+    project_root = resolve_aidd_root(workspace_root)
     diff_files = collect_diff_files(workspace_root)
     stage = read_active_stage(project_root)
     active_mode = read_active_mode(project_root)

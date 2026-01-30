@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from tools import runtime
-from tools.feature_ids import read_identifiers, resolve_project_root as resolve_aidd_root, write_identifiers
+from tools.feature_ids import read_identifiers, resolve_aidd_root, write_identifiers
 from tools.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,

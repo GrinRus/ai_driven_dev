@@ -73,17 +73,16 @@ class ReportsPackTests(unittest.TestCase):
         self.assertEqual(len(match_rows), reports_pack.RESEARCH_LIMITS["matches"])
         self.assertLessEqual(len(match_rows[0][4]), reports_pack.RESEARCH_LIMITS["match_snippet_chars"])
 
-    def test_pack_format_toon_extension(self) -> None:
+    def test_pack_extension_is_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             context_path = tmp_path / "reports" / "research" / "demo-context.json"
             payload = {"ticket": "DEMO-2", "slug": "demo-2", "generated_at": "2024-01-02T00:00:00Z"}
             _write_context(context_path, payload)
 
-            with patch.dict(os.environ, {"AIDD_PACK_FORMAT": "toon"}, clear=False):
-                pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
+            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
 
-            self.assertTrue(pack_path.name.endswith(".pack.toon"))
+            self.assertTrue(pack_path.name.endswith(".pack.json"))
             packed = json.loads(pack_path.read_text(encoding="utf-8"))
             self.assertEqual(packed["ticket"], "DEMO-2")
 
@@ -429,7 +428,7 @@ class ReportsPackTests(unittest.TestCase):
             self.assertTrue(payload.get("rlm_links_path"))
             self.assertTrue(payload.get("rlm_pack_path"))
 
-            context_pack = project_root / "reports" / "research" / f"{ticket}-context.pack.yaml"
+            context_pack = project_root / "reports" / "research" / f"{ticket}-context.pack.json"
             self.assertTrue(context_pack.exists())
 
     def test_rlm_pack_excludes_model_roles_from_entrypoints(self) -> None:
@@ -498,11 +497,11 @@ class ReportsPackTests(unittest.TestCase):
                     "ticket": ticket,
                     "slug": ticket,
                     "generated_at": "2024-01-10T00:00:00Z",
-                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
                 },
             )
 
-            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
             worklist_path.write_text(
                 json.dumps(
@@ -582,7 +581,7 @@ class ReportsPackTests(unittest.TestCase):
 
             payload = json.loads(context_path.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("rlm_status"), "pending")
-            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.yaml"
+            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
             pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
             self.assertEqual(pack_payload.get("status"), "pending")
             self.assertEqual(pack_payload.get("stats", {}).get("worklist_entries"), 1)
@@ -600,11 +599,11 @@ class ReportsPackTests(unittest.TestCase):
                     "ticket": ticket,
                     "slug": ticket,
                     "generated_at": "2024-01-11T00:00:00Z",
-                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
                 },
             )
 
-            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
             worklist_path.write_text(
                 json.dumps(
@@ -699,7 +698,7 @@ class ReportsPackTests(unittest.TestCase):
             ensure_project_root(project_root)
             ticket = "RLM-PARTIAL"
 
-            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
             worklist_path.write_text(
                 json.dumps(

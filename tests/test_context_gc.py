@@ -219,12 +219,12 @@ class WorkingSetBuilderTests(unittest.TestCase):
                 "reports/research/demo-ticket-context.json",
                 {
                     "ticket": "demo-ticket",
-                    "rlm_pack_path": "reports/research/demo-ticket-rlm.pack.yaml",
+                    "rlm_pack_path": "reports/research/demo-ticket-rlm.pack.json",
                 },
             )
             write_file(
                 root,
-                "reports/research/demo-ticket-rlm.pack.yaml",
+                "reports/research/demo-ticket-rlm.pack.json",
                 json.dumps({"type": "rlm", "status": "ready"}),
             )
             write_json(
@@ -236,7 +236,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             ws = working_set_builder.build_working_set(root)
 
             self.assertIn("RLM Evidence", ws.text)
-            self.assertIn("demo-ticket-rlm.pack.yaml", ws.text)
+            self.assertIn("demo-ticket-rlm.pack.json", ws.text)
             self.assertIn("rlm-slice.sh", ws.text)
 
     def test_context_pack_limits_applied(self) -> None:

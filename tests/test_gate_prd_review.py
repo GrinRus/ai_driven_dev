@@ -114,7 +114,7 @@ def test_allows_when_pack_report_present(tmp_path):
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
     write_json(
         tmp_path,
-        "reports/prd/demo-checkout.pack.yaml",
+        "reports/prd/demo-checkout.pack.json",
         {
             "schema": "aidd.report.pack.v1",
             "findings": {

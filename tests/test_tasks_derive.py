@@ -126,7 +126,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
     }
     write_file(
         project_root,
-        "reports/qa/demo-checkout.pack.yaml",
+        "reports/qa/demo-checkout.pack.json",
         json.dumps(pack_payload, indent=2),
     )
 
@@ -138,7 +138,7 @@ def test_tasks_derive_from_qa_pack(tmp_path):
             "--ticket",
             "demo-checkout",
             "--report",
-            "aidd/reports/qa/demo-checkout.pack.yaml",
+            "aidd/reports/qa/demo-checkout.pack.json",
         ),
         cwd=project_root,
         text=True,
@@ -238,7 +238,7 @@ def test_tasks_derive_prefers_pack_for_research(tmp_path):
     }
     write_file(
         project_root,
-        "reports/research/demo-checkout-rlm.pack.yaml",
+        "reports/research/demo-checkout-rlm.pack.json",
         json.dumps(pack_payload, indent=2),
     )
 
@@ -294,7 +294,7 @@ def test_tasks_derive_from_ast_grep_pack(tmp_path):
     }
     write_file(
         project_root,
-        "reports/research/demo-checkout-ast-grep.pack.yaml",
+        "reports/research/demo-checkout-ast-grep.pack.json",
         json.dumps(pack_payload, indent=2),
     )
 
@@ -587,7 +587,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
                 },
             )
 
-            index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
+            index_path = project_root / "docs" / "index" / "demo-checkout.json"
             self.assertFalse(index_path.exists())
 
             env = cli_env()
@@ -629,7 +629,7 @@ class TasksDeriveIndexAutoSyncTests(unittest.TestCase):
                 },
             )
 
-            index_path = project_root / "docs" / "index" / "demo-checkout.yaml"
+            index_path = project_root / "docs" / "index" / "demo-checkout.json"
             self.assertFalse(index_path.exists())
 
             env = cli_env()

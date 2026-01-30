@@ -1634,7 +1634,7 @@ class RlmLinksBuildTests(unittest.TestCase):
             )
             write_json(
                 workspace,
-                f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                f"reports/research/{ticket}-rlm.worklist.pack.json",
                 {
                     "type": "rlm-worklist",
                     "worklist_scope": {

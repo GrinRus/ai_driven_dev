@@ -4,19 +4,15 @@
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import re
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
 from tools import runtime
+from tools.io_utils import utc_timestamp
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b", re.IGNORECASE)
 HEADING_RE = re.compile(r"^##\s+")
-
-
-def _utc_timestamp() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _read_text(path: Path) -> str:
@@ -74,7 +70,7 @@ def build_context_pack(root: Path, ticket: str, agent: str) -> str:
 
     parts: List[str] = []
     parts.append(f"# Context Pack — {ticket} ({agent})")
-    parts.append(f"Generated: {_utc_timestamp()}")
+    parts.append(f"Generated: {utc_timestamp()}")
     parts.append("Sources:")
     if prd_path.exists():
         parts.append(f"- PRD: {prd_path.as_posix()}")

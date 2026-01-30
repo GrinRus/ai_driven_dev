@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from tools import runtime
-from tools.feature_ids import resolve_project_root as resolve_aidd_root
+from tools.feature_ids import resolve_aidd_root
 
 
 VALID_STAGES = {
