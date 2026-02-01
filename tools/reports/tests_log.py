@@ -144,6 +144,11 @@ def latest_entry(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Path]]:
     path = tests_log_path(root, ticket, scope_key)
     events = _load_events(path)
+    if not events and not path.exists():
+        legacy_path = legacy_tests_log_path(root, ticket)
+        if legacy_path.exists():
+            events = _load_events(legacy_path)
+            path = legacy_path
     if not events:
         return None, path if path.exists() else None
     stage_set = {str(stage or "").strip().lower() for stage in (stages or []) if str(stage or "").strip()}
