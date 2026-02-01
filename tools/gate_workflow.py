@@ -142,7 +142,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     template = str(
         reviewer_cfg.get("tests_marker")
         or reviewer_cfg.get("marker")
-        or "aidd/reports/reviewer/{ticket}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
     )
     field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
     required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -158,11 +158,36 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     allowed_values = set(required_values + optional_values)
 
     slug_value = slug_hint.strip() or ticket
-    marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
-    if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
-        marker_path = root / Path(*marker_path.parts[1:])
-    elif not marker_path.is_absolute():
-        marker_path = root / marker_path
+    try:
+        from tools import runtime as _runtime
+
+        work_item_key = _runtime.read_active_work_item(root)
+        scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
+        marker_path = _runtime.reviewer_marker_path(
+            root,
+            template,
+            ticket,
+            slug_hint or None,
+            scope_key=scope_key,
+        )
+    except Exception:
+        raw_scope = ""
+        try:
+            raw_scope = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
+        except OSError:
+            raw_scope = ""
+        raw_scope = raw_scope or ticket or ""
+        cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
+        raw_path = (
+            template.replace("{ticket}", ticket)
+            .replace("{slug}", slug_value)
+            .replace("{scope_key}", cleaned_scope)
+        )
+        marker_path = Path(raw_path)
+        if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
+            marker_path = root / Path(*marker_path.parts[1:])
+        elif not marker_path.is_absolute():
+            marker_path = root / marker_path
 
     if not marker_path.exists():
         if reviewer_cfg.get("warn_on_missing", True):
@@ -276,14 +301,39 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     review_template = (
         reviewer_cfg.get("marker")
         or reviewer_cfg.get("tests_marker")
-        or "aidd/reports/reviewer/{ticket}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
     )
-    raw_path = str(review_template).replace("{ticket}", ticket).replace("{slug}", slug_value)
-    review_path = Path(raw_path)
-    if not review_path.is_absolute() and review_path.parts and review_path.parts[0] == "aidd" and root.name == "aidd":
-        review_path = root / Path(*review_path.parts[1:])
-    elif not review_path.is_absolute():
-        review_path = root / review_path
+    try:
+        from tools import runtime as _runtime
+
+        work_item_key = _runtime.read_active_work_item(root)
+        scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
+        review_path = _runtime.reviewer_marker_path(
+            root,
+            str(review_template),
+            ticket,
+            slug_hint or None,
+            scope_key=scope_key,
+        )
+    except Exception:
+        raw_scope = ""
+        try:
+            raw_scope = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
+        except OSError:
+            raw_scope = ""
+        raw_scope = raw_scope or ticket or ""
+        cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
+        raw_path = (
+            str(review_template)
+            .replace("{ticket}", ticket)
+            .replace("{slug}", slug_value)
+            .replace("{scope_key}", cleaned_scope)
+        )
+        review_path = Path(raw_path)
+        if not review_path.is_absolute() and review_path.parts and review_path.parts[0] == "aidd" and root.name == "aidd":
+            review_path = root / Path(*review_path.parts[1:])
+        elif not review_path.is_absolute():
+            review_path = root / review_path
     if review_path.exists():
         has_review_report = False
         try:

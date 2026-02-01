@@ -29,8 +29,8 @@ class WorkItem:
     kind: str
     item_id: str
     key_prefix: str
-    key_raw: str
-    key_safe: str
+    work_item_key: str
+    scope_key: str
     title: str
     state: str
     goal: str
@@ -48,23 +48,21 @@ class WorkItemRef:
     item_id: str
 
     @property
-    def key_raw(self) -> str:
+    def work_item_key(self) -> str:
         return f"{self.key_prefix}={self.item_id}"
 
     @property
-    def key_safe(self) -> str:
-        return sanitize_key(self.key_raw)
+    def scope_key(self) -> str:
+        return runtime.sanitize_scope_key(self.work_item_key)
 
 
 @dataclass(frozen=True)
 class ReviewPackMeta:
     verdict: str
     work_item_key: str
+    scope_key: str
     handoff_ids: Tuple[str, ...]
-
-
-def sanitize_key(value: str) -> str:
-    return value.replace(":", "_")
+    schema: str = ""
 
 
 def read_text(path: Path) -> str:
@@ -123,18 +121,41 @@ def parse_review_pack_handoff_ids(lines: List[str]) -> Tuple[str, ...]:
 
 
 def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
-    pack_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
-    if not pack_path.exists():
-        return ReviewPackMeta("", "", tuple())
+    active_work_item = runtime.read_active_work_item(root)
+    scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else ""
+    pack_path = None
+    if scope_key:
+        candidate = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if candidate.exists():
+            pack_path = candidate
+    if pack_path is None:
+        legacy_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
+        if legacy_path.exists():
+            pack_path = legacy_path
+    if pack_path is None:
+        return ReviewPackMeta("", "", "", tuple())
     lines = read_text(pack_path).splitlines()
     front = parse_front_matter(lines)
     schema = (front.get("schema") or "").strip()
-    if schema and schema != "aidd.review_pack.v1":
-        return ReviewPackMeta("", "", tuple())
+    if schema and schema not in {"aidd.review_pack.v1", "aidd.review_pack.v2"}:
+        return ReviewPackMeta("", "", "", tuple(), schema)
     verdict = (front.get("verdict") or "").strip().upper()
     work_item_key = (front.get("work_item_key") or "").strip()
+    scope_key = (front.get("scope_key") or "").strip() or runtime.resolve_scope_key(work_item_key, ticket)
     handoff_ids = parse_review_pack_handoff_ids(lines)
-    return ReviewPackMeta(verdict, work_item_key, handoff_ids)
+    return ReviewPackMeta(verdict, work_item_key, scope_key, handoff_ids, schema)
+
+
+def review_pack_v2_required(root: Path) -> bool:
+    config = runtime.load_gates_config(root)
+    if not isinstance(config, dict):
+        return False
+    raw = config.get("review_pack_v2_required")
+    if raw is None:
+        return False
+    if isinstance(raw, str):
+        return raw.strip().lower() in {"1", "true", "yes", "block", "strict"}
+    return bool(raw)
 
 
 def split_checkbox_blocks(lines: Iterable[str]) -> List[List[str]]:
@@ -257,12 +278,11 @@ def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
         "- dod:",
         "- boundaries:",
         "- commands:",
-        "- tests:",
         "- acceptance mapping:",
         "- spec:",
     )
-    capture_expected = False
-    expected_indent = 0
+    capture_block = False
+    capture_indent = 0
 
     for raw in block[1:]:
         line = raw.rstrip()
@@ -271,19 +291,19 @@ def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
         stripped = line.strip()
         lower = stripped.lower()
 
-        if capture_expected:
+        if capture_block:
             indent = len(raw) - len(raw.lstrip(" "))
-            if indent <= expected_indent and stripped.startswith("-"):
-                capture_expected = False
+            if indent <= capture_indent and stripped.startswith("-"):
+                capture_block = False
             else:
                 if stripped.startswith("-"):
                     lines.append(line)
                 continue
 
-        if lower.startswith("- expected paths"):
+        if lower.startswith("- expected paths") or lower.startswith("- size budget") or lower.startswith("- tests"):
             lines.append(line)
-            capture_expected = True
-            expected_indent = len(raw) - len(raw.lstrip(" "))
+            capture_block = True
+            capture_indent = len(raw) - len(raw.lstrip(" "))
             continue
 
         if any(lower.startswith(prefix) for prefix in wanted_prefixes):
@@ -319,14 +339,15 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
         size_budget = extract_mapping_field(block, "Size budget")
         exit_criteria = tuple(extract_list_field(block, "Exit criteria"))
         key_prefix = "iteration_id"
-        key_raw = f"{key_prefix}={item_id}"
+        work_item_key = f"{key_prefix}={item_id}"
+        scope_key = runtime.sanitize_scope_key(work_item_key)
         items.append(
             WorkItem(
                 kind="iteration",
                 item_id=item_id,
                 key_prefix=key_prefix,
-                key_raw=key_raw,
-                key_safe=sanitize_key(key_raw),
+                work_item_key=work_item_key,
+                scope_key=scope_key,
                 title=title,
                 state=state,
                 goal=goal or title,
@@ -356,14 +377,15 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
         state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
         key_prefix = "id"
-        key_raw = f"{key_prefix}={item_id}"
+        work_item_key = f"{key_prefix}={item_id}"
+        scope_key = runtime.sanitize_scope_key(work_item_key)
         items.append(
             WorkItem(
                 kind="handoff",
                 item_id=item_id,
                 key_prefix=key_prefix,
-                key_raw=key_raw,
-                key_safe=sanitize_key(key_raw),
+                work_item_key=work_item_key,
+                scope_key=scope_key,
                 title=title,
                 state=state,
                 goal=goal or title,
@@ -431,9 +453,9 @@ def write_active_state(root: Path, ticket: str, work_item_key: str) -> None:
     (docs_dir / ".active_work_item").write_text(work_item_key + "\n", encoding="utf-8")
 
 
-def find_work_item(items: Iterable[WorkItem], key_safe: str) -> Optional[WorkItem]:
+def find_work_item(items: Iterable[WorkItem], scope_key: str) -> Optional[WorkItem]:
     for item in items:
-        if item.key_safe == key_safe:
+        if item.scope_key == scope_key:
             return item
     return None
 
@@ -444,7 +466,7 @@ def is_open_item(item: WorkItem) -> bool:
 
 def select_first_matching(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]) -> Optional[WorkItem]:
     for ref in refs:
-        candidate = find_work_item(items, ref.key_safe)
+        candidate = find_work_item(items, ref.scope_key)
         if candidate:
             return candidate
     return None
@@ -452,7 +474,7 @@ def select_first_matching(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]
 
 def select_first_open(refs: Iterable[WorkItemRef], items: Iterable[WorkItem]) -> Optional[WorkItem]:
     for ref in refs:
-        candidate = find_work_item(items, ref.key_safe)
+        candidate = find_work_item(items, ref.scope_key)
         if candidate and is_open_item(candidate):
             return candidate
     return None
@@ -478,7 +500,7 @@ def select_first_open_handoff(handoff_ids: Iterable[str], handoffs: Iterable[Wor
     for item_id in handoff_ids:
         for candidate_id in normalize_review_handoff_id(item_id):
             ref = WorkItemRef("id", candidate_id)
-            candidate = find_work_item(handoffs, ref.key_safe)
+            candidate = find_work_item(handoffs, ref.scope_key)
             if candidate and is_open_item(candidate):
                 return candidate
     return None
@@ -501,7 +523,8 @@ def build_front_matter(
         f"updated_at: {updated_at}",
         f"ticket: {ticket}",
         f"work_item_id: {work_item.item_id}",
-        f"work_item_key: {work_item.key_safe}",
+        f"work_item_key: {work_item.work_item_key}",
+        f"scope_key: {work_item.scope_key}",
         "boundaries:",
     ]
     allowed_paths = boundaries.get("allowed_paths", [])
@@ -555,16 +578,16 @@ def build_pack(
     lines: List[str] = []
     lines.extend(front_matter)
     lines.append("")
-    lines.append(f"# Loop Pack — {ticket} / {work_item.key_safe}")
+    lines.append(f"# Loop Pack — {ticket} / {work_item.scope_key}")
     lines.append("")
     lines.append("## Work item")
     lines.append(f"- work_item_id: {work_item.item_id}")
-    lines.append(f"- work_item_key: {work_item.key_safe}")
+    lines.append(f"- work_item_key: {work_item.work_item_key}")
+    lines.append(f"- scope_key: {work_item.scope_key}")
     lines.append(f"- goal: {work_item.goal}")
     lines.append("")
-    lines.append("## Do not read")
-    lines.append("- PRD/Plan/Research — только если есть ссылка в pack")
-    lines.append("- Полный tasklist — только excerpt ниже")
+    lines.append("## Read order")
+    lines.append("- Prefer excerpt; read full tasklist/PRD/Plan/Research/Spec only if excerpt misses Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance or REVISE needs context.")
     lines.append("- Большие логи/диффы — только ссылки на отчёты")
     lines.append("")
     lines.append("## Boundaries")
@@ -628,7 +651,7 @@ def write_pack_for_item(
         updated_at=updated_at,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    pack_path = output_dir / f"{work_item.key_safe}.loop.pack.md"
+    pack_path = output_dir / f"{work_item.scope_key}.loop.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
     return pack_path, boundaries, commands_required, tests_required, updated_at
 
@@ -682,9 +705,30 @@ def main(argv: list[str] | None = None) -> int:
     active_work_item = read_active_work_item(target)
     selected_item: Optional[WorkItem] = None
     selection_reason = ""
-    review_meta = read_review_pack_meta(target, ticket) if args.stage == "implement" else ReviewPackMeta("", "", tuple())
+    review_meta = (
+        read_review_pack_meta(target, ticket)
+        if args.stage == "implement"
+        else ReviewPackMeta("", "", "", tuple())
+    )
     open_handoffs = [item for item in handoffs if is_open_item(item) and is_review_handoff_id(item.item_id)]
     revise_mode = args.stage == "implement" and review_meta.verdict == "REVISE" and not args.pick_next
+
+    if args.stage == "implement" and review_meta.schema == "aidd.review_pack.v1" and review_pack_v2_required(target):
+        message = "BLOCKED: review pack v2 required"
+        reason = "review_pack_v2_required"
+        if args.format:
+            payload = {
+                "schema": "aidd.loop_pack.v1",
+                "status": "blocked",
+                "ticket": ticket,
+                "stage": args.stage,
+                "reason": reason,
+            }
+            output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+            print(output)
+        else:
+            print(message)
+        return 2
 
     if args.work_item:
         raw = args.work_item.strip()
@@ -694,13 +738,13 @@ def main(argv: list[str] | None = None) -> int:
             ref = WorkItemRef("id", raw.split("=", 1)[1].strip())
         else:
             raise ValueError("--work-item must be iteration_id=... or id=...")
-        selected_item = find_work_item(all_items, ref.key_safe)
+        selected_item = find_work_item(all_items, ref.scope_key)
         if not selected_item:
             raise ValueError(f"work item {raw} not found in tasklist")
         selection_reason = "override"
     elif args.stage == "implement":
         if revise_mode:
-            review_key = sanitize_key(review_meta.work_item_key) if review_meta.work_item_key else ""
+            review_key = review_meta.scope_key
             if review_key:
                 candidate = find_work_item(all_items, review_key)
                 if candidate and is_open_item(candidate):
@@ -713,11 +757,11 @@ def main(argv: list[str] | None = None) -> int:
             if not selected_item and open_handoffs:
                 selected_item = open_handoffs[0]
                 selection_reason = "handoff"
-        if not selected_item and active_ticket == ticket and active_work_item and not args.pick_next:
-            if revise_mode and (review_meta.work_item_key or open_handoffs):
-                selected_item = None
-            else:
-                selected_item = find_work_item(all_items, active_work_item)
+            if not selected_item and active_ticket == ticket and active_work_item and not args.pick_next:
+                if revise_mode and (review_meta.work_item_key or open_handoffs):
+                    selected_item = None
+                else:
+                    selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
                 if selected_item:
                     if is_open_item(selected_item):
                         selection_reason = "active"
@@ -741,13 +785,13 @@ def main(argv: list[str] | None = None) -> int:
                     selection_reason = "next3"
         if not selected_item:
             if active_ticket == ticket and active_work_item:
-                selected_item = find_work_item(all_items, active_work_item)
+                selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
                 if selected_item:
                     selection_reason = "active"
         if not selected_item:
             progress_ref = parse_progress_ref(sections.get("AIDD:PROGRESS_LOG", []))
             if progress_ref:
-                selected_item = find_work_item(all_items, progress_ref.key_safe)
+                selected_item = find_work_item(all_items, progress_ref.scope_key)
                 if selected_item:
                     selection_reason = "progress"
 
@@ -771,7 +815,7 @@ def main(argv: list[str] | None = None) -> int:
             print(message)
         return 2
 
-    write_active_state(target, ticket, selected_item.key_safe)
+    write_active_state(target, ticket, selected_item.work_item_key)
 
     arch_profile_path = target / "docs" / "architecture" / "profile.md"
     arch_profile = runtime.rel_path(arch_profile_path, target)
@@ -783,12 +827,12 @@ def main(argv: list[str] | None = None) -> int:
         next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
         if next3_refs:
             for ref in next3_refs:
-                candidate = find_work_item(all_items, ref.key_safe)
+                candidate = find_work_item(all_items, ref.scope_key)
                 if candidate and is_open_item(candidate):
                     prewarm_items.append(candidate)
-    prewarm_map: Dict[str, WorkItem] = {selected_item.key_safe: selected_item}
+    prewarm_map: Dict[str, WorkItem] = {selected_item.scope_key: selected_item}
     for item in prewarm_items:
-        prewarm_map.setdefault(item.key_safe, item)
+        prewarm_map.setdefault(item.scope_key, item)
 
     selected_pack_path = None
     boundaries: Dict[str, List[str]] = {}
@@ -804,7 +848,7 @@ def main(argv: list[str] | None = None) -> int:
             work_item=item,
             arch_profile=arch_profile,
         )
-        if item.key_safe == selected_item.key_safe:
+        if item.scope_key == selected_item.scope_key:
             selected_pack_path = pack_path
             boundaries = item_boundaries
             commands_required = item_commands
@@ -822,7 +866,8 @@ def main(argv: list[str] | None = None) -> int:
         "ticket": ticket,
         "stage": args.stage,
         "work_item_id": selected_item.item_id,
-        "work_item_key": selected_item.key_safe,
+        "work_item_key": selected_item.work_item_key,
+        "scope_key": selected_item.scope_key,
         "selection": selection_reason,
         "path": rel_path,
         "boundaries": boundaries,
@@ -835,10 +880,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.format:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
         print(output)
-        print(f"[loop-pack] saved {rel_path} ({selected_item.key_raw})", file=sys.stderr)
+        print(f"[loop-pack] saved {rel_path} ({selected_item.work_item_key})", file=sys.stderr)
         return 0
 
-    print(f"[loop-pack] saved {rel_path} ({selected_item.key_raw})")
+    print(f"[loop-pack] saved {rel_path} ({selected_item.work_item_key})")
     return 0
 
 

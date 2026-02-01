@@ -2,8 +2,8 @@
 description: "Навигация по тикету: индекс, артефакты и последние события"
 argument-hint: "[$1]"
 lang: ru
-prompt_version: 1.0.4
-source_version: 1.0.4
+prompt_version: 1.0.5
+source_version: 1.0.5
 allowed-tools:
   - Read
   - "Bash(rg:*)"
@@ -15,12 +15,12 @@ disable-model-invocation: false
 
 ## Контекст
 `/feature-dev-aidd:status` показывает краткий статус тикета: stage, summary, артефакты, отчёты, последние события и тест‑логи (JSONL). CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/<stage>.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/<stage>.md`.
 
 ## Входные артефакты
 - `aidd/docs/index/$1.json` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
 - `aidd/reports/events/$1.jsonl` — последние события (если есть).
-- `aidd/reports/tests/$1.jsonl` — тест‑логи (если есть).
+- `aidd/reports/tests/$1/<scope_key>.jsonl` — тест‑логи по scope (если есть).
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`, `aidd/docs/.active_stage` — маркеры активного тикета.
 
 ## Когда запускать

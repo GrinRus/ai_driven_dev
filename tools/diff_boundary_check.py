@@ -176,7 +176,8 @@ def main(argv: List[str] | None = None) -> int:
         active_work_item = read_active_work_item(target)
         if not active_work_item:
             raise FileNotFoundError("docs/.active_work_item not found; run loop-pack first")
-        pack_path = target / "reports" / "loops" / ticket / f"{active_work_item}.loop.pack.md"
+        scope_key = runtime.resolve_scope_key(active_work_item, ticket)
+        pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
 
     if not pack_path.exists():
         raise FileNotFoundError(f"loop pack not found at {runtime.rel_path(pack_path, target)}")

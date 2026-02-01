@@ -43,7 +43,7 @@ cd "$ROOT_DIR"
 
 log "checking loop-pack wiring in commands"
 require_rg "loop-pack.sh --ticket ${TICKET_REGEX} --stage implement" "commands/implement.md"
-require_rg "aidd/reports/loops/${TICKET_REGEX}/<work_item_key>\\.loop\\.pack\\.md" "commands/implement.md"
+require_rg "aidd/reports/loops/${TICKET_REGEX}/<scope_key>\\.loop\\.pack\\.md" "commands/implement.md"
 require_rg "diff-boundary-check.sh --ticket ${TICKET_REGEX}" "commands/implement.md"
 require_rg "OUT_OF_SCOPE" "commands/implement.md"
 require_rg "loop-pack.sh --ticket ${TICKET_REGEX} --stage review" "commands/review.md"

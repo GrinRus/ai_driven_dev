@@ -7,6 +7,7 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 - Все артефакты находятся в `aidd/**`.
 - В ссылках/артефактах используйте абсолютные пути от repo root: `aidd/...`.
 - Канонический SDLC: см. `aidd/docs/sdlc-flow.md` и `aidd/docs/status-machine.md`.
+- Канон промптов/статусов/артефактов: `aidd/docs/prompting/conventions.md`.
 - По умолчанию работаем по контракту: входные артефакты → выходные артефакты → статус.
 - Ответ агента всегда начинается с `Checkbox updated:`.
 - Architecture Profile (`aidd/docs/architecture/profile.md`) — источник архитектурных ограничений.
@@ -17,10 +18,12 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 
 ## Loop discipline (Ralph)
 - Loop = 1 work_item → implement → review → (revise)* → ship.
-- Loop pack first: начинай с `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`, не перечитывай весь tasklist.
+- Loop pack first: начинай с `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`, не перечитывай весь tasklist.
 - Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
 - Без больших вставок логов/диффов; только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
+- Loop‑gating опирается на `stage_result`; review pack/tasklist = evidence.
+- В loop‑mode вопросы в чат запрещены → фиксируй blocker/handoff в артефактах.
 
 ## Context precedence & safety
 - Приоритет (высший → низший): инструкции команды/агента → правила anchor → Architecture Profile (`aidd/docs/architecture/profile.md`) → PRD/Plan/Tasklist → evidence packs/logs/code.
@@ -30,6 +33,7 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 ## MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/<stage>.md` — stage‑anchor.
 - `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
+- `aidd/docs/prompting/conventions.md` — статусы, контракты и naming.
 - `AIDD:*` секции ключевого артефакта роли (PRD/Plan/Tasklist/Research); для tasklist читать `AIDD:CONTEXT_PACK → AIDD:SPEC_PACK → AIDD:TEST_EXECUTION → AIDD:ITERATIONS_FULL → AIDD:NEXT_3`.
 - `aidd/reports/context/latest_working_set.md` — краткий рабочий контекст (если файл существует).
 

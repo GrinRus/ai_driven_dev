@@ -560,7 +560,7 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
     write_research_doc(project_root, ticket=ticket, status="reviewed")
     write_json(
         project_root,
-        f"reports/reviewer/{ticket}.json",
+        f"reports/reviewer/{ticket}/{ticket}.json",
         {"ticket": ticket, "tests": "optional"},
     )
     result = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
@@ -591,7 +591,7 @@ def test_research_required_before_code_changes(tmp_path):
     )
     write_json(
         tmp_path,
-        "reports/reviewer/demo-checkout.json",
+        "reports/reviewer/demo-checkout/demo-checkout.json",
         {"ticket": ticket, "tests": "optional"},
     )
     write_json(
@@ -666,7 +666,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     write_research_doc(tmp_path)
     write_json(
         tmp_path,
-        "reports/reviewer/demo-checkout.json",
+        "reports/reviewer/demo-checkout/demo-checkout.json",
         {"ticket": "demo-checkout", "tests": "optional"},
     )
     tasklist_path = write_tasklist_ready(tmp_path, "demo-checkout")
@@ -691,7 +691,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
     write_research_doc(tmp_path, ticket)
     write_json(
         tmp_path,
-        f"reports/reviewer/{ticket}.json",
+        f"reports/reviewer/{ticket}/{ticket}.json",
         {
             "kind": "review",
             "status": "WARN",
@@ -717,7 +717,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
         f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
         "- [ ] Research: follow-up\n"
         "<!-- handoff:research end -->\n"
-        f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->\n"
+        f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}/{ticket}.json) -->\n"
         "- [ ] Review: fix edge case\n"
         "<!-- handoff:review end -->\n",
     )
@@ -736,7 +736,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
     write_research_doc(tmp_path, ticket)
     write_json(
         tmp_path,
-        f"reports/reviewer/{ticket}.json",
+        f"reports/reviewer/{ticket}/{ticket}.json",
         {
             "kind": "review",
             "stage": "review",
@@ -763,8 +763,8 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
         f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
         "- [ ] Research: follow-up\n"
         "<!-- handoff:research end -->\n"
-        f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}.json) -->\n"
-        f"- [ ] Review report: подтвердить отсутствие замечаний (source: aidd/reports/reviewer/{ticket}.json, id: review:report-1234567890ab)\n"
+        f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}/{ticket}.json) -->\n"
+        f"- [ ] Review report: подтвердить отсутствие замечаний (source: aidd/reports/reviewer/{ticket}/{ticket}.json, id: review:report-1234567890ab)\n"
         "<!-- handoff:review end -->\n",
     )
 
@@ -1127,7 +1127,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
             "analyst": {"enabled": False},
             "reviewer": {
                 "enabled": True,
-                "tests_marker": "aidd/reports/reviewer/{slug}.json",
+                "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.json",
                 "tests_field": "tests",
                 "required_values": ["required"],
                 "warn_on_missing": True,
@@ -1145,7 +1145,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
         "slug": slug_hint,
         "tests": "required",
     }
-    write_json(tmp_path, f"reports/reviewer/{slug_hint}.json", reviewer_marker)
+    write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.json", reviewer_marker)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2

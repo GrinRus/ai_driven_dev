@@ -2,8 +2,8 @@
 description: "Совместное ревью плана и PRD (review-plan + review-prd)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.18
-source_version: 1.0.18
+prompt_version: 1.0.19
+source_version: 1.0.19
 allowed-tools:
   - Read
   - Edit
@@ -23,7 +23,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:review-spec` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов, и **последовательно запускает саб‑агентов** `feature-dev-aidd:plan-reviewer` → `feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md` — план реализации.

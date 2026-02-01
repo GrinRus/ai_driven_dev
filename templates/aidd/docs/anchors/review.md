@@ -7,11 +7,12 @@
 - Верифицировать вывод (review evidence) перед финальным статусом.
 
 ## Loop discipline (Ralph)
-- Loop pack first: начинай с `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`.
+- Loop pack first: начинай с `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
-- Loop-run использует fresh sessions (`claude -p --no-session-persistence`), max-iterations указывай как `--max-iterations 5`.
+- Loop-run использует fresh sessions (`claude -p`), max-iterations указывай как `--max-iterations 5`.
+- Loop‑gating опирается на `stage_result` (machine truth).
 
 ## Context precedence & safety
 - Приоритет (высший → низший): инструкции команды/агента → правила anchor → Architecture Profile (`aidd/docs/architecture/profile.md`) → PRD/Plan/Tasklist → evidence packs/logs/code.
@@ -28,14 +29,14 @@
 - git diff / PR diff
 - aidd/docs/loops/README.md (loop protocol)
 - aidd/docs/architecture/profile.md (allowed deps + invariants)
-- aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md (loop pack)
-- aidd/docs/tasklist/<ticket>.md: AIDD:CONTEXT_PACK, AIDD:CHECKLIST_REVIEW, AIDD:HANDOFF_INBOX
+- aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md (loop pack)
+- Полный tasklist/plan/spec — **только если** excerpt в loop pack не содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance или REVISE требует контекста.
 - aidd/docs/spec/<ticket>.spec.yaml (если существует)
 - aidd/docs/plan/<ticket>.md: AIDD:FILES_TOUCHED, AIDD:ITERATIONS
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
-- aidd/reports/reviewer/<ticket>.json (review report + маркер тестов)
+- aidd/reports/reviewer/<ticket>/<scope_key>.json (review report + маркер тестов)
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
 - Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.
@@ -52,7 +53,7 @@
 - Любые правки кода/конфигов/тестов/CI. Review фиксирует только задачи в tasklist.
 - Любые изменения вне `aidd/docs/tasklist/<ticket>.md` (кроме автогенерируемых отчётов в `aidd/reports/**`).
 - Переписывать `AIDD:ITERATIONS_FULL`, `AIDD:SPEC_PACK`, `AIDD:TEST_EXECUTION`, `AIDD:NEXT_3`.
-- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя.
+- Придумывать команды тестов/формата без project‑доков или repo‑доков; если не нашёл — BLOCKED и запроси команды у пользователя (manual) или запиши blocker (loop‑mode).
 
 ## Repeat runs
 - Повторные `/feature-dev-aidd:review` должны обновлять handoff‑задачи по `id` без дублей (`tasks-derive --source review --append`).

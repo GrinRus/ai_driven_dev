@@ -2715,3 +2715,214 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   - задокументировать и покрыть тестами.
   **AC:** discovery не сканирует весь workspace без лимитов; поведение описано в templates и тестах.
   **Deps:** -
+
+## Wave 87 — Parallel‑ready (без реального параллельного запуска)
+
+_Статус: новый, приоритет 1. Цель — канон промптинга, устранение конфликтов loop/tasklist, машинные gate’ы, проверяемая test‑evidence и готовность артефактов/схем к параллели (per‑work‑item)._
+
+### EPIC A — Канон промптинга + статусы + parallel conventions
+- [x] **W87-1** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `AGENTS.md`: ввести единый канон промптов:
+  - развести сущности: `artifact status` (READY/WARN/BLOCKED/…), `stage result` (blocked|continue|done), `review verdict` (SHIP|REVISE);
+  - правила BLOCKED (missing artifacts, out-of-scope, missing test commands/evidence);
+  - минимальный output‑контракт (lint‑поддающийся): `Status`, `Work item key`, `Artifacts updated`, `Tests (profile+evidence|profile:none)`, `Blockers/Handoff` при BLOCKED, `Checkbox updated` (optional, stage‑dependent);
+  - нормализация ключей: `work_item_key` (логический) vs `scope_key` (sanitized для путей);
+  - источник истины для loop‑gating: `stage_result` (остальное = evidence/контекст);
+  - parallel‑ready naming conventions (per work_item_key): где лежат stage_result / review_pack / review_report / tests_evidence для implement/review, и что для ticket‑scoped стадий используется `scope_key=ticket` (или `work_item_key=ticket`).
+  **AC:** единый документ канона; на него ссылаются `templates/aidd/AGENTS.md` и dev‑гайд; контракт пригоден для линта; описаны пути артефактов per‑work‑item и правила scope_key.
+  **Deps:** -
+
+- [x] **W87-2** `templates/aidd/docs/status-machine.md`, `templates/aidd/docs/loops/README.md`: расширить таксономию:
+  - добавить `ReviewPack verdict: SHIP|REVISE`;
+  - описать `stage result: blocked|continue|done`;
+  - добавить mapping по стадиям:
+    - implement: `READY → continue`, `BLOCKED → blocked`;
+    - review: `SHIP → done`, `REVISE → continue`, `BLOCKED → blocked`;
+    - qa (ticket‑scoped): выбрать policy `WARN → done|continue` и зафиксировать;
+  - для loop‑mode: `PENDING → blocked` (вопросы = блокер);
+  - описать scope: `work_item_scoped` (implement/review) vs `ticket_scoped` (qa).
+  **AC:** статусы/вердикты описаны единообразно; термины не конфликтуют; scope описан и согласован с prompts.
+  **Deps:** W87-1
+
+### EPIC B — Loop pack vs tasklist/plan/prd/research/spec + mode-aware
+- [x] **W87-3** `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `agents/implementer.md`, `agents/reviewer.md`, `commands/implement.md`, `commands/review.md`:
+  - устранить конфликт “читать/не читать tasklist/plan/prd/research/spec”:
+    - заменить “Do not read full …” на “prefer excerpt; read full только если excerpt не содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance”;
+    - закрепить правило чтения в anchors/agents/commands;
+    - в loop pack excerpt гарантировать наличие: `work_item_key`, `expected_paths`, `size_budget` (max_files/max_loc), `tests` (или ссылка на TEST_EXECUTION), `allowed_paths`/`forbidden_paths` (если есть).
+  **AC:** loop pack читается первым; полный tasklist/PRD/Plan/Research/Spec читается только при неполном excerpt; противоречий в инструкциях нет; excerpt достаточен для работы без “догадок”.
+  **Deps:** W87-1
+
+- [x] **W87-4** `tools/loop_run.py`, `tools/loop_step.py`, `agents/implementer.md`, `agents/reviewer.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - mode‑aware поведение:
+    - если файл `.active_mode` существует и содержит `loop` — не задавать вопросы в чат; писать blocker/handoff + `Status: BLOCKED`;
+    - `loop_run` очищает `.active_mode` (или возвращает `manual`) после остановки;
+    - (parallel‑ready) не завязываться на “общие” ticket‑артефакты; использовать пути из context/loop pack.
+  **AC:** loop‑run/loop‑step останавливаются на блокере без интерактива; `.active_mode` очищается при любом exit‑коде (включая BLOCKED); промпты не требуют ticket‑singleton артефактов.
+  **Deps:** -
+
+### EPIC C — Stage result + loop‑gating (per‑work‑item paths)
+- [x] **W87-5** `tools/stage_result.py`, `tools/stage-result.sh`, `hooks/format-and-test.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/repo_tools/loop-regression.sh`:
+  - машинный результат стадии:
+    - писать stage result per scope_key:
+      `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`
+      где `scope_key=<work_item_key>` для implement/review, и `scope_key=ticket` для qa;
+    - схема `aidd.stage_result.v1` и поля: `result` (blocked|continue|done), `reason`, `reason_code`, `ticket`, `stage`, `scope_key`, `work_item_key` (optional для ticket), `artifacts`, `evidence_links`, `updated_at`, `producer`;
+    - порядок записи: `tests_log → stage_result` (если evidence обязательна);
+    - команды implement/review/qa отвечают за запись результата (или hook‑writer, если выбран паттерн A);
+    - `loop_step` после команды читает stage result:
+      - если отсутствует/битый → `blocked` (`reason_code=stage_result_missing_or_invalid`);
+      - `blocked` → завершает с BLOCKED_CODE;
+      - `done` → DONE_CODE;
+      - `continue` → CONTINUE_CODE;
+    - `loop_run` пишет `reason/reason_code/scope_key` в `loop.run.log`.
+  **AC:** loop‑gating опирается только на stage_result; loop‑run корректно останавливается на BLOCKED implement/review/qa и missing/invalid stage_result; stage_result содержит evidence_links при обязательных тестах и пишется после tests_log.
+  **Deps:** W87-2
+
+### EPIC D — Review pack как операционный вход (per‑work‑item)
+- [x] **W87-6** `tools/review_pack.py`, `tools/review_report.py`, `tools/review-report.sh`, `commands/review.md`, `agents/reviewer.md`, `tools/loop_step.py`, `tools/loop_pack.py`, `templates/aidd/config/gates.json`, `tests/test_review_pack.py`, `tests/test_loop_step.py`:
+  - усилить review pack:
+    - review pack хранить per scope_key:
+      `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`;
+    - review report хранить per scope_key:
+      `aidd/reports/reviewer/<ticket>/<scope_key>.json` (или `aidd/reports/loops/<ticket>/<scope_key>/review.report.json`);
+    - добавить поля: `blocking_findings_count`, `handoff_ids_added`, `next_recommended_work_item`, `evidence_links`;
+    - оформить новую схему `aidd.review_pack.v2` и fallback для v1 (warn по умолчанию, block при strict‑конфиге);
+    - задокументировать место конфига и дефолт в `gates.json`;
+    - `loop_step` не читает ticket‑singleton `review.latest.pack.md`; берёт verdict/decision либо из stage_result (`evidence_links`), либо из per‑work‑item review pack (по scope_key).
+  **AC:** review pack/ report per‑work‑item; loop_step валидирует v2 (или warn для v1) по конфигу; freshness checks используют per‑work‑item report.
+  **Deps:** W87-5
+
+### EPIC E — Проверяемая test‑evidence + QA (per‑work‑item, merge‑friendly)
+- [x] **W87-7** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/qa_agent.py`, `tools/qa.py`, `tests/test_qa_agent.py`:
+  - детерминированная test‑evidence:
+    - hook пишет summary per scope_key:
+      `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
+      где `scope_key=<work_item_key>` для implement/review, `scope_key=ticket` для qa/общих прогонов;
+    - запись включает: `schema=aidd.tests_log.v1`, `ticket`, `stage`, `scope_key`, `work_item_key` (optional), `profile/tasks/filters`, `exit_code`, `log_path`, `updated_at`, `cwd/worktree` (optional);
+    - определение ticket: `--ticket`/`.active_ticket` → fallback `slug_hint`/unknown с явной маркировкой (`ticket_guess`, `ticket=unknown`);
+    - QA/Review используют последнюю запись по ticket+scope_key как evidence;
+    - интеграция с W87-5: implement/review/qa при записи stage_result добавляют `evidence_links` на tests_log (если есть) и/или указывают `reason_code=missing_test_evidence`, если по политике evidence обязателен.
+  **AC:** QA/Review не выставляют READY без подтверждённого test‑evidence (кроме profile:none), даже при fresh sessions; если review не запускает тесты — evidence берётся из последнего implement‑прогона по scope_key.
+  **Deps:** W87-1, W87-5
+
+### EPIC F — Дедуп промптов + versioning + lint (включая granularity/graph readiness)
+- [x] **W87-8** `agents/*.md`, `commands/*.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`:
+  - сократить дубли инструкций ссылкой на `docs/prompting/conventions.md`;
+  - обновить `prompt_version/source_version`;
+  - расширить lint‑prompts проверкой:
+    - канон упомянут,
+    - правило “loop без вопросов” присутствует,
+    - (parallel‑ready) промпты используют per‑work‑item пути (или читают их из context pack), а не ticket‑singleton,
+    - (granularity) tasklist‑refiner/anchor tasklist содержит policy по средней гранулярности итераций,
+    - stage_result упомянут как обязательный артефакт loop‑gating.
+  **AC:** prompts короче, нет рассинхрона, lint/prompts ловит пропуски канона/loop‑policy/parallel‑ready path conventions/granularity policy/stage_result.
+  **Deps:** W87-1
+
+### EPIC G — Runner compatibility (критично)
+- [x] **W87-9** `tools/loop_step.py`, `tools/loop_run.py`, `templates/aidd/docs/loops/README.md`, `AGENTS.md`, `tests/test_loop_step.py`, `tests/repo_tools/loop-regression.sh`:
+  - исправить дефолтный runner:
+    - убрать `--no-session-persistence` из дефолта; добавить fallback/детект неподдерживаемого флага;
+    - обновить docs по runner и переменным `AIDD_LOOP_RUNNER/--runner`;
+    - в логах фиксировать “effective runner”.
+  **AC:** loop‑step/loop‑run работают на актуальном Claude Code без ручного override; effective runner + persistence flag видны в логах.
+  **Deps:** -
+
+### EPIC H — Tasklist “graph‑ready” + granularity policy (без scheduler)
+- [x] **W87-10** `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`, `agents/tasklist-refiner.md`, *(опц.)* `tools/tasklist-check.sh`:
+  - подготовить tasklist к DAG‑модели (пока без реального scheduler):
+    - для каждой итерации в `AIDD:ITERATIONS_FULL` добавить опциональные поля:
+      - `deps: [<id1>, <id2>]` (по умолчанию пусто),
+      - `locks: [<lock1>]` (по умолчанию пусто; для будущего запрета параллели);
+      - `priority: <int>` (по умолчанию 100),
+      - `blocking: <bool>` (по умолчанию false);
+    - обновить tasklist‑refiner:
+      - не дробить “в песок”: итерация должна быть в одном окне, но не микро‑задача;
+      - эвристики (policy): Steps ~ 3–7, expected_paths 1–3 группы, size_budget по умолчанию (напр. max_files 3–8, max_loc 80–400) с возможностью override;
+      - `AIDD:NEXT_3` должен выбирать задачи, у которых deps удовлетворены (deps ссылаются на iteration_id/id);
+    - (опц.) `tasklist-check` добавляет WARN (не BLOCK по умолчанию) при явной “слишком мелкой/слишком крупной” итерации; BLOCK — только при strict‑gates (в будущем).
+  **AC:** tasklist содержит deps/locks/priority/blocking (опционально) и policy по granularity; tasklist‑refiner не создаёт микро‑итерации; `NEXT_3` не предлагает узлы с незакрытыми deps; пустые expected_paths → WARN (или BLOCK в strict).
+  **Deps:** W87-1
+
+## Wave 88 — Реальная параллелизация (scheduler + claim + parallel loop-run)
+
+_Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
+
+### EPIC P — Task Graph (DAG) как источник для планирования
+- [ ] **W88-1** `tools/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
+  - парсер tasklist → DAG:
+    - узлы: iterations (`iteration_id`) + handoff (`id: review:* / qa:* / research:* / manual:*`);
+    - поля: deps/locks/expected_paths/priority/blocking/state;
+    - node id: `iteration_id` или `handoff id`; state выводится из чекбокса + (опционально) stage_result.
+  - вычисление `ready/runnable` и топологическая проверка (cycles/missing deps).
+  **AC:** из tasklist строится корректный DAG; есть список runnable узлов.
+
+- [ ] **W88-2** `tools/taskgraph-check.sh` (или расширение `tasklist-check.sh`):
+  - валидировать: циклы, неизвестные deps, self-deps, пустые expected_paths (если требуется), конфликтующие locks (опционально).
+  **AC:** CI/локальный чек ловит некорректные зависимости до запуска параллели.
+
+### EPIC Q — Claim/Lock протокол для work items
+- [ ] **W88-3** `tools/work_item_claim.py`, `tools/work-item-claim.sh`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
+  - claim/release/renew lock;
+  - stale lock policy (ttl, force unlock);
+  - в lock хранить `worker_id`, `created_at`, `last_seen`, `scope_key`, `branch/worktree`;
+  - shared locks dir (например, `AIDD_LOCKS_DIR`) или orchestrator-only locks; атомарное создание (O_EXCL).
+  **AC:** один узел не может быть взят двумя воркерами; stale locks диагностируются и снимаются по правилам; locks общие для всех воркеров.
+
+### EPIC R — Scheduler: выбор runnable узлов под N воркеров
+- [ ] **W88-4** `tools/scheduler.py`:
+  - выбрать набор runnable узлов на N воркеров:
+    - учитывать deps,
+    - учитывать `locks`,
+    - учитывать пересечения `expected_paths` (конфликт → не запускать параллельно; конфликт = общий top-level group или префикс),
+    - сортировка: blocking → priority → plan order.
+  **AC:** scheduler отдаёт набор независимых work items; не выдаёт конфликтующие по locks/paths.
+
+- [ ] **W88-5** `tools/loop_pack.py` / `loop-pack.sh`:
+  - уметь генерировать loop pack по конкретному work_item_id, а не только “следующий из NEXT_3”;
+  - сохранять pack в per‑work‑item пути (Wave 87 уже подготовил).
+  **AC:** можно собрать loop pack для любого узла DAG по id; pack содержит deps/locks/expected_paths/size_budget/tests для выбранного узла.
+
+### EPIC S — Parallel loop-run (оркестрация воркеров)
+- [ ] **W88-6** `tools/loop_run.py`:
+  - добавить режим `--parallel N`:
+    - получить runnable узлы от scheduler,
+    - claim locks,
+    - запустить N воркеров (каждый с явным `--work-item <id>` / `scope_key`),
+    - собирать stage results и принимать решения (blocked/done/continue) по каждому узлу.
+  **AC:** parallel loop-run запускает N независимых узлов и корректно реагирует на BLOCKED/DONE по каждому; определён контракт artifact root (shared vs per-worktree) и сбор результатов.
+
+- [ ] **W88-7** `tools/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
+  - подготовка isolated рабочих директорий на воркера:
+    - `git worktree add` / отдельные ветки,
+    - единый шаблон именования веток,
+    - cleanup.
+  **AC:** каждый воркер работает в изолированном worktree; определён способ записи артефактов (shared root или сбор из worktrees).
+
+### EPIC T — Консолидация результатов обратно в основной tasklist
+- [ ] **W88-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:
+  - на основе stage_result + review_pack + tests_log:
+    - отметить `[x]` для завершённых узлов,
+    - обновить `AIDD:NEXT_3` из DAG runnable,
+    - добавить `AIDD:PROGRESS_LOG` записи,
+    - перенос/дедуп handoff задач.
+  **AC:** после параллельного прогона tasklist обновляется детерминированно; без дублей; NEXT_3 корректен; дедуп handoff по стабильному id.
+
+- [ ] **W88-9** `tools/reports/aggregate.py`:
+  - агрегировать evidence в “ticket summary”:
+    - ссылки на per‑work‑item tests logs,
+    - список stage results,
+    - сводка статусов узлов.
+  **AC:** есть единый сводный отчёт по тикету и по узлам.
+
+### EPIC U — Документация + регрессии
+- [ ] **W88-10** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - задокументировать parallel workflow:
+    - deps/locks/expected_paths правила,
+    - claim/release,
+    - конфликт‑стратегию (paths overlap → serial),
+    - policy: воркеры не редактируют tasklist в parallel‑mode (consolidate делает main).
+  **AC:** понятная инструкция “как запускать parallel loop-run” + troubleshooting + policy для tasklist/артефактов.
+
+- [ ] **W88-11** `tests/test_scheduler.py`, `tests/test_parallel_loop_run.py`, `tests/repo_tools/parallel-loop-regression.sh`:
+  - тесты на DAG, scheduler, claim, параллельный раннер, консолидацию.
+  **AC:** регрессии ловят гонки/перетирание артефактов/неверный выбор runnable; включены кейсы conflict paths/lock stale/worker crash.

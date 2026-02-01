@@ -993,6 +993,8 @@ def main(argv: list[str] | None = None) -> int:
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+    work_item_key = runtime.read_active_work_item(target)
+    scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
     source = (args.source or "").strip().lower()
     default_report = {
@@ -1009,6 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
         return (
             text.replace("{ticket}", ticket)
             .replace("{slug}", slug_hint or ticket)
+            .replace("{scope_key}", scope_key)
         )
 
     report_path = runtime.resolve_path_for_target(Path(_fmt(report_template)), target)

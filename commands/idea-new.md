@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "$1 [slug=<slug-hint>] [note...]"
 lang: ru
-prompt_version: 1.3.15
-source_version: 1.3.15
+prompt_version: 1.3.16
+source_version: 1.3.16
 allowed-tools:
   - Read
   - Edit
@@ -21,7 +21,7 @@ disable-model-invocation: false
 
 ## Контекст
 `/feature-dev-aidd:idea-new` работает inline: фиксирует активный ticket/slug-hint, выставляет стадию `idea`, собирает контекст в Context Pack и явно запускает саб‑агента **feature-dev-aidd:analyst**. Аналитик формирует PRD draft с вопросами и заполняет `## AIDD:RESEARCH_HINTS`. После ответов пользователя следующий обязательный шаг — `/feature-dev-aidd:researcher $1`; READY ставится после ответов. Свободный ввод после тикета используется как заметка для PRD.
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/idea.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/idea.md`.
 
 ## Входные артефакты
 - `aidd/docs/prd/template.md` — шаблон PRD (Status: draft, `## Диалог analyst`).

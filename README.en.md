@@ -150,8 +150,8 @@ RLM artifacts (pack-first):
 Loop = 1 work_item → implement → review → (revise)* → ship.
 
 Key artifacts:
-- `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md` — thin iteration context.
-- `aidd/reports/loops/<ticket>/review.latest.pack.md` — short feedback with verdict.
+- `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` — thin iteration context.
+- `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` — short feedback with verdict.
 
 Commands:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.

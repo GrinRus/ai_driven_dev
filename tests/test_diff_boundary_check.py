@@ -39,7 +39,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
 
             write_file(root, "docs/.active_ticket", "DEMO-1")
             write_file(root, "docs/.active_work_item", "iteration_id=I1")
-            write_loop_pack(root, "DEMO-1", "iteration_id=I1", ["src/allowed/**"], [])
+            write_loop_pack(root, "DEMO-1", "iteration_id_I1", ["src/allowed/**"], [])
 
             write_file(root, "src/allowed/file.txt", "changed\n")
 
@@ -63,7 +63,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
 
             write_file(root, "docs/.active_ticket", "DEMO-2")
             write_file(root, "docs/.active_work_item", "iteration_id=I2")
-            write_loop_pack(root, "DEMO-2", "iteration_id=I2", ["src/allowed/**"], [])
+            write_loop_pack(root, "DEMO-2", "iteration_id_I2", ["src/allowed/**"], [])
 
             write_file(root, "src/disallowed/file.txt", "nope\n")
             subprocess.run(["git", "add", "src/disallowed/file.txt"], cwd=root, check=True)
@@ -84,7 +84,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             git_init(root)
             write_file(root, "docs/.active_ticket", "DEMO-3")
             write_file(root, "docs/.active_work_item", "iteration_id=I3")
-            write_loop_pack(root, "DEMO-3", "iteration_id=I3", [], [])
+            write_loop_pack(root, "DEMO-3", "iteration_id_I3", [], [])
 
             result = subprocess.run(
                 cli_cmd("diff-boundary-check", "--ticket", "DEMO-3"),
@@ -103,7 +103,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             git_config_user(root)
             write_file(root, "docs/.active_ticket", "DEMO-4")
             write_file(root, "docs/.active_work_item", "iteration_id=I4")
-            write_loop_pack(root, "DEMO-4", "iteration_id=I4", ["src/allowed/**"], [])
+            write_loop_pack(root, "DEMO-4", "iteration_id_I4", ["src/allowed/**"], [])
 
             write_file(root, ".claude/settings.json", '{"ok": true}\n')
             subprocess.run(["git", "add", ".claude/settings.json"], cwd=root, check=True)
@@ -127,7 +127,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             git_config_user(root)
             write_file(root, "docs/.active_ticket", "DEMO-5")
             write_file(root, "docs/.active_work_item", "iteration_id=I5")
-            write_loop_pack(root, "DEMO-5", "iteration_id=I5", ["src/allowed/**"], [])
+            write_loop_pack(root, "DEMO-5", "iteration_id_I5", ["src/allowed/**"], [])
 
             write_file(root, "src/disallowed/new.py", "print('nope')\n")
 

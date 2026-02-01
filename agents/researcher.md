@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.28
-source_version: 1.2.28
+prompt_version: 1.2.29
+source_version: 1.2.29
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)
 model: inherit
 permissionMode: default
@@ -25,7 +25,7 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Canonical policy
-- Следуй `aidd/AGENTS.md` для Context precedence & safety и Evidence Read Policy (RLM-first).
+- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
 - Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 

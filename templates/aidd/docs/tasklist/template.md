@@ -9,8 +9,8 @@ Plan: aidd/docs/plan/<ABC-123>.md
 Research: aidd/docs/research/<ABC-123>.md
 Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 Reports:
-  tests: aidd/reports/tests/<ABC-123>.*          # optional
-  reviewer: aidd/reports/reviewer/<ABC-123>.json # marker/summary
+  tests: aidd/reports/tests/<ABC-123>/<scope_key>.jsonl  # optional
+  reviewer: aidd/reports/reviewer/<ABC-123>/<scope_key>.json # marker/summary
   qa: aidd/reports/qa/<ABC-123>.json
 ---
 
@@ -73,7 +73,7 @@ Status: <PENDING|READY|WARN|BLOCKED>
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
 - Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
 - Reports:
-  - reviewer: aidd/reports/reviewer/<ABC-123>.json
+  - reviewer: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
   - qa: aidd/reports/qa/<ABC-123>.json
 
 ---
@@ -117,6 +117,10 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Outputs: <артефакты итерации>
   - DoD: <как проверить готовность>
   - Boundaries: <пути/модули + что не трогаем>
+  - Priority: <low|medium|high>  # optional
+  - Blocking: <true|false>       # optional
+  - deps: [<I0>, <review:F1>]    # optional
+  - locks: [<db-schema>]         # optional
   - Expected paths:
     - <path1/**>
     - <path2/**>
@@ -145,6 +149,10 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Outputs: <...>
   - DoD: <...>
   - Boundaries: <...>
+  - Priority: <low|medium|high>  # optional
+  - Blocking: <true|false>       # optional
+  - deps: [<I0>, <review:F1>]    # optional
+  - locks: [<db-schema>]         # optional
   - Expected paths:
     - <path1/**>
   - Size budget:
@@ -209,7 +217,7 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > Примеры:
 - [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
   - source: review
-  - Report: aidd/reports/reviewer/<ticket>.json
+  - Report: aidd/reports/reviewer/<ticket>/<scope_key>.json
   - Status: open
   - scope: I2
   - DoD: webhook rejects empty payload with 4xx + unit test updated
@@ -287,9 +295,9 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 ## AIDD:PROGRESS_LOG
 > Мини‑лог: фиксируй кратко, обновляй после каждой итерации.
 > Формат записи:
-> `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>.log msg=short-note`
-> `- YYYY-MM-DD source=review id=review:F6 kind=handoff hash=def456 link=aidd/reports/reviewer/<ticket>.json msg=blocked`
-- YYYY-MM-DD source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>.log msg=...
+> `- YYYY-MM-DD source=implement id=I4 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=short-note`
+> `- YYYY-MM-DD source=review id=review:F6 kind=handoff hash=def456 link=aidd/reports/reviewer/<ticket>/<scope_key>.json msg=blocked`
+- YYYY-MM-DD source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/<ticket>/<scope_key>.jsonl msg=...
 
 ---
 

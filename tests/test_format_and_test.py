@@ -35,7 +35,7 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "moduleMatrix": [],
                 "reviewerGate": {
                     "enabled": True,
-                    "marker": "aidd/reports/reviewer/{ticket}.json",
+                    "marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
                     "field": "tests",
                     "requiredValues": ["required"],
                     "optionalValues": ["optional", "skipped", "not-required"],
@@ -178,7 +178,7 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
     write_active_feature(project, "demo")
-    marker = project / "reports" / "reviewer" / "demo.json"
+    marker = project / "reports" / "reviewer" / "demo" / "demo.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text('{"ticket": "demo", "slug": "demo", "tests": "required"}', encoding="utf-8")
 
@@ -290,7 +290,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     payload["automation"]["tests"]["reviewerGate"].update(
         {
             "enabled": True,
-            "tests_marker": "aidd/reports/reviewer/{slug}.json",
+            "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.json",
             "tests_field": "state",
             "required_values": ["force"],
             "optional_values": ["idle"],
@@ -301,7 +301,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
     write_active_feature(project, "demo", slug_hint="checkout-lite")
-    marker = project / "reports" / "reviewer" / "checkout-lite.json"
+    marker = project / "reports" / "reviewer" / "checkout-lite" / "demo.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text('{"ticket": "demo", "slug": "checkout-lite", "state": "force"}', encoding="utf-8")
 
@@ -317,7 +317,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
             "tests": {
                 "reviewerGate": {
                     "enabled": True,
-                    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
+                    "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
                     "tests_field": "state",
                     "required_values": ["force"],
                     "optional_values": ["idle"],
@@ -341,7 +341,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     result = subprocess.run(cmd, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
     assert result.returncode == 0, result.stderr
 
-    marker = project / "reports" / "reviewer" / "demo.json"
+    marker = project / "reports" / "reviewer" / "demo" / "demo.json"
     payload = json.loads(marker.read_text(encoding="utf-8"))
     assert payload["state"] == "force"
 
@@ -616,8 +616,8 @@ class FormatAndTestEventTests(unittest.TestCase):
 
             run_hook(project, settings)
 
-            log_path = project / "reports" / "tests" / "fmt-2.jsonl"
+            log_path = project / "reports" / "tests" / "fmt-2" / "fmt-2.jsonl"
             self.assertTrue(log_path.exists())
             last_entry = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
-            self.assertEqual(last_entry.get("type"), "tests")
-            self.assertIn(last_entry.get("status"), {"pass", "fail", "skipped"})
+            self.assertEqual(last_entry.get("schema"), "aidd.tests_log.v1")
+            self.assertIn(last_entry.get("status"), {"pass", "fail", "skipped", "unknown"})

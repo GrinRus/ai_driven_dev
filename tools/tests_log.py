@@ -8,7 +8,7 @@ from tools import runtime
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Append entry to tests JSONL log (aidd/reports/tests/<ticket>.jsonl).",
+        description="Append entry to tests JSONL log (aidd/reports/tests/<ticket>/<scope_key>.jsonl).",
     )
     parser.add_argument(
         "--ticket",
@@ -26,6 +26,47 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Status label for the test entry (pass|fail|skipped|...).",
     )
     parser.add_argument(
+        "--stage",
+        default="",
+        help="Stage name for the entry (implement|review|qa).",
+    )
+    parser.add_argument(
+        "--scope-key",
+        default="",
+        help="Scope key for per-work-item logs (defaults to active work item or ticket).",
+    )
+    parser.add_argument(
+        "--work-item-key",
+        default="",
+        help="Optional work_item_key (iteration_id=... / id=...).",
+    )
+    parser.add_argument(
+        "--profile",
+        default="",
+        help="Optional test profile (fast|targeted|full|none).",
+    )
+    parser.add_argument(
+        "--tasks",
+        default="",
+        help="Optional test tasks (comma/space separated).",
+    )
+    parser.add_argument(
+        "--filters",
+        default="",
+        help="Optional test filters (comma/space separated).",
+    )
+    parser.add_argument(
+        "--exit-code",
+        type=int,
+        default=None,
+        help="Optional exit code for the test run.",
+    )
+    parser.add_argument(
+        "--log-path",
+        default="",
+        help="Optional path to the test log file.",
+    )
+    parser.add_argument(
         "--summary",
         default="",
         help="Optional summary string stored in details.summary.",
@@ -40,6 +81,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="aidd tests-log",
         help="Optional source label stored in the log entry.",
     )
+    parser.add_argument(
+        "--cwd",
+        default="",
+        help="Optional cwd metadata.",
+    )
+    parser.add_argument(
+        "--worktree",
+        default="",
+        help="Optional worktree metadata.",
+    )
     return parser.parse_args(argv)
 
 
@@ -51,6 +102,10 @@ def main(argv: list[str] | None = None) -> int:
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+    ticket_guess = ""
+    active_ticket_path = target / "docs" / ".active_ticket"
+    if not getattr(args, "ticket", None) and not active_ticket_path.exists() and context.slug_hint:
+        ticket_guess = context.slug_hint
     details: dict = {}
     if args.summary:
         details["summary"] = args.summary
@@ -63,13 +118,39 @@ def main(argv: list[str] | None = None) -> int:
             details.update(extra)
     from tools.reports import tests_log as _tests_log
 
+    stage = (args.stage or "").strip().lower()
+    work_item_key = (args.work_item_key or "").strip()
+    scope_key = (args.scope_key or "").strip()
+    if not stage:
+        stage = (target / "docs" / ".active_stage").read_text(encoding="utf-8").strip().lower() if (target / "docs" / ".active_stage").exists() else ""
+    if not scope_key:
+        if stage == "qa":
+            scope_key = runtime.resolve_scope_key("", ticket)
+        else:
+            active_work_item = runtime.read_active_work_item(target)
+            scope_key = runtime.resolve_scope_key(active_work_item or work_item_key, ticket)
+
+    tasks_list = [item for item in args.tasks.replace(",", " ").split() if item.strip()]
+    filters_list = [item for item in args.filters.replace(",", " ").split() if item.strip()]
+
     _tests_log.append_log(
         target,
         ticket=ticket,
         slug_hint=context.slug_hint,
+        ticket_guess=ticket_guess,
         status=args.status,
+        stage=stage,
+        scope_key=scope_key,
+        work_item_key=work_item_key or None,
+        profile=args.profile or None,
+        tasks=tasks_list or None,
+        filters=filters_list or None,
+        exit_code=args.exit_code,
+        log_path=args.log_path or None,
         details=details or None,
         source=args.source,
+        cwd=args.cwd or None,
+        worktree=args.worktree or None,
     )
     return 0
 

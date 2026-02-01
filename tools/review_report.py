@@ -68,7 +68,7 @@ def _stable_finding_id(prefix: str, *parts: object) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create/update review report with findings (stored in aidd/reports/reviewer/<ticket>.json).",
+        description="Create/update review report with findings (stored in aidd/reports/reviewer/<ticket>/<scope_key>.json).",
     )
     parser.add_argument(
         "--ticket",
@@ -86,7 +86,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report",
-        help="Optional report path override (default: aidd/reports/reviewer/<ticket>.json).",
+        help="Optional report path override (default: aidd/reports/reviewer/<ticket>/<scope_key>.json).",
+    )
+    parser.add_argument(
+        "--scope-key",
+        help="Optional scope key override (default: derived from work item).",
+    )
+    parser.add_argument(
+        "--work-item-key",
+        help="Optional work item key override (iteration_id=... / id=...).",
     )
     parser.add_argument(
         "--findings",
@@ -122,12 +130,17 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
 
     branch = args.branch or runtime.detect_branch(target)
+    work_item_key = (args.work_item_key or runtime.read_active_work_item(target)).strip()
+    scope_key = (args.scope_key or runtime.resolve_scope_key(work_item_key, ticket)).strip()
+    if not work_item_key:
+        raise ValueError("work_item_key is required for review reports (run loop-pack first)")
 
     def _fmt(text: str) -> str:
         return (
             text.replace("{ticket}", ticket)
             .replace("{slug}", slug_hint or ticket)
             .replace("{branch}", branch or "")
+            .replace("{scope_key}", scope_key or runtime.resolve_scope_key(ticket, ticket))
         )
 
     report_template = args.report or runtime.review_report_template(target)
@@ -234,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
             "slug": slug_hint or ticket,
             "kind": "review",
             "stage": "review",
+            "scope_key": scope_key,
+            "work_item_key": work_item_key,
             "updated_at": now,
         }
     )

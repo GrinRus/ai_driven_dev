@@ -100,7 +100,14 @@ def build_agent(name: str) -> str:
         )
     loop_markers = ""
     if name in {"implementer", "reviewer"}:
-        loop_markers = "\n            Loop pack first. Никаких больших вставок логов/диффов.\n"
+        loop_markers = (
+            "\n            Loop pack first. Никаких больших вставок логов/диффов.\n"
+            "            В loop-режиме вопросы запрещены.\n"
+            "            Loop pack path: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md\n"
+        )
+    granularity_hint = ""
+    if name == "tasklist-refiner":
+        granularity_hint = "\n            Granularity: steps 3-7, expected paths 1-3, size budget set.\n"
     verify_step = ""
     if name in {"implementer", "reviewer", "qa"}:
         verify_step = "\n            2. Верифицируй результаты.\n"
@@ -119,8 +126,8 @@ def build_agent(name: str) -> str:
             ---
 
             ## Контекст
-            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md.
-            Text.{loop_markers}
+            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md, aidd/docs/prompting/conventions.md.
+            Text.{loop_markers}{granularity_hint}
 
             ## Входные артефакты
             - item
@@ -145,12 +152,22 @@ def build_agent(name: str) -> str:
 def build_command(description: str = "test command") -> str:
     verify_step = ""
     context_pack_hint = ""
+    loop_guard_hint = ""
+    scope_hint = ""
+    granularity_hint = ""
     if description in {"implement", "review", "qa"}:
         verify_step = "\n        2. verify results.\n"
     if description == "review":
         context_pack_hint = "\n        Context pack: aidd/reports/context/$1.review.pack.md\n"
+        loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
+        scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
     elif description == "qa":
         context_pack_hint = "\n        Context pack: aidd/reports/context/$1.qa.pack.md\n"
+    elif description == "implement":
+        loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
+        scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
+    if description == "tasks-new":
+        granularity_hint = "\n        Granularity keys: deps, priority, blocking.\n"
     return dedent(
         f"""
         ---
@@ -166,6 +183,7 @@ def build_command(description: str = "test command") -> str:
 
         ## Контекст
         Text.{context_pack_hint}
+        Канон: aidd/docs/prompting/conventions.md.{loop_guard_hint}{scope_hint}{granularity_hint}
 
         ## Входные артефакты
         - item

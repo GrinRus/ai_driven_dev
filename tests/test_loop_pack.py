@@ -40,9 +40,9 @@ class LoopPackTests(unittest.TestCase):
             self.assertIn("pytest -q", payload.get("commands_required", []))
             self.assertIn("pytest -q", payload.get("tests_required", []))
 
-            pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id=I1.loop.pack.md"
+            pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1.loop.pack.md"
             self.assertTrue(pack_path.exists(), "loop pack file should exist")
-            handoff_pack = root / "reports" / "loops" / "DEMO-1" / "id=review_F6.loop.pack.md"
+            handoff_pack = root / "reports" / "loops" / "DEMO-1" / "id_review_F6.loop.pack.md"
             self.assertTrue(handoff_pack.exists(), "loop pack should prewarm NEXT_3 handoff items")
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertRegex(pack_text, re.compile(r"^updated_at:\s+\S+", re.MULTILINE))
@@ -74,7 +74,7 @@ class LoopPackTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("selection"), "next3")
             self.assertEqual(payload.get("work_item_id"), "review:F6")
-            self.assertEqual(payload.get("work_item_key"), "id=review_F6")
+            self.assertEqual(payload.get("work_item_key"), "id=review:F6")
 
     def test_loop_pack_review_falls_back_to_progress(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -120,7 +120,7 @@ class LoopPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("work_item_id"), "review:F6")
-            self.assertEqual(payload.get("work_item_key"), "id=review_F6")
+            self.assertEqual(payload.get("work_item_key"), "id=review:F6")
 
     def test_loop_pack_prefers_review_pack_on_revise(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -134,9 +134,9 @@ class LoopPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I1\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I1/review.latest.pack.md", review_pack)
             write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -165,11 +165,12 @@ class LoopPackTests(unittest.TestCase):
                 "# Review Pack — DEMO-1\n"
                 "\n"
                 "## References\n"
-                "- review_report: aidd/reports/reviewer/DEMO-1.json\n"
+                "- review_report: aidd/reports/reviewer/DEMO-1/iteration_id_I9.json\n"
                 "- handoff_ids:\n"
                 "  - F6\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I9/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_work_item", "iteration_id=I9")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -195,7 +196,8 @@ class LoopPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I2\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I2/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_work_item", "iteration_id=I2")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),

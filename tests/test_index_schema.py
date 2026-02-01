@@ -131,7 +131,7 @@ def test_index_sync_includes_tests_log(tmp_path):
     write_file(project_root, "docs/prd/DEMO-4.prd.md", "# Demo PRD\n")
     write_file(
         project_root,
-        "reports/tests/DEMO-4.jsonl",
+        "reports/tests/DEMO-4/DEMO-4.jsonl",
         json.dumps({"ts": "2024-01-03T00:00:00Z", "ticket": "DEMO-4", "type": "tests", "status": "pass"})
         + "\n",
     )
@@ -140,4 +140,4 @@ def test_index_sync_includes_tests_log(tmp_path):
     payload = json.loads(index_path.read_text(encoding="utf-8"))
 
     reports = payload.get("reports") or []
-    assert "aidd/reports/tests/DEMO-4.jsonl" in reports
+    assert "aidd/reports/tests/DEMO-4/DEMO-4.jsonl" in reports

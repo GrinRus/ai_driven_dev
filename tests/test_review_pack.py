@@ -20,7 +20,7 @@ class ReviewPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I1\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-1/iteration_id=I1.loop.pack.md", loop_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I1.loop.pack.md", loop_pack)
             report = {
                 "ticket": "DEMO-1",
                 "status": "READY",
@@ -28,7 +28,7 @@ class ReviewPackTests(unittest.TestCase):
                     {"id": "review:F1", "severity": "minor", "title": "Update tests"},
                 ],
             }
-            write_file(root, "reports/reviewer/DEMO-1.json", json.dumps(report, indent=2))
+            write_file(root, "reports/reviewer/DEMO-1/iteration_id_I1.json", json.dumps(report, indent=2))
 
             result = subprocess.run(
                 cli_cmd("review-pack", "--ticket", "DEMO-1", "--format", "json"),
@@ -43,10 +43,10 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(payload.get("work_item_id"), "I1")
             self.assertEqual(payload.get("work_item_key"), "iteration_id=I1")
 
-            pack_path = root / "reports" / "loops" / "DEMO-1" / "review.latest.pack.md"
+            pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1" / "review.latest.pack.md"
             self.assertTrue(pack_path.exists())
             pack_text = pack_path.read_text(encoding="utf-8")
-            self.assertIn("schema: aidd.review_pack.v1", pack_text)
+            self.assertIn("schema: aidd.review_pack.v2", pack_text)
             self.assertIn("verdict: SHIP", pack_text)
 
     def test_review_pack_blocked_status(self) -> None:
@@ -61,9 +61,9 @@ class ReviewPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I2\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-2/iteration_id=I2.loop.pack.md", loop_pack)
+            write_file(root, "reports/loops/DEMO-2/iteration_id_I2.loop.pack.md", loop_pack)
             report = {"ticket": "DEMO-2", "status": "BLOCKED", "findings": []}
-            write_file(root, "reports/reviewer/DEMO-2.json", json.dumps(report, indent=2))
+            write_file(root, "reports/reviewer/DEMO-2/iteration_id_I2.json", json.dumps(report, indent=2))
 
             result = subprocess.run(
                 cli_cmd("review-pack", "--ticket", "DEMO-2", "--format", "json"),
@@ -88,7 +88,7 @@ class ReviewPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I1\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-3/iteration_id=I1.loop.pack.md", loop_pack)
+            write_file(root, "reports/loops/DEMO-3/iteration_id_I1.loop.pack.md", loop_pack)
             report = {
                 "ticket": "DEMO-3",
                 "status": "WARN",
@@ -97,7 +97,7 @@ class ReviewPackTests(unittest.TestCase):
                     {"id": "review:F1", "severity": "major", "message": "Missing guard"},
                 ],
             }
-            write_file(root, "reports/reviewer/DEMO-3.json", json.dumps(report, indent=2))
+            write_file(root, "reports/reviewer/DEMO-3/iteration_id_I1.json", json.dumps(report, indent=2))
 
             result = subprocess.run(
                 cli_cmd("review-pack", "--ticket", "DEMO-3", "--format", "json"),
@@ -109,7 +109,7 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("verdict"), "REVISE")
-            pack_path = root / "reports" / "loops" / "DEMO-3" / "review.latest.pack.md"
+            pack_path = root / "reports" / "loops" / "DEMO-3" / "iteration_id_I1" / "review.latest.pack.md"
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertIn("Missing guard", pack_text)
             top_section = pack_text.split("## Top findings", 1)[1].split("## Next actions", 1)[0]

@@ -21,13 +21,12 @@ MAX_ITERATIONS_CODE = 11
 ERROR_CODE = 30
 
 
-def clear_active_state(root: Path) -> None:
-    for name in (".active_stage", ".active_work_item", ".active_mode", ".active_ticket"):
-        path = root / "docs" / name
-        try:
-            path.unlink()
-        except OSError:
-            continue
+def clear_active_mode(root: Path) -> None:
+    path = root / "docs" / ".active_mode"
+    try:
+        path.unlink()
+    except OSError:
+        return
 
 
 def append_log(log_path: Path, message: str) -> None:
@@ -95,6 +94,7 @@ def main(argv: List[str] | None = None) -> int:
                 "updated_at": utc_timestamp(),
             }
             append_log(log_path, f"{utc_timestamp()} iteration={iteration} status=error code={result.returncode}")
+            clear_active_mode(target)
             emit(args.format, payload)
             return ERROR_CODE
         try:
@@ -102,12 +102,16 @@ def main(argv: List[str] | None = None) -> int:
         except json.JSONDecodeError:
             step_payload = {}
         last_payload = step_payload
+        reason = step_payload.get("reason") or ""
+        reason_code = step_payload.get("reason_code") or ""
+        scope_key = step_payload.get("scope_key") or ""
+        runner_effective = step_payload.get("runner_effective") or ""
         append_log(
             log_path,
-            f"{utc_timestamp()} iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} verdict={step_payload.get('verdict')}",
+            f"{utc_timestamp()} iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} scope_key={scope_key} reason_code={reason_code} runner={runner_effective} reason={reason}",
         )
         if result.returncode == DONE_CODE:
-            clear_active_state(target)
+            clear_active_mode(target)
             payload = {
                 "status": "ship",
                 "iterations": iteration,
@@ -119,6 +123,7 @@ def main(argv: List[str] | None = None) -> int:
             emit(args.format, payload)
             return DONE_CODE
         if result.returncode == BLOCKED_CODE:
+            clear_active_mode(target)
             payload = {
                 "status": "blocked",
                 "iterations": iteration,
@@ -140,6 +145,7 @@ def main(argv: List[str] | None = None) -> int:
         "last_step": last_payload,
         "updated_at": utc_timestamp(),
     }
+    clear_active_mode(target)
     emit(args.format, payload)
     return MAX_ITERATIONS_CODE
 

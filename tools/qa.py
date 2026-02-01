@@ -446,6 +446,42 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("[aidd] QA tests completed.", file=sys.stderr)
 
+    try:
+        from tools.reports import tests_log as _tests_log
+
+        scope_key = runtime.resolve_scope_key("", ticket)
+        commands = [entry.get("command") for entry in tests_executed if entry.get("command")]
+        log_path = ""
+        for entry in reversed(tests_executed):
+            if entry.get("log"):
+                log_path = str(entry.get("log"))
+                break
+        exit_code = None
+        if tests_summary == "pass":
+            exit_code = 0
+        elif tests_summary == "fail":
+            exit_code = 1
+        profile = "full" if commands else "none"
+        _tests_log.append_log(
+            target,
+            ticket=ticket,
+            slug_hint=slug_hint or ticket,
+            stage="qa",
+            scope_key=scope_key,
+            work_item_key=None,
+            profile=profile,
+            tasks=commands or None,
+            filters=None,
+            exit_code=exit_code,
+            log_path=log_path or None,
+            status=tests_summary,
+            details={"qa_tests": True},
+            source="qa",
+            cwd=str(target),
+        )
+    except Exception:
+        pass
+
     qa_args: list[str] = []
     if args.gate:
         qa_args.append("--gate")

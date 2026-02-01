@@ -22,7 +22,7 @@ def read_text(path: Path) -> str:
         return ""
 
 
-def load_loop_pack_meta(root: Path, ticket: str) -> Tuple[str, str]:
+def load_loop_pack_meta(root: Path, ticket: str) -> Tuple[str, str, str]:
     active_ticket = (root / "docs" / ".active_ticket")
     active_work_item = (root / "docs" / ".active_work_item")
     try:
@@ -34,12 +34,16 @@ def load_loop_pack_meta(root: Path, ticket: str) -> Tuple[str, str]:
     except OSError:
         stored_item = ""
     if not stored_ticket or stored_ticket != ticket or not stored_item:
-        return "", ""
-    pack_path = root / "reports" / "loops" / ticket / f"{stored_item}.loop.pack.md"
+        return "", "", ""
+    scope_key = runtime.resolve_scope_key(stored_item, ticket)
+    pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
     if not pack_path.exists():
-        return "", ""
+        return "", "", ""
     front = parse_front_matter(read_text(pack_path))
-    return front.get("work_item_id", ""), front.get("work_item_key", "")
+    work_item_id = front.get("work_item_id", "")
+    work_item_key = front.get("work_item_key", "") or stored_item
+    scope_key = front.get("scope_key", "") or scope_key
+    return work_item_id, work_item_key, scope_key
 
 
 def inflate_columnar(section: object) -> List[Dict[str, object]]:
@@ -153,28 +157,54 @@ def render_pack(
     updated_at: str,
     work_item_id: str,
     work_item_key: str,
+    scope_key: str,
     findings: List[Dict[str, object]],
     next_actions: List[str],
     review_report: str,
     handoff_ids: List[str],
+    blocking_findings_count: int,
+    handoff_ids_added: List[str],
+    next_recommended_work_item: str,
+    evidence_links: List[str],
 ) -> str:
     lines: List[str] = [
         "---",
-        "schema: aidd.review_pack.v1",
+        "schema: aidd.review_pack.v2",
         f"updated_at: {updated_at}",
         f"ticket: {ticket}",
         f"work_item_id: {work_item_id}",
         f"work_item_key: {work_item_key}",
+        f"scope_key: {scope_key}",
         f"verdict: {verdict}",
-        "---",
-        "",
-        f"# Review Pack — {ticket}",
-        "",
-        "## Verdict",
-        f"- {verdict}",
-        "",
-        "## Top findings",
+        f"blocking_findings_count: {blocking_findings_count}",
+        "handoff_ids_added:",
     ]
+    if handoff_ids_added:
+        lines.extend([f"  - {item_id}" for item_id in handoff_ids_added])
+    else:
+        lines.append("  - []")
+    lines.append(f"next_recommended_work_item: {next_recommended_work_item or 'none'}")
+    lines.append("evidence_links:")
+    if evidence_links:
+        lines.extend([f"  - {link}" for link in evidence_links])
+    else:
+        lines.append("  - []")
+    lines.extend(
+        [
+            "---",
+            "",
+            f"# Review Pack — {ticket}",
+            "",
+            "## Verdict",
+            f"- {verdict}",
+            "",
+            "## Operational summary",
+            f"- blocking_findings_count: {blocking_findings_count}",
+            f"- next_recommended_work_item: {next_recommended_work_item or 'none'}",
+            "",
+            "## Top findings",
+        ]
+    )
     if findings:
         for entry in findings:
             entry_id = str(entry.get("id") or "n/a")
@@ -205,6 +235,10 @@ def render_pack(
         lines.append("- handoff_ids:")
         for item_id in handoff_ids:
             lines.append(f"  - {item_id}")
+    if evidence_links:
+        lines.append("- evidence_links:")
+        for link in evidence_links:
+            lines.append(f"  - {link}")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -224,7 +258,21 @@ def main(argv: list[str] | None = None) -> int:
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
 
-    report_path = target / "reports" / "reviewer" / f"{ticket}.json"
+    work_item_id, work_item_key, scope_key = load_loop_pack_meta(target, ticket)
+    if not work_item_id or not work_item_key:
+        raise FileNotFoundError("loop pack metadata not found (run loop-pack and ensure .active_work_item is set)")
+    if not scope_key:
+        scope_key = runtime.resolve_scope_key(work_item_key, ticket)
+
+    report_template = runtime.review_report_template(target)
+    slug_hint = (context.slug_hint or ticket or "").strip()
+    report_text = (
+        str(report_template)
+        .replace("{ticket}", ticket)
+        .replace("{slug}", slug_hint or ticket)
+        .replace("{scope_key}", scope_key)
+    )
+    report_path = runtime.resolve_path_for_target(Path(report_text), target)
     if not report_path.exists():
         raise FileNotFoundError(f"review report not found at {runtime.rel_path(report_path, target)}")
 
@@ -233,11 +281,6 @@ def main(argv: list[str] | None = None) -> int:
     findings = sort_findings(findings)[:5]
     verdict = verdict_from_status(str(payload.get("status") or ""), findings)
     updated_at = utc_timestamp()
-    work_item_id, work_item_key = load_loop_pack_meta(target, ticket)
-    if not work_item_id or not work_item_key:
-        raise FileNotFoundError(
-            "loop pack metadata not found (run loop-pack and ensure .active_work_item is set)"
-        )
 
     handoff_ids: List[str] = []
     for entry in findings:
@@ -245,6 +288,15 @@ def main(argv: list[str] | None = None) -> int:
         if item_id:
             handoff_ids.append(str(item_id))
     handoff_ids = list(dict.fromkeys(handoff_ids))[:5]
+    handoff_ids_added = list(handoff_ids)
+
+    def _is_blocking(entry: Dict[str, object]) -> bool:
+        if entry.get("blocking") is True:
+            return True
+        severity = normalize_severity(entry.get("severity"))
+        return severity in {"blocker", "critical"}
+
+    blocking_findings_count = sum(1 for entry in findings if _is_blocking(entry))
 
     next_actions: List[str] = []
     for entry in findings:
@@ -253,36 +305,58 @@ def main(argv: list[str] | None = None) -> int:
             next_actions.append(" ".join(str(action).split()))
     next_actions = list(dict.fromkeys(next_actions))[:5]
 
+    next_recommended_work_item = work_item_key if verdict == "REVISE" else ""
+    evidence_links: List[str] = [runtime.rel_path(report_path, target)]
+    try:
+        from tools.reports import tests_log as _tests_log
+
+        tests_entry, tests_path = _tests_log.latest_entry(target, ticket, scope_key, stages=["review", "implement"])
+        if tests_path and tests_path.exists():
+            evidence_links.append(runtime.rel_path(tests_path, target))
+    except Exception:
+        pass
+    evidence_links = list(dict.fromkeys(evidence_links))
+
     pack_text = render_pack(
         ticket=ticket,
         verdict=verdict,
         updated_at=updated_at,
         work_item_id=work_item_id,
         work_item_key=work_item_key,
+        scope_key=scope_key,
         findings=findings,
         next_actions=next_actions,
         review_report=runtime.rel_path(report_path, target),
         handoff_ids=handoff_ids,
+        blocking_findings_count=blocking_findings_count,
+        handoff_ids_added=handoff_ids_added,
+        next_recommended_work_item=next_recommended_work_item,
+        evidence_links=evidence_links,
     )
 
-    output_dir = target / "reports" / "loops" / ticket
+    output_dir = target / "reports" / "loops" / ticket / scope_key
     output_dir.mkdir(parents=True, exist_ok=True)
     pack_path = output_dir / "review.latest.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
     rel_path = runtime.rel_path(pack_path, target)
 
     structured = {
-        "schema": "aidd.review_pack.v1",
+        "schema": "aidd.review_pack.v2",
         "updated_at": updated_at,
         "ticket": ticket,
         "work_item_id": work_item_id,
         "work_item_key": work_item_key,
+        "scope_key": scope_key,
         "verdict": verdict,
         "path": rel_path,
         "review_report": runtime.rel_path(report_path, target),
         "findings": findings,
         "next_actions": next_actions,
         "handoff_ids": handoff_ids,
+        "blocking_findings_count": blocking_findings_count,
+        "handoff_ids_added": handoff_ids_added,
+        "next_recommended_work_item": next_recommended_work_item,
+        "evidence_links": evidence_links,
     }
 
     if args.format:
