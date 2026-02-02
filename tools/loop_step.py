@@ -91,6 +91,9 @@ def load_stage_result(root: Path, ticket: str, scope_key: str, stage: str) -> Tu
     result = str(payload.get("result") or "").strip().lower()
     if result not in {"blocked", "continue", "done"}:
         return None, path, "stage_result_missing_or_invalid"
+    work_item_key = str(payload.get("work_item_key") or "").strip()
+    if work_item_key and not runtime.is_valid_work_item_key(work_item_key):
+        return None, path, "stage_result_invalid_work_item"
     return payload, path, ""
 
 
@@ -145,7 +148,7 @@ def _normalize_scope(value: str) -> str:
 
 
 def _is_valid_work_item_key(value: str) -> bool:
-    return value.startswith("iteration_id=") or value.startswith("id=")
+    return runtime.is_valid_work_item_key(value)
 
 
 def _extract_work_item_key(lines: List[str]) -> str:

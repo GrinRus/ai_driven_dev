@@ -7,11 +7,16 @@ from pathlib import Path
 from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_file
 
 
+def write_review_context_pack(root: Path, ticket: str) -> None:
+    write_file(root, f"reports/context/{ticket}.review.pack.md", f"# Context Pack — {ticket}\n")
+
+
 class StageResultTests(unittest.TestCase):
     def test_review_missing_tests_soft_continues(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "soft"})
+            write_review_context_pack(root, "DEMO-1")
 
             result = subprocess.run(
                 cli_cmd(
@@ -44,6 +49,7 @@ class StageResultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "hard"})
+            write_review_context_pack(root, "DEMO-2")
 
             result = subprocess.run(
                 cli_cmd(
@@ -76,6 +82,7 @@ class StageResultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "soft"})
+            write_review_context_pack(root, "DEMO-2B")
 
             result = subprocess.run(
                 cli_cmd(
@@ -104,10 +111,42 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("result"), "blocked")
             self.assertEqual(payload.get("verdict"), "BLOCKED")
 
+    def test_review_context_pack_missing_blocks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "disabled"})
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-CTX",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-CTX" / "iteration_id_I1" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("result"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "review_context_pack_missing")
+
     def test_review_skipped_tests_capture_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "soft"})
+            write_review_context_pack(root, "DEMO-3")
             write_file(
                 root,
                 "reports/tests/DEMO-3/iteration_id_I3.jsonl",
@@ -156,6 +195,7 @@ class StageResultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "hard"})
+            write_review_context_pack(root, "DEMO-4")
             write_file(
                 root,
                 "reports/tests/DEMO-4/iteration_id_I4.jsonl",
@@ -216,6 +256,7 @@ class StageResultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "hard"})
+            write_review_context_pack(root, "DEMO-9")
             write_file(
                 root,
                 "reports/tests/DEMO-9/iteration_id_I9.jsonl",
@@ -263,6 +304,7 @@ class StageResultTests(unittest.TestCase):
     def test_review_stage_result_links_fix_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
+            write_review_context_pack(root, "DEMO-10")
             write_file(
                 root,
                 "reports/loops/DEMO-10/iteration_id_I10/review.fix_plan.json",
@@ -307,6 +349,107 @@ class StageResultTests(unittest.TestCase):
                 evidence_links.get("fix_plan_json"),
                 "aidd/reports/loops/DEMO-10/iteration_id_I10/review.fix_plan.json",
             )
+
+    def test_review_pack_verdict_overrides_stage_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_ticket", "DEMO-PACK")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_review_context_pack(root, "DEMO-PACK")
+            write_file(
+                root,
+                "reports/loops/DEMO-PACK/iteration_id_I1/review.latest.pack.md",
+                "---\n"
+                "schema: aidd.review_pack.v2\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: REVISE\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-PACK",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-PACK" / "iteration_id_I1" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("verdict"), "REVISE")
+            self.assertEqual(payload.get("result"), "continue")
+
+    def test_qa_report_status_overrides_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(
+                root,
+                "reports/qa/DEMO-QA.json",
+                json.dumps({"status": "WARN"}, indent=2),
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "blocked",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-QA" / "DEMO-QA" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("result"), "done")
+
+    def test_rejects_composite_work_item_key(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-COMPOSITE",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I1,I2",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            result_path = root / "reports" / "loops" / "DEMO-COMPOSITE" / "iteration_id_I1_I2" / "stage.review.result.json"
+            self.assertFalse(result_path.exists())
 
 
 if __name__ == "__main__":

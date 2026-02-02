@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.28
-source_version: 1.0.28
+prompt_version: 1.0.29
+source_version: 1.0.29
 allowed-tools:
   - Read
   - Edit
@@ -19,6 +19,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
@@ -66,6 +67,7 @@ disable-model-invocation: false
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
 - Целевой файл: `aidd/reports/context/$1.review.pack.md` (stage/agent/paths/what-to-do заполняются под review).
+- Рекомендуемый CLI: `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.review.pack.md`.
 - Paths: plan, tasklist, prd, arch_profile, loop_pack, review_pack (if exists), spec/research/test_policy (if exists), review_report (if exists).
 - What to do now: review diff vs plan/tasklist, add handoff findings.
 - User note: $ARGUMENTS.
@@ -73,7 +75,7 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
+3. Команда (до subagent): собери Context Pack `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.review.pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.review.pack.md`.**
 5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED` (исправимые дефекты → `WARN`/`REVISE`).
 6. Subagent: при verdict=REVISE включает Fix Plan (структурированный блок; каждый blocking finding отражён).
@@ -104,6 +106,7 @@ disable-model-invocation: false
 - `Tests: run|skipped|not-required <profile/summary/evidence>`.
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
+- Вердикт/Status должны совпадать с итоговым `review.latest.pack.md` и `stage.review.result.json` (если pack=REVISE → Status=WARN/REVISE, SHIP запрещён).
 - Ответ содержит `Checkbox updated` (если есть).
 
 ## Примеры CLI

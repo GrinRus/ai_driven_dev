@@ -14,6 +14,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 
 ## Automation notes
 - Loop pack: `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
+- Review context pack: `aidd/reports/context/<ticket>.review.pack.md` (создаётся до review, например через `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket <ticket> --agent review --stage review --template aidd/reports/context/template.context-pack.md`).
 - Review pack: `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (`schema: aidd.review_pack.v2`).
 - Если review pack старее review report (`review_pack_stale`) — пересоберите pack (или перезапустите review). При наличии loop‑pack/`active_work_item` review‑report авто‑синхронизирует pack.
 - Fix Plan (REVISE): `aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json`.

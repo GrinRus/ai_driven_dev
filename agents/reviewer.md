@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.28
-source_version: 1.0.28
+prompt_version: 1.0.29
+source_version: 1.0.29
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -109,5 +109,6 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 - `Next actions: ...`.
 - `Context read: <packs/excerpts only>`.
 - При verdict=REVISE включай блок `Fix Plan` (см. формат выше).
+- Если findings есть или tests evidence отсутствует (tests_required=soft) — статус не может быть READY; итог должен совпадать с `review.latest.pack.md`/`stage.review.result.json`.
 - Без логов/стектрейсов/диффов — только ссылки на `aidd/reports/**`.
 - `Next actions` ≤ 10 буллетов.

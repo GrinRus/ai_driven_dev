@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
 from tools import runtime
-from tools.io_utils import dump_yaml, utc_timestamp
+from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 
@@ -196,6 +196,27 @@ def _resolve_tests_evidence(
     return runtime.rel_path(path, target), False, entry
 
 
+def _load_review_pack_verdict(target: Path, ticket: str, scope_key: str) -> str:
+    pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+    if not pack_path.exists():
+        return ""
+    front = parse_front_matter(pack_path.read_text(encoding="utf-8"))
+    verdict = str(front.get("verdict") or "").strip().upper()
+    return verdict if verdict in {"SHIP", "REVISE", "BLOCKED"} else ""
+
+
+def _load_qa_report_status(target: Path, ticket: str) -> str:
+    report_path = target / "reports" / "qa" / f"{ticket}.json"
+    if not report_path.exists():
+        return ""
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    status = str(payload.get("status") or "").strip().upper()
+    return status if status in {"READY", "WARN", "BLOCKED"} else ""
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -216,8 +237,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
-    if stage in {"implement", "review"} and not work_item_key:
-        if not args.allow_missing_work_item:
+    if stage in {"implement", "review"}:
+        if work_item_key and not runtime.is_valid_work_item_key(work_item_key):
+            raise ValueError("work_item_key must match iteration_id=<id> or id=<id> (no composite keys)")
+        if not work_item_key and not args.allow_missing_work_item:
             raise ValueError("work_item_key is required for implement/review stage results")
 
     artifacts = _dedupe(_split_items(args.artifact) + _split_items(args.artifacts))
@@ -237,6 +260,16 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=context.slug_hint,
         scope_key=scope_key,
     )
+    pack_verdict = ""
+    context_pack_missing = False
+    if stage == "review":
+        pack_verdict = _load_review_pack_verdict(target, ticket, scope_key)
+        context_pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+        if not context_pack_path.exists():
+            context_pack_missing = True
+    qa_report_status = ""
+    if stage == "qa":
+        qa_report_status = _load_qa_report_status(target, ticket)
     tests_link, tests_evidence, tests_entry = _resolve_tests_evidence(
         target,
         ticket=ticket,
@@ -289,8 +322,25 @@ def main(argv: list[str] | None = None) -> int:
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
 
+    if stage == "qa" and qa_report_status:
+        if qa_report_status == "BLOCKED":
+            result = "blocked"
+        elif qa_report_status in {"READY", "WARN"} and result == "blocked":
+            result = "done"
+
+    if stage == "review" and context_pack_missing:
+        result = "blocked"
+        if not reason_code:
+            reason_code = "review_context_pack_missing"
+        if not reason:
+            reason = "review context pack missing"
+        verdict = "BLOCKED"
+        pack_verdict = ""
+
     if stage == "review":
-        if explicit_blocked_review and reason_code not in warn_reason_codes:
+        if pack_verdict:
+            verdict = pack_verdict
+        elif explicit_blocked_review and reason_code not in warn_reason_codes:
             verdict = "BLOCKED"
         if not verdict:
             if result == "done":

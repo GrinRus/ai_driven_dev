@@ -3221,6 +3221,64 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Pack содержит `review_report_updated_at` и его значение ≥ report.updated_at.
   **Deps:** W88-6, W88-16
 
+- [x] **W88-22** `tools/loop-pack.sh`, `tools/loop_pack.py`, `tools/tasklist_parser.py`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
+  - Исправить перенос boundaries/expected paths/tests/acceptance из tasklist в loop pack:
+    - `allowed_paths` должен заполняться из `Boundaries` текущей итерации (если они есть).
+    - `expected_paths`, `tests_required`, `acceptance` должны попадать в excerpt loop pack.
+  - Если boundaries отсутствуют в tasklist:
+    - loop pack фиксирует `reason_code=no_boundaries_defined_warn`,
+    - implement/review обязаны подсказать заполнить boundaries (handoff), но не подменяют их.
+  - Добавить тест: tasklist с boundaries → loop pack содержит `allowed_paths` и expected paths.
+  **AC:**
+  - `allowed_paths` в loop pack не пустой, если boundaries определены в tasklist.
+  - Excerpt содержит Expected paths / Tests / Acceptance из tasklist.
+  **Deps:** W88-1
+
+- [x] **W88-23** `tools/review_pack.py`, `tools/stage_result.py`, `commands/review.md`, `agents/reviewer.md`, `tests/test_review_pack.py`:
+  - Убрать рассинхрон verdict/status между CLI, stage_result и review pack:
+    - CLI‑вывод должен брать verdict/status из stage_result или review report (single source of truth).
+    - Запретить SHIP в CLI, если stage_result=continue/REVISE.
+  - Добавить тест на расхождение: pack=REVISE → CLI тоже REVISE.
+  **AC:**
+  - CLI/pack/stage_result согласованы по verdict/status.
+  **Deps:** W88-6, W88-7
+
+- [x] **W88-24** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/stage_result.py`, `tests/repo_tools/*`:
+  - Нормализовать `scope_key`/`work_item_key`:
+    - запретить составные ключи вида `iteration_id=I1,I2,I3`;
+    - stage_result создаётся только для реально выполненного шага (если шага нет в loop.run.log → нет stage_result).
+  - Добавить тест: loop-run пишет ровно один stage_result на итерацию/стадию.
+  **AC:**
+  - Нет composite scope_key.
+  - Количество stage_result соответствует количеству фактических запусков в loop.run.log.
+  **Deps:** W88-1, W88-3
+
+- [x] **W88-25** `tools/context-pack.sh`, `commands/review.md`, `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`:
+  - Гарантировать наличие review context pack перед запуском review subagent:
+    - создаётся `aidd/reports/context/<ticket>.review.pack.md` или review получает BLOCKED с reason_code.
+  - Добавить тест: отсутствие review pack → BLOCKED + stage_result.
+  **AC:**
+  - Review pack не пропадает и всегда доступен reviewer‑агенту.
+  **Deps:** W88-3
+
+- [x] **W88-26** `tools/qa_agent.py`, `tools/qa.sh`, `tools/stage_result.py`, `tests/test_qa_agent.py`:
+  - Исправить расхождение QA статусов:
+    - `aidd/reports/qa/<ticket>.json` должен совпадать со stage_result и CLI‑статусом.
+    - non‑blocking handoff → WARN, не BLOCKED.
+  - Добавить тест: QA WARN в CLI → status WARN в отчёте.
+  **AC:**
+  - QA статус согласован между CLI, stage_result и отчётом.
+  **Deps:** W88-7, W88-18
+
+- [x] **W88-27** `tools/researcher.py`, `commands/researcher.md`, `templates/aidd/docs/research/template.md`:
+  - Синхронизация overrides в research:
+    - после AIDD:ANSWERS/PRD overrides researcher должен отражать итоговые решения (timezone/cost/test‑filtering).
+    - запретить устаревшие “resolved” блоки с противоположными решениями.
+  - Добавить тест/линт: research содержит значения, соответствующие PRD overrides.
+  **AC:**
+  - Research и PRD не расходятся по финальным решениям.
+  **Deps:** W88-1
+
 ## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
 
 - [x] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:

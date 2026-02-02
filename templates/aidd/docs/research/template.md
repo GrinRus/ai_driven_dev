@@ -16,6 +16,10 @@ Artifacts:
 - Invalid paths: {{invalid_paths}}
 - Pack-first: используйте `*-rlm.pack.*` и `rlm-slice`; не вставляйте raw JSONL.
 
+## AIDD:PRD_OVERRIDES
+{{prd_overrides}}
+- Должно совпадать с PRD (`USER OVERRIDE`) и не противоречить принятым решениям.
+
 ## AIDD:NON_NEGOTIABLES
 - {{non_negotiables}}
 

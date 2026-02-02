@@ -19,6 +19,99 @@ def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
 
 
 class LoopPackTests(unittest.TestCase):
+    def test_loop_pack_prefers_boundaries_over_expected_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-BND\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-BND\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: Boundaries win (iteration_id: I1)\n"
+                "  - Goal: Use boundaries\n"
+                "  - DoD: Done\n"
+                "  - Boundaries: src/alpha/**\n"
+                "  - Expected paths:\n"
+                "    - src/beta/**\n"
+                "  - Commands:\n"
+                "    - pytest -q\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: pytest -q\n"
+                "  - Exit criteria:\n"
+                "    - ok\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: boundaries (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-BND.md", tasklist)
+            write_file(root, "docs/architecture/profile.md", "# Profile\n")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-BND", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertIn("src/alpha/**", allowed_paths)
+            self.assertNotIn("src/beta/**", allowed_paths)
+
+    def test_loop_pack_warns_when_boundaries_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-NO-BND\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-NO-BND\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: No boundaries (iteration_id: I1)\n"
+                "  - Goal: Use expected paths only\n"
+                "  - DoD: Done\n"
+                "  - Expected paths:\n"
+                "    - src/only-expected/**\n"
+                "  - Commands:\n"
+                "    - pytest -q\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: pytest -q\n"
+                "  - Exit criteria:\n"
+                "    - ok\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: no boundaries (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-NO-BND.md", tasklist)
+            write_file(root, "docs/architecture/profile.md", "# Profile\n")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-NO-BND", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "no_boundaries_defined_warn")
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertEqual(allowed_paths, [])
+
+            pack_path = root / "reports" / "loops" / "DEMO-NO-BND" / "iteration_id_I1.loop.pack.md"
+            pack_text = pack_path.read_text(encoding="utf-8")
+            self.assertIn("reason_code: no_boundaries_defined_warn", pack_text)
+
     def test_loop_pack_adds_changelog_master(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

@@ -2,8 +2,8 @@
 name: researcher
 description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
 lang: ru
-prompt_version: 1.2.29
-source_version: 1.2.29
+prompt_version: 1.2.30
+source_version: 1.2.30
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)
 model: inherit
 permissionMode: default

@@ -15,6 +15,7 @@ from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as reso
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_WORK_ITEM_KEY_RE = re.compile(r"^(iteration_id|id)=[A-Za-z0-9_.:-]+$")
 
 
 try:
@@ -148,6 +149,13 @@ def sanitize_scope_key(value: str) -> str:
     cleaned = _SCOPE_KEY_RE.sub("_", raw)
     cleaned = cleaned.strip("._-")
     return cleaned or ""
+
+
+def is_valid_work_item_key(value: str | None) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return False
+    return bool(_WORK_ITEM_KEY_RE.match(raw))
 
 
 def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: str = "ticket") -> str:

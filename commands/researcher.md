@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.29
-source_version: 1.2.29
+prompt_version: 1.2.30
+source_version: 1.2.30
 allowed-tools:
   - Read
   - Edit
@@ -76,7 +76,7 @@ disable-model-invocation: false
 2. Команда (до subagent): извлеки `## AIDD:RESEARCH_HINTS` и запусти `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` с `--paths/--keywords/--note`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
-5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings.
+5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings; секция `AIDD:PRD_OVERRIDES` должна совпадать с PRD (`USER OVERRIDE`) и не содержать устаревших решений.
 6. Команда (после subagent): если `rlm_status=pending` или отсутствует `*-rlm.pack.json` — убедись, что `*-rlm.nodes.jsonl` существует; при отсутствии создай baseline `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket $1`.
 7. Команда (после subagent): запусти `rlm-finalize.sh --ticket $1` (verify → links → compact → refresh worklist → reports-pack --update-context).
 8. Команда (после subagent): если после `rlm-finalize` остаётся `rlm_status=pending` или pack/nodes/links отсутствуют — верни `Status: BLOCKED` и требуй завершить agent‑flow.

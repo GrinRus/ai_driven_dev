@@ -89,6 +89,35 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(all("blocking" in finding for finding in payload["findings"]))
         self.assertTrue(report_path.exists(), "QA report should be written")
 
+    def test_non_blocking_handoff_warns_and_matches_report(self):
+        write_active_feature(self.project_root, "handoff-demo")
+        write_file(
+            self.project_root,
+            "docs/tasklist/handoff-demo.md",
+            "\n".join(
+                [
+                    "# Tasklist",
+                    "",
+                    "## AIDD:HANDOFF_INBOX",
+                    "<!-- handoff:qa start -->",
+                    "- [ ] QA non-blocking item (id: qa:demo) (Priority: low) (Blocking: false)",
+                    "  - source: qa",
+                    "  - scope: iteration_id=I1",
+                    "<!-- handoff:qa end -->",
+                    "",
+                ]
+            ),
+        )
+
+        report_path = self.project_root / "reports" / "qa" / "handoff-demo.json"
+        result = self.run_agent("--emit-json", "--report", str(report_path))
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report_payload["status"], "WARN")
+
     def test_emit_patch_writes_patch_file(self):
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
 

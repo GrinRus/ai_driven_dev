@@ -13,6 +13,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
+from tools.tasklist_parser import extract_boundaries
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -61,6 +62,9 @@ class WorkItem:
     title: str
     state: str
     goal: str
+    boundaries_allowed: Tuple[str, ...]
+    boundaries_forbidden: Tuple[str, ...]
+    boundaries_defined: bool
     expected_paths: Tuple[str, ...]
     commands: Tuple[str, ...]
     tests_required: Tuple[str, ...]
@@ -294,6 +298,29 @@ def extract_checkbox_state(block: List[str]) -> str:
     return "done" if state.lower() == "x" else "open"
 
 
+def _normalize_tests_value(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned or cleaned.lower() in {"[]", "none", "n/a"}:
+        return None
+    return cleaned
+
+
+def _normalize_tests_required(tests_map: Dict[str, str]) -> Tuple[str, ...]:
+    tasks = _normalize_tests_value(tests_map.get("tasks") or tests_map.get("Tasks"))
+    profile = _normalize_tests_value(tests_map.get("profile") or tests_map.get("Profile"))
+    filters = _normalize_tests_value(tests_map.get("filters") or tests_map.get("Filters"))
+    required: List[str] = []
+    if tasks:
+        required.append(tasks)
+    if profile:
+        required.append(f"profile:{profile}")
+    if filters:
+        required.append(f"filters:{filters}")
+    return tuple(required)
+
+
 def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
     if not block:
         return tuple()
@@ -356,13 +383,11 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
         title = extract_title(block)
         state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
+        boundaries_allowed, boundaries_forbidden, boundaries_defined = extract_boundaries(block)
         expected_paths = tuple(extract_list_field(block, "Expected paths"))
         commands = tuple(extract_list_field(block, "Commands"))
         tests_map = extract_mapping_field(block, "Tests")
-        tests_required: Tuple[str, ...] = tuple()
-        tasks_value = tests_map.get("tasks") or tests_map.get("Tasks")
-        if tasks_value and _strip_placeholder(tasks_value):
-            tests_required = (tasks_value,)
+        tests_required = _normalize_tests_required(tests_map)
         size_budget = extract_mapping_field(block, "Size budget")
         exit_criteria = tuple(extract_list_field(block, "Exit criteria"))
         key_prefix = "iteration_id"
@@ -378,6 +403,9 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 state=state,
                 goal=goal or title,
+                boundaries_allowed=tuple(boundaries_allowed),
+                boundaries_forbidden=tuple(boundaries_forbidden),
+                boundaries_defined=boundaries_defined,
                 expected_paths=expected_paths,
                 commands=commands,
                 tests_required=tests_required,
@@ -403,6 +431,7 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
         title = extract_title(block)
         state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
+        boundaries_allowed, boundaries_forbidden, boundaries_defined = extract_boundaries(block)
         key_prefix = "id"
         work_item_key = f"{key_prefix}={item_id}"
         scope_key = runtime.sanitize_scope_key(work_item_key)
@@ -416,6 +445,9 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 state=state,
                 goal=goal or title,
+                boundaries_allowed=tuple(boundaries_allowed),
+                boundaries_forbidden=tuple(boundaries_forbidden),
+                boundaries_defined=boundaries_defined,
                 expected_paths=tuple(),
                 commands=tuple(),
                 tests_required=tuple(),
@@ -543,6 +575,7 @@ def build_front_matter(
     arch_profile: str,
     evidence_policy: str,
     updated_at: str,
+    reason_code: str = "",
 ) -> List[str]:
     lines = [
         "---",
@@ -578,6 +611,8 @@ def build_front_matter(
         lines.append("tests_required: []")
     lines.append(f"arch_profile: {arch_profile}")
     lines.append(f"evidence_policy: {evidence_policy}")
+    if reason_code:
+        lines.append(f"reason_code: {reason_code}")
     lines.append("---")
     return lines
 
@@ -591,6 +626,7 @@ def build_pack(
     tests_required: List[str],
     arch_profile: str,
     updated_at: str,
+    reason_code: str = "",
 ) -> str:
     front_matter = build_front_matter(
         ticket=ticket,
@@ -601,6 +637,7 @@ def build_pack(
         arch_profile=arch_profile,
         evidence_policy="RLM-first",
         updated_at=updated_at,
+        reason_code=reason_code,
     )
     lines: List[str] = []
     lines.extend(front_matter)
@@ -661,10 +698,15 @@ def write_pack_for_item(
     work_item: WorkItem,
     arch_profile: str,
 ) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str]:
-    boundaries = {
-        "allowed_paths": list(work_item.expected_paths),
-        "forbidden_paths": [],
-    }
+    if work_item.boundaries_defined:
+        boundaries = {
+            "allowed_paths": list(work_item.boundaries_allowed),
+            "forbidden_paths": list(work_item.boundaries_forbidden),
+        }
+        reason_code = ""
+    else:
+        boundaries = {"allowed_paths": [], "forbidden_paths": []}
+        reason_code = "no_boundaries_defined_warn"
     _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
@@ -677,6 +719,7 @@ def write_pack_for_item(
         tests_required=tests_required,
         arch_profile=arch_profile,
         updated_at=updated_at,
+        reason_code=reason_code,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     pack_path = output_dir / f"{work_item.scope_key}.loop.pack.md"
@@ -1004,6 +1047,8 @@ def main(argv: list[str] | None = None) -> int:
         "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",
     }
+    if not selected_item.boundaries_defined:
+        payload["reason_code"] = "no_boundaries_defined_warn"
 
     if args.format:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
