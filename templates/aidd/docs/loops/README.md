@@ -4,7 +4,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 
 ## Правила
 - Начинай каждую итерацию с `loop_pack` (тонкий контекст). Не вставляй большие куски логов/диффов — только ссылки на `aidd/reports/**`.
-- Review **не** расширяет scope. Любая новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` и `Status: BLOCKED` (или новый work_item в tasklist).
+- Review **не** расширяет scope. Любая новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` и `Status: WARN` (или новый work_item в tasklist). `FORBIDDEN` остаётся BLOCKED.
 - Fresh context: каждый шаг опирается на pack + ссылки, без “пересказа” больших документов.
 - Loop-mode тесты: implement не запускает тесты по умолчанию; нужен `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`. Review тесты не запускает.
 - Loop-gating опирается на `stage_result`; отсутствие файла = `BLOCKED`.

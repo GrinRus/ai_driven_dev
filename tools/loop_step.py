@@ -20,6 +20,7 @@ DONE_CODE = 0
 CONTINUE_CODE = 10
 BLOCKED_CODE = 20
 ERROR_CODE = 30
+WARN_REASON_CODES = {"out_of_scope_warn", "no_boundaries_defined_warn"}
 
 
 def read_active_stage(root: Path) -> str:
@@ -65,6 +66,12 @@ def load_stage_result(root: Path, ticket: str, scope_key: str, stage: str) -> Tu
     if result not in {"blocked", "continue", "done"}:
         return None, path, "stage_result_missing_or_invalid"
     return payload, path, ""
+
+
+def normalize_stage_result(result: str, reason_code: str) -> str:
+    if result == "blocked" and reason_code in WARN_REASON_CODES:
+        return "continue"
+    return result
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
@@ -228,7 +235,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         result = str(payload.get("result") or "").strip().lower()
         reason = str(payload.get("reason") or "").strip()
-        reason_code = str(payload.get("reason_code") or "").strip()
+        reason_code = str(payload.get("reason_code") or "").strip().lower()
+        result = normalize_stage_result(result, reason_code)
         stage_result_rel = runtime.rel_path(result_path, target)
         if result == "blocked":
             return emit_result(
@@ -438,7 +446,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     result = str(payload.get("result") or "").strip().lower()
     reason = str(payload.get("reason") or "").strip()
-    reason_code = str(payload.get("reason_code") or "").strip()
+    reason_code = str(payload.get("reason_code") or "").strip().lower()
+    result = normalize_stage_result(result, reason_code)
     if next_stage == "review" and result in {"continue", "done"}:
         ok, message, code = validate_review_pack(
             target,

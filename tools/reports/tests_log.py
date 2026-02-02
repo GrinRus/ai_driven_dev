@@ -141,6 +141,7 @@ def latest_entry(
     scope_key: str,
     *,
     stages: Optional[Iterable[str]] = None,
+    statuses: Optional[Iterable[str]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Path]]:
     path = tests_log_path(root, ticket, scope_key)
     events = _load_events(path)
@@ -152,10 +153,15 @@ def latest_entry(
     if not events:
         return None, path if path.exists() else None
     stage_set = {str(stage or "").strip().lower() for stage in (stages or []) if str(stage or "").strip()}
+    status_set = {str(status or "").strip().lower() for status in (statuses or []) if str(status or "").strip()}
     for entry in reversed(events):
         if stage_set:
             entry_stage = str(entry.get("stage") or "").strip().lower()
             if entry_stage not in stage_set:
+                continue
+        if status_set:
+            entry_status = str(entry.get("status") or "").strip().lower()
+            if entry_status not in status_set:
                 continue
         return entry, path
     return None, path

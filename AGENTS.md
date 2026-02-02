@@ -55,6 +55,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 
 ## Workflow (кратко)
 Канонические стадии: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
+Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN` → BLOCKED.
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.

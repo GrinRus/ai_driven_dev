@@ -102,7 +102,7 @@ def test_allows_when_review_approved(tmp_path):
     write_json(
         tmp_path,
         "reports/prd/demo-checkout.json",
-        {"ticket": "demo-checkout", "findings": []},
+        {"ticket": "demo-checkout", "status": "ready", "findings": []},
     )
 
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
@@ -154,6 +154,7 @@ def test_blocks_on_blocking_severity(tmp_path):
         "reports/prd/demo-checkout.json",
         {
             "ticket": "demo-checkout",
+            "status": "ready",
             "findings": [{"severity": "critical", "title": "issue", "details": "..."}],
         },
     )
@@ -161,6 +162,20 @@ def test_blocks_on_blocking_severity(tmp_path):
     result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     assert "critical" in (result.stdout + result.stderr).lower()
+
+
+def test_blocks_on_report_status_mismatch(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
+    write_json(
+        tmp_path,
+        "reports/prd/demo-checkout.json",
+        {"ticket": "demo-checkout", "status": "pending", "findings": []},
+    )
+
+    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    assert "не совпадает" in (result.stdout + result.stderr)
 
 
 def test_allows_when_report_missing_but_allowed(tmp_path):

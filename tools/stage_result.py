@@ -137,18 +137,24 @@ def _resolve_tests_evidence(
     ticket: str,
     scope_key: str,
     stage: str,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Tuple[Optional[str], bool]:
     from tools.reports import tests_log as _tests_log
 
     stages = [stage]
     if stage == "review":
         stages.append("implement")
-    entry, path = _tests_log.latest_entry(target, ticket, scope_key, stages=stages)
+    entry, path = _tests_log.latest_entry(
+        target,
+        ticket,
+        scope_key,
+        stages=stages,
+        statuses=("pass", "fail"),
+    )
     if not path or not path.exists():
-        return None, None
+        return None, False
+    has_evidence = entry is not None
     rel_path = runtime.rel_path(path, target)
-    entry_id = str(entry.get("updated_at") or entry.get("ts") or "") if entry else ""
-    return rel_path, entry_id
+    return rel_path, has_evidence
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -180,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     result = (args.result or "").strip().lower()
     requested_result = result
     reason = (args.reason or "").strip()
-    reason_code = (args.reason_code or "").strip()
+    reason_code = (args.reason_code or "").strip().lower()
 
     tests_required, tests_block, marker_source = _tests_policy(
         target,
@@ -188,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=context.slug_hint,
         scope_key=scope_key,
     )
-    tests_link, tests_entry = _resolve_tests_evidence(
+    tests_link, tests_evidence = _resolve_tests_evidence(
         target,
         ticket=ticket,
         scope_key=scope_key,
@@ -196,15 +202,39 @@ def main(argv: list[str] | None = None) -> int:
     )
     if tests_link:
         evidence_links.append(tests_link)
-    if tests_required and not tests_link and not reason_code:
+    if tests_required and not tests_evidence and not reason_code:
         reason_code = "missing_test_evidence"
         if not reason:
             reason = "tests evidence required but not found"
-    if tests_required and tests_block and not tests_link:
-        result = "blocked"
+    if tests_required and not tests_evidence:
+        if tests_block:
+            result = "blocked"
+        elif stage == "review" and result != "blocked":
+            result = "continue"
+
+    warn_reason_codes = {"out_of_scope_warn", "no_boundaries_defined_warn"}
+    if reason_code in warn_reason_codes and result == "blocked":
+        result = "continue"
 
     if marker_source and marker_source not in evidence_links:
         evidence_links.append(marker_source)
+
+    if stage == "review":
+        report_template = runtime.review_report_template(target)
+        report_rel = (
+            str(report_template)
+            .replace("{ticket}", ticket)
+            .replace("{slug}", (context.slug_hint or ticket))
+            .replace("{scope_key}", scope_key)
+        )
+        report_path = runtime.resolve_path_for_target(Path(report_rel), target)
+        if report_path.exists():
+            evidence_links.append(runtime.rel_path(report_path, target))
+        pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if pack_path.exists():
+            evidence_links.append(runtime.rel_path(pack_path, target))
+
+    evidence_links = _dedupe(evidence_links)
 
     payload = {
         "schema": "aidd.stage_result.v1",

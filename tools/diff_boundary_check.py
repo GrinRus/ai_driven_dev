@@ -194,18 +194,19 @@ def main(argv: List[str] | None = None) -> int:
 
     aidd_root = target.name == "aidd"
     diff_files = [path for path in collect_diff_files(target) if not is_ignored(path, aidd_root=aidd_root)]
-    violations: List[str] = []
+    blocked: List[str] = []
+    warnings: List[str] = []
     for path in diff_files:
         if any(matches_pattern(path, pattern) for pattern in forbidden_paths):
-            violations.append(f"{STATUS_FORBIDDEN} {path}")
+            blocked.append(f"{STATUS_FORBIDDEN} {path}")
             continue
         if allowed_paths and not any(matches_pattern(path, pattern) for pattern in allowed_paths):
-            violations.append(f"{STATUS_OUT_OF_SCOPE} {path}")
+            warnings.append(f"{STATUS_OUT_OF_SCOPE} {path}")
 
-    if violations:
-        for line in sorted(violations):
+    if blocked or warnings:
+        for line in sorted(blocked + warnings):
             print(line)
-        return 2
+        return 2 if blocked else 0
 
     print(STATUS_OK)
     return 0

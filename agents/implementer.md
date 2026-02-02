@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.32
-source_version: 1.1.32
+prompt_version: 1.1.33
+source_version: 1.1.33
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*)
 model: inherit
 permissionMode: default
@@ -15,7 +15,7 @@ permissionMode: default
 ## Loop discipline (Ralph)
 - Loop pack first: начни с `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - Если `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` существует и verdict=REVISE — прочитай сразу после loop pack, до кода.
-- Любая новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG` **и остановка** (не расширяй diff).
+- Любая новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG` + `Status: WARN` (не расширяй diff; BLOCKED только при `FORBIDDEN`/missing artifacts).
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - В loop‑mode вопросы в чат запрещены → фиксируй blocker/handoff в tasklist.
 
@@ -97,7 +97,7 @@ AIDD_TEST_FILTERS=com.acme.CheckoutServiceTest
 
 ## Формат ответа
 - `Checkbox updated: ...`.
-- `Status: READY|BLOCKED|PENDING`.
+- `Status: READY|WARN|BLOCKED|PENDING`.
 - `Artifacts updated: <paths>`.
 - `Iteration scope: ...` (1 чекбокс/2 связанных).
 - `Test scope: ...` (TEST_SCOPE/AIDD_TEST_TASKS/AIDD_TEST_FILTERS или "auto").

@@ -2843,6 +2843,88 @@ _Статус: новый, приоритет 1. Цель — канон про�
   **AC:** tasklist содержит deps/locks/priority/blocking (опционально) и policy по granularity; tasklist‑refiner не создаёт микро‑итерации; `NEXT_3` не предлагает узлы с незакрытыми deps; пустые expected_paths → WARN (или BLOCK в strict).
   **Deps:** W87-1
 
+### BUGFIXES — Flow audit TST-001
+- [x] **W87-11** `tools/stage_result.py`, `tools/stage-result.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - зафиксировать запись stage_result при manual implement/review/qa (включая BLOCKED/READY/SHIP/WARN);
+  - не допускать отсутствия stage_result (fail-fast + понятный reason_code).
+  **AC:** после каждой команды implement/review/qa существует `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`; loop_run/loop_step не видят `stage_result_missing_or_invalid` при корректном завершении команды.
+  **Deps:** W87-5
+
+- [x] **W87-12** `tools/review_pack.py`, `tools/review_report.py`, `tools/review-pack.sh`, `tools/review-report.sh`, `commands/review.md`, `agents/reviewer.md`, `tests/test_review_pack.py`:
+  - гарантировать генерацию per‑work‑item review pack и review report;
+  - синхронизировать verdict → stage_result (evidence_links, REVISE→continue, SHIP→done).
+  **AC:** появляется `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` и `aidd/reports/reviewer/<ticket>/<scope_key>.json` для каждого review; loop_step читает их per‑work‑item без fallback на ticket‑singleton; stage_result соответствует verdict.
+  **Deps:** W87-6
+
+- [x] **W87-13** `tools/diff_boundary_check.py`, `tools/diff-boundary-check.sh`, `tools/loop_pack.py`, `commands/implement.md`, `commands/review.md`, `tests/test_diff_boundary_check.py`:
+  - ослабить boundary‑check: OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN (не BLOCKED), FORBIDDEN → BLOCKED;
+  - расширить loop pack allowed_paths, когда требуется правка `db.changelog-master.yaml` для включения миграции.
+  **AC:** изменения вне allowed_paths дают WARN (и фиксятся в handoff) как в implement, так и в review; NO_BOUNDARIES_DEFINED даёт WARN; FORBIDDEN продолжает блокировать; при миграции loop pack явно разрешает `backend/src/main/resources/db/changelog/db.changelog-master.yaml`.
+  **Deps:** W87-3
+
+- [ ] **W87-14** `tools/output_contract_check.py`, `tools/output-contract-check.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/test_output_contract_check.py`:
+  - DE-SCOPED: удалён линт output‑контракта; автоматическая проверка loop‑step не выполняется.
+  **Deps:** W87-1
+
+- [x] **W87-15** `tools/prd_review.py`, `tools/prd-review.sh`, `tools/prd_review_gate.py`, `tools/prd-review-gate.sh`, `tools/index_sync.py`, `tests/test_gate_prd_review.py`:
+  - синхронизировать статус PRD‑review между doc/report/index;
+  - убрать рассинхрон `Status: READY` в PRD при `reports/prd/*.json = pending`.
+  **AC:** PRD review READY отражается в `aidd/reports/prd/<ticket>.json` и `aidd/docs/index/<ticket>.json` без pending.
+  **Deps:** W87-1
+
+- [x] **W87-16** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `tools/qa_agent.py`, `tests/test_format_and_test.py`, `tests/test_qa_agent.py`:
+  - исправить тест‑evidence, когда форматирование/тесты пропущены;
+  - синхронизировать tests_log со статусом исполнения hook (profile:none при skip).
+  **AC:** `aidd/reports/tests/<ticket>/<scope_key>.jsonl` отражает фактический запуск; при skip — profile:none + reason_code, QA не считает tests pass без evidence.
+  **Deps:** W87-7
+
+- [x] **W87-17** `agents/reviewer.md`, `commands/review.md`, `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/status-machine.md`, `tools/review_pack.py`, `tools/stage_result.py`, `tests/test_loop_step.py`, `tests/test_review_pack.py`:
+  - политика review‑вердикта: дефекты в рамках итерации → `REVISE` (без BLOCKED), `Status: READY|WARN` по тяжести;
+  - `BLOCKED` только для missing artifacts/evidence/commands или `FORBIDDEN` boundary fail; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → WARN + handoff;
+  - stage_result для review: `REVISE → continue`, `SHIP → done`, `BLOCKED → blocked`.
+  **AC:** review не блокирует из‑за исправимых дефектов или OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED; loop продолжает итерации при REVISE; BLOCKED используется только для системных стоп‑условий и `FORBIDDEN`.
+  **Deps:** W87-1, W87-5, W87-6
+
+- [x] **W87-18** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/status-machine.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `AGENTS.md`:
+  - синхронизировать канон с мягким out‑of‑scope: `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN + handoff`, `FORBIDDEN → BLOCKED`;
+  - в каноне явно указать “review не блокирует за исправимые дефекты, а ставит REVISE”.
+  **AC:** канон и anchors/loops README не противоречат политике “loop продолжается при REVISE/OUT_OF_SCOPE”.
+  **Deps:** W87-1, W87-17
+
+- [x] **W87-19** `tools/stage_result.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - зафиксировать, что OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED дают `result=continue` с `reason_code=out_of_scope_warn|no_boundaries_defined_warn` (не BLOCKED);
+  - loop‑gating считает WARN допустимым для продолжения.
+  **AC:** loop продолжает работу при OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED WARN; блокировка остаётся только для FORBIDDEN или системных стоп‑условий.
+  **Deps:** W87-11, W87-13, W87-17
+
+- [x] **W87-20** `agents/reviewer.md`, `commands/review.md`, `tools/review_pack.py`, `tests/test_review_pack.py`:
+  - review diff‑first: анализирует только изменения итерации; новые требования/работы → handoff в tasklist, не BLOCKED;
+  - гарантировать запись handoff для исправимых дефектов (review findings) вместо остановки loop.
+  **AC:** review всегда выдаёт handoff для найденных дефектов; loop не останавливается из‑за исправимых замечаний в diff.
+  **Deps:** W87-17
+
+- [x] **W87-21** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `tools/stage_result.py`, `tools/qa_agent.py`, `templates/aidd/config/gates.json`, `tests/test_format_and_test.py`, `tests/test_qa_agent.py`:
+  - мягкий режим отсутствия test‑evidence: по конфигу (например `tests_required=soft`) → WARN + handoff “run tests”, без BLOCKED;
+  - для review в soft‑policy: verdict `REVISE` (continue) при missing evidence, чтобы loop продолжился до фикса;
+  - строгий режим сохраняет BLOCKED (для `tests_required=hard`).
+  **AC:** loop не блокируется на пропущенных тестах при soft‑policy; review выставляет REVISE при missing evidence; BLOCKED остаётся в strict‑policy.
+  **Deps:** W87-7, W87-11, W87-17
+
+- [x] **W87-22** `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - убрать устаревшие указания “OUT_OF_SCOPE → BLOCKED”; заменить на WARN + handoff, `FORBIDDEN → BLOCKED`, `NO_BOUNDARIES_DEFINED → WARN`;
+  - в review‑команде закрепить: дефекты → REVISE (continue), BLOCKED только при missing artifacts/evidence/commands или FORBIDDEN;
+  - добавить явное правило diff‑first (review проверяет только изменения итерации) и “loop continues until fixed”.
+  **AC:** командные доки соответствуют мягкому out‑of‑scope и ревью‑политике, не противоречат W87-17/19/21.
+  **Deps:** W87-17, W87-19, W87-21
+
+- [x] **W87-23** `agents/implementer.md`, `agents/reviewer.md`, `agents/tasklist-refiner.md`:
+  - удалить устаревшие формулировки про “остановку” на out‑of‑scope;
+  - добавить правило: OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN + handoff, FORBIDDEN → BLOCKED;
+  - добавить WARN в допустимые статусы implementer/reviewer;
+  - в reviewer‑агенте закрепить REVISE для исправимых дефектов и diff‑first review.
+  **AC:** агент‑промпты согласованы с мягким out‑of‑scope и “loop until fixed”.
+  **Deps:** W87-17, W87-19
+
 ## Wave 88 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._

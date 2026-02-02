@@ -212,6 +212,8 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     except (FileNotFoundError, json.JSONDecodeError):
         return _default_qa_test_command(), allow_skip
 
+    tests_required_mode = str(data.get("tests_required", "disabled")).strip().lower()
+
     qa_cfg = data.get("qa")
     if isinstance(qa_cfg, bool):
         qa_cfg = {"enabled": qa_cfg}
@@ -221,6 +223,8 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     if not isinstance(tests_cfg, dict):
         tests_cfg = {}
     allow_skip = bool(tests_cfg.get("allow_skip", True))
+    if tests_required_mode == "hard":
+        allow_skip = False
     source = str(tests_cfg.get("source") or tests_cfg.get("mode") or "").strip().lower()
     max_files, max_bytes, allow_paths = _normalize_discovery_config(tests_cfg)
     raw_commands = tests_cfg.get("commands")
@@ -395,6 +399,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
 
+    gates_config = runtime.load_gates_config(target)
+    tests_required_mode = str(gates_config.get("tests_required", "disabled")).strip().lower()
+
     context = runtime.resolve_feature_context(
         target,
         ticket=getattr(args, "ticket", None),
@@ -422,6 +429,10 @@ def main(argv: list[str] | None = None) -> int:
         getattr(args, "allow_no_tests", False)
         or os.getenv("CLAUDE_QA_ALLOW_NO_TESTS", "").strip() == "1"
     )
+    if tests_required_mode == "hard":
+        allow_no_tests = False
+    elif tests_required_mode == "soft":
+        allow_no_tests = True
     skip_tests = bool(getattr(args, "skip_tests", False) or os.getenv("CLAUDE_QA_SKIP_TESTS", "").strip() == "1")
 
     tests_executed: list[dict] = []
@@ -513,6 +524,8 @@ def main(argv: list[str] | None = None) -> int:
 
     _, allow_skip_cfg = _load_qa_tests_config(target)
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
+    if tests_required_mode == "hard":
+        allow_no_tests_env = False
 
     old_env = {
         "QA_TESTS_SUMMARY": os.environ.get("QA_TESTS_SUMMARY"),

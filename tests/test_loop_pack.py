@@ -19,6 +19,53 @@ def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
 
 
 class LoopPackTests(unittest.TestCase):
+    def test_loop_pack_adds_changelog_master(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-CH\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-CH\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: Add migration (iteration_id: I1)\n"
+                "  - Goal: Add migration\n"
+                "  - DoD: Migration ready\n"
+                "  - Boundaries: backend/src/main/resources/db/changelog/**\n"
+                "  - Expected paths:\n"
+                "    - backend/src/main/resources/db/changelog/2024-01-01.xml\n"
+                "  - Commands:\n"
+                "    - ./gradlew test\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: ./gradlew test\n"
+                "  - Exit criteria:\n"
+                "    - migration included\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: migration (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-CH.md", tasklist)
+            write_file(root, "docs/architecture/profile.md", "# Profile\n")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-CH", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertIn(
+                "backend/src/main/resources/db/changelog/db.changelog-master.yaml",
+                allowed_paths,
+            )
+
     def test_loop_pack_selects_next3(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

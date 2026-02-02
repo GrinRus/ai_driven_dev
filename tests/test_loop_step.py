@@ -59,7 +59,8 @@ class LoopStepTests(unittest.TestCase):
                 "ticket": "DEMO-2",
                 "stage": "implement",
                 "scope_key": "iteration_id_I1",
-                "result": "continue",
+                "result": "blocked",
+                "reason_code": "out_of_scope_warn",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(

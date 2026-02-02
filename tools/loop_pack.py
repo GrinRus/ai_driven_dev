@@ -22,6 +22,33 @@ ITEM_ID_RE = re.compile(r"\bid\s*:\s*([A-Za-z0-9_.:-]+)")
 PROGRESS_RE = re.compile(
     r"\bsource=(?P<source>[A-Za-z0-9_-]+)\b.*\bid=(?P<item_id>[A-Za-z0-9_.:-]+)\b.*\bkind=(?P<kind>[A-Za-z0-9_-]+)\b"
 )
+CHANGELOG_MASTER_PATH = "backend/src/main/resources/db/changelog/db.changelog-master.yaml"
+CHANGELOG_DIR = "backend/src/main/resources/db/changelog/"
+
+
+def _normalize_path(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.lstrip("/")
+
+
+def _needs_changelog_master(allowed_paths: Iterable[str]) -> bool:
+    for raw in allowed_paths:
+        normalized = _normalize_path(raw)
+        if normalized == CHANGELOG_DIR.rstrip("/"):
+            return True
+        if normalized.startswith(CHANGELOG_DIR):
+            return True
+    return False
+
+
+def _extend_boundaries_for_changelog(boundaries: Dict[str, List[str]]) -> None:
+    allowed = boundaries.get("allowed_paths")
+    if not allowed:
+        return
+    if _needs_changelog_master(allowed) and CHANGELOG_MASTER_PATH not in allowed:
+        allowed.append(CHANGELOG_MASTER_PATH)
 
 
 @dataclass(frozen=True)
@@ -638,6 +665,7 @@ def write_pack_for_item(
         "allowed_paths": list(work_item.expected_paths),
         "forbidden_paths": [],
     }
+    _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
     updated_at = utc_timestamp()

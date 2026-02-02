@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.32
-source_version: 1.1.32
+prompt_version: 1.1.34
+source_version: 1.1.34
 allowed-tools:
   - Read
   - Edit
@@ -111,9 +111,9 @@ Decision matrix (default: `fast`):
 7. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.implement.pack.md`.**
 8. Subagent: реализует следующий пункт, обновляет tasklist (`AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`), обновляет `AIDD:NEXT_3`, добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
 9. Subagent: выполняет verify results (tests/QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
-10. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; при `OUT_OF_SCOPE/FORBIDDEN` — `Status: BLOCKED`, **не отмечай чекбоксы**, добавь задачу в `AIDD:OUT_OF_SCOPE_BACKLOG (source: implement)` и попроси откатить лишние файлы или создать новый work_item.
+10. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
 11. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
-12. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` при out-of-scope/блокерах).
+12. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` только при `FORBIDDEN`/отсутствии обязательных артефактов/evidence; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → `continue` + `--reason-code out_of_scope_warn|no_boundaries_defined_warn`).
 13. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
@@ -123,7 +123,7 @@ Decision matrix (default: `fast`):
 
 ## Ожидаемый вывод
 - Обновлённый код и `aidd/docs/tasklist/$1.md`.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Test profile`, `Tests run`, `Next actions`.
+- Ответ содержит `Checkbox updated`, `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Next actions` (output‑контракт соблюдён).
 
 ## Примеры CLI
 - `/feature-dev-aidd:implement ABC-123`

@@ -1008,7 +1008,7 @@ def main() -> int:
     elif cadence == "manual":
         log("Test cadence: manual (cadence=manual)")
 
-    def update_stage_result_after_tests(scope_key: str, tests_log_rel: str) -> None:
+    def update_stage_result_after_tests(scope_key: str, tests_log_rel: str, tests_status: str) -> None:
         ticket = identifiers.resolved_ticket or ""
         if not ticket or not scope_key:
             return
@@ -1036,11 +1036,14 @@ def main() -> int:
             evidence_links = []
         if tests_log_rel and tests_log_rel not in evidence_links:
             evidence_links.append(tests_log_rel)
+        status_value = str(tests_status or "").strip().lower()
+        tests_evidence = status_value in {"pass", "fail"}
         requested_result = str(payload.get("requested_result") or "").strip().lower()
         result_value = str(payload.get("result") or "").strip().lower()
         reason_code = str(payload.get("reason_code") or "").strip()
-        if requested_result in {"continue", "done"} and result_value == "blocked" and reason_code == "missing_test_evidence":
-            payload["result"] = requested_result
+        if reason_code == "missing_test_evidence" and tests_evidence:
+            if requested_result in {"continue", "done"} and result_value == "blocked":
+                payload["result"] = requested_result
             payload["reason"] = ""
             payload["reason_code"] = ""
         payload["evidence_links"] = evidence_links
@@ -1054,6 +1057,10 @@ def main() -> int:
         exit_code: int | None = None,
         log_path: Path | None = None,
     ) -> None:
+        status_value = str(status or "").strip().lower()
+        profile_value = test_profile
+        if status_value in {"skipped", "not-run"}:
+            profile_value = "none"
         ticket = identifiers.resolved_ticket
         ticket_guess = ""
         ticket_file = project_root / "docs" / ".active_ticket"
@@ -1094,7 +1101,7 @@ def main() -> int:
                 stage=stage_value,
                 scope_key=scope_key,
                 work_item_key=work_item_key or None,
-                profile=test_profile,
+                profile=profile_value,
                 tasks=test_tasks,
                 filters=test_filters,
                 exit_code=exit_code,
@@ -1106,7 +1113,7 @@ def main() -> int:
             )
             tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
             tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
-            update_stage_result_after_tests(scope_key, tests_log_rel)
+            update_stage_result_after_tests(scope_key, tests_log_rel, status_value)
         except Exception:
             return
 

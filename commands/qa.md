@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.24
-source_version: 1.0.24
+prompt_version: 1.0.26
+source_version: 1.0.26
 allowed-tools:
   - Read
   - Edit
@@ -79,11 +79,11 @@ disable-model-invocation: false
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
-5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED`.
+5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED` (soft missing evidence → `WARN` + handoff “run tests”).
 6. Subagent: выполняет verify results (QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
 8. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
-9. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage qa --result <blocked|done>` (READY/WARN → `done`, BLOCKED → `blocked`).
+9. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage qa --result <blocked|done>` (READY/WARN → `done`; BLOCKED только при missing artifacts/evidence или `tests_required=hard`).
 10. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
@@ -94,7 +94,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - Обновлённый tasklist и отчёт QA.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
+- Ответ содержит `Checkbox updated`, `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Next actions` (output‑контракт соблюдён).
 
 ## Примеры CLI
 - `/feature-dev-aidd:qa ABC-123`

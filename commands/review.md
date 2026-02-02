@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.24
-source_version: 1.0.24
+prompt_version: 1.0.26
+source_version: 1.0.26
 allowed-tools:
   - Read
   - Edit
@@ -28,7 +28,7 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:review` работает inline: фиксирует стадию и активную фичу, пишет Context Pack и явно запускает саб‑агента **feature-dev-aidd:reviewer** для проверки изменений перед QA и фиксации замечаний в tasklist. После ревью команда создаёт отчёт и формирует handoff‑задачи в `AIDD:HANDOFF_INBOX`. Свободный ввод после тикета используй как контекст ревью.
+Команда `/feature-dev-aidd:review` работает inline: фиксирует стадию и активную фичу, пишет Context Pack и явно запускает саб‑агента **feature-dev-aidd:reviewer** для проверки изменений перед QA и фиксации замечаний в tasklist. Review diff‑first: проверяет только изменения итерации; исправимые дефекты → `REVISE` + handoff, loop продолжается до фикса. После ревью команда создаёт отчёт и формирует handoff‑задачи в `AIDD:HANDOFF_INBOX`. Свободный ввод после тикета используй как контекст ревью.
 Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/review.md`.
 
 ## Входные артефакты
@@ -75,12 +75,12 @@ disable-model-invocation: false
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.review.pack.md`.**
-5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED`.
+5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED` (исправимые дефекты → `WARN`/`REVISE`).
 6. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
-7. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; при `OUT_OF_SCOPE/FORBIDDEN` — `Status: BLOCKED`.
+7. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff, `FORBIDDEN → Status: BLOCKED`.
 8. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1`.
 9. Команда (после subagent): собери review pack `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1`.
-10. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage review --result <blocked|continue|done> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `done` при SHIP, `continue` при REVISE).
+10. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage review --result <blocked|continue|done> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `done` при SHIP, `continue` при REVISE; `blocked` только при missing artifacts/evidence или `FORBIDDEN`).
 11. Команда (после subagent): при необходимости запроси автотесты через `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` (или `--clear`).
 12. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1`.
 13. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1`.
@@ -88,13 +88,13 @@ disable-model-invocation: false
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
-- Если diff не соответствует тикету — остановись и согласуй объём.
+- Если diff не соответствует тикету — `Status: WARN` + handoff (BLOCKED только при missing artifacts/evidence или `FORBIDDEN`).
 - Если `aidd/reports/context/$1.review.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 
 ## Ожидаемый вывод
 - Обновлённый `aidd/docs/tasklist/$1.md`.
-- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
+- Ответ содержит `Checkbox updated`, `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Next actions` (output‑контракт соблюдён).
 
 ## Примеры CLI
 - `/feature-dev-aidd:review ABC-123`

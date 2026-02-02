@@ -19,7 +19,7 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 ## Loop discipline (Ralph)
 - Loop = 1 work_item → implement → review → (revise)* → ship.
 - Loop pack first: начинай с `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`, не перечитывай весь tasklist.
-- Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
+- Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item (Status: WARN).
 - Без больших вставок логов/диффов; только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
 - Loop‑gating опирается на `stage_result`; review pack/tasklist = evidence.

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_file
 
 
 class ReviewPackTests(unittest.TestCase):
@@ -29,6 +29,21 @@ class ReviewPackTests(unittest.TestCase):
                 ],
             }
             write_file(root, "reports/reviewer/DEMO-1/iteration_id_I1.json", json.dumps(report, indent=2))
+            write_file(
+                root,
+                "reports/tests/DEMO-1/iteration_id_I1.jsonl",
+                json.dumps(
+                    {
+                        "schema": "aidd.tests_log.v1",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                        "ticket": "DEMO-1",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "status": "pass",
+                    }
+                )
+                + "\n",
+            )
 
             result = subprocess.run(
                 cli_cmd("review-pack", "--ticket", "DEMO-1", "--format", "json"),
@@ -75,6 +90,134 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("verdict"), "BLOCKED")
+
+    def test_review_pack_missing_tests_revises(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "soft"})
+            write_file(root, "docs/.active_ticket", "DEMO-4")
+            write_file(root, "docs/.active_work_item", "iteration_id=I4")
+            loop_pack = (
+                "---\n"
+                "schema: aidd.loop_pack.v1\n"
+                "work_item_id: I4\n"
+                "work_item_key: iteration_id=I4\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-4/iteration_id_I4.loop.pack.md", loop_pack)
+            report = {"ticket": "DEMO-4", "status": "READY", "findings": []}
+            write_file(root, "reports/reviewer/DEMO-4/iteration_id_I4.json", json.dumps(report, indent=2))
+
+            result = subprocess.run(
+                cli_cmd("review-pack", "--ticket", "DEMO-4", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("verdict"), "REVISE")
+
+    def test_review_pack_skipped_tests_revises(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "soft"})
+            write_file(root, "docs/.active_ticket", "DEMO-5")
+            write_file(root, "docs/.active_work_item", "iteration_id=I5")
+            loop_pack = (
+                "---\n"
+                "schema: aidd.loop_pack.v1\n"
+                "work_item_id: I5\n"
+                "work_item_key: iteration_id=I5\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-5/iteration_id_I5.loop.pack.md", loop_pack)
+            report = {"ticket": "DEMO-5", "status": "READY", "findings": []}
+            write_file(root, "reports/reviewer/DEMO-5/iteration_id_I5.json", json.dumps(report, indent=2))
+            write_file(
+                root,
+                "reports/tests/DEMO-5/iteration_id_I5.jsonl",
+                json.dumps(
+                    {
+                        "schema": "aidd.tests_log.v1",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                        "ticket": "DEMO-5",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I5",
+                        "status": "skipped",
+                    }
+                )
+                + "\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd("review-pack", "--ticket", "DEMO-5", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("verdict"), "REVISE")
+
+    def test_review_pack_prefers_last_pass_over_skip(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "hard"})
+            write_file(root, "docs/.active_ticket", "DEMO-6")
+            write_file(root, "docs/.active_work_item", "iteration_id=I6")
+            loop_pack = (
+                "---\n"
+                "schema: aidd.loop_pack.v1\n"
+                "work_item_id: I6\n"
+                "work_item_key: iteration_id=I6\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-6/iteration_id_I6.loop.pack.md", loop_pack)
+            report = {"ticket": "DEMO-6", "status": "READY", "findings": []}
+            write_file(root, "reports/reviewer/DEMO-6/iteration_id_I6.json", json.dumps(report, indent=2))
+            write_file(
+                root,
+                "reports/tests/DEMO-6/iteration_id_I6.jsonl",
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "schema": "aidd.tests_log.v1",
+                                "updated_at": "2024-01-02T00:00:00Z",
+                                "ticket": "DEMO-6",
+                                "stage": "implement",
+                                "scope_key": "iteration_id_I6",
+                                "status": "pass",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "schema": "aidd.tests_log.v1",
+                                "updated_at": "2024-01-03T00:00:00Z",
+                                "ticket": "DEMO-6",
+                                "stage": "review",
+                                "scope_key": "iteration_id_I6",
+                                "status": "skipped",
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd("review-pack", "--ticket", "DEMO-6", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("verdict"), "SHIP")
 
     def test_review_pack_message_fallback_and_dedupe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:

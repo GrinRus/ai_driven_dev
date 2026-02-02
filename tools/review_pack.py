@@ -14,6 +14,8 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+
 
 def read_text(path: Path) -> str:
     try:
@@ -135,6 +137,84 @@ def sort_findings(findings: List[Dict[str, object]]) -> List[Dict[str, object]]:
         return (SEVERITY_ORDER.get(severity, 6), str(item.get("id") or item.get("title") or ""))
 
     return sorted(findings, key=sort_key)
+
+
+def _reviewer_requirements(
+    target: Path,
+    *,
+    ticket: str,
+    slug_hint: Optional[str],
+    scope_key: str,
+) -> Tuple[bool, bool]:
+    config = runtime.load_gates_config(target)
+    reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
+    if not isinstance(reviewer_cfg, dict):
+        reviewer_cfg = {}
+    if reviewer_cfg.get("enabled") is False:
+        return False, False
+    marker_template = str(
+        reviewer_cfg.get("marker")
+        or reviewer_cfg.get("tests_marker")
+        or DEFAULT_REVIEWER_MARKER
+    )
+    marker_path = runtime.reviewer_marker_path(
+        target,
+        marker_template,
+        ticket,
+        slug_hint,
+        scope_key=scope_key,
+    )
+    if not marker_path.exists():
+        return False, False
+    try:
+        payload = json.loads(marker_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False, False
+    field_name = str(
+        reviewer_cfg.get("tests_field")
+        or reviewer_cfg.get("field")
+        or "tests"
+    )
+    marker_value = str(payload.get(field_name) or "").strip().lower()
+    required_values = reviewer_cfg.get("required_values")
+    if required_values is None:
+        required_values = reviewer_cfg.get("requiredValues") or ["required"]
+    if not isinstance(required_values, list):
+        required_values = [required_values]
+    required_values = [str(value).strip().lower() for value in required_values if str(value).strip()]
+    if marker_value and marker_value in required_values:
+        return True, True
+    return False, False
+
+
+def _tests_policy(
+    target: Path,
+    *,
+    ticket: str,
+    slug_hint: Optional[str],
+    scope_key: str,
+) -> Tuple[bool, bool]:
+    config = runtime.load_gates_config(target)
+    mode = str(config.get("tests_required", "disabled") if isinstance(config, dict) else "disabled").strip().lower()
+    require = mode in {"soft", "hard"}
+    block = mode == "hard"
+    reviewer_required, reviewer_block = _reviewer_requirements(
+        target,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    if reviewer_required:
+        require = True
+        block = reviewer_block or block
+    return require, block
+
+
+def _tests_entry_has_evidence(entry: Optional[Dict[str, object]]) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    status = str(entry.get("status") or "").strip().lower()
+    return status in {"pass", "fail"}
 
 
 def verdict_from_status(status: str, findings: List[Dict[str, object]]) -> str:
@@ -278,8 +358,49 @@ def main(argv: list[str] | None = None) -> int:
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     findings = dedupe_findings(extract_findings(payload))
+    tests_required, tests_block = _tests_policy(
+        target,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
+    tests_entry = None
+    try:
+        from tools.reports import tests_log as _tests_log
+
+        tests_entry, tests_path = _tests_log.latest_entry(
+            target,
+            ticket,
+            scope_key,
+            stages=["review", "implement"],
+            statuses=("pass", "fail"),
+        )
+    except Exception:
+        tests_entry = None
+
+    tests_evidence = _tests_entry_has_evidence(tests_entry)
+    missing_tests = tests_required and not tests_evidence
+    if missing_tests:
+        findings.append(
+            {
+                "id": "review:missing-tests",
+                "severity": "critical" if tests_block else "major",
+                "scope": "tests",
+                "title": "Tests evidence missing",
+                "details": "Tests evidence required but not found.",
+                "recommendation": "Run the required tests and attach evidence.",
+                "blocking": tests_block,
+            }
+        )
+        findings = dedupe_findings(findings)
+
     findings = sort_findings(findings)[:5]
     verdict = verdict_from_status(str(payload.get("status") or ""), findings)
+    if missing_tests:
+        if tests_block:
+            verdict = "BLOCKED"
+        elif verdict != "BLOCKED":
+            verdict = "REVISE"
     updated_at = utc_timestamp()
 
     handoff_ids: List[str] = []
@@ -310,7 +431,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from tools.reports import tests_log as _tests_log
 
-        tests_entry, tests_path = _tests_log.latest_entry(target, ticket, scope_key, stages=["review", "implement"])
+        tests_entry, tests_path = _tests_log.latest_entry(
+            target,
+            ticket,
+            scope_key,
+            stages=["review", "implement"],
+            statuses=("pass", "fail"),
+        )
         if tests_path and tests_path.exists():
             evidence_links.append(runtime.rel_path(tests_path, target))
     except Exception:

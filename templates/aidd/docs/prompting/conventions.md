@@ -22,9 +22,14 @@
 ## BLOCKED правила
 BLOCKED означает одно из:
 - отсутствуют обязательные артефакты/статусы;
-- out‑of‑scope или нарушены boundaries;
-- нет команд тестов или отсутствует обязательное evidence;
+- `FORBIDDEN` нарушает boundaries;
+- нет обязательных команд тестов или `tests_required=hard` без evidence;
 - не закрыты вопросы/hand‑off’ы, требующие решения.
+
+## WARN правила
+WARN означает:
+- out‑of‑scope (`OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED`) → handoff + `reason_code=out_of_scope_warn|no_boundaries_defined_warn`;
+- `tests_required=soft` и нет evidence → handoff “run tests”.
 
 ## Parallel‑ready артефакты (per‑work‑item)
 Используйте **scope_key** в путях:

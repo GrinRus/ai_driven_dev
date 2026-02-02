@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.17
-source_version: 1.1.17
+prompt_version: 1.1.18
+source_version: 1.1.18
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -102,6 +102,6 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 
 ## Формат ответа
 - `Checkbox updated: ...`
-- `Status: READY|BLOCKED|PENDING`
+- `Status: READY|WARN|BLOCKED|PENDING`
 - `Artifacts updated: aidd/docs/tasklist/<ticket>.md`
 - `Next actions: ...`

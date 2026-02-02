@@ -52,7 +52,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
 
-    def test_diff_boundary_blocks_out_of_scope(self) -> None:
+    def test_diff_boundary_warns_out_of_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             git_init(root)
@@ -75,7 +75,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 2, msg=result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("OUT_OF_SCOPE src/disallowed/file.txt", result.stdout)
 
     def test_diff_boundary_empty_boundaries_warn(self) -> None:
@@ -120,7 +120,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("OK", result.stdout)
 
-    def test_diff_boundary_blocks_untracked_out_of_scope(self) -> None:
+    def test_diff_boundary_warns_untracked_out_of_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             git_init(root)
@@ -138,7 +138,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 2, msg=result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("OUT_OF_SCOPE src/disallowed/new.py", result.stdout)
 
 

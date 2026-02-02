@@ -40,6 +40,7 @@
 
 ## MUST NOT
 - READY при blocker/critical.
+- READY при missing test evidence (tests_required=soft|hard) — минимум WARN + handoff.
 - Прятать gaps — перечислять явно.
 - Придумывать тест‑команды вне `AIDD:TEST_EXECUTION`.
 - Любые правки кода/конфигов/тестов/CI. QA фиксирует только задачи в tasklist.
