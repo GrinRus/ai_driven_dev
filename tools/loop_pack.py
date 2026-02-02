@@ -741,6 +741,40 @@ def main(argv: list[str] | None = None) -> int:
     open_handoffs = [item for item in handoffs if is_open_item(item) and is_review_handoff_id(item.item_id)]
     revise_mode = args.stage == "implement" and review_meta.verdict == "REVISE" and not args.pick_next
 
+    if args.stage == "review" and not args.work_item:
+        if active_ticket and active_ticket != ticket:
+            message = "BLOCKED: review active ticket mismatch"
+            reason = "review_active_ticket_mismatch"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
+        if not active_work_item:
+            message = "BLOCKED: review active work item missing"
+            reason = "review_active_work_item_missing"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
+
     if args.stage == "implement" and review_meta.schema == "aidd.review_pack.v1" and review_pack_v2_required(target):
         message = "BLOCKED: review pack v2 required"
         reason = "review_pack_v2_required"
@@ -889,6 +923,25 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(message)
         return 2
+
+    if args.stage == "review" and not args.work_item and active_work_item:
+        active_scope = runtime.sanitize_scope_key(active_work_item)
+        if selected_item.scope_key != active_scope:
+            message = "BLOCKED: review work item mismatch with active_work_item"
+            reason = "review_work_item_mismatch"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
 
     write_active_state(target, ticket, selected_item.work_item_key)
 

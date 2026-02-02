@@ -27,9 +27,9 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
 - Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
-- Runner по умолчанию: `claude -p` (fresh context). Флаг `--no-session-persistence` используется только если поддерживается CLI.
+- Runner по умолчанию: `claude` с вызовом в виде `-p "/feature-dev-aidd:<cmd> <ticket>"` (fresh context). Флаг `--no-session-persistence` используется только если поддерживается CLI.
 
 ## Ralph loop vs AIDD loop-mode
 - Ralph plugin использует stop-hook в той же сессии (completion promise).
-- AIDD loop-mode использует fresh sessions (runner `claude -p`).
+- AIDD loop-mode использует fresh sessions (runner `claude` + `-p "/feature-dev-aidd:<cmd> <ticket>"`).
 - Для max-iterations используйте формат с пробелом: `--max-iterations 5` (без `=`).

@@ -190,6 +190,37 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(len(payload["tests_executed"]), 1)
         self.assertEqual(payload["tests_executed"][0]["status"], "fail")
 
+    def test_qa_skipped_tests_logged_as_skipped(self):
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {
+                "tests_required": "soft",
+                "qa": {
+                    "tests": {
+                        "commands": [
+                            [
+                                "bash",
+                                "-lc",
+                                "echo \"[format-and-test] Активная стадия 'qa' — форматирование/тесты пропущены.\"",
+                            ]
+                        ],
+                        "allow_skip": True,
+                    }
+                },
+            },
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        ticket = "demo-ticket"
+        log_path = self.project_root / "reports" / "tests" / ticket / f"{ticket}.jsonl"
+        self.assertTrue(log_path.exists(), "QA tests log should be written")
+        lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self.assertTrue(lines, "QA tests log should have entries")
+        payload = json.loads(lines[-1])
+        self.assertEqual(payload.get("status"), "skipped")
+
     def test_progress_cli_requires_tasklist_update(self):
         slug = "demo-checkout"
         ensure_gates_config(

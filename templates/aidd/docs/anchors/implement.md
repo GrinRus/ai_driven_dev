@@ -11,7 +11,7 @@
 - Новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG` и `Status: WARN` + handoff (не расширяй diff).
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
-- Loop-run использует fresh sessions (`claude -p`), max-iterations указывай как `--max-iterations 5`.
+- Loop-run использует fresh sessions (`claude` + `-p "/feature-dev-aidd:<cmd> <ticket>"`), max-iterations указывай как `--max-iterations 5`.
 - Loop‑gating опирается на `stage_result` (machine truth).
 
 ## Context precedence & safety

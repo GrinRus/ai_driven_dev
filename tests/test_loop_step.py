@@ -46,7 +46,7 @@ class LoopStepTests(unittest.TestCase):
             result = self.run_loop_step(root, "DEMO-1", log_path)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertTrue(log_path.exists())
-            self.assertIn("/feature-dev-aidd:implement DEMO-1", log_path.read_text(encoding="utf-8"))
+            self.assertIn("-p /feature-dev-aidd:implement DEMO-1", log_path.read_text(encoding="utf-8"))
             self.assertEqual((root / "docs" / ".active_mode").read_text(encoding="utf-8").strip(), "loop")
             cli_logs = list((root / "reports" / "loops" / "DEMO-1").glob("cli.loop-step.*.log"))
             self.assertTrue(cli_logs, "cli.loop-step log should be written")
@@ -88,7 +88,7 @@ class LoopStepTests(unittest.TestCase):
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-2", log_path)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
-            self.assertIn("/feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
+            self.assertIn("-p /feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
 
     def test_loop_step_ship_returns_done(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -190,7 +190,7 @@ class LoopStepTests(unittest.TestCase):
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-6", log_path, None, "--format", "json")
             self.assertEqual(result.returncode, 10, msg=result.stderr)
-            self.assertIn("/feature-dev-aidd:implement DEMO-6", log_path.read_text(encoding="utf-8"))
+            self.assertIn("-p /feature-dev-aidd:implement DEMO-6", log_path.read_text(encoding="utf-8"))
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("scope_key"), "iteration_id_I1")
 

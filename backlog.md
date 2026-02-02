@@ -3135,9 +3135,33 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - prompt-version и lint-prompts зелёные.
   **Deps:** W88-1..W88-11
 
+- [x] **W88-15** `tools/loop-step.py`, `tools/loop-run.sh`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
+  - Исправить runner для loop-step/run: запускать implement/review как `-p "/feature-dev-aidd:<cmd> <ticket>"`.
+  - Убрать/нормализовать `-p` из runner override (если передан), логировать notice.
+  - Обновить docs и smoke/loop тесты (если есть) под новый формат.
+  **AC:**
+  - `loop-step` и `loop-run` всегда вызывают `claude -p "/feature-dev-aidd:<cmd> <ticket>"` (или эквивалент runner override).
+  - Нет ошибки `Unknown skill: feature-dev-aidd:implement` в loop-run.
+  **Deps:** -
+
+- [x] **W88-16** `commands/review.md`, `tools/loop-pack.sh`, `tools/loop-step.py`, `agents/reviewer.md`, `tests/repo_tools/*`:
+  - Защититься от рассинхрона work_item в review: review должен использовать текущий `.active_work_item`/loop-pack scope_key.
+  - При mismatch (`active_work_item` vs review target) → BLOCKED с явным reason_code.
+  - Добавить тест на “review not matching last implement work_item”.
+  **AC:**
+  - Review не может перейти на другой work_item без явного handoff/смены.
+  **Deps:** W88-1
+
+- [x] **W88-17** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `tools/qa_agent.py`, `tools/stage_result.py`, `tests/repo_tools/*`:
+  - Исправить QA tests evidence: если тесты пропущены, tests_log пишет `status=skipped` + reason_code, а не `pass`.
+  - Синхронизировать `aidd/reports/qa/<ticket>-tests.log` и `aidd/reports/tests/<ticket>/<scope_key>.jsonl`.
+  **AC:**
+  - Нельзя получить `status=pass` при “форматирование/тесты пропущены”.
+  **Deps:** W88-4, W88-5
+
 ## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
 
-- [ ] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
+- [x] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
   - Сделать Fix Plan машинно-читаемым (помимо markdown):
     - писать файл `aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json`
     - stage_result (review) должен иметь `evidence_links.fix_plan_json=...`
@@ -3148,7 +3172,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - В stage_result есть ссылка на fix_plan_json.
   **Deps:** W88-2, W88-6, W88-3
 
-- [ ] **W88-14** `tests/repo_tools/*`, `tools/loop-run.sh`, `tools/loop-step.sh`:
+- [x] **W88-14** `tests/repo_tools/*`, `tools/loop-run.sh`, `tools/loop-step.sh`:
   - Добавить интеграционные тесты “loop semantics” на уровне скриптов:
     - REVISE: не меняет NEXT_3/checkbox, повторяет implement на том же scope_key.
     - SHIP: закрывает checkbox, сдвигает NEXT_3.

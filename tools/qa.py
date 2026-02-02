@@ -273,6 +273,18 @@ def _run_qa_tests(
     base_name = report_path.stem
     summary = "not-run"
 
+    def _output_indicates_skip(text: str) -> bool:
+        lowered = text.lower()
+        return any(
+            marker in lowered
+            for marker in (
+                "форматирование/тесты пропущены",
+                "стадия тестов пропущена",
+                "тесты пропущены",
+                "tests skipped",
+            )
+        )
+
     for index, cmd in enumerate(commands, start=1):
         log_path = logs_dir / f"{base_name}-tests{'' if len(commands) == 1 else f'-{index}'}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -295,6 +307,8 @@ def _run_qa_tests(
             status = "fail"
             output = f"command not found: {cmd[0]} ({exc})"
         log_path.write_text(output, encoding="utf-8")
+        if status == "pass" and _output_indicates_skip(output):
+            status = "skipped"
 
         tests_executed.append(
             {
@@ -307,6 +321,8 @@ def _run_qa_tests(
 
     if any(entry.get("status") == "fail" for entry in tests_executed):
         summary = "fail"
+    elif any(entry.get("status") == "skipped" for entry in tests_executed):
+        summary = "skipped"
     else:
         summary = "pass" if tests_executed else "not-run"
 
@@ -482,7 +498,10 @@ def main(argv: list[str] | None = None) -> int:
                 reason = "qa allow_no_tests enabled"
             else:
                 reason = "qa tests skipped"
-        profile = "full" if commands else "none"
+        if tests_summary in {"skipped", "not-run"}:
+            profile = "none"
+        else:
+            profile = "full" if commands else "none"
         _tests_log.append_log(
             target,
             ticket=ticket,

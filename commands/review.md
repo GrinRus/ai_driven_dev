@@ -91,6 +91,8 @@ disable-model-invocation: false
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
 - Если diff не соответствует тикету — `Status: WARN` + handoff (BLOCKED только при missing artifacts/evidence или `FORBIDDEN`).
 - Если `aidd/reports/context/$1.review.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
+- Если `.active_ticket` не совпадает с `$1` или отсутствует `.active_work_item` — верни `Status: BLOCKED` (reason_code: `review_active_ticket_mismatch` / `review_active_work_item_missing`).
+- Если выбранный work_item не совпадает с `.active_work_item` — верни `Status: BLOCKED` (reason_code: `review_work_item_mismatch`).
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 - Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item` + `--verdict BLOCKED`).
 

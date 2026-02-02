@@ -164,19 +164,22 @@ def validate_review_pack(
 
 
 def resolve_runner(args_runner: str | None) -> Tuple[List[str], str, str]:
-    raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude -p"
+    raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude"
     tokens = shlex.split(raw)
-    notice = ""
+    notices: List[str] = []
+    if "-p" in tokens:
+        tokens = [token for token in tokens if token != "-p"]
+        notices.append("runner flag -p removed; loop-step adds -p with slash command")
     if "--no-session-persistence" in tokens:
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
-            notice = "runner flag --no-session-persistence unsupported; removed"
-    return tokens, raw, notice
+            notices.append("runner flag --no-session-persistence unsupported; removed")
+    return tokens, raw, "; ".join(notices)
 
 
 def build_command(stage: str, ticket: str) -> List[str]:
-    command = f"/feature-dev-aidd:{stage}"
-    return [command, ticket]
+    command = f"/feature-dev-aidd:{stage} {ticket}"
+    return ["-p", command]
 
 
 def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
@@ -201,7 +204,7 @@ def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Execute a single loop step (implement/review).")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
-    parser.add_argument("--runner", help="Runner command override (default: claude -p).")
+    parser.add_argument("--runner", help="Runner command override (default: claude).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     return parser.parse_args(argv)
 

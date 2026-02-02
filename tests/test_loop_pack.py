@@ -137,10 +137,29 @@ class LoopPackTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.returncode, 2, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("selection"), "progress")
-            self.assertEqual(payload.get("work_item_id"), "I1")
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason"), "review_active_ticket_mismatch")
+
+    def test_loop_pack_review_blocks_on_missing_active_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            seed_loop_pack_fixture(root)
+            write_file(root, "docs/.active_ticket", "DEMO-1")
+            write_file(root, "docs/.active_work_item", "iteration_id=I9")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "review", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 2, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason"), "review_work_item_mismatch")
 
     def test_loop_pack_override_handoff(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
