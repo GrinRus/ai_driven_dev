@@ -157,7 +157,24 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "skipped")
+        self.assertEqual(payload["status"], "BLOCKED")
         self.assertTrue(any(f["title"] == "Тесты не запускались" for f in payload["findings"]))
+
+    def test_tests_not_run_warns_when_allowed(self):
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {
+                "tests_required": "soft",
+                "qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": True}},
+            },
+        )
+        result = self.run_agent("--emit-json", "--skip-tests")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "skipped")
+        self.assertEqual(payload["status"], "WARN")
 
     def test_tests_metadata_included(self):
         write_json(

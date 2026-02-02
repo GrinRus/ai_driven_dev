@@ -145,6 +145,11 @@ def validate_review_pack(
     if schema == "aidd.review_pack.v1":
         rel_path = runtime.rel_path(pack_path, root)
         print(f"[loop-step] WARN: review pack v1 in use ({rel_path})", file=sys.stderr)
+    verdict = str(front.get("verdict") or "").strip().upper()
+    if verdict == "REVISE":
+        fix_plan_path = root / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
+        if not fix_plan_path.exists():
+            return False, "review fix plan missing", "review_fix_plan_missing"
     report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
     if report_path.exists():
         try:
@@ -187,6 +192,12 @@ def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
     return result.returncode
 
 
+def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Execute a single loop step (implement/review).")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
@@ -204,6 +215,9 @@ def main(argv: list[str] | None = None) -> int:
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
 
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
+    cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.log"
+
     stage = read_active_stage(target)
     reason = ""
     reason_code = ""
@@ -217,7 +231,17 @@ def main(argv: list[str] | None = None) -> int:
         if stage in {"implement", "review"} and not scope_key:
             reason = "active work item missing"
             reason_code = "stage_result_missing_or_invalid"
-            return emit_result(args.format, ticket, stage, "blocked", BLOCKED_CODE, "", reason, reason_code)
+            return emit_result(
+                args.format,
+                ticket,
+                stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                reason_code,
+                cli_log_path=cli_log_path,
+            )
         payload, result_path, error = load_stage_result(target, ticket, scope_key, stage)
         if error:
             reason = error
@@ -232,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
                 reason,
                 reason_code,
                 scope_key=scope_key,
+                cli_log_path=cli_log_path,
             )
         result = str(payload.get("result") or "").strip().lower()
         reason = str(payload.get("reason") or "").strip()
@@ -250,6 +275,7 @@ def main(argv: list[str] | None = None) -> int:
                 reason_code,
                 scope_key=scope_key,
                 stage_result_path=stage_result_rel,
+                cli_log_path=cli_log_path,
             )
         if stage == "review":
             if result == "done":
@@ -271,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
                         code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        cli_log_path=cli_log_path,
                     )
                 return emit_result(
                     args.format,
@@ -283,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    cli_log_path=cli_log_path,
                 )
             if result == "continue":
                 ok, message, code = validate_review_pack(
@@ -303,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
                         code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        cli_log_path=cli_log_path,
                     )
                 next_stage = "implement"
             else:
@@ -319,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    cli_log_path=cli_log_path,
                 )
         elif stage == "implement":
             if result in {"continue", "done"}:
@@ -337,6 +367,7 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    cli_log_path=cli_log_path,
                 )
         elif stage == "qa":
             if result == "done":
@@ -351,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    cli_log_path=cli_log_path,
                 )
             if result == "blocked":
                 return emit_result(
@@ -364,6 +396,7 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    cli_log_path=cli_log_path,
                 )
             reason = f"qa result={result or 'unknown'}"
             reason_code = reason_code or "unsupported_stage_result"
@@ -378,11 +411,22 @@ def main(argv: list[str] | None = None) -> int:
                 reason_code,
                 scope_key=scope_key,
                 stage_result_path=stage_result_rel,
+                cli_log_path=cli_log_path,
             )
         else:
             reason = f"unsupported stage={stage}"
             reason_code = reason_code or "unsupported_stage"
-            return emit_result(args.format, ticket, stage, "blocked", BLOCKED_CODE, "", reason, reason_code)
+            return emit_result(
+                args.format,
+                ticket,
+                stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                reason_code,
+                cli_log_path=cli_log_path,
+            )
 
     write_active_mode(target, "loop")
     runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner)
@@ -409,6 +453,7 @@ def main(argv: list[str] | None = None) -> int:
             runner=runner_raw,
             runner_effective=" ".join(runner_tokens),
             runner_notice=runner_notice,
+            cli_log_path=cli_log_path,
         )
 
     next_work_item_key, next_scope_key = resolve_stage_scope(target, ticket, next_stage)
@@ -426,6 +471,7 @@ def main(argv: list[str] | None = None) -> int:
             runner=runner_raw,
             runner_effective=" ".join(runner_tokens),
             runner_notice=runner_notice,
+            cli_log_path=cli_log_path,
         )
     payload, result_path, error = load_stage_result(target, ticket, next_scope_key, next_stage)
     if error:
@@ -443,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
             runner=runner_raw,
             runner_effective=" ".join(runner_tokens),
             runner_notice=runner_notice,
+            cli_log_path=cli_log_path,
         )
     result = str(payload.get("result") or "").strip().lower()
     reason = str(payload.get("reason") or "").strip()
@@ -470,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
                 runner=runner_raw,
                 runner_effective=" ".join(runner_tokens),
                 runner_notice=runner_notice,
+                cli_log_path=cli_log_path,
             )
     status = result if result in {"blocked", "continue", "done"} else "blocked"
     code = DONE_CODE if status == "done" else BLOCKED_CODE if status == "blocked" else CONTINUE_CODE
@@ -487,6 +535,7 @@ def main(argv: list[str] | None = None) -> int:
         runner=runner_raw,
         runner_effective=" ".join(runner_tokens),
         runner_notice=runner_notice,
+        cli_log_path=cli_log_path,
     )
 
 
@@ -505,6 +554,7 @@ def emit_result(
     runner: str = "",
     runner_effective: str = "",
     runner_notice: str = "",
+    cli_log_path: Path | None = None,
 ) -> int:
     log_value = str(log_path) if log_path else ""
     payload = {
@@ -533,6 +583,8 @@ def emit_result(
         if reason:
             summary += f" reason={reason}"
         print(summary)
+    if cli_log_path:
+        append_cli_log(cli_log_path, payload)
     return code
 
 

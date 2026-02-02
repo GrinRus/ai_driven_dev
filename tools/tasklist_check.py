@@ -1361,9 +1361,10 @@ def normalize_tasklist(
             continue
         processed_titles.add(section.title)
         new_lines.extend(lines[consumed:section.start])
-        replacement = section_replacement(section, section_map.get(section.title, [section]))
+        section_group = section_map.get(section.title, [section])
+        replacement = section_replacement(section, section_group)
         new_lines.extend(replacement)
-        consumed = section.end
+        consumed = max(entry.end for entry in section_group)
     new_lines.extend(lines[consumed:])
 
     normalized_text = "\n".join(new_lines)

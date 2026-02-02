@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.34
-source_version: 1.1.34
+prompt_version: 1.1.36
+source_version: 1.1.36
 allowed-tools:
   - Read
   - Edit
@@ -67,7 +67,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh $1` фиксирует активную фичу.
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh implement` фиксирует стадию `implement`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` подтверждает PRD `Status: READY`.
-- `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage implement` создаёт loop pack и задаёт `.active_ticket`/`.active_work_item`. Если pack не появился — `Status: BLOCKED`.
+- `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage implement` создаёт loop pack и задаёт `.active_ticket`/`.active_work_item`. При REVISE переиспользует текущий work_item (не двигает `AIDD:NEXT_3`). Если pack не появился — `Status: BLOCKED`.
 - Команда должна запускать саб-агента **feature-dev-aidd:implementer**.
 - `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` запускается на Stop/SubagentStop и читает `aidd/.cache/test-policy.env` (управляется `SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`, `AIDD_TEST_PROFILE`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1` проверяет наличие новых `- [x]`.
@@ -106,24 +106,32 @@ Decision matrix (default: `fast`):
 2. Команда (до subagent): проверь PRD через `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` (при ошибке → `BLOCKED`).
 3. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage implement`.
 4. Команда (до subagent): убедись, что `aidd/reports/loops/$1/<scope_key>.loop.pack.md` существует (используй `.active_work_item` → scope_key); если pack отсутствует — верни `Status: BLOCKED` и попроси rerun.
-5. Команда (до subagent): если переданы `test=...`, `tasks=...`, `tests=...` — обнови `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений. Команда — единственный владелец записи.
-6. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.implement.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-7. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.implement.pack.md`.**
-8. Subagent: реализует следующий пункт, обновляет tasklist (`AIDD:ITERATIONS_FULL`/`AIDD:HANDOFF_INBOX`), обновляет `AIDD:NEXT_3`, добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
-9. Subagent: выполняет verify results (tests/QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
-10. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
-11. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
-12. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` только при `FORBIDDEN`/отсутствии обязательных артефактов/evidence; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → `continue` + `--reason-code out_of_scope_warn|no_boundaries_defined_warn`).
-13. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+5. Команда (до subagent): если есть review pack и verdict=REVISE — убедись, что `review.fix_plan.json` существует; иначе `Status: BLOCKED`.
+6. Команда (до subagent): если переданы `test=...`, `tasks=...`, `tests=...` — обнови `aidd/.cache/test-policy.env`; иначе оставь существующий policy без изменений. Команда — единственный владелец записи.
+7. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.implement.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+8. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read loop pack → review pack (если есть) → fix_plan.json (если verdict=REVISE) → `aidd/reports/context/$1.implement.pack.md`.**
+9. Subagent: реализует следующий пункт, обновляет tasklist (REVISE не закрывает чекбокс и не меняет `AIDD:NEXT_3`), добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
+10. Subagent: выполняет verify results (tests/QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
+11. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
+12. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
+13. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` только при `FORBIDDEN`/отсутствии обязательных артефактов/evidence; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → `continue` + `--reason-code out_of_scope_warn|no_boundaries_defined_warn`; `tests_required=soft` + missing/skipped → `Status: WARN` (не `BLOCKED`), `tests_required=hard` → `BLOCKED`). При раннем `BLOCKED` без `.active_work_item` используй `--allow-missing-work-item` + `--reason-code`.
+14. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или ревью не готовы — остановись и попроси завершить предыдущие шаги.
 - Падающие тесты или блокеры — остановись до исправления/согласования.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
+- Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item`).
 
 ## Ожидаемый вывод
 - Обновлённый код и `aidd/docs/tasklist/$1.md`.
-- Ответ содержит `Checkbox updated`, `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Next actions` (output‑контракт соблюдён).
+- `Status: READY|WARN|BLOCKED|PENDING`.
+- `Work item key: iteration_id=...`.
+- `Artifacts updated: <paths>`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Blockers/Handoff: ...`.
+- `Next actions: ...`.
+- Ответ содержит `Checkbox updated` (если есть).
 
 ## Примеры CLI
 - `/feature-dev-aidd:implement ABC-123`

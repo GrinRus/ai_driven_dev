@@ -72,6 +72,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional summary string stored in details.summary.",
     )
     parser.add_argument(
+        "--reason-code",
+        default="",
+        help="Optional machine-readable reason code (used for skipped entries).",
+    )
+    parser.add_argument(
+        "--reason",
+        default="",
+        help="Optional human-readable reason (used for skipped entries).",
+    )
+    parser.add_argument(
         "--details",
         default="",
         help="Optional JSON object with extra fields for details.",
@@ -147,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         filters=filters_list or None,
         exit_code=args.exit_code,
         log_path=args.log_path or None,
+        reason_code=args.reason_code or None,
+        reason=args.reason or None,
         details=details or None,
         source=args.source,
         cwd=args.cwd or None,

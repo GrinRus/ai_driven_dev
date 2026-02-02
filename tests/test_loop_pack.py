@@ -173,6 +173,8 @@ class LoopPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             seed_loop_pack_fixture(root)
+            tasklist_path = root / "docs" / "tasklist" / "DEMO-1.md"
+            before_tasklist = tasklist_path.read_text(encoding="utf-8")
             review_pack = (
                 "---\n"
                 "schema: aidd.review_pack.v1\n"
@@ -195,9 +197,11 @@ class LoopPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("work_item_id"), "I1")
-            self.assertEqual(payload.get("selection"), "review-pack")
+            self.assertEqual(payload.get("selection"), "active-revise")
+            after_tasklist = tasklist_path.read_text(encoding="utf-8")
+            self.assertEqual(after_tasklist, before_tasklist)
 
-    def test_loop_pack_prefers_review_handoff_on_revise(self) -> None:
+    def test_loop_pack_blocks_revise_without_active_work_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             seed_loop_pack_fixture(root)
@@ -216,8 +220,8 @@ class LoopPackTests(unittest.TestCase):
                 "- handoff_ids:\n"
                 "  - F6\n"
             )
-            write_file(root, "reports/loops/DEMO-1/iteration_id_I9/review.latest.pack.md", review_pack)
-            write_file(root, "docs/.active_work_item", "iteration_id=I9")
+            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_ticket", "DEMO-1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -226,10 +230,41 @@ class LoopPackTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.returncode, 2, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("work_item_id"), "review:F6")
-            self.assertEqual(payload.get("selection"), "review-handoff")
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason"), "review_revise_missing_active")
+
+    def test_loop_pack_blocks_revise_when_active_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            seed_loop_pack_fixture(root)
+            tasklist_path = root / "docs" / "tasklist" / "DEMO-1.md"
+            tasklist_text = tasklist_path.read_text(encoding="utf-8").replace("- [ ] I1:", "- [x] I1:", 1)
+            write_file(root, "docs/tasklist/DEMO-1.md", tasklist_text)
+            review_pack = (
+                "---\n"
+                "schema: aidd.review_pack.v1\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: REVISE\n"
+                "work_item_key: iteration_id=I1\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I1/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_ticket", "DEMO-1")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 2, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason"), "review_revise_closed_item")
 
     def test_loop_pack_ignores_invalid_review_pack_schema(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:

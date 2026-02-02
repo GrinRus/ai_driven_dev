@@ -111,6 +111,20 @@ def build_agent(name: str) -> str:
     verify_step = ""
     if name in {"implementer", "reviewer", "qa"}:
         verify_step = "\n            2. Верифицируй результаты.\n"
+    format_response = "Text."
+    if name in {"implementer", "reviewer", "qa"}:
+        status_line = "Status: READY|WARN|BLOCKED|PENDING" if name == "implementer" else "Status: READY|WARN|BLOCKED"
+        format_response = (
+            "Checkbox updated: ...\n"
+            f"{status_line}\n"
+            "Work item key: ...\n"
+            "Artifacts updated: ...\n"
+            "Tests: ...\n"
+            "Blockers/Handoff: ...\n"
+            "Next actions: ...\n"
+            "Context read: ...\n"
+        )
+        format_response = format_response.replace("\n", "\n            ")
     return (
         dedent(
             f"""
@@ -142,7 +156,7 @@ def build_agent(name: str) -> str:
             Text.{question}
 
             ## Формат ответа
-            Text.
+            {format_response}
             """
         ).strip()
         + "\n"
@@ -168,6 +182,18 @@ def build_command(description: str = "test command") -> str:
         scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
     if description == "tasks-new":
         granularity_hint = "\n        Granularity keys: deps, priority, blocking.\n"
+    expected_output = "Text."
+    if description in {"implement", "review", "qa"}:
+        status_line = "Status: READY|WARN|BLOCKED|PENDING" if description == "implement" else "Status: READY|WARN|BLOCKED"
+        expected_output = (
+            f"{status_line}\n"
+            "Work item key: ...\n"
+            "Artifacts updated: ...\n"
+            "Tests: ...\n"
+            "Blockers/Handoff: ...\n"
+            "Next actions: ...\n"
+        )
+        expected_output = expected_output.replace("\n", "\n        ")
     return dedent(
         f"""
         ---
@@ -204,7 +230,7 @@ def build_command(description: str = "test command") -> str:
         Text.
 
         ## Ожидаемый вывод
-        Text.
+        {expected_output}
 
         ## Примеры CLI
         - `/cmd ABC-123`

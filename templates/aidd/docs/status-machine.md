@@ -115,7 +115,7 @@ Mapping (по стадиям):
 
 WARN‑коды (loop‑gating продолжает работу):
 - `out_of_scope_warn` / `no_boundaries_defined_warn`
-- `missing_test_evidence` при `tests_required=soft`
+- `missing_test_evidence` при `tests_required` и отсутствии evidence (если нет `status=skipped` с `reason_code`)
 
 ## Scope (work_item vs ticket)
 

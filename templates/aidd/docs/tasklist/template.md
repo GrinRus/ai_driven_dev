@@ -1,7 +1,8 @@
 ---
 Ticket: <ABC-123>
 Slug: <short-slug>
-Status: PENDING   # PENDING|READY|WARN|BLOCKED
+# Status: PENDING|READY|WARN|BLOCKED
+Status: PENDING
 Updated: <YYYY-MM-DD>
 Owner: <name/team>
 PRD: aidd/docs/prd/<ABC-123>.prd.md
@@ -23,7 +24,7 @@ Reports:
 Updated: <YYYY-MM-DD>
 Ticket: <ABC-123>
 Stage: <idea|research|plan|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|release>
-Status: <PENDING|READY|WARN|BLOCKED>
+Status: PENDING
 
 ### TL;DR
 - Goal: <1–2 строки — что делаем>
@@ -119,8 +120,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Boundaries: <пути/модули + что не трогаем>
   - Priority: <low|medium|high>  # optional
   - Blocking: <true|false>       # optional
-  - deps: [<I0>, <review:F1>]    # optional
-  - locks: [<db-schema>]         # optional
+  - deps: []
+  - locks: []
   - Expected paths:
     - <path1/**>
     - <path2/**>
@@ -151,8 +152,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Boundaries: <...>
   - Priority: <low|medium|high>  # optional
   - Blocking: <true|false>       # optional
-  - deps: [<I0>, <review:F1>]    # optional
-  - locks: [<db-schema>]         # optional
+  - deps: []
+  - locks: []
   - Expected paths:
     - <path1/**>
   - Size budget:
@@ -171,15 +172,14 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
   - Acceptance mapping: <...>
   - Risks & mitigations: <...>
   - Dependencies: <...>
-- [ ] I3..N: <...>
+<!-- Добавьте I3..N по мере необходимости (формат как выше). -->
 
 ---
 
 ## AIDD:NEXT_3
 > 3 ближайших implement‑чекбокса. Pointer list: 1–2 строки и `ref:` на детализацию.
 - [ ] I1: <кратко о текущем шаге> (ref: iteration_id=I1)
-- [ ] review:F6: <blocking handoff> (ref: id=review:F6)
-- [ ] (none)
+- [ ] I2: <следующий шаг> (ref: iteration_id=I2)
 
 ---
 
@@ -195,54 +195,54 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > Канонический формат: `- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)`
 > Source blocks вставляются задачей derive (`<!-- handoff:<source> start --> ... <!-- end -->`).
 > Ручные задачи храните в `handoff:manual` — derive/normalize их не трогают.
-- [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
-  - source: review|qa|research|manual
-  - Report: <aidd/reports/...>
-  - Status: open|done|blocked
-  - scope: iteration_id|n/a
-  - DoD: <как проверить, что исправлено>
-  - Boundaries:
-    - must-touch: ["path1", "path2"]
-    - must-not-touch: ["pathX"]
-  - Tests:
-    - profile: fast|targeted|full|none
-    - tasks: ["..."]
-    - filters: ["..."]
-  - Notes: <tradeoffs/риски/почему важно>
+> Пример задачи (не активная):
+> - [ ] <title> (id: review:F6) (Priority: high) (Blocking: true)
+>   - source: review|qa|research|manual
+>   - Report: <aidd/reports/...>
+>   - Status: open|done|blocked
+>   - scope: iteration_id|n/a
+>   - DoD: <как проверить, что исправлено>
+>   - Boundaries:
+>     - must-touch: ["path1", "path2"]
+>     - must-not-touch: ["pathX"]
+>   - Tests:
+>     - profile: fast|targeted|full|none
+>     - tasks: ["..."]
+>     - filters: ["..."]
+>   - Notes: <tradeoffs/риски/почему важно>
 
-> Примеры:
 <!-- handoff:manual start -->
 <!-- handoff:manual end -->
 
-> Примеры:
-- [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
-  - source: review
-  - Report: aidd/reports/reviewer/<ticket>/<scope_key>.json
-  - Status: open
-  - scope: I2
-  - DoD: webhook rejects empty payload with 4xx + unit test updated
-  - Boundaries:
-    - must-touch: ["src/webhooks/", "tests/webhooks/"]
-    - must-not-touch: ["infra/"]
-  - Tests:
-    - profile: targeted
-    - tasks: ["pytest tests/webhooks/test_handler.py"]
-    - filters: []
-  - Notes: prevents silent 500 on missing payload
-- [ ] AC-3 export fails on empty data (id: qa:export-empty) (Priority: high) (Blocking: true)
-  - source: qa
-  - Report: aidd/reports/qa/<ticket>.json
-  - Status: open
-  - scope: n/a
-  - DoD: export returns empty CSV with headers + QA traceability updated
-  - Boundaries:
-    - must-touch: ["src/export/"]
-    - must-not-touch: ["db/migrations/"]
-  - Tests:
-    - profile: fast
-    - tasks: []
-    - filters: []
-  - Notes: blocks release for AC-3
+> Примеры (не активные):
+> - [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
+>   - source: review
+>   - Report: aidd/reports/reviewer/<ticket>/<scope_key>.json
+>   - Status: open
+>   - scope: I2
+>   - DoD: webhook rejects empty payload with 4xx + unit test updated
+>   - Boundaries:
+>     - must-touch: ["src/webhooks/", "tests/webhooks/"]
+>     - must-not-touch: ["infra/"]
+>   - Tests:
+>     - profile: targeted
+>     - tasks: ["pytest tests/webhooks/test_handler.py"]
+>     - filters: []
+>   - Notes: prevents silent 500 on missing payload
+> - [ ] AC-3 export fails on empty data (id: qa:export-empty) (Priority: high) (Blocking: true)
+>   - source: qa
+>   - Report: aidd/reports/qa/<ticket>.json
+>   - Status: open
+>   - scope: n/a
+>   - DoD: export returns empty CSV with headers + QA traceability updated
+>   - Boundaries:
+>     - must-touch: ["src/export/"]
+>     - must-not-touch: ["db/migrations/"]
+>   - Tests:
+>     - profile: fast
+>     - tasks: []
+>     - filters: []
+>   - Notes: blocks release for AC-3
 
 ---
 

@@ -45,6 +45,11 @@ class LoopRunTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "ship")
             self.assertFalse((root / "docs" / ".active_mode").exists())
+            log_path = root / "reports" / "loops" / "DEMO-1" / "loop.run.log"
+            self.assertTrue(log_path.exists())
+            self.assertIn("runner=local", log_path.read_text(encoding="utf-8"))
+            cli_logs = list((root / "reports" / "loops" / "DEMO-1").glob("cli.loop-run.*.log"))
+            self.assertTrue(cli_logs, "cli.loop-run log should be written")
 
     def test_loop_run_blocked(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

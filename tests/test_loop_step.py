@@ -48,6 +48,8 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue(log_path.exists())
             self.assertIn("/feature-dev-aidd:implement DEMO-1", log_path.read_text(encoding="utf-8"))
             self.assertEqual((root / "docs" / ".active_mode").read_text(encoding="utf-8").strip(), "loop")
+            cli_logs = list((root / "reports" / "loops" / "DEMO-1").glob("cli.loop-step.*.log"))
+            self.assertTrue(cli_logs, "cli.loop-step log should be written")
 
     def test_loop_step_runs_review_when_stage_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -141,8 +143,37 @@ class LoopStepTests(unittest.TestCase):
                 "reports/loops/DEMO-6/iteration_id_I1/stage.review.result.json",
                 json.dumps(stage_result),
             )
-            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            review_pack = (
+                "---\n"
+                "schema: aidd.review_pack.v2\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: REVISE\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n"
+            )
             write_file(root, "reports/loops/DEMO-6/iteration_id_I1/review.latest.pack.md", review_pack)
+            fix_plan = {
+                "schema": "aidd.review_fix_plan.v1",
+                "updated_at": "2024-01-02T00:00:00Z",
+                "ticket": "DEMO-6",
+                "work_item_key": "iteration_id=I1",
+                "scope_key": "iteration_id_I1",
+                "fix_plan": {
+                    "steps": ["Fix review:F1"],
+                    "commands": [],
+                    "tests": ["see AIDD:TEST_EXECUTION"],
+                    "expected_paths": ["src/**"],
+                    "acceptance_check": "Blocking findings resolved: review:F1",
+                    "links": [],
+                    "fixes": ["review:F1"],
+                },
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-6/iteration_id_I1/review.fix_plan.json",
+                json.dumps(fix_plan),
+            )
             implement_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-6",
@@ -157,9 +188,44 @@ class LoopStepTests(unittest.TestCase):
                 json.dumps(implement_result),
             )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-6", log_path)
+            result = self.run_loop_step(root, "DEMO-6", log_path, None, "--format", "json")
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("/feature-dev-aidd:implement DEMO-6", log_path.read_text(encoding="utf-8"))
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I1")
+
+    def test_loop_step_blocks_when_fix_plan_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_stage", "review")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-7",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-7/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = (
+                "---\n"
+                "schema: aidd.review_pack.v2\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: REVISE\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-7/iteration_id_I1/review.latest.pack.md", review_pack)
+
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-7", log_path)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
 
     def test_loop_step_blocks_on_stale_review_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

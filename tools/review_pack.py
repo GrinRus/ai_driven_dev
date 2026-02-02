@@ -85,11 +85,35 @@ def normalize_text(value: object) -> str:
 
 
 def finding_summary(entry: Dict[str, object]) -> str:
-    for key in ("recommendation", "title", "summary", "message", "details"):
+    for key in ("summary", "title", "message", "details", "recommendation"):
         value = entry.get(key)
         if value:
             return normalize_text(value)
     return "n/a"
+
+
+def normalize_links(entry: Dict[str, object]) -> List[str]:
+    links = entry.get("links")
+    if isinstance(links, list):
+        return [str(item).strip() for item in links if str(item).strip()]
+    link = entry.get("link") or entry.get("path") or entry.get("file")
+    if link:
+        return [str(link).strip()]
+    return []
+
+
+def normalize_finding(entry: Dict[str, object]) -> Dict[str, object]:
+    entry_id = str(entry.get("id") or "").strip() or "n/a"
+    severity = normalize_severity(entry.get("severity"))
+    blocking = entry.get("blocking") is True or severity in {"blocker", "critical"}
+    return {
+        "id": entry_id,
+        "summary": finding_summary(entry),
+        "severity": severity,
+        "blocking": blocking,
+        "scope": str(entry.get("scope") or "").strip(),
+        "links": normalize_links(entry),
+    }
 
 
 def dedupe_findings(findings: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -217,6 +241,125 @@ def _tests_entry_has_evidence(entry: Optional[Dict[str, object]]) -> bool:
     return status in {"pass", "fail"}
 
 
+def parse_loop_pack_boundaries(loop_pack_path: Path) -> Dict[str, List[str]]:
+    boundaries: Dict[str, List[str]] = {"allowed_paths": [], "forbidden_paths": []}
+    if not loop_pack_path.exists():
+        return boundaries
+    lines = read_text(loop_pack_path).splitlines()
+    if not lines or lines[0].strip() != "---":
+        return boundaries
+    current_list: Optional[str] = None
+    in_front = False
+    for raw in lines:
+        line = raw.rstrip()
+        if line.strip() == "---":
+            if not in_front:
+                in_front = True
+                continue
+            break
+        if not in_front:
+            continue
+        stripped = line.strip()
+        if stripped == "boundaries:":
+            current_list = None
+            continue
+        if stripped == "allowed_paths:":
+            current_list = "allowed_paths"
+            continue
+        if stripped == "forbidden_paths:":
+            current_list = "forbidden_paths"
+            continue
+        if current_list and stripped.startswith("-"):
+            value = stripped[1:].strip()
+            if value and value != "[]":
+                boundaries[current_list].append(value)
+    return boundaries
+
+
+def _normalize_list(raw: object) -> List[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        items = [raw]
+    elif isinstance(raw, list):
+        items = raw
+    else:
+        return []
+    return [str(item).strip() for item in items if str(item).strip()]
+
+
+def normalize_fix_plan(
+    raw: object,
+    *,
+    findings: List[Dict[str, object]],
+    boundaries: Dict[str, List[str]],
+    review_report: str,
+    loop_pack: str,
+    missing_tests: bool = False,
+) -> Dict[str, object]:
+    plan: Dict[str, object] = {}
+    if isinstance(raw, dict):
+        plan.update(raw)
+    steps = _normalize_list(plan.get("steps"))
+    commands = _normalize_list(plan.get("commands"))
+    tests = _normalize_list(plan.get("tests"))
+    expected_paths = _normalize_list(plan.get("expected_paths") or plan.get("expectedPaths"))
+    acceptance_check = str(plan.get("acceptance_check") or plan.get("acceptanceCheck") or "").strip()
+    links = _normalize_list(plan.get("links"))
+    fixes = _normalize_list(plan.get("fixes"))
+
+    blocking_ids = [str(entry.get("id") or "").strip() for entry in findings if entry.get("blocking")]
+    blocking_ids = [item for item in blocking_ids if item]
+    priority_ids = blocking_ids or [str(entry.get("id") or "").strip() for entry in findings if entry.get("id")]
+    priority_ids = [item for item in priority_ids if item]
+    for finding_id in blocking_ids:
+        if finding_id not in fixes:
+            fixes.append(finding_id)
+    if not fixes and priority_ids:
+        fixes = list(priority_ids)
+
+    if not steps:
+        for finding_id in priority_ids:
+            steps.append(f"Fix finding {finding_id} (see review report)")
+
+    if missing_tests:
+        tests_step = "Run required tests (see AIDD:TEST_EXECUTION)"
+        if not any(
+            "test" in str(step).lower() or "aidd:test_execution" in str(step).lower()
+            for step in steps
+        ):
+            steps.append(tests_step)
+
+    if not tests:
+        tests.append("see AIDD:TEST_EXECUTION")
+
+    if not expected_paths:
+        expected_paths = boundaries.get("allowed_paths", [])
+
+    if not acceptance_check:
+        if blocking_ids:
+            acceptance_check = "Blocking findings resolved: " + ", ".join(blocking_ids)
+        elif priority_ids:
+            acceptance_check = "Findings resolved: " + ", ".join(priority_ids)
+        else:
+            acceptance_check = "Findings resolved and review can ship."
+
+    if review_report and review_report not in links:
+        links.append(review_report)
+    if loop_pack and loop_pack not in links:
+        links.append(loop_pack)
+
+    return {
+        "steps": steps,
+        "commands": commands,
+        "tests": tests,
+        "expected_paths": expected_paths,
+        "acceptance_check": acceptance_check,
+        "links": links,
+        "fixes": fixes,
+    }
+
+
 def verdict_from_status(status: str, findings: List[Dict[str, object]]) -> str:
     status = status.strip().lower()
     if status == "ready":
@@ -246,6 +389,7 @@ def render_pack(
     handoff_ids_added: List[str],
     next_recommended_work_item: str,
     evidence_links: List[str],
+    fix_plan: Optional[Dict[str, object]] = None,
 ) -> str:
     lines: List[str] = [
         "---",
@@ -282,17 +426,63 @@ def render_pack(
             f"- blocking_findings_count: {blocking_findings_count}",
             f"- next_recommended_work_item: {next_recommended_work_item or 'none'}",
             "",
-            "## Top findings",
+            "## Findings",
         ]
     )
     if findings:
         for entry in findings:
             entry_id = str(entry.get("id") or "n/a")
             severity = normalize_severity(entry.get("severity"))
-            requirement = finding_summary(entry)
-            lines.append(f"- {entry_id} [{severity}] {requirement}")
+            summary = str(entry.get("summary") or "")
+            blocking = "true" if entry.get("blocking") else "false"
+            scope = str(entry.get("scope") or "")
+            links = entry.get("links") if isinstance(entry.get("links"), list) else []
+            lines.append(f"- id: {entry_id}")
+            if summary:
+                lines.append(f"  - summary: {summary}")
+            lines.append(f"  - severity: {severity}")
+            lines.append(f"  - blocking: {blocking}")
+            if scope:
+                lines.append(f"  - scope: {scope}")
+            if links:
+                lines.append("  - links:")
+                for link in links:
+                    lines.append(f"    - {link}")
     else:
         lines.append("- none")
+
+    if fix_plan:
+        lines.extend(
+            [
+                "",
+                "## Fix Plan",
+                "- steps:",
+            ]
+        )
+        for idx, step in enumerate(fix_plan.get("steps", []), start=1):
+            lines.append(f"  - {idx}. {step}")
+        lines.append("- commands:")
+        for cmd in fix_plan.get("commands", []):
+            lines.append(f"  - {cmd}")
+        lines.append("- tests:")
+        for test in fix_plan.get("tests", []):
+            lines.append(f"  - {test}")
+        lines.append("- expected_paths:")
+        for path in fix_plan.get("expected_paths", []):
+            lines.append(f"  - {path}")
+        acceptance_check = str(fix_plan.get("acceptance_check") or "")
+        if acceptance_check:
+            lines.append(f"- acceptance_check: {acceptance_check}")
+        links = fix_plan.get("links", [])
+        if links:
+            lines.append("- links:")
+            for link in links:
+                lines.append(f"  - {link}")
+        fixes = fix_plan.get("fixes", [])
+        if fixes:
+            lines.append("- fixes:")
+            for item_id in fixes:
+                lines.append(f"  - finding_id={item_id}")
     lines.extend(
         [
             "",
@@ -357,7 +547,7 @@ def main(argv: list[str] | None = None) -> int:
         raise FileNotFoundError(f"review report not found at {runtime.rel_path(report_path, target)}")
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
-    findings = dedupe_findings(extract_findings(payload))
+    findings_raw = extract_findings(payload)
     tests_required, tests_block = _tests_policy(
         target,
         ticket=ticket,
@@ -380,21 +570,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tests_evidence = _tests_entry_has_evidence(tests_entry)
     missing_tests = tests_required and not tests_evidence
-    if missing_tests:
-        findings.append(
-            {
-                "id": "review:missing-tests",
-                "severity": "critical" if tests_block else "major",
-                "scope": "tests",
-                "title": "Tests evidence missing",
-                "details": "Tests evidence required but not found.",
-                "recommendation": "Run the required tests and attach evidence.",
-                "blocking": tests_block,
-            }
-        )
-        findings = dedupe_findings(findings)
-
-    findings = sort_findings(findings)[:5]
+    findings = [normalize_finding(entry) for entry in findings_raw]
     verdict = verdict_from_status(str(payload.get("status") or ""), findings)
     if missing_tests:
         if tests_block:
@@ -411,16 +587,10 @@ def main(argv: list[str] | None = None) -> int:
     handoff_ids = list(dict.fromkeys(handoff_ids))[:5]
     handoff_ids_added = list(handoff_ids)
 
-    def _is_blocking(entry: Dict[str, object]) -> bool:
-        if entry.get("blocking") is True:
-            return True
-        severity = normalize_severity(entry.get("severity"))
-        return severity in {"blocker", "critical"}
-
-    blocking_findings_count = sum(1 for entry in findings if _is_blocking(entry))
+    blocking_findings_count = sum(1 for entry in findings if entry.get("blocking"))
 
     next_actions: List[str] = []
-    for entry in findings:
+    for entry in findings_raw:
         action = entry.get("recommendation") or entry.get("title") or entry.get("summary") or entry.get("message") or entry.get("details")
         if action:
             next_actions.append(" ".join(str(action).split()))
@@ -444,6 +614,31 @@ def main(argv: list[str] | None = None) -> int:
         pass
     evidence_links = list(dict.fromkeys(evidence_links))
 
+    loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
+    boundaries = parse_loop_pack_boundaries(loop_pack_path)
+    fix_plan_raw = None
+    if isinstance(payload, dict):
+        fix_plan_raw = payload.get("fix_plan") or payload.get("fixPlan")
+    fix_plan = None
+    fix_plan_json = ""
+    if verdict == "REVISE":
+        fix_plan = normalize_fix_plan(
+            fix_plan_raw,
+            findings=findings,
+            boundaries=boundaries,
+            review_report=runtime.rel_path(report_path, target),
+            loop_pack=runtime.rel_path(loop_pack_path, target) if loop_pack_path.exists() else "",
+            missing_tests=missing_tests,
+        )
+
+    output_dir = target / "reports" / "loops" / ticket / scope_key
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if verdict == "REVISE" and fix_plan:
+        fix_plan_path = output_dir / "review.fix_plan.json"
+        fix_plan_json = runtime.rel_path(fix_plan_path, target)
+        evidence_links = list(dict.fromkeys([*evidence_links, fix_plan_json]))
+
     pack_text = render_pack(
         ticket=ticket,
         verdict=verdict,
@@ -459,13 +654,23 @@ def main(argv: list[str] | None = None) -> int:
         handoff_ids_added=handoff_ids_added,
         next_recommended_work_item=next_recommended_work_item,
         evidence_links=evidence_links,
+        fix_plan=fix_plan,
     )
 
-    output_dir = target / "reports" / "loops" / ticket / scope_key
-    output_dir.mkdir(parents=True, exist_ok=True)
     pack_path = output_dir / "review.latest.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
     rel_path = runtime.rel_path(pack_path, target)
+
+    if verdict == "REVISE" and fix_plan:
+        fix_plan_payload = {
+            "schema": "aidd.review_fix_plan.v1",
+            "updated_at": updated_at,
+            "ticket": ticket,
+            "work_item_key": work_item_key,
+            "scope_key": scope_key,
+            "fix_plan": fix_plan,
+        }
+        fix_plan_path.write_text(json.dumps(fix_plan_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     structured = {
         "schema": "aidd.review_pack.v2",
@@ -484,6 +689,8 @@ def main(argv: list[str] | None = None) -> int:
         "handoff_ids_added": handoff_ids_added,
         "next_recommended_work_item": next_recommended_work_item,
         "evidence_links": evidence_links,
+        "fix_plan": fix_plan,
+        "fix_plan_json": fix_plan_json,
     }
 
     if args.format:

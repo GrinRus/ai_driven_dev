@@ -641,6 +641,8 @@ class FormatAndTestEventTests(unittest.TestCase):
             last_entry = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
             self.assertEqual(last_entry.get("status"), "skipped")
             self.assertEqual(last_entry.get("profile"), "none")
+            self.assertEqual(last_entry.get("reason_code"), "profile_none")
+            self.assertTrue(last_entry.get("reason"))
 
     def test_format_and_test_clears_missing_test_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

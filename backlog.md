@@ -2930,7 +2930,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Loop Protocol (REVISE в рамках одного work_item)
 
-- [ ] **W88-1** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop-pack.sh`, `commands/implement.md`, `commands/review.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
+- [x] **W88-1** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop-pack.sh`, `commands/implement.md`, `commands/review.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
   - Зафиксировать REVISE-loop:
     - на `verdict=REVISE` записывать `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json` с `result=continue`;
     - `loop-run/step` при `continue` повторно запускает `/feature-dev-aidd:implement` по тому же `scope_key` (без смены work_item).
@@ -2954,7 +2954,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Тесты подтверждают, что `REVISE` не меняет `AIDD:NEXT_3` и чекбоксы.
   **Deps:** W88-2
 
-- [ ] **W88-2** `tools/review-pack.sh`, `agents/reviewer.md`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
+- [x] **W88-2** `tools/review-pack.sh`, `agents/reviewer.md`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
   - Добавить структурированный **Fix Plan** в `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`:
     - Fix Plan должен быть исполнимым и детерминированным (без “починить как-нибудь”).
     - Рекомендуемый формат:
@@ -2978,7 +2978,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Evidence & Gates
 
-- [ ] **W88-3** `hooks/gate-workflow.sh`, `tools/stage-result.sh` (если используется), `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/*`:
+- [x] **W88-3** `hooks/gate-workflow.sh`, `tools/stage-result.sh` (если используется), `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/*`:
   - Гарантировать запись stage_result при раннем выходе/ошибке (fail-fast) для implement/review/qa:
     - `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`
     - `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`
@@ -2993,7 +2993,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - gate-workflow не видит “missing stage_result” ни в одном сценарии.
   **Deps:** -
 
-- [ ] **W88-4** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `tools/loop-run.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
+- [x] **W88-4** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `tools/loop-run.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
   - При пропуске тестов **всегда** писать `aidd/reports/tests/<ticket>/<scope_key>.jsonl`:
     - добавить JSONL запись со `status="skipped"` и полями `reason_code` + `reason`.
     - рекомендованные `reason_code` (минимум):
@@ -3013,7 +3013,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - stage_result содержит ссылку на tests jsonl.
   **Deps:** W88-3
 
-- [ ] **W88-5** `hooks/gate-tests.sh`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
+- [x] **W88-5** `hooks/gate-tests.sh`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
   - Учесть `tests_required=soft|hard` (из `gates.json`):
     - `soft`: отсутствие/skip тестов → НЕ BLOCKED, но должно приводить к `WARN/REVISE` (в зависимости от стадии) + reason_code
     - `hard`: отсутствие/skip тестов → `BLOCKED`
@@ -3033,7 +3033,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Pack/QA Consistency
 
-- [ ] **W88-6** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`:
+- [x] **W88-6** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`:
   - Синхронизировать `review.latest.pack.md` с `aidd/reports/reviewer/<ticket>/<scope_key>.json`:
     - pack должен генерироваться из JSON отчёта (или наоборот) одним источником истины.
   - Поля должны совпадать:
@@ -3044,7 +3044,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - pack и report совпадают по findings/severity/blocking_findings_count (байт-в-байт по смыслу).
   **Deps:** W88-2
 
-- [ ] **W88-7** `tools/qa.sh`, `commands/qa.md`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
+- [x] **W88-7** `tools/qa.sh`, `commands/qa.md`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
   - Согласовать статусы и пути:
     - `aidd/reports/qa/<ticket>.json`
     - `aidd/reports/qa/<ticket>.pack.json` (если используется)
@@ -3064,7 +3064,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Logging & Lint
 
-- [ ] **W88-8** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
+- [x] **W88-8** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
   - Писать логи CLI:
     - `aidd/reports/loops/<ticket>/cli.loop-run.<ts>.log`
     - `aidd/reports/loops/<ticket>/cli.loop-step.<ts>.log`
@@ -3076,7 +3076,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Каждый loop-запуск имеет cli-лог и заполненный `runner`.
   **Deps:** -
 
-- [ ] **W88-9** `tools/tasklist-check.sh`, `tools/tasklist-normalize.sh`, `tests/`, `templates/aidd/docs/tasklist/template.md`:
+- [x] **W88-9** `tools/tasklist-check.sh`, `tools/tasklist-normalize.sh`, `tests/`, `templates/aidd/docs/tasklist/template.md`:
   - Исправить “no such group” и дубли секций (root cause + авто-fix).
   - Добавить unit-тесты:
     - на template (валиден из коробки)
@@ -3090,7 +3090,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Prompting & Output Contract
 
-- [ ] **W88-10** `agents/implementer.md`, `agents/reviewer.md`, `agents/qa.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+- [x] **W88-10** `agents/implementer.md`, `agents/reviewer.md`, `agents/qa.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
   - Enforce “excerpt-first” (и “pack-first”) как проверяемое правило:
     - Implementer/Reviewer/QA должны начинать с: `loop pack → (review pack, если есть) → excerpt`.
     - Запрет на чтение full PRD/Research/Plan/Tasklist целиком, если excerpt достаточно.
@@ -3101,7 +3101,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Транскрипты/ответы агентов содержат `Context read:` и демонстрируют pack/excerpt-first.
   **Deps:** -
 
-- [ ] **W88-11** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`:
+- [x] **W88-11** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`:
   - Сделать обязательными поля output-контракта для subagents implement/review/qa:
     - `Status`
     - `Work item key`
@@ -3126,7 +3126,7 @@ _Статус: новый, приоритет 1. Цель — канон про�
 
 ### Versioning & Validation
 
-- [ ] **W88-12** `templates/aidd/**`, `tests/repo_tools/*`, `commands/aidd-init.md`:
+- [x] **W88-12** `templates/aidd/**`, `tests/repo_tools/*`, `commands/aidd-init.md`:
   - bump `prompt_version` (единым коммитом, согласованно).
   - прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`.
   - проверить `/feature-dev-aidd:aidd-init` и `tests/repo_tools/smoke-workflow.sh` на чистом workspace/ветке.

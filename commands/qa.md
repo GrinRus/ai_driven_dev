@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.26
-source_version: 1.0.26
+prompt_version: 1.0.28
+source_version: 1.0.28
 allowed-tools:
   - Read
   - Edit
@@ -79,11 +79,11 @@ disable-model-invocation: false
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
-5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED` (soft missing evidence → `WARN` + handoff “run tests”).
+5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED` (`tests_required=soft` + missing/skip → `WARN`, `tests_required=hard` → `BLOCKED`).
 6. Subagent: выполняет verify results (QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
 8. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
-9. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage qa --result <blocked|done>` (READY/WARN → `done`; BLOCKED только при missing artifacts/evidence или `tests_required=hard`).
+9. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage qa --result <blocked|done>` (READY/WARN → `done`; BLOCKED только при missing artifacts/evidence или `tests_required=hard`). QA stage_result ticket‑scoped (`scope_key=<ticket>`); при раннем `BLOCKED` используй `--allow-missing-work-item`.
 10. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
@@ -91,10 +91,17 @@ disable-model-invocation: false
 - Отчёт не записался — перезапусти CLI команду и приложи stderr.
 - Если `aidd/reports/context/$1.qa.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
+- Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item`).
 
 ## Ожидаемый вывод
 - Обновлённый tasklist и отчёт QA.
-- Ответ содержит `Checkbox updated`, `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Next actions` (output‑контракт соблюдён).
+- `Status: READY|WARN|BLOCKED`.
+- `Work item key: <ticket>`.
+- `Artifacts updated: <paths>`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Blockers/Handoff: ...`.
+- `Next actions: ...`.
+- Ответ содержит `Checkbox updated` (если есть).
 
 ## Примеры CLI
 - `/feature-dev-aidd:qa ABC-123`

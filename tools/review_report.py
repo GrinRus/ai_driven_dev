@@ -66,6 +66,41 @@ def _stable_finding_id(prefix: str, *parts: object) -> str:
     return digest.hexdigest()[:12]
 
 
+def _normalize_severity(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    return raw or "unknown"
+
+
+def _extract_summary(entry: Dict[str, Any], fallback: Optional[Dict[str, Any]] = None) -> str:
+    for key in ("summary", "title", "message", "details", "recommendation"):
+        value = entry.get(key)
+        if value:
+            return str(value).strip()
+    if fallback:
+        return _extract_summary(fallback, None)
+    return ""
+
+
+def _extract_links(entry: Dict[str, Any], fallback: Optional[Dict[str, Any]] = None) -> List[str]:
+    links = entry.get("links")
+    if isinstance(links, list):
+        return [str(item).strip() for item in links if str(item).strip()]
+    link = entry.get("link") or entry.get("path") or entry.get("file")
+    if link:
+        return [str(link).strip()]
+    if fallback:
+        return _extract_links(fallback, None)
+    return []
+
+
+def _normalize_blocking(entry: Dict[str, Any], severity: str) -> bool:
+    if entry.get("blocking") is True:
+        return True
+    if severity in {"blocker", "critical"}:
+        return True
+    return False
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Create/update review report with findings (stored in aidd/reports/reviewer/<ticket>/<scope_key>.json).",
@@ -112,6 +147,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--summary",
         help="Optional summary for the review report.",
     )
+    parser.add_argument(
+        "--fix-plan",
+        help="Optional JSON object with structured fix plan.",
+    )
+    parser.add_argument(
+        "--fix-plan-file",
+        help="Path to JSON file containing structured fix plan.",
+    )
     return parser.parse_args(argv)
 
 
@@ -149,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.findings and args.findings_file:
         raise ValueError("use --findings or --findings-file (not both)")
+    if args.fix_plan and args.fix_plan_file:
+        raise ValueError("use --fix-plan or --fix-plan-file (not both)")
 
     input_payload = None
     if args.findings_file:
@@ -234,6 +279,41 @@ def main(argv: list[str] | None = None) -> int:
             merged.append(item)
         return merged
 
+    def _normalize_findings(items: List[Dict]) -> List[Dict]:
+        normalized: List[Dict] = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            item = dict(entry)
+            summary = _extract_summary(item)
+            if not summary:
+                summary = "n/a"
+            item["summary"] = summary
+            severity = _normalize_severity(item.get("severity"))
+            item["severity"] = severity
+            scope = str(item.get("scope") or "").strip()
+            if scope:
+                item["scope"] = scope
+            links = _extract_links(item)
+            item["links"] = links
+            item["blocking"] = _normalize_blocking(item, severity)
+            normalized.append(item)
+        return normalized
+
+    fix_plan_payload = None
+    if args.fix_plan_file:
+        try:
+            fix_plan_payload = json.loads(Path(args.fix_plan_file).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in --fix-plan-file: {exc}") from exc
+    elif args.fix_plan:
+        try:
+            fix_plan_payload = json.loads(args.fix_plan)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON for --fix-plan: {exc}") from exc
+    elif isinstance(input_payload, dict):
+        fix_plan_payload = input_payload.get("fix_plan") or input_payload.get("fixPlan")
+
     new_findings: List[Dict] = []
     if input_payload is not None:
         new_findings = _extract_findings(input_payload)
@@ -259,10 +339,22 @@ def main(argv: list[str] | None = None) -> int:
         record["status"] = _normalize_status(args.status)
     if args.summary:
         record["summary"] = str(args.summary).strip()
+    if fix_plan_payload is not None:
+        record["fix_plan"] = fix_plan_payload
+    findings_payload: List[Dict] = []
     if new_findings:
-        record["findings"] = new_findings
+        findings_payload = _normalize_findings(new_findings)
     elif "findings" in record:
-        record["findings"] = record.get("findings") or []
+        findings_payload = _normalize_findings(record.get("findings") or [])
+    if findings_payload:
+        record["findings"] = findings_payload
+    elif "findings" in record:
+        record["findings"] = []
+
+    if "findings" in record:
+        record["blocking_findings_count"] = sum(
+            1 for entry in record.get("findings") or [] if isinstance(entry, dict) and entry.get("blocking")
+        )
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

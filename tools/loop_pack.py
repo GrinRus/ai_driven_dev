@@ -772,9 +772,62 @@ def main(argv: list[str] | None = None) -> int:
         selection_reason = "override"
     elif args.stage == "implement":
         if revise_mode:
-            review_key = review_meta.scope_key
-            if review_key:
-                candidate = find_work_item(all_items, review_key)
+            if active_ticket == ticket and active_work_item:
+                candidate = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
+                if candidate and is_open_item(candidate):
+                    selected_item = candidate
+                    selection_reason = "active-revise"
+                elif candidate:
+                    message = "BLOCKED: review pack requires revise but active work item is closed"
+                    reason = "review_revise_closed_item"
+                    if args.format:
+                        payload = {
+                            "schema": "aidd.loop_pack.v1",
+                            "status": "blocked",
+                            "ticket": ticket,
+                            "stage": args.stage,
+                            "reason": reason,
+                        }
+                        output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                        print(output)
+                    else:
+                        print(message)
+                    return 2
+                else:
+                    message = "BLOCKED: review pack requires revise but active work item is missing"
+                    reason = "review_revise_missing_active"
+                    if args.format:
+                        payload = {
+                            "schema": "aidd.loop_pack.v1",
+                            "status": "blocked",
+                            "ticket": ticket,
+                            "stage": args.stage,
+                            "reason": reason,
+                        }
+                        output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                        print(output)
+                    else:
+                        print(message)
+                    return 2
+            else:
+                message = "BLOCKED: review pack requires revise but active work item is missing"
+                reason = "review_revise_missing_active"
+                if args.format:
+                    payload = {
+                        "schema": "aidd.loop_pack.v1",
+                        "status": "blocked",
+                        "ticket": ticket,
+                        "stage": args.stage,
+                        "reason": reason,
+                    }
+                    output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                    print(output)
+                else:
+                    print(message)
+                return 2
+        else:
+            if review_meta.scope_key:
+                candidate = find_work_item(all_items, review_meta.scope_key)
                 if candidate and is_open_item(candidate):
                     selected_item = candidate
                     selection_reason = "review-pack"
@@ -782,28 +835,22 @@ def main(argv: list[str] | None = None) -> int:
                 selected_item = select_first_open_handoff(review_meta.handoff_ids, handoffs)
                 if selected_item:
                     selection_reason = "review-handoff"
-            if not selected_item and open_handoffs:
-                selected_item = open_handoffs[0]
-                selection_reason = "handoff"
             if not selected_item and active_ticket == ticket and active_work_item and not args.pick_next:
-                if revise_mode and (review_meta.work_item_key or open_handoffs):
-                    selected_item = None
-                else:
-                    selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
+                selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
                 if selected_item:
                     if is_open_item(selected_item):
                         selection_reason = "active"
                     else:
                         selected_item = None
-        if not selected_item:
-            next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
-            if next3_refs:
-                if revise_mode and open_handoffs:
-                    selected_item = None
-                else:
+            if not selected_item:
+                next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
+                if next3_refs:
                     selected_item = select_first_open(next3_refs, all_items)
                     if selected_item:
                         selection_reason = "next3"
+            if not selected_item and open_handoffs:
+                selected_item = open_handoffs[0]
+                selection_reason = "handoff"
     else:
         if args.pick_next:
             next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))

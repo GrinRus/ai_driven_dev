@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import time
+import datetime as dt
 from pathlib import Path
 from typing import Dict, List
 
@@ -35,6 +36,17 @@ def append_log(log_path: Path, message: str) -> None:
         handle.write(message + "\n")
 
 
+def resolve_runner_label(raw: str | None) -> str:
+    if raw:
+        return raw.strip()
+    env_value = (os.environ.get("AIDD_LOOP_RUNNER_LABEL") or os.environ.get("AIDD_RUNNER") or "").strip()
+    if env_value:
+        return env_value
+    if os.environ.get("CI"):
+        return "ci"
+    return "local"
+
+
 def run_loop_step(plugin_root: Path, workspace_root: Path, ticket: str, runner: str | None) -> subprocess.CompletedProcess[str]:
     cmd = [str(plugin_root / "tools" / "loop-step.sh"), "--ticket", ticket, "--format", "json"]
     if runner:
@@ -50,6 +62,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-iterations", type=int, default=10, help="Maximum number of loop iterations.")
     parser.add_argument("--sleep-seconds", type=float, default=0.0, help="Sleep between iterations.")
     parser.add_argument("--runner", help="Runner command override.")
+    parser.add_argument("--runner-label", help="Runner label for logs (claude_cli|ci|local).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     return parser.parse_args(argv)
 
@@ -79,6 +92,13 @@ def main(argv: List[str] | None = None) -> int:
     log_path = target / "reports" / "loops" / ticket / "loop.run.log"
     max_iterations = max(1, int(args.max_iterations))
     sleep_seconds = max(0.0, float(args.sleep_seconds))
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
+    cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-run.{stamp}.log"
+    runner_label = resolve_runner_label(args.runner_label)
+    append_log(
+        cli_log_path,
+        f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label}",
+    )
 
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
@@ -90,10 +110,19 @@ def main(argv: List[str] | None = None) -> int:
                 "iterations": iteration,
                 "exit_code": ERROR_CODE,
                 "log_path": runtime.rel_path(log_path, target),
+                "cli_log_path": runtime.rel_path(cli_log_path, target),
+                "runner_label": runner_label,
                 "reason": f"loop-step failed ({result.returncode})",
                 "updated_at": utc_timestamp(),
             }
-            append_log(log_path, f"{utc_timestamp()} iteration={iteration} status=error code={result.returncode}")
+            append_log(
+                log_path,
+                f"{utc_timestamp()} iteration={iteration} status=error code={result.returncode} runner={runner_label}",
+            )
+            append_log(
+                cli_log_path,
+                f"{utc_timestamp()} event=error iteration={iteration} exit_code={result.returncode}",
+            )
             clear_active_mode(target)
             emit(args.format, payload)
             return ERROR_CODE
@@ -106,9 +135,14 @@ def main(argv: List[str] | None = None) -> int:
         reason_code = step_payload.get("reason_code") or ""
         scope_key = step_payload.get("scope_key") or ""
         runner_effective = step_payload.get("runner_effective") or ""
+        step_status = step_payload.get("status")
         append_log(
             log_path,
-            f"{utc_timestamp()} iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} scope_key={scope_key} reason_code={reason_code} runner={runner_effective} reason={reason}",
+            f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} exit_code={result.returncode} reason_code={reason_code} runner={runner_label} runner_cmd={runner_effective} reason={reason}",
+        )
+        append_log(
+            cli_log_path,
+            f"{utc_timestamp()} event=step iteration={iteration} status={step_payload.get('status')} stage={step_payload.get('stage')} scope_key={scope_key} exit_code={result.returncode}",
         )
         if result.returncode == DONE_CODE:
             clear_active_mode(target)
@@ -117,9 +151,12 @@ def main(argv: List[str] | None = None) -> int:
                 "iterations": iteration,
                 "exit_code": DONE_CODE,
                 "log_path": runtime.rel_path(log_path, target),
+                "cli_log_path": runtime.rel_path(cli_log_path, target),
+                "runner_label": runner_label,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }
+            append_log(cli_log_path, f"{utc_timestamp()} event=done iterations={iteration}")
             emit(args.format, payload)
             return DONE_CODE
         if result.returncode == BLOCKED_CODE:
@@ -129,9 +166,12 @@ def main(argv: List[str] | None = None) -> int:
                 "iterations": iteration,
                 "exit_code": BLOCKED_CODE,
                 "log_path": runtime.rel_path(log_path, target),
+                "cli_log_path": runtime.rel_path(cli_log_path, target),
+                "runner_label": runner_label,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }
+            append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations={iteration}")
             emit(args.format, payload)
             return BLOCKED_CODE
         if sleep_seconds:
@@ -142,10 +182,13 @@ def main(argv: List[str] | None = None) -> int:
         "iterations": max_iterations,
         "exit_code": MAX_ITERATIONS_CODE,
         "log_path": runtime.rel_path(log_path, target),
+        "cli_log_path": runtime.rel_path(cli_log_path, target),
+        "runner_label": runner_label,
         "last_step": last_payload,
         "updated_at": utc_timestamp(),
     }
     clear_active_mode(target)
+    append_log(cli_log_path, f"{utc_timestamp()} event=max-iterations iterations={max_iterations}")
     emit(args.format, payload)
     return MAX_ITERATIONS_CODE
 

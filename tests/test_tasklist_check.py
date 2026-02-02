@@ -213,6 +213,14 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_template_is_valid(self) -> None:
+        template_path = REPO_ROOT / "templates" / "aidd" / "docs" / "tasklist" / "template.md"
+        template_text = template_path.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = tasklist_check.check_tasklist_text(root, "ABC-123", template_text)
+            self.assertIn(result.status, {"ok", "warn"}, result.message)
+
 
 if __name__ == "__main__":
     unittest.main()

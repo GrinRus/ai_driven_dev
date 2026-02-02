@@ -38,6 +38,8 @@ def append_log(
     exit_code: Optional[int] = None,
     log_path: Optional[str] = None,
     status: Optional[str] = None,
+    reason_code: Optional[str] = None,
+    reason: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
     source: Optional[str] = None,
     cwd: Optional[str] = None,
@@ -55,6 +57,12 @@ def append_log(
             status_value = "pass"
         else:
             status_value = "fail"
+
+    if status_value in {"skipped", "not-run", "skip"}:
+        if not reason_code:
+            reason_code = "manual_skip"
+        if not reason:
+            reason = "tests skipped"
 
     payload: Dict[str, Any] = {
         "schema": "aidd.tests_log.v1",
@@ -79,6 +87,10 @@ def append_log(
         payload["exit_code"] = exit_code
     if log_path:
         payload["log_path"] = str(log_path)
+    if reason_code:
+        payload["reason_code"] = str(reason_code)
+    if reason:
+        payload["reason"] = str(reason)
     if cwd:
         payload["cwd"] = cwd
     if worktree:
