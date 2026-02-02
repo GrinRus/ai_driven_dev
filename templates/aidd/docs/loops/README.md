@@ -15,6 +15,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 ## Automation notes
 - Loop pack: `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`.
 - Review pack: `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (`schema: aidd.review_pack.v2`).
+- Если review pack старее review report (`review_pack_stale`) — пересоберите pack (или перезапустите review). При наличии loop‑pack/`active_work_item` review‑report авто‑синхронизирует pack.
 - Fix Plan (REVISE): `aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json`.
 - Stage result (loop‑gating): `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`.
 - QA stage_result ticket‑scoped: `aidd/reports/loops/<ticket>/<ticket>/stage.qa.result.json`.

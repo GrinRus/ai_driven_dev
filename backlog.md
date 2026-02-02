@@ -3206,6 +3206,21 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Тесты покрывают все ветки выбора work_item.
   **Deps:** W88-19
 
+- [x] **W88-21** `tools/review_report.py`, `tools/review_pack.py`, `commands/review.md`, `templates/aidd/docs/loops/README.md`, `tests/test_review_report.py`, `tests/test_review_pack.py`:
+  - Сделать review-report идемпотентным:
+    - не обновлять `updated_at`, если payload не изменился;
+    - сохранять `generated_at` при повторных запусках.
+  - Авто‑синхронизация review pack:
+    - если loop‑pack и `.active_work_item` доступны и совпадают с `work_item_key`;
+    - пересобирать pack при изменении отчёта или при отсутствии pack.
+  - В review pack добавлять `review_report_updated_at` (для диагностики stale).
+  - Обновить доки/контракт review (порядок: report → pack, что делать при stale).
+  **AC:**
+  - Повторный `review-report` с тем же payload не меняет `updated_at`.
+  - При изменении review‑report, review pack пересобирается и не считается stale.
+  - Pack содержит `review_report_updated_at` и его значение ≥ report.updated_at.
+  **Deps:** W88-6, W88-16
+
 ## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
 
 - [x] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:

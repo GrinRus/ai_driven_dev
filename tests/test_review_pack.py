@@ -25,6 +25,7 @@ class ReviewPackTests(unittest.TestCase):
             report = {
                 "ticket": "DEMO-1",
                 "status": "READY",
+                "updated_at": "2024-01-01T00:00:00Z",
                 "findings": [
                     {"id": "review:F1", "severity": "minor", "title": "Update tests"},
                 ],
@@ -61,6 +62,7 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(payload.get("blocking_findings_count"), 0)
             self.assertEqual(payload.get("findings")[0].get("summary"), "Update tests")
             self.assertEqual(payload.get("findings")[0].get("severity"), "minor")
+            self.assertEqual(payload.get("review_report_updated_at"), "2024-01-01T00:00:00Z")
 
             pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1" / "review.latest.pack.md"
             self.assertTrue(pack_path.exists())

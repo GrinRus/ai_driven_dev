@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +34,14 @@ def _normalize_status(value: object) -> str:
         return ""
     normalized = _STATUS_ALIASES.get(raw, raw)
     return str(normalized).strip().upper()
+
+
+def _strip_updated_at(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    cleaned = dict(payload)
+    cleaned.pop("updated_at", None)
+    return cleaned
 
 
 def _inflate_columnar(section: object) -> List[Dict]:
@@ -227,12 +236,14 @@ def main(argv: list[str] | None = None) -> int:
 
     existing_payload: Dict[str, Any] = {}
     existing_findings: List[Dict] = []
+    existing_updated_at = ""
     if report_path.exists():
         try:
             existing_payload = json.loads(report_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             existing_payload = {}
     if isinstance(existing_payload, dict):
+        existing_updated_at = str(existing_payload.get("updated_at") or "")
         existing_findings = _extract_findings(existing_payload.get("findings"))
 
     def _normalize_signature_text(value: object) -> str:
@@ -320,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         new_findings = _merge_findings(existing_findings, new_findings)
 
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    record: Dict[str, Any] = existing_payload if isinstance(existing_payload, dict) else {}
+    record: Dict[str, Any] = dict(existing_payload) if isinstance(existing_payload, dict) else {}
     record.update(
         {
             "ticket": ticket,
@@ -329,7 +340,6 @@ def main(argv: list[str] | None = None) -> int:
             "stage": "review",
             "scope_key": scope_key,
             "work_item_key": work_item_key,
-            "updated_at": now,
         }
     )
     if branch:
@@ -356,11 +366,38 @@ def main(argv: list[str] | None = None) -> int:
             1 for entry in record.get("findings") or [] if isinstance(entry, dict) and entry.get("blocking")
         )
 
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    record.pop("updated_at", None)
+    existing_compare = _strip_updated_at(existing_payload)
+    record_compare = _strip_updated_at(record)
+    changed = record_compare != existing_compare or not report_path.exists()
+    if not existing_updated_at and not changed:
+        changed = True
+
+    if changed:
+        record["updated_at"] = now
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    else:
+        record["updated_at"] = existing_updated_at or now
+
     rel_report = runtime.rel_path(report_path, target)
-    print(f"[aidd] review report saved to {rel_report}.")
+    if changed:
+        print(f"[aidd] review report saved to {rel_report}.")
+    else:
+        print(f"[aidd] review report unchanged ({rel_report}).")
     runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="review-report")
+
+    active_work_item = runtime.read_active_work_item(target).strip()
+    if active_work_item and active_work_item == work_item_key:
+        loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
+        pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if loop_pack_path.exists() and (changed or not pack_path.exists()):
+            try:
+                from tools import review_pack as review_pack_module
+
+                review_pack_module.main(["--ticket", ticket])
+            except Exception as exc:
+                print(f"[aidd] WARN: failed to auto-generate review pack: {exc}", file=sys.stderr)
     return 0
 
 

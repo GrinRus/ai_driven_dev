@@ -378,6 +378,7 @@ def render_pack(
     ticket: str,
     verdict: str,
     updated_at: str,
+    review_report_updated_at: str,
     work_item_id: str,
     work_item_key: str,
     scope_key: str,
@@ -395,6 +396,7 @@ def render_pack(
         "---",
         "schema: aidd.review_pack.v2",
         f"updated_at: {updated_at}",
+        f"review_report_updated_at: {review_report_updated_at or 'none'}",
         f"ticket: {ticket}",
         f"work_item_id: {work_item_id}",
         f"work_item_key: {work_item_key}",
@@ -547,6 +549,7 @@ def main(argv: list[str] | None = None) -> int:
         raise FileNotFoundError(f"review report not found at {runtime.rel_path(report_path, target)}")
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
+    report_updated_at = str(payload.get("updated_at") or payload.get("generated_at") or "")
     findings_raw = extract_findings(payload)
     tests_required, tests_block = _tests_policy(
         target,
@@ -643,6 +646,7 @@ def main(argv: list[str] | None = None) -> int:
         ticket=ticket,
         verdict=verdict,
         updated_at=updated_at,
+        review_report_updated_at=report_updated_at,
         work_item_id=work_item_id,
         work_item_key=work_item_key,
         scope_key=scope_key,
@@ -675,6 +679,7 @@ def main(argv: list[str] | None = None) -> int:
     structured = {
         "schema": "aidd.review_pack.v2",
         "updated_at": updated_at,
+        "review_report_updated_at": report_updated_at,
         "ticket": ticket,
         "work_item_id": work_item_id,
         "work_item_key": work_item_key,
