@@ -53,6 +53,7 @@ disable-model-invocation: false
 ## Когда запускать
 - После `/feature-dev-aidd:review`, перед релизом.
 - Повторять при новых изменениях.
+- Если QA `BLOCKED` и требуется вернуться в implement/review‑loop — используйте loop‑скрипты с `--from-qa` (см. `aidd/docs/loops/README.md`).
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` фиксирует стадию `qa`.

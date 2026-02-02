@@ -3172,6 +3172,40 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - BLOCKED остаётся только при незакрытых пунктах `AIDD:CHECKLIST_QA` или критических findings.
   **Deps:** W88-7, W88-17
 
+- [x] **W88-19** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop_step.py`, `tools/loop_pack.py`, `commands/qa.md`:
+  - Добавить явный режим “repair from QA”:
+    - флаги `--from-qa` (alias `--repair-from-qa`) для loop-run/loop-step;
+    - разрешать только если `.active_stage=qa` и `stage.qa.result.json` = `blocked`;
+    - без флага поведение не менять (QA blocked → STOP).
+  - Auto‑repair (opt‑in):
+    - config: `aidd/config/gates.json` → `loop.auto_repair_from_qa=true`;
+    - включать только при единственном blocking handoff кандидате.
+  - Явный выбор work_item:
+    - `--work-item-key <id>` приоритетен;
+    - `--select-qa-handoff` — авто‑выбор из `AIDD:HANDOFF_INBOX` (только `handoff:qa`, `Blocking: true`, `scope: iteration_id=...`);
+    - если 0 или >1 кандидата → BLOCKED + список кандидатов.
+  - Логи/артефакты:
+    - loop.run.log: `reason_code=qa_repair`, `chosen_scope_key=<id>`;
+    - `aidd/reports/events/<ticket>.jsonl` (если есть) → запись `qa_repair_requested`;
+    - `.active_stage` → implement, `.active_work_item` → выбранный id (без изменения `stage.qa.result`).
+  **AC:**
+  - QA blocked не запускает loop без `--from-qa`.
+  - `--from-qa --work-item-key` переводит в implement и запускает loop на этом scope_key.
+  - `--from-qa --select-qa-handoff` работает только при единственном Blocking handoff.
+  **Deps:** W88-1, W88-3, W88-7
+
+- [x] **W88-20** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/anchors/qa.md`, `tests/test_loop_step.py`, `tests/repo_tools/*`:
+  - Документация режима “repair from QA”:
+    - когда допустим, как выбрать work_item, примеры CLI.
+  - Тесты:
+    - QA blocked + no flag → STOP;
+    - `--from-qa --work-item-key` → stage=implement, scope_key=given;
+    - `--from-qa --select-qa-handoff` → BLOCKED при 0/2+ кандидатов, OK при 1 кандидате.
+  **AC:**
+  - Документы описывают флоу и ограничения.
+  - Тесты покрывают все ветки выбора work_item.
+  **Deps:** W88-19
+
 ## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
 
 - [x] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file, write_json
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -251,6 +251,157 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_on_qa_without_repair(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_stage", "qa")
+            write_file(root, "docs/.active_ticket", "DEMO-QA")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA",
+                "stage": "qa",
+                "scope_key": "DEMO-QA",
+                "result": "blocked",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA/DEMO-QA/stage.qa.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-QA", log_path)
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+
+    def test_loop_step_qa_repair_with_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_stage", "qa")
+            write_file(root, "docs/.active_ticket", "DEMO-QA2")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA2",
+                "stage": "qa",
+                "scope_key": "DEMO-QA2",
+                "result": "blocked",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA2/DEMO-QA2/stage.qa.result.json",
+                json.dumps(stage_result),
+            )
+            implement_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA2",
+                "stage": "implement",
+                "scope_key": "iteration_id_I2",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA2/iteration_id_I2/stage.implement.result.json",
+                json.dumps(implement_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-QA2",
+                log_path,
+                None,
+                "--from-qa",
+                "--work-item-key",
+                "iteration_id=I2",
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertIn("-p /feature-dev-aidd:implement DEMO-QA2", log_path.read_text(encoding="utf-8"))
+            self.assertEqual((root / "docs" / ".active_stage").read_text(encoding="utf-8").strip(), "implement")
+            self.assertEqual((root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip(), "iteration_id=I2")
+
+    def test_loop_step_qa_repair_auto_select_blocks_on_multiple(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_stage", "qa")
+            write_file(root, "docs/.active_ticket", "DEMO-QA3")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA3",
+                "stage": "qa",
+                "scope_key": "DEMO-QA3",
+                "result": "blocked",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA3/DEMO-QA3/stage.qa.result.json",
+                json.dumps(stage_result),
+            )
+            tasklist = """<!-- handoff:qa start -->
+- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I2)
+- [ ] Fix B (id: qa:A2) (Priority: high) (Blocking: true) (scope: iteration_id=I3)
+<!-- handoff:qa end -->
+"""
+            write_file(root, "docs/tasklist/DEMO-QA3.md", tasklist)
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-QA3",
+                log_path,
+                None,
+                "--from-qa",
+                "auto",
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "qa_repair_multiple_handoffs")
+
+    def test_loop_step_qa_repair_auto_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_stage", "qa")
+            write_file(root, "docs/.active_ticket", "DEMO-QA4")
+            write_json(root, "config/gates.json", {"loop": {"auto_repair_from_qa": True}})
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA4",
+                "stage": "qa",
+                "scope_key": "DEMO-QA4",
+                "result": "blocked",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA4/DEMO-QA4/stage.qa.result.json",
+                json.dumps(stage_result),
+            )
+            tasklist = """<!-- handoff:qa start -->
+- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I2)
+<!-- handoff:qa end -->
+"""
+            write_file(root, "docs/tasklist/DEMO-QA4.md", tasklist)
+            implement_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA4",
+                "stage": "implement",
+                "scope_key": "iteration_id_I2",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA4/iteration_id_I2/stage.implement.result.json",
+                json.dumps(implement_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-QA4", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertIn("-p /feature-dev-aidd:implement DEMO-QA4", log_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

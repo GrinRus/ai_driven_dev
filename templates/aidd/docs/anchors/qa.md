@@ -51,6 +51,7 @@
 
 ## Repeat runs
 - Повторные запуски QA/`tasks-derive` должны обновлять задачи по стабильному `id` без дублей.
+- Если QA `BLOCKED` и нужен возврат в implement/review‑loop — используйте `loop-run/loop-step --from-qa` (не делайте автопереход без флага).
 
 ## Output contract
 - Status: READY|WARN|BLOCKED (source‑of‑truth: front‑matter Status, mirror in AIDD:CONTEXT_PACK)

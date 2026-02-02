@@ -47,10 +47,25 @@ def resolve_runner_label(raw: str | None) -> str:
     return "local"
 
 
-def run_loop_step(plugin_root: Path, workspace_root: Path, ticket: str, runner: str | None) -> subprocess.CompletedProcess[str]:
+def run_loop_step(
+    plugin_root: Path,
+    workspace_root: Path,
+    ticket: str,
+    runner: str | None,
+    *,
+    from_qa: str | None,
+    work_item_key: str | None,
+    select_qa_handoff: bool,
+) -> subprocess.CompletedProcess[str]:
     cmd = [str(plugin_root / "tools" / "loop-step.sh"), "--ticket", ticket, "--format", "json"]
     if runner:
         cmd.extend(["--runner", runner])
+    if from_qa:
+        cmd.extend(["--from-qa", from_qa])
+    if work_item_key:
+        cmd.extend(["--work-item-key", work_item_key])
+    if select_qa_handoff:
+        cmd.append("--select-qa-handoff")
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
     return subprocess.run(cmd, text=True, capture_output=True, cwd=workspace_root, env=env)
@@ -64,6 +79,27 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--runner", help="Runner command override.")
     parser.add_argument("--runner-label", help="Runner label for logs (claude_cli|ci|local).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
+    parser.add_argument(
+        "--from-qa",
+        nargs="?",
+        const="manual",
+        choices=("manual", "auto"),
+        help="Allow repair from QA blocked stage (manual|auto).",
+    )
+    parser.add_argument(
+        "--repair-from-qa",
+        dest="from_qa",
+        nargs="?",
+        const="manual",
+        choices=("manual", "auto"),
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--work-item-key", help="Explicit work item key for QA repair (iteration_id=... or id=...).")
+    parser.add_argument(
+        "--select-qa-handoff",
+        action="store_true",
+        help="Auto-select blocking QA handoff item when repairing from QA.",
+    )
     return parser.parse_args(argv)
 
 
@@ -102,7 +138,15 @@ def main(argv: List[str] | None = None) -> int:
 
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
-        result = run_loop_step(plugin_root, workspace_root, ticket, args.runner)
+        result = run_loop_step(
+            plugin_root,
+            workspace_root,
+            ticket,
+            args.runner,
+            from_qa=args.from_qa,
+            work_item_key=args.work_item_key,
+            select_qa_handoff=args.select_qa_handoff,
+        )
         if result.returncode not in {DONE_CODE, CONTINUE_CODE, BLOCKED_CODE}:
             status = "error"
             payload = {
@@ -133,12 +177,22 @@ def main(argv: List[str] | None = None) -> int:
         last_payload = step_payload
         reason = step_payload.get("reason") or ""
         reason_code = step_payload.get("reason_code") or ""
+        repair_code = step_payload.get("repair_reason_code") or ""
+        repair_scope = step_payload.get("repair_scope_key") or ""
         scope_key = step_payload.get("scope_key") or ""
         runner_effective = step_payload.get("runner_effective") or ""
         step_status = step_payload.get("status")
+        log_reason_code = repair_code or reason_code
+        chosen_scope = repair_scope or scope_key
         append_log(
             log_path,
-            f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} exit_code={result.returncode} reason_code={reason_code} runner={runner_label} runner_cmd={runner_effective} reason={reason}",
+            (
+                f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} "
+                f"result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} "
+                f"exit_code={result.returncode} reason_code={log_reason_code} runner={runner_label} "
+                f"runner_cmd={runner_effective} reason={reason}"
+                + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
+            ),
         )
         append_log(
             cli_log_path,

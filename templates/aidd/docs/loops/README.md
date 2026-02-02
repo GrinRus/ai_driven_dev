@@ -28,6 +28,11 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Runner по умолчанию: `claude` с вызовом в виде `-p "/feature-dev-aidd:<cmd> <ticket>"` (fresh context). Флаг `--no-session-persistence` используется только если поддерживается CLI.
+- Repair from QA (explicit):
+  - `--from-qa [manual|auto]` (alias `--repair-from-qa`) разрешён только при `.active_stage=qa` и `stage.qa.result=blocked`.
+  - `--work-item-key iteration_id=M3` — явный выбор work_item (приоритет).
+  - `--select-qa-handoff` — авто‑выбор единственного blocking QA handoff кандидата.
+  - Auto‑mode: `aidd/config/gates.json` → `loop.auto_repair_from_qa=true` (только при 1 кандидате).
 
 ## Ralph loop vs AIDD loop-mode
 - Ralph plugin использует stop-hook в той же сессии (completion promise).
