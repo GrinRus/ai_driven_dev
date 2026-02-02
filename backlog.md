@@ -2925,12 +2925,135 @@ _Статус: новый, приоритет 1. Цель — канон про�
   **AC:** агент‑промпты согласованы с мягким out‑of‑scope и “loop until fixed”.
   **Deps:** W87-17, W87-19
 
-## Wave 88 — Реальная параллелизация (scheduler + claim + parallel loop-run)
+
+## Wave 88
+
+### Loop Protocol (REVISE в рамках одного work_item)
+- [ ] **W88-1** `tools/loop-run.sh`, `tools/loop-step.sh`, `commands/implement.md`, `commands/review.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - зафиксировать REVISE‑loop: `verdict: REVISE` → `stage.review.result=continue`;
+  - чекбокс остаётся `[ ]` до `SHIP`, `AIDD:NEXT_3` не сдвигается;
+  - `loop-run/step` повторно запускает implement по тому же `scope_key`.
+  **AC:** REVISE ведёт к повторному implement без смены work_item; SHIP закрывает чекбокс.
+  **Deps:** W88-2
+
+- [ ] **W88-2** `tools/review-pack.sh`, `agents/reviewer.md`, `agents/implementer.md`:
+  - добавить структурированный `Fix Plan` в `review.latest.pack.md` (steps, commands, tests, expected_paths);
+  - implementer читает `loop pack → review pack` перед выполнением Fix Plan.
+  **AC:** Fix Plan присутствует для REVISE; implementer ссылается на него в отчёте.
+
+### Evidence & Gates
+- [ ] **W88-3** `hooks/gate-workflow.sh`, `tools/stage-result.sh` (если используется), `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - гарантировать запись `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json` при раннем BLOCKED.
+  **AC:** stage_result всегда создаётся для implement/review/qa (включая fail‑fast).
+
+- [ ] **W88-4** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `tools/loop-run.sh`:
+  - при пропуске тестов писать `aidd/reports/tests/<ticket>/<scope_key>.jsonl` со `status=skipped` и причиной;
+  - `stage_result` ссылается на этот лог (evidence_links).
+  **AC:** `missing_test_evidence` больше не возникает при пропуске тестов.
+
+- [ ] **W88-5** `hooks/gate-tests.sh`, `templates/aidd/docs/loops/README.md`:
+  - учесть `tests_required=soft|hard` (soft → REVISE/WARN, hard → BLOCKED) и документировать.
+  **AC:** политика тестов в loop‑mode соответствует `gates.json`.
+
+### Pack/QA Consistency
+- [ ] **W88-6** `tools/review-pack.sh`, `agents/reviewer.md`:
+  - синхронизировать `review.latest.pack.md` с `aidd/reports/reviewer/<ticket>/<scope_key>.json`;
+  - корректный `blocking_findings_count` и `findings` в pack.
+  **AC:** pack и report совпадают по findings и severity.
+
+- [ ] **W88-7** `tools/qa.sh`, `commands/qa.md`:
+  - согласовать статусы `aidd/reports/qa/<ticket>.json`, `.pack.json` и `aidd/reports/loops/<ticket>/<ticket>/stage.qa.result.json`;
+  - вывод команд ссылается на фактические пути.
+  **AC:** нельзя получить READY pack при BLOCKED stage_result/CLI.
+
+### Logging & Lint
+- [ ] **W88-8** `tools/loop-run.sh`, `tools/loop-step.sh`:
+  - писать `aidd/reports/loops/<ticket>/cli.*.log`;
+  - заполнять `runner=` в `loop.run.log`.
+  **AC:** каждый loop‑запуск имеет cli‑лог и runner.
+
+- [ ] **W88-9** `tools/tasklist-check.sh`, `tests/`:
+  - исправить “no such group” и дубли секций;
+  - добавить unit‑тесты на шаблон и авто‑fix.
+  **AC:** tasklist‑check стабильно проходит на template.
+
+### Prompting & Output Contract
+- [ ] **W88-10** `agents/implementer.md`, `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`:
+  - enforce excerpt‑first (loop pack → review pack → excerpt) и запрет full PRD/Research без нужды.
+  **AC:** транскрипты не читают full docs при достаточном excerpt.
+
+- [ ] **W88-11** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`:
+  - поля `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Blockers/Handoff` обязательны и соответствуют артефактам.
+  **AC:** output‑контракт соблюдён для implement/review/qa.
+
+### Versioning & Validation
+- [ ] **W88-12** `templates/aidd/**`, `tests/repo_tools/*`:
+  - bump `prompt_version`;
+  - прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`;
+  - проверить `/feature-dev-aidd:aidd-init` и `tests/repo_tools/smoke-workflow.sh` в отдельной ветке.
+  **AC:** smoke проходит на чистом workspace.
+
+## Wave 89 — Doc consolidation (conventions + architecture + anchors + ast‑grep + backlog archive)
+
+_Статус: план. Цель — сократить дубли документации, убрать устаревшие файлы и оставить один канон для инструкций._
+
+- [ ] **W89-1** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/conventions.md`, `templates/aidd/AGENTS.md`, `AGENTS.md`, `README.md`, `README.en.md`, `commands/*.md`, `agents/*.md`:
+  - перенести все уникальные правила из `templates/aidd/conventions.md` в `templates/aidd/docs/prompting/conventions.md`;
+  - полностью удалить `templates/aidd/conventions.md`;
+  - обновить все ссылки на канон в командах/агентах/README/AGENTS.
+  **AC:** единственный источник конвенций — `templates/aidd/docs/prompting/conventions.md`; в репо нет ссылок на `templates/aidd/conventions.md`.
+  **Deps:** -
+
+- [ ] **W89-2** `templates/aidd/docs/architecture/README.md`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/architecture/customize.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `README.md`, `README.en.md`:
+  - объединить полезные материалы из `customize.md` в `README.md`;
+  - оставить `profile.md` как шаблон артефакта (без методических дублей);
+  - удалить `templates/aidd/docs/architecture/customize.md`;
+  - обновить ссылки на архитектурные документы.
+  **AC:** архитектурные документы сведены к двум файлам (`README.md` + `profile.md`); ссылки обновлены; удалённый файл нигде не упоминается.
+  **Deps:** W89-1
+
+- [ ] **W89-3** `templates/aidd/docs/anchors/README.md`, `templates/aidd/docs/anchors/*.md`:
+  - вынести общий блок “base rules” в `anchors/README.md` (приоритет источников, контекст, общие ограничения);
+  - в stage‑anchor файлах оставить только stage‑специфику и ссылку на base rules;
+  - проверить согласованность с loop/qa/plan policy.
+  **AC:** повторяющиеся блоки удалены; anchors ссылаются на base rules; stage‑специфика сохранена.
+  **Deps:** W89-1, W89-2
+
+- [ ] **W89-4** `templates/aidd/ast-grep/README.md`, `templates/aidd/ast-grep/rules/*/README.md`:
+  - добавить единый `templates/aidd/ast-grep/README.md` с пометкой legacy/disabled и инструкцией включения;
+  - удалить per‑rule README или заменить их на короткие stubs с ссылкой на общий README;
+  - обновить ссылки (если есть) на старые readme.
+  **AC:** есть один канонический README; нет лишних дублирующих README внутри `rules/*`.
+  **Deps:** -
+
+- [ ] **W89-5** `backlog.md`:
+  - создать секцию “Archive / Legacy”;
+  - перенести туда все закрытые/исторические пункты с удалёнными командами/агентами (без влияния на активные волны);
+  - добавить заметку, что архив содержит устаревшие ссылки.
+  **AC:** активные волны не содержат ссылок на удалённые файлы; архив явно помечен как legacy.
+  **Deps:** W89-1, W89-2, W89-4
+
+- [ ] **W89-6** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**/README.md`, `templates/aidd/ast-grep/**/README.md`:
+  - корневой `README.md`/`README.en.md` оставить для human‑доки (инсталляция, quick‑start, high‑level);
+  - runtime README (в `templates/aidd/**`) привести к agent‑правилам: краткие инструкции, порядок чтения, artefacts, do/don’t, fail‑fast;
+  - перенести runtime‑critical правила из root README в `AGENTS.md`/`templates/aidd/AGENTS.md` и/или соответствующие runtime README;
+  - добавить явные ссылки “agent rules → AGENTS/anchors/loops” в root README.
+  **AC:** root README не содержит agent‑policy; runtime README оформлены как agent‑rules; агент получает инструкции без чтения root README.
+  **Deps:** W89-1, W89-2, W89-3, W89-4
+
+- [ ] **W89-7** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`:
+  - финальный sweep ссылок после консолидации;
+  - проверить, что все упоминания конвенций/архитектуры/anchors/ast‑grep ведут в канон;
+  - при необходимости обновить краткие описания.
+  **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы.
+  **Deps:** W89-1, W89-2, W89-3, W89-4, W89-6
+
+## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
 
 ### EPIC P — Task Graph (DAG) как источник для планирования
-- [ ] **W88-1** `tools/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
+- [ ] **W100-1** `tools/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
   - парсер tasklist → DAG:
     - узлы: iterations (`iteration_id`) + handoff (`id: review:* / qa:* / research:* / manual:*`);
     - поля: deps/locks/expected_paths/priority/blocking/state;
@@ -2938,12 +3061,12 @@ _Статус: план. Цель — запуск нескольких implemen
   - вычисление `ready/runnable` и топологическая проверка (cycles/missing deps).
   **AC:** из tasklist строится корректный DAG; есть список runnable узлов.
 
-- [ ] **W88-2** `tools/taskgraph-check.sh` (или расширение `tasklist-check.sh`):
+- [ ] **W100-2** `tools/taskgraph-check.sh` (или расширение `tasklist-check.sh`):
   - валидировать: циклы, неизвестные deps, self-deps, пустые expected_paths (если требуется), конфликтующие locks (опционально).
   **AC:** CI/локальный чек ловит некорректные зависимости до запуска параллели.
 
 ### EPIC Q — Claim/Lock протокол для work items
-- [ ] **W88-3** `tools/work_item_claim.py`, `tools/work-item-claim.sh`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
+- [ ] **W100-3** `tools/work_item_claim.py`, `tools/work-item-claim.sh`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
   - claim/release/renew lock;
   - stale lock policy (ttl, force unlock);
   - в lock хранить `worker_id`, `created_at`, `last_seen`, `scope_key`, `branch/worktree`;
@@ -2951,7 +3074,7 @@ _Статус: план. Цель — запуск нескольких implemen
   **AC:** один узел не может быть взят двумя воркерами; stale locks диагностируются и снимаются по правилам; locks общие для всех воркеров.
 
 ### EPIC R — Scheduler: выбор runnable узлов под N воркеров
-- [ ] **W88-4** `tools/scheduler.py`:
+- [ ] **W100-4** `tools/scheduler.py`:
   - выбрать набор runnable узлов на N воркеров:
     - учитывать deps,
     - учитывать `locks`,
@@ -2959,13 +3082,13 @@ _Статус: план. Цель — запуск нескольких implemen
     - сортировка: blocking → priority → plan order.
   **AC:** scheduler отдаёт набор независимых work items; не выдаёт конфликтующие по locks/paths.
 
-- [ ] **W88-5** `tools/loop_pack.py` / `loop-pack.sh`:
+- [ ] **W100-5** `tools/loop_pack.py` / `loop-pack.sh`:
   - уметь генерировать loop pack по конкретному work_item_id, а не только “следующий из NEXT_3”;
   - сохранять pack в per‑work‑item пути (Wave 87 уже подготовил).
   **AC:** можно собрать loop pack для любого узла DAG по id; pack содержит deps/locks/expected_paths/size_budget/tests для выбранного узла.
 
 ### EPIC S — Parallel loop-run (оркестрация воркеров)
-- [ ] **W88-6** `tools/loop_run.py`:
+- [ ] **W100-6** `tools/loop_run.py`:
   - добавить режим `--parallel N`:
     - получить runnable узлы от scheduler,
     - claim locks,
@@ -2973,7 +3096,7 @@ _Статус: план. Цель — запуск нескольких implemen
     - собирать stage results и принимать решения (blocked/done/continue) по каждому узлу.
   **AC:** parallel loop-run запускает N независимых узлов и корректно реагирует на BLOCKED/DONE по каждому; определён контракт artifact root (shared vs per-worktree) и сбор результатов.
 
-- [ ] **W88-7** `tools/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
+- [ ] **W100-7** `tools/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
   - подготовка isolated рабочих директорий на воркера:
     - `git worktree add` / отдельные ветки,
     - единый шаблон именования веток,
@@ -2981,7 +3104,7 @@ _Статус: план. Цель — запуск нескольких implemen
   **AC:** каждый воркер работает в изолированном worktree; определён способ записи артефактов (shared root или сбор из worktrees).
 
 ### EPIC T — Консолидация результатов обратно в основной tasklist
-- [ ] **W88-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:
+- [ ] **W100-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:
   - на основе stage_result + review_pack + tests_log:
     - отметить `[x]` для завершённых узлов,
     - обновить `AIDD:NEXT_3` из DAG runnable,
@@ -2989,7 +3112,7 @@ _Статус: план. Цель — запуск нескольких implemen
     - перенос/дедуп handoff задач.
   **AC:** после параллельного прогона tasklist обновляется детерминированно; без дублей; NEXT_3 корректен; дедуп handoff по стабильному id.
 
-- [ ] **W88-9** `tools/reports/aggregate.py`:
+- [ ] **W100-9** `tools/reports/aggregate.py`:
   - агрегировать evidence в “ticket summary”:
     - ссылки на per‑work‑item tests logs,
     - список stage results,
@@ -2997,7 +3120,7 @@ _Статус: план. Цель — запуск нескольких implemen
   **AC:** есть единый сводный отчёт по тикету и по узлам.
 
 ### EPIC U — Документация + регрессии
-- [ ] **W88-10** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+- [ ] **W100-10** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
   - задокументировать parallel workflow:
     - deps/locks/expected_paths правила,
     - claim/release,
@@ -3005,6 +3128,6 @@ _Статус: план. Цель — запуск нескольких implemen
     - policy: воркеры не редактируют tasklist в parallel‑mode (consolidate делает main).
   **AC:** понятная инструкция “как запускать parallel loop-run” + troubleshooting + policy для tasklist/артефактов.
 
-- [ ] **W88-11** `tests/test_scheduler.py`, `tests/test_parallel_loop_run.py`, `tests/repo_tools/parallel-loop-regression.sh`:
+- [ ] **W100-11** `tests/test_scheduler.py`, `tests/test_parallel_loop_run.py`, `tests/repo_tools/parallel-loop-regression.sh`:
   - тесты на DAG, scheduler, claim, параллельный раннер, консолидацию.
   **AC:** регрессии ловят гонки/перетирание артефактов/неверный выбор runnable; включены кейсы conflict paths/lock stale/worker crash.
