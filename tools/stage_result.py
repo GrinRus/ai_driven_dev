@@ -229,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     reason = (args.reason or "").strip()
     reason_code = (args.reason_code or "").strip().lower()
     verdict = (args.verdict or "").strip().upper()
+    explicit_blocked_review = stage == "review" and (requested_result == "blocked" or verdict == "BLOCKED")
 
     tests_required, tests_block, marker_source = _tests_policy(
         target,
@@ -276,8 +277,9 @@ def main(argv: list[str] | None = None) -> int:
                 verdict = "BLOCKED"
         elif tests_reason:
             if stage == "review":
-                result = "continue"
-                verdict = "REVISE"
+                if not explicit_blocked_review:
+                    result = "continue"
+                    verdict = "REVISE"
             elif stage == "implement" and result == "blocked":
                 result = "continue"
             elif stage == "qa" and result == "blocked":
@@ -288,6 +290,8 @@ def main(argv: list[str] | None = None) -> int:
         result = "continue"
 
     if stage == "review":
+        if explicit_blocked_review and reason_code not in warn_reason_codes:
+            verdict = "BLOCKED"
         if not verdict:
             if result == "done":
                 verdict = "SHIP"

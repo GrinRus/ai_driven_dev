@@ -72,6 +72,38 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("result"), "blocked")
             self.assertEqual(payload.get("reason_code"), "missing_test_evidence")
 
+    def test_review_blocked_preserved_when_tests_missing_soft(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "soft"})
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-2B",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "blocked",
+                    "--work-item-key",
+                    "iteration_id=I2",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-2B" / "iteration_id_I2" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("requested_result"), "blocked")
+            self.assertEqual(payload.get("result"), "blocked")
+            self.assertEqual(payload.get("verdict"), "BLOCKED")
+
     def test_review_skipped_tests_capture_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
