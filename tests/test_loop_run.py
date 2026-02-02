@@ -39,7 +39,7 @@ class LoopRunTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 cwd=root,
-                env=cli_env(),
+                env=cli_env({"AIDD_LOOP_RUNNER_LABEL": "local"}),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
