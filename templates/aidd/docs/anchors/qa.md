@@ -31,6 +31,7 @@
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (scope/DoD/Boundaries/Tests).
 - Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.
+- QA checklist‑gate: блокируем только по `AIDD:CHECKLIST_QA`; QA handoff‑задачи блокируют QA лишь при `(Blocking: true)`.
 - Write surface (разрешено):
   - front‑matter: `Status`, `Updated` (и `Stage`, если есть)
   - `AIDD:CHECKLIST_QA` (или QA‑подсекция в `AIDD:CHECKLIST`)

@@ -69,7 +69,7 @@ class QaAgentTests(unittest.TestCase):
         write_file(
             self.project_root,
             "docs/tasklist/checkout.md",
-            "- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: smoke checkout flow\n",
         )
 
         report_path = self.project_root / "reports" / "qa" / "checkout.json"
@@ -341,7 +341,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/manual-qa.md",
-            "- [ ] QA: manual regression checklist\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: manual regression checklist\n",
         )
 
         result = self.run_agent("--format", "json")
@@ -357,7 +357,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/mixed-qa.md",
-            "- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
         )
 
         result = self.run_agent("--format", "json", env={"QA_ALLOW_NO_TESTS": "1"})
@@ -375,7 +375,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/dup-qa.md",
-            "- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
         )
 
         result = self.run_agent("--format", "json")
@@ -383,3 +383,22 @@ Updated: 2024-01-02
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(len(payload["findings"]), 1)
+
+    def test_qa_handoff_non_blocking_does_not_block(self):
+        write_active_feature(self.project_root, "handoff-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/handoff-qa.md",
+            """<!-- handoff:qa start -->
+- [ ] QA [major] Resolve TODO items (id: qa:todo-001) (Priority: medium) (Blocking: false)
+<!-- handoff:qa end -->
+""",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        self.assertTrue(any(f["severity"] == "major" for f in payload["findings"]))
+        self.assertFalse(any(f["severity"] == "blocker" for f in payload["findings"]))
