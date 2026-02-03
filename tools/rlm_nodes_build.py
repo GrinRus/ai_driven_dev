@@ -25,6 +25,7 @@ NODE_SCHEMA = "aidd.rlm_node.v2"
 NODE_SCHEMA_VERSION = "v2"
 DEFAULT_DIR_CHILDREN_LIMIT = 50
 DEFAULT_DIR_SUMMARY_CHARS = 600
+BOOTSTRAP_SUMMARY_PREFIX = "Auto bootstrap node for"
 
 
 def _pack_extension() -> str:
@@ -241,6 +242,44 @@ def _compact_nodes(nodes: List[Dict[str, object]]) -> List[Dict[str, object]]:
         node_id = str(item.get("id") or item.get("file_id") or item.get("dir_id") or "")
         return (node_kind, path, node_id)
     return sorted(dedup.values(), key=sort_key)
+
+
+def _build_bootstrap_nodes(manifest: Dict[str, object]) -> List[Dict[str, object]]:
+    entries = manifest.get("files") or []
+    if not isinstance(entries, list):
+        return []
+    nodes: List[Dict[str, object]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        file_id = str(entry.get("file_id") or "").strip()
+        path = str(entry.get("path") or "").strip()
+        if not file_id or not path:
+            continue
+        summary = f"{BOOTSTRAP_SUMMARY_PREFIX} {path}."
+        nodes.append(
+            {
+                "schema": NODE_SCHEMA,
+                "schema_version": NODE_SCHEMA_VERSION,
+                "node_kind": "file",
+                "id": file_id,
+                "file_id": file_id,
+                "path": path,
+                "rev_sha": entry.get("rev_sha") or "",
+                "lang": entry.get("lang") or "",
+                "prompt_version": entry.get("prompt_version") or "",
+                "summary": summary,
+                "public_symbols": [],
+                "type_refs": [],
+                "key_calls": [],
+                "framework_roles": [],
+                "test_hooks": [],
+                "risks": [],
+                "verification": "unverified",
+                "missing_tokens": [],
+            }
+        )
+    return nodes
 
 
 def _truncate_text(text: str, limit: int) -> str:
@@ -507,6 +546,16 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         help="Generate directory nodes from existing file nodes and append them to nodes.jsonl.",
     )
     parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="Create baseline file nodes from the manifest when nodes are missing.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing nodes when bootstrapping.",
+    )
+    parser.add_argument(
         "--refresh-worklist",
         action="store_true",
         help="Rewrite worklist pack and update context rlm_status/rlm_worklist_path if context exists.",
@@ -543,6 +592,29 @@ def main(argv: List[str] | None = None) -> int:
         _write_nodes(nodes_path, merged)
         rel_nodes = runtime.rel_path(nodes_path, target)
         print(f"[aidd] rlm dir nodes updated in {rel_nodes} ({len(dir_nodes)} dirs).")
+        return 0
+    if args.bootstrap:
+        manifest = _load_manifest(manifest_path)
+        new_nodes = _build_bootstrap_nodes(manifest)
+        existing_nodes = [] if args.force or not nodes_path.exists() else list(_iter_nodes(nodes_path))
+        existing_ids = {
+            str(node.get("id") or node.get("file_id") or node.get("dir_id") or "").strip()
+            for node in existing_nodes
+        }
+        added = [node for node in new_nodes if str(node.get("id") or "").strip() not in existing_ids]
+        if existing_nodes and not args.force:
+            merged = _compact_nodes(new_nodes + existing_nodes)
+        else:
+            merged = _compact_nodes(new_nodes)
+        nodes_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_nodes(nodes_path, merged)
+        rel_nodes = runtime.rel_path(nodes_path, target)
+        print(
+            f"[aidd] rlm bootstrap nodes saved to {rel_nodes} "
+            f"(added={len(added)}, total={len(merged)})."
+        )
+        if not merged:
+            print("[aidd] WARN: rlm bootstrap produced no nodes (empty manifest).")
         return 0
     if args.mode != "agent-worklist":
         raise SystemExit(f"unsupported mode: {args.mode}")

@@ -587,6 +587,83 @@ class ReportsPackTests(unittest.TestCase):
             self.assertEqual(pack_payload.get("status"), "pending")
             self.assertEqual(pack_payload.get("stats", {}).get("worklist_entries"), 1)
 
+    def test_rlm_context_ready_with_empty_links_when_worklist_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            ensure_project_root(project_root)
+            ticket = "RLM-EMPTY-LINKS"
+
+            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
+            _write_context(
+                context_path,
+                {
+                    "ticket": ticket,
+                    "slug": ticket,
+                    "generated_at": "2024-01-11T00:00:00Z",
+                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+                },
+            )
+
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"
+            worklist_path.parent.mkdir(parents=True, exist_ok=True)
+            worklist_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.report.pack.v1",
+                        "type": "rlm-worklist",
+                        "status": "ready",
+                        "entries": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "aidd.rlm_node.v2",
+                        "schema_version": "v2",
+                        "node_kind": "file",
+                        "id": "file-a",
+                        "file_id": "file-a",
+                        "path": "src/a.py",
+                        "rev_sha": "rev-a",
+                        "lang": "py",
+                        "prompt_version": "v1",
+                        "summary": "demo",
+                        "public_symbols": [],
+                        "type_refs": [],
+                        "key_calls": [],
+                        "framework_roles": [],
+                        "test_hooks": [],
+                        "risks": [],
+                        "verification": "passed",
+                        "missing_tokens": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+            links_path.write_text("", encoding="utf-8")
+
+            reports_pack.main(
+                [
+                    "--rlm-nodes",
+                    str(nodes_path),
+                    "--rlm-links",
+                    str(links_path),
+                    "--ticket",
+                    ticket,
+                    "--update-context",
+                ]
+            )
+
+            payload = json.loads(context_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("rlm_status"), "ready")
+
     def test_rlm_update_context_pending_without_nodes_links(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

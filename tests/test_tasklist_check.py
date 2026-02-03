@@ -182,6 +182,37 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_requires_spec_for_ui_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-11"
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", helpers.tasklist_ready_text(ticket))
+            helpers.write_file(
+                root,
+                f"docs/plan/{ticket}.md",
+                "\n".join(
+                    [
+                        "Status: READY",
+                        f"PRD: aidd/docs/prd/{ticket}.prd.md",
+                        f"Research: aidd/docs/research/{ticket}.md",
+                        "",
+                        "## AIDD:FILES_TOUCHED",
+                        "- frontend/components/Button.tsx",
+                        "",
+                        "## AIDD:ITERATIONS",
+                        "- iteration_id: I1",
+                        "  - Goal: Update UI",
+                    ]
+                )
+                + "\n",
+            )
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("spec required" in entry.lower() for entry in result.details or []),
+                result.message,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,8 +2,8 @@
 description: "Инициация фичи: setup ticket/slug → analyst → PRD draft + вопросы"
 argument-hint: "$1 [slug=<slug-hint>] [note...]"
 lang: ru
-prompt_version: 1.3.14
-source_version: 1.3.14
+prompt_version: 1.3.15
+source_version: 1.3.15
 allowed-tools:
   - Read
   - Edit
@@ -49,39 +49,16 @@ disable-model-invocation: false
 - `aidd/docs/prd/$1.prd.md`.
 
 ## Context Pack (шаблон)
-Файл: `aidd/reports/context/$1.idea.pack.md`.
-
-```md
-# AIDD Context Pack — idea
-ticket: $1
-stage: idea
-agent: feature-dev-aidd:analyst
-generated_at: <UTC ISO-8601>
-
-## Paths
-- prd: aidd/docs/prd/$1.prd.md
-- arch_profile: aidd/docs/architecture/profile.md
-- research: aidd/docs/research/$1.md (if exists)
-- plan: aidd/docs/plan/$1.md (if exists)
-- tasklist: aidd/docs/tasklist/$1.md (if exists)
-- spec: aidd/docs/spec/$1.spec.yaml (if exists)
-- test_policy: aidd/.cache/test-policy.env (if exists)
-
-## What to do now
-- Draft PRD, fill AIDD:RESEARCH_HINTS, ask questions.
-
-## User note
-- $ARGUMENTS (excluding slug=...)
-
-## Git snapshot (optional)
-- branch: <git rev-parse --abbrev-ref HEAD>
-- diffstat: <git diff --stat>
-```
+- Шаблон: `aidd/reports/context/template.context-pack.md`.
+- Целевой файл: `aidd/reports/context/$1.idea.pack.md` (stage/agent/paths/what-to-do заполняются под idea).
+- Paths: prd, arch_profile, research/plan/tasklist/spec/test_policy (if exists).
+- What to do now: draft PRD, fill AIDD:RESEARCH_HINTS, ask questions.
+- User note: $ARGUMENTS (excluding slug=...).
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `idea`: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh idea`.
 2. Команда (до subagent): зафиксируй активный тикет/slug: `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1" [--slug-note "<slug>"]` (slug берётся из аргумента `slug=<...>`, заметка = `$ARGUMENTS` без `slug=...`).
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.idea.pack.md` по шаблону W79-10.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.idea.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 4. Команда → subagent: **Use the feature-dev-aidd:analyst subagent. First action: Read `aidd/reports/context/$1.idea.pack.md`.**
 5. Subagent: обновляет PRD, заполняет `## AIDD:RESEARCH_HINTS`, формирует вопросы; при наличии `AIDD:ANSWERS` синхронизирует `AIDD:OPEN_QUESTIONS`/`AIDD:DECISIONS`.
 6. Команда (после subagent): если ответы уже есть — запусти `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1`.

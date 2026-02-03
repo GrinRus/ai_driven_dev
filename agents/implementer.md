@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.28
-source_version: 1.1.28
+prompt_version: 1.1.31
+source_version: 1.1.31
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*)
 model: inherit
 permissionMode: default
@@ -15,7 +15,7 @@ permissionMode: default
 ## Loop discipline (Ralph)
 - Loop pack first: начни с `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`.
 - Если `review.latest.pack.md` существует и verdict=REVISE — прочитай сразу после loop pack, до кода.
-- Любая новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG`, не расширяй diff.
+- Любая новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG` **и остановка** (не расширяй diff).
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 
 ### MUST KNOW FIRST (дёшево)

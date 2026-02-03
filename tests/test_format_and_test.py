@@ -396,6 +396,56 @@ def test_profile_full_uses_full_tasks(tmp_path):
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
+def test_profile_fast_uses_fast_tasks(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "fullTasks": ["full_task"],
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "fast"})
+
+    assert "Выбранные задачи тестов (fast): fast_task" in result.stderr
+    assert "Запуск тестов: /bin/echo fast_task" in result.stderr
+
+
+def test_profile_targeted_uses_targeted_task(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fastTasks": ["fast_task"],
+                    "targetedTask": "target_task",
+                }
+            }
+        },
+    )
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "targeted"})
+
+    assert "Выбранные задачи тестов (targeted): target_task" in result.stderr
+    assert "Запуск тестов: /bin/echo target_task" in result.stderr
+
+
 def test_policy_file_tasks_and_filters(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)

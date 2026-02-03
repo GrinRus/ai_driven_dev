@@ -108,6 +108,11 @@ VERIFY_STEP_HINTS = {
     "commands/qa.md": ["verify results", "верифиц"],
 }
 
+REQUIRED_CONTEXT_PACK_REFERENCES = {
+    "commands/review.md": "aidd/reports/context/$1.review.pack.md",
+    "commands/qa.md": "aidd/reports/context/$1.qa.pack.md",
+}
+
 CRITICAL_TEMPLATE_ARTIFACTS = [
     "aidd/AGENTS.md",
     "aidd/docs/loops/README.md",
@@ -460,6 +465,7 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
     errors.extend(validate_verify_steps(info))
+    errors.extend(validate_context_pack_references(info))
     errors.extend(validate_plugin_asset_mentions(info, root))
     errors.extend(validate_required_write_tools(info))
     errors.extend(validate_loop_discipline(info))
@@ -522,6 +528,20 @@ def validate_verify_steps(info: PromptFile) -> List[str]:
     body_lower = info.body.lower()
     if not any(marker in body_lower for marker in hints):
         return [f"{info.path}: missing verify step markers {hints}"]
+    return []
+
+
+def validate_context_pack_references(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required_ref = None
+    for key, path in REQUIRED_CONTEXT_PACK_REFERENCES.items():
+        if rel_path.endswith(key):
+            required_ref = path
+            break
+    if not required_ref:
+        return []
+    if required_ref not in info.body:
+        return [f"{info.path}: missing context pack reference `{required_ref}`"]
     return []
 
 
@@ -601,6 +621,50 @@ def validate_plugin_manifest(root: Path) -> List[str]:
             rel = entry[2:] if entry.startswith("./") else entry
             if rel and not (root / rel).exists():
                 errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
+
+    def _normalize_manifest_entries(raw) -> List[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            raw = [raw]
+        if not isinstance(raw, list):
+            return []
+        normalized = []
+        for entry in raw:
+            if not isinstance(entry, str):
+                continue
+            value = entry.strip()
+            if value:
+                normalized.append(value)
+        return sorted(set(normalized))
+
+    def _expected_entries(directory: Path, prefix: str) -> List[str]:
+        if not directory.exists():
+            return []
+        return sorted(
+            f"./{prefix}/{path.name}"
+            for path in directory.glob("*.md")
+            if path.is_file()
+        )
+
+    expected_commands = _expected_entries(root / "commands", "commands")
+    expected_agents = _expected_entries(root / "agents", "agents")
+    manifest_commands = _normalize_manifest_entries(payload.get("commands"))
+    manifest_agents = _normalize_manifest_entries(payload.get("agents"))
+    if manifest_commands:
+        missing = [item for item in expected_commands if item not in manifest_commands]
+        extra = [item for item in manifest_commands if item not in expected_commands]
+        if missing:
+            errors.append(f"{manifest_path}: commands missing entries {missing}")
+        if extra:
+            errors.append(f"{manifest_path}: commands has extra entries {extra}")
+    if manifest_agents:
+        missing = [item for item in expected_agents if item not in manifest_agents]
+        extra = [item for item in manifest_agents if item not in expected_agents]
+        if missing:
+            errors.append(f"{manifest_path}: agents missing entries {missing}")
+        if extra:
+            errors.append(f"{manifest_path}: agents has extra entries {extra}")
 
     return errors
 

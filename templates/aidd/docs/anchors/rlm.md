@@ -7,6 +7,7 @@
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` для Context precedence & safety и Evidence Read Policy (RLM-first).
 - Если текущий anchor конфликтует с каноном — STOP и верни BLOCKED с указанием файлов/строк.
+- Если `*-rlm.nodes.jsonl` отсутствует — разрешён bootstrap через `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket <ticket>` перед `rlm-finalize`.
 
 ## MUST READ FIRST
 - `aidd/docs/architecture/profile.md` (allowed deps + invariants)

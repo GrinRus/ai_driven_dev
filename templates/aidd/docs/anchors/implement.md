@@ -8,7 +8,7 @@
 
 ## Loop discipline (Ralph)
 - Loop pack first: начинай с `aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md`.
-- Новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG`, не расширяй diff.
+- Новая работа вне pack → `AIDD:OUT_OF_SCOPE_BACKLOG` и `Status: BLOCKED` (не расширяй diff).
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
 - Loop-run использует fresh sessions (`claude -p --no-session-persistence`), max-iterations указывай как `--max-iterations 5`.

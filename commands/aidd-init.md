@@ -13,11 +13,10 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd` и тонкие root‑адаптеры из `templates/root`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools` и заполнить Architecture Profile stack‑hint через `--detect-stack`.
+`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools` и заполнить Architecture Profile stack‑hint через `--detect-stack`.
 
 ## Входные артефакты
 - `templates/aidd/**` — источник шаблонов.
-- `templates/root/**` — root‑адаптеры (AGENTS/CLAUDE/Cursor/Copilot).
 
 ## Когда запускать
 - сразу после установки плагина через marketplace;
@@ -29,7 +28,6 @@ disable-model-invocation: false
 
 ## Что редактируется
 - создаётся `aidd/**` в корне workspace.
-- создаются root‑адаптеры в корне workspace (если отсутствуют).
 
 ## Пошаговый план
 1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` (опционально `--force`).

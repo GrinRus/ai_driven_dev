@@ -23,7 +23,7 @@ class ContextPackTests(unittest.TestCase):
             write_file(
                 root,
                 "docs/tasklist/DEMO-1.md",
-                "# Tasklist\n\n## AIDD:CONTEXT_PACK\n- Focus: demo\n",
+                "# Tasklist\n\n## AIDD:CONTEXT_PACK\n- Focus: demo\n\n## AIDD:QA_TRACEABILITY\n- AC-1 → check → met → evidence\n",
             )
             result = subprocess.run(
                 cli_cmd(
@@ -44,6 +44,7 @@ class ContextPackTests(unittest.TestCase):
             self.assertTrue(pack_path.exists())
             text = pack_path.read_text(encoding="utf-8")
             self.assertIn("AIDD:CONTEXT_PACK", text)
+            self.assertIn("AIDD:QA_TRACEABILITY", text)
             self.assertIn("AIDD:FILES_TOUCHED", text)
             self.assertIn("AIDD:GOALS", text)
 
