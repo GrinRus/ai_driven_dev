@@ -4,7 +4,6 @@
 - Canonical instructions: `aidd/AGENTS.md`
 - AIDD flow: `aidd/docs/sdlc-flow.md`
 - Architecture Profile: `aidd/docs/architecture/profile.md`
-- Skills: `aidd/skills/**/SKILL.md`
 - Stage anchors: `aidd/docs/anchors/README.md`
 
 ## Non-negotiables

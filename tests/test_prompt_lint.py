@@ -101,6 +101,9 @@ def build_agent(name: str) -> str:
     loop_markers = ""
     if name in {"implementer", "reviewer"}:
         loop_markers = "\n            Loop pack first. Никаких больших вставок логов/диффов.\n"
+    verify_step = ""
+    if name in {"implementer", "reviewer", "qa"}:
+        verify_step = "\n            2. Верифицируй результаты.\n"
     return (
         dedent(
             f"""
@@ -126,7 +129,7 @@ def build_agent(name: str) -> str:
             Text.
 
             ## Пошаговый план
-            1. step
+            1. step{verify_step}
 
             ## Fail-fast и вопросы
             Text.{question}
@@ -140,6 +143,9 @@ def build_agent(name: str) -> str:
 
 
 def build_command(description: str = "test command") -> str:
+    verify_step = ""
+    if description in {"implement", "review", "qa"}:
+        verify_step = "\n        2. verify results.\n"
     return dedent(
         f"""
         ---
@@ -169,7 +175,7 @@ def build_command(description: str = "test command") -> str:
         Text.
 
         ## Пошаговый план
-        1. step
+        1. step{verify_step}
 
         ## Fail-fast и вопросы
         Text.
@@ -227,6 +233,61 @@ class PromptLintTests(unittest.TestCase):
             for section in sections:
                 lines.append(f"## {section}")
             template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        templates_root = root / "templates" / "aidd"
+        templates_root.mkdir(parents=True, exist_ok=True)
+        (templates_root / "AGENTS.md").write_text("# AGENTS\n", encoding="utf-8")
+        loops_root = templates_root / "docs" / "loops"
+        loops_root.mkdir(parents=True, exist_ok=True)
+        (loops_root / "README.md").write_text("# Loop Mode\n", encoding="utf-8")
+        docs_root = templates_root / "docs"
+        docs_root.mkdir(parents=True, exist_ok=True)
+        (docs_root / "sdlc-flow.md").write_text("# SDLC Flow\n", encoding="utf-8")
+        (docs_root / "status-machine.md").write_text("# Status Machine\n", encoding="utf-8")
+
+        template_anchors = templates_root / "docs" / "anchors"
+        template_anchors.mkdir(parents=True, exist_ok=True)
+        for stage in REQUIRED_STAGE_ANCHORS:
+            (template_anchors / f"{stage}.md").write_text(f"# Anchor: {stage}\n", encoding="utf-8")
+
+        for rel_path, sections in TEMPLATE_ANCHORS.items():
+            template_path = templates_root / rel_path
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            lines = ["# Template"]
+            for section in sections:
+                lines.append(f"## {section}")
+            template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        index_schema_path = templates_root / "docs" / "index" / "schema.json"
+        index_schema_path.parent.mkdir(parents=True, exist_ok=True)
+        index_schema_path.write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.ticket.v1",
+                    "required": [
+                        "schema",
+                        "ticket",
+                        "slug",
+                        "stage",
+                        "updated",
+                        "summary",
+                        "artifacts",
+                        "reports",
+                        "next3",
+                        "open_questions",
+                        "risks_top5",
+                        "checks",
+                    ],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        plugin_manifest = root / ".claude-plugin" / "plugin.json"
+        plugin_manifest.parent.mkdir(parents=True, exist_ok=True)
+        plugin_manifest.write_text('{"name":"test-plugin"}\n', encoding="utf-8")
 
         index_schema = root / "docs" / "index" / "schema.json"
         index_schema.parent.mkdir(parents=True, exist_ok=True)

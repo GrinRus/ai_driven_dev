@@ -2,8 +2,8 @@
 description: "Развёртывание инфраструктуры AIDD в ./aidd"
 argument-hint: "[--force] [--detect-build-tools] [--detect-stack]"
 lang: ru
-prompt_version: 0.1.3
-source_version: 0.1.3
+prompt_version: 0.1.4
+source_version: 0.1.4
 allowed-tools:
   - Read
   - Write
@@ -35,7 +35,7 @@ disable-model-invocation: false
 1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` (опционально `--force`).
 2. Убедись, что появились `aidd/docs`, `aidd/reports`, `aidd/docs/{prd,plan,tasklist}`.
 3. При необходимости добавь `--detect-build-tools`, чтобы заполнить `.claude/settings.json` дефолтами для `automation.tests`.
-4. При необходимости добавь `--detect-stack`, чтобы заполнить `aidd/docs/architecture/profile.md` stack‑hint и skills.
+4. При необходимости добавь `--detect-stack`, чтобы заполнить `aidd/docs/architecture/profile.md` stack‑hint.
 
 ## Fail-fast и вопросы
 - Если `templates/aidd` не найден — переустановите плагин и повторите `/feature-dev-aidd:aidd-init`.

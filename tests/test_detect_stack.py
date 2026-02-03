@@ -32,9 +32,7 @@ class DetectStackTests(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertIn("node", payload.get("stack_hint", []))
         self.assertIn("python", payload.get("stack_hint", []))
-        skills = payload.get("enabled_skills", [])
-        self.assertIn("testing-node", skills)
-        self.assertIn("testing-pytest", skills)
+        self.assertNotIn("enabled_skills", payload)
 
     def test_update_profile_merges_lists(self) -> None:
         root = self.make_tempdir()
@@ -46,12 +44,12 @@ class DetectStackTests(unittest.TestCase):
 
         updated = detect_stack.update_profile(
             profile,
-            {"stack_hint": ["node"], "enabled_skills": ["testing-node"]},
+            {"stack_hint": ["node"]},
         )
         self.assertTrue(updated)
         text = profile.read_text(encoding="utf-8")
         self.assertIn("- node", text)
-        self.assertIn("- testing-node", text)
+        self.assertNotIn("enabled_skills", text)
 
 
 if __name__ == "__main__":

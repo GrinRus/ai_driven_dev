@@ -18,6 +18,8 @@ ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
 VALID_LANGS = {"ru"}
 MAX_COMMAND_LINES = 160
 TOOL_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/tools/[A-Za-z0-9_.-]+\.sh")
+HOOK_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/hooks/[A-Za-z0-9_.-]+\.sh")
+UNSCOPED_PLUGIN_PATH_RE = re.compile(r"(?<!\$\{CLAUDE_PLUGIN_ROOT\}/)(?:tools|hooks)/[A-Za-z0-9_.-]+\.sh")
 TOOL_CLAUDE_WORKFLOW_RE = re.compile(r"\bclaude-workflow\b", re.IGNORECASE)
 
 LANG_SECTION_TITLES = {
@@ -88,18 +90,30 @@ REQUIRED_STAGE_ANCHORS = [
 REQUIRED_WRITE_TOOLS = {
     "agents/implementer.md",
     "agents/tasklist-refiner.md",
-    "agents/reviewer.md",
-    "agents/qa.md",
     "commands/tasks-new.md",
     "commands/implement.md",
-    "commands/review.md",
-    "commands/qa.md",
 }
 
 LOOP_DISCIPLINE_HINTS = {
     "agents/implementer.md": ["loop pack first", "больших вставок"],
     "agents/reviewer.md": ["loop pack first", "больших вставок"],
 }
+
+VERIFY_STEP_HINTS = {
+    "agents/implementer.md": ["верифиц", "verify"],
+    "agents/reviewer.md": ["верифиц", "verify"],
+    "agents/qa.md": ["верифиц", "verify"],
+    "commands/implement.md": ["verify results", "верифиц"],
+    "commands/review.md": ["verify results", "верифиц"],
+    "commands/qa.md": ["verify results", "верифиц"],
+}
+
+CRITICAL_TEMPLATE_ARTIFACTS = [
+    "aidd/AGENTS.md",
+    "aidd/docs/loops/README.md",
+    "aidd/docs/sdlc-flow.md",
+    "aidd/docs/status-machine.md",
+]
 
 CORE_ANCHORS = [
     "AIDD:CONTEXT_PACK",
@@ -382,7 +396,7 @@ def validate_question_template(info: PromptFile) -> List[str]:
     return []
 
 
-def validate_prompt(info: PromptFile) -> List[str]:
+def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors: List[str] = []
     front = info.front_matter
     if info.kind == "agent":
@@ -445,6 +459,8 @@ def validate_prompt(info: PromptFile) -> List[str]:
     errors.extend(validate_agent_references(info))
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
+    errors.extend(validate_verify_steps(info))
+    errors.extend(validate_plugin_asset_mentions(info, root))
     errors.extend(validate_required_write_tools(info))
     errors.extend(validate_loop_discipline(info))
 
@@ -475,6 +491,7 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
     has_claude_workflow = False
     for line in _iter_tool_scan_lines(info):
         tool_mentions.update(match.group(0) for match in TOOL_PATH_RE.finditer(line))
+        tool_mentions.update(match.group(0) for match in HOOK_PATH_RE.finditer(line))
         if TOOL_CLAUDE_WORKFLOW_RE.search(line):
             has_claude_workflow = True
 
@@ -490,6 +507,40 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
     for mention in sorted(tool_mentions):
         if not any(mention in tool for tool in allowed_tools if tool.startswith("Bash(")):
             errors.append(f"{info.path}: tool `{mention}` mentioned but not in allowed-tools")
+    return errors
+
+
+def validate_verify_steps(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    hints = None
+    for key, markers in VERIFY_STEP_HINTS.items():
+        if rel_path.endswith(key):
+            hints = markers
+            break
+    if not hints:
+        return []
+    body_lower = info.body.lower()
+    if not any(marker in body_lower for marker in hints):
+        return [f"{info.path}: missing verify step markers {hints}"]
+    return []
+
+
+def validate_plugin_asset_mentions(info: PromptFile, root: Path) -> List[str]:
+    errors: List[str] = []
+    mentions: set[str] = set()
+    for line in _iter_tool_scan_lines(info):
+        mentions.update(match.group(0) for match in TOOL_PATH_RE.finditer(line))
+        mentions.update(match.group(0) for match in HOOK_PATH_RE.finditer(line))
+        if "${CLAUDE_PLUGIN_ROOT}/../" in line:
+            errors.append(f"{info.path}: plugin asset path uses `../` ({line.strip()})")
+        for match in UNSCOPED_PLUGIN_PATH_RE.finditer(line):
+            errors.append(f"{info.path}: plugin asset path must use ${{CLAUDE_PLUGIN_ROOT}} ({match.group(0)})")
+
+    for mention in sorted(mentions):
+        rel = mention.split("${CLAUDE_PLUGIN_ROOT}/", 1)[1]
+        if not (root / rel).exists():
+            errors.append(f"{info.path}: referenced plugin asset missing: {rel}")
+
     return errors
 
 
@@ -518,6 +569,53 @@ def validate_loop_discipline(info: PromptFile) -> List[str]:
     if missing:
         return [f"{info.path}: missing loop discipline markers {missing}"]
     return []
+
+
+def validate_plugin_manifest(root: Path) -> List[str]:
+    manifest_path = root / ".claude-plugin" / "plugin.json"
+    if not manifest_path.exists():
+        return [f"{manifest_path}: plugin manifest is missing"]
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"{manifest_path}: invalid JSON ({exc})"]
+
+    errors: List[str] = []
+    for key in ("commands", "agents", "hooks"):
+        entries = payload.get(key)
+        if not entries:
+            continue
+        if isinstance(entries, str):
+            entries = [entries]
+        if not isinstance(entries, list):
+            errors.append(f"{manifest_path}: `{key}` must be a string or list of strings")
+            continue
+        for entry in entries:
+            if not isinstance(entry, str):
+                errors.append(f"{manifest_path}: `{key}` entry must be a string")
+                continue
+            if not entry.startswith("./"):
+                errors.append(f"{manifest_path}: `{key}` path must start with ./ ({entry})")
+            if ".." in Path(entry).parts:
+                errors.append(f"{manifest_path}: `{key}` path must not contain .. ({entry})")
+            rel = entry[2:] if entry.startswith("./") else entry
+            if rel and not (root / rel).exists():
+                errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
+
+    return errors
+
+
+def validate_template_artifacts(root: Path) -> List[str]:
+    template_root = root / "templates" / "aidd"
+    errors: List[str] = []
+    for rel in CRITICAL_TEMPLATE_ARTIFACTS:
+        rel_path = rel
+        if rel_path.startswith("aidd/"):
+            rel_path = rel_path[len("aidd/") :]
+        target = template_root / rel_path
+        if not target.exists():
+            errors.append(f"{target}: missing critical template artifact")
+    return errors
 
 
 def _extract_headings(text: str) -> set[str]:
@@ -575,8 +673,10 @@ def lint_prompts(root: Path) -> Tuple[List[str], Dict[str, Dict[str, Dict[str, P
                     if info is None:
                         continue
                     files.setdefault(lang, {}).setdefault(kind, {})[info.stem] = info
-                    errors.extend(validate_prompt(info))
+                    errors.extend(validate_prompt(info, root))
     errors.extend(validate_pairings(files))
+    errors.extend(validate_template_artifacts(root))
+    errors.extend(validate_plugin_manifest(root))
     return errors, files
 
 

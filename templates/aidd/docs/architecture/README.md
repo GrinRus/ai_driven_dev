@@ -8,10 +8,10 @@
 ## When to update
 - Added/renamed modules or directory roots.
 - Changed dependency boundaries or invariants.
-- Updated test/format policy or skill list.
+- Updated test/format policy.
 
 ## Customize stack
-- See `customize.md` for stack hints and skills workflow.
+- See `customize.md` for stack hints and workflow customization.
 
 ## If in doubt
 - Record conflicts as a risk or handoff and update the profile before implementation.

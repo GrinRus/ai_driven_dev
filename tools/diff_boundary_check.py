@@ -14,7 +14,7 @@ from tools import runtime
 
 IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
 IGNORE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
-AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", "skills/", ".cache/")
+AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
 
 
 def normalize_path(path: str) -> str:

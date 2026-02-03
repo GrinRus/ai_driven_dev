@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.8
-source_version: 1.1.8
+prompt_version: 1.1.9
+source_version: 1.1.9
 allowed-tools:
   - Read
   - Edit

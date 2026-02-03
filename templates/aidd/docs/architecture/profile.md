@@ -6,7 +6,6 @@ conventions: aidd/config/conventions.json
 stack_hint: []
 modules: []
 allowed_deps: []
-enabled_skills: []
 interfaces:
   api: []
   db: []
@@ -48,11 +47,6 @@ interfaces:
 - DB schema/migrations: <path or link>
 - Events/contracts: <path or link>
 
-## Skills enabled (AIDD)
-> Each skill must exist under `aidd/skills/<skill-id>/SKILL.md` after init.
-
-- <skill-id>
-
 ## Repo conventions
 - Conventions: `aidd/config/conventions.json`
-- Lint/format policy: <link to skill or doc>
+- Lint/format policy: <link to project doc>

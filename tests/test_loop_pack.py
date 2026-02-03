@@ -13,10 +13,6 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_pack"
 def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
     tasklist = (FIXTURES / "tasklist.md").read_text(encoding="utf-8")
     write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
-    skills_index = (FIXTURES / "skills" / "index.yaml").read_text(encoding="utf-8")
-    write_file(root, "skills/index.yaml", skills_index)
-    skill = (FIXTURES / "skills" / "testing-pytest" / "SKILL.md").read_text(encoding="utf-8")
-    write_file(root, "skills/testing-pytest/SKILL.md", skill)
     profile = (FIXTURES / "docs" / "architecture" / "profile.md").read_text(encoding="utf-8")
     write_file(root, "docs/architecture/profile.md", profile)
 
@@ -39,10 +35,15 @@ class LoopPackTests(unittest.TestCase):
             self.assertEqual(payload.get("work_item_id"), "I1")
             self.assertEqual(payload.get("work_item_key"), "iteration_id=I1")
             self.assertIn("src/feature/**", payload.get("boundaries", {}).get("allowed_paths", []))
-            self.assertIn("testing-pytest", payload.get("skills_required", []))
+            self.assertIn("pytest -q", payload.get("commands_required", []))
+            self.assertIn("pytest -q", payload.get("tests_required", []))
 
             pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id=I1.loop.pack.md"
             self.assertTrue(pack_path.exists(), "loop pack file should exist")
+            pack_text = pack_path.read_text(encoding="utf-8")
+            self.assertIn("DoD:", pack_text)
+            self.assertIn("Boundaries:", pack_text)
+            self.assertIn("Acceptance mapping:", pack_text)
             active_work_item = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
             self.assertEqual(active_work_item, "iteration_id=I1")
 
