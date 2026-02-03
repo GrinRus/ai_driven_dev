@@ -2,14 +2,23 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.18
-source_version: 1.0.18
+prompt_version: 1.0.20
+source_version: 1.0.20
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
   - "Bash(rg:*)"
+  - "Bash(npm:*)"
+  - "Bash(pnpm:*)"
+  - "Bash(yarn:*)"
+  - "Bash(pytest:*)"
+  - "Bash(python:*)"
+  - "Bash(go:*)"
+  - "Bash(mvn:*)"
+  - "Bash(make:*)"
+  - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)"
@@ -34,6 +43,12 @@ disable-model-invocation: false
 - `aidd/reports/research/$1-rlm.pack.*` (pack-first), `rlm-slice` pack (по запросу).
 - Логи тестов/гейтов (если есть).
 
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
+
 ## Когда запускать
 - После `/feature-dev-aidd:review`, перед релизом.
 - Повторять при новых изменениях.
@@ -45,6 +60,7 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1` добавляет handoff‑задачи в `AIDD:HANDOFF_INBOX`.
 - `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1` фиксирует новые `[x]`.
 - При рассинхроне tasklist используй `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` и, при необходимости, `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+- Для тестов/формата/запуска сначала открой соответствующий `aidd/skills/<skill-id>/SKILL.md` (skills-first).
 
 ## Что редактируется
 - `aidd/docs/tasklist/$1.md`.
@@ -64,6 +80,7 @@ generated_at: <UTC ISO-8601>
 - plan: aidd/docs/plan/$1.md
 - tasklist: aidd/docs/tasklist/$1.md
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - spec: aidd/docs/spec/$1.spec.yaml (if exists)
 - research: aidd/docs/research/$1.md (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)

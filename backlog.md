@@ -2197,7 +2197,7 @@ _Статус: новый, приоритет 1. Цель — переход н�
 
 _Статус: новый, приоритет 2. Цель — архитектурный профиль + skills как канон кастомизации, плюс унификация промптов и регрессионные проверки._
 
-- [ ] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
+- [x] W82-1 `templates/aidd/docs/architecture/{profile.md,README.md}`, `templates/aidd/docs/{prd,plan,tasklist}/template.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`, `templates/root/AGENTS.md`, `commands/*.md`: ввести Architecture Profile как канон:
   - шаблон с front‑matter + обязательные секции (Style/Modules/Allowed deps/Invariants/Interfaces/Skills/Conventions);
   - machine‑readable front‑matter поля и формы:
     - `schema`, `updated_at`, `style`, `conventions`, `stack_hint` (список строк, multi‑stack);
@@ -2213,7 +2213,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - anchors/AGENTS (templates/aidd/AGENTS.md + templates/root/AGENTS.md) ссылаются на профиль в MUST READ FIRST.
   **AC:** профиль существует с front‑matter, ссылки на канонический путь есть во всех шаблонах/якорях/Context Pack, AGENTS упоминает профиль как источник ограничений.
   **Deps:** -
-- [ ] W82-2 `templates/aidd/skills/**/SKILL.md`, `templates/aidd/skills/index.yaml`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`: добавить базовую библиотеку skills и связать с профилем:
+- [x] W82-2 `templates/aidd/skills/**/SKILL.md`, `templates/aidd/skills/index.yaml`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/anchors/*.md`, `templates/aidd/AGENTS.md`: добавить базовую библиотеку skills и связать с профилем:
   - минимальный набор skills (testing‑gradle/node/pytest, formatting, dev-run);
   - общий контракт SKILL.md: `name`, `version`, `when_to_use`, `commands`, `evidence`, `pitfalls`, `tooling`;
   - registry `templates/aidd/skills/index.yaml` (skill_id → path → описание);
@@ -2222,7 +2222,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - правило “skills‑first для tests/format/run” + fallback (“если skill отсутствует — не выдумывать команды, запросить/добавить skill”).
   **AC:** skills и registry в templates, профиль их перечисляет, anchors требуют открывать SKILL.md и описывают fallback.
   **Deps:** W82-1
-- [ ] W82-3 `templates/root/**`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/skills и root‑адаптеров:
+- [x] W82-3 `templates/root/**`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`: расширить init для архитектуры/skills и root‑адаптеров:
   - `tools/init.sh` — entrypoint команды; `tools/init.py` — реализация, вызываемая entrypoint (без дублирования логики);
   - копирование `templates/root/**` в workspace root (root `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/aidd.md`, `.github/copilot-instructions.md`) без перезаписи без `--force`;
   - root `AGENTS.md` — thin‑adapter: указывает на `aidd/AGENTS.md`, Architecture Profile и anchors;
@@ -2231,7 +2231,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   **AC:** `/feature-dev-aidd:aidd-init` создаёт профиль/skills и root‑адаптеры при отсутствии, не ломая существующие файлы.
   **Tests:** обновить `tests/test_init_aidd.py` (root‑адаптеры только если их нет, `aidd/AGENTS.md` сохраняется).
   **Deps:** W82-1,W82-2
-- [ ] W82-4 `tools/detect-stack.(py|sh)`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`, tests: stack‑detector → заполнение profile:
+- [x] W82-4 `tools/detect-stack.(py|sh)`, `tools/init.sh`, `tools/init.py`, `commands/aidd-init.md`, tests: stack‑detector → заполнение profile:
   - детект langs/build tools по маркерам (package.json/pyproject/go.mod/Cargo.toml/etc);
   - multi‑stack поддержка: `stack_hint` и `enabled_skills` пополняются без взаимоисключения;
   - детектор игнорирует `aidd/**`, `.git/**`, `node_modules/**`, `.venv/**`;
@@ -2241,7 +2241,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   **AC:** init пишет stack_hint/skills при детекте, поддерживает multi‑stack, игнорирует `aidd/**`, не разрушает существующие данные.
   **Tests:** unit/fixture на детект и non‑destructive init.
   **Deps:** W82-3
-- [ ] W82-5 `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `commands/*.md`, `agents/implementer.md`, `commands/implement.md`: унификация промптов и команд:
+- [x] W82-5 `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `commands/*.md`, `agents/implementer.md`, `commands/implement.md`: унификация промптов и команд:
   - “RLM Read Policy” → “Evidence Read Policy” с RLM‑first + rlm‑slice (agents/anchors/commands);
   - единый блок “Context precedence & safety” во всех агентах + ключевых anchors;
   - единый базовый output contract (Checkbox/Status/Artifacts/Next actions) во всех агентах/командах; implementer может иметь расширенные поля поверх базового;
@@ -2251,7 +2251,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   **AC:** единые блоки/термины в промптах/командах, нет build‑tool hardcode, allowed‑tools согласованы со skills, prompt_version/source_version обновлены.
   **Tests:** `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
   **Deps:** W82-2
-- [ ] W82-6 `tests/repo_tools/prompt-regression.sh` (или расширение `lint-prompts.py`), `tests/repo_tools/ci-lint.sh`: prompt‑regression checks:
+- [x] W82-6 `tests/repo_tools/prompt-regression.sh` (или расширение `lint-prompts.py`), `tests/repo_tools/ci-lint.sh`: prompt‑regression checks:
   - fail при наличии “Graph Read Policy”;
   - fail если нет ссылок на architecture profile в агентах/anchors;
   - fail если Context Pack шаблоны команд стадий (idea/research/plan/tasklist/spec-interview/review-spec/implement/review/qa) не содержат `arch_profile` путь; исключить `status` и `aidd-init`;
@@ -2259,7 +2259,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - fail если не найден “Evidence Read Policy”.
   **AC:** регресс‑скрипт падает на старых промптах и проходит на новых.
   **Deps:** W82-5
-- [ ] W82-7 `README.md`, `README.en.md`, `templates/aidd/docs/**`, `CHANGELOG.md`: документация профиля/skills/init:
+- [x] W82-7 `README.md`, `README.en.md`, `templates/aidd/docs/**`, `CHANGELOG.md`: документация профиля/skills/init:
   - разделы про Architecture Profile + Skills + stack‑detect;
   - краткий “how to customize” в templates;
   - миграция: `/aidd-init` без `--force` добавляет новые артефакты; `--force` или ручная синхронизация — для обновления шаблонов;
@@ -2268,7 +2268,7 @@ _Статус: новый, приоритет 2. Цель — архитекту
   - changelog/metadata при user‑facing изменениях.
   **AC:** docs отражают новый канон и команды init.
   **Deps:** W82-1,W82-3,W82-5
-- [ ] W82-8 `tools/arch-profile-validate.(py|sh)`, `tests/repo_tools/ci-lint.sh` (optional): валидатор profile:
+- [x] W82-8 `tools/arch-profile-validate.(py|sh)`, `tests/repo_tools/ci-lint.sh` (optional): валидатор profile:
   - проверка front‑matter `schema: aidd.arch_profile.v1` и ключевых секций;
   - non‑zero exit при отсутствии/битых секциях;
   - не валидировать существование файла `conventions` на этом wave (только поле);

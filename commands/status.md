@@ -2,8 +2,8 @@
 description: "Навигация по тикету: индекс, артефакты и последние события"
 argument-hint: "[$1]"
 lang: ru
-prompt_version: 1.0.2
-source_version: 1.0.2
+prompt_version: 1.0.4
+source_version: 1.0.4
 allowed-tools:
   - Read
   - "Bash(rg:*)"
@@ -44,6 +44,7 @@ disable-model-invocation: false
 
 ## Ожидаемый вывод
 - Краткая сводка тикета, список артефактов и последних событий.
+- Ответ содержит `Checkbox updated`, `Status`, `Artifacts updated`, `Next actions`.
 
 ## Примеры CLI
 - `/feature-dev-aidd:status ABC-123`

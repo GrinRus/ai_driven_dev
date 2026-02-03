@@ -77,10 +77,10 @@ Agent‑first правило: сначала читаем артефакты (`a
   - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
   - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
 
-## RLM Read Policy (pack-first)
-- MUST: читать `aidd/reports/research/<ticket>-rlm.pack.*` first.
-- PREFER: использовать `rlm-slice` pack для узких запросов.
-- MUST NOT: читать `*-rlm.nodes.jsonl` или `*-rlm.links.jsonl` целиком; только spot‑check через `rg`.
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 
 ## Кастомизация (минимум)

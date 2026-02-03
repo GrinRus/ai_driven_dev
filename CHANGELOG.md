@@ -6,6 +6,8 @@
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
+- Architecture Profile templates (`aidd/docs/architecture/profile.md`) and Skills library (`aidd/skills/**/SKILL.md`).
+- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`) and root adapters (`templates/root/**`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` to validate research artefacts before planning.
 - PRD template section `## AIDD:RESEARCH_HINTS` for passing paths/keywords to `/feature-dev-aidd:researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
@@ -23,6 +25,8 @@
 
 ### Improvements
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
+- Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.
+- Prompt regression checks and architecture profile validation in repo CI.
 - Marketplace manifest uses a GitHub source for the plugin, and `plugin.json` now includes author/repository/homepage/license metadata.
 - Marketplace-only distribution: replaced `claude-workflow` CLI with `${CLAUDE_PLUGIN_ROOT}/tools/*.sh` entrypoints; payload sync/upgrade and release packaging removed.
 - `/feature-dev-aidd:implement` and `implementer` prompts now require a test policy, iteration budget, and report `Test profile`/`Tests run` in the response.

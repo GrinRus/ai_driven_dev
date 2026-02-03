@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.23
-source_version: 1.2.23
+prompt_version: 1.2.25
+source_version: 1.2.25
 allowed-tools:
   - Read
   - Edit
@@ -38,6 +38,12 @@ disable-model-invocation: false
 - `aidd/reports/research/$1-rlm.pack.*` (pack-first), `rlm-slice` pack (по запросу).
 - `aidd/reports/research/$1-rlm-targets.json`, `-rlm-manifest.json`, `-rlm.worklist.pack.*` (если `rlm_status=pending`).
 
+## Evidence Read Policy (RLM-first)
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Use raw `rg` only for spot-checks.
+- Legacy `ast_grep` evidence is fallback-only.
+
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
 - Повторно — при изменениях модулей/рисков.
@@ -69,6 +75,7 @@ generated_at: <UTC ISO-8601>
 
 ## Paths
 - prd: aidd/docs/prd/$1.prd.md
+- arch_profile: aidd/docs/architecture/profile.md
 - research: aidd/docs/research/$1.md
 - plan: aidd/docs/plan/$1.md (if exists)
 - tasklist: aidd/docs/tasklist/$1.md (if exists)
