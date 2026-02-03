@@ -34,12 +34,12 @@ disable-model-invocation: false
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
-- `aidd/reports/research/$1-context.pack.*` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
-- `aidd/reports/research/$1-rlm.pack.*` (pack-first), `rlm-slice` pack (по запросу).
-- `aidd/reports/research/$1-rlm-targets.json`, `-rlm-manifest.json`, `-rlm.worklist.pack.*` (если `rlm_status=pending`).
+- `aidd/reports/research/$1-context.pack.json` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
+- `aidd/reports/research/$1-rlm.pack.json` (pack-first), `rlm-slice` pack (по запросу).
+- `aidd/reports/research/$1-rlm-targets.json`, `-rlm-manifest.json`, `-rlm.worklist.pack.json` (если `rlm_status=pending`).
 
 ## Evidence Read Policy (RLM-first)
-- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first summary).
+- Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - Legacy `ast_grep` evidence is fallback-only.
@@ -77,14 +77,14 @@ disable-model-invocation: false
 3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
 5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings.
-6. Команда (после subagent): если `rlm_status=pending` или отсутствует `*-rlm.pack.*` — убедись, что `*-rlm.nodes.jsonl` существует; при отсутствии создай baseline `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket $1`.
+6. Команда (после subagent): если `rlm_status=pending` или отсутствует `*-rlm.pack.json` — убедись, что `*-rlm.nodes.jsonl` существует; при отсутствии создай baseline `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket $1`.
 7. Команда (после subagent): запусти `rlm-finalize.sh --ticket $1` (verify → links → compact → refresh worklist → reports-pack --update-context).
 8. Команда (после subagent): если после `rlm-finalize` остаётся `rlm_status=pending` или pack/nodes/links отсутствуют — верни `Status: BLOCKED` и требуй завершить agent‑flow.
-8. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
+9. Команда (после subagent): при необходимости добавь handoff‑задачи через `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source research --append --ticket $1`.
 
 ## Fail-fast и вопросы
 - Нет активного тикета или PRD — остановись и попроси `/feature-dev-aidd:idea-new`.
-- Если отсутствует `*-rlm.pack.*` или `rlm_status` остаётся `pending` после `rlm-finalize` — верни BLOCKED и попроси завершить agent‑flow по worklist.
+- Если отсутствует `*-rlm.pack.json` или `rlm_status` остаётся `pending` после `rlm-finalize` — верни BLOCKED и попроси завершить agent‑flow по worklist.
 - Если отчёт остаётся `pending`, верни вопросы/условия для `reviewed`.
 
 ## Ожидаемый вывод

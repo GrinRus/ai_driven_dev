@@ -19,6 +19,7 @@ class ResourcesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "workspace"
             workspace.mkdir()
+            (workspace / ".git").mkdir()
 
             workspace_root, project_root = resolve_project_root(workspace)
 
@@ -29,16 +30,31 @@ class ResourcesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             project_dir = Path(tmp) / "workspace" / DEFAULT_PROJECT_SUBDIR
             project_dir.mkdir(parents=True)
+            (project_dir.parent / ".git").mkdir()
 
             workspace_root, project_root = resolve_project_root(project_dir)
 
             self.assertEqual(workspace_root, project_dir.parent.resolve())
             self.assertEqual(project_root, project_dir.resolve())
 
+    def test_resolve_project_root_from_nested_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
+            workspace = Path(tmp) / "workspace"
+            project_dir = workspace / DEFAULT_PROJECT_SUBDIR
+            nested = project_dir / "docs" / "prd"
+            nested.mkdir(parents=True)
+            (workspace / ".git").mkdir()
+
+            workspace_root, project_root = resolve_project_root(nested)
+
+            self.assertEqual(workspace_root, workspace.resolve())
+            self.assertEqual(project_root, project_dir.resolve())
+
     def test_require_workflow_root_errors_when_missing_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
+            (workspace / ".git").mkdir()
             project_root = workspace / DEFAULT_PROJECT_SUBDIR
             project_root.mkdir()
 
@@ -53,6 +69,7 @@ class ResourcesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
+            (workspace / ".git").mkdir()
 
             workspace_root, project_root = runtime.resolve_roots(workspace, create=True)
 
@@ -64,6 +81,7 @@ class ResourcesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="resources-") as tmp:
             workspace = Path(tmp) / "ws"
             workspace.mkdir()
+            (workspace / ".git").mkdir()
 
             with self.assertRaises(FileNotFoundError) as ctx:
                 runtime.resolve_roots(workspace, create=False)

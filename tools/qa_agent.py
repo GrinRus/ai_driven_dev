@@ -21,11 +21,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-from tools.feature_ids import resolve_identifiers, resolve_project_root
+from tools import runtime
+from tools.feature_ids import resolve_aidd_root, resolve_identifiers
 
 
 def detect_project_root(target: Optional[Path] = None) -> Path:
-    return resolve_project_root(target or Path.cwd())
+    return resolve_aidd_root(target or Path.cwd())
 
 
 ROOT_DIR = Path.cwd()
@@ -172,13 +173,6 @@ def run_git(args: Sequence[str]) -> List[str]:
     if proc.returncode != 0:
         return []
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-
-
-def detect_branch(explicit: Optional[str]) -> Optional[str]:
-    if explicit:
-        return explicit
-    branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"])
-    return branch[0] if branch else None
 
 
 def collect_changed_files() -> List[str]:
@@ -444,7 +438,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     global ROOT_DIR
     ROOT_DIR = detect_project_root()
     ticket, slug_hint = detect_feature(args.ticket, args.slug_hint)
-    branch = detect_branch(args.branch)
+    branch = args.branch or runtime.detect_branch(ROOT_DIR)
     files = collect_changed_files()
     tests_summary, tests_executed, allow_missing_tests = load_tests_metadata()
     findings, manual_required = aggregate_findings(

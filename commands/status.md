@@ -18,7 +18,7 @@ disable-model-invocation: false
 Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/<stage>.md`.
 
 ## Входные артефакты
-- `aidd/docs/index/$1.yaml` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
+- `aidd/docs/index/$1.json` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
 - `aidd/reports/events/$1.jsonl` — последние события (если есть).
 - `aidd/reports/tests/$1.jsonl` — тест‑логи (если есть).
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`, `aidd/docs/.active_stage` — маркеры активного тикета.

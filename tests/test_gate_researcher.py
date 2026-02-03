@@ -80,7 +80,7 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     )
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+        f"reports/research/{ticket}-rlm.worklist.pack.json",
         {"schema": "aidd.report.pack.v1", "type": "rlm-worklist", "status": "pending"},
     )
 
@@ -103,7 +103,7 @@ def _write_context(
             "rlm_status": "pending",
             "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
             "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-            "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.yaml",
+            "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
         },
     )
 

@@ -975,7 +975,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--prefer-pack",
         action="store_true",
-        help="Prefer *.pack.yaml for research reports when available.",
+        help="Prefer *.pack.json for research reports when available.",
     )
     return parser.parse_args(argv)
 
@@ -1027,13 +1027,11 @@ def main(argv: list[str] | None = None) -> int:
 
     rlm_pack_path = None
     if source == "research":
-        for ext in (".pack.yaml", ".pack.toon"):
-            candidate = target / "reports" / "research" / f"{ticket}-rlm{ext}"
-            if candidate.exists():
-                rlm_pack_path = candidate
-                break
+        candidate = target / "reports" / "research" / f"{ticket}-rlm.pack.json"
+        if candidate.exists():
+            rlm_pack_path = candidate
 
-    is_pack_path = report_path.name.endswith(".pack.yaml") or report_path.name.endswith(".pack.toon")
+    is_pack_path = report_path.name.endswith(".pack.json")
     if source == "research" and rlm_pack_path is not None:
         payload, report_label = _load_with_pack(rlm_pack_path, prefer_pack_first=True)
     elif source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
@@ -1055,13 +1053,10 @@ def main(argv: list[str] | None = None) -> int:
             derived_blocks = _derive_tasks_from_rlm_pack(payload, report_label)
         else:
             derived_blocks = _derive_tasks_from_research_context(payload, report_label)
-            for ext in (".pack.yaml", ".pack.toon"):
-                ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep{ext}"
-                if not ast_pack.exists():
-                    continue
+            ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep.pack.json"
+            if ast_pack.exists():
                 ast_payload, ast_label = _load_with_pack(ast_pack, prefer_pack_first=True)
                 derived_blocks.extend(_derive_tasks_from_ast_grep_pack(ast_payload, ast_label))
-                break
     else:
         derived_blocks = []
 

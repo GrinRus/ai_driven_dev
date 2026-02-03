@@ -200,6 +200,20 @@
     "handoff": true,
     "handoff_mode": "block",
     "tests": {
+      "allow_skip": true,
+      "discover": {
+        "max_files": 20,
+        "max_bytes": 200000,
+        "allow_paths": [
+          ".github/workflows/*.yml",
+          ".github/workflows/*.yaml",
+          ".gitlab-ci.yml",
+          ".circleci/config.yml",
+          "Jenkinsfile",
+          "README*",
+          "readme*"
+        ]
+      }
     }
   },
   "reviewer": {

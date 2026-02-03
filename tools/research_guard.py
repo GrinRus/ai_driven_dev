@@ -6,11 +6,11 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, Optional
 
-from tools.feature_ids import resolve_project_root
+from tools import gates
+from tools.feature_ids import resolve_aidd_root
 from tools.rlm_config import detect_lang
 
 class ResearchValidationError(RuntimeError):
@@ -43,26 +43,6 @@ class ResearchCheckSummary:
     skipped_reason: Optional[str] = None
 
 
-def _load_gates_config(root: Path) -> dict:
-    config_path = root / "config" / "gates.json"
-    if not config_path.exists():
-        return {}
-    try:
-        return json.loads(config_path.read_text(encoding="utf-8"))
-    except Exception as exc:  # pragma: no cover - defensive
-        raise ResearchValidationError(f"не удалось прочитать {config_path}: {exc}")
-
-
-def _normalize_patterns(raw: Iterable[str] | None) -> list[str] | None:
-    if not raw:
-        return None
-    patterns: list[str] = []
-    for item in raw:
-        if isinstance(item, str) and item.strip():
-            patterns.append(item.strip())
-    return patterns or None
-
-
 def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
     if not raw:
         return None
@@ -77,7 +57,10 @@ def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
 
 
 def load_settings(root: Path) -> ResearchSettings:
-    config = _load_gates_config(root)
+    try:
+        config = gates.load_gates_config(root)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise ResearchValidationError(str(exc))
     raw = config.get("researcher") or {}
     settings = ResearchSettings()
 
@@ -107,8 +90,8 @@ def load_settings(root: Path) -> ResearchSettings:
             settings.allow_pending_baseline = bool(raw["allow_pending_baseline"])
         if "baseline_phrase" in raw and isinstance(raw["baseline_phrase"], str):
             settings.baseline_phrase = raw["baseline_phrase"].strip()
-        settings.branches = _normalize_patterns(raw.get("branches"))
-        settings.skip_branches = _normalize_patterns(raw.get("skip_branches"))
+        settings.branches = gates.normalize_patterns(raw.get("branches"))
+        settings.skip_branches = gates.normalize_patterns(raw.get("skip_branches"))
 
     rlm_cfg = config.get("rlm") or {}
     if isinstance(rlm_cfg, dict):
@@ -123,16 +106,6 @@ def load_settings(root: Path) -> ResearchSettings:
             settings.rlm_require_links = bool(rlm_cfg.get("require_links"))
 
     return settings
-
-
-def _branch_enabled(branch: Optional[str], settings: ResearchSettings) -> bool:
-    if not branch:
-        return True
-    if settings.skip_branches and any(fnmatch(branch, pattern) for pattern in settings.skip_branches):
-        return False
-    if settings.branches and not any(fnmatch(branch, pattern) for pattern in settings.branches):
-        return False
-    return True
 
 
 def _extract_status(doc_text: str) -> Optional[str]:
@@ -164,11 +137,8 @@ def _resolve_report_path(root: Path, raw: Optional[str]) -> Optional[Path]:
 
 def _find_pack_variant(root: Path, name: str) -> Path | None:
     base = root / "reports" / "research"
-    for suffix in (".pack.yaml", ".pack.toon"):
-        candidate = base / f"{name}{suffix}"
-        if candidate.exists():
-            return candidate
-    return None
+    candidate = base / f"{name}.pack.json"
+    return candidate if candidate.exists() else None
 
 
 def _load_pack_payload(path: Path) -> Optional[dict]:
@@ -352,7 +322,7 @@ def _validate_rlm_evidence(
         context,
         "rlm_worklist_path",
         _find_pack_variant(root, f"{ticket}-rlm.worklist")
-        or (root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.yaml"),
+        or (root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"),
     )
     rlm_nodes_path = _resolve_rlm_path(
         root,
@@ -370,7 +340,7 @@ def _validate_rlm_evidence(
         root,
         context,
         "rlm_pack_path",
-        _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.yaml"),
+        _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.json"),
     )
 
     rlm_status = str(context.get("rlm_status") or "pending").strip().lower()
@@ -474,7 +444,7 @@ def validate_research(
 ) -> ResearchCheckSummary:
     if not settings.enabled:
         return ResearchCheckSummary(status=None, skipped_reason="disabled")
-    if not _branch_enabled(branch, settings):
+    if not gates.branch_enabled(branch, allow=settings.branches, skip=settings.skip_branches):
         return ResearchCheckSummary(status=None, skipped_reason="branch-skip")
 
     doc_path = root / "docs" / "research" / f"{ticket}.md"
@@ -605,7 +575,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    root = resolve_project_root(Path.cwd())
+    root = resolve_aidd_root(Path.cwd())
     if not (root / "docs").exists():
         parser.exit(
             1,

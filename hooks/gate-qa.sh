@@ -344,11 +344,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         report_candidate = report_path
         if report_candidate and not (root / report_candidate).is_file():
             if report_candidate.endswith(".json"):
-                for suffix in (".pack.yaml", ".pack.toon"):
-                    alt = report_candidate[: -len(".json")] + suffix
-                    if (root / alt).is_file():
-                        report_candidate = alt
-                        break
+                alt = report_candidate[: -len(".json")] + ".pack.json"
+                if (root / alt).is_file():
+                    report_candidate = alt
         if report_candidate and not (root / report_candidate).is_file():
             if not bool(qa_cfg.get("allow_missing_report", False)):
                 _log_stderr(f"ERROR: отчёт QA не создан: {report_candidate}")

@@ -2,37 +2,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Dict, Iterable, List
 
 from tools import runtime
-
-
-def _read_jsonl(path: Path) -> List[Dict[str, object]]:
-    items: List[Dict[str, object]] = []
-    if not path.exists():
-        return items
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            raw = line.strip()
-            if not raw:
-                continue
-            try:
-                payload = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(payload, dict):
-                items.append(payload)
-    return items
-
-
-def _write_jsonl(path: Path, items: Iterable[Dict[str, object]]) -> None:
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        for item in items:
-            handle.write(json.dumps(item, ensure_ascii=False) + "\n")
-    tmp_path.replace(path)
+from tools.io_utils import read_jsonl, write_jsonl
 
 
 def _compact_nodes(nodes: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -94,14 +68,14 @@ def main(argv: List[str] | None = None) -> int:
     )
 
     if nodes_path.exists():
-        nodes = _read_jsonl(nodes_path)
+        nodes = read_jsonl(nodes_path)
         compacted = _compact_nodes(nodes)
-        _write_jsonl(nodes_path, compacted)
+        write_jsonl(nodes_path, compacted)
 
     if links_path.exists():
-        links = _read_jsonl(links_path)
+        links = read_jsonl(links_path)
         compacted = _compact_links(links)
-        _write_jsonl(links_path, compacted)
+        write_jsonl(links_path, compacted)
 
     print("[aidd] rlm jsonl compact complete.")
     return 0

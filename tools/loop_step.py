@@ -15,15 +15,12 @@ from typing import Dict, List, Tuple
 
 from tools import runtime
 from tools import review_pack as review_pack_tools
+from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 DONE_CODE = 0
 CONTINUE_CODE = 10
 BLOCKED_CODE = 20
 ERROR_CODE = 30
-
-
-def _utc_stamp() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def read_active_stage(root: Path) -> str:
@@ -38,21 +35,6 @@ def write_active_mode(root: Path, mode: str = "loop") -> None:
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     (docs_dir / ".active_mode").write_text(mode + "\n", encoding="utf-8")
-
-
-def parse_front_matter(text: str) -> Dict[str, str]:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    data: Dict[str, str] = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        data[key.strip()] = value.strip()
-    return data
 
 
 def read_review_pack(root: Path, ticket: str) -> Tuple[str, str, str]:
@@ -124,28 +106,6 @@ def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
             stderr=subprocess.STDOUT,
         )
     return result.returncode
-
-
-def dump_yaml(data: object, indent: int = 0) -> List[str]:
-    lines: List[str] = []
-    prefix = " " * indent
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, (dict, list)):
-                lines.append(f"{prefix}{key}:")
-                lines.extend(dump_yaml(value, indent + 2))
-            else:
-                lines.append(f"{prefix}{key}: {json.dumps(value)}")
-    elif isinstance(data, list):
-        for item in data:
-            if isinstance(item, (dict, list)):
-                lines.append(f"{prefix}-")
-                lines.extend(dump_yaml(item, indent + 2))
-            else:
-                lines.append(f"{prefix}- {json.dumps(item)}")
-    else:
-        lines.append(f"{prefix}{json.dumps(data)}")
-    return lines
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -247,7 +207,7 @@ def emit_result(
         "exit_code": code,
         "verdict": verdict,
         "log_path": log_value,
-        "updated_at": _utc_stamp(),
+        "updated_at": utc_timestamp(),
         "reason": reason,
     }
     if fmt:

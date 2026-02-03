@@ -25,7 +25,6 @@ SCHEMA = "aidd.rlm_link.v1"
 SCHEMA_VERSION = "v1"
 DEFAULT_RG_BATCH_SIZE = 24
 _PASCAL_RE = re.compile(r"^[A-Z][A-Za-z0-9_]*$")
-_WORKLIST_EXTS = (".pack.toon", ".pack.yaml")
 _DEFAULT_TYPE_REFS_EXCLUDES = ("java.", "jakarta.", "org.springframework.")
 
 
@@ -77,11 +76,8 @@ def _load_manifest(path: Path) -> Dict:
 
 
 def _find_worklist_pack(root: Path, ticket: str) -> Optional[Path]:
-    for ext in _WORKLIST_EXTS:
-        candidate = root / "reports" / "research" / f"{ticket}-rlm.worklist{ext}"
-        if candidate.exists():
-            return candidate
-    return None
+    candidate = root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
+    return candidate if candidate.exists() else None
 
 
 def _load_worklist_scope(root: Path, ticket: str) -> Optional[Dict[str, object]]:

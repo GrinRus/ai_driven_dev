@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import REPO_ROOT
+from tests.helpers import REPO_ROOT, ensure_project_root
 
 SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
@@ -42,7 +42,7 @@ def run_gate(root: Path, ticket: str, review_body: str) -> int:
 class PlanReviewGateTests(unittest.TestCase):
     def test_action_items_only_section_is_enforced(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PLAN-1"
             body = (
                 "Status: READY (ok)\n"
@@ -55,14 +55,14 @@ class PlanReviewGateTests(unittest.TestCase):
 
     def test_open_action_item_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PLAN-2"
             body = "Status: READY\n### Action items\n- [ ] pending\n"
             self.assertEqual(run_gate(root, ticket, body), 1)
 
     def test_fenced_code_block_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PLAN-3"
             body = (
                 "Status: READY\n"
@@ -76,7 +76,7 @@ class PlanReviewGateTests(unittest.TestCase):
 
     def test_open_checkbox_blocks_without_action_items_heading(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PLAN-4"
             body = "Status: READY\n- [ ] legacy open item\n"
             self.assertEqual(run_gate(root, ticket, body), 1)

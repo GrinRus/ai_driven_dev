@@ -793,13 +793,13 @@ def validate_index_schema(root: Path) -> List[str]:
         errors.append(f"{schema_path}: missing required fields {missing}")
 
     index_dir = schema_path.parent
-    for path in sorted(index_dir.glob("*.yaml")):
+    for path in sorted(index_dir.glob("*.json")):
         if path.name == schema_path.name:
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            errors.append(f"{path}: invalid JSON/YAML ({exc})")
+            errors.append(f"{path}: invalid JSON ({exc})")
             continue
         for field in INDEX_REQUIRED_FIELDS:
             if field not in payload:

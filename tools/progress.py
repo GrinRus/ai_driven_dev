@@ -10,6 +10,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+from tools import gates
+from tools import runtime
 from tools.feature_ids import resolve_identifiers
 
 DEFAULT_CODE_PREFIXES: Tuple[str, ...] = (
@@ -118,19 +120,10 @@ class ProgressConfig:
 
     @classmethod
     def load(cls, root: Path) -> "ProgressConfig":
-        config_path = root / "config" / "gates.json"
         try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError):
-            return cls(
-                enabled=False,
-                code_prefixes=DEFAULT_CODE_PREFIXES,
-                code_globs=(),
-                skip_branches=(),
-                allow_missing_tasklist=False,
-                override_env=None,
-                sources=DEFAULT_SOURCES,
-            )
+            data = gates.load_gates_config(root)
+        except ValueError:
+            data = {}
 
         section = data.get("tasklist_progress")
         if not section:
@@ -166,8 +159,7 @@ class ProgressConfig:
             if normalized:
                 globs.append(normalized)
 
-        skip_raw = section.get("skip_branches", ())
-        skip_branches = tuple(str(value).strip() for value in skip_raw if str(value).strip())
+        skip_branches = tuple(gates.normalize_patterns(section.get("skip_branches")) or ())
 
         sources_raw = section.get("sources", DEFAULT_SOURCES)
         sources = tuple(str(value).strip().lower() for value in sources_raw if str(value).strip())
@@ -210,16 +202,6 @@ class ProgressCheckResult:
             "new_items": list(self.new_items),
             "message": self.message,
         }
-
-
-def detect_branch(root: Path) -> Optional[str]:
-    lines = _run_git(root, ["rev-parse", "--abbrev-ref", "HEAD"])
-    if not lines:
-        return None
-    branch = lines[0]
-    if branch.upper() == "HEAD":
-        return None
-    return branch
 
 
 def _is_git_repository(root: Path) -> bool:
@@ -528,19 +510,17 @@ def check_progress(
             message=f"Контекст `{context}` не входит в tasklist_progress.sources.",
         )
 
-    detected_branch = branch or detect_branch(root)
-    if detected_branch and config.skip_branches:
-        for pattern in config.skip_branches:
-            if fnmatch.fnmatch(detected_branch, pattern):
-                return ProgressCheckResult(
-                    status="skip:branch",
-                    ticket=ticket,
-                    slug_hint=slug_hint,
-                    tasklist_path=None,
-                    code_files=[],
-                    new_items=[],
-                    message=f"Ветка `{detected_branch}` исключена из проверки (skip_branches).",
-                )
+    detected_branch = branch or runtime.detect_branch(root)
+    if detected_branch and config.skip_branches and gates.matches(config.skip_branches, detected_branch):
+        return ProgressCheckResult(
+            status="skip:branch",
+            ticket=ticket,
+            slug_hint=slug_hint,
+            tasklist_path=None,
+            code_files=[],
+            new_items=[],
+            message=f"Ветка `{detected_branch}` исключена из проверки (skip_branches).",
+        )
 
     changed_files, git_available = _collect_changed_files(root)
     if not git_available:
@@ -732,7 +712,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = identifiers.resolved_ticket
     slug_hint = identifiers.slug_hint
-    branch = args.branch or detect_branch(root)
+    branch = args.branch or runtime.detect_branch(root)
     config = ProgressConfig.load(root)
 
     result = check_progress(

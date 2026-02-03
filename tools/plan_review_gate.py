@@ -8,13 +8,12 @@ Status READY and no open action items.
 from __future__ import annotations
 
 import argparse
-import json
 import re
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable, List, Set
 
-from tools.feature_ids import resolve_project_root
+from tools import gates
+from tools.feature_ids import resolve_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
@@ -41,30 +40,8 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
-def load_gate_config(path: Path) -> dict:
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    section = data.get("plan_review", {})
-    if isinstance(section, bool):
-        return {"enabled": section}
-    return section if isinstance(section, dict) else {}
-
-
-def matches(patterns: Iterable[str], value: str) -> bool:
-    if not value:
-        return False
-    for pattern in patterns or ():
-        if pattern and fnmatch(value, pattern):
-            return True
-    return False
-
-
 def detect_project_root(target: Path | None = None) -> Path:
-    return resolve_project_root(target or Path.cwd())
+    return resolve_aidd_root(target or Path.cwd())
 
 
 def normalize_path(raw: str, root: Path) -> str:
@@ -146,16 +123,19 @@ def run_gate(args: argparse.Namespace) -> int:
     config_path = Path(args.config)
     if not config_path.is_absolute():
         config_path = root / config_path
-    gate = load_gate_config(config_path)
+    try:
+        gate = gates.load_gate_section(config_path, "plan_review")
+    except ValueError:
+        gate = {}
 
     enabled = bool(gate.get("enabled", True))
     if not enabled:
         return 0
 
-    if matches(gate.get("skip_branches", []), args.branch):
+    if gates.matches(gate.get("skip_branches"), args.branch):
         return 0
     branches = gate.get("branches")
-    if branches and not matches(branches, args.branch):
+    if branches and not gates.matches(branches, args.branch):
         return 0
 
     ticket = args.ticket.strip()

@@ -63,7 +63,7 @@ def _validate_json_file(path: Path, label: str) -> None:
 
 
 def _pack_extension() -> str:
-    return ".pack.toon" if os.getenv("AIDD_PACK_FORMAT", "").strip().lower() == "toon" else ".pack.yaml"
+    return ".pack.json"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

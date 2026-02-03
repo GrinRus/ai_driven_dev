@@ -19,5 +19,5 @@
     "events",
     "meta"
   ],
-  "notes": "JSON is valid YAML; index files live at aidd/docs/index/<ticket>.yaml"
+  "notes": "Index files live at aidd/docs/index/<ticket>.json"
 }

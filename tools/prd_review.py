@@ -22,12 +22,12 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from tools.feature_ids import resolve_identifiers, resolve_project_root
+from tools.feature_ids import resolve_aidd_root, resolve_identifiers
 
 
 def detect_project_root(target: Optional[Path] = None) -> Path:
     base = target or Path.cwd()
-    return resolve_project_root(base)
+    return resolve_aidd_root(base)
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
