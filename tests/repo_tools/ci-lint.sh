@@ -86,6 +86,17 @@ run_prompt_regression() {
   fi
 }
 
+run_loop_regression() {
+  if [[ ! -f "tests/repo_tools/loop-regression.sh" ]]; then
+    warn "tests/repo_tools/loop-regression.sh missing; skipping"
+    return
+  fi
+  log "running loop regression checks"
+  if ! bash tests/repo_tools/loop-regression.sh; then
+    err "loop regression checks failed"
+    STATUS=1
+  fi
+}
 run_arch_profile_validate() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping arch profile validate"
@@ -280,6 +291,7 @@ run_prompt_lint
 run_prompt_version_check
 run_prompt_sync_guard
 run_prompt_regression
+run_loop_regression
 run_arch_profile_validate
 run_repo_linters
 
