@@ -24,6 +24,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
@@ -85,7 +86,8 @@ disable-model-invocation: false
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
 8. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source qa --ticket $1`.
 9. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage qa --result <blocked|done>` (READY/WARN → `done`; BLOCKED только при missing artifacts/evidence или `tests_required=hard`). QA stage_result ticket‑scoped (`scope_key=<ticket>`); при раннем `BLOCKED` используй `--allow-missing-work-item`.
-10. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+10. Команда (после subagent): сформируй финальный статус через `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket $1 --stage qa` и используй его в ответе (single source of truth).
+11. При некорректном tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
@@ -103,6 +105,7 @@ disable-model-invocation: false
 - `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
+- Финальный `Status` должен совпадать с выводом `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh`.
 - Итоговый Status в ответе: приоритет `stage_result` → `qa report` → `pack`. При расхождении выбери безопасный статус (BLOCKED > WARN > READY) и укажи `reason_code=sync_drift_warn`.
 - Ответ содержит `Checkbox updated` (если есть).
 

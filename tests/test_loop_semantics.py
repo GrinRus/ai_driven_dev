@@ -252,9 +252,19 @@ class LoopSemanticsTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("status"), "ship")
+            self.assertEqual(payload.get("status"), "max-iterations")
+            self.assertEqual(
+                (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip(),
+                "iteration_id=I2",
+            )
+            self.assertEqual(
+                (root / "docs" / ".active_stage").read_text(encoding="utf-8").strip(),
+                "implement",
+            )
+            log_path = root / "reports" / "loops" / ticket / "loop.run.log"
+            self.assertIn("selected_next_work_item=iteration_id=I2", log_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "moduleMatrix": [],
                 "reviewerGate": {
                     "enabled": True,
-                    "marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
+                    "marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
                     "field": "tests",
                     "requiredValues": ["required"],
                     "optionalValues": ["optional", "skipped", "not-required"],
@@ -290,7 +290,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     payload["automation"]["tests"]["reviewerGate"].update(
         {
             "enabled": True,
-            "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.json",
+            "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.tests.json",
             "tests_field": "state",
             "required_values": ["force"],
             "optional_values": ["idle"],
@@ -301,7 +301,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
     write_active_feature(project, "demo", slug_hint="checkout-lite")
-    marker = project / "reports" / "reviewer" / "checkout-lite" / "demo.json"
+    marker = project / "reports" / "reviewer" / "checkout-lite" / "demo.tests.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text('{"ticket": "demo", "slug": "checkout-lite", "state": "force"}', encoding="utf-8")
 
@@ -317,7 +317,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
             "tests": {
                 "reviewerGate": {
                     "enabled": True,
-                    "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
+                    "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
                     "tests_field": "state",
                     "required_values": ["force"],
                     "optional_values": ["idle"],
@@ -341,7 +341,7 @@ def test_reviewer_tests_cli_accepts_snake_case_status(tmp_path):
     result = subprocess.run(cmd, cwd=tmp_path, text=True, capture_output=True, env=env, check=True)
     assert result.returncode == 0, result.stderr
 
-    marker = project / "reports" / "reviewer" / "demo" / "demo.json"
+    marker = project / "reports" / "reviewer" / "demo" / "demo.tests.json"
     payload = json.loads(marker.read_text(encoding="utf-8"))
     assert payload["state"] == "force"
 

@@ -154,7 +154,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     },
     "reviewer": {
         "enabled": True,
-        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
+        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
         "tests_field": "tests",
         "required_values": ["required"],
         "optional_values": ["optional", "skipped", "not-required"],

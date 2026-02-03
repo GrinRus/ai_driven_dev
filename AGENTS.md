@@ -20,7 +20,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - При изменении поведения: обновите `templates/aidd/**`, `AGENTS.md`, затем проверьте bootstrap (`/feature-dev-aidd:aidd-init`) и smoke.
 - Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
 - Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
-- Permissions/cadence: `aidd/.claude/settings.json` в workspace (если нужна настройка разрешений и cadence).
+- Permissions/cadence: `.claude/settings.json` в корне workspace (без `aidd/.claude`).
 
 ## Архитектура путей (plugin cache vs workspace)
 - Плагин копируется в cache Claude Code: записи в `${CLAUDE_PLUGIN_ROOT}` недопустимы.

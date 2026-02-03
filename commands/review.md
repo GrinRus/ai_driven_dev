@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.31
-source_version: 1.0.31
+prompt_version: 1.0.32
+source_version: 1.0.32
 allowed-tools:
   - Read
   - Edit
@@ -21,6 +21,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
@@ -76,7 +77,7 @@ disable-model-invocation: false
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
 3. Команда (до subagent): собери Context Pack `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.review.pack.md`; если pack не записался — верни `Status: BLOCKED`.
-4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем (если есть) `review.latest.pack.md`, затем `aidd/reports/context/$1.review.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем (если есть) `review.latest.pack.md`, затем `aidd/reports/context/$1.review.pack.md`.** Если excerpt в loop pack содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance — запрещено читать полный tasklist/PRD/Plan/Research/Spec.
 5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED` (исправимые дефекты → `WARN`/`REVISE`).
 6. Subagent: при verdict=REVISE включает Fix Plan (структурированный блок; каждый blocking finding отражён).
 7. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
@@ -87,7 +88,8 @@ disable-model-invocation: false
 12. Команда (после subagent): при необходимости запроси автотесты через `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` (или `--clear`).
 13. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1`.
 14. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1`.
-15. Если tasklist невалиден — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+15. Команда (после subagent): сформируй финальный статус через `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket $1 --stage review` и используй его в ответе (single source of truth).
+16. Если tasklist невалиден — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
@@ -108,6 +110,7 @@ disable-model-invocation: false
 - `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
+- Финальный `Status` должен совпадать с выводом `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh`.
 - Вердикт/Status должны совпадать с итоговым `review.latest.pack.md` и `stage.review.result.json` (если pack=REVISE → Status=WARN/REVISE, SHIP запрещён).
 - Ответ содержит `Checkbox updated` (если есть).
 - Итоговый Status в ответе: приоритет `stage_result` → `review report` → `review pack`. При расхождении выбери безопасный статус (BLOCKED > WARN > READY) и укажи `reason_code=sync_drift_warn`.

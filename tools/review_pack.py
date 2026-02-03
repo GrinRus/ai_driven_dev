@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 
 
 def read_text(path: Path) -> str:

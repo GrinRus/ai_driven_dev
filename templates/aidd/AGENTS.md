@@ -23,6 +23,7 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 - Без больших вставок логов/диффов; только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
 - Loop‑gating опирается на `stage_result`; review pack/tasklist = evidence.
+- Финальный `Status` в ответах команд соответствует `stage_result`.
 - В loop‑mode вопросы в чат запрещены → фиксируй blocker/handoff в артефактах.
 
 ## Context precedence & safety
@@ -70,6 +71,8 @@ Dev‑гайд репозитория: `AGENTS.md` в корне плагина.
 - Spec: `aidd/docs/spec/<ticket>.spec.yaml`
 - Tasklist: `aidd/docs/tasklist/<ticket>.md`
 - Reports: `aidd/reports/**`
+- Reviewer marker (tests): `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json`
+- Loop logs: `aidd/reports/loops/<ticket>/cli.loop-*.log`, `cli.loop-*.stream.*`, `loop.run.log`
 
 ## QA discovery
 - Discovery тест‑команд ограничен настройками `aidd/config/gates.json` → `qa.tests.discover` (allow_paths/max_files/max_bytes).

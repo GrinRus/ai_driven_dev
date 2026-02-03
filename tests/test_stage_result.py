@@ -11,6 +11,14 @@ def write_review_context_pack(root: Path, ticket: str) -> None:
     write_file(root, f"reports/context/{ticket}.review.pack.md", f"# Context Pack — {ticket}\n")
 
 
+def write_review_context_pack_with_placeholder(root: Path, ticket: str) -> None:
+    write_file(
+        root,
+        f"reports/context/{ticket}.review.pack.md",
+        f"# Context Pack — {ticket}\n\nGoal: <stage-specific goal>\n",
+    )
+
+
 class StageResultTests(unittest.TestCase):
     def test_review_missing_tests_soft_continues(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -141,6 +149,38 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("result"), "blocked")
             self.assertEqual(payload.get("reason_code"), "review_context_pack_missing")
+
+    def test_review_context_pack_placeholder_warns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "disabled"})
+            write_review_context_pack_with_placeholder(root, "DEMO-PLACE")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-PLACE",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-PLACE" / "iteration_id_I1" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("reason_code"), "review_context_pack_placeholder_warn")
+            self.assertEqual(payload.get("result"), "continue")
 
     def test_review_skipped_tests_capture_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -425,6 +465,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "done")
+            self.assertEqual(payload.get("reason_code"), "qa_warn")
 
     def test_qa_report_blocked_overrides_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -457,6 +498,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "qa_blocked")
 
     def test_rejects_composite_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:

@@ -1784,7 +1784,15 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     slug_path = root / "docs" / ".active_feature"
     if slug_path.exists():
         slug_hint = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
-    reviewer_template = runtime.review_report_template(root)
+    gates_cfg = runtime.load_gates_config(root)
+    reviewer_cfg = gates_cfg.get("reviewer") if isinstance(gates_cfg, dict) else {}
+    if not isinstance(reviewer_cfg, dict):
+        reviewer_cfg = {}
+    reviewer_template = str(
+        reviewer_cfg.get("tests_marker")
+        or reviewer_cfg.get("marker")
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
+    )
     work_item_key = runtime.read_active_work_item(root)
     scope_key = runtime.resolve_scope_key(work_item_key, ticket)
     try:
@@ -1796,7 +1804,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             scope_key=scope_key,
         )
     except Exception:
-        reviewer_marker = root / "reports" / "reviewer" / ticket / f"{scope_key}.json"
+        reviewer_marker = root / "reports" / "reviewer" / ticket / f"{scope_key}.tests.json"
     tests_required = False
     tests_optional = False
     if reviewer_marker.exists():

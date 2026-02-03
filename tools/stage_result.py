@@ -12,7 +12,7 @@ from typing import Iterable, List, Optional, Tuple
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 
 
 def _split_items(values: Iterable[str] | None) -> List[str]:
@@ -237,6 +237,17 @@ def _load_qa_report_status(target: Path, ticket: str) -> str:
     return status if status in {"READY", "WARN", "BLOCKED"} else ""
 
 
+def _review_context_pack_placeholder(target: Path, ticket: str) -> bool:
+    pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+    if not pack_path.exists():
+        return False
+    try:
+        content = pack_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "<stage-specific goal>" in content
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -282,11 +293,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     pack_verdict = ""
     context_pack_missing = False
+    context_pack_placeholder = False
     if stage == "review":
         pack_verdict = _load_review_pack_verdict(target, ticket, scope_key)
         context_pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
         if not context_pack_path.exists():
             context_pack_missing = True
+        else:
+            context_pack_placeholder = _review_context_pack_placeholder(target, ticket)
     qa_report_status = ""
     if stage == "qa":
         qa_report_status = _load_qa_report_status(target, ticket)
@@ -338,7 +352,12 @@ def main(argv: list[str] | None = None) -> int:
             elif stage == "qa" and result == "blocked":
                 result = "done"
 
-    warn_reason_codes = {"out_of_scope_warn", "no_boundaries_defined_warn", "auto_boundary_extend_warn"}
+    warn_reason_codes = {
+        "out_of_scope_warn",
+        "no_boundaries_defined_warn",
+        "auto_boundary_extend_warn",
+        "review_context_pack_placeholder_warn",
+    }
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
 
@@ -347,6 +366,16 @@ def main(argv: list[str] | None = None) -> int:
             result = "blocked"
         elif qa_report_status in {"READY", "WARN"} and result == "blocked":
             result = "done"
+        if qa_report_status == "BLOCKED":
+            if reason_code in {"", "manual_skip"}:
+                reason_code = "qa_blocked"
+                if not reason:
+                    reason = "qa report blocked"
+        elif qa_report_status == "WARN":
+            if not reason_code or reason_code == "manual_skip":
+                reason_code = "qa_warn"
+                if not reason:
+                    reason = "qa report warn"
 
     if stage == "review" and context_pack_missing:
         result = "blocked"
@@ -356,6 +385,18 @@ def main(argv: list[str] | None = None) -> int:
             reason = "review context pack missing"
         verdict = "BLOCKED"
         pack_verdict = ""
+    elif stage == "review" and context_pack_placeholder:
+        placeholder_reason = "review_context_pack_placeholder_warn"
+        if not reason:
+            reason = "review context pack placeholder found"
+        elif "review context pack placeholder found" not in reason:
+            reason = f"{reason}; review context pack placeholder found"
+        if not reason_code:
+            reason_code = placeholder_reason
+        if result == "done":
+            result = "continue"
+        elif reason_code == placeholder_reason and result == "blocked":
+            result = "continue"
 
     if stage == "review":
         if pack_verdict:

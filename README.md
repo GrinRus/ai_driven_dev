@@ -42,7 +42,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init
 ```
 
-Если хотите сразу заполнить `.claude/settings.json` дефолтами `automation.tests`, используйте:
+`/feature-dev-aidd:aidd-init` создаёт `.claude/settings.json` с дефолтами `automation.tests`. Для обновления/детекта под стек используйте:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
@@ -91,11 +91,12 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до SHIP |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
 | `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.json` |
 | `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
@@ -136,6 +137,7 @@ RLM artifacts (pack-first):
 ## Loop mode (implement↔review)
 
 Loop = 1 work_item → implement → review → (revise)* → ship.
+Если после SHIP есть открытые итерации в `AIDD:NEXT_3`/`AIDD:ITERATIONS_FULL`, loop-run выбирает следующий work_item, обновляет `.active_work_item`/`.active_stage` и продолжает implement.
 
 Ключевые артефакты:
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` — тонкий контекст итерации.
@@ -159,12 +161,17 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 - Для max-iterations используйте формат с пробелом: `--max-iterations 5` (без `=`).
 - Если `CLAUDE_PLUGIN_ROOT`/`AIDD_PLUGIN_DIR` не задан, loop-скрипты пытаются auto-detect по пути скрипта и печатают WARN; при недоступности авто‑детекта — BLOCKED.
 - Stream логи: `aidd/reports/loops/<ticket>/cli.loop-*.stream.log` (human) и `aidd/reports/loops/<ticket>/cli.loop-*.stream.jsonl` (raw).
+- Loop run log: `aidd/reports/loops/<ticket>/loop.run.log`.
+- Настройки cadence/tests хранятся в `.claude/settings.json` в корне workspace (без `aidd/.claude`).
 
 Правила:
 - Loop pack first, без больших вставок логов/диффов (ссылки на `aidd/reports/**`).
 - Review не расширяет scope: новое → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item.
+- Review pack обязателен; при наличии review report + loop pack допускается авто‑пересборка.
+- Финальный Status в командах implement/review/qa должен совпадать со `stage_result`.
 - Allowed paths берутся из `Expected paths` итерации (`AIDD:ITERATIONS_FULL`).
 - Loop-mode тесты: implement не запускает тесты по умолчанию; нужен `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`. Review тесты не запускает.
+- Tests evidence: `tests_log` со `status=skipped` + `reason_code` считается evidence при `tests_required=soft` (для `hard` → BLOCKED).
 
 ## Предпосылки
 - `bash`, `git`, `python3`.

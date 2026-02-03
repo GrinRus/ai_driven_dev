@@ -886,7 +886,7 @@ log "verify generated artifacts"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --status required >/dev/null
-[[ -f "$WORKDIR/reports/reviewer/${TICKET}/${TICKET}.json" ]] || {
+[[ -f "$WORKDIR/reports/reviewer/${TICKET}/${TICKET}.tests.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }

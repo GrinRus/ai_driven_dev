@@ -23,7 +23,12 @@ DONE_CODE = 0
 CONTINUE_CODE = 10
 BLOCKED_CODE = 20
 ERROR_CODE = 30
-WARN_REASON_CODES = {"out_of_scope_warn", "no_boundaries_defined_warn", "auto_boundary_extend_warn"}
+WARN_REASON_CODES = {
+    "out_of_scope_warn",
+    "no_boundaries_defined_warn",
+    "auto_boundary_extend_warn",
+    "review_context_pack_placeholder_warn",
+}
 HANDOFF_QA_START = "<!-- handoff:qa start -->"
 HANDOFF_QA_END = "<!-- handoff:qa end -->"
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -391,6 +396,38 @@ def resolve_review_report_path(root: Path, ticket: str, slug_hint: str, scope_ke
     return runtime.resolve_path_for_target(Path(rel_text), root)
 
 
+def _maybe_regen_review_pack(
+    root: Path,
+    *,
+    ticket: str,
+    slug_hint: str,
+    scope_key: str,
+) -> Tuple[bool, str]:
+    report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
+    if not report_path.exists():
+        return False, "review report missing"
+    loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
+    if not loop_pack_path.exists():
+        return False, "loop pack missing"
+    try:
+        from tools import review_pack as review_pack_module
+
+        args = ["--ticket", ticket]
+        if slug_hint:
+            args.extend(["--slug-hint", slug_hint])
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            review_pack_module.main(args)
+    except Exception as exc:
+        return False, f"review pack regen failed: {exc}"
+    pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+    if not pack_path.exists():
+        return False, "review pack missing"
+    return True, ""
+
+
 def validate_review_pack(
     root: Path,
     *,
@@ -400,7 +437,23 @@ def validate_review_pack(
 ) -> Tuple[bool, str, str]:
     pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
     if not pack_path.exists():
-        return False, "review pack missing", "review_pack_missing"
+        ok, regen_message = _maybe_regen_review_pack(
+            root,
+            ticket=ticket,
+            slug_hint=slug_hint,
+            scope_key=scope_key,
+        )
+        if ok:
+            pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        else:
+            reason = regen_message or "review pack missing"
+            missing_reasons = {
+                "review report missing",
+                "loop pack missing",
+                "review pack missing",
+            }
+            code = "review_pack_missing" if reason in missing_reasons else "review_pack_regen_failed"
+            return False, reason, code
     lines = pack_path.read_text(encoding="utf-8").splitlines()
     front = parse_front_matter(lines)
     schema = str(front.get("schema") or "").strip()

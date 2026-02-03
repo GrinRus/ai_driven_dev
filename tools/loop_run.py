@@ -13,6 +13,14 @@ from pathlib import Path
 from typing import Dict, List
 
 from tools import runtime
+from tools.loop_pack import (
+    is_open_item,
+    parse_iteration_items,
+    parse_next3_refs,
+    parse_sections,
+    select_first_open,
+    write_active_state,
+)
 from tools.io_utils import dump_yaml, utc_timestamp
 
 DONE_CODE = 0
@@ -54,6 +62,34 @@ def append_stream_file(dest: Path, source: Path, *, header: str | None = None) -
         if header:
             out_handle.write(header + "\n")
         out_handle.write(source.read_text(encoding="utf-8"))
+
+
+def write_active_stage(root: Path, stage: str) -> None:
+    docs_dir = root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (docs_dir / ".active_stage").write_text(stage + "\n", encoding="utf-8")
+
+
+def select_next_work_item(target: Path, ticket: str, current_work_item: str) -> tuple[str, int]:
+    tasklist_path = target / "docs" / "tasklist" / f"{ticket}.md"
+    if not tasklist_path.exists():
+        return "", 0
+    lines = tasklist_path.read_text(encoding="utf-8").splitlines()
+    sections = parse_sections(lines)
+    iterations = parse_iteration_items(sections.get("AIDD:ITERATIONS_FULL", []))
+    open_items = [
+        item
+        for item in iterations
+        if is_open_item(item) and item.work_item_key != current_work_item
+    ]
+    pending_count = len(open_items)
+    if not open_items:
+        return "", pending_count
+    next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
+    candidate = select_first_open(next3_refs, open_items)
+    if not candidate:
+        candidate = open_items[0]
+    return candidate.work_item_key, pending_count
 
 
 def resolve_runner_label(raw: str | None) -> str:
@@ -184,6 +220,8 @@ def main(argv: List[str] | None = None) -> int:
     if stream_mode:
         stream_log_path = target / "reports" / "loops" / ticket / f"cli.loop-run.{stamp}.stream.log"
         stream_jsonl_path = target / "reports" / "loops" / ticket / f"cli.loop-run.{stamp}.stream.jsonl"
+        stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        stream_jsonl_path.touch(exist_ok=True)
         append_log(
             stream_log_path,
             f"==> loop-run: ticket={ticket} stream_mode={stream_mode}",
@@ -278,6 +316,44 @@ def main(argv: List[str] | None = None) -> int:
             ),
         )
         if result.returncode == DONE_CODE:
+            step_stage = str(step_payload.get("stage") or "").strip().lower()
+            selected_next = ""
+            pending_count = 0
+            if step_stage == "review":
+                current_work_item = runtime.read_active_work_item(target)
+                selected_next, pending_count = select_next_work_item(target, ticket, current_work_item)
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=ship iteration={iteration} "
+                        f"pending_iterations_count={pending_count} "
+                        f"selected_next_work_item={selected_next or 'none'} "
+                        f"runner_cmd={runner_effective}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=ship iteration={iteration} "
+                        f"pending_iterations_count={pending_count} "
+                        f"selected_next_work_item={selected_next or 'none'}"
+                    ),
+                )
+                if selected_next:
+                    write_active_state(target, ticket, selected_next)
+                    write_active_stage(target, "implement")
+                    append_log(
+                        log_path,
+                        (
+                            f"{utc_timestamp()} event=continue "
+                            f"next_work_item={selected_next} pending_iterations_count={pending_count}"
+                        ),
+                    )
+                    append_log(
+                        cli_log_path,
+                        f"{utc_timestamp()} event=continue next_work_item={selected_next}",
+                    )
+                    continue
             clear_active_mode(target)
             payload = {
                 "status": "ship",

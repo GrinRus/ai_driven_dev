@@ -419,15 +419,6 @@ def run(args: argparse.Namespace) -> int:
     links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
     rlm_pack_rel = f"reports/research/{ticket}-rlm{pack_ext}"
     rlm_pack_path = target / rlm_pack_rel
-    rlm_require_links = False
-    try:
-        from tools.rlm_config import load_rlm_settings
-
-        rlm_settings = load_rlm_settings(target)
-        rlm_require_links = bool(rlm_settings.get("require_links"))
-    except Exception:
-        rlm_require_links = False
-
     if not args.dry_run:
         if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
             try:
@@ -456,12 +447,11 @@ def run(args: argparse.Namespace) -> int:
     pack_exists = rlm_pack_path.exists()
     rlm_status = "pending"
     rlm_warnings: list[str] = []
-    if pack_exists and (links_ok or not rlm_require_links):
+    if pack_exists:
         rlm_status = "ready"
-    elif pack_exists and rlm_require_links and not links_ok:
-        rlm_status = "pending"
-        rlm_warnings.append("rlm_links_missing")
-        print("[aidd] WARN: rlm links missing; rlm_status remains pending.", file=sys.stderr)
+        if not links_ok:
+            rlm_warnings.append("rlm_links_empty_warn")
+            print("[aidd] WARN: rlm links empty; rlm_status set to ready with warning.", file=sys.stderr)
 
     collected_context["rlm_nodes_path"] = nodes_path.relative_to(target).as_posix()
     collected_context["rlm_links_path"] = links_path.relative_to(target).as_posix()

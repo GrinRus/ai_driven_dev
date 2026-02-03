@@ -238,7 +238,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     template = str(
         reviewer_cfg.get("tests_marker")
         or reviewer_cfg.get("marker")
-        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
     )
     field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
     required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -259,15 +259,26 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
             raw = (ticket or "").strip()
             cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw)
             scope_key = cleaned.strip("._-") or "ticket"
-    marker_path = Path(
-        template.replace("{ticket}", ticket)
-        .replace("{slug}", slug_value)
-        .replace("{scope_key}", scope_key or "ticket")
-    )
-    if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
-        marker_path = root / Path(*marker_path.parts[1:])
-    elif not marker_path.is_absolute():
-        marker_path = root / marker_path
+    try:
+        from tools import runtime as _runtime
+
+        marker_path = _runtime.reviewer_marker_path(
+            root,
+            template,
+            ticket,
+            slug_hint or None,
+            scope_key=scope_key or "ticket",
+        )
+    except Exception:
+        marker_path = Path(
+            template.replace("{ticket}", ticket)
+            .replace("{slug}", slug_value)
+            .replace("{scope_key}", scope_key or "ticket")
+        )
+        if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
+            marker_path = root / Path(*marker_path.parts[1:])
+        elif not marker_path.is_absolute():
+            marker_path = root / marker_path
 
     if not marker_path.exists():
         return ""

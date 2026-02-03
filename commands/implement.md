@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.37
-source_version: 1.1.37
+prompt_version: 1.1.38
+source_version: 1.1.38
 allowed-tools:
   - Read
   - Edit
@@ -30,6 +30,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
   - "Bash(git status:*)"
@@ -115,7 +116,8 @@ Decision matrix (default: `fast`):
 11. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn|auto_boundary_extend_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
 12. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
 13. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` только при `FORBIDDEN`/отсутствии обязательных артефактов/evidence; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → `continue` + `--reason-code out_of_scope_warn|no_boundaries_defined_warn`; `tests_required=soft` + missing/skipped → `Status: WARN` (не `BLOCKED`), `tests_required=hard` → `BLOCKED`). При раннем `BLOCKED` без `.active_work_item` используй `--allow-missing-work-item` + `--reason-code`.
-14. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+14. Команда (после subagent): сформируй финальный статус через `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket $1 --stage implement` и используй его в ответе (single source of truth).
+15. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет plan/tasklist или ревью не готовы — остановись и попроси завершить предыдущие шаги.
@@ -127,6 +129,7 @@ Decision matrix (default: `fast`):
 ## Ожидаемый вывод
 - Обновлённый код и `aidd/docs/tasklist/$1.md`.
 - `Status: READY|WARN|BLOCKED|PENDING`.
+- Финальный `Status` должен совпадать с выводом `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh`.
 - `Work item key: iteration_id=...` (или `n/a` при раннем BLOCKED).
 - `Artifacts updated: <paths>`.
 - `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).

@@ -11,7 +11,8 @@ Research: aidd/docs/research/<ABC-123>.md
 Spec: aidd/docs/spec/<ABC-123>.spec.yaml
 Reports:
   tests: aidd/reports/tests/<ABC-123>/<scope_key>.jsonl  # optional
-  reviewer: aidd/reports/reviewer/<ABC-123>/<scope_key>.json # marker/summary
+  review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
+  reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
   qa: aidd/reports/qa/<ABC-123>.json
 ---
 
@@ -74,7 +75,8 @@ Status: PENDING
 - Research: aidd/docs/research/<ABC-123>.md (ищи #AIDD:INTEGRATION_POINTS)
 - Plan: aidd/docs/plan/<ABC-123>.md (ищи #AIDD:FILES_TOUCHED, #AIDD:ITERATIONS)
 - Reports:
-  - reviewer: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
+  - review_report: aidd/reports/reviewer/<ABC-123>/<scope_key>.json
+  - reviewer_marker: aidd/reports/reviewer/<ABC-123>/<scope_key>.tests.json
   - qa: aidd/reports/qa/<ABC-123>.json
 
 ---
@@ -217,7 +219,8 @@ Spec: aidd/docs/spec/<ABC-123>.spec.yaml (status: <draft|ready>|none)
 > Примеры (не активные):
 > - [ ] Critical null check in webhook handler (id: review:null-check) (Priority: high) (Blocking: true)
 >   - source: review
->   - Report: aidd/reports/reviewer/<ticket>/<scope_key>.json
+>   - Review report: aidd/reports/reviewer/<ticket>/<scope_key>.json
+>   - Reviewer marker: aidd/reports/reviewer/<ticket>/<scope_key>.tests.json
 >   - Status: open
 >   - scope: I2
 >   - DoD: webhook rejects empty payload with 4xx + unit test updated

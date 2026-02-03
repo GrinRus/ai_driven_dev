@@ -37,7 +37,8 @@
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
-- aidd/reports/reviewer/<ticket>/<scope_key>.json (review report + маркер тестов)
+- aidd/reports/reviewer/<ticket>/<scope_key>.json (review report)
+- aidd/reports/reviewer/<ticket>/<scope_key>.tests.json (reviewer marker, если используется)
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
 - Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.

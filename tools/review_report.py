@@ -196,6 +196,12 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     report_template = args.report or runtime.review_report_template(target)
+    if "{scope_key}" not in report_template:
+        print(
+            "[aidd] WARN: review report template missing {scope_key}; falling back to default template.",
+            file=sys.stderr,
+        )
+        report_template = runtime.DEFAULT_REVIEW_REPORT
     report_text = _fmt(report_template)
     report_path = runtime.resolve_path_for_target(Path(report_text), target)
 
@@ -233,6 +239,49 @@ def main(argv: list[str] | None = None) -> int:
         if isinstance(raw, list):
             return [entry for entry in raw if isinstance(entry, dict)]
         return []
+
+    def _looks_like_report_payload(payload: Dict[str, Any]) -> bool:
+        kind = str(payload.get("kind") or "").strip().lower()
+        stage = str(payload.get("stage") or "").strip().lower()
+        if kind == "review" or stage == "review":
+            return True
+        if "findings" in payload or "blocking_findings_count" in payload:
+            return True
+        return False
+
+    if report_path.exists():
+        try:
+            legacy_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            legacy_payload = {}
+        if isinstance(legacy_payload, dict) and not _looks_like_report_payload(legacy_payload):
+            gates_cfg = runtime.load_gates_config(target)
+            reviewer_cfg = gates_cfg.get("reviewer") if isinstance(gates_cfg, dict) else {}
+            if not isinstance(reviewer_cfg, dict):
+                reviewer_cfg = {}
+            marker_template = str(
+                reviewer_cfg.get("tests_marker")
+                or reviewer_cfg.get("marker")
+                or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
+            )
+            marker_path = runtime.reviewer_marker_path(
+                target,
+                marker_template,
+                ticket,
+                slug_hint,
+                scope_key=scope_key,
+            )
+            if marker_path.resolve() != report_path.resolve():
+                if not marker_path.exists():
+                    marker_path.parent.mkdir(parents=True, exist_ok=True)
+                    marker_path.write_text(
+                        json.dumps(legacy_payload, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                try:
+                    report_path.unlink()
+                except OSError:
+                    pass
 
     existing_payload: Dict[str, Any] = {}
     existing_findings: List[Dict] = []

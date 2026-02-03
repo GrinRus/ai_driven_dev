@@ -297,11 +297,14 @@ def review_report_template(target: Path) -> str:
     reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
     if not isinstance(reviewer_cfg, dict):
         reviewer_cfg = {}
-    return str(
-        reviewer_cfg.get("marker")
-        or reviewer_cfg.get("tests_marker")
+    template = str(
+        reviewer_cfg.get("review_report")
+        or reviewer_cfg.get("report")
         or DEFAULT_REVIEW_REPORT
     )
+    if "{scope_key}" not in template:
+        return DEFAULT_REVIEW_REPORT
+    return template
 
 
 def is_relative_to(path: Path, ancestor: Path) -> bool:
@@ -332,7 +335,42 @@ def reviewer_marker_path(
         raise ValueError(
             f"reviewer marker path {marker_path} escapes project root {target_root}"
         )
+    _maybe_migrate_reviewer_marker(marker_path)
     return marker_path
+
+
+def _looks_like_review_report(payload: Dict[str, Any]) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    kind = str(payload.get("kind") or "").strip().lower()
+    stage = str(payload.get("stage") or "").strip().lower()
+    if kind == "review" or stage == "review":
+        return True
+    if "findings" in payload or "blocking_findings_count" in payload:
+        return True
+    return False
+
+
+def _maybe_migrate_reviewer_marker(marker_path: Path) -> None:
+    if marker_path.exists():
+        return
+    if not marker_path.name.endswith(".tests.json"):
+        return
+    old_path = marker_path.with_name(marker_path.name.replace(".tests.json", ".json"))
+    if not old_path.exists():
+        return
+    try:
+        payload = json.loads(old_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if _looks_like_review_report(payload):
+        return
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        old_path.unlink()
+    except OSError:
+        return
 
 
 def resolve_tool_result_id(payload: Dict[str, Any], *, index: Optional[int] = None) -> tuple[str, str]:

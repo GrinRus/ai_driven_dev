@@ -142,7 +142,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     template = str(
         reviewer_cfg.get("tests_marker")
         or reviewer_cfg.get("marker")
-        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
     )
     field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
     required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -301,7 +301,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     review_template = (
         reviewer_cfg.get("marker")
         or reviewer_cfg.get("tests_marker")
-        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
     )
     try:
         from tools import runtime as _runtime

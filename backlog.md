@@ -3353,6 +3353,134 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - `tasks-new` не падает с 500 при tool‑result без `id` и продолжает best‑effort.
   **Deps:** -
 
+### Audit Follow-ups (AIDD Flow)
+
+- [x] **W88-35** `tools/init.py`, `templates/aidd/**`, `hooks/format-and-test.sh`, `tools/reports/tests_log.py`:
+  - Гарантировать наличие `.claude/settings.json` после `aidd-init` (default, без флага).
+  - Если settings отсутствуют → `format-and-test.sh` пишет `tests_log` со `status=skipped` + `reason_code=settings_missing`, затем обновляет `stage_result`.
+  **AC:**
+  - В новом workspace после `aidd-init` есть `.claude/settings.json`.
+  - При отсутствии settings в workspace tests_log всё равно появляется (skipped + reason_code).
+  **Deps:** W88-4, W88-17
+
+- [x] **W88-36** `tools/loop_step.py`, `tools/stage_result.py`, `tools/review_report.py`, `tools/review_pack.py`, `commands/review.md`, `templates/aidd/docs/loops/README.md`:
+  - Авто‑генерация `review.latest.pack.md`, если pack отсутствует, но есть review report + loop pack.
+  - В `loop_step.validate_review_pack()` попытаться пересобрать pack перед `review_pack_missing`.
+  **AC:**
+  - Loop‑run/step не блокируется по `review_pack_missing`, если есть review report.
+  - Review pack всегда создаётся на seed‑review.
+  **Deps:** W88-6, W88-21
+
+- [x] **W88-37** `tools/stage_result.py`, `tools/qa.py`, `tests/*`:
+  - Синхронизировать `stage.qa.result` с QA отчётом:
+    - если QA report = BLOCKED → `reason_code=qa_blocked` (приоритет над manual_skip).
+    - если QA report = WARN → `reason_code=qa_warn` (если нет других ошибок).
+  **AC:**
+  - `stage.qa.result` reason_code отражает статус QA отчёта.
+  **Deps:** W88-7
+
+- [x] **W88-38** `tools/stage_result.py`, `tools/loop_step.py`, `tools/context_pack.py`, `tests/*`:
+  - Авто‑WARN, если `aidd/reports/context/<ticket>.review.pack.md` содержит placeholder (`<stage-specific goal>`):
+    - ставить `reason_code=review_context_pack_placeholder_warn`;
+    - `loop_step` воспринимает как WARN (continue).
+  **AC:**
+  - Placeholder в review context pack → WARN, не BLOCKED.
+  **Deps:** W88-33
+
+- [x] **W88-39** `tools/status_summary.py` (new), `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
+  - Добавить tool для финального статуса на основе `stage_result` (single source of truth).
+  - Команды implement/review/qa обязаны выводить summary из tool (или ссылаться на него), чтобы исключить `READY` при `continue/blocked`.
+  **AC:**
+  - Финальный Status в ответе всегда совпадает с `stage_result`.
+  **Deps:** W88-30
+
+- [x] **W88-40** `templates/aidd/config/gates.json`, `tools/runtime.py`, `tools/reviewer_tests.py`, `tools/review_report.py`, `templates/aidd/docs/loops/README.md`:
+  - Развести reviewer marker и review report:
+    - marker: `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json`
+    - report: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
+  - Миграция: если есть старый marker → перенести `tests` в новый путь.
+  **AC:**
+  - Review report больше не перезаписывается reviewer marker‑ом.
+  **Deps:** W88-6, W88-21
+
+- [x] **W88-41** `README.md`, `README.en.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`:
+  - Обновить документацию по AIDD loop:
+    - где искать loop‑логи (`cli.loop-*.log`, `loop.run.log`, `*.stream.*`);
+    - требование наличия review pack и авто‑генерацию (если включена);
+    - policy для tests evidence (skipped + reason_code считается evidence при soft).
+  - Зафиксировать требования к финальному Status (single source: stage_result).
+  **AC:**
+  - Документация отражает актуальное поведение loop‑скриптов/статусов/логов.
+  **Deps:** W88-35..W88-40
+
+- [x] **W88-42** `aidd_test_flow_prompt_ralph_script.txt`:
+  - Обновить тестовый скрипт прогона под актуальные правила:
+    - проверить наличие `aidd/.claude/settings.json` после `aidd-init`;
+    - добавить требование `tests_log` со `status=skipped` + `reason_code=settings_missing`, если settings отсутствуют;
+    - добавить проверку reviewer report/marker новых путей;
+    - синхронизацию `stage.qa.result` reason_code с QA отчётом;
+    - явное требование “final Status = stage_result” и placeholder WARN.
+  **AC:**
+  - Скрипт отражает обновлённые инварианты и артефакты (tests evidence, review report/marker, status single-source).
+  **Deps:** W88-35..W88-41
+
+- [x] **W88-43** `tools/loop_step.py`, `tools/loop_run.py`, `tools/loop-run.sh`, `tools/tasklist_parser.py`, `templates/aidd/docs/loops/README.md`, `tests/*`:
+  - Loop‑continue после SHIP:
+    - если `review` завершён `SHIP` и есть открытые итерации в `AIDD:NEXT_3`/`AIDD:ITERATIONS_FULL`, loop‑run обязан выбрать следующий work_item и перейти в `implement`;
+    - обновлять `.active_work_item`/`.active_stage` при смене work_item;
+    - останавливать loop только если нет открытых итераций.
+  **AC:**
+  - После SHIP при наличии следующих итераций loop‑run запускает implement следующего work_item.
+  - При отсутствии открытых итераций loop‑run корректно завершает работу.
+  **Deps:** W88-19, W88-32
+
+- [x] **W88-44** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop_run.py`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
+  - Логирование переходов и stream‑артефактов:
+    - логировать `runner_cmd`, `selected_next_work_item`, `pending_iterations_count` в `loop.run.log`/`cli.loop-*.log`;
+    - при `--stream` всегда создавать `cli.loop-*.stream.jsonl`.
+  **AC:**
+  - В loop‑логах есть runner_cmd и сведения о выборе next work_item.
+  - При `--stream` создаются оба файла: `*.stream.log` и `*.stream.jsonl`.
+  **Deps:** W88-B1
+
+- [x] **W88-45** `agents/implementer.md`, `agents/reviewer.md`, `commands/review.md`, `tools/context_pack.py`, `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
+  - Enforce excerpt‑first + корректные отчёты review:
+    - implement/review запрещено читать full tasklist/PRD/Plan/Research/Spec, если loop‑excerpt содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance;
+    - placeholder в `review` context pack ⇒ WARN и `stage_result=continue` (не READY);
+    - reviewer пишет report только в `aidd/reports/reviewer/<ticket>/<scope_key>.json` (без ticket‑level файла).
+  **AC:**
+  - Transcript/политика чтения соблюдают excerpt‑first.
+  - Placeholder в review context pack приводит к WARN (не READY).
+  - Ticket‑level reviewer report больше не создаётся.
+  **Deps:** W88-36, W88-38, W88-40
+
+- [x] **W88-46** `tools/researcher.py`, `tools/rlm_verify.py`, `templates/aidd/docs/research/template.md`, `tests/*`:
+  - Синхронизировать RLM‑статусы в research:
+    - если `*-rlm.pack.json` существует — отражать `rlm_status=ready`;
+    - если links пустые — WARN (`rlm_links_empty_warn`) вместо BLOCKED.
+  **AC:**
+  - Research отчёт корректно отражает наличие RLM pack.
+  - Пустые links фиксируются WARN, не BLOCKED.
+  **Deps:** W88-31
+
+- [x] **W88-47** `README.md`, `README.en.md`, `templates/aidd/docs/loops/README.md`:
+  - Обновить доки:
+    - описать loop‑continue после SHIP (переход на следующий work_item);
+    - зафиксировать, что используется только `.claude/settings.json` (без `aidd/.claude`).
+  **AC:**
+  - README отражает актуальный loop‑flow и расположение settings.
+  **Deps:** W88-43
+
+- [x] **W88-48** `aidd_test_flow_prompt_ralph_script.txt`:
+  - Обновить тестовый прогон:
+    - убрать проверку `aidd/.claude/settings.json`;
+    - добавить ожидание loop‑continue после SHIP при наличии следующих итераций;
+    - добавить проверку `*.stream.jsonl` при `--stream`;
+    - уточнить reviewer report path (no ticket‑level report).
+  **AC:**
+  - Тестовый промпт соответствует новым требованиям.
+  **Deps:** W88-43, W88-44, W88-45, W88-47
+
 ## Wave 88.x — Agent streaming (Variant B: stream-json + фильтрация в CLI)
 
 _Цель: при запуске `loop-run.sh/loop-step.sh` показывать “что происходит внутри агента” в реальном времени, без раскрытия chain-of-thought: стримить текст ответа + (опционально) tool-события. Сохранять сырой stream-json в файл и human-readable лог._
@@ -3583,6 +3711,110 @@ _Статус: план. Цель — сократить дубли докуме
     - обновить краткие описания/линки (включая упоминание `CLAUDE.md`, если добавлено).
   **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы; `CLAUDE.md` и examples интегрированы ссылками.
   **Deps:** W89-1, W89-2, W89-3, W89-4, W89-5, W89-6, W89-7, W89-8
+
+## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
+
+_Статус: новый, приоритет 1. Обратная совместимость не требуется — удалить старую логику и тесты._
+
+- [ ] **W90-1** `tools/research_hints.py` (или `tools/prd_sections.py`), `templates/aidd/docs/prd/template.md`, `commands/idea-new.md`, `commands/researcher.md`:
+  - добавить парсер `AIDD:RESEARCH_HINTS` (Paths/Keywords/Notes) с нормализацией (split `:`/`,`/whitespace, trim, dedupe);
+  - сделать hints обязательными для research (минимум `paths` или `keywords`);
+  - обновить PRD template/commands: явно требовать заполнения `AIDD:RESEARCH_HINTS` на этапе analyst.
+  **AC:** есть единый парсер hints; research не стартует при пустых hints; PRD template содержит строгий формат.
+  **Deps:** -
+
+- [ ] **W90-2** `tools/rlm_targets.py`, `tools/rlm_manifest.py`, `tools/rlm_links_build.py`, `tools/rlm_nodes_build.py`:
+  - RLM targets строятся напрямую из `AIDD:RESEARCH_HINTS` (paths/keywords/notes), без `*-targets.json`;
+  - удалить `_load_research_targets` и любые зависимости от `reports/research/*-targets.json`;
+  - `targets_mode=explicit` при наличии paths.
+  **AC:** `aidd/reports/research/<ticket>-rlm-targets.json` генерируется только из PRD hints; `*-targets.json` нигде не читается.
+  **Deps:** W90-1
+
+- [ ] **W90-3** `tools/research.py`, `tools/research.sh`, `tools/researcher-context.sh`, `tools/researcher_context.py`, `tools/reports_pack.py`:
+  - убрать сбор `*-context.json`/`*-context.pack.json` и `*-targets.json`;
+  - удалить/заменить `ResearcherContextBuilder` и связанные CLI (`researcher-context`);
+  - `research.sh` запускает только RLM pipeline (targets → manifest → worklist) + materialize `docs/research/<ticket>.md`;
+  - удалить `reports.research_pack_budget` логику в `tools/reports_pack.py`.
+  **AC:** research не создаёт `*-context*` и `*-targets.json`; остаются только RLM артефакты и `docs/research/<ticket>.md`.
+  **Deps:** W90-1, W90-2
+
+- [ ] **W90-4** `tools/research_guard.py`, `tools/gate_workflow.py`, `tools/tasks_derive.py`, `tools/index_sync.py`, `tools/status.py`:
+  - валидировать research только по RLM артефактам (targets/manifest/worklist/nodes/links/pack);
+  - handoff‑derive для research берёт данные только из `*-rlm.pack.json`;
+  - удалить ссылки на `*-context.json`/`*-targets.json` из gate/index/status.
+  **AC:** гейты и handoff работают без `*-context*`; warnings/blocked основаны на RLM readiness.
+  **Deps:** W90-2, W90-3
+
+- [ ] **W90-5** `tools/rlm_finalize.py`, `tools/rlm_nodes_build.py`, `tools/reports_pack.py`:
+  - убрать `--update-context` и любые обновления `context.json`;
+  - `rlm_finalize` оперирует только `nodes/links` и пишет `*-rlm.pack.json`.
+  **AC:** `rlm_finalize` работает без `context.json`; pack строится из nodes/links.
+  **Deps:** W90-3
+
+- [ ] **W90-6** `agents/researcher.md`, `commands/researcher.md`, `templates/aidd/docs/anchors/research.md`, `templates/aidd/docs/anchors/rlm.md`, `templates/aidd/docs/sdlc-flow.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/config/conventions.json`:
+  - удалить упоминания `*-context.json`/`*-context.pack.json`/`*-targets.json`;
+  - зафиксировать RLM‑only policy и зависимость от `AIDD:RESEARCH_HINTS`;
+  - удалить `reports.research_pack_budget` из `config/conventions.json`.
+  **AC:** документация и канон описывают только RLM артефакты; нет ссылок на context/targets.
+  **Deps:** W90-1, W90-3
+
+- [ ] **W90-7** `tests/*`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh` (если нужно), `tests/helpers.py`:
+  - удалить/переписать тесты, опирающиеся на `*-context.json`/`*-targets.json`;
+  - добавить тесты для парсера `AIDD:RESEARCH_HINTS` и RLM targets из PRD;
+  - обновить smoke‑workflow под RLM‑only.
+  **AC:** тесты проходят в режиме RLM‑only; отсутствуют упоминания `*-context*` в тестах.
+  **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
+
+## Wave 91 — Flow Slimming (pack‑first, меньше чтений, мягче хуки)
+
+_Статус: новый, приоритет 1. Цель — уменьшить количество чтений файлов и артефактов, ускорить флоу._
+
+- [ ] **W91-1** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`, `agents/*.md`:
+  - ввести жёсткую политику `pack-first`:
+    - запрещено читать PRD/plan/research/tasklist целиком до pack;
+    - полный документ читается только если в pack нет Goal/DoD/Boundaries/Expected paths/Tests/Acceptance;
+  - убрать обязательное чтение `anchors/*` в каждом шаге (оставить ссылку на anchors в pack);
+  - добавить краткий “read budget” (1–3 файла) и шаблон ссылки на артефакты вместо цитат.
+  **AC:** команды/агенты описывают pack-first порядок чтения; PRD/plan/research не являются обязательным first-read.
+
+- [ ] **W91-2** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/*.md`, `templates/aidd/reports/context/template.context-pack.md`:
+  - перейти на единый rolling pack: `aidd/reports/context/<ticket>.pack.md`;
+  - pack включает `stage`, `agent`, краткий “Read next” список + ссылки на артефакты;
+  - оставить stage‑specific packs как optional (flag `--legacy-output`).
+  **AC:** все команды пишут/читают единый pack; legacy packs не обязательны; тесты обновлены.
+
+- [ ] **W91-3** `tools/set_active_feature.py`, `tools/set_active_stage.py`, `tools/feature_ids.py`, `tools/index_sync.py`, `tools/status.py`, `templates/aidd/AGENTS.md`, `AGENTS.md`:
+  - заменить `.active_*` на единый `aidd/docs/.active.json`;
+  - добавить миграцию: если есть старые `.active_*`, синхронизировать в `.active.json`;
+  - обновить статус/индекс/команды на новый источник.
+  **AC:** чтение активных маркеров происходит из одного файла; старые маркеры поддерживаются только как fallback.
+
+- [ ] **W91-4** `hooks/*.sh`, `tools/gates.py`, `templates/aidd/config/gates.json`:
+  - добавить конфигурацию “fast hooks” (например `hooks.mode=fast|full`);
+  - в `fast`:
+    - `lint-deps.sh` и `gate-qa.sh` — no-op,
+    - `gate-tests.sh` — soft warning без выхода `1`;
+  - предоставить env override (`AIDD_HOOKS_MODE=fast`).
+  **AC:** в fast‑mode стоп‑хуки выполняются за <2s на пустом diff; гейты не блокируют.
+
+- [ ] **W91-5** `tools/tasklist_check.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - кешировать hash `aidd/docs/tasklist/<ticket>.md` в `aidd/.cache/tasklist.hash`;
+  - вызывать `tasklist-check` только если hash изменился или стадия изменилась;
+  - логировать, что check пропущен по unchanged.
+  **AC:** при неизменённом tasklist этапы implement/review/qa не тратят время на check.
+
+- [ ] **W91-6** `hooks/context_gc/*.py`, `hooks/context-gc-*.sh`, `templates/aidd/config/context_gc.json`:
+  - добавить режим `light` (по умолчанию): обновление working set только на SessionStart/Stop;
+  - `pretooluse` выполняется только при изменении `aidd/**` (mtime/hash);
+  - флаг `AIDD_CONTEXT_GC=full|light|off`.
+  **AC:** pretooluse GC не запускается на каждом tool call; latency снижается заметно.
+
+- [ ] **W91-7** `tools/gate_workflow.py`, `tools/stage_result.py`, `hooks/gate-workflow.sh`:
+  - добавить “fast-mode” флаг в `aidd/config/gates.json`:
+    - допускает переход к implement при `PRD READY + Tasklist READY` даже без `review-spec` (WARN);
+    - `diff-boundary-check` → WARN + auto‑extend для OUT_OF_SCOPE (BLOCKED только FORBIDDEN);
+  - логировать `reason_code=fast_mode_warn` в stage_result.
+  **AC:** fast-mode сокращает gating без потери traceability; WARN отражается в stage_result/status_summary.
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
