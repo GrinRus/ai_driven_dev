@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.16
-source_version: 1.1.16
+prompt_version: 1.1.18
+source_version: 1.1.18
 allowed-tools:
   - Read
   - Edit
@@ -24,7 +24,7 @@ disable-model-invocation: false
 ## Контекст
 Команда `/feature-dev-aidd:tasks-new` работает inline: готовит `aidd/docs/tasklist/$1.md` (шаблон + anchors), собирает Context Pack и явно запускает саб‑агента **feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
 Интервью проводится командой `/feature-dev-aidd:spec-interview` (опционально), которая пишет `aidd/docs/spec/$1.spec.yaml`. Tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/tasklist.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/tasklist.md`.
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md` — итерации и DoD.
@@ -67,7 +67,7 @@ disable-model-invocation: false
 4. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
 5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
 6. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
-7. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`).
+7. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id + optional deps/locks/Priority/Blocking) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`, deps удовлетворены).
 8. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`. При ошибках (включая spec‑required) верни `Status: BLOCKED` и запроси `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
 
 ## Fail-fast и вопросы

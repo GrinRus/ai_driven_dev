@@ -2,8 +2,8 @@
 description: "План реализации по PRD + валидация"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.11
-source_version: 1.1.11
+prompt_version: 1.1.12
+source_version: 1.1.12
 allowed-tools:
   - Read
   - Edit
@@ -22,7 +22,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:plan-new` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов. Команда фиксирует стадию `plan`, запускает `research-check`, пишет отдельные Context Pack для planner/validator и явно запускает саб‑агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/plan.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/plan.md`.
 
 ## Входные артефакты
 - `aidd/docs/prd/$1.prd.md` — статус `READY` обязателен.

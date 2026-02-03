@@ -323,7 +323,7 @@ def test_tasks_derive_from_review_report(tmp_path):
     write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
     write_json(
         project_root,
-        "reports/reviewer/demo-checkout.json",
+        "reports/reviewer/demo-checkout/demo-checkout.json",
         {
             "kind": "review",
             "status": "WARN",
@@ -352,7 +352,7 @@ def test_tasks_derive_from_review_report(tmp_path):
     content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
     assert "handoff:review start" in content
     assert "Review [major]" in content
-    assert "aidd/reports/reviewer/demo-checkout.json" in content
+    assert "aidd/reports/reviewer/demo-checkout/demo-checkout.json" in content
 
 
 def test_tasks_derive_idempotent_by_id(tmp_path):
@@ -553,7 +553,7 @@ class TasksDeriveArgsTests(unittest.TestCase):
             write_file(project_root, "docs/tasklist/demo-checkout.md", _base_tasklist())
             write_json(
                 project_root,
-                "reports/reviewer/demo-checkout.json",
+                "reports/reviewer/demo-checkout/demo-checkout.json",
                 {"kind": "review", "findings": [{"severity": "minor", "title": "Lint", "id": "review-1"}]},
             )
 

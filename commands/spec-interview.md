@@ -2,8 +2,8 @@
 description: "Spec interview (AskUserQuestionTool) → spec.yaml (tasklist обновляется через /feature-dev-aidd:tasks-new)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.10
-source_version: 1.0.10
+prompt_version: 1.0.11
+source_version: 1.0.11
 allowed-tools:
   - Read
   - Edit
@@ -22,7 +22,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:spec-interview` работает inline: проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью, пишет Context Pack для writer‑агента и явно запускает саб‑агента **feature-dev-aidd:spec-interview-writer**. Спека хранится в `aidd/docs/spec/$1.spec.yaml`. Обновление tasklist выполняется только через `/feature-dev-aidd:tasks-new`.
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/spec-interview.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/spec-interview.md`.
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md`

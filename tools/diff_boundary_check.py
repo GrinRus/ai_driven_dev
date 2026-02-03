@@ -176,7 +176,8 @@ def main(argv: List[str] | None = None) -> int:
         active_work_item = read_active_work_item(target)
         if not active_work_item:
             raise FileNotFoundError("docs/.active_work_item not found; run loop-pack first")
-        pack_path = target / "reports" / "loops" / ticket / f"{active_work_item}.loop.pack.md"
+        scope_key = runtime.resolve_scope_key(active_work_item, ticket)
+        pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
 
     if not pack_path.exists():
         raise FileNotFoundError(f"loop pack not found at {runtime.rel_path(pack_path, target)}")
@@ -193,18 +194,19 @@ def main(argv: List[str] | None = None) -> int:
 
     aidd_root = target.name == "aidd"
     diff_files = [path for path in collect_diff_files(target) if not is_ignored(path, aidd_root=aidd_root)]
-    violations: List[str] = []
+    blocked: List[str] = []
+    warnings: List[str] = []
     for path in diff_files:
         if any(matches_pattern(path, pattern) for pattern in forbidden_paths):
-            violations.append(f"{STATUS_FORBIDDEN} {path}")
+            blocked.append(f"{STATUS_FORBIDDEN} {path}")
             continue
         if allowed_paths and not any(matches_pattern(path, pattern) for pattern in allowed_paths):
-            violations.append(f"{STATUS_OUT_OF_SCOPE} {path}")
+            warnings.append(f"{STATUS_OUT_OF_SCOPE} {path}")
 
-    if violations:
-        for line in sorted(violations):
+    if blocked or warnings:
+        for line in sorted(blocked + warnings):
             print(line)
-        return 2
+        return 2 if blocked else 0
 
     print(STATUS_OK)
     return 0

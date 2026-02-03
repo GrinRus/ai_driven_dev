@@ -2,8 +2,8 @@
 description: "Развёртывание инфраструктуры AIDD в ./aidd"
 argument-hint: "[--force] [--detect-build-tools] [--detect-stack]"
 lang: ru
-prompt_version: 0.1.4
-source_version: 0.1.4
+prompt_version: 0.1.5
+source_version: 0.1.5
 allowed-tools:
   - Read
   - Write
@@ -13,10 +13,11 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools` и заполнить Architecture Profile stack‑hint через `--detect-stack`.
+`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools` и заполнить Architecture Profile stack‑hint через `--detect-stack`. Канон промптов после init: `aidd/docs/prompting/conventions.md`.
 
 ## Входные артефакты
 - `templates/aidd/**` — источник шаблонов.
+- `templates/aidd/docs/prompting/conventions.md` — канон промптов (копируется в `aidd/docs/prompting/conventions.md`).
 
 ## Когда запускать
 - сразу после установки плагина через marketplace;

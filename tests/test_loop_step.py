@@ -28,6 +28,20 @@ class LoopStepTests(unittest.TestCase):
     def test_loop_step_runs_implement_when_stage_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-1",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-1/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-1", log_path)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
@@ -39,6 +53,36 @@ class LoopStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_file(root, "docs/.active_stage", "implement")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-2",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "blocked",
+                "reason_code": "out_of_scope_warn",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-2/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            write_file(root, "reports/loops/DEMO-2/iteration_id_I1/review.latest.pack.md", review_pack)
+            review_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-2",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-2/iteration_id_I1/stage.review.result.json",
+                json.dumps(review_result),
+            )
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-2", log_path)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
@@ -48,8 +92,22 @@ class LoopStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_file(root, "docs/.active_stage", "review")
-            review_pack = "---\nschema: aidd.review_pack.v1\nverdict: SHIP\n---\n"
-            write_file(root, "reports/loops/DEMO-3/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-3",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "done",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-3/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            write_file(root, "reports/loops/DEMO-3/iteration_id_I1/review.latest.pack.md", review_pack)
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-3", log_path)
             self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -60,6 +118,7 @@ class LoopStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_file(root, "docs/.active_stage", "review")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-4", log_path)
             self.assertEqual(result.returncode, 20, msg=result.stderr)
@@ -68,20 +127,35 @@ class LoopStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_file(root, "docs/.active_stage", "review")
-            review_pack = (
-                "---\n"
-                "schema: aidd.review_pack.v1\n"
-                "updated_at: 2024-01-02T00:00:00Z\n"
-                "verdict: REVISE\n"
-                "---\n"
-            )
-            write_file(root, "reports/loops/DEMO-6/review.latest.pack.md", review_pack)
-            review_report = {
-                "status": "WARN",
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-6",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
                 "updated_at": "2024-01-02T00:00:00Z",
-                "findings": [{"id": "review:F1", "severity": "minor", "title": "Fix typo"}],
             }
-            write_file(root, "reports/reviewer/DEMO-6.json", json.dumps(review_report))
+            write_file(
+                root,
+                "reports/loops/DEMO-6/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            write_file(root, "reports/loops/DEMO-6/iteration_id_I1/review.latest.pack.md", review_pack)
+            implement_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-6",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-6/iteration_id_I1/stage.implement.result.json",
+                json.dumps(implement_result),
+            )
             log_path = root / "runner.log"
             result = self.run_loop_step(root, "DEMO-6", log_path)
             self.assertEqual(result.returncode, 10, msg=result.stderr)
@@ -91,20 +165,20 @@ class LoopStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_file(root, "docs/.active_stage", "review")
-            review_pack = (
-                "---\n"
-                "schema: aidd.review_pack.v1\n"
-                "updated_at: 2024-01-01T00:00:00Z\n"
-                "verdict: SHIP\n"
-                "---\n"
-            )
-            write_file(root, "reports/loops/DEMO-5/review.latest.pack.md", review_pack)
-            review_report = {
-                "status": "READY",
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v0",
+                "ticket": "DEMO-5",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "done",
                 "updated_at": "2024-01-02T00:00:00Z",
-                "findings": [],
             }
-            write_file(root, "reports/reviewer/DEMO-5.json", json.dumps(review_report))
+            write_file(
+                root,
+                "reports/loops/DEMO-5/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
             log_path = root / "runner.log"
 
             result = self.run_loop_step(root, "DEMO-5", log_path)

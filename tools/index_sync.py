@@ -93,18 +93,50 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "research" / f"{ticket}-rlm.links.jsonl",
         root / "reports" / "prd" / f"{ticket}.json",
         root / "reports" / "qa" / f"{ticket}.json",
-        root / "reports" / "reviewer" / f"{ticket}.json",
-        root / "reports" / "tests" / f"{ticket}.jsonl",
     ]
     candidates.append(root / "reports" / "research" / f"{ticket}-context.pack.json")
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.pack.json")
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json")
     candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "qa" / f"{ticket}.pack.json")
+
+    reviewer_dir = root / "reports" / "reviewer" / ticket
+    if reviewer_dir.exists():
+        candidates.extend(sorted(reviewer_dir.glob("*.json")))
+    else:
+        candidates.append(root / "reports" / "reviewer" / f"{ticket}.json")
+
+    tests_dir = root / "reports" / "tests" / ticket
+    if tests_dir.exists():
+        candidates.extend(sorted(tests_dir.glob("*.jsonl")))
+    else:
+        candidates.append(root / "reports" / "tests" / f"{ticket}.jsonl")
     for path in candidates:
         if path.exists():
             reports.append(_rel_path(root, path))
     return reports
+
+
+def _read_prd_review_status(root: Path, ticket: str) -> str:
+    prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
+    if not prd_path.exists():
+        return ""
+    try:
+        lines = prd_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    inside = False
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("## "):
+            inside = stripped == "## PRD Review"
+            continue
+        if not inside:
+            continue
+        lower = stripped.lower()
+        if lower.startswith("status:"):
+            return stripped.split(":", 1)[1].strip().lower()
+    return ""
 
 
 def _collect_events(root: Path, ticket: str, limit: int = EVENTS_LIMIT) -> List[Dict[str, object]]:
@@ -157,15 +189,19 @@ def _collect_artifacts(root: Path, ticket: str) -> List[str]:
 
 def _collect_checks(root: Path, ticket: str) -> List[Dict[str, str]]:
     checks: List[Dict[str, str]] = []
+    prd_doc_status = _read_prd_review_status(root, ticket)
     prd_path = _find_report_variant(root / "reports" / "prd" / f"{ticket}.json")
     if prd_path:
         try:
             payload = json.loads(prd_path.read_text(encoding="utf-8"))
-            checks.append({
+            record = {
                 "name": "prd-review",
                 "status": payload.get("status") or "",
                 "path": _rel_path(root, prd_path),
-            })
+            }
+            if prd_doc_status:
+                record["doc_status"] = prd_doc_status
+            checks.append(record)
         except json.JSONDecodeError:
             pass
 

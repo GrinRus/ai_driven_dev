@@ -180,7 +180,13 @@ def _inflate_columnar(section: object) -> List[dict]:
     return inflated
 
 
-def format_message(kind: str, ticket: str, slug_hint: str | None = None, status: str | None = None) -> str:
+def format_message(
+    kind: str,
+    ticket: str,
+    slug_hint: str | None = None,
+    status: str | None = None,
+    report_status: str | None = None,
+) -> str:
     label = feature_label(ticket, slug_hint)
     human_status = (status or "PENDING").upper()
     if kind == "missing_section":
@@ -194,6 +200,12 @@ def format_message(kind: str, ticket: str, slug_hint: str | None = None, status:
     if kind == "blocking_status":
         return (
             f"BLOCK: PRD Review помечен как '{human_status}' → устраните блокеры и обновите статус через /feature-dev-aidd:review-spec {label or ticket}"
+        )
+    if kind == "status_mismatch":
+        report_label = (report_status or "PENDING").upper()
+        return (
+            f"BLOCK: PRD Review статус в отчёте ({report_label}) не совпадает с PRD ({human_status}) → "
+            f"перезапустите /feature-dev-aidd:review-spec {label or ticket}"
         )
     if kind == "not_approved":
         return f"BLOCK: PRD Review не READY (Status: {human_status}) → выполните /feature-dev-aidd:review-spec {label or ticket}"
@@ -326,6 +338,16 @@ def run_gate(args: argparse.Namespace) -> int:
                 except Exception:
                     print(format_message("report_corrupted", ticket, slug_hint))
                     return 1
+
+    report_status = ""
+    if report_data is not None:
+        if isinstance(report_data, dict):
+            report_status = str(report_data.get("status") or "").strip().lower()
+            if not report_status:
+                report_status = str(report_data.get("recommended_status") or "").strip().lower()
+        if report_status and status and report_status != status:
+            print(format_message("status_mismatch", ticket, slug_hint, status, report_status))
+            return 1
 
     if report_data is not None:
         raw_findings = report_data.get("findings") or []

@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 from importlib import metadata
@@ -12,7 +13,8 @@ from typing import Any, Dict, Optional
 from tools.feature_ids import FeatureIdentifiers, resolve_identifiers
 from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
-DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}.json"
+DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+_SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 try:
@@ -137,6 +139,31 @@ def detect_branch(target: Path) -> Optional[str]:
     if not branch or branch.upper() == "HEAD":
         return None
     return branch
+
+
+def sanitize_scope_key(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    cleaned = _SCOPE_KEY_RE.sub("_", raw)
+    cleaned = cleaned.strip("._-")
+    return cleaned or ""
+
+
+def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: str = "ticket") -> str:
+    scope = sanitize_scope_key(work_item_key or "")
+    if scope:
+        return scope
+    scope = sanitize_scope_key(ticket or "")
+    return scope or fallback
+
+
+def read_active_work_item(target: Path) -> str:
+    path = target / "docs" / ".active_work_item"
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def load_json_file(path: Path) -> Dict:
@@ -275,10 +302,20 @@ def is_relative_to(path: Path, ancestor: Path) -> bool:
         return False
 
 
-def reviewer_marker_path(target: Path, template: str, ticket: str, slug_hint: Optional[str]) -> Path:
+def reviewer_marker_path(
+    target: Path,
+    template: str,
+    ticket: str,
+    slug_hint: Optional[str],
+    *,
+    scope_key: Optional[str] = None,
+) -> Path:
     rel_text = template.replace("{ticket}", ticket)
     if "{slug}" in template:
         rel_text = rel_text.replace("{slug}", slug_hint or ticket)
+    if "{scope_key}" in template:
+        resolved_scope = resolve_scope_key(scope_key, ticket)
+        rel_text = rel_text.replace("{scope_key}", resolved_scope)
     marker_path = resolve_path_for_target(Path(rel_text), target)
     target_root = target.resolve()
     if not is_relative_to(marker_path, target_root):

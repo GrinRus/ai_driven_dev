@@ -2,8 +2,8 @@
 description: "Подготовка отчёта Researcher: сбор контекста и запуск агента"
 argument-hint: "$1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]"
 lang: ru
-prompt_version: 1.2.28
-source_version: 1.2.28
+prompt_version: 1.2.29
+source_version: 1.2.29
 allowed-tools:
   - Read
   - Edit
@@ -28,7 +28,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. RLM evidence сохраняется как pack + worklist.
-Следуй attention‑policy из `aidd/AGENTS.md` и начни с `aidd/docs/anchors/research.md`.
+Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/research.md`.
 
 ## Входные артефакты
 - `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.

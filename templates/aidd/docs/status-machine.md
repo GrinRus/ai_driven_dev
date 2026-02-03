@@ -93,6 +93,35 @@
 
 Кто выставляет: `reviewer` и `qa`.
 
+## Review Pack verdict (`aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`)
+
+Verdict:
+- `SHIP` — работа принята, итерация закрыта.
+- `REVISE` — есть замечания, требуется следующая итерация.
+
+## Stage Result (loop‑gating)
+
+Файл: `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`
+
+Result:
+- `blocked` — остановка loop (нужен handoff/данные/команды).
+- `continue` — следующая итерация.
+- `done` — стадия закрыта.
+
+Mapping (по стадиям):
+- implement: `READY|WARN → continue`, `BLOCKED → blocked`
+- review: `SHIP → done`, `REVISE → continue`, `BLOCKED → blocked`
+- qa: `READY/WARN → done`, `BLOCKED → blocked`
+
+WARN‑коды (loop‑gating продолжает работу):
+- `out_of_scope_warn` / `no_boundaries_defined_warn`
+- `missing_test_evidence` при `tests_required=soft`
+
+## Scope (work_item vs ticket)
+
+- `implement/review`: `scope_key = sanitize(work_item_key)`
+- `qa`: `scope_key = ticket`
+
 ## Инварианты
 
 - Без `PRD READY` и успешного `research-check` нельзя переходить к планированию.

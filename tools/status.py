@@ -118,7 +118,15 @@ def main(argv: list[str] | None = None) -> int:
     if test_events:
         print("- Tests log:")
         for entry in test_events:
-            line = f"{entry.get('ts')} [{entry.get('status')}]"
+            timestamp = entry.get("updated_at") or entry.get("ts") or ""
+            stage = entry.get("stage") or ""
+            scope_key = entry.get("scope_key") or ""
+            label = entry.get("status") or entry.get("result") or ""
+            line = f"{timestamp} [{label}]"
+            if stage:
+                line += f" stage={stage}"
+            if scope_key:
+                line += f" scope={scope_key}"
             details = entry.get("details")
             if isinstance(details, dict) and details.get("summary"):
                 line += f" — {details.get('summary')}"

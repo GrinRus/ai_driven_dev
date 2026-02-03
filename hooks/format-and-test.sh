@@ -80,7 +80,7 @@ def resolve_settings_path(workspace_root: Path) -> Path:
     if env_path:
         return Path(env_path).expanduser().resolve()
     return (workspace_root / ".claude" / "settings.json").resolve()
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -210,10 +210,28 @@ def has_code_changes(files: Iterable[str], prefixes: Tuple[str, ...], suffixes: 
     return False
 
 
-def reviewer_marker_path(template: str, ticket: str, slug_hint: str | None, project_root: Path) -> Path:
+def reviewer_marker_path(
+    template: str,
+    ticket: str,
+    slug_hint: str | None,
+    project_root: Path,
+    *,
+    scope_key: str | None = None,
+) -> Path:
     resolved = template.replace("{ticket}", ticket)
     if "{slug}" in template:
         resolved = resolved.replace("{slug}", slug_hint or ticket)
+    if "{scope_key}" in template:
+        resolved_scope = ""
+        try:
+            from tools import runtime as _runtime
+
+            resolved_scope = _runtime.resolve_scope_key(scope_key, ticket)
+        except Exception:
+            raw = (scope_key or ticket or "").strip()
+            cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw)
+            resolved_scope = cleaned.strip("._-")
+        resolved = resolved.replace("{scope_key}", resolved_scope or "ticket")
     path = Path(resolved)
     if not path.is_absolute():
         parts = path.parts
@@ -265,7 +283,14 @@ def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict, pr
     if fallback_raw is None:
         fallback_raw = config.get("defaultValue", "")
     fallback_value = str(fallback_raw).strip().lower()
-    marker = reviewer_marker_path(marker_template, ticket, slug_hint, project_root)
+    work_item_key = read_active_work_item(project_root)
+    marker = reviewer_marker_path(
+        marker_template,
+        ticket,
+        slug_hint,
+        project_root,
+        scope_key=work_item_key,
+    )
     if not marker.exists():
         return False, marker.as_posix()
     try:
@@ -657,6 +682,16 @@ def read_active_stage(project_root: Path) -> str:
         return ""
 
 
+def read_active_work_item(project_root: Path) -> str:
+    path = project_root / "docs" / ".active_work_item"
+    if not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def read_active_mode(project_root: Path) -> str:
     mode_path = project_root / "docs" / ".active_mode"
     if not mode_path.exists():
@@ -973,8 +1008,64 @@ def main() -> int:
     elif cadence == "manual":
         log("Test cadence: manual (cadence=manual)")
 
-    def record_tests_log(status: str, reason: str = "") -> None:
+    def update_stage_result_after_tests(scope_key: str, tests_log_rel: str, tests_status: str) -> None:
+        ticket = identifiers.resolved_ticket or ""
+        if not ticket or not scope_key:
+            return
+        stage_value = (stage or "implement").strip().lower()
+        if not stage_value:
+            return
+        result_path = (
+            project_root
+            / "reports"
+            / "loops"
+            / ticket
+            / scope_key
+            / f"stage.{stage_value}.result.json"
+        )
+        if not result_path.exists():
+            return
+        try:
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if str(payload.get("schema") or "") != "aidd.stage_result.v1":
+            return
+        evidence_links = payload.get("evidence_links")
+        if not isinstance(evidence_links, list):
+            evidence_links = []
+        if tests_log_rel and tests_log_rel not in evidence_links:
+            evidence_links.append(tests_log_rel)
+        status_value = str(tests_status or "").strip().lower()
+        tests_evidence = status_value in {"pass", "fail"}
+        requested_result = str(payload.get("requested_result") or "").strip().lower()
+        result_value = str(payload.get("result") or "").strip().lower()
+        reason_code = str(payload.get("reason_code") or "").strip()
+        if reason_code == "missing_test_evidence" and tests_evidence:
+            if requested_result in {"continue", "done"} and result_value == "blocked":
+                payload["result"] = requested_result
+            payload["reason"] = ""
+            payload["reason_code"] = ""
+        payload["evidence_links"] = evidence_links
+        payload["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        result_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def record_tests_log(
+        status: str,
+        reason: str = "",
+        *,
+        exit_code: int | None = None,
+        log_path: Path | None = None,
+    ) -> None:
+        status_value = str(status or "").strip().lower()
+        profile_value = test_profile
+        if status_value in {"skipped", "not-run"}:
+            profile_value = "none"
         ticket = identifiers.resolved_ticket
+        ticket_guess = ""
+        ticket_file = project_root / "docs" / ".active_ticket"
+        if not ticket_file.exists() and identifiers.slug_hint:
+            ticket_guess = identifiers.slug_hint
         if not ticket:
             return
         details: Dict[str, object] = {
@@ -992,16 +1083,37 @@ def main() -> int:
         if test_runner:
             details["runner"] = list(test_runner)
         try:
+            from tools import runtime as _runtime
             from tools.reports import tests_log as _tests_log
 
+            stage_value = (stage or "implement").strip().lower()
+            work_item_key = read_active_work_item(project_root)
+            if stage_value == "qa":
+                scope_key = _runtime.resolve_scope_key("", ticket)
+            else:
+                scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
+            log_value = _runtime.rel_path(log_path, project_root) if log_path else ""
             _tests_log.append_log(
                 project_root,
                 ticket=ticket,
                 slug_hint=identifiers.slug_hint,
+                ticket_guess=ticket_guess,
+                stage=stage_value,
+                scope_key=scope_key,
+                work_item_key=work_item_key or None,
+                profile=profile_value,
+                tasks=test_tasks,
+                filters=test_filters,
+                exit_code=exit_code,
+                log_path=log_value or None,
                 status=status,
                 details=details,
                 source="hook format-and-test",
+                cwd=str(workspace_root),
             )
+            tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
+            tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
+            update_stage_result_after_tests(scope_key, tests_log_rel, status_value)
         except Exception:
             return
 
@@ -1241,7 +1353,7 @@ def main() -> int:
     if result.returncode == 0:
         log("Тесты завершились успешно.")
         record_event("pass")
-        record_tests_log("pass")
+        record_tests_log("pass", exit_code=0, log_path=test_log_path)
         return 0
 
     if test_log_mode == "full":
@@ -1252,12 +1364,12 @@ def main() -> int:
 
     if strict_flag:
         record_event("fail")
-        record_tests_log("fail")
+        record_tests_log("fail", exit_code=result.returncode, log_path=test_log_path)
         return fail("Тесты завершились с ошибкой (STRICT_TESTS=1).", result.returncode)
 
     log("Тесты завершились с ошибкой, но STRICT_TESTS != 1 — продолжаем.")
     record_event("fail")
-    record_tests_log("fail")
+    record_tests_log("fail", exit_code=result.returncode, log_path=test_log_path)
     return 0
 
 

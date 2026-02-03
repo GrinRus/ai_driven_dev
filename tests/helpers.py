@@ -154,7 +154,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
     },
     "reviewer": {
         "enabled": True,
-        "tests_marker": "aidd/reports/reviewer/{ticket}.json",
+        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
         "tests_field": "tests",
         "required_values": ["required"],
         "optional_values": ["optional", "skipped", "not-required"],
@@ -286,6 +286,11 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
         "  - Goal: setup baseline\n"
         "  - Outputs: tasklist ready\n"
         "  - DoD: tasklist ready\n"
+        "  - Expected paths:\n"
+        f"    - docs/tasklist/{ticket}.md\n"
+        "  - Size budget:\n"
+        "    - max_files: 3\n"
+        "    - max_loc: 120\n"
         f"  - Boundaries: docs/tasklist/{ticket}.md\n"
         "  - Steps:\n"
         "    - write tasklist baseline\n"
@@ -302,6 +307,11 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
         "  - Goal: follow-up\n"
         "  - Outputs: follow-up tasks\n"
         "  - DoD: tasklist ready\n"
+        "  - Expected paths:\n"
+        f"    - docs/tasklist/{ticket}.md\n"
+        "  - Size budget:\n"
+        "    - max_files: 3\n"
+        "    - max_loc: 120\n"
         f"  - Boundaries: docs/tasklist/{ticket}.md\n"
         "  - Steps:\n"
         "    - update tasklist\n"
@@ -318,6 +328,11 @@ def tasklist_ready_text(ticket: str = "demo-checkout") -> str:
         "  - Goal: follow-up\n"
         "  - Outputs: follow-up tasks\n"
         "  - DoD: tasklist ready\n"
+        "  - Expected paths:\n"
+        f"    - docs/tasklist/{ticket}.md\n"
+        "  - Size budget:\n"
+        "    - max_files: 3\n"
+        "    - max_loc: 120\n"
         f"  - Boundaries: docs/tasklist/{ticket}.md\n"
         "  - Steps:\n"
         "    - update tasklist\n"

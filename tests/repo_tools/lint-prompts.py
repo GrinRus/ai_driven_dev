@@ -72,6 +72,11 @@ REQUIRED_AGENT_REFERENCES = [
     "aidd/AGENTS.md",
     "aidd/docs/sdlc-flow.md",
     "aidd/docs/status-machine.md",
+    "aidd/docs/prompting/conventions.md",
+]
+
+REQUIRED_COMMAND_REFERENCES = [
+    "aidd/docs/prompting/conventions.md",
 ]
 
 REQUIRED_STAGE_ANCHORS = [
@@ -97,6 +102,27 @@ REQUIRED_WRITE_TOOLS = {
 LOOP_DISCIPLINE_HINTS = {
     "agents/implementer.md": ["loop pack first", "больших вставок"],
     "agents/reviewer.md": ["loop pack first", "больших вставок"],
+}
+
+LOOP_NO_QUESTIONS_HINTS = {
+    "agents/implementer.md": ["loop", "вопрос"],
+    "agents/reviewer.md": ["loop", "вопрос"],
+    "commands/implement.md": [".active_mode=loop", "без вопросов"],
+    "commands/review.md": [".active_mode=loop", "без вопросов"],
+    "commands/qa.md": [".active_mode=loop", "без вопросов"],
+}
+
+PARALLEL_PATH_HINTS = {
+    "agents/implementer.md": ["<scope_key>"],
+    "agents/reviewer.md": ["<scope_key>"],
+    "commands/implement.md": ["<scope_key>"],
+    "commands/review.md": ["<scope_key>"],
+    "commands/qa.md": ["<scope_key>"],
+}
+
+GRANULARITY_HINTS = {
+    "agents/tasklist-refiner.md": ["steps", "expected paths", "size budget"],
+    "commands/tasks-new.md": ["deps", "priority", "blocking"],
 }
 
 VERIFY_STEP_HINTS = {
@@ -390,6 +416,15 @@ def validate_agent_references(info: PromptFile) -> List[str]:
     return []
 
 
+def validate_command_references(info: PromptFile) -> List[str]:
+    if info.kind != "command":
+        return []
+    missing = [ref for ref in REQUIRED_COMMAND_REFERENCES if ref not in info.body]
+    if missing:
+        return [f"{info.path}: missing references {missing}"]
+    return []
+
+
 def validate_question_template(info: PromptFile) -> List[str]:
     if info.kind != "agent":
         return []
@@ -462,6 +497,7 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_placeholders(info))
     errors.extend(validate_checkbox_guidance(info))
     errors.extend(validate_agent_references(info))
+    errors.extend(validate_command_references(info))
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
     errors.extend(validate_verify_steps(info))
@@ -469,6 +505,9 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_plugin_asset_mentions(info, root))
     errors.extend(validate_required_write_tools(info))
     errors.extend(validate_loop_discipline(info))
+    errors.extend(validate_loop_no_questions(info))
+    errors.extend(validate_parallel_paths(info))
+    errors.extend(validate_granularity_policy(info))
 
     return errors
 
@@ -588,6 +627,53 @@ def validate_loop_discipline(info: PromptFile) -> List[str]:
     missing = [hint for hint in required if hint not in body_lower]
     if missing:
         return [f"{info.path}: missing loop discipline markers {missing}"]
+    return []
+
+
+def validate_loop_no_questions(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in LOOP_NO_QUESTIONS_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    body_lower = info.body.lower()
+    missing = [hint for hint in required if hint not in body_lower]
+    if missing:
+        return [f"{info.path}: missing loop no-questions markers {missing}"]
+    return []
+
+
+def validate_parallel_paths(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in PARALLEL_PATH_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    missing = [hint for hint in required if hint not in info.body]
+    if missing:
+        return [f"{info.path}: missing parallel path markers {missing}"]
+    return []
+
+
+def validate_granularity_policy(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in GRANULARITY_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    body_lower = info.body.lower()
+    missing = [hint for hint in required if hint not in body_lower]
+    if missing:
+        return [f"{info.path}: missing granularity policy markers {missing}"]
     return []
 
 

@@ -2715,3 +2715,621 @@ _Статус: новый, приоритет 1. Цель — закрыть п�
   - задокументировать и покрыть тестами.
   **AC:** discovery не сканирует весь workspace без лимитов; поведение описано в templates и тестах.
   **Deps:** -
+
+## Wave 87 — Parallel‑ready (без реального параллельного запуска)
+
+_Статус: новый, приоритет 1. Цель — канон промптинга, устранение конфликтов loop/tasklist, машинные gate’ы, проверяемая test‑evidence и готовность артефактов/схем к параллели (per‑work‑item)._
+
+### EPIC A — Канон промптинга + статусы + parallel conventions
+- [x] **W87-1** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `AGENTS.md`: ввести единый канон промптов:
+  - развести сущности: `artifact status` (READY/WARN/BLOCKED/…), `stage result` (blocked|continue|done), `review verdict` (SHIP|REVISE);
+  - правила BLOCKED (missing artifacts, out-of-scope, missing test commands/evidence);
+  - минимальный output‑контракт (lint‑поддающийся): `Status`, `Work item key`, `Artifacts updated`, `Tests (profile+evidence|profile:none)`, `Blockers/Handoff` при BLOCKED, `Checkbox updated` (optional, stage‑dependent);
+  - нормализация ключей: `work_item_key` (логический) vs `scope_key` (sanitized для путей);
+  - источник истины для loop‑gating: `stage_result` (остальное = evidence/контекст);
+  - parallel‑ready naming conventions (per work_item_key): где лежат stage_result / review_pack / review_report / tests_evidence для implement/review, и что для ticket‑scoped стадий используется `scope_key=ticket` (или `work_item_key=ticket`).
+  **AC:** единый документ канона; на него ссылаются `templates/aidd/AGENTS.md` и dev‑гайд; контракт пригоден для линта; описаны пути артефактов per‑work‑item и правила scope_key.
+  **Deps:** -
+
+- [x] **W87-2** `templates/aidd/docs/status-machine.md`, `templates/aidd/docs/loops/README.md`: расширить таксономию:
+  - добавить `ReviewPack verdict: SHIP|REVISE`;
+  - описать `stage result: blocked|continue|done`;
+  - добавить mapping по стадиям:
+    - implement: `READY → continue`, `BLOCKED → blocked`;
+    - review: `SHIP → done`, `REVISE → continue`, `BLOCKED → blocked`;
+    - qa (ticket‑scoped): выбрать policy `WARN → done|continue` и зафиксировать;
+  - для loop‑mode: `PENDING → blocked` (вопросы = блокер);
+  - описать scope: `work_item_scoped` (implement/review) vs `ticket_scoped` (qa).
+  **AC:** статусы/вердикты описаны единообразно; термины не конфликтуют; scope описан и согласован с prompts.
+  **Deps:** W87-1
+
+### EPIC B — Loop pack vs tasklist/plan/prd/research/spec + mode-aware
+- [x] **W87-3** `tools/loop_pack.py`, `templates/aidd/docs/loops/template.loop-pack.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `agents/implementer.md`, `agents/reviewer.md`, `commands/implement.md`, `commands/review.md`:
+  - устранить конфликт “читать/не читать tasklist/plan/prd/research/spec”:
+    - заменить “Do not read full …” на “prefer excerpt; read full только если excerpt не содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance”;
+    - закрепить правило чтения в anchors/agents/commands;
+    - в loop pack excerpt гарантировать наличие: `work_item_key`, `expected_paths`, `size_budget` (max_files/max_loc), `tests` (или ссылка на TEST_EXECUTION), `allowed_paths`/`forbidden_paths` (если есть).
+  **AC:** loop pack читается первым; полный tasklist/PRD/Plan/Research/Spec читается только при неполном excerpt; противоречий в инструкциях нет; excerpt достаточен для работы без “догадок”.
+  **Deps:** W87-1
+
+- [x] **W87-4** `tools/loop_run.py`, `tools/loop_step.py`, `agents/implementer.md`, `agents/reviewer.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - mode‑aware поведение:
+    - если файл `.active_mode` существует и содержит `loop` — не задавать вопросы в чат; писать blocker/handoff + `Status: BLOCKED`;
+    - `loop_run` очищает `.active_mode` (или возвращает `manual`) после остановки;
+    - (parallel‑ready) не завязываться на “общие” ticket‑артефакты; использовать пути из context/loop pack.
+  **AC:** loop‑run/loop‑step останавливаются на блокере без интерактива; `.active_mode` очищается при любом exit‑коде (включая BLOCKED); промпты не требуют ticket‑singleton артефактов.
+  **Deps:** -
+
+### EPIC C — Stage result + loop‑gating (per‑work‑item paths)
+- [x] **W87-5** `tools/stage_result.py`, `tools/stage-result.sh`, `hooks/format-and-test.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/repo_tools/loop-regression.sh`:
+  - машинный результат стадии:
+    - писать stage result per scope_key:
+      `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`
+      где `scope_key=<work_item_key>` для implement/review, и `scope_key=ticket` для qa;
+    - схема `aidd.stage_result.v1` и поля: `result` (blocked|continue|done), `reason`, `reason_code`, `ticket`, `stage`, `scope_key`, `work_item_key` (optional для ticket), `artifacts`, `evidence_links`, `updated_at`, `producer`;
+    - порядок записи: `tests_log → stage_result` (если evidence обязательна);
+    - команды implement/review/qa отвечают за запись результата (или hook‑writer, если выбран паттерн A);
+    - `loop_step` после команды читает stage result:
+      - если отсутствует/битый → `blocked` (`reason_code=stage_result_missing_or_invalid`);
+      - `blocked` → завершает с BLOCKED_CODE;
+      - `done` → DONE_CODE;
+      - `continue` → CONTINUE_CODE;
+    - `loop_run` пишет `reason/reason_code/scope_key` в `loop.run.log`.
+  **AC:** loop‑gating опирается только на stage_result; loop‑run корректно останавливается на BLOCKED implement/review/qa и missing/invalid stage_result; stage_result содержит evidence_links при обязательных тестах и пишется после tests_log.
+  **Deps:** W87-2
+
+### EPIC D — Review pack как операционный вход (per‑work‑item)
+- [x] **W87-6** `tools/review_pack.py`, `tools/review_report.py`, `tools/review-report.sh`, `commands/review.md`, `agents/reviewer.md`, `tools/loop_step.py`, `tools/loop_pack.py`, `templates/aidd/config/gates.json`, `tests/test_review_pack.py`, `tests/test_loop_step.py`:
+  - усилить review pack:
+    - review pack хранить per scope_key:
+      `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`;
+    - review report хранить per scope_key:
+      `aidd/reports/reviewer/<ticket>/<scope_key>.json` (или `aidd/reports/loops/<ticket>/<scope_key>/review.report.json`);
+    - добавить поля: `blocking_findings_count`, `handoff_ids_added`, `next_recommended_work_item`, `evidence_links`;
+    - оформить новую схему `aidd.review_pack.v2` и fallback для v1 (warn по умолчанию, block при strict‑конфиге);
+    - задокументировать место конфига и дефолт в `gates.json`;
+    - `loop_step` не читает ticket‑singleton `review.latest.pack.md`; берёт verdict/decision либо из stage_result (`evidence_links`), либо из per‑work‑item review pack (по scope_key).
+  **AC:** review pack/ report per‑work‑item; loop_step валидирует v2 (или warn для v1) по конфигу; freshness checks используют per‑work‑item report.
+  **Deps:** W87-5
+
+### EPIC E — Проверяемая test‑evidence + QA (per‑work‑item, merge‑friendly)
+- [x] **W87-7** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/qa_agent.py`, `tools/qa.py`, `tests/test_qa_agent.py`:
+  - детерминированная test‑evidence:
+    - hook пишет summary per scope_key:
+      `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
+      где `scope_key=<work_item_key>` для implement/review, `scope_key=ticket` для qa/общих прогонов;
+    - запись включает: `schema=aidd.tests_log.v1`, `ticket`, `stage`, `scope_key`, `work_item_key` (optional), `profile/tasks/filters`, `exit_code`, `log_path`, `updated_at`, `cwd/worktree` (optional);
+    - определение ticket: `--ticket`/`.active_ticket` → fallback `slug_hint`/unknown с явной маркировкой (`ticket_guess`, `ticket=unknown`);
+    - QA/Review используют последнюю запись по ticket+scope_key как evidence;
+    - интеграция с W87-5: implement/review/qa при записи stage_result добавляют `evidence_links` на tests_log (если есть) и/или указывают `reason_code=missing_test_evidence`, если по политике evidence обязателен.
+  **AC:** QA/Review не выставляют READY без подтверждённого test‑evidence (кроме profile:none), даже при fresh sessions; если review не запускает тесты — evidence берётся из последнего implement‑прогона по scope_key.
+  **Deps:** W87-1, W87-5
+
+### EPIC F — Дедуп промптов + versioning + lint (включая granularity/graph readiness)
+- [x] **W87-8** `agents/*.md`, `commands/*.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`:
+  - сократить дубли инструкций ссылкой на `docs/prompting/conventions.md`;
+  - обновить `prompt_version/source_version`;
+  - расширить lint‑prompts проверкой:
+    - канон упомянут,
+    - правило “loop без вопросов” присутствует,
+    - (parallel‑ready) промпты используют per‑work‑item пути (или читают их из context pack), а не ticket‑singleton,
+    - (granularity) tasklist‑refiner/anchor tasklist содержит policy по средней гранулярности итераций,
+    - stage_result упомянут как обязательный артефакт loop‑gating.
+  **AC:** prompts короче, нет рассинхрона, lint/prompts ловит пропуски канона/loop‑policy/parallel‑ready path conventions/granularity policy/stage_result.
+  **Deps:** W87-1
+
+### EPIC G — Runner compatibility (критично)
+- [x] **W87-9** `tools/loop_step.py`, `tools/loop_run.py`, `templates/aidd/docs/loops/README.md`, `AGENTS.md`, `tests/test_loop_step.py`, `tests/repo_tools/loop-regression.sh`:
+  - исправить дефолтный runner:
+    - убрать `--no-session-persistence` из дефолта; добавить fallback/детект неподдерживаемого флага;
+    - обновить docs по runner и переменным `AIDD_LOOP_RUNNER/--runner`;
+    - в логах фиксировать “effective runner”.
+  **AC:** loop‑step/loop‑run работают на актуальном Claude Code без ручного override; effective runner + persistence flag видны в логах.
+  **Deps:** -
+
+### EPIC H — Tasklist “graph‑ready” + granularity policy (без scheduler)
+- [x] **W87-10** `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/anchors/tasklist.md`, `agents/tasklist-refiner.md`, *(опц.)* `tools/tasklist-check.sh`:
+  - подготовить tasklist к DAG‑модели (пока без реального scheduler):
+    - для каждой итерации в `AIDD:ITERATIONS_FULL` добавить опциональные поля:
+      - `deps: [<id1>, <id2>]` (по умолчанию пусто),
+      - `locks: [<lock1>]` (по умолчанию пусто; для будущего запрета параллели);
+      - `priority: <int>` (по умолчанию 100),
+      - `blocking: <bool>` (по умолчанию false);
+    - обновить tasklist‑refiner:
+      - не дробить “в песок”: итерация должна быть в одном окне, но не микро‑задача;
+      - эвристики (policy): Steps ~ 3–7, expected_paths 1–3 группы, size_budget по умолчанию (напр. max_files 3–8, max_loc 80–400) с возможностью override;
+      - `AIDD:NEXT_3` должен выбирать задачи, у которых deps удовлетворены (deps ссылаются на iteration_id/id);
+    - (опц.) `tasklist-check` добавляет WARN (не BLOCK по умолчанию) при явной “слишком мелкой/слишком крупной” итерации; BLOCK — только при strict‑gates (в будущем).
+  **AC:** tasklist содержит deps/locks/priority/blocking (опционально) и policy по granularity; tasklist‑refiner не создаёт микро‑итерации; `NEXT_3` не предлагает узлы с незакрытыми deps; пустые expected_paths → WARN (или BLOCK в strict).
+  **Deps:** W87-1
+
+### BUGFIXES — Flow audit TST-001
+- [x] **W87-11** `tools/stage_result.py`, `tools/stage-result.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - зафиксировать запись stage_result при manual implement/review/qa (включая BLOCKED/READY/SHIP/WARN);
+  - не допускать отсутствия stage_result (fail-fast + понятный reason_code).
+  **AC:** после каждой команды implement/review/qa существует `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`; loop_run/loop_step не видят `stage_result_missing_or_invalid` при корректном завершении команды.
+  **Deps:** W87-5
+
+- [x] **W87-12** `tools/review_pack.py`, `tools/review_report.py`, `tools/review-pack.sh`, `tools/review-report.sh`, `commands/review.md`, `agents/reviewer.md`, `tests/test_review_pack.py`:
+  - гарантировать генерацию per‑work‑item review pack и review report;
+  - синхронизировать verdict → stage_result (evidence_links, REVISE→continue, SHIP→done).
+  **AC:** появляется `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` и `aidd/reports/reviewer/<ticket>/<scope_key>.json` для каждого review; loop_step читает их per‑work‑item без fallback на ticket‑singleton; stage_result соответствует verdict.
+  **Deps:** W87-6
+
+- [x] **W87-13** `tools/diff_boundary_check.py`, `tools/diff-boundary-check.sh`, `tools/loop_pack.py`, `commands/implement.md`, `commands/review.md`, `tests/test_diff_boundary_check.py`:
+  - ослабить boundary‑check: OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN (не BLOCKED), FORBIDDEN → BLOCKED;
+  - расширить loop pack allowed_paths, когда требуется правка `db.changelog-master.yaml` для включения миграции.
+  **AC:** изменения вне allowed_paths дают WARN (и фиксятся в handoff) как в implement, так и в review; NO_BOUNDARIES_DEFINED даёт WARN; FORBIDDEN продолжает блокировать; при миграции loop pack явно разрешает `backend/src/main/resources/db/changelog/db.changelog-master.yaml`.
+  **Deps:** W87-3
+
+- [ ] **W87-14** `tools/output_contract_check.py`, `tools/output-contract-check.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/test_output_contract_check.py`:
+  - DE-SCOPED: удалён линт output‑контракта; автоматическая проверка loop‑step не выполняется.
+  **Deps:** W87-1
+
+- [x] **W87-15** `tools/prd_review.py`, `tools/prd-review.sh`, `tools/prd_review_gate.py`, `tools/prd-review-gate.sh`, `tools/index_sync.py`, `tests/test_gate_prd_review.py`:
+  - синхронизировать статус PRD‑review между doc/report/index;
+  - убрать рассинхрон `Status: READY` в PRD при `reports/prd/*.json = pending`.
+  **AC:** PRD review READY отражается в `aidd/reports/prd/<ticket>.json` и `aidd/docs/index/<ticket>.json` без pending.
+  **Deps:** W87-1
+
+- [x] **W87-16** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `tools/qa_agent.py`, `tests/test_format_and_test.py`, `tests/test_qa_agent.py`:
+  - исправить тест‑evidence, когда форматирование/тесты пропущены;
+  - синхронизировать tests_log со статусом исполнения hook (profile:none при skip).
+  **AC:** `aidd/reports/tests/<ticket>/<scope_key>.jsonl` отражает фактический запуск; при skip — profile:none + reason_code, QA не считает tests pass без evidence.
+  **Deps:** W87-7
+
+- [x] **W87-17** `agents/reviewer.md`, `commands/review.md`, `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/status-machine.md`, `tools/review_pack.py`, `tools/stage_result.py`, `tests/test_loop_step.py`, `tests/test_review_pack.py`:
+  - политика review‑вердикта: дефекты в рамках итерации → `REVISE` (без BLOCKED), `Status: READY|WARN` по тяжести;
+  - `BLOCKED` только для missing artifacts/evidence/commands или `FORBIDDEN` boundary fail; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → WARN + handoff;
+  - stage_result для review: `REVISE → continue`, `SHIP → done`, `BLOCKED → blocked`.
+  **AC:** review не блокирует из‑за исправимых дефектов или OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED; loop продолжает итерации при REVISE; BLOCKED используется только для системных стоп‑условий и `FORBIDDEN`.
+  **Deps:** W87-1, W87-5, W87-6
+
+- [x] **W87-18** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/status-machine.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/anchors/implement.md`, `templates/aidd/docs/anchors/review.md`, `AGENTS.md`:
+  - синхронизировать канон с мягким out‑of‑scope: `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN + handoff`, `FORBIDDEN → BLOCKED`;
+  - в каноне явно указать “review не блокирует за исправимые дефекты, а ставит REVISE”.
+  **AC:** канон и anchors/loops README не противоречат политике “loop продолжается при REVISE/OUT_OF_SCOPE”.
+  **Deps:** W87-1, W87-17
+
+- [x] **W87-19** `tools/stage_result.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - зафиксировать, что OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED дают `result=continue` с `reason_code=out_of_scope_warn|no_boundaries_defined_warn` (не BLOCKED);
+  - loop‑gating считает WARN допустимым для продолжения.
+  **AC:** loop продолжает работу при OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED WARN; блокировка остаётся только для FORBIDDEN или системных стоп‑условий.
+  **Deps:** W87-11, W87-13, W87-17
+
+- [x] **W87-20** `agents/reviewer.md`, `commands/review.md`, `tools/review_pack.py`, `tests/test_review_pack.py`:
+  - review diff‑first: анализирует только изменения итерации; новые требования/работы → handoff в tasklist, не BLOCKED;
+  - гарантировать запись handoff для исправимых дефектов (review findings) вместо остановки loop.
+  **AC:** review всегда выдаёт handoff для найденных дефектов; loop не останавливается из‑за исправимых замечаний в diff.
+  **Deps:** W87-17
+
+- [x] **W87-21** `hooks/format-and-test.sh`, `tools/reports/tests_log.py`, `tools/stage_result.py`, `tools/qa_agent.py`, `templates/aidd/config/gates.json`, `tests/test_format_and_test.py`, `tests/test_qa_agent.py`:
+  - мягкий режим отсутствия test‑evidence: по конфигу (например `tests_required=soft`) → WARN + handoff “run tests”, без BLOCKED;
+  - для review в soft‑policy: verdict `REVISE` (continue) при missing evidence, чтобы loop продолжился до фикса;
+  - строгий режим сохраняет BLOCKED (для `tests_required=hard`).
+  **AC:** loop не блокируется на пропущенных тестах при soft‑policy; review выставляет REVISE при missing evidence; BLOCKED остаётся в strict‑policy.
+  **Deps:** W87-7, W87-11, W87-17
+
+- [x] **W87-22** `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - убрать устаревшие указания “OUT_OF_SCOPE → BLOCKED”; заменить на WARN + handoff, `FORBIDDEN → BLOCKED`, `NO_BOUNDARIES_DEFINED → WARN`;
+  - в review‑команде закрепить: дефекты → REVISE (continue), BLOCKED только при missing artifacts/evidence/commands или FORBIDDEN;
+  - добавить явное правило diff‑first (review проверяет только изменения итерации) и “loop continues until fixed”.
+  **AC:** командные доки соответствуют мягкому out‑of‑scope и ревью‑политике, не противоречат W87-17/19/21.
+  **Deps:** W87-17, W87-19, W87-21
+
+- [x] **W87-23** `agents/implementer.md`, `agents/reviewer.md`, `agents/tasklist-refiner.md`:
+  - удалить устаревшие формулировки про “остановку” на out‑of‑scope;
+  - добавить правило: OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → WARN + handoff, FORBIDDEN → BLOCKED;
+  - добавить WARN в допустимые статусы implementer/reviewer;
+  - в reviewer‑агенте закрепить REVISE для исправимых дефектов и diff‑first review.
+  **AC:** агент‑промпты согласованы с мягким out‑of‑scope и “loop until fixed”.
+  **Deps:** W87-17, W87-19
+
+
+## Wave 88
+
+### Loop Protocol (REVISE в рамках одного work_item)
+
+- [ ] **W88-1** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop-pack.sh`, `commands/implement.md`, `commands/review.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
+  - Зафиксировать REVISE-loop:
+    - на `verdict=REVISE` записывать `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json` с `result=continue`;
+    - `loop-run/step` при `continue` повторно запускает `/feature-dev-aidd:implement` по тому же `scope_key` (без смены work_item).
+  - Гарантировать повтор implement по тому же work_item:
+    - при REVISE implement ДОЛЖЕН использовать тот же `work_item_key` из `.active_work_item` (или эквивалентный override),
+      а `loop-pack.sh` НЕ должен выбирать новый work_item.
+    - допустимые реализации: reuse `.active_work_item`, явный параметр (`--work-item-key/--scope-key`) или ENV‑флаг.
+  - Гарантировать, что при `REVISE`:
+    - чекбокс в `AIDD:ITERATIONS_FULL` остаётся `[ ]` (не закрывается);
+    - `AIDD:NEXT_3` НЕ меняется (ни состав, ни порядок);
+    - `.active_work_item` НЕ меняется;
+    - `scope_key` НЕ меняется.
+  - Документация: явно описать “REVISE не двигает work_item, повторяет implement”.
+  - Добавить интеграционный тест на семантику (минимум 2 кейса):
+    - Case A: review=REVISE → повтор implement на том же scope_key, чекбокс не закрыт, NEXT_3 не меняется.
+    - Case B: review=SHIP   → чекбокс закрыт, NEXT_3 сдвинут, loop-run переходит дальше.
+    - Эти тесты на уровне workflow/команд; скриптовый уровень покрывается W88-14.
+  **AC:**
+  - При `REVISE` повтор запуска implement идёт по тому же `scope_key`, без смены work_item.
+  - При `SHIP` чекбокс закрывается `[x]` и `AIDD:NEXT_3` корректно сдвигается.
+  - Тесты подтверждают, что `REVISE` не меняет `AIDD:NEXT_3` и чекбоксы.
+  **Deps:** W88-2
+
+- [ ] **W88-2** `tools/review-pack.sh`, `agents/reviewer.md`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
+  - Добавить структурированный **Fix Plan** в `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`:
+    - Fix Plan должен быть исполнимым и детерминированным (без “починить как-нибудь”).
+    - Рекомендуемый формат:
+      - `steps:` (нумерованные, краткие)
+      - `commands:` (что запускать)
+      - `tests:` (профиль + команды/фильтры или ссылка на `AIDD:TEST_EXECUTION`)
+      - `expected_paths:` (для diff-boundary и loop-pack boundaries)
+      - `acceptance_check:` (что считать “исправлено”)
+      - `links:` (на findings/строки/отчёты)
+  - Implementer обязан:
+    - читать `loop pack → review pack → Fix Plan` (в таком порядке);
+    - явно выполнять Fix Plan;
+    - в отчёте ссылаться на Fix Plan (например: “выполнены шаги 1,2; шаг 3 не нужен потому что …”).
+  - Reviewer обязан:
+    - при `verdict=REVISE` всегда включать Fix Plan;
+    - делать Fix Plan согласованным с `findings` (каждый blocking finding должен отражаться в плане).
+  **AC:**
+  - Fix Plan присутствует для всех `verdict=REVISE`.
+  - Implementer в отчёте явно ссылается на Fix Plan (минимум: какие шаги выполнены).
+  **Deps:** -
+
+### Evidence & Gates
+
+- [ ] **W88-3** `hooks/gate-workflow.sh`, `tools/stage-result.sh` (если используется), `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/*`:
+  - Гарантировать запись stage_result при раннем выходе/ошибке (fail-fast) для implement/review/qa:
+    - `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`
+    - `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`
+    - `aidd/reports/loops/<ticket>/<ticket>/stage.qa.result.json` (ticket-scoped, если так задумано)
+  - Даже при BLOCKED до запуска агента/хуков stage_result должен создаваться с минимум-полями:
+    - `ticket`, `scope_key`, `work_item_key`, `stage`, `result`, `reason_code`, `errors[]` (если есть), `evidence_links{}` (может быть пустым).
+    - для stage=review: дополнительно `verdict=SHIP|REVISE|BLOCKED`.
+  - Для QA: stage_result ticket-scoped, `scope_key=<ticket>` — зафиксировать в docs и коде.
+  - Обновить команды так, чтобы `stage-result.sh` вызывался всегда (в т.ч. при ошибке через trap/обработчик).
+  **AC:**
+  - stage_result всегда создаётся для implement/review/qa (включая fail-fast/early BLOCKED).
+  - gate-workflow не видит “missing stage_result” ни в одном сценарии.
+  **Deps:** -
+
+- [ ] **W88-4** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `tools/loop-run.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
+  - При пропуске тестов **всегда** писать `aidd/reports/tests/<ticket>/<scope_key>.jsonl`:
+    - добавить JSONL запись со `status="skipped"` и полями `reason_code` + `reason`.
+    - рекомендованные `reason_code` (минимум):
+      - `profile_none`
+      - `skip_auto_tests`
+      - `format_only`
+      - `cadence_checkpoint_not_reached`
+      - `no_diff_change_dedup`
+      - `manual_skip`
+    - `status=skipped` обязателен и при дедупе, cadence/early-exit и ручном skip.
+  - `stage_result` должен ссылаться на test-log (evidence_links):
+    - `evidence_links.tests_log="aidd/reports/tests/<ticket>/<scope_key>.jsonl"`
+    - (опционально) `evidence_links.format_log="aidd/reports/tests/<ticket>/<scope_key>.format.jsonl"` если есть
+  - `gate-tests.sh` должен считать “skipped с причиной” как evidence (и не поднимать `missing_test_evidence`).
+  **AC:**
+  - `missing_test_evidence` больше не возникает при пропуске тестов — вместо этого есть `status=skipped` + причина.
+  - stage_result содержит ссылку на tests jsonl.
+  **Deps:** W88-3
+
+- [ ] **W88-5** `hooks/gate-tests.sh`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/repo_tools/*`:
+  - Учесть `tests_required=soft|hard` (из `gates.json`):
+    - `soft`: отсутствие/skip тестов → НЕ BLOCKED, но должно приводить к `WARN/REVISE` (в зависимости от стадии) + reason_code
+    - `hard`: отсутствие/skip тестов → `BLOCKED`
+  - Для tests_required=soft при missing/skipped tests:
+    - implement → Status: WARN (not BLOCKED)
+    - review → verdict=REVISE (not BLOCKED)
+    - qa → Status: WARN (not BLOCKED)
+  - Явно задокументировать политику:
+    - как определяется `tests_required`
+    - как это отражается в `stage_result.result` и в CLI статусах
+  - Добавить unit/integration тесты на матрицу:
+    - soft + skipped → warn/revise (not blocked)
+    - hard + skipped → blocked
+  **AC:**
+  - Политика тестов в loop-mode строго соответствует `gates.json` и тестами подтверждена.
+  **Deps:** W88-4
+
+### Pack/QA Consistency
+
+- [ ] **W88-6** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`:
+  - Синхронизировать `review.latest.pack.md` с `aidd/reports/reviewer/<ticket>/<scope_key>.json`:
+    - pack должен генерироваться из JSON отчёта (или наоборот) одним источником истины.
+  - Поля должны совпадать:
+    - `blocking_findings_count`
+    - список `findings` (id/summary/severity/blocking/scope/links)
+  - Fix Plan (W88-2) должен ссылаться на конкретные findings (например: `fixes: [finding_id=R-3, R-7]`).
+  **AC:**
+  - pack и report совпадают по findings/severity/blocking_findings_count (байт-в-байт по смыслу).
+  **Deps:** W88-2
+
+- [ ] **W88-7** `tools/qa.sh`, `commands/qa.md`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`, `tests/repo_tools/*`:
+  - Согласовать статусы и пути:
+    - `aidd/reports/qa/<ticket>.json`
+    - `aidd/reports/qa/<ticket>.pack.json` (если используется)
+    - `aidd/reports/loops/<ticket>/<ticket>/stage.qa.result.json`
+    - CLI-вывод должен ссылаться на фактические пути.
+  - Зафиксировать, что QA stage_result ticket-scoped и `scope_key=<ticket>`, и отражено в docs/CLI.
+  - Запретить невозможное состояние:
+    - нельзя получить READY pack при BLOCKED stage_result (или BLOCKED CLI).
+  - Явно описать mapping статусов QA:
+    - какие значения считаются `done` vs `blocked`
+    - как soft missing evidence влияет (`WARN` + handoff vs `BLOCKED`)
+  - Добавить тесты на консистентность статусов (минимум 2 кейса).
+  **AC:**
+  - Нельзя получить READY pack при BLOCKED stage_result/CLI.
+  - Пути в выводе команд всегда совпадают с реально созданными файлами.
+  **Deps:** W88-3, W88-4, W88-5
+
+### Logging & Lint
+
+- [ ] **W88-8** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/stage-result.sh`, `templates/aidd/docs/loops/README.md`:
+  - Писать логи CLI:
+    - `aidd/reports/loops/<ticket>/cli.loop-run.<ts>.log`
+    - `aidd/reports/loops/<ticket>/cli.loop-step.<ts>.log`
+  - Заполнять `runner=` в `loop.run.log`:
+    - кто/что запустил (например: `runner=claude_cli`, `runner=ci`, `runner=local`)
+    - фиксировать `ticket`, `scope_key`, `stage`, `exit_code`, `result`
+  - Обновить docs: где искать логи при разборе инцидента.
+  **AC:**
+  - Каждый loop-запуск имеет cli-лог и заполненный `runner`.
+  **Deps:** -
+
+- [ ] **W88-9** `tools/tasklist-check.sh`, `tools/tasklist-normalize.sh`, `tests/`, `templates/aidd/docs/tasklist/template.md`:
+  - Исправить “no such group” и дубли секций (root cause + авто-fix).
+  - Добавить unit-тесты:
+    - на template (валиден из коробки)
+    - на normalize `--fix` (устраняет дубли/ошибки)
+    - на check (стабилен)
+  - Добавить тест на “NEXT_3 не содержит [x]”.
+  **AC:**
+  - tasklist-check стабильно проходит на template.
+  - normalize --fix приводит tasklist к валидному состоянию в типовых кейсах.
+  **Deps:** -
+
+### Prompting & Output Contract
+
+- [ ] **W88-10** `agents/implementer.md`, `agents/reviewer.md`, `agents/qa.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - Enforce “excerpt-first” (и “pack-first”) как проверяемое правило:
+    - Implementer/Reviewer/QA должны начинать с: `loop pack → (review pack, если есть) → excerpt`.
+    - Запрет на чтение full PRD/Research/Plan/Tasklist целиком, если excerpt достаточно.
+  - Добавить обязательное поле в ответ агента (в рамках output contract):
+    - `Context read:` список источников (только имена/пути packs/excerpts), без простыней.
+  - Обновить docs: когда допустимо читать full-doc (например, missing DoD/Boundaries/Tests в excerpt).
+  **AC:**
+  - Транскрипты/ответы агентов содержат `Context read:` и демонстрируют pack/excerpt-first.
+  **Deps:** -
+
+- [ ] **W88-11** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`:
+  - Сделать обязательными поля output-контракта для subagents implement/review/qa:
+    - `Status`
+    - `Work item key`
+    - `Artifacts updated`
+    - `Tests` (run/skipped/not-required + кратко)
+    - `Blockers/Handoff`
+    - `Next actions`
+    - `Context read` (из W88-10)
+  - Для команд:
+    - обязательное ядро без `Context read` (команда может проксировать его из subagent, но это не обязательно).
+  - Уточнить допустимые значения:
+    - implementer: `READY|WARN|BLOCKED|PENDING`
+    - reviewer/qa: `READY|WARN|BLOCKED`
+  - Расширить lint-prompts.py (или добавить новый repo_tools тест), чтобы он проверял:
+    - наличие этих полей в промптах subagents
+    - для команд — наличие ядра, без требования `Context read`
+    - отсутствие запрещённых полей/значений
+  **AC:**
+  - Output-контракт соблюдён для implement/review/qa.
+  - Тесты/линтер валят PR при регрессе контракта.
+  **Deps:** W88-10
+
+### Versioning & Validation
+
+- [ ] **W88-12** `templates/aidd/**`, `tests/repo_tools/*`, `commands/aidd-init.md`:
+  - bump `prompt_version` (единым коммитом, согласованно).
+  - прогнать `tests/repo_tools/prompt-version` и `tests/repo_tools/lint-prompts.py`.
+  - проверить `/feature-dev-aidd:aidd-init` и `tests/repo_tools/smoke-workflow.sh` на чистом workspace/ветке.
+  **AC:**
+  - smoke проходит на чистом workspace.
+  - prompt-version и lint-prompts зелёные.
+  **Deps:** W88-1..W88-11
+
+## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
+
+- [ ] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:
+  - Сделать Fix Plan машинно-читаемым (помимо markdown):
+    - писать файл `aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json`
+    - stage_result (review) должен иметь `evidence_links.fix_plan_json=...`
+  - Implementer:
+    - читает markdown pack, но при наличии `fix_plan.json` использует его как source-of-truth (чтобы не было “вольной трактовки”).
+  **AC:**
+  - Для REVISE всегда есть `review.fix_plan.json`.
+  - В stage_result есть ссылка на fix_plan_json.
+  **Deps:** W88-2, W88-6, W88-3
+
+- [ ] **W88-14** `tests/repo_tools/*`, `tools/loop-run.sh`, `tools/loop-step.sh`:
+  - Добавить интеграционные тесты “loop semantics” на уровне скриптов:
+    - REVISE: не меняет NEXT_3/checkbox, повторяет implement на том же scope_key.
+    - SHIP: закрывает checkbox, сдвигает NEXT_3.
+    - (опционально) BLOCKED: stage_result создаётся, loop-run останавливается.
+  **AC:**
+  - Регресс семантики REVISE/SHIP ловится тестами.
+  **Deps:** W88-1, W88-3
+
+## Wave 89 — Doc consolidation (conventions + architecture + anchors + ast-grep + backlog archive) + Static context + Prompt examples
+
+_Статус: план. Цель — сократить дубли документации, убрать устаревшие файлы, оставить один канон, и добавить “project memory” (CLAUDE.md) + few-shot примеры ответов._
+
+- [ ] **W89-1** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/conventions.md`, `templates/aidd/AGENTS.md`, `AGENTS.md`, `README.md`, `README.en.md`, `commands/*.md`, `agents/*.md`:
+  - перенести все уникальные правила из `templates/aidd/conventions.md` в `templates/aidd/docs/prompting/conventions.md`;
+  - полностью удалить `templates/aidd/conventions.md`;
+  - обновить все ссылки на канон в командах/агентах/README/AGENTS.
+  **AC:** единственный источник конвенций — `templates/aidd/docs/prompting/conventions.md`; в репо нет ссылок на `templates/aidd/conventions.md`.
+  **Deps:** -
+
+- [ ] **W89-2** `templates/aidd/docs/architecture/README.md`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/architecture/customize.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `README.md`, `README.en.md`:
+  - объединить полезные материалы из `customize.md` в `README.md`;
+  - оставить `profile.md` как шаблон артефакта (без методических дублей);
+  - удалить `templates/aidd/docs/architecture/customize.md`;
+  - обновить ссылки на архитектурные документы.
+  **AC:** архитектурные документы сведены к двум файлам (`README.md` + `profile.md`); ссылки обновлены; удалённый файл нигде не упоминается.
+  **Deps:** W89-1
+
+- [ ] **W89-3** `templates/aidd/docs/anchors/README.md`, `templates/aidd/docs/anchors/*.md`:
+  - вынести общий блок “base rules” в `anchors/README.md` (приоритет источников, контекст, общие ограничения);
+  - в stage-anchor файлах оставить только stage‑специфику и ссылку на base rules;
+  - проверить согласованность с loop/qa/plan policy.
+  **AC:** повторяющиеся блоки удалены; anchors ссылаются на base rules; stage‑специфика сохранена.
+  **Deps:** W89-1, W89-2
+
+- [ ] **W89-4** `templates/aidd/ast-grep/README.md`, `templates/aidd/ast-grep/rules/*/README.md`:
+  - добавить единый `templates/aidd/ast-grep/README.md` с пометкой legacy/disabled и инструкцией включения;
+  - удалить per‑rule README или заменить их на короткие stubs с ссылкой на общий README;
+  - обновить ссылки (если есть) на старые readme.
+  **AC:** есть один канонический README; нет лишних дублирующих README внутри `rules/*`.
+  **Deps:** -
+
+- [ ] **W89-5** `backlog.md`:
+  - создать секцию “Archive / Legacy”;
+  - перенести туда все закрытые/исторические пункты с удалёнными командами/агентами (без влияния на активные волны);
+  - добавить заметку, что архив содержит устаревшие ссылки.
+  **AC:** активные волны не содержат ссылок на удалённые файлы; архив явно помечен как legacy.
+  **Deps:** W89-1, W89-2, W89-4
+
+- [ ] **W89-6** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**/README.md`, `templates/aidd/ast-grep/**/README.md`:
+  - корневой `README.md`/`README.en.md` оставить для human‑доки (инсталляция, quick‑start, high‑level);
+  - runtime README (в `templates/aidd/**`) привести к agent‑правилам: краткие инструкции, порядок чтения, artefacts, do/don’t, fail‑fast;
+  - перенести runtime‑critical правила из root README в `AGENTS.md`/`templates/aidd/AGENTS.md` и/или соответствующие runtime README;
+  - добавить явные ссылки “agent rules → AGENTS/anchors/loops” в root README.
+  **AC:** root README не содержит agent‑policy; runtime README оформлены как agent‑rules; агент получает инструкции без чтения root README.
+  **Deps:** W89-1, W89-2, W89-3, W89-4
+
+- [ ] **W89-7** `tools/init.sh`, `commands/aidd-init.md`, `templates/aidd/**`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/*`:
+  - Добавить “static project memory” через `CLAUDE.md` в корне workspace:
+    - если `CLAUDE.md` отсутствует → создать из шаблона (рекомендовано добавить `templates/aidd/CLAUDE.md`);
+    - если `CLAUDE.md` существует → идемпотентно вставить/обновить секцию `## AIDD` (рекомендовано через маркеры):
+      - `<!-- AIDD:BEGIN -->`
+      - `<!-- AIDD:END -->`
+      - внутри — только управляемый init-контент.
+    - если workspace read-only/не writable — вывести предупреждение и не падать.
+  - Содержимое `## AIDD` (10–30 строк, без простыней):
+    - порядок чтения: anchors-first → pack-first → excerpt-first;
+    - канон: `aidd/docs/prompting/conventions.md`, `aidd/docs/anchors/README.md`, `aidd/docs/loops/README.md`;
+    - запрет “читать всё подряд”; работать по pack/artefacts;
+    - коротко про loop-mode: REVISE не двигает work_item, выполнять Fix Plan из review pack.
+  - Обновить `commands/aidd-init.md`, чтобы явно описывалось создание/обновление `CLAUDE.md`.
+  - Добавить repo_tools тест:
+    - на чистом workspace init создаёт `CLAUDE.md`;
+    - повторный init НЕ ломает пользовательский текст вне маркеров.
+  **AC:**
+  - После `aidd-init` на чистом workspace есть `CLAUDE.md` с секцией `## AIDD`.
+  - Повторный init идемпотентен (вне маркеров ничего не меняется).
+  **Deps:** W89-1, W89-6
+
+- [ ] **W89-8** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/prompting/examples/*`, `commands/*.md`, `agents/*.md`:
+  - Добавить few-shot “канонические примеры” (минимум 3) и закрепить их как эталон:
+    1) implementer: `READY|WARN` + `Tests` + `Context read` + ссылки на `aidd/reports/**`
+    2) reviewer: `REVISE` + findings + **Fix Plan** (структурированный) + ссылки
+    3) qa: `WARN` (soft missing evidence) + handoff + traceability
+  - Требования к примерам:
+    - укладываются в budgets (TL;DR/Blockers/NEXT_3 и т.п.);
+    - не содержат логов/диффов/стектрейсов, только ссылки;
+    - используют обязательные поля output-контракта (из W88-11).
+  - В `conventions.md` и/или runtime README добавить ссылку “смотри examples/* как эталон”.
+  **AC:**
+  - Примеры добавлены и явно указаны как эталон в каноне.
+  - Команды/агенты ссылаются на эти примеры (минимум в conventions.md).
+  **Deps:** W89-1, W88-11
+
+- [ ] **W89-9** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/**`, `CLAUDE.md` (если упоминается в доках):
+  - финальный sweep ссылок после консолидации + добавления CLAUDE/examples:
+    - проверить, что все упоминания конвенций/архитектуры/anchors/ast-grep/examples ведут в канон;
+    - убедиться, что нигде не осталось путей на удалённые файлы;
+    - обновить краткие описания/линки (включая упоминание `CLAUDE.md`, если добавлено).
+  **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы; `CLAUDE.md` и examples интегрированы ссылками.
+  **Deps:** W89-1, W89-2, W89-3, W89-4, W89-5, W89-6, W89-7, W89-8
+
+## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
+
+_Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
+
+### EPIC P — Task Graph (DAG) как источник для планирования
+- [ ] **W100-1** `tools/task_graph.py`, `aidd/reports/taskgraph/<ticket>.json` (или `aidd/docs/taskgraph/<ticket>.yaml`):
+  - парсер tasklist → DAG:
+    - узлы: iterations (`iteration_id`) + handoff (`id: review:* / qa:* / research:* / manual:*`);
+    - поля: deps/locks/expected_paths/priority/blocking/state;
+    - node id: `iteration_id` или `handoff id`; state выводится из чекбокса + (опционально) stage_result.
+  - вычисление `ready/runnable` и топологическая проверка (cycles/missing deps).
+  **AC:** из tasklist строится корректный DAG; есть список runnable узлов.
+
+- [ ] **W100-2** `tools/taskgraph-check.sh` (или расширение `tasklist-check.sh`):
+  - валидировать: циклы, неизвестные deps, self-deps, пустые expected_paths (если требуется), конфликтующие locks (опционально).
+  **AC:** CI/локальный чек ловит некорректные зависимости до запуска параллели.
+
+### EPIC Q — Claim/Lock протокол для work items
+- [ ] **W100-3** `tools/work_item_claim.py`, `tools/work-item-claim.sh`, `aidd/reports/locks/<ticket>/<id>.lock.json`:
+  - claim/release/renew lock;
+  - stale lock policy (ttl, force unlock);
+  - в lock хранить `worker_id`, `created_at`, `last_seen`, `scope_key`, `branch/worktree`;
+  - shared locks dir (например, `AIDD_LOCKS_DIR`) или orchestrator-only locks; атомарное создание (O_EXCL).
+  **AC:** один узел не может быть взят двумя воркерами; stale locks диагностируются и снимаются по правилам; locks общие для всех воркеров.
+
+### EPIC R — Scheduler: выбор runnable узлов под N воркеров
+- [ ] **W100-4** `tools/scheduler.py`:
+  - выбрать набор runnable узлов на N воркеров:
+    - учитывать deps,
+    - учитывать `locks`,
+    - учитывать пересечения `expected_paths` (конфликт → не запускать параллельно; конфликт = общий top-level group или префикс),
+    - сортировка: blocking → priority → plan order.
+  **AC:** scheduler отдаёт набор независимых work items; не выдаёт конфликтующие по locks/paths.
+
+- [ ] **W100-5** `tools/loop_pack.py` / `loop-pack.sh`:
+  - уметь генерировать loop pack по конкретному work_item_id, а не только “следующий из NEXT_3”;
+  - сохранять pack в per‑work‑item пути (Wave 87 уже подготовил).
+  **AC:** можно собрать loop pack для любого узла DAG по id; pack содержит deps/locks/expected_paths/size_budget/tests для выбранного узла.
+
+### EPIC S — Parallel loop-run (оркестрация воркеров)
+- [ ] **W100-6** `tools/loop_run.py`:
+  - добавить режим `--parallel N`:
+    - получить runnable узлы от scheduler,
+    - claim locks,
+    - запустить N воркеров (каждый с явным `--work-item <id>` / `scope_key`),
+    - собирать stage results и принимать решения (blocked/done/continue) по каждому узлу.
+  **AC:** parallel loop-run запускает N независимых узлов и корректно реагирует на BLOCKED/DONE по каждому; определён контракт artifact root (shared vs per-worktree) и сбор результатов.
+
+- [ ] **W100-7** `tools/worktree_manager.py` (или `tests/repo_tools/worktree.sh`):
+  - подготовка isolated рабочих директорий на воркера:
+    - `git worktree add` / отдельные ветки,
+    - единый шаблон именования веток,
+    - cleanup.
+  **AC:** каждый воркер работает в изолированном worktree; определён способ записи артефактов (shared root или сбор из worktrees).
+
+### EPIC T — Консолидация результатов обратно в основной tasklist
+- [ ] **W100-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:
+  - на основе stage_result + review_pack + tests_log:
+    - отметить `[x]` для завершённых узлов,
+    - обновить `AIDD:NEXT_3` из DAG runnable,
+    - добавить `AIDD:PROGRESS_LOG` записи,
+    - перенос/дедуп handoff задач.
+  **AC:** после параллельного прогона tasklist обновляется детерминированно; без дублей; NEXT_3 корректен; дедуп handoff по стабильному id.
+
+- [ ] **W100-9** `tools/reports/aggregate.py`:
+  - агрегировать evidence в “ticket summary”:
+    - ссылки на per‑work‑item tests logs,
+    - список stage results,
+    - сводка статусов узлов.
+  **AC:** есть единый сводный отчёт по тикету и по узлам.
+
+### EPIC U — Документация + регрессии
+- [ ] **W100-10** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - задокументировать parallel workflow:
+    - deps/locks/expected_paths правила,
+    - claim/release,
+    - конфликт‑стратегию (paths overlap → serial),
+    - policy: воркеры не редактируют tasklist в parallel‑mode (consolidate делает main).
+  **AC:** понятная инструкция “как запускать parallel loop-run” + troubleshooting + policy для tasklist/артефактов.
+
+- [ ] **W100-11** `tests/test_scheduler.py`, `tests/test_parallel_loop_run.py`, `tests/repo_tools/parallel-loop-regression.sh`:
+  - тесты на DAG, scheduler, claim, параллельный раннер, консолидацию.
+  **AC:** регрессии ловят гонки/перетирание артефактов/неверный выбор runnable; включены кейсы conflict paths/lock stale/worker crash.

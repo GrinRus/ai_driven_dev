@@ -19,6 +19,53 @@ def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
 
 
 class LoopPackTests(unittest.TestCase):
+    def test_loop_pack_adds_changelog_master(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-CH\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-CH\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: Add migration (iteration_id: I1)\n"
+                "  - Goal: Add migration\n"
+                "  - DoD: Migration ready\n"
+                "  - Boundaries: backend/src/main/resources/db/changelog/**\n"
+                "  - Expected paths:\n"
+                "    - backend/src/main/resources/db/changelog/2024-01-01.xml\n"
+                "  - Commands:\n"
+                "    - ./gradlew test\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: ./gradlew test\n"
+                "  - Exit criteria:\n"
+                "    - migration included\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: migration (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-CH.md", tasklist)
+            write_file(root, "docs/architecture/profile.md", "# Profile\n")
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-CH", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertIn(
+                "backend/src/main/resources/db/changelog/db.changelog-master.yaml",
+                allowed_paths,
+            )
+
     def test_loop_pack_selects_next3(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -40,9 +87,9 @@ class LoopPackTests(unittest.TestCase):
             self.assertIn("pytest -q", payload.get("commands_required", []))
             self.assertIn("pytest -q", payload.get("tests_required", []))
 
-            pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id=I1.loop.pack.md"
+            pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1.loop.pack.md"
             self.assertTrue(pack_path.exists(), "loop pack file should exist")
-            handoff_pack = root / "reports" / "loops" / "DEMO-1" / "id=review_F6.loop.pack.md"
+            handoff_pack = root / "reports" / "loops" / "DEMO-1" / "id_review_F6.loop.pack.md"
             self.assertTrue(handoff_pack.exists(), "loop pack should prewarm NEXT_3 handoff items")
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertRegex(pack_text, re.compile(r"^updated_at:\s+\S+", re.MULTILINE))
@@ -74,7 +121,7 @@ class LoopPackTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("selection"), "next3")
             self.assertEqual(payload.get("work_item_id"), "review:F6")
-            self.assertEqual(payload.get("work_item_key"), "id=review_F6")
+            self.assertEqual(payload.get("work_item_key"), "id=review:F6")
 
     def test_loop_pack_review_falls_back_to_progress(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -120,7 +167,7 @@ class LoopPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("work_item_id"), "review:F6")
-            self.assertEqual(payload.get("work_item_key"), "id=review_F6")
+            self.assertEqual(payload.get("work_item_key"), "id=review:F6")
 
     def test_loop_pack_prefers_review_pack_on_revise(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -134,9 +181,9 @@ class LoopPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I1\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I1/review.latest.pack.md", review_pack)
             write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_file(root, "docs/.active_work_item", "iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -165,11 +212,12 @@ class LoopPackTests(unittest.TestCase):
                 "# Review Pack — DEMO-1\n"
                 "\n"
                 "## References\n"
-                "- review_report: aidd/reports/reviewer/DEMO-1.json\n"
+                "- review_report: aidd/reports/reviewer/DEMO-1/iteration_id_I9.json\n"
                 "- handoff_ids:\n"
                 "  - F6\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I9/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_work_item", "iteration_id=I9")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -195,7 +243,8 @@ class LoopPackTests(unittest.TestCase):
                 "work_item_key: iteration_id=I2\n"
                 "---\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I2/review.latest.pack.md", review_pack)
+            write_file(root, "docs/.active_work_item", "iteration_id=I2")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),

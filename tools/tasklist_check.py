@@ -146,6 +146,10 @@ class IterationItem:
     checkbox: str
     parent_id: str | None
     explicit_id: bool
+    priority: str
+    blocking: bool
+    deps: List[str]
+    locks: List[str]
     lines: List[str]
 
 
@@ -287,6 +291,92 @@ def is_placeholder(value: str) -> bool:
     return stripped.startswith("<") and stripped.endswith(">")
 
 
+def parse_inline_list(value: str) -> List[str]:
+    raw = value.strip()
+    if not raw:
+        return []
+    if raw.startswith("[") and raw.endswith("]"):
+        raw = raw[1:-1].strip()
+    if not raw:
+        return []
+    parts = raw.split(",") if "," in raw else raw.split()
+    items = [part.strip() for part in parts if part.strip()]
+    return [item for item in items if not is_placeholder(item)]
+
+
+def extract_list_field(lines: List[str], field: str) -> List[str]:
+    pattern = re.compile(rf"^(?P<indent>\s*)-\s*{re.escape(field)}\s*:\s*$", re.IGNORECASE)
+    for idx, line in enumerate(lines):
+        match = pattern.match(line)
+        if not match:
+            continue
+        base_indent = len(match.group("indent"))
+        items: List[str] = []
+        for raw in lines[idx + 1 :]:
+            if not raw.strip():
+                continue
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent <= base_indent and raw.lstrip().startswith("-"):
+                break
+            if indent <= base_indent and raw.strip():
+                break
+            if raw.lstrip().startswith("-") and indent > base_indent:
+                item = raw.lstrip()[2:].strip()
+                if item and not is_placeholder(item):
+                    items.append(item)
+        return items
+    return []
+
+
+def extract_mapping_field(lines: List[str], field: str) -> Dict[str, str]:
+    pattern = re.compile(rf"^(?P<indent>\s*)-\s*{re.escape(field)}\s*:\s*$", re.IGNORECASE)
+    for idx, line in enumerate(lines):
+        match = pattern.match(line)
+        if not match:
+            continue
+        base_indent = len(match.group("indent"))
+        result: Dict[str, str] = {}
+        for raw in lines[idx + 1 :]:
+            if not raw.strip():
+                continue
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent <= base_indent and raw.lstrip().startswith("-"):
+                break
+            if indent <= base_indent and raw.strip():
+                break
+            if raw.lstrip().startswith("-") and indent > base_indent:
+                item = raw.lstrip()[2:].strip()
+                if ":" in item:
+                    key, value = item.split(":", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if key and not is_placeholder(key) and not is_placeholder(value):
+                        result[key] = value
+        return result
+    return {}
+
+
+def normalize_dep_id(value: str) -> str:
+    raw = value.strip()
+    if not raw:
+        return ""
+    if "iteration_id=" in raw:
+        return raw.split("iteration_id=", 1)[1].strip()
+    if "id=" in raw:
+        return raw.split("id=", 1)[1].strip()
+    return raw
+
+
+def parse_int(value: str | None) -> int | None:
+    raw = str(value or "").strip()
+    if not raw or is_placeholder(raw):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def split_checkbox_blocks(lines: List[str]) -> List[List[str]]:
     blocks: List[List[str]] = []
     current: List[str] = []
@@ -378,6 +468,7 @@ def parse_iteration_items(section_lines: List[str]) -> List[IterationItem]:
         match = CHECKBOX_RE.match(header)
         if match:
             checkbox_state = "done" if match.group("state").lower() == "x" else "open"
+        fields = parse_parenthetical_fields(header)
         iteration_id = extract_iteration_id(block) or ""
         explicit_id = any(ITERATION_ID_RE.search(line) for line in block)
         parent_id = None
@@ -399,6 +490,16 @@ def parse_iteration_items(section_lines: List[str]) -> List[IterationItem]:
         title = re.sub(r"\(iteration_id\s*[:=].*?\)", "", title, flags=re.IGNORECASE).strip()
         if iteration_id:
             title = re.sub(rf"^{re.escape(iteration_id)}\s*[:\-]\s*", "", title, flags=re.IGNORECASE).strip()
+        priority = (fields.get("priority") or extract_field_value(block, "Priority") or "").strip().lower()
+        blocking_raw = (fields.get("blocking") or extract_field_value(block, "Blocking") or "").strip().lower()
+        blocking = blocking_raw == "true"
+        deps = parse_inline_list(extract_field_value(block, "deps") or "")
+        if not deps:
+            deps = extract_list_field(block, "deps")
+        locks = parse_inline_list(extract_field_value(block, "locks") or "")
+        if not locks:
+            locks = extract_list_field(block, "locks")
+        deps = [normalize_dep_id(dep) for dep in deps if dep]
         items.append(
             IterationItem(
                 item_id=iteration_id,
@@ -407,6 +508,10 @@ def parse_iteration_items(section_lines: List[str]) -> List[IterationItem]:
                 checkbox=checkbox_state,
                 parent_id=parent_id,
                 explicit_id=explicit_id,
+                priority=priority,
+                blocking=blocking,
+                deps=deps,
+                locks=locks,
                 lines=block,
             )
         )
@@ -814,6 +919,29 @@ def progress_archive_path(root: Path, ticket: str) -> Path:
     return root / "reports" / "progress" / f"{ticket}.log"
 
 
+def deps_satisfied(
+    deps: List[str],
+    iteration_map: dict[str, IterationItem],
+    handoff_map: dict[str, HandoffItem],
+) -> bool:
+    for dep_id in deps:
+        dep_id = normalize_dep_id(dep_id)
+        if not dep_id:
+            continue
+        if dep_id in iteration_map:
+            open_state, _ = pick_open_state(iteration_map[dep_id].checkbox, iteration_map[dep_id].state)
+            if open_state is None or open_state:
+                return False
+            continue
+        if dep_id in handoff_map:
+            open_state, _ = handoff_open_state(handoff_map[dep_id].checkbox, handoff_map[dep_id].status)
+            if open_state is None or open_state:
+                return False
+            continue
+        return False
+    return True
+
+
 def build_open_items(
     iterations: List[IterationItem],
     handoff_items: List[HandoffItem],
@@ -830,9 +958,14 @@ def build_open_items(
         open_state, _ = pick_open_state(iteration.checkbox, iteration.state)
         if open_state is None or not open_state:
             continue
-        priority = "medium"
+        if iteration.deps and not deps_satisfied(iteration.deps, iteration_map, handoff_map):
+            continue
+        priority = iteration.priority or "medium"
+        if priority not in PRIORITY_ORDER:
+            priority = "medium"
+        blocking = bool(iteration.blocking)
         order_key = (
-            1,
+            0 if blocking else 1,
             PRIORITY_ORDER.get(priority, 99),
             1,
             plan_index.get(iteration.item_id, 10_000),
@@ -844,7 +977,7 @@ def build_open_items(
                 item_id=iteration.item_id,
                 title=iteration.title,
                 priority=priority,
-                blocking=False,
+                blocking=blocking,
                 order_key=order_key,
             )
         )
@@ -1332,6 +1465,43 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     handoff_section = section_map.get("AIDD:HANDOFF_INBOX")
     handoff_items = parse_handoff_items(section_body(handoff_section[0]) if handoff_section else [])
 
+    for iteration in iter_items:
+        if not iteration.item_id:
+            continue
+        steps = extract_list_field(iteration.lines, "Steps")
+        steps_count = len(steps)
+        if steps_count == 0:
+            add_issue("warn", f"iteration {iteration.item_id} missing Steps")
+        elif steps_count < 3:
+            add_issue("warn", f"iteration {iteration.item_id} has {steps_count} steps (<3)")
+        elif steps_count > 7:
+            add_issue("warn", f"iteration {iteration.item_id} has {steps_count} steps (>7)")
+
+        expected_paths = extract_list_field(iteration.lines, "Expected paths")
+        if not expected_paths:
+            add_issue("warn", f"iteration {iteration.item_id} missing Expected paths")
+        elif len(expected_paths) > 3:
+            add_issue("warn", f"iteration {iteration.item_id} has {len(expected_paths)} expected paths (>3)")
+
+        size_budget = extract_mapping_field(iteration.lines, "Size budget")
+        if not size_budget:
+            add_issue("warn", f"iteration {iteration.item_id} missing Size budget")
+        else:
+            normalized_budget = {
+                str(key).strip().lower().replace("-", "_"): str(value).strip()
+                for key, value in size_budget.items()
+            }
+            max_files = parse_int(normalized_budget.get("max_files"))
+            max_loc = parse_int(normalized_budget.get("max_loc"))
+            if max_files is None:
+                add_issue("warn", f"iteration {iteration.item_id} Size budget missing max_files")
+            elif max_files < 3 or max_files > 8:
+                add_issue("warn", f"iteration {iteration.item_id} max_files={max_files} outside 3-8")
+            if max_loc is None:
+                add_issue("warn", f"iteration {iteration.item_id} Size budget missing max_loc")
+            elif max_loc < 80 or max_loc > 400:
+                add_issue("warn", f"iteration {iteration.item_id} max_loc={max_loc} outside 80-400")
+
     plan_path = resolve_plan_path(root, front, ticket)
     prd_path = resolve_prd_path(root, front, ticket)
     spec_path = resolve_spec_path(root, front, ticket)
@@ -1389,6 +1559,20 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     open_items, iteration_map, handoff_map = build_open_items(iter_items, handoff_items, plan_ids)
     open_ids = {item.item_id for item in open_items}
 
+    for iteration in iter_items:
+        if not iteration.item_id:
+            continue
+        if iteration.item_id in iteration.deps:
+            add_issue(severity_for_stage(stage), f"iteration {iteration.item_id} depends on itself")
+        unknown_deps = [
+            dep for dep in iteration.deps if dep and dep not in iteration_map and dep not in handoff_map
+        ]
+        if unknown_deps:
+            add_issue(
+                severity_for_stage(stage),
+                f"iteration {iteration.item_id} has unknown deps: {', '.join(sorted(unknown_deps))}",
+            )
+
     next3_section = section_map.get("AIDD:NEXT_3")
     next3_lines = section_body(next3_section[0]) if next3_section else []
     next3_blocks = parse_next3_items(next3_lines)
@@ -1423,9 +1607,15 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             add_issue("error", f"AIDD:NEXT_3 item {ref_id} is not open")
         if ref_id in iteration_map:
             item = iteration_map[ref_id]
+            if item.deps and not deps_satisfied(item.deps, iteration_map, handoff_map):
+                add_issue("error", f"AIDD:NEXT_3 item {ref_id} has unmet deps")
+            priority = item.priority or "medium"
+            if priority not in PRIORITY_ORDER:
+                priority = "medium"
+            blocking = bool(item.blocking)
             order_key = (
-                1,
-                PRIORITY_ORDER.get("medium", 99),
+                0 if blocking else 1,
+                PRIORITY_ORDER.get(priority, 99),
                 1,
                 plan_ids.index(ref_id) if ref_id in plan_ids else 10_000,
                 ref_id,
@@ -1500,6 +1690,11 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     for iteration in iter_items:
         if iteration.state and iteration.state not in ITERATION_STATE_VALUES:
             add_issue(severity_for_stage(stage), f"iteration {iteration.item_id or '?'} has invalid State={iteration.state}")
+        if iteration.priority and iteration.priority not in PRIORITY_VALUES:
+            add_issue(
+                severity_for_stage(stage),
+                f"iteration {iteration.item_id or '?'} invalid Priority={iteration.priority}",
+            )
         if iteration.item_id and not iteration.explicit_id:
             add_issue(severity_for_stage(stage), f"iteration {iteration.item_id} missing explicit iteration_id")
         open_state, state = pick_open_state(iteration.checkbox, iteration.state)
@@ -1589,10 +1784,18 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     if slug_path.exists():
         slug_hint = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
     reviewer_template = runtime.review_report_template(root)
+    work_item_key = runtime.read_active_work_item(root)
+    scope_key = runtime.resolve_scope_key(work_item_key, ticket)
     try:
-        reviewer_marker = runtime.reviewer_marker_path(root, reviewer_template, ticket, slug_hint)
+        reviewer_marker = runtime.reviewer_marker_path(
+            root,
+            reviewer_template,
+            ticket,
+            slug_hint,
+            scope_key=scope_key,
+        )
     except Exception:
-        reviewer_marker = root / "reports" / "reviewer" / f"{ticket}.json"
+        reviewer_marker = root / "reports" / "reviewer" / ticket / f"{scope_key}.json"
     tests_required = False
     tests_optional = False
     if reviewer_marker.exists():

@@ -55,6 +55,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 
 ## Workflow (кратко)
 Канонические стадии: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
+Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN` → BLOCKED.
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.
@@ -115,8 +116,8 @@ Agent‑first правило: сначала читаем артефакты (`a
   - RLM pack: `aidd/reports/research/<ticket>-rlm.pack.json`
   - QA: `aidd/reports/qa/<ticket>.json` + pack
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
-  - Reviewer marker: `aidd/reports/reviewer/<ticket>.json`
-  - Tests log: `aidd/reports/tests/<ticket>.jsonl`
+  - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
+  - Tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
 - Pack‑first: читать `*.pack.json` если есть, иначе JSON.
 - Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
@@ -144,6 +145,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Smoke/pytest используют текущий git checkout.
 
 ## Prompt templates
+Канон промптов/статусов/артефактов: `templates/aidd/docs/prompting/conventions.md` (обновляйте при изменении поведения).
 
 ### Agent template
 ```md

@@ -8,7 +8,7 @@ from typing import Sequence
 
 from tools import runtime
 
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -32,6 +32,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--status",
         default="required",
         help="Tests state to store in the marker (default: required).",
+    )
+    parser.add_argument(
+        "--scope-key",
+        help="Optional scope key override (defaults to active work item).",
+    )
+    parser.add_argument(
+        "--work-item-key",
+        help="Optional work item key override (iteration_id=... / id=...).",
     )
     parser.add_argument(
         "--note",
@@ -65,7 +73,15 @@ def main(argv: list[str] | None = None) -> int:
         or reviewer_cfg.get("tests_marker")
         or DEFAULT_REVIEWER_MARKER
     )
-    marker_path = runtime.reviewer_marker_path(target, marker_template, ticket, context.slug_hint)
+    work_item_key = (args.work_item_key or runtime.read_active_work_item(target)).strip()
+    scope_key = (args.scope_key or runtime.resolve_scope_key(work_item_key, ticket)).strip()
+    marker_path = runtime.reviewer_marker_path(
+        target,
+        marker_template,
+        ticket,
+        context.slug_hint,
+        scope_key=scope_key,
+    )
     rel_marker = marker_path.relative_to(target).as_posix()
 
     if args.clear:

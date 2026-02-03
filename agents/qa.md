@@ -2,8 +2,8 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.19
-source_version: 1.0.19
+prompt_version: 1.0.20
+source_version: 1.0.20
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -40,7 +40,7 @@ QA-агент проверяет фичу после ревью и формир�
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Canonical policy
-- Следуй `aidd/AGENTS.md` для Context precedence & safety и Evidence Read Policy (RLM-first).
+- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
 - Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 

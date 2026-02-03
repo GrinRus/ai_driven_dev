@@ -4,6 +4,7 @@ updated_at: <UTC>
 ticket: <ABC-123>
 work_item_id: <I1>
 work_item_key: <iteration_id=I1>
+scope_key: <iteration_id_I1>
 boundaries:
   allowed_paths:
     - src/feature/**
@@ -21,11 +22,11 @@ evidence_policy: RLM-first
 ## Work item
 - work_item_id: <I1>
 - work_item_key: <iteration_id=I1>
+- scope_key: <iteration_id_I1>
 - goal: <1–2 строки>
 
-## Do not read
-- PRD/Plan/Research — только если есть ссылка в pack
-- Полный tasklist — только excerpt ниже
+## Read policy
+- Prefer excerpt; read full tasklist/PRD/Plan/Research/Spec только если excerpt не содержит **Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance** или если REVISE требует контекста.
 
 ## Boundaries
 - allowed_paths:
@@ -39,4 +40,4 @@ evidence_policy: RLM-first
 - <test command>
 
 ## Work item excerpt (required)
-> goal/DoD/boundaries/refs from the tasklist work item.
+> Должно включать: Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance.

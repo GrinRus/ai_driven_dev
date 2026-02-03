@@ -216,9 +216,10 @@
       }
     }
   },
+  "review_pack_v2_required": false,
   "reviewer": {
     "enabled": true,
-    "tests_marker": "aidd/reports/reviewer/{ticket}.json",
+    "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.json",
     "tests_field": "tests",
     "required_values": [
       "required"

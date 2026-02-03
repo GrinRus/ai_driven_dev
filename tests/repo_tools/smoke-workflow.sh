@@ -867,7 +867,7 @@ cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
   }
 ]
 JSON
-run_cli review-report --ticket "$TICKET" --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
+run_cli review-report --ticket "$TICKET" --work-item-key "$TICKET" --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
 run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
 run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
 grep -q "handoff:review" "docs/tasklist/${TICKET}.md" || {
@@ -886,7 +886,7 @@ log "verify generated artifacts"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --status required >/dev/null
-[[ -f "$WORKDIR/reports/reviewer/${TICKET}.json" ]] || {
+[[ -f "$WORKDIR/reports/reviewer/${TICKET}/${TICKET}.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }

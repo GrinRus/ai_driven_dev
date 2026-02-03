@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.16
-source_version: 1.1.16
+prompt_version: 1.1.18
+source_version: 1.1.18
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -29,7 +29,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 Следуй attention‑policy из `aidd/AGENTS.md`.
 
 ## Canonical policy
-- Следуй `aidd/AGENTS.md` для Context precedence & safety и Evidence Read Policy (RLM-first).
+- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
 - Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
@@ -51,10 +51,11 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 1. Прочитай plan/PRD/research/spec и текущий tasklist.
 2. Обнови `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY` и `AIDD:TEST_EXECUTION` краткими выводами из spec/plan.
 3. Убедись, что секции `AIDD:QA_TRACEABILITY` и `AIDD:CHECKLIST_*` присутствуют (если нет — вставь из шаблона).
-4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks.
+4. Заполни `AIDD:ITERATIONS_FULL` — детальнее плана, с чекбоксом состояния, iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks (+ optional deps/locks/Priority/Blocking).
 5. Сформируй `AIDD:NEXT_3` как pointer list open work items (итерации + handoff):
    - NEXT_3 содержит только короткие строки с `ref: iteration_id=...` или `ref: id=...`;
    - сортировка: Blocking=true → Priority → kind → tie‑breaker (plan order/id);
+   - deps должны быть удовлетворены (если указаны).
    - `[x]` в NEXT_3 запрещены.
 6. Если данных недостаточно (контракты/UX/данные/тест‑стратегия не определены):
    - отметь `Status: BLOCKED` в tasklist front‑matter;
@@ -65,6 +66,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 
 ## Правила детализации (обязательны)
 - Никаких “обобщённых” чекбоксов. Каждая задача должна быть исполнимой без догадок.
+- Итерация = “одно окно”: Steps 3–7, Expected paths 1–3 группы, Size budget ориентир max_files 3–8 / max_loc 80–400.
 - DoD = конкретная проверка результата (что считать готовым).
 - Boundaries = список файлов/папок/модулей и явные запреты.
 - Expected paths = список путей для loop_pack boundaries (1 work_item = 1 набор путей).
@@ -72,7 +74,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 - Commands = список команд/доков для тестов/формата/запуска.
 - Exit criteria = 2–5 буллетов “как понять, что итерация готова”.
 - Tests = профиль + команды/фильтры (или `profile: none` для чистой документации).
-- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks).
+- `AIDD:ITERATIONS_FULL` должен быть **детальнее плана** (добавь iteration_id/DoD/Boundaries/Expected paths/Size budget/Commands/Exit criteria/Steps/Tests/Dependencies/Risks + optional deps/locks/Priority/Blocking).
 - Если добавляешь итерацию вне плана — укажи `parent_iteration_id` или заведи handoff “update plan” (manual‑блок).
 - Соблюдай budgets: TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк.
 - Если отсутствуют ключевые решения — не заполняй выдумками, блокируй и попроси `/feature-dev-aidd:spec-interview`.
@@ -100,6 +102,6 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 
 ## Формат ответа
 - `Checkbox updated: ...`
-- `Status: READY|BLOCKED|PENDING`
+- `Status: READY|WARN|BLOCKED|PENDING`
 - `Artifacts updated: aidd/docs/tasklist/<ticket>.md`
 - `Next actions: ...`

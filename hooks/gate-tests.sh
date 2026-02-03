@@ -238,7 +238,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     template = str(
         reviewer_cfg.get("tests_marker")
         or reviewer_cfg.get("marker")
-        or "aidd/reports/reviewer/{ticket}.json"
+        or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
     )
     field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
     required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
@@ -248,7 +248,22 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
         required_values = ["required"]
 
     slug_value = slug_hint.strip() or ticket
-    marker_path = Path(template.replace("{ticket}", ticket).replace("{slug}", slug_value))
+    scope_key = ""
+    if "{scope_key}" in template:
+        try:
+            from tools import runtime as _runtime
+
+            work_item_key = _runtime.read_active_work_item(root)
+            scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
+        except Exception:
+            raw = (ticket or "").strip()
+            cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw)
+            scope_key = cleaned.strip("._-") or "ticket"
+    marker_path = Path(
+        template.replace("{ticket}", ticket)
+        .replace("{slug}", slug_value)
+        .replace("{scope_key}", scope_key or "ticket")
+    )
     if not marker_path.is_absolute() and marker_path.parts and marker_path.parts[0] == "aidd" and root.name == "aidd":
         marker_path = root / Path(*marker_path.parts[1:])
     elif not marker_path.is_absolute():

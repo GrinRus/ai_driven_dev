@@ -13,9 +13,9 @@ generated_at: <UTC ISO-8601>
 - arch_profile: aidd/docs/architecture/profile.md
 - research: aidd/docs/research/<ticket>.md (if exists)
 - spec: aidd/docs/spec/<ticket>.spec.yaml (if exists)
-- loop_pack: aidd/reports/loops/<ticket>/<work_item_key>.loop.pack.md (implement/review)
-- review_pack: aidd/reports/loops/<ticket>/review.latest.pack.md (if exists)
-- review_report: aidd/reports/reviewer/<ticket>.json (if exists)
+- loop_pack: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md (implement/review)
+- review_pack: aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md (if exists)
+- review_report: aidd/reports/reviewer/<ticket>/<scope_key>.json (if exists)
 - qa_report: aidd/reports/qa/<ticket>.json (if exists)
 - test_policy: aidd/.cache/test-policy.env (if exists)
 

@@ -147,7 +147,10 @@ class QaAgentTests(unittest.TestCase):
         write_json(
             self.project_root,
             "config/gates.json",
-            {"qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": False}}},
+            {
+                "tests_required": "hard",
+                "qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": False}},
+            },
         )
         result = self.run_agent("--gate", "--emit-json", "--skip-tests")
 

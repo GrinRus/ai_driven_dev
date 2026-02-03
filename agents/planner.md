@@ -2,8 +2,8 @@
 name: planner
 description: План реализации по PRD и research. Итерации-milestones без execution-деталей.
 lang: ru
-prompt_version: 1.1.11
-source_version: 1.1.11
+prompt_version: 1.1.12
+source_version: 1.1.12
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -25,7 +25,7 @@ permissionMode: default
 Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
 
 ## Canonical policy
-- Следуй `aidd/AGENTS.md` для Context precedence & safety и Evidence Read Policy (RLM-first).
+- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
 - Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
