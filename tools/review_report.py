@@ -351,6 +351,23 @@ def main(argv: list[str] | None = None) -> int:
         record["summary"] = str(args.summary).strip()
     if fix_plan_payload is not None:
         record["fix_plan"] = fix_plan_payload
+    if "tests_summary" not in record:
+        try:
+            from tools.reports import tests_log as _tests_log
+
+            summary, reason_code, tests_path, _entry = _tests_log.summarize_tests(
+                target,
+                ticket,
+                scope_key,
+                stages=["review", "implement"],
+            )
+            record["tests_summary"] = summary
+            if reason_code:
+                record.setdefault("tests_reason_code", reason_code)
+            if tests_path and tests_path.exists():
+                record.setdefault("tests_log_path", runtime.rel_path(tests_path, target))
+        except Exception:
+            pass
     findings_payload: List[Dict] = []
     if new_findings:
         findings_payload = _normalize_findings(new_findings)

@@ -175,6 +175,11 @@ LOOP_NO_QUESTIONS_HINTS = {
     "commands/qa.md": [".active_mode=loop", "без вопросов"],
 }
 
+REVIEW_PACK_ORDER_HINTS = {
+    "agents/reviewer.md": ["после loop pack", "review.latest.pack.md"],
+    "commands/review.md": ["read loop pack", "review.latest.pack.md", "review.pack.md"],
+}
+
 PARALLEL_PATH_HINTS = {
     "agents/implementer.md": ["<scope_key>"],
     "agents/reviewer.md": ["<scope_key>"],
@@ -594,6 +599,7 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_loop_no_questions(info))
     errors.extend(validate_parallel_paths(info))
     errors.extend(validate_granularity_policy(info))
+    errors.extend(validate_review_pack_order(info))
 
     return errors
 
@@ -760,6 +766,22 @@ def validate_granularity_policy(info: PromptFile) -> List[str]:
     missing = [hint for hint in required if hint not in body_lower]
     if missing:
         return [f"{info.path}: missing granularity policy markers {missing}"]
+    return []
+
+
+def validate_review_pack_order(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in REVIEW_PACK_ORDER_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    body_lower = info.body.lower()
+    missing = [hint for hint in required if hint not in body_lower]
+    if missing:
+        return [f"{info.path}: missing review pack order markers {missing}"]
     return []
 
 

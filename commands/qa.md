@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.28
-source_version: 1.0.28
+prompt_version: 1.0.29
+source_version: 1.0.29
 allowed-tools:
   - Read
   - Edit
@@ -93,15 +93,17 @@ disable-model-invocation: false
 - Если `aidd/reports/context/$1.qa.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 - Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item`).
+- Любой ранний `BLOCKED` (до subagent) всё равно выводит полный контракт: `Status/Work item key/Artifacts updated/Tests/Blockers/Handoff/Next actions`; если данных нет — `n/a`. `Tests: run` запрещён без tests_log → используй `Tests: skipped` + reason_code.
 
 ## Ожидаемый вывод
 - Обновлённый tasklist и отчёт QA.
 - `Status: READY|WARN|BLOCKED`.
-- `Work item key: <ticket>`.
+- `Work item key: <ticket>` (или `n/a` при раннем BLOCKED).
 - `Artifacts updated: <paths>`.
-- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
+- Итоговый Status в ответе: приоритет `stage_result` → `qa report` → `pack`. При расхождении выбери безопасный статус (BLOCKED > WARN > READY) и укажи `reason_code=sync_drift_warn`.
 - Ответ содержит `Checkbox updated` (если есть).
 
 ## Примеры CLI

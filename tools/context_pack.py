@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
@@ -85,6 +86,11 @@ def _apply_template(
     content = template_text
     for placeholder, value in replacements.items():
         content = content.replace(placeholder, value)
+    if "<stage-specific goal>" in content:
+        print(
+            "[aidd] WARN: context pack template placeholder '<stage-specific goal>' remains.",
+            file=sys.stderr,
+        )
     return content.rstrip() + "\n"
 
 

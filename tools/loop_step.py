@@ -11,9 +11,11 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, TextIO
 
+from tools import claude_stream_render
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
@@ -21,7 +23,7 @@ DONE_CODE = 0
 CONTINUE_CODE = 10
 BLOCKED_CODE = 20
 ERROR_CODE = 30
-WARN_REASON_CODES = {"out_of_scope_warn", "no_boundaries_defined_warn"}
+WARN_REASON_CODES = {"out_of_scope_warn", "no_boundaries_defined_warn", "auto_boundary_extend_warn"}
 HANDOFF_QA_START = "<!-- handoff:qa start -->"
 HANDOFF_QA_END = "<!-- handoff:qa end -->"
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -29,6 +31,16 @@ BLOCKING_PAREN_RE = re.compile(r"\(Blocking:\s*(true|false)\)", re.IGNORECASE)
 BLOCKING_LINE_RE = re.compile(r"^\s*-\s*Blocking:\s*(true|false)\b", re.IGNORECASE)
 SCOPE_RE = re.compile(r"\bscope\s*:\s*([A-Za-z0-9_.:=-]+)", re.IGNORECASE)
 ITEM_ID_RE = re.compile(r"\bid\s*:\s*([A-Za-z0-9_.:-]+)")
+STREAM_MODE_ALIASES = {
+    "text-only": "text",
+    "text": "text",
+    "tools": "tools",
+    "text+tools": "tools",
+    "raw": "raw",
+    "1": "text",
+    "true": "text",
+    "yes": "text",
+}
 
 
 def read_active_stage(root: Path) -> str:
@@ -117,6 +129,54 @@ def runner_supports_flag(command: str, flag: str) -> bool:
     if proc.returncode != 0:
         return False
     return flag in (proc.stdout or "")
+
+
+def _strip_flag_with_value(tokens: List[str], flag: str) -> Tuple[List[str], bool]:
+    cleaned: List[str] = []
+    removed = False
+    skip_next = False
+    for token in tokens:
+        if skip_next:
+            skip_next = False
+            removed = True
+            continue
+        if token == flag:
+            skip_next = True
+            removed = True
+            continue
+        if token.startswith(flag + "="):
+            removed = True
+            continue
+        cleaned.append(token)
+    return cleaned, removed
+
+
+def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str], List[str]]:
+    notices: List[str] = []
+    updated, removed_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
+    updated, removed_add = _strip_flag_with_value(updated, "--add-dir")
+    if removed_plugin or removed_add:
+        notices.append("runner plugin flags replaced with CLAUDE_PLUGIN_ROOT")
+    updated.extend(["--plugin-dir", str(plugin_root), "--add-dir", str(plugin_root)])
+    return updated, notices
+
+
+def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str, str]:
+    if not plugin_root.exists():
+        return False, f"plugin root not found: {plugin_root}", "plugin_root_missing"
+    command_path = plugin_root / "commands" / f"{stage}.md"
+    if not command_path.exists():
+        return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
+    return True, "", ""
+
+
+def resolve_stream_mode(raw: Optional[str]) -> str:
+    if raw is None:
+        raw = os.environ.get("AIDD_AGENT_STREAM_MODE", "")
+    value = str(raw or "").strip().lower()
+    if not value:
+        return ""
+    return STREAM_MODE_ALIASES.get(value, "text")
 
 
 def review_pack_v2_required(root: Path) -> bool:
@@ -369,9 +429,9 @@ def validate_review_pack(
     return True, "", ""
 
 
-def resolve_runner(args_runner: str | None) -> Tuple[List[str], str, str]:
+def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str], str, str]:
     raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude"
-    tokens = shlex.split(raw)
+    tokens = shlex.split(raw) if raw.strip() else ["claude"]
     notices: List[str] = []
     if "-p" in tokens:
         tokens = [token for token in tokens if token != "-p"]
@@ -380,12 +440,37 @@ def resolve_runner(args_runner: str | None) -> Tuple[List[str], str, str]:
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
             notices.append("runner flag --no-session-persistence unsupported; removed")
+    tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
+    notices.extend(flag_notices)
     return tokens, raw, "; ".join(notices)
 
 
 def build_command(stage: str, ticket: str) -> List[str]:
     command = f"/feature-dev-aidd:{stage} {ticket}"
     return ["-p", command]
+
+
+class MultiWriter:
+    def __init__(self, *streams: Optional[TextIO]) -> None:
+        self._streams: List[TextIO] = [stream for stream in streams if stream is not None]
+
+    def write(self, data: str) -> None:
+        for stream in self._streams:
+            stream.write(data)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+def _drain_stream(pipe: Optional[TextIO], writer: MultiWriter, raw_log: TextIO) -> None:
+    if pipe is None:
+        return
+    for line in pipe:
+        raw_log.write(line)
+        writer.write(line)
+        raw_log.flush()
+        writer.flush()
 
 
 def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
@@ -399,6 +484,71 @@ def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
             stderr=subprocess.STDOUT,
         )
     return result.returncode
+
+
+def run_stream_command(
+    *,
+    command: List[str],
+    cwd: Path,
+    log_path: Path,
+    stream_mode: str,
+    stream_jsonl_path: Path,
+    stream_log_path: Path,
+    output_stream: TextIO,
+    header_lines: Optional[List[str]] = None,
+) -> int:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    stream_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with (
+        log_path.open("w", encoding="utf-8") as raw_log,
+        stream_jsonl_path.open("w", encoding="utf-8") as stream_jsonl,
+        stream_log_path.open("w", encoding="utf-8") as stream_log,
+    ):
+        writer = MultiWriter(stream_log, output_stream)
+        if header_lines:
+            for line in header_lines:
+                writer.write(line + "\n")
+            writer.flush()
+        if stream_mode == "raw":
+            writer.write("[stream] WARN: raw mode enabled; JSON events will be printed.\n")
+            writer.flush()
+        proc = subprocess.Popen(
+            command,
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=1,
+        )
+        drain_thread = threading.Thread(
+            target=_drain_stream,
+            args=(proc.stderr, writer, raw_log),
+            daemon=True,
+        )
+        drain_thread.start()
+        for line in proc.stdout or []:
+            raw_log.write(line)
+            stream_jsonl.write(line)
+            raw_log.flush()
+            stream_jsonl.flush()
+            if stream_mode == "raw":
+                writer.write(line)
+                writer.flush()
+                continue
+            claude_stream_render.render_line(
+                line,
+                writer=writer,
+                mode="text+tools" if stream_mode == "tools" else "text-only",
+                strict=False,
+                warn_stream=writer,
+            )
+        if proc.stdout:
+            proc.stdout.close()
+        returncode = proc.wait()
+        drain_thread.join(timeout=1)
+        return returncode
 
 
 def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
@@ -433,6 +583,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Auto-select blocking QA handoff item when repairing from QA.",
     )
+    parser.add_argument(
+        "--stream",
+        nargs="?",
+        const="text",
+        help="Enable agent streaming output (text|tools|raw).",
+    )
+    parser.add_argument(
+        "--agent-stream",
+        dest="stream",
+        nargs="?",
+        const="text",
+        help=argparse.SUPPRESS,
+    )
     return parser.parse_args(argv)
 
 
@@ -444,11 +607,13 @@ def main(argv: list[str] | None = None) -> int:
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+    plugin_root = runtime.require_plugin_root()
 
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.log"
 
     stage = read_active_stage(target)
+    stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     from_qa_mode, from_qa_requested = _resolve_qa_repair_mode(args.from_qa, target)
     reason = ""
     reason_code = ""
@@ -760,12 +925,55 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     write_active_mode(target, "loop")
-    runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner)
-    command = runner_tokens + build_command(next_stage, ticket)
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
-    log_path = target / "reports" / "loops" / ticket / f"cli.{next_stage}.{stamp}.log"
+    ok, message, code = validate_command_available(plugin_root, next_stage)
+    if not ok:
+        return emit_result(
+            args.format,
+            ticket,
+            next_stage,
+            "blocked",
+            BLOCKED_CODE,
+            "",
+            message,
+            code,
+            repair_reason_code=repair_reason_code,
+            repair_scope_key=repair_scope_key,
+            cli_log_path=cli_log_path,
+        )
+    runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner, plugin_root)
+    command = list(runner_tokens)
+    if stream_mode:
+        command.extend(["--output-format", "stream-json", "--include-partial-messages", "--verbose"])
+    command.extend(build_command(next_stage, ticket))
+    runner_effective = " ".join(command)
+    run_stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
+    log_path = target / "reports" / "loops" / ticket / f"cli.{next_stage}.{run_stamp}.log"
 
-    returncode = run_command(command, workspace_root, log_path)
+    stream_log_rel = ""
+    stream_jsonl_rel = ""
+    if stream_mode:
+        stream_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.stream.log"
+        stream_jsonl_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.stream.jsonl"
+        stream_log_rel = runtime.rel_path(stream_log_path, target)
+        stream_jsonl_rel = runtime.rel_path(stream_jsonl_path, target)
+        active_work_item = runtime.read_active_work_item(target)
+        stream_scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else "n/a"
+        header_lines = [
+            f"==> loop-step: stage={next_stage} ticket={ticket} scope_key={stream_scope_key}",
+            f"==> streaming enabled: writing stream={stream_jsonl_rel} log={stream_log_rel}",
+        ]
+        returncode = run_stream_command(
+            command=command,
+            cwd=workspace_root,
+            log_path=log_path,
+            stream_mode=stream_mode,
+            stream_jsonl_path=stream_jsonl_path,
+            stream_log_path=stream_log_path,
+            output_stream=sys.stderr,
+            header_lines=header_lines,
+        )
+    else:
+        returncode = run_command(command, workspace_root, log_path)
     if returncode != 0:
         status = "error"
         code = ERROR_CODE
@@ -782,10 +990,12 @@ def main(argv: list[str] | None = None) -> int:
             scope_key="",
             stage_result_path="",
             runner=runner_raw,
-            runner_effective=" ".join(runner_tokens),
+            runner_effective=runner_effective,
             runner_notice=runner_notice,
             repair_reason_code=repair_reason_code,
             repair_scope_key=repair_scope_key,
+            stream_log_path=stream_log_rel,
+            stream_jsonl_path=stream_jsonl_rel,
             cli_log_path=cli_log_path,
         )
 
@@ -802,10 +1012,12 @@ def main(argv: list[str] | None = None) -> int:
             reason,
             "stage_result_missing_or_invalid",
             runner=runner_raw,
-            runner_effective=" ".join(runner_tokens),
+            runner_effective=runner_effective,
             runner_notice=runner_notice,
             repair_reason_code=repair_reason_code,
             repair_scope_key=repair_scope_key,
+            stream_log_path=stream_log_rel,
+            stream_jsonl_path=stream_jsonl_rel,
             cli_log_path=cli_log_path,
         )
     payload, result_path, error = load_stage_result(target, ticket, next_scope_key, next_stage)
@@ -822,10 +1034,12 @@ def main(argv: list[str] | None = None) -> int:
             scope_key=next_scope_key,
             stage_result_path=runtime.rel_path(result_path, target),
             runner=runner_raw,
-            runner_effective=" ".join(runner_tokens),
+            runner_effective=runner_effective,
             runner_notice=runner_notice,
             repair_reason_code=repair_reason_code,
             repair_scope_key=repair_scope_key,
+            stream_log_path=stream_log_rel,
+            stream_jsonl_path=stream_jsonl_rel,
             cli_log_path=cli_log_path,
         )
     result = str(payload.get("result") or "").strip().lower()
@@ -852,10 +1066,12 @@ def main(argv: list[str] | None = None) -> int:
                 scope_key=next_scope_key,
                 stage_result_path=runtime.rel_path(result_path, target),
                 runner=runner_raw,
-                runner_effective=" ".join(runner_tokens),
+                runner_effective=runner_effective,
                 runner_notice=runner_notice,
                 repair_reason_code=repair_reason_code,
                 repair_scope_key=repair_scope_key,
+                stream_log_path=stream_log_rel,
+                stream_jsonl_path=stream_jsonl_rel,
                 cli_log_path=cli_log_path,
             )
     status = result if result in {"blocked", "continue", "done"} else "blocked"
@@ -872,10 +1088,12 @@ def main(argv: list[str] | None = None) -> int:
         scope_key=next_scope_key,
         stage_result_path=runtime.rel_path(result_path, target),
         runner=runner_raw,
-        runner_effective=" ".join(runner_tokens),
+        runner_effective=runner_effective,
         runner_notice=runner_notice,
         repair_reason_code=repair_reason_code,
         repair_scope_key=repair_scope_key,
+        stream_log_path=stream_log_rel,
+        stream_jsonl_path=stream_jsonl_rel,
         cli_log_path=cli_log_path,
     )
 
@@ -897,6 +1115,8 @@ def emit_result(
     runner_notice: str = "",
     repair_reason_code: str = "",
     repair_scope_key: str = "",
+    stream_log_path: str = "",
+    stream_jsonl_path: str = "",
     cli_log_path: Path | None = None,
 ) -> int:
     log_value = str(log_path) if log_path else ""
@@ -913,6 +1133,8 @@ def emit_result(
         "runner_notice": runner_notice,
         "repair_reason_code": repair_reason_code,
         "repair_scope_key": repair_scope_key,
+        "stream_log_path": stream_log_path,
+        "stream_jsonl_path": stream_jsonl_path,
         "updated_at": utc_timestamp(),
         "reason": reason,
         "reason_code": reason_code,

@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.36
-source_version: 1.1.36
+prompt_version: 1.1.37
+source_version: 1.1.37
 allowed-tools:
   - Read
   - Edit
@@ -112,7 +112,7 @@ Decision matrix (default: `fast`):
 8. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read loop pack → review pack (если есть) → fix_plan.json (если verdict=REVISE) → `aidd/reports/context/$1.implement.pack.md`.**
 9. Subagent: реализует следующий пункт, обновляет tasklist (REVISE не закрывает чекбокс и не меняет `AIDD:NEXT_3`), добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
 10. Subagent: выполняет verify results (tests/QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
-11. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
+11. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff (`AIDD:OUT_OF_SCOPE_BACKLOG`, `reason_code=out_of_scope_warn|no_boundaries_defined_warn|auto_boundary_extend_warn`), `FORBIDDEN → Status: BLOCKED` и запросить откат/новый work_item.
 12. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket $1`.
 13. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage implement --result <blocked|continue> --work-item-key <iteration_id=...>` (work_item_key бери из `.active_work_item`; `blocked` только при `FORBIDDEN`/отсутствии обязательных артефактов/evidence; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED` → `continue` + `--reason-code out_of_scope_warn|no_boundaries_defined_warn`; `tests_required=soft` + missing/skipped → `Status: WARN` (не `BLOCKED`), `tests_required=hard` → `BLOCKED`). При раннем `BLOCKED` без `.active_work_item` используй `--allow-missing-work-item` + `--reason-code`.
 14. При рассинхроне tasklist — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`, при необходимости `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
@@ -122,13 +122,14 @@ Decision matrix (default: `fast`):
 - Падающие тесты или блокеры — остановись до исправления/согласования.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 - Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item`).
+- Любой ранний `BLOCKED` (до subagent) всё равно выводит полный контракт: `Status/Work item key/Artifacts updated/Tests/Blockers/Handoff/Next actions`; если данных нет — `n/a`. `Tests: run` запрещён без tests_log → используй `Tests: skipped` + reason_code.
 
 ## Ожидаемый вывод
 - Обновлённый код и `aidd/docs/tasklist/$1.md`.
 - `Status: READY|WARN|BLOCKED|PENDING`.
-- `Work item key: iteration_id=...`.
+- `Work item key: iteration_id=...` (или `n/a` при раннем BLOCKED).
 - `Artifacts updated: <paths>`.
-- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
 - Ответ содержит `Checkbox updated` (если есть).

@@ -415,10 +415,69 @@ def run(args: argparse.Namespace) -> int:
         collected_context["rlm_manifest_path"] = os.path.relpath(rlm_manifest_path, target)
     if rlm_worklist_path:
         collected_context["rlm_worklist_path"] = os.path.relpath(rlm_worklist_path, target)
-    collected_context["rlm_nodes_path"] = f"reports/research/{ticket}-rlm.nodes.jsonl"
-    collected_context["rlm_links_path"] = f"reports/research/{ticket}-rlm.links.jsonl"
-    collected_context["rlm_pack_path"] = f"reports/research/{ticket}-rlm{pack_ext}"
-    collected_context["rlm_status"] = "pending"
+    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    rlm_pack_rel = f"reports/research/{ticket}-rlm{pack_ext}"
+    rlm_pack_path = target / rlm_pack_rel
+    rlm_require_links = False
+    try:
+        from tools.rlm_config import load_rlm_settings
+
+        rlm_settings = load_rlm_settings(target)
+        rlm_require_links = bool(rlm_settings.get("require_links"))
+    except Exception:
+        rlm_require_links = False
+
+    if not args.dry_run:
+        if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
+            try:
+                from tools import reports_pack as _reports_pack
+
+                rlm_pack_path = _reports_pack.write_rlm_pack(
+                    nodes_path,
+                    links_path,
+                    ticket=ticket,
+                    slug_hint=feature_context.slug_hint,
+                    root=target,
+                    limits=None,
+                )
+                try:
+                    _validate_json_file(rlm_pack_path, "rlm pack")
+                except RuntimeError as exc:
+                    print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+                    return 2
+                rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
+                print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
+            except Exception as exc:
+                print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
+                return 2
+
+    links_ok = links_path.exists() and links_path.stat().st_size > 0
+    pack_exists = rlm_pack_path.exists()
+    rlm_status = "pending"
+    rlm_warnings: list[str] = []
+    if pack_exists and (links_ok or not rlm_require_links):
+        rlm_status = "ready"
+    elif pack_exists and rlm_require_links and not links_ok:
+        rlm_status = "pending"
+        rlm_warnings.append("rlm_links_missing")
+        print("[aidd] WARN: rlm links missing; rlm_status remains pending.", file=sys.stderr)
+
+    collected_context["rlm_nodes_path"] = nodes_path.relative_to(target).as_posix()
+    collected_context["rlm_links_path"] = links_path.relative_to(target).as_posix()
+    collected_context["rlm_pack_path"] = rlm_pack_rel
+    collected_context["rlm_status"] = rlm_status
+    collected_context["rlm_pack_status"] = "found" if pack_exists else "missing"
+    if pack_exists:
+        stat = rlm_pack_path.stat()
+        collected_context["rlm_pack_bytes"] = stat.st_size
+        collected_context["rlm_pack_updated_at"] = (
+            dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+    if rlm_warnings:
+        collected_context["rlm_warnings"] = rlm_warnings
     match_count = len(collected_context["matches"])
     if match_count == 0:
         print(
@@ -465,30 +524,6 @@ def run(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
         return 2
-    rlm_pack_path = None
-    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-    if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
-        try:
-            rlm_pack_path = _reports_pack.write_rlm_pack(
-                nodes_path,
-                links_path,
-                ticket=ticket,
-                slug_hint=feature_context.slug_hint,
-                root=target,
-                limits=None,
-            )
-            try:
-                _validate_json_file(rlm_pack_path, "rlm pack")
-            except RuntimeError as exc:
-                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-                return 2
-            rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
-            print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
-        except Exception as exc:
-            print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
-            return 2
-
     ast_grep_path = collected_context.get("ast_grep_path")
     if ast_grep_path:
         try:

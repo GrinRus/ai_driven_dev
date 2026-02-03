@@ -97,6 +97,42 @@ run_loop_regression() {
     STATUS=1
   fi
 }
+
+run_output_contract_regression() {
+  if [[ ! -f "tests/repo_tools/output-contract-regression.sh" ]]; then
+    warn "tests/repo_tools/output-contract-regression.sh missing; skipping"
+    return
+  fi
+  log "running output contract regression checks"
+  if ! bash tests/repo_tools/output-contract-regression.sh; then
+    err "output contract regression checks failed"
+    STATUS=1
+  fi
+}
+
+run_claude_stream_renderer() {
+  if [[ ! -f "tests/repo_tools/claude-stream-render" ]]; then
+    warn "tests/repo_tools/claude-stream-render missing; skipping"
+    return
+  fi
+  log "running claude stream renderer checks"
+  if ! bash tests/repo_tools/claude-stream-render; then
+    err "claude stream renderer checks failed"
+    STATUS=1
+  fi
+}
+
+run_tool_result_id_check() {
+  if [[ ! -f "tests/repo_tools/tool-result-id" ]]; then
+    warn "tests/repo_tools/tool-result-id missing; skipping"
+    return
+  fi
+  log "running tool-result id checks"
+  if ! bash tests/repo_tools/tool-result-id; then
+    err "tool-result id checks failed"
+    STATUS=1
+  fi
+}
 run_arch_profile_validate() {
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found; skipping arch profile validate"
@@ -292,6 +328,9 @@ run_prompt_version_check
 run_prompt_sync_guard
 run_prompt_regression
 run_loop_regression
+run_output_contract_regression
+run_claude_stream_renderer
+run_tool_result_id_check
 run_arch_profile_validate
 run_repo_linters
 

@@ -69,6 +69,26 @@ def _parse_evidence_links(values: Iterable[str] | None) -> dict:
     return links
 
 
+def _latest_stream_log(root: Path, ticket: str) -> Optional[Path]:
+    log_dir = root / "reports" / "loops" / ticket
+    if not log_dir.exists():
+        return None
+    candidates = sorted(log_dir.glob("cli.loop-*.stream.log"))
+    if not candidates:
+        return None
+    return candidates[-1]
+
+
+def _stream_jsonl_for(stream_log: Path) -> Optional[Path]:
+    name = stream_log.name
+    if not name.endswith(".stream.log"):
+        return None
+    candidate = stream_log.with_name(name[: -len(".stream.log")] + ".stream.jsonl")
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write stage result (aidd.stage_result.v1).")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
@@ -318,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             elif stage == "qa" and result == "blocked":
                 result = "done"
 
-    warn_reason_codes = {"out_of_scope_warn", "no_boundaries_defined_warn"}
+    warn_reason_codes = {"out_of_scope_warn", "no_boundaries_defined_warn", "auto_boundary_extend_warn"}
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
 
@@ -376,6 +396,22 @@ def main(argv: list[str] | None = None) -> int:
         fix_plan_path = target / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
         if fix_plan_path.exists():
             evidence_links.setdefault("fix_plan_json", runtime.rel_path(fix_plan_path, target))
+
+    if "cli_log" not in evidence_links:
+        stream_log = _latest_stream_log(target, ticket)
+        if stream_log:
+            evidence_links["cli_log"] = runtime.rel_path(stream_log, target)
+            if "cli_stream" not in evidence_links:
+                stream_jsonl = _stream_jsonl_for(stream_log)
+                if stream_jsonl:
+                    evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
+    elif "cli_stream" not in evidence_links:
+        cli_log_value = str(evidence_links.get("cli_log") or "")
+        if cli_log_value:
+            cli_log_path = runtime.resolve_path_for_target(Path(cli_log_value), target)
+            stream_jsonl = _stream_jsonl_for(cli_log_path)
+            if stream_jsonl:
+                evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
 
     if not evidence_links:
         evidence_links = {}

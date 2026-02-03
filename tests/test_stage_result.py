@@ -426,6 +426,38 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("result"), "done")
 
+    def test_qa_report_blocked_overrides_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(
+                root,
+                "reports/qa/DEMO-QA-BLOCK.json",
+                json.dumps({"status": "BLOCKED"}, indent=2),
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-BLOCK",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-QA-BLOCK" / "DEMO-QA-BLOCK" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("result"), "blocked")
+
     def test_rejects_composite_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -450,6 +482,50 @@ class StageResultTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             result_path = root / "reports" / "loops" / "DEMO-COMPOSITE" / "iteration_id_I1_I2" / "stage.review.result.json"
             self.assertFalse(result_path.exists())
+
+    def test_stage_result_links_stream_logs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "disabled"})
+            log_dir = root / "reports" / "loops" / "DEMO-STREAM"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            stream_log = log_dir / "cli.loop-step.20240101-000000.stream.log"
+            stream_jsonl = log_dir / "cli.loop-step.20240101-000000.stream.jsonl"
+            stream_log.write_text("stream\n", encoding="utf-8")
+            stream_jsonl.write_text("{\"type\":\"message_start\"}\n", encoding="utf-8")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-STREAM",
+                    "--stage",
+                    "implement",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I5",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-STREAM" / "iteration_id_I5" / "stage.implement.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            links = payload.get("evidence_links") or {}
+            self.assertEqual(
+                links.get("cli_log"),
+                "aidd/reports/loops/DEMO-STREAM/cli.loop-step.20240101-000000.stream.log",
+            )
+            self.assertEqual(
+                links.get("cli_stream"),
+                "aidd/reports/loops/DEMO-STREAM/cli.loop-step.20240101-000000.stream.jsonl",
+            )
 
 
 if __name__ == "__main__":

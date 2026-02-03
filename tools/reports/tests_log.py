@@ -177,3 +177,26 @@ def latest_entry(
                 continue
         return entry, path
     return None, path
+
+
+def summarize_tests(
+    root: Path,
+    ticket: str,
+    scope_key: str,
+    *,
+    stages: Optional[Iterable[str]] = None,
+) -> Tuple[str, str, Optional[Path], Optional[Dict[str, Any]]]:
+    entry, path = latest_entry(root, ticket, scope_key, stages=stages, statuses=None)
+    if not entry:
+        return "skipped", "tests_log_missing", path if path and path.exists() else None, None
+    status_value = str(entry.get("status") or "").strip().lower()
+    if status_value in {"pass", "fail"}:
+        summary = "run"
+    elif status_value in {"skipped", "not-run", "skip"}:
+        summary = "skipped"
+    else:
+        summary = status_value or "skipped"
+    reason_code = str(entry.get("reason_code") or "").strip().lower()
+    if summary == "skipped" and not reason_code:
+        reason_code = "tests_skipped"
+    return summary, reason_code, path, entry

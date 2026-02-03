@@ -617,6 +617,25 @@ def main(argv: list[str] | None = None) -> int:
         pass
     evidence_links = list(dict.fromkeys(evidence_links))
 
+    tests_summary = ""
+    tests_reason_code = ""
+    tests_log_rel = ""
+    try:
+        from tools.reports import tests_log as _tests_log
+
+        summary, reason_code, tests_path, _entry = _tests_log.summarize_tests(
+            target,
+            ticket,
+            scope_key,
+            stages=["review", "implement"],
+        )
+        tests_summary = summary
+        tests_reason_code = reason_code
+        if tests_path and tests_path.exists():
+            tests_log_rel = runtime.rel_path(tests_path, target)
+    except Exception:
+        pass
+
     loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
     boundaries = parse_loop_pack_boundaries(loop_pack_path)
     fix_plan_raw = None
@@ -696,6 +715,9 @@ def main(argv: list[str] | None = None) -> int:
         "evidence_links": evidence_links,
         "fix_plan": fix_plan,
         "fix_plan_json": fix_plan_json,
+        "tests_summary": tests_summary,
+        "tests_reason_code": tests_reason_code,
+        "tests_log_path": tests_log_rel,
     }
 
     if args.format:

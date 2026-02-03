@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.29
-source_version: 1.0.29
+prompt_version: 1.0.31
+source_version: 1.0.31
 allowed-tools:
   - Read
   - Edit
@@ -76,7 +76,7 @@ disable-model-invocation: false
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
 3. Команда (до subagent): собери Context Pack `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.review.pack.md`; если pack не записался — верни `Status: BLOCKED`.
-4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем `aidd/reports/context/$1.review.pack.md`.**
+4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем (если есть) `review.latest.pack.md`, затем `aidd/reports/context/$1.review.pack.md`.**
 5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED` (исправимые дефекты → `WARN`/`REVISE`).
 6. Subagent: при verdict=REVISE включает Fix Plan (структурированный блок; каждый blocking finding отражён).
 7. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
@@ -93,21 +93,24 @@ disable-model-invocation: false
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.
 - Если diff не соответствует тикету — `Status: WARN` + handoff (BLOCKED только при missing artifacts/evidence или `FORBIDDEN`).
 - Если `aidd/reports/context/$1.review.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
+- Если `aidd/reports/context/$1.review.pack.md` содержит `<stage-specific goal>` — верни `Status: WARN` (reason_code: `review_context_pack_placeholder_warn`) и продолжай, считая loop pack основным источником.
 - Если `.active_ticket` не совпадает с `$1` или отсутствует `.active_work_item` — верни `Status: BLOCKED` (reason_code: `review_active_ticket_mismatch` / `review_active_work_item_missing`).
 - Если выбранный work_item не совпадает с `.active_work_item` — верни `Status: BLOCKED` (reason_code: `review_work_item_mismatch`).
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 - Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item` + `--verdict BLOCKED`).
+- Любой ранний `BLOCKED` (до subagent) всё равно выводит полный контракт: `Status/Work item key/Artifacts updated/Tests/Blockers/Handoff/Next actions`; если данных нет — `n/a`. `Tests: run` запрещён без tests_log → используй `Tests: skipped` + reason_code.
 
 ## Ожидаемый вывод
 - Обновлённый `aidd/docs/tasklist/$1.md`.
 - `Status: READY|WARN|BLOCKED`.
 - `Work item key: iteration_id=...`.
 - `Artifacts updated: <paths>`.
-- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
 - Вердикт/Status должны совпадать с итоговым `review.latest.pack.md` и `stage.review.result.json` (если pack=REVISE → Status=WARN/REVISE, SHIP запрещён).
 - Ответ содержит `Checkbox updated` (если есть).
+- Итоговый Status в ответе: приоритет `stage_result` → `review report` → `review pack`. При расхождении выбери безопасный статус (BLOCKED > WARN > READY) и укажи `reason_code=sync_drift_warn`.
 
 ## Примеры CLI
 - `/feature-dev-aidd:review ABC-123`

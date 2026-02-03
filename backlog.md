@@ -3279,6 +3279,196 @@ _Статус: новый, приоритет 1. Цель — канон про�
   - Research и PRD не расходятся по финальным решениям.
   **Deps:** W88-1
 
+- [x] **W88-28** `tools/loop-run.sh`, `tools/loop-step.sh`, `tools/loop_run.py`, `tools/loop_step.py`, `tools/runtime.py`, `tests/repo_tools/*`:
+  - Исправить runner запуск в loop‑скриптах (вариант B, env‑based):
+    - если нет `CLAUDE_PLUGIN_ROOT`/`AIDD_PLUGIN_DIR`, пробовать auto‑detect по пути скрипта и продолжать с WARN; BLOCKED только если env и auto‑detect недоступны;
+    - runner всегда использует `--plugin-dir "$CLAUDE_PLUGIN_ROOT"` и `--add-dir "$CLAUDE_PLUGIN_ROOT"`;
+    - валидировать, что команда `/feature-dev-aidd:<cmd>` реально доступна (иначе STOP + reason_code).
+  - Логировать финальную runner‑команду в `cli.loop-*.log` и в `loop.run.log`.
+  - Обновить `README.md`: описать `CLAUDE_PLUGIN_ROOT`/auto‑detect для loop‑run/loop‑step + пример запуска из корня проекта.
+  **AC:**
+  - Ошибка `Unknown skill: feature-dev-aidd:implement` не воспроизводится в loop-run/loop-step.
+  **Deps:** W88-15
+
+- [x] **W88-29** `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tools/runtime.py`, `tests/repo_tools/*`:
+  - Гарантировать output‑контракт для **раннего BLOCKED** (fail-fast) без запуска субагента:
+    - печатать `Status/Work item key/Artifacts updated/Tests/Blockers/Handoff/Next actions`;
+    - синхронизировать с `stage_result` (reason_code + scope_key).
+  - Смягчение: если часть данных недоступна, выводить `n/a` вместо падения (не считать это ошибкой).
+  - Добавить тесты на fail-fast (нет PRD/plan/tasklist) → контракт соблюдён.
+  **AC:**
+  - Любой ранний выход implement/review/qa содержит контракт (допускаются `n/a`) и совпадает со stage_result.
+  **Deps:** W88-11
+
+- [x] **W88-30** `tools/review_pack.py`, `tools/review_report.py`, `tools/stage_result.py`, `tools/qa.py`, `tools/tests_log.py`, `commands/review.md`, `commands/qa.md`, `tests/*`:
+  - Устранить рассинхрон CLI/pack/report/stage_result/tests‑evidence:
+    - Приоритет источников: `stage_result` → `report` → `pack` (single source of truth);
+    - если tests_log отсутствует — запрещать `Tests: run` и ставить `skipped` с reason_code;
+    - review verdict/QA status в CLI = значения из pack/report + stage_result.
+  - Смягчение: при рассинхроне выбирать “самый безопасный” статус (blocked>warn>ready) и ставить `reason_code=sync_drift_warn`, без падения.
+  - Добавить регрессионные тесты на:
+    - review pack=REVISE → CLI=REVISE;
+    - QA report=BLOCKED → CLI=BLOCKED;
+    - tests_log missing → `Tests: skipped` + reason_code.
+  **AC:**
+  - CLI/pack/report/stage_result/tests_log согласованы в одном запуске; при drift — WARN, без crash.
+  **Deps:** W88-4, W88-7, W88-23, W88-26
+
+- [x] **W88-31** `tools/research.py`, `tools/rlm_verify.py`, `tools/rlm_links_build.py`, `templates/aidd/docs/research/template.md`, `tests/*`:
+  - Синхронизировать RLM‑статус в research:
+    - если pack есть → отражать “found” + размер/ts;
+    - если `require_links=true` и links пусты → `rlm_status=pending` + явный warning.
+  - Смягчение: отсутствие links не должно блокировать стадию; только WARN + handoff.
+  - Исправить пути/проверки existence (cwd‑safe).
+  **AC:**
+  - Research всегда корректно отражает фактические rlm‑артефакты; missing links → WARN, не BLOCKED.
+  **Deps:** W88-27
+
+- [x] **W88-32** `tools/loop_pack.py`, `tools/tasklist_parser.py`, `templates/aidd/docs/loops/README.md`, `tests/*`:
+  - Синхронизировать boundaries с Expected paths:
+    - если в итерации есть test‑paths, они должны попадать в `allowed_paths`;
+    - out_of_scope_warn не должен срабатывать на Expected paths текущей итерации.
+  - Смягчение: при расхождении автоматически расширять `allowed_paths` до Expected paths и ставить WARN (`auto_boundary_extend_warn`).
+  - Добавить тест на итерацию с test‑path в Expected paths.
+  **AC:**
+  - Нет ложных OUT_OF_SCOPE для путей из Expected paths; авто‑расширение фиксируется WARN.
+  **Deps:** W88-22
+
+- [x] **W88-33** `tools/context_pack.py`, `commands/review.md`, `agents/reviewer.md`, `templates/aidd/docs/loops/README.md`, `tests/*`:
+  - Запретить шаблонные placeholders в review context pack:
+    - если pack содержит `<stage-specific goal>` → WARN + reason_code, продолжить с loop pack как основным источником.
+  - Зафиксировать порядок чтения в review:
+    - loop pack всегда первым, review pack — вторым (если есть).
+  - Добавить тест на “pack-first order” и на “template placeholder → warn”.
+  **AC:**
+  - Review не падает из‑за placeholder; pack-first порядок соблюдается, фиксируется WARN.
+  **Deps:** W88-10, W88-25
+
+- [x] **W88-34** `commands/tasks-new.md`, `agents/tasklist-refiner.md`, `tools/runtime.py`, `tests/repo_tools/*`:
+  - Устойчивость к tool‑result без `id`:
+    - парсер tool‑results должен принимать блоки без `id` (fallback key);
+    - при ошибке — WARN + request_id, без 500 (best‑effort продолжение).
+  - Добавить регрессионный тест на “tool_result без id”.
+  **AC:**
+  - `tasks-new` не падает с 500 при tool‑result без `id` и продолжает best‑effort.
+  **Deps:** -
+
+## Wave 88.x — Agent streaming (Variant B: stream-json + фильтрация в CLI)
+
+_Цель: при запуске `loop-run.sh/loop-step.sh` показывать “что происходит внутри агента” в реальном времени, без раскрытия chain-of-thought: стримить текст ответа + (опционально) tool-события. Сохранять сырой stream-json в файл и human-readable лог._
+
+- [x] **W88-B1** `tools/loop-run.sh`, `tools/loop-step.sh`, `templates/aidd/docs/loops/README.md`:
+  - Добавить режим стриминга в loop-скрипты:
+    - CLI флаг: `--stream` (или `--agent-stream`) для `loop-run.sh` и `loop-step.sh`.
+    - Поведение по умолчанию (без флага) не менять: старый тихий/обычный вывод.
+  - В режиме `--stream`:
+    - запускать `claude` с:
+      - `--output-format stream-json`
+      - `--include-partial-messages`
+      - `--verbose`
+    - включить `set -o pipefail` и корректно сохранять exit-code `claude` (не последнего элемента пайпа).
+    - не ломать текущий JSON output loop-step: если `loop-step` запущен с `--format json`, стрим/рендер уходит в `stderr`, а stdout остаётся только для итогового JSON.
+    - `loop-run` в режиме `--stream` не должен глотать stderr; поток должен быть виден пользователю вживую, при этом JSON (stdout) остаётся парсируемым.
+  - Логирование:
+    - human-readable лог (то, что видно пользователю):
+      `aidd/reports/loops/<ticket>/cli.loop-<run|step>.<ts>.stream.log`
+    - сырой стрим (newline-delimited json):
+      `aidd/reports/loops/<ticket>/cli.loop-<run|step>.<ts>.stream.jsonl`
+    - **не переиспользовать** существующие `cli.loop-run.<ts>.log` / `cli.loop-step.<ts>.log` (они уже заняты JSON event‑логом loop-step/run).
+    - в `*.stream.log` писать читаемую “ленту событий” (см. W88-B2).
+  - В output (stderr, чтобы не ломать JSON stdout) добавить короткие заголовки по шагам:
+    - `==> loop-step: stage=<implement|review|qa> ticket=<ticket> scope_key=<scope_key>`
+    - `==> streaming enabled: writing stream=<path> log=<path>`
+  **AC:**
+  - `--stream` включает потоковый вывод в терминал.
+  - Создаются оба файла: `.stream.log` и `.stream.jsonl`.
+  - Exit code `loop-step/run` совпадает с exit code `claude`, даже при пайпах.
+  - JSON stdout `loop-step` остаётся валидным при `--format json`.
+  **Deps:** W88-8 (если у вас уже зафиксированы имена cli-логов) — иначе можно без deps, но согласовать нейминг с W88-8.
+
+- [x] **W88-B2** `tools/claude-stream-render.py` (или `tools/claude-stream-render.sh`), `tools/loop-run.sh`, `tools/loop-step.sh`:
+  - Добавить “рендерер” stream-json → human-readable вывод.
+  - Реализация предпочтительно на Python (чтобы не зависеть от `jq`):
+    - вход: stdin (`.stream.jsonl`)
+    - выход: stdout (строки для терминала и `.log`)
+    - режимы:
+      - `--mode text-only` (дефолт): печатает только text deltas ассистента
+      - `--mode text+tools`: плюс печатает tool-события (start/stop) в компактном виде
+  - Формат human-readable:
+    - Текст агента печатать “как есть” (стримом), без JSON.
+    - Tool события (если включены) печатать отдельными строками:
+      - `[tool:start] <tool_name> <short_args>`
+      - `[tool:stop] <tool_name> exit_code=<n> status=<ok|error>`
+    - Ограничения:
+      - `short_args` обрезать до N символов (например 200) и убирать переносы строк.
+      - не печатать огромные payload (логи/диффы) — только метаданные.
+  - Интеграция в loop-скрипты:
+    - пайплайн вида: `claude ... --output-format stream-json ... | tee stream.jsonl | python -u render.py ... | tee stream.log`
+    - при `loop-step --format json` рендер выводится в `stderr` (например `... | tee stream.log >&2`), чтобы stdout оставался чистым JSON.
+    - обеспечить line-buffering (например `python -u`, `stdbuf -oL -eL` где применимо).
+  **AC:**
+  - При `--stream` пользователь видит потоковый текст агента “вживую”.
+  - В `.log` нет JSON, только читаемый текст + (опционально) tool-строки.
+  - В `.stream.jsonl` сохраняется полный сырой поток событий.
+  **Deps:** W88-B1
+
+- [x] **W88-B3** `tools/loop-run.sh`, `tools/loop-step.sh`:
+  - Добавить управляемую “шумность” стрима:
+    - `--stream=text` (или `AIDD_AGENT_STREAM_MODE=text`) → только текст агента
+    - `--stream=tools` (или `...=tools`) → текст + tool-события
+    - `--stream=raw` (или `...=raw`) → печатать сырой JSON в терминал (только для debug), но всё равно сохранять `.stream.jsonl` (сырой поток печатается в stderr, чтобы не ломать JSON stdout)
+  - Добавить защиту от “слишком громкого вывода”:
+    - при `raw` печатать предупреждение в начале;
+    - при `text/tools` не печатать JSON вообще.
+  **AC:**
+  - Можно переключать режимы stream без правок кода.
+  - `raw` режим явно маркирован и используется только для отладки.
+  **Deps:** W88-B2
+
+- [x] **W88-B4** `tests/repo_tools/*`, `tools/claude-stream-render.py`, `tests/fixtures/claude_stream/*.jsonl`:
+  - Добавить тесты рендерера (без реального запуска `claude`):
+    - Фикстуры `.stream.jsonl` с минимальным набором событий:
+      - text_delta (несколько строк)
+      - tool start/stop (в отдельной фикстуре)
+      - невалидная строка JSON (проверка graceful handling)
+    - Тесты:
+      - `mode=text-only` → на выходе только текст, без `[tool:*]`
+      - `mode=text+tools` → есть строки `[tool:start]` и `[tool:stop]`
+      - на невалидной строке (default):
+        - не падаем с trace
+        - пишем в stderr компактное предупреждение
+        - exit-code 0 (soft mode)
+      - строгий режим `AIDD_STREAM_STRICT=1`:
+        - exit-code 1 на первой невалидной строке
+  - Тесты оформить как repo_tools (например `tests/repo_tools/claude-stream-render`), чтобы гонялись в CI.
+  **AC:**
+  - Рендерер стабилен и детерминированен на фикстурах.
+  - Регрессы формата/поведения ловятся тестами.
+  **Deps:** W88-B2
+
+- [x] **W88-B5** `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/prompting/conventions.md` (опционально), `README.md` (если нужно):
+  - Документация для пользователей:
+    - как включить stream:
+      - `tools/loop-run.sh --stream`
+      - `tools/loop-step.sh --stream=text|tools|raw`
+    - где искать логи:
+      - `aidd/reports/loops/<ticket>/cli.loop-*.stream.log` (human)
+      - `aidd/reports/loops/<ticket>/cli.loop-*.stream.jsonl` (raw events)
+      - `aidd/reports/loops/<ticket>/cli.loop-*.log` — структурированный JSON event‑лог loop-step/run (уже используется, не менять смысл).
+    - кратко: что именно “видно” в stream (текст агента + tool-события), и что НЕ видно (chain-of-thought).
+  **AC:**
+  - README/loops doc описывает включение стрима и пути артефактов.
+  **Deps:** W88-B1
+
+- [x] **W88-B6 (optional, но полезно)** `tools/stage-result.sh`, `tools/loop-run.sh`, `tools/loop-step.sh`, `templates/aidd/docs/loops/README.md`:
+  - Линковать стрим-логи из `stage_result.evidence_links`:
+    - `evidence_links.cli_log="aidd/reports/loops/<ticket>/cli.loop-...<ts>.stream.log"`
+    - `evidence_links.cli_stream="aidd/reports/loops/<ticket>/cli.loop-...<ts>.stream.jsonl"`
+  - Если stage_result создаётся “fail-fast” до запуска агента — поля могут отсутствовать (или быть пустыми), но при наличии файлов должны ссылаться корректно.
+  **AC:**
+  - При нормальном запуске stage_result содержит ссылки на stream/log, упрощающие дебаг.
+  **Deps:** W88-3, W88-B1
+
 ## Wave 88.5 — Доп. задачи для “железобетонного” REVISE (NEW)
 
 - [x] **W88-13** `tools/review-pack.sh`, `tools/review-report.sh` (если есть), `tools/loop-step.sh`, `agents/implementer.md`, `templates/aidd/docs/loops/README.md`:

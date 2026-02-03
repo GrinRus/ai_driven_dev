@@ -19,7 +19,7 @@ def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
 
 
 class LoopPackTests(unittest.TestCase):
-    def test_loop_pack_prefers_boundaries_over_expected_paths(self) -> None:
+    def test_loop_pack_extends_boundaries_with_expected_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             tasklist = (
@@ -62,7 +62,8 @@ class LoopPackTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
             self.assertIn("src/alpha/**", allowed_paths)
-            self.assertNotIn("src/beta/**", allowed_paths)
+            self.assertIn("src/beta/**", allowed_paths)
+            self.assertEqual(payload.get("reason_code"), "auto_boundary_extend_warn")
 
     def test_loop_pack_warns_when_boundaries_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -104,13 +105,13 @@ class LoopPackTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("reason_code"), "no_boundaries_defined_warn")
+            self.assertEqual(payload.get("reason_code"), "auto_boundary_extend_warn")
             allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
-            self.assertEqual(allowed_paths, [])
+            self.assertEqual(allowed_paths, ["src/only-expected/**"])
 
             pack_path = root / "reports" / "loops" / "DEMO-NO-BND" / "iteration_id_I1.loop.pack.md"
             pack_text = pack_path.read_text(encoding="utf-8")
-            self.assertIn("reason_code: no_boundaries_defined_warn", pack_text)
+            self.assertIn("reason_code: auto_boundary_extend_warn", pack_text)
 
     def test_loop_pack_adds_changelog_master(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:

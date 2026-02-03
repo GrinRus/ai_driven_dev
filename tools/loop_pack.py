@@ -697,7 +697,7 @@ def write_pack_for_item(
     ticket: str,
     work_item: WorkItem,
     arch_profile: str,
-) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str]:
+) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str, str]:
     if work_item.boundaries_defined:
         boundaries = {
             "allowed_paths": list(work_item.boundaries_allowed),
@@ -707,6 +707,15 @@ def write_pack_for_item(
     else:
         boundaries = {"allowed_paths": [], "forbidden_paths": []}
         reason_code = "no_boundaries_defined_warn"
+    if work_item.expected_paths:
+        missing_expected = [
+            path for path in work_item.expected_paths if path and path not in boundaries["allowed_paths"]
+        ]
+        if missing_expected:
+            boundaries["allowed_paths"].extend(missing_expected)
+            reason_code = "auto_boundary_extend_warn"
+    if boundaries.get("allowed_paths"):
+        boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
     _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
@@ -724,7 +733,7 @@ def write_pack_for_item(
     output_dir.mkdir(parents=True, exist_ok=True)
     pack_path = output_dir / f"{work_item.scope_key}.loop.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
-    return pack_path, boundaries, commands_required, tests_required, updated_at
+    return pack_path, boundaries, commands_required, tests_required, updated_at, reason_code
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1011,8 +1020,9 @@ def main(argv: list[str] | None = None) -> int:
     tests_required: List[str] = []
     updated_at = utc_timestamp()
 
+    selected_reason_code = ""
     for item in prewarm_map.values():
-        pack_path, item_boundaries, item_commands, item_tests, item_updated_at = write_pack_for_item(
+        pack_path, item_boundaries, item_commands, item_tests, item_updated_at, item_reason_code = write_pack_for_item(
             root=target,
             output_dir=output_dir,
             ticket=ticket,
@@ -1025,6 +1035,7 @@ def main(argv: list[str] | None = None) -> int:
             commands_required = item_commands
             tests_required = item_tests
             updated_at = item_updated_at
+            selected_reason_code = item_reason_code
 
     if selected_pack_path is None:
         raise ValueError("failed to generate loop pack for selected work item")
@@ -1047,8 +1058,8 @@ def main(argv: list[str] | None = None) -> int:
         "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",
     }
-    if not selected_item.boundaries_defined:
-        payload["reason_code"] = "no_boundaries_defined_warn"
+    if selected_reason_code:
+        payload["reason_code"] = selected_reason_code
 
     if args.format:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))

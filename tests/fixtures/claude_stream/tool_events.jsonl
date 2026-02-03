@@ -1,0 +1,2 @@
+{"type":"content_block_start","content_block":{"type":"tool_use","name":"Bash","input":{"command":"echo hi"}}}
+{"type":"tool_result","name":"Bash","exit_code":0,"status":"ok"}

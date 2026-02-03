@@ -25,10 +25,12 @@ except metadata.PackageNotFoundError:  # pragma: no cover - editable installs
 
 
 def require_plugin_root() -> Path:
-    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    raw = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("AIDD_PLUGIN_DIR")
     if not raw:
-        raise RuntimeError("CLAUDE_PLUGIN_ROOT is required to run AIDD tools.")
-    return Path(raw).expanduser().resolve()
+        raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
+    plugin_root = Path(raw).expanduser().resolve()
+    os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    return plugin_root
 
 
 def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tuple[Path, Path]:
@@ -331,3 +333,18 @@ def reviewer_marker_path(
             f"reviewer marker path {marker_path} escapes project root {target_root}"
         )
     return marker_path
+
+
+def resolve_tool_result_id(payload: Dict[str, Any], *, index: Optional[int] = None) -> tuple[str, str]:
+    raw_id = str(payload.get("id") or "").strip()
+    if raw_id:
+        return raw_id, ""
+    request_id = str(payload.get("request_id") or payload.get("requestId") or "").strip()
+    if request_id:
+        fallback = f"tool_result:{request_id}"
+    elif index is not None:
+        fallback = f"tool_result:{index}"
+    else:
+        fallback = "tool_result:unknown"
+    warn = f"tool_result_missing_id request_id={request_id or 'n/a'}"
+    return fallback, warn

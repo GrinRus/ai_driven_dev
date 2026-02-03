@@ -44,6 +44,10 @@ Artifacts:
 ## AIDD:RLM_EVIDENCE
 - Status: {{rlm_status}}
 - Pack: {{rlm_pack_path}}
+- Pack status: {{rlm_pack_status}}
+- Pack bytes: {{rlm_pack_bytes}}
+- Pack updated_at: {{rlm_pack_updated_at}}
+- Warnings: {{rlm_warnings}}
 - Slice: ${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 
