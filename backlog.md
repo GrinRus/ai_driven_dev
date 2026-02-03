@@ -3619,77 +3619,55 @@ _Цель: при запуске `loop-run.sh/loop-step.sh` показывать
   - Регресс семантики REVISE/SHIP ловится тестами.
   **Deps:** W88-1, W88-3
 
-## Wave 89 — Doc consolidation (conventions + architecture + anchors + ast-grep + backlog archive) + Static context + Prompt examples
+## Wave 89 — Doc consolidation + Flow simplification (pack-first, меньше чтений, без anchors)
 
-_Статус: план. Цель — сократить дубли документации, убрать устаревшие файлы, оставить один канон, и добавить “project memory” (CLAUDE.md) + few-shot примеры ответов._
+_Статус: новый, приоритет 1. Цель — убрать дубли документации, сократить чтения, упростить runtime, сделать pack‑first единственным режимом._
 
-- [ ] **W89-1** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/conventions.md`, `templates/aidd/AGENTS.md`, `AGENTS.md`, `README.md`, `README.en.md`, `commands/*.md`, `agents/*.md`:
-  - перенести все уникальные правила из `templates/aidd/conventions.md` в `templates/aidd/docs/prompting/conventions.md`;
-  - полностью удалить `templates/aidd/conventions.md`;
-  - обновить все ссылки на канон в командах/агентах/README/AGENTS.
-  **AC:** единственный источник конвенций — `templates/aidd/docs/prompting/conventions.md`; в репо нет ссылок на `templates/aidd/conventions.md`.
+- [ ] **W89-1** `templates/aidd/docs/architecture/**`, `templates/aidd/docs/**`, `templates/aidd/reports/context/template.context-pack.md`, `commands/*.md`, `agents/*.md`, `README*.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/*`, `tests/repo_tools/*`, `backlog.md`:
+  - полностью удалить архитектурные документы и все упоминания архитектурного профиля;
+  - удалить `templates/aidd/docs/architecture/**`;
+  - убрать `arch_profile` из context pack шаблонов и любых “Paths”/References;
+  - обновить команды/агенты/доки/тесты, где фигурировали архитектурные пути.
+  **AC:** по репозиторию нет упоминаний `architecture`/`arch_profile`; `rg -n "architecture|arch_profile" -g'*'` не находит совпадений.
   **Deps:** -
 
-- [ ] **W89-2** `templates/aidd/docs/architecture/README.md`, `templates/aidd/docs/architecture/profile.md`, `templates/aidd/docs/architecture/customize.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/anchors/*.md`, `README.md`, `README.en.md`:
-  - объединить полезные материалы из `customize.md` в `README.md`;
-  - оставить `profile.md` как шаблон артефакта (без методических дублей);
-  - удалить `templates/aidd/docs/architecture/customize.md`;
-  - обновить ссылки на архитектурные документы.
-  **AC:** архитектурные документы сведены к двум файлам (`README.md` + `profile.md`); ссылки обновлены; удалённый файл нигде не упоминается.
+- [ ] **W89-2** `templates/aidd/docs/anchors/*`, `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/conventions.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/sdlc-flow.md`, `tests/*`:
+  - удалить anchors как обязательный источник чтения;
+  - перенести stage‑specific правила в `conventions.md` (разделы по стадиям);
+  - удалить директорию `templates/aidd/docs/anchors/`;
+  - удалить `templates/aidd/conventions.md` и любые ссылки на этот файл;
+  - обновить ссылки в командах/агентах/доках и тестах.
+  **AC:** anchors не требуются и не читаются; stage‑специфика живёт в `conventions.md`; ссылки на anchors удалены; нет ссылок на `templates/aidd/conventions.md`.
   **Deps:** W89-1
 
-- [ ] **W89-3** `templates/aidd/docs/anchors/README.md`, `templates/aidd/docs/anchors/*.md`:
-  - вынести общий блок “base rules” в `anchors/README.md` (приоритет источников, контекст, общие ограничения);
-  - в stage-anchor файлах оставить только stage‑специфику и ссылку на base rules;
-  - проверить согласованность с loop/qa/plan policy.
-  **AC:** повторяющиеся блоки удалены; anchors ссылаются на base rules; stage‑специфика сохранена.
-  **Deps:** W89-1, W89-2
-
-- [ ] **W89-4** `templates/aidd/ast-grep/README.md`, `templates/aidd/ast-grep/rules/*/README.md`:
-  - добавить единый `templates/aidd/ast-grep/README.md` с пометкой legacy/disabled и инструкцией включения;
-  - удалить per‑rule README или заменить их на короткие stubs с ссылкой на общий README;
-  - обновить ссылки (если есть) на старые readme.
-  **AC:** есть один канонический README; нет лишних дублирующих README внутри `rules/*`.
+- [ ] **W89-3** `templates/aidd/ast-grep/**`, `templates/aidd/docs/**`, `commands/*.md`, `agents/*.md`, `README*.md`, `AGENTS.md`, `tests/*`, `tests/repo_tools/*`:
+  - полностью удалить все упоминания `ast-grep` (доки, шаблоны, тесты, пайплайны);
+  - удалить `templates/aidd/ast-grep/**` и любые связанные примеры/fixtures;
+  - обновить любые ссылки/инструкции, где `ast-grep` фигурировал как источник evidence.
+  **AC:** `rg -n "ast-grep" -g'*'` по репозиторию не находит совпадений; нет связанных файлов/тестов/доков.
   **Deps:** -
 
-- [ ] **W89-5** `backlog.md`:
-  - создать секцию “Archive / Legacy”;
-  - перенести туда все закрытые/исторические пункты с удалёнными командами/агентами (без влияния на активные волны);
-  - добавить заметку, что архив содержит устаревшие ссылки.
-  **AC:** активные волны не содержат ссылок на удалённые файлы; архив явно помечен как legacy.
-  **Deps:** W89-1, W89-2, W89-4
+- [ ] **W89-4** `backlog.md`:
+  - удалить закрытые/исторические волны из `backlog.md` (без архивирования);
+  - оставить только активные и актуальные задачи.
+  **AC:** в `backlog.md` нет закрытых волн; файл содержит только активные/актуальные волны.
+  **Deps:** W89-1, W89-2, W89-3
 
-- [ ] **W89-6** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**/README.md`, `templates/aidd/ast-grep/**/README.md`:
-  - корневой `README.md`/`README.en.md` оставить для human‑доки (инсталляция, quick‑start, high‑level);
-  - runtime README (в `templates/aidd/**`) привести к agent‑правилам: краткие инструкции, порядок чтения, artefacts, do/don’t, fail‑fast;
-  - перенести runtime‑critical правила из root README в `AGENTS.md`/`templates/aidd/AGENTS.md` и/или соответствующие runtime README;
-  - добавить явные ссылки “agent rules → AGENTS/anchors/loops” в root README.
-  **AC:** root README не содержит agent‑policy; runtime README оформлены как agent‑rules; агент получает инструкции без чтения root README.
-  **Deps:** W89-1, W89-2, W89-3, W89-4
+- [ ] **W89-5** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**/README.md`, `templates/aidd/docs/loops/README.md`, `templates/aidd/docs/anchors/README.md`:
+  - runtime‑документация не содержит README: удалить все `templates/aidd/docs/**/README.md` (включая loops/anchors), чтобы в runtime остались только `AGENTS.md` и канон `docs/prompting/conventions.md`;
+  - все runtime‑правила держать в `AGENTS.md`/`templates/aidd/AGENTS.md` + `templates/aidd/docs/prompting/conventions.md`;
+  - root `README.md`/`README.en.md` остаются human‑доками без agent‑policy.
+  **AC:** в `templates/aidd/docs/**` нет README файлов; runtime‑правила есть только в `AGENTS.md` и `docs/prompting/conventions.md`.
+  **Deps:** W89-1, W89-2, W89-3
 
-- [ ] **W89-7** `tools/init.sh`, `commands/aidd-init.md`, `templates/aidd/**`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `tests/repo_tools/*`:
-  - Добавить “static project memory” через `CLAUDE.md` в корне workspace:
-    - если `CLAUDE.md` отсутствует → создать из шаблона (рекомендовано добавить `templates/aidd/CLAUDE.md`);
-    - если `CLAUDE.md` существует → идемпотентно вставить/обновить секцию `## AIDD` (рекомендовано через маркеры):
-      - `<!-- AIDD:BEGIN -->`
-      - `<!-- AIDD:END -->`
-      - внутри — только управляемый init-контент.
-    - если workspace read-only/не writable — вывести предупреждение и не падать.
-  - Содержимое `## AIDD` (10–30 строк, без простыней):
-    - порядок чтения: anchors-first → pack-first → excerpt-first;
-    - канон: `aidd/docs/prompting/conventions.md`, `aidd/docs/anchors/README.md`, `aidd/docs/loops/README.md`;
-    - запрет “читать всё подряд”; работать по pack/artefacts;
-    - коротко про loop-mode: REVISE не двигает work_item, выполнять Fix Plan из review pack.
-  - Обновить `commands/aidd-init.md`, чтобы явно описывалось создание/обновление `CLAUDE.md`.
-  - Добавить repo_tools тест:
-    - на чистом workspace init создаёт `CLAUDE.md`;
-    - повторный init НЕ ломает пользовательский текст вне маркеров.
-  **AC:**
-  - После `aidd-init` на чистом workspace есть `CLAUDE.md` с секцией `## AIDD`.
-  - Повторный init идемпотентен (вне маркеров ничего не меняется).
-  **Deps:** W89-1, W89-6
+- [ ] **W89-6** `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `tests/repo_tools/*`:
+  - использовать только `AGENTS.md` как runtime‑guidance (без `CLAUDE.md`);
+  - удалить любые упоминания `CLAUDE.md` из команд/агентов/доков/тестов;
+  - `aidd-init` не создаёт и не обновляет `CLAUDE.md`.
+  **AC:** в репозитории нет упоминаний `CLAUDE.md`; runtime‑правила описаны только через `AGENTS.md`.
+  **Deps:** W89-1, W89-5
 
-- [ ] **W89-8** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/prompting/examples/*`, `commands/*.md`, `agents/*.md`:
+- [ ] **W89-7** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/prompting/examples/*`, `commands/*.md`, `agents/*.md`:
   - Добавить few-shot “канонические примеры” (минимум 3) и закрепить их как эталон:
     1) implementer: `READY|WARN` + `Tests` + `Context read` + ссылки на `aidd/reports/**`
     2) reviewer: `REVISE` + findings + **Fix Plan** (структурированный) + ссылки
@@ -3698,19 +3676,84 @@ _Статус: план. Цель — сократить дубли докуме
     - укладываются в budgets (TL;DR/Blockers/NEXT_3 и т.п.);
     - не содержат логов/диффов/стектрейсов, только ссылки;
     - используют обязательные поля output-контракта (из W88-11).
-  - В `conventions.md` и/или runtime README добавить ссылку “смотри examples/* как эталон”.
+  - В `conventions.md` добавить ссылку “смотри examples/* как эталон”.
   **AC:**
   - Примеры добавлены и явно указаны как эталон в каноне.
   - Команды/агенты ссылаются на эти примеры (минимум в conventions.md).
-  **Deps:** W89-1, W88-11
+  **Deps:** W89-2, W88-11
 
-- [ ] **W89-9** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/**`, `CLAUDE.md` (если упоминается в доках):
-  - финальный sweep ссылок после консолидации + добавления CLAUDE/examples:
-    - проверить, что все упоминания конвенций/архитектуры/anchors/ast-grep/examples ведут в канон;
+- [ ] **W89-8** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/**`:
+  - финальный sweep ссылок после консолидации + добавления examples:
+    - проверить, что все упоминания конвенций/examples ведут в канон;
     - убедиться, что нигде не осталось путей на удалённые файлы;
-    - обновить краткие описания/линки (включая упоминание `CLAUDE.md`, если добавлено).
-  **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы; `CLAUDE.md` и examples интегрированы ссылками.
-  **Deps:** W89-1, W89-2, W89-3, W89-4, W89-5, W89-6, W89-7, W89-8
+    - обновить краткие описания/линки.
+  **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы; examples интегрированы ссылками.
+  **Deps:** W89-1, W89-2, W89-3, W89-4, W89-5, W89-6, W89-7
+
+- [ ] **W89-9** `commands/*.md`, `agents/*.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - зафиксировать pack‑first как единственную политику чтения;
+  - ввести read‑budget (1–3 файла) и правило “полный документ только при missing fields в pack”;
+  - добавить обязательный `AIDD:READ_LOG` в pack и отразить его как обязательный в output‑контракте.
+  **AC:** команды/агенты следуют pack‑first; read‑budget описан и используется в examples; `AIDD:READ_LOG` обязателен.
+
+- [ ] **W89-10** `tools/context_pack.py`, `tools/context-pack.sh`, `templates/aidd/reports/context/template.context-pack.md`, `commands/*.md`:
+  - перейти на единый rolling pack `aidd/reports/context/<ticket>.pack.md`;
+  - включить поля `stage`, `agent`, `read_next`, `artefact_links`;
+  - удалить поддержку stage‑packs.
+  **AC:** rolling pack — единственный формат; stage‑packs отсутствуют.
+
+- [ ] **W89-11** `tools/set_active_feature.py`, `tools/set_active_stage.py`, `tools/feature_ids.py`, `tools/index_sync.py`, `tools/status.py`:
+  - заменить `.active_*` на `aidd/docs/.active.json`;
+  - удалить поддержку старых `.active_*`.
+  **AC:** только один файл активных маркеров; фолбэков нет.
+
+- [ ] **W89-12** `tools/tasklist_check.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
+  - кешировать hash tasklist (`aidd/.cache/tasklist.hash`);
+  - `tasklist-check` вызывается только при изменении hash или смене стадии.
+  **AC:** tasklist‑check пропускается при неизменённом tasklist.
+
+- [ ] **W89-13** `hooks/context_gc/*.py`, `hooks/context-gc-*.sh`, `templates/aidd/config/context_gc.json`:
+  - добавить режим `light` по умолчанию;
+  - `pretooluse` запускается только при изменении `aidd/**`;
+  - env `AIDD_CONTEXT_GC=full|light|off`.
+  **AC:** pretooluse GC не выполняется на каждом tool call.
+
+- [ ] **W89-14** `hooks/*.sh`, `hooks/hooks.json`, `tools/gates.py`, `templates/aidd/config/gates.json`:
+  - добавить fast‑hooks (`AIDD_HOOKS_MODE=fast`);
+  - `lint-deps` в fast‑mode → no‑op;
+  - тестовая политика стадий (implement/review/qa) остается обязательной и определяется W89-17.
+  **AC:** fast‑mode сокращает стоп‑хуки, не ослабляя обязательную политику тестов по стадиям.
+
+- [ ] **W89-15** `tools/gate_workflow.py`, `tools/stage_result.py`, `hooks/gate-workflow.sh`, `templates/aidd/config/gates.json`:
+  - добавить `fast_mode` gating:
+    - allow implement при PRD+Tasklist READY без review‑spec (WARN);
+    - diff boundary OUT_OF_SCOPE → WARN + auto‑extend, BLOCKED только FORBIDDEN.
+  **AC:** fast‑mode отражается через `reason_code=fast_mode_warn` и в status_summary.
+
+- [ ] **W89-16** `tests/*`, `tests/repo_tools/*`:
+  - обновить тесты под rolling pack, `.active.json`, отсутствие anchors, pack‑first policy;
+  - добавить регресcии для fast hooks и light context GC.
+  **AC:** CI проходит; тесты не ссылаются на anchors; pack‑first/rolling‑pack покрыт.
+
+- [ ] **W89-17** `templates/aidd/**`, `commands/*.md`, `agents/*.md`, `AGENTS.md`:
+  - удалить любые fallback/legacy/migration‑инструкции из runtime‑доков и промптов;
+  - не оставлять ветки “если старые артефакты существуют” — обратная совместимость не поддерживается.
+  **AC:** `rg -n "(fallback|legacy|migration|compat|обратн.*совмест)" templates/aidd commands agents AGENTS.md` не находит совпадений.
+
+- [ ] **W89-18** `templates/aidd/**`, `commands/*.md`, `agents/*.md`, `AGENTS.md`, `README*.md`, `tests/*`, `tools/*`:
+  - вычистить неактуальные/депрекейтнутые упоминания, артефакты и логику (deprecated, obsolete, removed, legacy и т.п.);
+  - удалить ссылки на несуществующие команды/агенты/артефакты;
+  - удалить “мертвые” секции в шаблонах, которые больше не используются в текущем флоу.
+  **AC:** `rg -n "(deprecated|obsolete|removed|legacy|unused|мертв|устарев)" templates/aidd commands agents AGENTS.md README* tests tools` не находит совпадений; нет ссылок на несуществующие артефакты.
+
+- [ ] **W89-17** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `hooks/gate-qa.sh`, `tools/gates.py`, `templates/aidd/config/gates.json`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `agents/*.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/*`:
+  - упростить политику тестов по стадиям:
+    - **implement:** тесты запрещены (no tests); format-only допускается;
+    - **review:** только compile + точечные тесты по только что изменённому коду (targeted);
+    - **qa:** полный тестовый прогон (full);
+  - если QA тесты падают — обязательный возврат в цикл `implement → review → implement` до зелёного QA, даже если падение не связано с текущими изменениями;
+  - обновить гейты/хуки, чтобы enforce логика стадий и запретить “лишние” тесты вне своей стадии.
+  **AC:** implement не запускает тесты; review запускает только compile/targeted; qa запускает full; падение qa всегда приводит к возврату в implement/review loop.
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
 
@@ -3764,57 +3807,6 @@ _Статус: новый, приоритет 1. Обратная совмест
   - обновить smoke‑workflow под RLM‑only.
   **AC:** тесты проходят в режиме RLM‑only; отсутствуют упоминания `*-context*` в тестах.
   **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
-
-## Wave 91 — Flow Slimming (pack‑first, меньше чтений, мягче хуки)
-
-_Статус: новый, приоритет 1. Цель — уменьшить количество чтений файлов и артефактов, ускорить флоу._
-
-- [ ] **W91-1** `templates/aidd/docs/prompting/conventions.md`, `commands/*.md`, `agents/*.md`:
-  - ввести жёсткую политику `pack-first`:
-    - запрещено читать PRD/plan/research/tasklist целиком до pack;
-    - полный документ читается только если в pack нет Goal/DoD/Boundaries/Expected paths/Tests/Acceptance;
-  - убрать обязательное чтение `anchors/*` в каждом шаге (оставить ссылку на anchors в pack);
-  - добавить краткий “read budget” (1–3 файла) и шаблон ссылки на артефакты вместо цитат.
-  **AC:** команды/агенты описывают pack-first порядок чтения; PRD/plan/research не являются обязательным first-read.
-
-- [ ] **W91-2** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/*.md`, `templates/aidd/reports/context/template.context-pack.md`:
-  - перейти на единый rolling pack: `aidd/reports/context/<ticket>.pack.md`;
-  - pack включает `stage`, `agent`, краткий “Read next” список + ссылки на артефакты;
-  - оставить stage‑specific packs как optional (flag `--legacy-output`).
-  **AC:** все команды пишут/читают единый pack; legacy packs не обязательны; тесты обновлены.
-
-- [ ] **W91-3** `tools/set_active_feature.py`, `tools/set_active_stage.py`, `tools/feature_ids.py`, `tools/index_sync.py`, `tools/status.py`, `templates/aidd/AGENTS.md`, `AGENTS.md`:
-  - заменить `.active_*` на единый `aidd/docs/.active.json`;
-  - добавить миграцию: если есть старые `.active_*`, синхронизировать в `.active.json`;
-  - обновить статус/индекс/команды на новый источник.
-  **AC:** чтение активных маркеров происходит из одного файла; старые маркеры поддерживаются только как fallback.
-
-- [ ] **W91-4** `hooks/*.sh`, `tools/gates.py`, `templates/aidd/config/gates.json`:
-  - добавить конфигурацию “fast hooks” (например `hooks.mode=fast|full`);
-  - в `fast`:
-    - `lint-deps.sh` и `gate-qa.sh` — no-op,
-    - `gate-tests.sh` — soft warning без выхода `1`;
-  - предоставить env override (`AIDD_HOOKS_MODE=fast`).
-  **AC:** в fast‑mode стоп‑хуки выполняются за <2s на пустом diff; гейты не блокируют.
-
-- [ ] **W91-5** `tools/tasklist_check.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
-  - кешировать hash `aidd/docs/tasklist/<ticket>.md` в `aidd/.cache/tasklist.hash`;
-  - вызывать `tasklist-check` только если hash изменился или стадия изменилась;
-  - логировать, что check пропущен по unchanged.
-  **AC:** при неизменённом tasklist этапы implement/review/qa не тратят время на check.
-
-- [ ] **W91-6** `hooks/context_gc/*.py`, `hooks/context-gc-*.sh`, `templates/aidd/config/context_gc.json`:
-  - добавить режим `light` (по умолчанию): обновление working set только на SessionStart/Stop;
-  - `pretooluse` выполняется только при изменении `aidd/**` (mtime/hash);
-  - флаг `AIDD_CONTEXT_GC=full|light|off`.
-  **AC:** pretooluse GC не запускается на каждом tool call; latency снижается заметно.
-
-- [ ] **W91-7** `tools/gate_workflow.py`, `tools/stage_result.py`, `hooks/gate-workflow.sh`:
-  - добавить “fast-mode” флаг в `aidd/config/gates.json`:
-    - допускает переход к implement при `PRD READY + Tasklist READY` даже без `review-spec` (WARN);
-    - `diff-boundary-check` → WARN + auto‑extend для OUT_OF_SCOPE (BLOCKED только FORBIDDEN);
-  - логировать `reason_code=fast_mode_warn` в stage_result.
-  **AC:** fast-mode сокращает gating без потери traceability; WARN отражается в stage_result/status_summary.
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
