@@ -80,7 +80,7 @@ def resolve_settings_path(workspace_root: Path) -> Path:
     if env_path:
         return Path(env_path).expanduser().resolve()
     return (workspace_root / ".claude" / "settings.json").resolve()
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 DEFAULT_REVIEWER_FIELD = "tests"
 DEFAULT_REVIEWER_REQUIRED = ("required",)
 DEFAULT_REVIEWER_OPTIONAL = ("optional", "skipped", "not-required")
@@ -238,6 +238,22 @@ def reviewer_marker_path(
         if parts and parts[0] == "aidd" and project_root.name == "aidd":
             path = Path(*parts[1:])
         path = project_root / path
+    if not path.exists() and path.name.endswith(".tests.json"):
+        old_path = path.with_name(path.name.replace(".tests.json", ".json"))
+        if old_path.exists():
+            try:
+                payload = json.loads(old_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                payload = {}
+            kind = str(payload.get("kind") or "").strip().lower() if isinstance(payload, dict) else ""
+            stage = str(payload.get("stage") or "").strip().lower() if isinstance(payload, dict) else ""
+            if not (kind == "review" or stage == "review" or (isinstance(payload, dict) and "findings" in payload)):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                try:
+                    old_path.unlink()
+                except OSError:
+                    pass
     return path
 
 
@@ -767,9 +783,74 @@ def main() -> int:
     active_mode = read_active_mode(project_root)
     aidd_root = project_root.name == "aidd"
 
-    if env_flag("SKIP_AUTO_TESTS"):
-        log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
-        return 0
+    def record_settings_missing_tests_log() -> None:
+        identifiers = resolve_identifiers(project_root)
+        ticket = identifiers.resolved_ticket or ""
+        if not ticket:
+            return
+        try:
+            from tools import runtime as _runtime
+            from tools.reports import tests_log as _tests_log
+        except Exception:
+            return
+        stage_value = (stage or "implement").strip().lower() or "implement"
+        work_item_key = read_active_work_item(project_root)
+        if stage_value == "qa":
+            scope_key = _runtime.resolve_scope_key("", ticket)
+        else:
+            scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
+        _tests_log.append_log(
+            project_root,
+            ticket=ticket,
+            slug_hint=identifiers.slug_hint,
+            stage=stage_value,
+            scope_key=scope_key,
+            work_item_key=work_item_key or None,
+            profile="none",
+            status="skipped",
+            reason_code="settings_missing",
+            reason="settings.json not found",
+            details={
+                "profile": "none",
+                "reason_code": "settings_missing",
+                "reason": "settings.json not found",
+            },
+            source="hook format-and-test",
+            cwd=str(workspace_root),
+        )
+        tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
+        tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
+        result_path = (
+            project_root
+            / "reports"
+            / "loops"
+            / ticket
+            / scope_key
+            / f"stage.{stage_value}.result.json"
+        )
+        if not result_path.exists():
+            return
+        try:
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if str(payload.get("schema") or "") != "aidd.stage_result.v1":
+            return
+        evidence_links = payload.get("evidence_links")
+        if isinstance(evidence_links, dict):
+            links_map = dict(evidence_links)
+        elif isinstance(evidence_links, list):
+            links_map = {"links": list(evidence_links)}
+        else:
+            links_map = {}
+        links_map["tests_log"] = tests_log_rel
+        payload_reason_code = str(payload.get("reason_code") or "").strip()
+        if payload_reason_code in {"", "missing_test_evidence"}:
+            payload["reason_code"] = "settings_missing"
+            payload.setdefault("reason", "settings.json not found")
+        payload["evidence_links"] = links_map
+        payload["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        result_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     if not env_flag("CLAUDE_SKIP_STAGE_CHECKS"):
         if not stage:
@@ -781,6 +862,15 @@ def main() -> int:
         if stage == "review" and service_only(diff_files, aidd_root=aidd_root):
             log("Активная стадия review, diff пустой/только service — форматирование/тесты пропущены.")
             return 0
+
+    if not settings_path.exists():
+        log(f"Конфигурация {settings_path} не найдена — шаги пропущены.")
+        record_settings_missing_tests_log()
+        return 0
+
+    if env_flag("SKIP_AUTO_TESTS"):
+        log("SKIP_AUTO_TESTS=1 — автоматический запуск форматирования и выборочных тестов пропущен.")
+        return 0
 
     config = load_config(settings_path)
     if config is None:
@@ -1008,7 +1098,14 @@ def main() -> int:
     elif cadence == "manual":
         log("Test cadence: manual (cadence=manual)")
 
-    def update_stage_result_after_tests(scope_key: str, tests_log_rel: str, tests_status: str) -> None:
+    def update_stage_result_after_tests(
+        scope_key: str,
+        tests_log_rel: str,
+        tests_status: str,
+        *,
+        reason_code: str = "",
+        reason: str = "",
+    ) -> None:
         ticket = identifiers.resolved_ticket or ""
         if not ticket or not scope_key:
             return
@@ -1032,28 +1129,37 @@ def main() -> int:
         if str(payload.get("schema") or "") != "aidd.stage_result.v1":
             return
         evidence_links = payload.get("evidence_links")
-        if not isinstance(evidence_links, list):
-            evidence_links = []
-        if tests_log_rel and tests_log_rel not in evidence_links:
-            evidence_links.append(tests_log_rel)
+        if isinstance(evidence_links, dict):
+            links_map = dict(evidence_links)
+        elif isinstance(evidence_links, list):
+            links_map = {"links": list(evidence_links)}
+        else:
+            links_map = {}
+        if tests_log_rel:
+            links_map["tests_log"] = tests_log_rel
         status_value = str(tests_status or "").strip().lower()
         tests_evidence = status_value in {"pass", "fail"}
         requested_result = str(payload.get("requested_result") or "").strip().lower()
         result_value = str(payload.get("result") or "").strip().lower()
-        reason_code = str(payload.get("reason_code") or "").strip()
-        if reason_code == "missing_test_evidence" and tests_evidence:
+        payload_reason_code = str(payload.get("reason_code") or "").strip()
+        if payload_reason_code == "missing_test_evidence" and tests_evidence:
             if requested_result in {"continue", "done"} and result_value == "blocked":
                 payload["result"] = requested_result
             payload["reason"] = ""
             payload["reason_code"] = ""
-        payload["evidence_links"] = evidence_links
+        if reason_code and not tests_evidence and payload_reason_code in {"missing_test_evidence", ""}:
+            payload["reason_code"] = reason_code
+            if reason:
+                payload["reason"] = reason
+        payload["evidence_links"] = links_map
         payload["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         result_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def record_tests_log(
         status: str,
-        reason: str = "",
         *,
+        reason_code: str = "",
+        reason: str = "",
         exit_code: int | None = None,
         log_path: Path | None = None,
     ) -> None:
@@ -1072,6 +1178,8 @@ def main() -> int:
             "profile": test_profile,
             "cadence": cadence,
         }
+        if reason_code:
+            details["reason_code"] = reason_code
         if reason:
             details["reason"] = reason
         if test_tasks:
@@ -1107,13 +1215,21 @@ def main() -> int:
                 exit_code=exit_code,
                 log_path=log_value or None,
                 status=status,
+                reason_code=reason_code or None,
+                reason=reason or None,
                 details=details,
                 source="hook format-and-test",
                 cwd=str(workspace_root),
             )
             tests_log_path = _tests_log.tests_log_path(project_root, ticket, scope_key)
             tests_log_rel = _runtime.rel_path(tests_log_path, project_root)
-            update_stage_result_after_tests(scope_key, tests_log_rel, status_value)
+            update_stage_result_after_tests(
+                scope_key,
+                tests_log_rel,
+                status_value,
+                reason_code=reason_code,
+                reason=reason,
+            )
         except Exception:
             return
 
@@ -1130,15 +1246,19 @@ def main() -> int:
 
     tests_should_run = True
     skip_reason = ""
+    skip_reason_code = ""
     if test_profile == "none":
         tests_should_run = False
         skip_reason = "AIDD_TEST_PROFILE=none — стадия тестов пропущена."
+        skip_reason_code = "profile_none"
     elif skip_tests:
         tests_should_run = False
         skip_reason = f"{skip_env_name}=1 — стадия тестов пропущена."
+        skip_reason_code = "skip_auto_tests"
     elif not cadence_allows:
         tests_should_run = False
         skip_reason = cadence_reason
+        skip_reason_code = "cadence_checkpoint_not_reached"
     elif force_tests or manual_scope_requested or checkpoint_active:
         tests_should_run = True
         if manual_scope_requested:
@@ -1162,6 +1282,7 @@ def main() -> int:
                 )
             else:
                 skip_reason = "reviewer не запросил тесты — стадия тестов пропущена."
+            skip_reason_code = "skip_auto_tests"
     else:
         tests_should_run = True
 
@@ -1177,13 +1298,16 @@ def main() -> int:
         if stage == "review":
             tests_should_run = False
             skip_reason = "loop-mode: review stage — тесты пропущены."
+            skip_reason_code = "skip_auto_tests"
         elif stage == "implement" and not loop_tests_override:
             tests_should_run = False
             skip_reason = "loop-mode: тесты запускаются только с AIDD_LOOP_TESTS=1 или AIDD_TEST_FORCE=1."
+            skip_reason_code = "skip_auto_tests"
 
     if tests_should_run and service_only(diff_files, aidd_root=aidd_root):
         tests_should_run = False
         skip_reason = "Diff пустой/только service — тесты пропущены."
+        skip_reason_code = "manual_skip"
 
     skip_format_flag = os.environ.get("SKIP_FORMAT", "0") == "1"
     format_only_flag = os.environ.get("FORMAT_ONLY", "0") == "1"
@@ -1197,6 +1321,12 @@ def main() -> int:
         if not changed_files:
             log("Изменения не обнаружены — форматирование и тесты пропущены.")
             if not format_only_flag:
+                record_event("skipped", "no-changes")
+                record_tests_log(
+                    "skipped",
+                    reason_code="manual_skip",
+                    reason="изменения не обнаружены",
+                )
                 return 0
         elif not has_code_changes(changed_files, code_prefixes, code_suffixes, code_exact):
             if active_ticket and common_hits:
@@ -1210,6 +1340,11 @@ def main() -> int:
                 else:
                     log(f"Изменены только некодовые файлы ({preview}) — форматирование и тесты пропущены.")
                     record_event("skipped", "non-code-changes")
+                    record_tests_log(
+                        "skipped",
+                        reason_code="manual_skip",
+                        reason="изменены только некодовые файлы",
+                    )
                     return 0
 
     if skip_format_flag:
@@ -1225,7 +1360,11 @@ def main() -> int:
     if format_only_flag:
         log("FORMAT_ONLY=1 — стадия тестов пропущена.")
         record_event("skipped", "format-only")
-        record_tests_log("skipped", "format-only")
+        record_tests_log(
+            "skipped",
+            reason_code=skip_reason_code or "format_only",
+            reason=skip_reason or "format-only",
+        )
         return 0
 
     if not tests_should_run:
@@ -1234,7 +1373,11 @@ def main() -> int:
         else:
             log("Стадия тестов пропущена (reviewerGate).")
         record_event("skipped", "tests-disabled")
-        record_tests_log("skipped", skip_reason or "tests-disabled")
+        record_tests_log(
+            "skipped",
+            reason_code=skip_reason_code or "manual_skip",
+            reason=skip_reason or "tests-disabled",
+        )
         return 0
 
     if checkpoint_active:
@@ -1286,7 +1429,7 @@ def main() -> int:
     if not test_tasks:
         log("Нет задач для запуска тестов — проверка пропущена.")
         record_event("skipped", "no-tests")
-        record_tests_log("skipped", "no-tests")
+        record_tests_log("skipped", reason_code="manual_skip", reason="no-tests")
         return 0
 
     log(f"Выбранные задачи тестов ({test_profile}): {' '.join(test_tasks)}")
@@ -1294,6 +1437,7 @@ def main() -> int:
     if not test_runner or not test_runner[0]:
         log("Не указан runner для тестов — стадия пропущена.")
         record_event("skipped", "no-runner")
+        record_tests_log("skipped", reason_code="manual_skip", reason="no-runner")
         return 0
 
     diff_parts: List[str] = []
@@ -1322,6 +1466,7 @@ def main() -> int:
     elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "success":
         log("Dedupe: тесты уже запускались для текущего diff/profile — пропускаем повтор.")
         record_event("skipped", "dedupe")
+        record_tests_log("skipped", reason_code="no_diff_change_dedup", reason="dedupe")
         return 0
     elif last_state.get("fingerprint") == fingerprint and last_state.get("status") == "failed":
         log("Dedupe: предыдущий прогон завершился ошибкой — повторяем.")

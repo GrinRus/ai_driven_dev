@@ -234,6 +234,21 @@ def analyse_code_tokens(files: Iterable[str]) -> List[Finding]:
     return findings
 
 
+def _is_heading(line: str) -> bool:
+    return bool(re.match(r"^#{1,6}\s+", line))
+
+
+def _is_qa_checklist_heading(line: str) -> bool:
+    return "AIDD:CHECKLIST_QA" in line
+
+
+def _extract_blocking_flag(line: str) -> Optional[bool]:
+    match = re.search(r"\(Blocking:\s*(true|false)\)", line, re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1).lower() == "true"
+
+
 def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[List[Finding], List[str]]:
     tasklist_dir = ROOT_DIR / "docs" / "tasklist"
     candidates: List[Path] = []
@@ -251,6 +266,8 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
         except OSError:
             continue
         in_front_matter = False
+        in_qa_checklist = False
+        in_handoff_qa = False
         for idx, raw in enumerate(lines, start=1):
             stripped = raw.strip()
             if stripped == "---":
@@ -258,26 +275,55 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
                 continue
             if in_front_matter:
                 continue
+            if stripped == "<!-- handoff:qa start -->":
+                in_handoff_qa = True
+                continue
+            if stripped == "<!-- handoff:qa end -->":
+                in_handoff_qa = False
+                continue
+            if _is_heading(stripped):
+                if _is_qa_checklist_heading(stripped):
+                    in_qa_checklist = True
+                else:
+                    in_qa_checklist = False
+                continue
             if not stripped.startswith("- ["):
                 continue
             if re.match(r"- \[[xX]\]", stripped):
                 continue
-            if "qa" not in stripped.lower():
+            if in_qa_checklist:
+                is_manual = any(marker in stripped.lower() for marker in MANUAL_MARKERS)
+                if is_manual:
+                    manual_required.append(f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}")
+                rel_path = tasklist_path.relative_to(ROOT_DIR)
+                checklist_id = _stable_id("qa-checklist", str(rel_path), stripped)
+                findings.append(
+                    Finding(
+                        severity="major" if is_manual else "blocker",
+                        scope="checklist",
+                        title=f"Незакрыт QA пункт в {tasklist_path.relative_to(ROOT_DIR)}",
+                        details=f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}",
+                        recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
+                        id=checklist_id,
+                    )
+                )
                 continue
-            is_manual = any(marker in stripped.lower() for marker in MANUAL_MARKERS)
-            if is_manual:
-                manual_required.append(f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}")
+            if not in_handoff_qa:
+                continue
+            blocking_flag = _extract_blocking_flag(stripped)
+            if blocking_flag is None:
+                continue
             rel_path = tasklist_path.relative_to(ROOT_DIR)
-            checklist_id = _stable_id("qa-checklist", str(rel_path), stripped)
-            label = feature_label(ticket, slug_hint)
+            handoff_id = _stable_id("qa-handoff", str(rel_path), stripped)
             findings.append(
                 Finding(
-                    severity="major" if is_manual else "blocker",
+                    severity="blocker" if blocking_flag else "major",
                     scope="checklist",
                     title=f"Незакрыт QA пункт в {tasklist_path.relative_to(ROOT_DIR)}",
                     details=f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}",
                     recommendation="Закройте QA задачи в чеклисте или перенесите их в backlog с обоснованием.",
-                    id=checklist_id,
+                    id=handoff_id,
+                    blocking=blocking_flag,
                 )
             )
     return findings, manual_required

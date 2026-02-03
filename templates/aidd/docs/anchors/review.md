@@ -12,7 +12,7 @@
 - Review не расширяет scope: новая работа → `AIDD:OUT_OF_SCOPE_BACKLOG` или новый work_item (Status: WARN, не BLOCKED).
 - Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
 - Протокол: `aidd/docs/loops/README.md`.
-- Loop-run использует fresh sessions (`claude -p`), max-iterations указывай как `--max-iterations 5`.
+- Loop-run использует fresh sessions (`claude` + `-p "/feature-dev-aidd:<cmd> <ticket>"`), max-iterations указывай как `--max-iterations 5`.
 - Loop‑gating опирается на `stage_result` (machine truth).
 
 ## Context precedence & safety
@@ -37,7 +37,8 @@
 
 ## MUST UPDATE
 - aidd/docs/tasklist/<ticket>.md: замечания + handoff
-- aidd/reports/reviewer/<ticket>/<scope_key>.json (review report + маркер тестов)
+- aidd/reports/reviewer/<ticket>/<scope_key>.json (review report)
+- aidd/reports/reviewer/<ticket>/<scope_key>.tests.json (reviewer marker, если используется)
 - AIDD:CONTEXT_PACK → Blockers summary (если есть blocking handoff)
 - Каждый finding оформляй как handoff‑задачу в `AIDD:HANDOFF_INBOX` (fact → risk → recommendation + scope/DoD/Boundaries/Tests).
 - Формат finding: `scope=iteration_id|n/a`, `blocking: true|false`, DoD/Boundaries/Tests как часть handoff.

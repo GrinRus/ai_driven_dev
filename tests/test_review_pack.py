@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_file
+from tools import runtime
 
 
 class ReviewPackTests(unittest.TestCase):
@@ -24,6 +25,7 @@ class ReviewPackTests(unittest.TestCase):
             report = {
                 "ticket": "DEMO-1",
                 "status": "READY",
+                "updated_at": "2024-01-01T00:00:00Z",
                 "findings": [
                     {"id": "review:F1", "severity": "minor", "title": "Update tests"},
                 ],
@@ -57,6 +59,10 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(payload.get("verdict"), "SHIP")
             self.assertEqual(payload.get("work_item_id"), "I1")
             self.assertEqual(payload.get("work_item_key"), "iteration_id=I1")
+            self.assertEqual(payload.get("blocking_findings_count"), 0)
+            self.assertEqual(payload.get("findings")[0].get("summary"), "Update tests")
+            self.assertEqual(payload.get("findings")[0].get("severity"), "minor")
+            self.assertEqual(payload.get("review_report_updated_at"), "2024-01-01T00:00:00Z")
 
             pack_path = root / "reports" / "loops" / "DEMO-1" / "iteration_id_I1" / "review.latest.pack.md"
             self.assertTrue(pack_path.exists())
@@ -118,6 +124,14 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("verdict"), "REVISE")
+            self.assertEqual(payload.get("findings"), [])
+            self.assertTrue(payload.get("fix_plan_json"))
+            fix_plan_path = runtime.resolve_path_for_target(Path(payload.get("fix_plan_json")), root)
+            self.assertTrue(fix_plan_path.exists())
+            fix_plan_payload = json.loads(fix_plan_path.read_text(encoding="utf-8"))
+            steps = fix_plan_payload.get("fix_plan", {}).get("steps", [])
+            self.assertTrue(steps)
+            self.assertTrue(any("test" in step.lower() for step in steps))
 
     def test_review_pack_skipped_tests_revises(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
@@ -161,6 +175,9 @@ class ReviewPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("verdict"), "REVISE")
+            self.assertTrue(payload.get("fix_plan_json"))
+            fix_plan_path = runtime.resolve_path_for_target(Path(payload.get("fix_plan_json")), root)
+            self.assertTrue(fix_plan_path.exists())
 
     def test_review_pack_prefers_last_pass_over_skip(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
@@ -255,8 +272,8 @@ class ReviewPackTests(unittest.TestCase):
             pack_path = root / "reports" / "loops" / "DEMO-3" / "iteration_id_I1" / "review.latest.pack.md"
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertIn("Missing guard", pack_text)
-            top_section = pack_text.split("## Top findings", 1)[1].split("## Next actions", 1)[0]
-            self.assertEqual(top_section.count("Missing guard"), 1)
+            findings_section = pack_text.split("## Findings", 1)[1].split("## Next actions", 1)[0]
+            self.assertEqual(findings_section.count("Missing guard"), 2)
 
 
 if __name__ == "__main__":

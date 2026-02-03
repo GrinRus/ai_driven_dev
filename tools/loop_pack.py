@@ -13,6 +13,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
+from tools.tasklist_parser import extract_boundaries
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -61,6 +62,9 @@ class WorkItem:
     title: str
     state: str
     goal: str
+    boundaries_allowed: Tuple[str, ...]
+    boundaries_forbidden: Tuple[str, ...]
+    boundaries_defined: bool
     expected_paths: Tuple[str, ...]
     commands: Tuple[str, ...]
     tests_required: Tuple[str, ...]
@@ -294,6 +298,29 @@ def extract_checkbox_state(block: List[str]) -> str:
     return "done" if state.lower() == "x" else "open"
 
 
+def _normalize_tests_value(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned or cleaned.lower() in {"[]", "none", "n/a"}:
+        return None
+    return cleaned
+
+
+def _normalize_tests_required(tests_map: Dict[str, str]) -> Tuple[str, ...]:
+    tasks = _normalize_tests_value(tests_map.get("tasks") or tests_map.get("Tasks"))
+    profile = _normalize_tests_value(tests_map.get("profile") or tests_map.get("Profile"))
+    filters = _normalize_tests_value(tests_map.get("filters") or tests_map.get("Filters"))
+    required: List[str] = []
+    if tasks:
+        required.append(tasks)
+    if profile:
+        required.append(f"profile:{profile}")
+    if filters:
+        required.append(f"filters:{filters}")
+    return tuple(required)
+
+
 def build_excerpt(block: List[str], max_lines: int = 30) -> Tuple[str, ...]:
     if not block:
         return tuple()
@@ -356,13 +383,11 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
         title = extract_title(block)
         state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
+        boundaries_allowed, boundaries_forbidden, boundaries_defined = extract_boundaries(block)
         expected_paths = tuple(extract_list_field(block, "Expected paths"))
         commands = tuple(extract_list_field(block, "Commands"))
         tests_map = extract_mapping_field(block, "Tests")
-        tests_required: Tuple[str, ...] = tuple()
-        tasks_value = tests_map.get("tasks") or tests_map.get("Tasks")
-        if tasks_value and _strip_placeholder(tasks_value):
-            tests_required = (tasks_value,)
+        tests_required = _normalize_tests_required(tests_map)
         size_budget = extract_mapping_field(block, "Size budget")
         exit_criteria = tuple(extract_list_field(block, "Exit criteria"))
         key_prefix = "iteration_id"
@@ -378,6 +403,9 @@ def parse_iteration_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 state=state,
                 goal=goal or title,
+                boundaries_allowed=tuple(boundaries_allowed),
+                boundaries_forbidden=tuple(boundaries_forbidden),
+                boundaries_defined=boundaries_defined,
                 expected_paths=expected_paths,
                 commands=commands,
                 tests_required=tests_required,
@@ -403,6 +431,7 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
         title = extract_title(block)
         state = extract_checkbox_state(block)
         goal = extract_scalar_field(block, "Goal") or extract_scalar_field(block, "DoD") or title
+        boundaries_allowed, boundaries_forbidden, boundaries_defined = extract_boundaries(block)
         key_prefix = "id"
         work_item_key = f"{key_prefix}={item_id}"
         scope_key = runtime.sanitize_scope_key(work_item_key)
@@ -416,6 +445,9 @@ def parse_handoff_items(lines: List[str]) -> List[WorkItem]:
                 title=title,
                 state=state,
                 goal=goal or title,
+                boundaries_allowed=tuple(boundaries_allowed),
+                boundaries_forbidden=tuple(boundaries_forbidden),
+                boundaries_defined=boundaries_defined,
                 expected_paths=tuple(),
                 commands=tuple(),
                 tests_required=tuple(),
@@ -543,6 +575,7 @@ def build_front_matter(
     arch_profile: str,
     evidence_policy: str,
     updated_at: str,
+    reason_code: str = "",
 ) -> List[str]:
     lines = [
         "---",
@@ -578,6 +611,8 @@ def build_front_matter(
         lines.append("tests_required: []")
     lines.append(f"arch_profile: {arch_profile}")
     lines.append(f"evidence_policy: {evidence_policy}")
+    if reason_code:
+        lines.append(f"reason_code: {reason_code}")
     lines.append("---")
     return lines
 
@@ -591,6 +626,7 @@ def build_pack(
     tests_required: List[str],
     arch_profile: str,
     updated_at: str,
+    reason_code: str = "",
 ) -> str:
     front_matter = build_front_matter(
         ticket=ticket,
@@ -601,6 +637,7 @@ def build_pack(
         arch_profile=arch_profile,
         evidence_policy="RLM-first",
         updated_at=updated_at,
+        reason_code=reason_code,
     )
     lines: List[str] = []
     lines.extend(front_matter)
@@ -660,11 +697,25 @@ def write_pack_for_item(
     ticket: str,
     work_item: WorkItem,
     arch_profile: str,
-) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str]:
-    boundaries = {
-        "allowed_paths": list(work_item.expected_paths),
-        "forbidden_paths": [],
-    }
+) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str, str]:
+    if work_item.boundaries_defined:
+        boundaries = {
+            "allowed_paths": list(work_item.boundaries_allowed),
+            "forbidden_paths": list(work_item.boundaries_forbidden),
+        }
+        reason_code = ""
+    else:
+        boundaries = {"allowed_paths": [], "forbidden_paths": []}
+        reason_code = "no_boundaries_defined_warn"
+    if work_item.expected_paths:
+        missing_expected = [
+            path for path in work_item.expected_paths if path and path not in boundaries["allowed_paths"]
+        ]
+        if missing_expected:
+            boundaries["allowed_paths"].extend(missing_expected)
+            reason_code = "auto_boundary_extend_warn"
+    if boundaries.get("allowed_paths"):
+        boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
     _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
     tests_required = list(work_item.tests_required)
@@ -677,11 +728,12 @@ def write_pack_for_item(
         tests_required=tests_required,
         arch_profile=arch_profile,
         updated_at=updated_at,
+        reason_code=reason_code,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     pack_path = output_dir / f"{work_item.scope_key}.loop.pack.md"
     pack_path.write_text(pack_text, encoding="utf-8")
-    return pack_path, boundaries, commands_required, tests_required, updated_at
+    return pack_path, boundaries, commands_required, tests_required, updated_at, reason_code
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -741,6 +793,40 @@ def main(argv: list[str] | None = None) -> int:
     open_handoffs = [item for item in handoffs if is_open_item(item) and is_review_handoff_id(item.item_id)]
     revise_mode = args.stage == "implement" and review_meta.verdict == "REVISE" and not args.pick_next
 
+    if args.stage == "review" and not args.work_item:
+        if active_ticket and active_ticket != ticket:
+            message = "BLOCKED: review active ticket mismatch"
+            reason = "review_active_ticket_mismatch"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
+        if not active_work_item:
+            message = "BLOCKED: review active work item missing"
+            reason = "review_active_work_item_missing"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
+
     if args.stage == "implement" and review_meta.schema == "aidd.review_pack.v1" and review_pack_v2_required(target):
         message = "BLOCKED: review pack v2 required"
         reason = "review_pack_v2_required"
@@ -772,9 +858,62 @@ def main(argv: list[str] | None = None) -> int:
         selection_reason = "override"
     elif args.stage == "implement":
         if revise_mode:
-            review_key = review_meta.scope_key
-            if review_key:
-                candidate = find_work_item(all_items, review_key)
+            if active_ticket == ticket and active_work_item:
+                candidate = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
+                if candidate and is_open_item(candidate):
+                    selected_item = candidate
+                    selection_reason = "active-revise"
+                elif candidate:
+                    message = "BLOCKED: review pack requires revise but active work item is closed"
+                    reason = "review_revise_closed_item"
+                    if args.format:
+                        payload = {
+                            "schema": "aidd.loop_pack.v1",
+                            "status": "blocked",
+                            "ticket": ticket,
+                            "stage": args.stage,
+                            "reason": reason,
+                        }
+                        output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                        print(output)
+                    else:
+                        print(message)
+                    return 2
+                else:
+                    message = "BLOCKED: review pack requires revise but active work item is missing"
+                    reason = "review_revise_missing_active"
+                    if args.format:
+                        payload = {
+                            "schema": "aidd.loop_pack.v1",
+                            "status": "blocked",
+                            "ticket": ticket,
+                            "stage": args.stage,
+                            "reason": reason,
+                        }
+                        output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                        print(output)
+                    else:
+                        print(message)
+                    return 2
+            else:
+                message = "BLOCKED: review pack requires revise but active work item is missing"
+                reason = "review_revise_missing_active"
+                if args.format:
+                    payload = {
+                        "schema": "aidd.loop_pack.v1",
+                        "status": "blocked",
+                        "ticket": ticket,
+                        "stage": args.stage,
+                        "reason": reason,
+                    }
+                    output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                    print(output)
+                else:
+                    print(message)
+                return 2
+        else:
+            if review_meta.scope_key:
+                candidate = find_work_item(all_items, review_meta.scope_key)
                 if candidate and is_open_item(candidate):
                     selected_item = candidate
                     selection_reason = "review-pack"
@@ -782,28 +921,22 @@ def main(argv: list[str] | None = None) -> int:
                 selected_item = select_first_open_handoff(review_meta.handoff_ids, handoffs)
                 if selected_item:
                     selection_reason = "review-handoff"
-            if not selected_item and open_handoffs:
-                selected_item = open_handoffs[0]
-                selection_reason = "handoff"
             if not selected_item and active_ticket == ticket and active_work_item and not args.pick_next:
-                if revise_mode and (review_meta.work_item_key or open_handoffs):
-                    selected_item = None
-                else:
-                    selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
+                selected_item = find_work_item(all_items, runtime.sanitize_scope_key(active_work_item))
                 if selected_item:
                     if is_open_item(selected_item):
                         selection_reason = "active"
                     else:
                         selected_item = None
-        if not selected_item:
-            next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
-            if next3_refs:
-                if revise_mode and open_handoffs:
-                    selected_item = None
-                else:
+            if not selected_item:
+                next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
+                if next3_refs:
                     selected_item = select_first_open(next3_refs, all_items)
                     if selected_item:
                         selection_reason = "next3"
+            if not selected_item and open_handoffs:
+                selected_item = open_handoffs[0]
+                selection_reason = "handoff"
     else:
         if args.pick_next:
             next3_refs = parse_next3_refs(sections.get("AIDD:NEXT_3", []))
@@ -843,6 +976,25 @@ def main(argv: list[str] | None = None) -> int:
             print(message)
         return 2
 
+    if args.stage == "review" and not args.work_item and active_work_item:
+        active_scope = runtime.sanitize_scope_key(active_work_item)
+        if selected_item.scope_key != active_scope:
+            message = "BLOCKED: review work item mismatch with active_work_item"
+            reason = "review_work_item_mismatch"
+            if args.format:
+                payload = {
+                    "schema": "aidd.loop_pack.v1",
+                    "status": "blocked",
+                    "ticket": ticket,
+                    "stage": args.stage,
+                    "reason": reason,
+                }
+                output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))
+                print(output)
+            else:
+                print(message)
+            return 2
+
     write_active_state(target, ticket, selected_item.work_item_key)
 
     arch_profile_path = target / "docs" / "architecture" / "profile.md"
@@ -868,8 +1020,9 @@ def main(argv: list[str] | None = None) -> int:
     tests_required: List[str] = []
     updated_at = utc_timestamp()
 
+    selected_reason_code = ""
     for item in prewarm_map.values():
-        pack_path, item_boundaries, item_commands, item_tests, item_updated_at = write_pack_for_item(
+        pack_path, item_boundaries, item_commands, item_tests, item_updated_at, item_reason_code = write_pack_for_item(
             root=target,
             output_dir=output_dir,
             ticket=ticket,
@@ -882,6 +1035,7 @@ def main(argv: list[str] | None = None) -> int:
             commands_required = item_commands
             tests_required = item_tests
             updated_at = item_updated_at
+            selected_reason_code = item_reason_code
 
     if selected_pack_path is None:
         raise ValueError("failed to generate loop pack for selected work item")
@@ -904,6 +1058,8 @@ def main(argv: list[str] | None = None) -> int:
         "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",
     }
+    if selected_reason_code:
+        payload["reason_code"] = selected_reason_code
 
     if args.format:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if args.format == "json" else "\n".join(dump_yaml(payload))

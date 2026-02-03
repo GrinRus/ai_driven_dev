@@ -69,7 +69,7 @@ class QaAgentTests(unittest.TestCase):
         write_file(
             self.project_root,
             "docs/tasklist/checkout.md",
-            "- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: smoke checkout flow\n",
         )
 
         report_path = self.project_root / "reports" / "qa" / "checkout.json"
@@ -88,6 +88,35 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(all(finding.get("id") for finding in payload["findings"]))
         self.assertTrue(all("blocking" in finding for finding in payload["findings"]))
         self.assertTrue(report_path.exists(), "QA report should be written")
+
+    def test_non_blocking_handoff_warns_and_matches_report(self):
+        write_active_feature(self.project_root, "handoff-demo")
+        write_file(
+            self.project_root,
+            "docs/tasklist/handoff-demo.md",
+            "\n".join(
+                [
+                    "# Tasklist",
+                    "",
+                    "## AIDD:HANDOFF_INBOX",
+                    "<!-- handoff:qa start -->",
+                    "- [ ] QA non-blocking item (id: qa:demo) (Priority: low) (Blocking: false)",
+                    "  - source: qa",
+                    "  - scope: iteration_id=I1",
+                    "<!-- handoff:qa end -->",
+                    "",
+                ]
+            ),
+        )
+
+        report_path = self.project_root / "reports" / "qa" / "handoff-demo.json"
+        result = self.run_agent("--emit-json", "--report", str(report_path))
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report_payload["status"], "WARN")
 
     def test_emit_patch_writes_patch_file(self):
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
@@ -157,7 +186,24 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "skipped")
+        self.assertEqual(payload["status"], "BLOCKED")
         self.assertTrue(any(f["title"] == "Тесты не запускались" for f in payload["findings"]))
+
+    def test_tests_not_run_warns_when_allowed(self):
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {
+                "tests_required": "soft",
+                "qa": {"tests": {"commands": ["echo smoke-test-ok"], "allow_skip": True}},
+            },
+        )
+        result = self.run_agent("--emit-json", "--skip-tests")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "skipped")
+        self.assertEqual(payload["status"], "WARN")
 
     def test_tests_metadata_included(self):
         write_json(
@@ -172,6 +218,37 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(payload["tests_summary"], "fail")
         self.assertEqual(len(payload["tests_executed"]), 1)
         self.assertEqual(payload["tests_executed"][0]["status"], "fail")
+
+    def test_qa_skipped_tests_logged_as_skipped(self):
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {
+                "tests_required": "soft",
+                "qa": {
+                    "tests": {
+                        "commands": [
+                            [
+                                "bash",
+                                "-lc",
+                                "echo \"[format-and-test] Активная стадия 'qa' — форматирование/тесты пропущены.\"",
+                            ]
+                        ],
+                        "allow_skip": True,
+                    }
+                },
+            },
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        ticket = "demo-ticket"
+        log_path = self.project_root / "reports" / "tests" / ticket / f"{ticket}.jsonl"
+        self.assertTrue(log_path.exists(), "QA tests log should be written")
+        lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self.assertTrue(lines, "QA tests log should have entries")
+        payload = json.loads(lines[-1])
+        self.assertEqual(payload.get("status"), "skipped")
 
     def test_progress_cli_requires_tasklist_update(self):
         slug = "demo-checkout"
@@ -293,7 +370,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/manual-qa.md",
-            "- [ ] QA: manual regression checklist\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: manual regression checklist\n",
         )
 
         result = self.run_agent("--format", "json")
@@ -309,7 +386,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/mixed-qa.md",
-            "- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: manual regression checklist\n- [ ] QA: smoke checkout flow\n",
         )
 
         result = self.run_agent("--format", "json", env={"QA_ALLOW_NO_TESTS": "1"})
@@ -327,7 +404,7 @@ Updated: 2024-01-02
         write_file(
             self.project_root,
             "docs/tasklist/dup-qa.md",
-            "- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
+            "### AIDD:CHECKLIST_QA\n- [ ] QA: smoke checkout flow\n- [ ] QA: smoke checkout flow\n",
         )
 
         result = self.run_agent("--format", "json")
@@ -335,3 +412,22 @@ Updated: 2024-01-02
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(len(payload["findings"]), 1)
+
+    def test_qa_handoff_non_blocking_does_not_block(self):
+        write_active_feature(self.project_root, "handoff-qa")
+        write_file(
+            self.project_root,
+            "docs/tasklist/handoff-qa.md",
+            """<!-- handoff:qa start -->
+- [ ] QA [major] Resolve TODO items (id: qa:todo-001) (Priority: medium) (Blocking: false)
+<!-- handoff:qa end -->
+""",
+        )
+
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "WARN")
+        self.assertTrue(any(f["severity"] == "major" for f in payload["findings"]))
+        self.assertFalse(any(f["severity"] == "blocker" for f in payload["findings"]))

@@ -560,7 +560,7 @@ def test_idea_new_rich_context_allows_ready_without_auto_research(tmp_path):
     write_research_doc(project_root, ticket=ticket, status="reviewed")
     write_json(
         project_root,
-        f"reports/reviewer/{ticket}/{ticket}.json",
+        f"reports/reviewer/{ticket}/{ticket}.tests.json",
         {"ticket": ticket, "tests": "optional"},
     )
     result = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
@@ -591,7 +591,7 @@ def test_research_required_before_code_changes(tmp_path):
     )
     write_json(
         tmp_path,
-        "reports/reviewer/demo-checkout/demo-checkout.json",
+        "reports/reviewer/demo-checkout/demo-checkout.tests.json",
         {"ticket": ticket, "tests": "optional"},
     )
     write_json(
@@ -666,7 +666,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     write_research_doc(tmp_path)
     write_json(
         tmp_path,
-        "reports/reviewer/demo-checkout/demo-checkout.json",
+        "reports/reviewer/demo-checkout/demo-checkout.tests.json",
         {"ticket": "demo-checkout", "tests": "optional"},
     )
     tasklist_path = write_tasklist_ready(tmp_path, "demo-checkout")
@@ -1127,7 +1127,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
             "analyst": {"enabled": False},
             "reviewer": {
                 "enabled": True,
-                "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.json",
+                "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.tests.json",
                 "tests_field": "tests",
                 "required_values": ["required"],
                 "warn_on_missing": True,
@@ -1145,7 +1145,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
         "slug": slug_hint,
         "tests": "required",
     }
-    write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.json", reviewer_marker)
+    write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.tests.json", reviewer_marker)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2

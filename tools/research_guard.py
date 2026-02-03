@@ -373,7 +373,7 @@ def _validate_rlm_evidence(
                 manifest_total = len(files)
 
     nodes_ok = rlm_nodes_path.exists()
-    links_ok = rlm_links_path.exists()
+    links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
     pack_ok = rlm_pack_path.exists()
     nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
 
@@ -389,10 +389,12 @@ def _validate_rlm_evidence(
                 f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if settings.rlm_require_links and not links_ok:
-            raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но links.jsonl отсутствует. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`."
+            print(
+                "[aidd] WARN: rlm_status=ready, но links.jsonl отсутствует или пустой. "
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`.",
+                file=sys.stderr,
             )
+            return
         if settings.rlm_require_pack and not pack_ok:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но rlm pack отсутствует. "
@@ -401,6 +403,12 @@ def _validate_rlm_evidence(
         return
 
     if ready_required:
+        if settings.rlm_require_links and pack_ok and not links_ok:
+            print(
+                f"[aidd] WARN: rlm_status=pending for stage={stage}; links.jsonl отсутствует или пустой.",
+                file=sys.stderr,
+            )
+            return
         raise ResearchValidationError(
             "BLOCK: rlm_status=pending — требуется rlm_status=ready "
             "с nodes/links/pack для текущей стадии."

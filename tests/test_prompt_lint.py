@@ -105,12 +105,28 @@ def build_agent(name: str) -> str:
             "            В loop-режиме вопросы запрещены.\n"
             "            Loop pack path: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md\n"
         )
+    if name == "reviewer":
+        loop_markers += "            Прочитай после loop pack: review.latest.pack.md\n"
     granularity_hint = ""
     if name == "tasklist-refiner":
         granularity_hint = "\n            Granularity: steps 3-7, expected paths 1-3, size budget set.\n"
     verify_step = ""
     if name in {"implementer", "reviewer", "qa"}:
         verify_step = "\n            2. Верифицируй результаты.\n"
+    format_response = "Text."
+    if name in {"implementer", "reviewer", "qa"}:
+        status_line = "Status: READY|WARN|BLOCKED|PENDING" if name == "implementer" else "Status: READY|WARN|BLOCKED"
+        format_response = (
+            "Checkbox updated: ...\n"
+            f"{status_line}\n"
+            "Work item key: ...\n"
+            "Artifacts updated: ...\n"
+            "Tests: ...\n"
+            "Blockers/Handoff: ...\n"
+            "Next actions: ...\n"
+            "Context read: ...\n"
+        )
+        format_response = format_response.replace("\n", "\n            ")
     return (
         dedent(
             f"""
@@ -142,7 +158,7 @@ def build_agent(name: str) -> str:
             Text.{question}
 
             ## Формат ответа
-            Text.
+            {format_response}
             """
         ).strip()
         + "\n"
@@ -152,6 +168,7 @@ def build_agent(name: str) -> str:
 def build_command(description: str = "test command") -> str:
     verify_step = ""
     context_pack_hint = ""
+    review_order_hint = ""
     loop_guard_hint = ""
     scope_hint = ""
     granularity_hint = ""
@@ -159,6 +176,7 @@ def build_command(description: str = "test command") -> str:
         verify_step = "\n        2. verify results.\n"
     if description == "review":
         context_pack_hint = "\n        Context pack: aidd/reports/context/$1.review.pack.md\n"
+        review_order_hint = "\n        Read loop pack, затем review.latest.pack.md, затем aidd/reports/context/$1.review.pack.md\n"
         loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
         scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
     elif description == "qa":
@@ -168,6 +186,18 @@ def build_command(description: str = "test command") -> str:
         scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
     if description == "tasks-new":
         granularity_hint = "\n        Granularity keys: deps, priority, blocking.\n"
+    expected_output = "Text."
+    if description in {"implement", "review", "qa"}:
+        status_line = "Status: READY|WARN|BLOCKED|PENDING" if description == "implement" else "Status: READY|WARN|BLOCKED"
+        expected_output = (
+            f"{status_line}\n"
+            "Work item key: ...\n"
+            "Artifacts updated: ...\n"
+            "Tests: ...\n"
+            "Blockers/Handoff: ...\n"
+            "Next actions: ...\n"
+        )
+        expected_output = expected_output.replace("\n", "\n        ")
     return dedent(
         f"""
         ---
@@ -182,7 +212,7 @@ def build_command(description: str = "test command") -> str:
         ---
 
         ## Контекст
-        Text.{context_pack_hint}
+        Text.{context_pack_hint}{review_order_hint}
         Канон: aidd/docs/prompting/conventions.md.{loop_guard_hint}{scope_hint}{granularity_hint}
 
         ## Входные артефакты
@@ -204,7 +234,7 @@ def build_command(description: str = "test command") -> str:
         Text.
 
         ## Ожидаемый вывод
-        Text.
+        {expected_output}
 
         ## Примеры CLI
         - `/cmd ABC-123`

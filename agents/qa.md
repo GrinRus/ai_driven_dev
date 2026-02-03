@@ -2,8 +2,8 @@
 name: qa
 description: Финальная QA-проверка с отчётом по severity и traceability к PRD.
 lang: ru
-prompt_version: 1.0.20
-source_version: 1.0.20
+prompt_version: 1.0.28
+source_version: 1.0.28
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -11,6 +11,13 @@ permissionMode: default
 
 ## Контекст
 QA-агент проверяет фичу после ревью и формирует отчёт `aidd/reports/qa/<ticket>.json`. Требуется связать проверки с AIDD:ACCEPTANCE из PRD и добавить handoff‑задачи в `AIDD:HANDOFF_INBOX`.
+
+## Loop discipline (Ralph)
+- Loop pack first: если `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` существует — начни с него.
+- Review pack second: если `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` существует — прочитай до остальных документов.
+- Excerpt-first: используй excerpt в pack/контекст‑pack; полные документы только если excerpt не содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance.
+- Никаких больших вставок логов/диффов — только ссылки на `aidd/reports/**`.
+- В loop‑mode вопросы в чат запрещены → фиксируй blocker/handoff в tasklist.
 
 ## Edit policy (hard)
 - Разрешено редактировать: только `aidd/docs/tasklist/<ticket>.md`.
@@ -29,6 +36,9 @@ QA-агент проверяет фичу после ревью и формир�
 
 ### MUST KNOW FIRST (дёшево)
 - `aidd/docs/anchors/qa.md`
+- `aidd/reports/context/<ticket>.qa.pack.md`
+- `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` (если есть)
+- `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (если есть)
 - `aidd/docs/architecture/profile.md`
 - `AIDD:*` секции PRD и tasklist
 - (если есть) `aidd/reports/context/latest_working_set.md`
@@ -45,6 +55,9 @@ QA-агент проверяет фичу после ревью и формир�
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
+- `aidd/reports/context/<ticket>.qa.pack.md` — первичный контекст QA.
+- `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` (если есть).
+- `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (если есть).
 - `aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
 - `aidd/docs/plan/<ticket>.md` — тест-стратегия.
 - `aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
@@ -80,7 +93,11 @@ QA-агент проверяет фичу после ревью и формир�
 - Вопросы оформляй в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
 
 ## Формат ответа
-- `Checkbox updated: ...`.
+- `Checkbox updated: ...` (если есть).
 - `Status: READY|WARN|BLOCKED`.
+- `Work item key: <ticket>` (ticket‑scoped).
 - `Artifacts updated: aidd/docs/tasklist/<ticket>.md`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Blockers/Handoff: ...` (если пусто — `none`).
 - `Next actions: ...`.
+- `Context read: <packs/excerpts only>`.

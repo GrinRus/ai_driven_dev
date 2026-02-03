@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
 from tools import runtime
-from tools.io_utils import dump_yaml, utc_timestamp
+from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
-DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+DEFAULT_REVIEWER_MARKER = "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
 
 
 def _split_items(values: Iterable[str] | None) -> List[str]:
@@ -41,6 +41,54 @@ def _dedupe(items: Iterable[str]) -> List[str]:
     return deduped
 
 
+def _append_misc_link(links: dict, value: str) -> None:
+    if not value:
+        return
+    misc = links.get("links")
+    if not isinstance(misc, list):
+        misc = []
+    if value not in misc:
+        misc.append(value)
+    links["links"] = misc
+
+
+def _parse_evidence_links(values: Iterable[str] | None) -> dict:
+    links: dict[str, object] = {}
+    extras: List[str] = []
+    for item in _split_items(values):
+        if "=" in item:
+            key, value = item.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                links[key] = value
+                continue
+        extras.append(item)
+    if extras:
+        links["links"] = _dedupe(extras)
+    return links
+
+
+def _latest_stream_log(root: Path, ticket: str) -> Optional[Path]:
+    log_dir = root / "reports" / "loops" / ticket
+    if not log_dir.exists():
+        return None
+    candidates = sorted(log_dir.glob("cli.loop-*.stream.log"))
+    if not candidates:
+        return None
+    return candidates[-1]
+
+
+def _stream_jsonl_for(stream_log: Path) -> Optional[Path]:
+    name = stream_log.name
+    if not name.endswith(".stream.log"):
+        return None
+    candidate = stream_log.with_name(name[: -len(".stream.log")] + ".stream.jsonl")
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write stage result (aidd.stage_result.v1).")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
@@ -49,12 +97,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--result", required=True, choices=("blocked", "continue", "done"))
     parser.add_argument("--scope-key", help="Optional scope key override.")
     parser.add_argument("--work-item-key", help="Optional work item key override.")
+    parser.add_argument("--allow-missing-work-item", action="store_true", help="Allow missing work_item_key on early BLOCKED results.")
     parser.add_argument("--reason", default="", help="Optional human-readable reason.")
     parser.add_argument("--reason-code", default="", help="Optional machine-readable reason code.")
+    parser.add_argument("--verdict", default="", help="Optional verdict for review stage (SHIP|REVISE|BLOCKED).")
+    parser.add_argument("--error", action="append", help="Error string (repeatable).")
+    parser.add_argument("--errors", action="append", help="Errors list (comma/space separated).")
     parser.add_argument("--artifact", action="append", help="Artifact path (repeatable).")
     parser.add_argument("--artifacts", action="append", help="Artifacts list (comma/space separated).")
-    parser.add_argument("--evidence-link", action="append", help="Evidence link (repeatable).")
-    parser.add_argument("--evidence-links", action="append", help="Evidence links list (comma/space separated).")
+    parser.add_argument("--evidence-link", action="append", help="Evidence link (repeatable, supports key=path).")
+    parser.add_argument("--evidence-links", action="append", help="Evidence links list (comma/space separated, supports key=path).")
     parser.add_argument("--producer", default="command", help="Producer label (default: command).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     return parser.parse_args(argv)
@@ -137,7 +189,7 @@ def _resolve_tests_evidence(
     ticket: str,
     scope_key: str,
     stage: str,
-) -> Tuple[Optional[str], bool]:
+) -> Tuple[Optional[str], bool, Optional[dict]]:
     from tools.reports import tests_log as _tests_log
 
     stages = [stage]
@@ -150,11 +202,50 @@ def _resolve_tests_evidence(
         stages=stages,
         statuses=("pass", "fail"),
     )
+    if entry and path and path.exists():
+        return runtime.rel_path(path, target), True, entry
+    entry, path = _tests_log.latest_entry(
+        target,
+        ticket,
+        scope_key,
+        stages=stages,
+        statuses=None,
+    )
     if not path or not path.exists():
-        return None, False
-    has_evidence = entry is not None
-    rel_path = runtime.rel_path(path, target)
-    return rel_path, has_evidence
+        return None, False, None
+    return runtime.rel_path(path, target), False, entry
+
+
+def _load_review_pack_verdict(target: Path, ticket: str, scope_key: str) -> str:
+    pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+    if not pack_path.exists():
+        return ""
+    front = parse_front_matter(pack_path.read_text(encoding="utf-8"))
+    verdict = str(front.get("verdict") or "").strip().upper()
+    return verdict if verdict in {"SHIP", "REVISE", "BLOCKED"} else ""
+
+
+def _load_qa_report_status(target: Path, ticket: str) -> str:
+    report_path = target / "reports" / "qa" / f"{ticket}.json"
+    if not report_path.exists():
+        return ""
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    status = str(payload.get("status") or "").strip().upper()
+    return status if status in {"READY", "WARN", "BLOCKED"} else ""
+
+
+def _review_context_pack_placeholder(target: Path, ticket: str) -> bool:
+    pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+    if not pack_path.exists():
+        return False
+    try:
+        content = pack_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "<stage-specific goal>" in content
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -177,16 +268,22 @@ def main(argv: list[str] | None = None) -> int:
         else:
             scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
-    if stage in {"implement", "review"} and not work_item_key:
-        raise ValueError("work_item_key is required for implement/review stage results")
+    if stage in {"implement", "review"}:
+        if work_item_key and not runtime.is_valid_work_item_key(work_item_key):
+            raise ValueError("work_item_key must match iteration_id=<id> or id=<id> (no composite keys)")
+        if not work_item_key and not args.allow_missing_work_item:
+            raise ValueError("work_item_key is required for implement/review stage results")
 
     artifacts = _dedupe(_split_items(args.artifact) + _split_items(args.artifacts))
-    evidence_links = _dedupe(_split_items(args.evidence_link) + _split_items(args.evidence_links))
+    errors = _dedupe(_split_items(args.error) + _split_items(args.errors))
+    evidence_links = _parse_evidence_links(_split_items(args.evidence_link) + _split_items(args.evidence_links))
     producer = (args.producer or "command").strip()
     result = (args.result or "").strip().lower()
     requested_result = result
     reason = (args.reason or "").strip()
     reason_code = (args.reason_code or "").strip().lower()
+    verdict = (args.verdict or "").strip().upper()
+    explicit_blocked_review = stage == "review" and (requested_result == "blocked" or verdict == "BLOCKED")
 
     tests_required, tests_block, marker_source = _tests_policy(
         target,
@@ -194,30 +291,134 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=context.slug_hint,
         scope_key=scope_key,
     )
-    tests_link, tests_evidence = _resolve_tests_evidence(
+    pack_verdict = ""
+    context_pack_missing = False
+    context_pack_placeholder = False
+    if stage == "review":
+        pack_verdict = _load_review_pack_verdict(target, ticket, scope_key)
+        context_pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+        if not context_pack_path.exists():
+            context_pack_missing = True
+        else:
+            context_pack_placeholder = _review_context_pack_placeholder(target, ticket)
+    qa_report_status = ""
+    if stage == "qa":
+        qa_report_status = _load_qa_report_status(target, ticket)
+    tests_link, tests_evidence, tests_entry = _resolve_tests_evidence(
         target,
         ticket=ticket,
         scope_key=scope_key,
         stage=stage,
     )
     if tests_link:
-        evidence_links.append(tests_link)
+        evidence_links.setdefault("tests_log", tests_link)
+    skip_reason_code = ""
+    skip_reason = ""
+    if tests_entry and not tests_evidence:
+        status_value = str(tests_entry.get("status") or "").strip().lower()
+        if status_value in {"skipped", "not-run", "skip"}:
+            skip_reason_code = str(tests_entry.get("reason_code") or "").strip().lower() or "tests_skipped"
+            skip_reason = str(tests_entry.get("reason") or "").strip()
+            if not skip_reason:
+                details = tests_entry.get("details")
+                if isinstance(details, dict):
+                    skip_reason = str(details.get("reason") or "").strip()
     if tests_required and not tests_evidence and not reason_code:
-        reason_code = "missing_test_evidence"
-        if not reason:
-            reason = "tests evidence required but not found"
-    if tests_required and not tests_evidence:
+        if skip_reason_code:
+            reason_code = skip_reason_code
+            if not reason and skip_reason:
+                reason = skip_reason
+        else:
+            reason_code = "missing_test_evidence"
+            if not reason:
+                reason = "tests evidence required but not found"
+    missing_tests = tests_required and not tests_evidence
+    tests_reason_codes = {"missing_test_evidence"}
+    if skip_reason_code:
+        tests_reason_codes.add(skip_reason_code)
+    tests_reason = bool(reason_code and reason_code in tests_reason_codes)
+    if missing_tests:
         if tests_block:
             result = "blocked"
-        elif stage == "review" and result != "blocked":
-            result = "continue"
+            if stage == "review":
+                verdict = "BLOCKED"
+        elif tests_reason:
+            if stage == "review":
+                if not explicit_blocked_review:
+                    result = "continue"
+                    verdict = "REVISE"
+            elif stage == "implement" and result == "blocked":
+                result = "continue"
+            elif stage == "qa" and result == "blocked":
+                result = "done"
 
-    warn_reason_codes = {"out_of_scope_warn", "no_boundaries_defined_warn"}
+    warn_reason_codes = {
+        "out_of_scope_warn",
+        "no_boundaries_defined_warn",
+        "auto_boundary_extend_warn",
+        "review_context_pack_placeholder_warn",
+    }
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
 
-    if marker_source and marker_source not in evidence_links:
-        evidence_links.append(marker_source)
+    if stage == "qa" and qa_report_status:
+        if qa_report_status == "BLOCKED":
+            result = "blocked"
+        elif qa_report_status in {"READY", "WARN"} and result == "blocked":
+            result = "done"
+        if qa_report_status == "BLOCKED":
+            if reason_code in {"", "manual_skip"}:
+                reason_code = "qa_blocked"
+                if not reason:
+                    reason = "qa report blocked"
+        elif qa_report_status == "WARN":
+            if not reason_code or reason_code == "manual_skip":
+                reason_code = "qa_warn"
+                if not reason:
+                    reason = "qa report warn"
+
+    if stage == "review" and context_pack_missing:
+        result = "blocked"
+        if not reason_code:
+            reason_code = "review_context_pack_missing"
+        if not reason:
+            reason = "review context pack missing"
+        verdict = "BLOCKED"
+        pack_verdict = ""
+    elif stage == "review" and context_pack_placeholder:
+        placeholder_reason = "review_context_pack_placeholder_warn"
+        if not reason:
+            reason = "review context pack placeholder found"
+        elif "review context pack placeholder found" not in reason:
+            reason = f"{reason}; review context pack placeholder found"
+        if not reason_code:
+            reason_code = placeholder_reason
+        if result == "done":
+            result = "continue"
+        elif reason_code == placeholder_reason and result == "blocked":
+            result = "continue"
+
+    if stage == "review":
+        if pack_verdict:
+            verdict = pack_verdict
+        elif explicit_blocked_review and reason_code not in warn_reason_codes:
+            verdict = "BLOCKED"
+        if not verdict:
+            if result == "done":
+                verdict = "SHIP"
+            elif result == "continue":
+                verdict = "REVISE"
+            elif result == "blocked":
+                verdict = "BLOCKED"
+        if verdict == "SHIP":
+            result = "done"
+        elif verdict == "REVISE":
+            result = "continue"
+        elif verdict == "BLOCKED":
+            result = "blocked"
+
+    if marker_source and marker_source != evidence_links.get("reviewer_marker"):
+        evidence_links["reviewer_marker"] = marker_source
 
     if stage == "review":
         report_template = runtime.review_report_template(target)
@@ -229,12 +430,32 @@ def main(argv: list[str] | None = None) -> int:
         )
         report_path = runtime.resolve_path_for_target(Path(report_rel), target)
         if report_path.exists():
-            evidence_links.append(runtime.rel_path(report_path, target))
+            evidence_links.setdefault("review_report", runtime.rel_path(report_path, target))
         pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
         if pack_path.exists():
-            evidence_links.append(runtime.rel_path(pack_path, target))
+            evidence_links.setdefault("review_pack", runtime.rel_path(pack_path, target))
+        fix_plan_path = target / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
+        if fix_plan_path.exists():
+            evidence_links.setdefault("fix_plan_json", runtime.rel_path(fix_plan_path, target))
 
-    evidence_links = _dedupe(evidence_links)
+    if "cli_log" not in evidence_links:
+        stream_log = _latest_stream_log(target, ticket)
+        if stream_log:
+            evidence_links["cli_log"] = runtime.rel_path(stream_log, target)
+            if "cli_stream" not in evidence_links:
+                stream_jsonl = _stream_jsonl_for(stream_log)
+                if stream_jsonl:
+                    evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
+    elif "cli_stream" not in evidence_links:
+        cli_log_value = str(evidence_links.get("cli_log") or "")
+        if cli_log_value:
+            cli_log_path = runtime.resolve_path_for_target(Path(cli_log_value), target)
+            stream_jsonl = _stream_jsonl_for(cli_log_path)
+            if stream_jsonl:
+                evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
+
+    if not evidence_links:
+        evidence_links = {}
 
     payload = {
         "schema": "aidd.stage_result.v1",
@@ -246,7 +467,9 @@ def main(argv: list[str] | None = None) -> int:
         "reason": reason,
         "reason_code": reason_code,
         "work_item_key": work_item_key or None,
+        "verdict": verdict or None,
         "artifacts": artifacts,
+        "errors": errors,
         "evidence_links": evidence_links,
         "updated_at": utc_timestamp(),
         "producer": producer,

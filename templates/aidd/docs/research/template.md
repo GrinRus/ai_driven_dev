@@ -16,6 +16,10 @@ Artifacts:
 - Invalid paths: {{invalid_paths}}
 - Pack-first: используйте `*-rlm.pack.*` и `rlm-slice`; не вставляйте raw JSONL.
 
+## AIDD:PRD_OVERRIDES
+{{prd_overrides}}
+- Должно совпадать с PRD (`USER OVERRIDE`) и не противоречить принятым решениям.
+
 ## AIDD:NON_NEGOTIABLES
 - {{non_negotiables}}
 
@@ -40,6 +44,10 @@ Artifacts:
 ## AIDD:RLM_EVIDENCE
 - Status: {{rlm_status}}
 - Pack: {{rlm_pack_path}}
+- Pack status: {{rlm_pack_status}}
+- Pack bytes: {{rlm_pack_bytes}}
+- Pack updated_at: {{rlm_pack_updated_at}}
+- Warnings: {{rlm_warnings}} (e.g., rlm_links_empty_warn)
 - Slice: ${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 

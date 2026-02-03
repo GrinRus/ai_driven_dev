@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,6 +36,14 @@ def _normalize_status(value: object) -> str:
     return str(normalized).strip().upper()
 
 
+def _strip_updated_at(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    cleaned = dict(payload)
+    cleaned.pop("updated_at", None)
+    return cleaned
+
+
 def _inflate_columnar(section: object) -> List[Dict]:
     if not isinstance(section, dict):
         return []
@@ -64,6 +73,41 @@ def _stable_finding_id(prefix: str, *parts: object) -> str:
         digest.update(b"|")
         digest.update(normalized.encode("utf-8"))
     return digest.hexdigest()[:12]
+
+
+def _normalize_severity(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    return raw or "unknown"
+
+
+def _extract_summary(entry: Dict[str, Any], fallback: Optional[Dict[str, Any]] = None) -> str:
+    for key in ("summary", "title", "message", "details", "recommendation"):
+        value = entry.get(key)
+        if value:
+            return str(value).strip()
+    if fallback:
+        return _extract_summary(fallback, None)
+    return ""
+
+
+def _extract_links(entry: Dict[str, Any], fallback: Optional[Dict[str, Any]] = None) -> List[str]:
+    links = entry.get("links")
+    if isinstance(links, list):
+        return [str(item).strip() for item in links if str(item).strip()]
+    link = entry.get("link") or entry.get("path") or entry.get("file")
+    if link:
+        return [str(link).strip()]
+    if fallback:
+        return _extract_links(fallback, None)
+    return []
+
+
+def _normalize_blocking(entry: Dict[str, Any], severity: str) -> bool:
+    if entry.get("blocking") is True:
+        return True
+    if severity in {"blocker", "critical"}:
+        return True
+    return False
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -112,6 +156,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--summary",
         help="Optional summary for the review report.",
     )
+    parser.add_argument(
+        "--fix-plan",
+        help="Optional JSON object with structured fix plan.",
+    )
+    parser.add_argument(
+        "--fix-plan-file",
+        help="Path to JSON file containing structured fix plan.",
+    )
     return parser.parse_args(argv)
 
 
@@ -144,11 +196,19 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     report_template = args.report or runtime.review_report_template(target)
+    if "{scope_key}" not in report_template:
+        print(
+            "[aidd] WARN: review report template missing {scope_key}; falling back to default template.",
+            file=sys.stderr,
+        )
+        report_template = runtime.DEFAULT_REVIEW_REPORT
     report_text = _fmt(report_template)
     report_path = runtime.resolve_path_for_target(Path(report_text), target)
 
     if args.findings and args.findings_file:
         raise ValueError("use --findings or --findings-file (not both)")
+    if args.fix_plan and args.fix_plan_file:
+        raise ValueError("use --fix-plan or --fix-plan-file (not both)")
 
     input_payload = None
     if args.findings_file:
@@ -180,14 +240,59 @@ def main(argv: list[str] | None = None) -> int:
             return [entry for entry in raw if isinstance(entry, dict)]
         return []
 
+    def _looks_like_report_payload(payload: Dict[str, Any]) -> bool:
+        kind = str(payload.get("kind") or "").strip().lower()
+        stage = str(payload.get("stage") or "").strip().lower()
+        if kind == "review" or stage == "review":
+            return True
+        if "findings" in payload or "blocking_findings_count" in payload:
+            return True
+        return False
+
+    if report_path.exists():
+        try:
+            legacy_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            legacy_payload = {}
+        if isinstance(legacy_payload, dict) and not _looks_like_report_payload(legacy_payload):
+            gates_cfg = runtime.load_gates_config(target)
+            reviewer_cfg = gates_cfg.get("reviewer") if isinstance(gates_cfg, dict) else {}
+            if not isinstance(reviewer_cfg, dict):
+                reviewer_cfg = {}
+            marker_template = str(
+                reviewer_cfg.get("tests_marker")
+                or reviewer_cfg.get("marker")
+                or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
+            )
+            marker_path = runtime.reviewer_marker_path(
+                target,
+                marker_template,
+                ticket,
+                slug_hint,
+                scope_key=scope_key,
+            )
+            if marker_path.resolve() != report_path.resolve():
+                if not marker_path.exists():
+                    marker_path.parent.mkdir(parents=True, exist_ok=True)
+                    marker_path.write_text(
+                        json.dumps(legacy_payload, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                try:
+                    report_path.unlink()
+                except OSError:
+                    pass
+
     existing_payload: Dict[str, Any] = {}
     existing_findings: List[Dict] = []
+    existing_updated_at = ""
     if report_path.exists():
         try:
             existing_payload = json.loads(report_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             existing_payload = {}
     if isinstance(existing_payload, dict):
+        existing_updated_at = str(existing_payload.get("updated_at") or "")
         existing_findings = _extract_findings(existing_payload.get("findings"))
 
     def _normalize_signature_text(value: object) -> str:
@@ -234,13 +339,48 @@ def main(argv: list[str] | None = None) -> int:
             merged.append(item)
         return merged
 
+    def _normalize_findings(items: List[Dict]) -> List[Dict]:
+        normalized: List[Dict] = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            item = dict(entry)
+            summary = _extract_summary(item)
+            if not summary:
+                summary = "n/a"
+            item["summary"] = summary
+            severity = _normalize_severity(item.get("severity"))
+            item["severity"] = severity
+            scope = str(item.get("scope") or "").strip()
+            if scope:
+                item["scope"] = scope
+            links = _extract_links(item)
+            item["links"] = links
+            item["blocking"] = _normalize_blocking(item, severity)
+            normalized.append(item)
+        return normalized
+
+    fix_plan_payload = None
+    if args.fix_plan_file:
+        try:
+            fix_plan_payload = json.loads(Path(args.fix_plan_file).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in --fix-plan-file: {exc}") from exc
+    elif args.fix_plan:
+        try:
+            fix_plan_payload = json.loads(args.fix_plan)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON for --fix-plan: {exc}") from exc
+    elif isinstance(input_payload, dict):
+        fix_plan_payload = input_payload.get("fix_plan") or input_payload.get("fixPlan")
+
     new_findings: List[Dict] = []
     if input_payload is not None:
         new_findings = _extract_findings(input_payload)
         new_findings = _merge_findings(existing_findings, new_findings)
 
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    record: Dict[str, Any] = existing_payload if isinstance(existing_payload, dict) else {}
+    record: Dict[str, Any] = dict(existing_payload) if isinstance(existing_payload, dict) else {}
     record.update(
         {
             "ticket": ticket,
@@ -249,7 +389,6 @@ def main(argv: list[str] | None = None) -> int:
             "stage": "review",
             "scope_key": scope_key,
             "work_item_key": work_item_key,
-            "updated_at": now,
         }
     )
     if branch:
@@ -259,16 +398,72 @@ def main(argv: list[str] | None = None) -> int:
         record["status"] = _normalize_status(args.status)
     if args.summary:
         record["summary"] = str(args.summary).strip()
-    if new_findings:
-        record["findings"] = new_findings
-    elif "findings" in record:
-        record["findings"] = record.get("findings") or []
+    if fix_plan_payload is not None:
+        record["fix_plan"] = fix_plan_payload
+    if "tests_summary" not in record:
+        try:
+            from tools.reports import tests_log as _tests_log
 
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            summary, reason_code, tests_path, _entry = _tests_log.summarize_tests(
+                target,
+                ticket,
+                scope_key,
+                stages=["review", "implement"],
+            )
+            record["tests_summary"] = summary
+            if reason_code:
+                record.setdefault("tests_reason_code", reason_code)
+            if tests_path and tests_path.exists():
+                record.setdefault("tests_log_path", runtime.rel_path(tests_path, target))
+        except Exception:
+            pass
+    findings_payload: List[Dict] = []
+    if new_findings:
+        findings_payload = _normalize_findings(new_findings)
+    elif "findings" in record:
+        findings_payload = _normalize_findings(record.get("findings") or [])
+    if findings_payload:
+        record["findings"] = findings_payload
+    elif "findings" in record:
+        record["findings"] = []
+
+    if "findings" in record:
+        record["blocking_findings_count"] = sum(
+            1 for entry in record.get("findings") or [] if isinstance(entry, dict) and entry.get("blocking")
+        )
+
+    record.pop("updated_at", None)
+    existing_compare = _strip_updated_at(existing_payload)
+    record_compare = _strip_updated_at(record)
+    changed = record_compare != existing_compare or not report_path.exists()
+    if not existing_updated_at and not changed:
+        changed = True
+
+    if changed:
+        record["updated_at"] = now
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    else:
+        record["updated_at"] = existing_updated_at or now
+
     rel_report = runtime.rel_path(report_path, target)
-    print(f"[aidd] review report saved to {rel_report}.")
+    if changed:
+        print(f"[aidd] review report saved to {rel_report}.")
+    else:
+        print(f"[aidd] review report unchanged ({rel_report}).")
     runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="review-report")
+
+    active_work_item = runtime.read_active_work_item(target).strip()
+    if active_work_item and active_work_item == work_item_key:
+        loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
+        pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if loop_pack_path.exists() and (changed or not pack_path.exists()):
+            try:
+                from tools import review_pack as review_pack_module
+
+                review_pack_module.main(["--ticket", ticket])
+            except Exception as exc:
+                print(f"[aidd] WARN: failed to auto-generate review pack: {exc}", file=sys.stderr)
     return 0
 
 

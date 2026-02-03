@@ -84,7 +84,7 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
     write_active_stage(tmp_path, "implement")
     write_json(
         tmp_path,
-        "reports/reviewer/demo/demo.json",
+        "reports/reviewer/demo/demo.tests.json",
         {"ticket": "demo", "slug": "demo", "tests": "required", "requested_by": "ci"},
     )
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")

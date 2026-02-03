@@ -49,7 +49,7 @@ Key features:
 /feature-dev-aidd:aidd-init
 ```
 
-If you want to populate `.claude/settings.json` with `automation.tests` defaults, run:
+`/feature-dev-aidd:aidd-init` creates `.claude/settings.json` with default `automation.tests`. To refresh/detect stack-specific defaults, run:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
@@ -104,11 +104,12 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until SHIP |
+| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
 | `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
 | `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (stage/artifacts/events) |
+| `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.json` |
 | `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
@@ -148,6 +149,7 @@ RLM artifacts (pack-first):
 ## Loop mode (implement↔review)
 
 Loop = 1 work_item → implement → review → (revise)* → ship.
+If open iterations remain in `AIDD:NEXT_3`/`AIDD:ITERATIONS_FULL` after SHIP, loop-run selects the next work item, updates `.active_work_item`/`.active_stage`, and continues with implement.
 
 Key artifacts:
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` — thin iteration context.
@@ -158,16 +160,30 @@ Commands:
 - Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
+- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
+  `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
+
+Example from the project root:
+```bash
+CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.sh" --ticket ABC-123 --max-iterations 5
+```
 
 Note:
 - Ralph plugin uses a stop-hook in the same session (completion promise). AIDD loop-mode uses fresh sessions.
 - Use the space form for max-iterations: `--max-iterations 5` (no `=`).
+- If `CLAUDE_PLUGIN_ROOT`/`AIDD_PLUGIN_DIR` is not set, loop scripts attempt auto-detect from the script path and emit WARN; if auto-detect fails they block.
+- Stream logs: `aidd/reports/loops/<ticket>/cli.loop-*.stream.log` (human) and `aidd/reports/loops/<ticket>/cli.loop-*.stream.jsonl` (raw).
+- Loop run log: `aidd/reports/loops/<ticket>/loop.run.log`.
+- Cadence/tests settings live in `.claude/settings.json` at the workspace root (no `aidd/.claude`).
 
 Rules:
 - Loop pack first, no large log/diff pastes (use `aidd/reports/**` links).
 - Review does not expand scope: new work → `AIDD:OUT_OF_SCOPE_BACKLOG` or new work item.
+- Review pack is required; if review report + loop pack exist it can be regenerated.
+- Final Status in implement/review/qa must match `stage_result`.
 - Allowed paths come from `Expected paths` per iteration (`AIDD:ITERATIONS_FULL`).
 - Loop-mode tests: implement does not run tests by default; set `AIDD_LOOP_TESTS=1` or `AIDD_TEST_FORCE=1`. Review skips tests.
+- Tests evidence: `tests_log` with `status=skipped` + `reason_code` counts as evidence for `tests_required=soft` (for `hard` → BLOCKED).
 
 ## Prerequisites
 - `bash`, `git`, `python3`.

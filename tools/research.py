@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -51,6 +52,62 @@ def _ensure_research_doc(
         content = content.replace(placeholder, value)
     destination.write_text(content, encoding="utf-8")
     return destination, True
+
+
+def _extract_prd_overrides(prd_text: str) -> list[str]:
+    overrides: list[str] = []
+    for line in prd_text.splitlines():
+        if re.search(r"USER OVERRIDE", line, re.IGNORECASE):
+            overrides.append(line.strip())
+    return overrides
+
+
+def _render_overrides_block(overrides: list[str]) -> list[str]:
+    if not overrides:
+        return ["- none"]
+    return [f"- {line}" for line in overrides]
+
+
+def _replace_section(text: str, heading: str, body_lines: list[str]) -> str:
+    lines = text.splitlines()
+    out: list[str] = []
+    found = False
+    idx = 0
+    heading_line = f"## {heading}"
+    while idx < len(lines):
+        line = lines[idx]
+        if line.strip() == heading_line:
+            found = True
+            out.append(heading_line)
+            out.extend(body_lines)
+            idx += 1
+            while idx < len(lines) and not lines[idx].startswith("## "):
+                idx += 1
+            continue
+        out.append(line)
+        idx += 1
+    if not found:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(heading_line)
+        out.extend(body_lines)
+    result = "\n".join(out).rstrip() + "\n"
+    return result
+
+
+def _sync_prd_overrides(
+    target: Path,
+    *,
+    ticket: str,
+    overrides: list[str],
+) -> None:
+    research_path = target / "docs" / "research" / f"{ticket}.md"
+    if not research_path.exists():
+        return
+    text = research_path.read_text(encoding="utf-8")
+    updated = _replace_section(text, "AIDD:PRD_OVERRIDES", _render_overrides_block(overrides))
+    if updated != text:
+        research_path.write_text(updated, encoding="utf-8")
 
 
 def _validate_json_file(path: Path, label: str) -> None:
@@ -178,6 +235,11 @@ def run(args: argparse.Namespace) -> int:
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+
+    prd_path = target / "docs" / "prd" / f"{ticket}.prd.md"
+    prd_text = prd_path.read_text(encoding="utf-8") if prd_path.exists() else ""
+    prd_overrides = _extract_prd_overrides(prd_text)
+    overrides_block = "\n".join(_render_overrides_block(prd_overrides))
 
     def _sync_index(reason: str) -> None:
         runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason=reason)
@@ -353,10 +415,59 @@ def run(args: argparse.Namespace) -> int:
         collected_context["rlm_manifest_path"] = os.path.relpath(rlm_manifest_path, target)
     if rlm_worklist_path:
         collected_context["rlm_worklist_path"] = os.path.relpath(rlm_worklist_path, target)
-    collected_context["rlm_nodes_path"] = f"reports/research/{ticket}-rlm.nodes.jsonl"
-    collected_context["rlm_links_path"] = f"reports/research/{ticket}-rlm.links.jsonl"
-    collected_context["rlm_pack_path"] = f"reports/research/{ticket}-rlm{pack_ext}"
-    collected_context["rlm_status"] = "pending"
+    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    rlm_pack_rel = f"reports/research/{ticket}-rlm{pack_ext}"
+    rlm_pack_path = target / rlm_pack_rel
+    if not args.dry_run:
+        if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
+            try:
+                from tools import reports_pack as _reports_pack
+
+                rlm_pack_path = _reports_pack.write_rlm_pack(
+                    nodes_path,
+                    links_path,
+                    ticket=ticket,
+                    slug_hint=feature_context.slug_hint,
+                    root=target,
+                    limits=None,
+                )
+                try:
+                    _validate_json_file(rlm_pack_path, "rlm pack")
+                except RuntimeError as exc:
+                    print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+                    return 2
+                rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
+                print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
+            except Exception as exc:
+                print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
+                return 2
+
+    links_ok = links_path.exists() and links_path.stat().st_size > 0
+    pack_exists = rlm_pack_path.exists()
+    rlm_status = "pending"
+    rlm_warnings: list[str] = []
+    if pack_exists:
+        rlm_status = "ready"
+        if not links_ok:
+            rlm_warnings.append("rlm_links_empty_warn")
+            print("[aidd] WARN: rlm links empty; rlm_status set to ready with warning.", file=sys.stderr)
+
+    collected_context["rlm_nodes_path"] = nodes_path.relative_to(target).as_posix()
+    collected_context["rlm_links_path"] = links_path.relative_to(target).as_posix()
+    collected_context["rlm_pack_path"] = rlm_pack_rel
+    collected_context["rlm_status"] = rlm_status
+    collected_context["rlm_pack_status"] = "found" if pack_exists else "missing"
+    if pack_exists:
+        stat = rlm_pack_path.stat()
+        collected_context["rlm_pack_bytes"] = stat.st_size
+        collected_context["rlm_pack_updated_at"] = (
+            dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+    if rlm_warnings:
+        collected_context["rlm_warnings"] = rlm_warnings
     match_count = len(collected_context["matches"])
     if match_count == 0:
         print(
@@ -403,30 +514,6 @@ def run(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
         return 2
-    rlm_pack_path = None
-    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-    if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
-        try:
-            rlm_pack_path = _reports_pack.write_rlm_pack(
-                nodes_path,
-                links_path,
-                ticket=ticket,
-                slug_hint=feature_context.slug_hint,
-                root=target,
-                limits=None,
-            )
-            try:
-                _validate_json_file(rlm_pack_path, "rlm pack")
-            except RuntimeError as exc:
-                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-                return 2
-            rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
-            print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
-        except Exception as exc:
-            print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
-            return 2
-
     ast_grep_path = collected_context.get("ast_grep_path")
     if ast_grep_path:
         try:
@@ -460,6 +547,8 @@ def run(args: argparse.Namespace) -> int:
 
     if not args.no_template:
         template_overrides: dict[str, str] = {}
+        if overrides_block:
+            template_overrides["{{prd_overrides}}"] = overrides_block
         if match_count == 0:
             template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
             template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
@@ -481,6 +570,8 @@ def run(args: argparse.Namespace) -> int:
                 print(f"[aidd] research summary created at {rel_doc}.")
             else:
                 print(f"[aidd] research summary already exists at {rel_doc}.")
+
+    _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 
     try:
         from tools.reports import events as _events

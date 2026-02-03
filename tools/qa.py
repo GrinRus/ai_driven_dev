@@ -273,6 +273,18 @@ def _run_qa_tests(
     base_name = report_path.stem
     summary = "not-run"
 
+    def _output_indicates_skip(text: str) -> bool:
+        lowered = text.lower()
+        return any(
+            marker in lowered
+            for marker in (
+                "форматирование/тесты пропущены",
+                "стадия тестов пропущена",
+                "тесты пропущены",
+                "tests skipped",
+            )
+        )
+
     for index, cmd in enumerate(commands, start=1):
         log_path = logs_dir / f"{base_name}-tests{'' if len(commands) == 1 else f'-{index}'}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -295,6 +307,8 @@ def _run_qa_tests(
             status = "fail"
             output = f"command not found: {cmd[0]} ({exc})"
         log_path.write_text(output, encoding="utf-8")
+        if status == "pass" and _output_indicates_skip(output):
+            status = "skipped"
 
         tests_executed.append(
             {
@@ -307,6 +321,8 @@ def _run_qa_tests(
 
     if any(entry.get("status") == "fail" for entry in tests_executed):
         summary = "fail"
+    elif any(entry.get("status") == "skipped" for entry in tests_executed):
+        summary = "skipped"
     else:
         summary = "pass" if tests_executed else "not-run"
 
@@ -472,7 +488,20 @@ def main(argv: list[str] | None = None) -> int:
             exit_code = 0
         elif tests_summary == "fail":
             exit_code = 1
-        profile = "full" if commands else "none"
+        reason_code = ""
+        reason = ""
+        if tests_summary in {"skipped", "not-run"}:
+            reason_code = "manual_skip"
+            if skip_tests:
+                reason = "qa skip-tests flag"
+            elif allow_no_tests:
+                reason = "qa allow_no_tests enabled"
+            else:
+                reason = "qa tests skipped"
+        if tests_summary in {"skipped", "not-run"}:
+            profile = "none"
+        else:
+            profile = "full" if commands else "none"
         _tests_log.append_log(
             target,
             ticket=ticket,
@@ -486,6 +515,8 @@ def main(argv: list[str] | None = None) -> int:
             exit_code=exit_code,
             log_path=log_path or None,
             status=tests_summary,
+            reason_code=reason_code or None,
+            reason=reason or None,
             details={"qa_tests": True},
             source="qa",
             cwd=str(target),
@@ -526,6 +557,8 @@ def main(argv: list[str] | None = None) -> int:
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
     if tests_required_mode == "hard":
         allow_no_tests_env = False
+    elif tests_required_mode == "soft":
+        allow_no_tests_env = True
 
     old_env = {
         "QA_TESTS_SUMMARY": os.environ.get("QA_TESTS_SUMMARY"),
@@ -578,6 +611,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.dry_run:
         runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="qa")
+    report_rel = runtime.rel_path(report_path, target)
+    pack_path = report_path.with_suffix(".pack.json")
+    if report_path.exists():
+        print(f"[aidd] QA report saved to {report_rel}.", file=sys.stderr)
+    if pack_path.exists():
+        print(f"[aidd] QA pack saved to {runtime.rel_path(pack_path, target)}.", file=sys.stderr)
     return exit_code
 
 

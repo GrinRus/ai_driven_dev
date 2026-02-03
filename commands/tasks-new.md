@@ -2,8 +2,8 @@
 description: "Tasklist: scaffold + refiner (детализация по plan/PRD/spec)"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.1.18
-source_version: 1.1.18
+prompt_version: 1.1.19
+source_version: 1.1.19
 allowed-tools:
   - Read
   - Edit
@@ -74,6 +74,7 @@ disable-model-invocation: false
 - Нет plan/Plan Review/PRD Review READY — остановись и попроси завершить `/feature-dev-aidd:review-spec`.
 - Если есть UI/UX или front-end изменения (а также API/DATA/E2E) и spec отсутствует — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`.
 - Если непонятны владельцы/сроки — запроси уточнения.
+- Если в tool_result отсутствует `id`, продолжай best-effort и зафиксируй WARN с `request_id` (не падай).
 
 ## Ожидаемый вывод
 - Актуальный `aidd/docs/tasklist/$1.md` с `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL`, `AIDD:NEXT_3` и `AIDD:HANDOFF_INBOX`.

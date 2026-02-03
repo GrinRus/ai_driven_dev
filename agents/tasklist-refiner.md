@@ -2,8 +2,8 @@
 name: tasklist-refiner
 description: Синтез подробного tasklist из plan/PRD/spec без интервью (no AskUserQuestionTool).
 lang: ru
-prompt_version: 1.1.18
-source_version: 1.1.18
+prompt_version: 1.1.19
+source_version: 1.1.19
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -99,6 +99,7 @@ Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE
 - Если нет plan/PRD/research — `Status: BLOCKED` и запросить `/feature-dev-aidd:review-spec`.
 - Если отсутствует `*-rlm.pack.*` там, где он ожидается — `Status: BLOCKED` и запросить завершение agent‑flow.
 - Если ключевые решения отсутствуют — `Status: BLOCKED` и запросить `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
+- Если в tool_result отсутствует `id`, продолжай best-effort и зафиксируй WARN с `request_id` (не падай).
 
 ## Формат ответа
 - `Checkbox updated: ...`

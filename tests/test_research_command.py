@@ -245,6 +245,53 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertTrue(any(p.get("path", "").startswith("foo") for p in payload.get("paths") or []))
             self.assertGreaterEqual(len(payload.get("matches") or []), 1, "manual parent path should be scanned")
 
+    def test_research_command_syncs_prd_overrides(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-overrides-") as tmpdir:
+            project_root = Path(tmpdir) / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=Path(tmpdir),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            prd_text = "\n".join(
+                [
+                    "# PRD",
+                    "",
+                    "## Decisions",
+                    "- USER OVERRIDE: timezone=UTC",
+                    "- USER OVERRIDE: test filtering=enabled",
+                ]
+            )
+            (project_root / "docs" / "prd").mkdir(parents=True, exist_ok=True)
+            (project_root / "docs" / "prd" / "OVR-1.prd.md").write_text(prd_text, encoding="utf-8")
+
+            subprocess.run(
+                cli_cmd(
+                    "research",
+                    "--ticket",
+                    "OVR-1",
+                    "--limit",
+                    "1",
+                ),
+                cwd=project_root,
+                env=cli_env(),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            research_path = project_root / "docs" / "research" / "OVR-1.md"
+            self.assertTrue(research_path.exists(), "Research summary should be materialised")
+            research_text = research_path.read_text(encoding="utf-8")
+            self.assertIn("## AIDD:PRD_OVERRIDES", research_text)
+            self.assertIn("USER OVERRIDE: timezone=UTC", research_text)
+            self.assertIn("USER OVERRIDE: test filtering=enabled", research_text)
+
     def test_research_command_auto_fast_scan_non_jvm(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-fast-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"

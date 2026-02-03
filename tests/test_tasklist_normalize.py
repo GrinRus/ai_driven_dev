@@ -194,6 +194,101 @@ def test_tasklist_normalize_inserts_next3_when_missing(tmp_path):
 
     updated = (project_root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
     assert "## AIDD:NEXT_3" in updated
+
+
+def test_tasklist_normalize_shifts_next3_when_item_closed(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    ticket = "demo-shift"
+    write_active_feature(project_root, ticket)
+    _write_plan(project_root, ticket)
+
+    tasklist = dedent(
+        f"""\
+        ---
+        Ticket: {ticket}
+        Status: READY
+        Updated: 2024-01-01
+        Plan: aidd/docs/plan/{ticket}.md
+        ---
+
+        ## AIDD:CONTEXT_PACK
+        Status: READY
+
+        ## AIDD:SPEC_PACK
+        - Goal: demo
+
+        ## AIDD:TEST_STRATEGY
+        - Unit: smoke
+
+        ## AIDD:TEST_EXECUTION
+        - profile: none
+        - tasks: []
+        - filters: []
+        - when: manual
+        - reason: docs-only
+
+        ## AIDD:ITERATIONS_FULL
+        - [x] I1: Bootstrap (iteration_id: I1)
+          - DoD: done
+          - Boundaries: docs/tasklist/{ticket}.md
+          - Tests:
+            - profile: none
+            - tasks: []
+            - filters: []
+        - [ ] I2: Follow-up (iteration_id: I2)
+          - DoD: done
+          - Boundaries: docs/tasklist/{ticket}.md
+          - Tests:
+            - profile: none
+            - tasks: []
+            - filters: []
+        - [ ] I3: Follow-up (iteration_id: I3)
+          - DoD: done
+          - Boundaries: docs/tasklist/{ticket}.md
+          - Tests:
+            - profile: none
+            - tasks: []
+            - filters: []
+
+        ## AIDD:NEXT_3
+        - [ ] I1: Bootstrap (ref: iteration_id=I1)
+        - [ ] I2: Follow-up (ref: iteration_id=I2)
+        - [ ] I3: Follow-up (ref: iteration_id=I3)
+
+        ## AIDD:HANDOFF_INBOX
+        <!-- handoff:manual start -->
+        <!-- handoff:manual end -->
+
+        ## AIDD:QA_TRACEABILITY
+        - AC-1 → check → met → evidence
+
+        ## AIDD:CHECKLIST
+        ### AIDD:CHECKLIST_QA
+        - [ ] QA: acceptance criteria verified
+
+        ## AIDD:PROGRESS_LOG
+        - (empty)
+
+        ## AIDD:HOW_TO_UPDATE
+        - update NEXT_3
+        """
+    )
+    write_file(project_root, f"docs/tasklist/{ticket}.md", tasklist)
+
+    result = subprocess.run(
+        cli_cmd("tasklist-check", "--ticket", ticket, "--fix"),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+
+    updated = (project_root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
+    next3_section = updated.split("## AIDD:NEXT_3", 1)[1].split("##", 1)[0]
+    next3_lines = [line.strip() for line in next3_section.splitlines() if line.strip().startswith("- [")]
+    assert next3_lines and next3_lines[0].startswith("- [ ] I2:")
+    assert "I1:" not in next3_section
     assert "(ref: iteration_id=I1)" in updated
 
 

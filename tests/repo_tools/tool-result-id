@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export ROOT_DIR
+
+python3 - <<'PY'
+import os
+import sys
+
+root = os.environ.get("ROOT_DIR")
+if not root:
+    raise SystemExit("ROOT_DIR missing")
+sys.path.insert(0, root)
+
+from tools import runtime  # noqa: E402
+
+key, warn = runtime.resolve_tool_result_id({"id": "tool-1", "request_id": "req-1"})
+assert key == "tool-1"
+assert warn == ""
+
+key, warn = runtime.resolve_tool_result_id({"request_id": "req-2"})
+assert key == "tool_result:req-2"
+assert warn == "tool_result_missing_id request_id=req-2"
+
+key, warn = runtime.resolve_tool_result_id({}, index=4)
+assert key == "tool_result:4"
+assert warn == "tool_result_missing_id request_id=n/a"
+PY

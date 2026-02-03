@@ -4,20 +4,31 @@
 
 ## Термины и источники истины
 - **Artifact status**: `READY|WARN|BLOCKED|PENDING|DRAFT` (по типу артефакта).
-- **Review verdict**: `SHIP|REVISE` (только для review pack).
+- **Review verdict**: `SHIP|REVISE|BLOCKED` (только для review pack).
 - **Stage result**: `blocked|continue|done` — **машинная истина для loop-gating**.
+- **Final Status**: вывод команд = `stage_result` (single source of truth).
 - **work_item_key**: логический ключ итерации (`iteration_id=I1` или `id=review:F6`).
 - **scope_key**: безопасный для пути ключ (sanitize от `work_item_key`; для ticket‑scoped стадий = ticket).
 
-## Output‑контракт (lint‑ready)
-Минимальные поля в ответе агента/команды:
-- `Status: READY|WARN|BLOCKED|PENDING`
-- `Work item key: ...` (или `Work item: ...`)
-- `Artifacts updated: ...` (список путей)
-- `Tests: profile=<...> evidence=<path>|profile:none`
-- `Blockers/Handoff: ...` (если `Status: BLOCKED`)
+## Evidence read policy (pack/excerpt-first)
+- Порядок чтения: loop pack → review pack (если есть) → excerpt.
+- Запрещено читать full PRD/Plan/Tasklist/Research целиком, если excerpt достаточен.
+- `Context read` перечисляет только packs/excerpts (без простыней).
 
-Опционально (stage‑dependent): `Checkbox updated: ...`
+## Output‑контракт (lint‑ready)
+Subagents implement/review/qa обязаны:
+- `Status: READY|WARN|BLOCKED|PENDING` (implementer) или `Status: READY|WARN|BLOCKED` (reviewer/qa).
+- `Work item key: ...`.
+- `Artifacts updated: ...`.
+- `Tests: run|skipped|not-required <profile/summary/evidence>`.
+- `Blockers/Handoff: ...` (если пусто — `none`).
+- `Next actions: ...`.
+- `Context read: <packs/excerpts only>`.
+
+Команды implement/review/qa обязаны выводить тот же core (без `Context read`).
+Финальный `Status` должен совпадать с `stage_result` (или `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh`).
+
+Опционально (stage‑dependent): `Checkbox updated: ...`.
 
 ## BLOCKED правила
 BLOCKED означает одно из:
@@ -29,14 +40,17 @@ BLOCKED означает одно из:
 ## WARN правила
 WARN означает:
 - out‑of‑scope (`OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED`) → handoff + `reason_code=out_of_scope_warn|no_boundaries_defined_warn`;
-- `tests_required=soft` и нет evidence → handoff “run tests”.
+- `tests_required=soft` и нет evidence → implement: `WARN`, review: `REVISE`, qa: `WARN` + handoff “run tests”.
+- `tests_log` со `status=skipped` + `reason_code` считается evidence для `tests_required=soft`.
 
 ## Parallel‑ready артефакты (per‑work‑item)
 Используйте **scope_key** в путях:
 - loop pack: `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`
 - review pack: `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md`
+- fix plan: `aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json`
 - stage result: `aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json`
 - review report: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
+- reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json`
 - tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
 
 Ticket‑scoped стадии (QA) используют `scope_key=<ticket>`.

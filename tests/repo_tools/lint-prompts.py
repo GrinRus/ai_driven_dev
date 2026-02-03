@@ -79,6 +79,69 @@ REQUIRED_COMMAND_REFERENCES = [
     "aidd/docs/prompting/conventions.md",
 ]
 
+OUTPUT_CONTRACT_FIELDS = {
+    "agents/implementer.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+        "Context read:",
+    ],
+    "agents/reviewer.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+        "Context read:",
+    ],
+    "agents/qa.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+        "Context read:",
+    ],
+    "commands/implement.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+    ],
+    "commands/review.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+    ],
+    "commands/qa.md": [
+        "Status:",
+        "Work item key:",
+        "Artifacts updated:",
+        "Tests:",
+        "Blockers/Handoff:",
+        "Next actions:",
+    ],
+}
+
+OUTPUT_STATUS_LINES = {
+    "agents/implementer.md": "Status: READY|WARN|BLOCKED|PENDING",
+    "agents/reviewer.md": "Status: READY|WARN|BLOCKED",
+    "agents/qa.md": "Status: READY|WARN|BLOCKED",
+    "commands/implement.md": "Status: READY|WARN|BLOCKED|PENDING",
+    "commands/review.md": "Status: READY|WARN|BLOCKED",
+    "commands/qa.md": "Status: READY|WARN|BLOCKED",
+}
+
 REQUIRED_STAGE_ANCHORS = [
     "idea",
     "research",
@@ -110,6 +173,11 @@ LOOP_NO_QUESTIONS_HINTS = {
     "commands/implement.md": [".active_mode=loop", "без вопросов"],
     "commands/review.md": [".active_mode=loop", "без вопросов"],
     "commands/qa.md": [".active_mode=loop", "без вопросов"],
+}
+
+REVIEW_PACK_ORDER_HINTS = {
+    "agents/reviewer.md": ["после loop pack", "review.latest.pack.md"],
+    "commands/review.md": ["read loop pack", "review.latest.pack.md", "review.pack.md"],
 }
 
 PARALLEL_PATH_HINTS = {
@@ -425,6 +493,28 @@ def validate_command_references(info: PromptFile) -> List[str]:
     return []
 
 
+def _relative_prompt_path(info: PromptFile, root: Path) -> str:
+    try:
+        return info.path.relative_to(root).as_posix()
+    except ValueError:
+        return info.path.as_posix()
+
+
+def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
+    rel_path = _relative_prompt_path(info, root)
+    required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
+    if not required_fields:
+        return []
+    errors: List[str] = []
+    missing = [field for field in required_fields if field not in info.body]
+    if missing:
+        errors.append(f"{info.path}: output contract missing fields {missing}")
+    status_line = OUTPUT_STATUS_LINES.get(rel_path)
+    if status_line and status_line not in info.body:
+        errors.append(f"{info.path}: output contract missing status values `{status_line}`")
+    return errors
+
+
 def validate_question_template(info: PromptFile) -> List[str]:
     if info.kind != "agent":
         return []
@@ -498,6 +588,7 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_checkbox_guidance(info))
     errors.extend(validate_agent_references(info))
     errors.extend(validate_command_references(info))
+    errors.extend(validate_output_contract(info, root))
     errors.extend(validate_question_template(info))
     errors.extend(validate_tool_mentions(info))
     errors.extend(validate_verify_steps(info))
@@ -508,6 +599,7 @@ def validate_prompt(info: PromptFile, root: Path) -> List[str]:
     errors.extend(validate_loop_no_questions(info))
     errors.extend(validate_parallel_paths(info))
     errors.extend(validate_granularity_policy(info))
+    errors.extend(validate_review_pack_order(info))
 
     return errors
 
@@ -674,6 +766,22 @@ def validate_granularity_policy(info: PromptFile) -> List[str]:
     missing = [hint for hint in required if hint not in body_lower]
     if missing:
         return [f"{info.path}: missing granularity policy markers {missing}"]
+    return []
+
+
+def validate_review_pack_order(info: PromptFile) -> List[str]:
+    rel_path = info.path.as_posix()
+    required: List[str] | None = None
+    for key, markers in REVIEW_PACK_ORDER_HINTS.items():
+        if rel_path.endswith(key):
+            required = markers
+            break
+    if not required:
+        return []
+    body_lower = info.body.lower()
+    missing = [hint for hint in required if hint not in body_lower]
+    if missing:
+        return [f"{info.path}: missing review pack order markers {missing}"]
     return []
 
 

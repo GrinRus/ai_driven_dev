@@ -117,8 +117,9 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
 
     loops_reports = project_root / "reports" / "loops"
     loops_reports.mkdir(parents=True, exist_ok=True)
-    if detect_build_tools:
-        _write_test_settings(workspace_root, force=force)
+    settings_path = workspace_root / ".claude" / "settings.json"
+    if detect_build_tools or not settings_path.exists():
+        _write_test_settings(workspace_root, force=force if detect_build_tools else False)
     if detect_stack:
         from tools import detect_stack as detect_stack_module
 

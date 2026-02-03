@@ -15,6 +15,7 @@ from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as reso
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_WORK_ITEM_KEY_RE = re.compile(r"^(iteration_id|id)=[A-Za-z0-9_.:-]+$")
 
 
 try:
@@ -24,10 +25,12 @@ except metadata.PackageNotFoundError:  # pragma: no cover - editable installs
 
 
 def require_plugin_root() -> Path:
-    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    raw = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("AIDD_PLUGIN_DIR")
     if not raw:
-        raise RuntimeError("CLAUDE_PLUGIN_ROOT is required to run AIDD tools.")
-    return Path(raw).expanduser().resolve()
+        raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
+    plugin_root = Path(raw).expanduser().resolve()
+    os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    return plugin_root
 
 
 def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tuple[Path, Path]:
@@ -148,6 +151,13 @@ def sanitize_scope_key(value: str) -> str:
     cleaned = _SCOPE_KEY_RE.sub("_", raw)
     cleaned = cleaned.strip("._-")
     return cleaned or ""
+
+
+def is_valid_work_item_key(value: str | None) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return False
+    return bool(_WORK_ITEM_KEY_RE.match(raw))
 
 
 def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: str = "ticket") -> str:
@@ -287,11 +297,14 @@ def review_report_template(target: Path) -> str:
     reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
     if not isinstance(reviewer_cfg, dict):
         reviewer_cfg = {}
-    return str(
-        reviewer_cfg.get("marker")
-        or reviewer_cfg.get("tests_marker")
+    template = str(
+        reviewer_cfg.get("review_report")
+        or reviewer_cfg.get("report")
         or DEFAULT_REVIEW_REPORT
     )
+    if "{scope_key}" not in template:
+        return DEFAULT_REVIEW_REPORT
+    return template
 
 
 def is_relative_to(path: Path, ancestor: Path) -> bool:
@@ -322,4 +335,54 @@ def reviewer_marker_path(
         raise ValueError(
             f"reviewer marker path {marker_path} escapes project root {target_root}"
         )
+    _maybe_migrate_reviewer_marker(marker_path)
     return marker_path
+
+
+def _looks_like_review_report(payload: Dict[str, Any]) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    kind = str(payload.get("kind") or "").strip().lower()
+    stage = str(payload.get("stage") or "").strip().lower()
+    if kind == "review" or stage == "review":
+        return True
+    if "findings" in payload or "blocking_findings_count" in payload:
+        return True
+    return False
+
+
+def _maybe_migrate_reviewer_marker(marker_path: Path) -> None:
+    if marker_path.exists():
+        return
+    if not marker_path.name.endswith(".tests.json"):
+        return
+    old_path = marker_path.with_name(marker_path.name.replace(".tests.json", ".json"))
+    if not old_path.exists():
+        return
+    try:
+        payload = json.loads(old_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if _looks_like_review_report(payload):
+        return
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        old_path.unlink()
+    except OSError:
+        return
+
+
+def resolve_tool_result_id(payload: Dict[str, Any], *, index: Optional[int] = None) -> tuple[str, str]:
+    raw_id = str(payload.get("id") or "").strip()
+    if raw_id:
+        return raw_id, ""
+    request_id = str(payload.get("request_id") or payload.get("requestId") or "").strip()
+    if request_id:
+        fallback = f"tool_result:{request_id}"
+    elif index is not None:
+        fallback = f"tool_result:{index}"
+    else:
+        fallback = "tool_result:unknown"
+    warn = f"tool_result_missing_id request_id={request_id or 'n/a'}"
+    return fallback, warn
