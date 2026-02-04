@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from tools import runtime
-from tools.feature_ids import resolve_aidd_root
+from tools.feature_ids import resolve_aidd_root, write_active_state
 
 
 VALID_STAGES = {
@@ -26,7 +26,7 @@ def _normalize_stage(value: str) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Persist the active workflow stage in docs/.active_stage.",
+        description="Persist the active workflow stage in docs/.active.json.",
     )
     parser.add_argument("stage", help="Stage name to persist.")
     parser.add_argument(
@@ -45,10 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         valid = ", ".join(sorted(VALID_STAGES))
         print(f"[stage] invalid stage '{stage}'. Allowed: {valid}.")
         return 2
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    stage_path = docs_dir / ".active_stage"
-    stage_path.write_text(stage + "\n", encoding="utf-8")
+    write_active_state(root, stage=stage)
     print(f"active stage: {stage}")
     context = runtime.resolve_feature_context(root)
     runtime.maybe_sync_index(root, context.resolved_ticket, context.slug_hint, reason="set-active-stage")

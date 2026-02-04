@@ -141,7 +141,7 @@ assert_gate_exit 0 "no active feature"
 
 log "activate feature ticket"
 run_cli set-active-feature "$TICKET" >/dev/null
-[[ -f "$WORKDIR/docs/.active_ticket" ]] || {
+[[ -f "$WORKDIR/docs/.active.json" ]] || {
   echo "[smoke] failed to set active ticket" >&2
   exit 1
 }
@@ -383,7 +383,7 @@ log "ensure plan template exists"
 if [[ ! -f "docs/plan/${TICKET}.md" ]]; then
   cp "docs/plan/template.md" "docs/plan/${TICKET}.md"
 fi
-log "ensure plan содержит Architecture & Patterns и reuse"
+log "ensure plan содержит Design & Patterns и reuse"
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
@@ -391,9 +391,9 @@ import sys
 ticket = sys.argv[1]
 path = Path("docs/plan") / f"{ticket}.md"
 text = path.read_text(encoding="utf-8")
-if "Architecture & Patterns" not in text:
+if "Design & Patterns" not in text:
     text += (
-        "\n## Architecture & Patterns\n"
+        "\n## Design & Patterns\n"
         "- Pattern: service layer + adapters/ports (KISS/YAGNI/DRY/SOLID)\n"
         f"- Reuse: docs/research/{ticket}.md\n"
         "- Scope: domain/application/infra boundaries fixed; avoid over-engineering.\n"
@@ -553,12 +553,28 @@ test_execution_body = """- profile: none
 - reason: smoke baseline"""
 text = replace_section(text, "AIDD:TEST_EXECUTION", test_execution_body)
 
-iterations_full_body = f"""- Iteration I1: Smoke bootstrap
-  - iteration_id: I1
+handoff_body = "- (none)"
+text = replace_section(text, "AIDD:HANDOFF_INBOX", handoff_body)
+
+iterations_full_body = f"""- [ ] I1: Smoke bootstrap (iteration_id: I1)
+  - parent_iteration_id: none
   - Goal: satisfy tasklist gate
   - Outputs: tasklist ready for implement
   - DoD: tasklist ready for implement
   - Boundaries: docs/tasklist/{ticket}.md
+  - Priority: low
+  - Blocking: false
+  - deps: []
+  - locks: []
+  - Expected paths:
+    - docs/tasklist/{ticket}.md
+  - Size budget:
+    - max_files: 1
+    - max_loc: 200
+  - Commands:
+    - update tasklist sections
+  - Exit criteria:
+    - gate-workflow allows source edits
   - Steps:
     - update tasklist sections
     - verify gate
@@ -572,51 +588,7 @@ iterations_full_body = f"""- Iteration I1: Smoke bootstrap
   - Dependencies: none"""
 text = replace_section(text, "AIDD:ITERATIONS_FULL", iterations_full_body)
 
-next_3_body = f"""- [ ] Smoke: ready checkbox 1
-  - iteration_id: I1
-  - Goal: satisfy tasklist gate
-  - DoD: smoke gate satisfied
-  - Boundaries: docs/tasklist/{ticket}.md
-  - Steps:
-    - update tasklist sections
-    - verify gate
-    - record progress
-  - Tests:
-    - profile: none
-    - tasks: []
-    - filters: []
-  - Acceptance mapping: AC-1
-  - Risks & mitigations: low → none
-- [ ] Smoke: ready checkbox 2
-  - iteration_id: I1
-  - Goal: follow-up
-  - DoD: smoke gate satisfied
-  - Boundaries: docs/tasklist/{ticket}.md
-  - Steps:
-    - update tasklist sections
-    - verify gate
-    - record progress
-  - Tests:
-    - profile: none
-    - tasks: []
-    - filters: []
-  - Acceptance mapping: AC-2
-  - Risks & mitigations: low → none
-- [ ] Smoke: ready checkbox 3
-  - iteration_id: I1
-  - Goal: follow-up
-  - DoD: smoke gate satisfied
-  - Boundaries: docs/tasklist/{ticket}.md
-  - Steps:
-    - update tasklist sections
-    - verify gate
-    - record progress
-  - Tests:
-    - profile: none
-    - tasks: []
-    - filters: []
-  - Acceptance mapping: AC-3
-  - Risks & mitigations: low → none"""
+next_3_body = f"""- [ ] I1: Smoke bootstrap (ref: iteration_id=I1)"""
 text = replace_section(text, "AIDD:NEXT_3", next_3_body)
 
 path.write_text(text, encoding="utf-8")
@@ -685,6 +657,7 @@ log "gate now allows source edits"
 run_cli set-active-stage implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --append >/dev/null
+run_cli tasklist-normalize --ticket "$TICKET" --fix >/dev/null
 # Skip progress gate for preset-created artifacts: no code changes yet
 CLAUDE_SKIP_TASKLIST_PROGRESS=1 assert_gate_exit 0 "all artifacts ready"
 
@@ -726,10 +699,13 @@ cat >"$WORKDIR/.cache/test-policy.env" <<'EOF'
 AIDD_TEST_PROFILE=fast
 EOF
 
+log "set review stage for format-and-test"
+run_cli set-active-stage review >/dev/null
+
 log "format-and-test uses profile and dedupe"
 fmt_first="$("$PLUGIN_ROOT/hooks/format-and-test.sh" 2>&1)"
-echo "$fmt_first" | grep -q "Выбранные задачи тестов (fast): smoke-fast" || {
-  echo "[smoke] format-and-test did not use fast profile" >&2
+echo "$fmt_first" | grep -q "Выбранные задачи тестов (targeted): smoke-target" || {
+  echo "[smoke] format-and-test did not use targeted profile" >&2
   echo "$fmt_first" >&2
   exit 1
 }
@@ -739,7 +715,7 @@ log_file="$(printf '%s\n' "$fmt_first" | sed -n 's/.*Test log: //p' | tail -n 1)
   echo "[smoke] format-and-test log file not found" >&2
   exit 1
 }
-grep -q "smoke-fast" "$log_file" || {
+grep -q "smoke-target" "$log_file" || {
   echo "[smoke] format-and-test log missing expected output" >&2
   cat "$log_file" >&2
   exit 1
@@ -758,6 +734,7 @@ echo "$fmt_force" | grep -q "AIDD_TEST_FORCE=1" || {
 }
 
 log "common patterns trigger full profile"
+run_cli set-active-stage qa >/dev/null
 cat <<'JSON' >package.json
 {
   "name": "smoke-demo",

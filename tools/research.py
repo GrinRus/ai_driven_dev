@@ -130,12 +130,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to analyse (defaults to docs/.active_ticket).",
+        help="Ticket identifier to analyse (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override used for templates and keywords (defaults to docs/.active_feature).",
+        help="Optional slug hint override used for templates and keywords (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--config",
@@ -193,12 +193,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Print context JSON to stdout without writing files (targets are still refreshed).",
-    )
-    parser.add_argument(
-        "--evidence-engine",
-        choices=("rlm", "auto"),
-        default="auto",
-        help="Evidence engine to use (auto defaults to rlm).",
     )
     parser.add_argument(
         "--deep-code",
@@ -336,10 +330,8 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     languages = _research_parse_langs(getattr(args, "langs", None))
-    evidence_engine = str(getattr(args, "evidence_engine", "auto")).strip().lower()
-
     deep_code_enabled = bool(args.deep_code)
-    if args.auto and evidence_engine != "rlm":
+    if args.auto:
         auto_profile = "deep-scan" if deep_code_enabled else "fast-scan"
         auto_reason = "explicit --deep-code" if deep_code_enabled else "no --deep-code"
         print(f"[aidd] researcher auto profile: {auto_profile} ({auto_reason}).")
@@ -360,54 +352,6 @@ def run(args: argparse.Namespace) -> int:
     else:
         collected_context["deep_mode"] = False
 
-    ast_grep_stats = None
-    if evidence_engine == "rlm":
-        collected_context["ast_grep_stats"] = {"reason": "rlm-disabled"}
-    else:
-        try:
-            from tools.ast_grep_scan import scan_ast_grep
-
-            ast_output = Path(f"aidd/reports/research/{ticket}-ast-grep.jsonl")
-            ast_output = runtime.resolve_path_for_target(ast_output, target)
-            ast_path, ast_grep_stats = scan_ast_grep(
-                target,
-                ticket=ticket,
-                search_roots=path_roots,
-                output=ast_output,
-                tags=scope.tags,
-            )
-            if ast_path:
-                collected_context["ast_grep_path"] = os.path.relpath(ast_path, target)
-                collected_context["ast_grep_schema"] = ast_grep_stats.get("schema") if ast_grep_stats else None
-                collected_context["ast_grep_stats"] = ast_grep_stats
-            else:
-                if ast_grep_stats:
-                    collected_context["ast_grep_stats"] = ast_grep_stats
-                if ast_grep_stats:
-                    reason = ast_grep_stats.get("reason")
-                    if reason in {"disabled", "langs-not-required"}:
-                        if reason == "disabled":
-                            detail = (
-                                " (set aidd/config/conventions.json: "
-                                "researcher.ast_grep.enabled=true or required_for_langs=[...])"
-                            )
-                        else:
-                            detail = " (adjust researcher.ast_grep.required_for_langs if needed)"
-                        print(f"[aidd] INFO: ast-grep scan skipped ({reason}){detail}.", file=sys.stderr)
-                    elif reason == "binary-missing":
-                        print("[aidd] INSTALL_HINT: install ast-grep (https://ast-grep.github.io/)", file=sys.stderr)
-                    elif reason == "scan-failed":
-                        detail = ast_grep_stats.get("error") or ast_grep_stats.get("stderr")
-                        detail_suffix = f": {detail}" if detail else ""
-                        print(f"[aidd] WARN: ast-grep scan failed{detail_suffix}.", file=sys.stderr)
-                    else:
-                        print(f"[aidd] WARN: ast-grep scan skipped ({reason}).", file=sys.stderr)
-        except Exception as exc:
-            collected_context["ast_grep_stats"] = {"reason": "exception", "error": f"{type(exc).__name__}: {exc}"}
-            print(
-                f"[aidd] WARN: ast-grep scan errored: {type(exc).__name__}: {exc}.",
-                file=sys.stderr,
-            )
     collected_context["auto_mode"] = bool(getattr(args, "auto", False))
     if rlm_targets_path:
         collected_context["rlm_targets_path"] = os.path.relpath(rlm_targets_path, target)
@@ -514,30 +458,6 @@ def run(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
         return 2
-    ast_grep_path = collected_context.get("ast_grep_path")
-    if ast_grep_path:
-        try:
-            abs_ast_grep_path = target / ast_grep_path
-            ast_pack_path = _reports_pack.write_ast_grep_pack(
-                abs_ast_grep_path,
-                ticket=ticket,
-                slug_hint=feature_context.slug_hint,
-                stats=collected_context.get("ast_grep_stats"),
-                root=target,
-            )
-            try:
-                _validate_json_file(ast_pack_path, "ast-grep pack")
-            except RuntimeError as exc:
-                print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-                return 2
-            try:
-                rel_ast_pack = ast_pack_path.relative_to(target).as_posix()
-            except ValueError:
-                rel_ast_pack = ast_pack_path.as_posix()
-            print(f"[aidd] ast-grep pack saved to {rel_ast_pack}.")
-        except Exception as exc:
-            print(f"[aidd] ERROR: failed to generate ast-grep pack: {exc}", file=sys.stderr)
-            return 2
     reuse_count = len(collected_context.get("reuse_candidates") or []) if deep_code_enabled else 0
     message = f"[aidd] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
     if deep_code_enabled:

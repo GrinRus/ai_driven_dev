@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from hooks.hooklib import load_config, read_hook_context, resolve_aidd_root, resolve_project_dir, sessionstart_additional_context
+from hooks.hooklib import (
+    load_config,
+    read_hook_context,
+    resolve_aidd_root,
+    resolve_context_gc_mode,
+    resolve_project_dir,
+    sessionstart_additional_context,
+)
 from .working_set_builder import build_working_set
 
 
@@ -14,6 +21,8 @@ def main() -> None:
     aidd_root = resolve_aidd_root(project_dir)
     cfg = load_config(aidd_root)
     if not cfg.get("enabled", True) or not aidd_root:
+        return
+    if resolve_context_gc_mode(cfg) == "off":
         return
 
     ws = build_working_set(project_dir)

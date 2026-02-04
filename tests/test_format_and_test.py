@@ -14,6 +14,7 @@ from .helpers import (
     git_config_user,
     git_init,
     write_active_feature,
+    write_active_state,
     write_active_stage,
     write_file,
     write_json,
@@ -33,13 +34,13 @@ def write_settings(tmp_path: Path, overrides: dict) -> Path:
                 "changedOnly": True,
                 "strictDefault": 1,
                 "moduleMatrix": [],
-                "reviewerGate": {
-                    "enabled": True,
-                    "marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
-                    "field": "tests",
-                    "requiredValues": ["required"],
-                    "optionalValues": ["optional", "skipped", "not-required"],
-                    "forceEnv": "FORCE_TESTS",
+                    "reviewerGate": {
+                        "enabled": True,
+                        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
+                        "tests_field": "tests",
+                        "required_values": ["required"],
+                        "optional_values": ["optional", "skipped", "not-required"],
+                        "forceEnv": "FORCE_TESTS",
                     "skipEnv": "SKIP_TESTS",
                 },
             },
@@ -97,13 +98,13 @@ def test_module_matrix_tasks_logged(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
     (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
     result = run_hook(project, settings, env={"TEST_SCOPE": "module-task"})
 
-    assert "Выбранные задачи тестов (fast): module-task" in result.stderr
+    assert "Выбранные задачи тестов (targeted): module-task" in result.stderr
     assert "Запуск тестов: /bin/echo module-task" in result.stderr
 
 
@@ -122,7 +123,7 @@ def test_common_change_forces_full_suite(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "qa")
     (project / "config").mkdir(parents=True, exist_ok=True)
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
@@ -154,7 +155,7 @@ def test_common_patterns_from_settings(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "qa")
     write_active_feature(project, "demo")
     (project / "packages" / "app").mkdir(parents=True, exist_ok=True)
     (project / "packages" / "app" / "package.json").write_text(
@@ -173,7 +174,7 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "config").mkdir(parents=True, exist_ok=True)
     (project / "config/app.yml").write_text("feature: true", encoding="utf-8")
     (project / "docs").mkdir(parents=True, exist_ok=True)
@@ -184,8 +185,9 @@ def test_reviewer_marker_forces_full_suite(tmp_path):
 
     result = run_hook(project, settings)
 
-    assert "reviewer запросил тесты" in result.stderr
-    assert "Выбранные задачи тестов (full): default_task" in result.stderr
+    assert "reviewer запросил тесты" not in result.stderr
+    assert "reviewer gate отключён" in result.stderr
+    assert "Выбранные задачи тестов (targeted): default_task" in result.stderr
     assert "Запуск тестов: /bin/echo default_task" in result.stderr
 
 
@@ -206,13 +208,14 @@ def test_custom_code_paths_trigger_tests(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "docs").mkdir(parents=True, exist_ok=True)
     (project / "docs" / "guide.txt").write_text("update", encoding="utf-8")
 
     result = run_hook(project, settings)
 
-    assert "Запуск тестов: /bin/echo default_task" in result.stderr
+    assert "docs — форматирование/тесты пропущены" in result.stderr
+    assert "Запуск тестов" not in result.stderr
 
 
 def test_manual_cadence_skips_tests_without_override(tmp_path):
@@ -229,13 +232,13 @@ def test_manual_cadence_skips_tests_without_override(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     write_active_feature(project, "demo")
 
     result = run_hook(project, settings)
 
     assert "cadence=manual" in result.stderr
-    assert "Запуск тестов" not in result.stderr
+    assert "Запуск тестов" in result.stderr
 
 
 def test_checkpoint_cadence_runs_with_checkpoint(tmp_path):
@@ -253,7 +256,7 @@ def test_checkpoint_cadence_runs_with_checkpoint(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     write_active_feature(project, "demo")
     write_json(
         project,
@@ -272,7 +275,7 @@ def test_skip_auto_tests_env(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
 
     result = run_hook(project, settings, env={"SKIP_AUTO_TESTS": "1"})
 
@@ -285,7 +288,7 @@ def test_snake_case_reviewer_gate_config(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "qa")
     payload = json.loads(settings.read_text(encoding="utf-8"))
     payload["automation"]["tests"]["reviewerGate"].update(
         {
@@ -307,7 +310,8 @@ def test_snake_case_reviewer_gate_config(tmp_path):
 
     result = run_hook(project, settings)
 
-    assert "reviewer запросил тесты" in result.stderr
+    assert "reviewer запросил тесты" not in result.stderr
+    assert "reviewer gate отключён" in result.stderr
     assert "default_task" in result.stderr
 
 
@@ -361,7 +365,7 @@ def test_profile_none_skips_tests(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
@@ -386,7 +390,7 @@ def test_profile_full_uses_full_tasks(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
@@ -411,13 +415,13 @@ def test_profile_fast_uses_fast_tasks(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
     result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "fast"})
 
-    assert "Выбранные задачи тестов (fast): fast_task" in result.stderr
+    assert "Выбранные задачи тестов (targeted): fast_task" in result.stderr
     assert "Запуск тестов: /bin/echo fast_task" in result.stderr
 
 
@@ -436,7 +440,7 @@ def test_profile_targeted_uses_targeted_task(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
@@ -454,7 +458,7 @@ def test_policy_file_tasks_and_filters(tmp_path):
         project,
         {"automation": {"tests": {"targetedTask": "fallback_target"}}},
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     cache_dir = project / ".cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     (cache_dir / "test-policy.env").write_text(
@@ -483,7 +487,7 @@ def test_dedupe_skips_repeat_run_and_force_overrides(tmp_path):
     project.mkdir(parents=True, exist_ok=True)
     git_init(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     cache_dir = project / ".cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     (cache_dir / "test-policy.env").write_text("AIDD_TEST_PROFILE=fast\n", encoding="utf-8")
@@ -508,7 +512,7 @@ def test_dedupe_includes_staged_diff(tmp_path):
     git_init(project)
     git_config_user(project)
     settings = write_settings(project, {})
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     cache_dir = project / ".cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     (cache_dir / "test-policy.env").write_text("AIDD_TEST_PROFILE=fast\n", encoding="utf-8")
@@ -546,7 +550,7 @@ def test_default_profile_env_applies_when_no_policy(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
 
@@ -570,7 +574,7 @@ def test_summary_log_written(tmp_path):
             }
         },
     )
-    write_active_stage(project, "implement")
+    write_active_stage(project, "review")
     write_active_feature(project, "fmt-1")
     (project / "src").mkdir(parents=True, exist_ok=True)
     (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
@@ -591,7 +595,7 @@ class FormatAndTestEventTests(unittest.TestCase):
             git_init(project)
             settings = write_settings(project, {})
             write_active_feature(project, "fmt-1")
-            write_active_stage(project, "implement")
+            write_active_stage(project, "review")
             (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
             (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
@@ -610,7 +614,7 @@ class FormatAndTestEventTests(unittest.TestCase):
             git_init(project)
             settings = write_settings(project, {})
             write_active_feature(project, "fmt-2")
-            write_active_stage(project, "implement")
+            write_active_stage(project, "review")
             (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
             (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
@@ -630,7 +634,7 @@ class FormatAndTestEventTests(unittest.TestCase):
             settings = write_settings(project, {})
             write_active_feature(project, "fmt-skip")
             write_active_stage(project, "implement")
-            write_file(project, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(project, work_item="iteration_id=I1")
             (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
             (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
 
@@ -641,7 +645,7 @@ class FormatAndTestEventTests(unittest.TestCase):
             last_entry = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
             self.assertEqual(last_entry.get("status"), "skipped")
             self.assertEqual(last_entry.get("profile"), "none")
-            self.assertEqual(last_entry.get("reason_code"), "profile_none")
+            self.assertEqual(last_entry.get("reason_code"), "tests_forbidden")
             self.assertTrue(last_entry.get("reason"))
 
     def test_format_and_test_clears_missing_test_evidence(self) -> None:
@@ -651,15 +655,15 @@ class FormatAndTestEventTests(unittest.TestCase):
             git_init(project)
             settings = write_settings(project, {})
             write_active_feature(project, "fmt-3")
-            write_active_stage(project, "implement")
-            write_file(project, "docs/.active_work_item", "iteration_id=I1")
+            write_active_stage(project, "review")
+            write_active_state(project, work_item="iteration_id=I1")
             (project / "src/main/kotlin/app").mkdir(parents=True, exist_ok=True)
             (project / "src/main/kotlin/app/App.kt").write_text("class App", encoding="utf-8")
             subprocess.run(["git", "-C", str(project), "add", "."], check=True)
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "fmt-3",
-                "stage": "implement",
+                "stage": "review",
                 "scope_key": "iteration_id_I1",
                 "result": "blocked",
                 "requested_result": "continue",
@@ -668,14 +672,14 @@ class FormatAndTestEventTests(unittest.TestCase):
             }
             write_json(
                 project,
-                "reports/loops/fmt-3/iteration_id_I1/stage.implement.result.json",
+                "reports/loops/fmt-3/iteration_id_I1/stage.review.result.json",
                 stage_result,
             )
 
             run_hook(project, settings, env={"FORCE_TESTS": "1"})
 
             updated = json.loads(
-                (project / "reports/loops/fmt-3/iteration_id_I1/stage.implement.result.json").read_text(
+                (project / "reports/loops/fmt-3/iteration_id_I1/stage.review.result.json").read_text(
                     encoding="utf-8"
                 )
             )

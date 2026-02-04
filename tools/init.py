@@ -84,8 +84,7 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     workspace_root, project_root = runtime.resolve_roots(target, create=True)
     force = "--force" in extra_args
     detect_build_tools = "--detect-build-tools" in extra_args
-    detect_stack = "--detect-stack" in extra_args
-    ignored = [arg for arg in extra_args if arg not in {"--force", "--detect-build-tools", "--detect-stack"}]
+    ignored = [arg for arg in extra_args if arg not in {"--force", "--detect-build-tools"}]
     if ignored:
         print(f"[aidd] init flags ignored in marketplace-only mode: {' '.join(ignored)}")
 
@@ -104,12 +103,6 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     else:
         print(f"[aidd:init] no changes (already initialized) in {project_root}")
     ensured = []
-    if _ensure_project_file(project_root, templates_root, "docs/loops/README.md", "# Loop Mode\n"):
-        ensured.append("docs/loops/README.md")
-    if _ensure_project_file(project_root, templates_root, "docs/sdlc-flow.md", "# SDLC Flow\n"):
-        ensured.append("docs/sdlc-flow.md")
-    if _ensure_project_file(project_root, templates_root, "docs/status-machine.md", "# Status Machine\n"):
-        ensured.append("docs/status-machine.md")
     if _ensure_project_file(project_root, templates_root, "AGENTS.md", "# AGENTS\n"):
         ensured.append("AGENTS.md")
     if ensured:
@@ -120,18 +113,6 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     settings_path = workspace_root / ".claude" / "settings.json"
     if detect_build_tools or not settings_path.exists():
         _write_test_settings(workspace_root, force=force if detect_build_tools else False)
-    if detect_stack:
-        from tools import detect_stack as detect_stack_module
-
-        result = detect_stack_module.detect_stack(workspace_root)
-        profile_path = project_root / "docs" / "architecture" / "profile.md"
-        updated = detect_stack_module.update_profile(profile_path, result, force=force)
-        if updated:
-            print(f"[aidd:init] updated architecture profile stack hints ({profile_path})")
-        else:
-            print("[aidd:init] architecture profile already contains detected stack hints")
-
-
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate workflow scaffolding in the current workspace.",
@@ -156,11 +137,6 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Populate .claude/settings.json with default automation.tests settings.",
     )
-    parser.add_argument(
-        "--detect-stack",
-        action="store_true",
-        help="Detect stack markers and update architecture profile hints.",
-    )
     return parser.parse_args(argv)
 
 
@@ -175,8 +151,6 @@ def main(argv: List[str] | None = None) -> int:
         script_args.append("--dry-run")
     if args.detect_build_tools:
         script_args.append("--detect-build-tools")
-    if args.detect_stack:
-        script_args.append("--detect-stack")
     run_init(Path.cwd().resolve(), script_args)
     return 0
 

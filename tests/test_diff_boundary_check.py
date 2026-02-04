@@ -3,7 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, git_config_user, git_init, write_file
+from tests.helpers import (
+    cli_cmd,
+    cli_env,
+    ensure_project_root,
+    git_config_user,
+    git_init,
+    write_active_state,
+    write_file,
+)
 
 
 def write_loop_pack(root: Path, ticket: str, key: str, allowed: list[str], forbidden: list[str]) -> Path:
@@ -37,8 +45,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             subprocess.run(["git", "add", "src/allowed/file.txt"], cwd=root, check=True)
             subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
 
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1", work_item="iteration_id=I1")
             write_loop_pack(root, "DEMO-1", "iteration_id_I1", ["src/allowed/**"], [])
 
             write_file(root, "src/allowed/file.txt", "changed\n")
@@ -61,8 +68,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             subprocess.run(["git", "add", "src/allowed/file.txt"], cwd=root, check=True)
             subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
 
-            write_file(root, "docs/.active_ticket", "DEMO-2")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_active_state(root, ticket="DEMO-2", work_item="iteration_id=I2")
             write_loop_pack(root, "DEMO-2", "iteration_id_I2", ["src/allowed/**"], [])
 
             write_file(root, "src/disallowed/file.txt", "nope\n")
@@ -78,12 +84,44 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("OUT_OF_SCOPE src/disallowed/file.txt", result.stdout)
 
+    def test_diff_boundary_cache_hit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            git_init(root)
+            git_config_user(root)
+            write_file(root, "src/allowed/file.txt", "ok\n")
+            subprocess.run(["git", "add", "src/allowed/file.txt"], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True)
+
+            write_active_state(root, ticket="DEMO-CACHE", work_item="iteration_id=C1")
+            write_loop_pack(root, "DEMO-CACHE", "iteration_id_C1", ["src/allowed/**"], [])
+
+            write_file(root, "src/allowed/file.txt", "changed\n")
+
+            first = subprocess.run(
+                cli_cmd("diff-boundary-check", "--ticket", "DEMO-CACHE"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(first.returncode, 0, msg=first.stdout + first.stderr)
+
+            second = subprocess.run(
+                cli_cmd("diff-boundary-check", "--ticket", "DEMO-CACHE"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(second.returncode, 0, msg=second.stdout + second.stderr)
+            self.assertIn("cache hit", second.stderr.lower())
+
     def test_diff_boundary_empty_boundaries_warn(self) -> None:
         with tempfile.TemporaryDirectory(prefix="boundary-check-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             git_init(root)
-            write_file(root, "docs/.active_ticket", "DEMO-3")
-            write_file(root, "docs/.active_work_item", "iteration_id=I3")
+            write_active_state(root, ticket="DEMO-3", work_item="iteration_id=I3")
             write_loop_pack(root, "DEMO-3", "iteration_id_I3", [], [])
 
             result = subprocess.run(
@@ -101,8 +139,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             git_init(root)
             git_config_user(root)
-            write_file(root, "docs/.active_ticket", "DEMO-4")
-            write_file(root, "docs/.active_work_item", "iteration_id=I4")
+            write_active_state(root, ticket="DEMO-4", work_item="iteration_id=I4")
             write_loop_pack(root, "DEMO-4", "iteration_id_I4", ["src/allowed/**"], [])
 
             write_file(root, ".claude/settings.json", '{"ok": true}\n')
@@ -125,8 +162,7 @@ class DiffBoundaryCheckTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             git_init(root)
             git_config_user(root)
-            write_file(root, "docs/.active_ticket", "DEMO-5")
-            write_file(root, "docs/.active_work_item", "iteration_id=I5")
+            write_active_state(root, ticket="DEMO-5", work_item="iteration_id=I5")
             write_loop_pack(root, "DEMO-5", "iteration_id_I5", ["src/allowed/**"], [])
 
             write_file(root, "src/disallowed/new.py", "print('nope')\n")

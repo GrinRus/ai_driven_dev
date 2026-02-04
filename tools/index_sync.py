@@ -69,10 +69,7 @@ def _first_nonempty(lines: Iterable[str]) -> str:
 
 
 def _detect_stage(root: Path) -> str:
-    stage_path = root / "docs" / ".active_stage"
-    if not stage_path.exists():
-        return ""
-    return stage_path.read_text(encoding="utf-8", errors="replace").strip()
+    return runtime.read_active_stage(root)
 
 
 def _rel_path(root: Path, path: Path) -> str:
@@ -99,6 +96,7 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json")
     candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")
     candidates.append(root / "reports" / "qa" / f"{ticket}.pack.json")
+    candidates.append(root / "reports" / "context" / f"{ticket}.pack.md")
 
     reviewer_dir = root / "reports" / "reviewer" / ticket
     if reviewer_dir.exists():
@@ -281,7 +279,7 @@ def write_index(root: Path, ticket: str, slug: str, *, output: Optional[Path] = 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Generate/update ticket index file.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint override.")
     parser.add_argument("--slug", help="Optional slug override used in the index file.")
     parser.add_argument("--output", help="Optional output path override.")

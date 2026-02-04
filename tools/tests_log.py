@@ -13,12 +13,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier (defaults to docs/.active_ticket).",
+        help="Ticket identifier (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override (defaults to docs/.active_feature).",
+        help="Optional slug hint override (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--status",
@@ -113,8 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=getattr(args, "slug_hint", None),
     )
     ticket_guess = ""
-    active_ticket_path = target / "docs" / ".active_ticket"
-    if not getattr(args, "ticket", None) and not active_ticket_path.exists() and context.slug_hint:
+    if not getattr(args, "ticket", None) and not runtime.read_active_ticket(target) and context.slug_hint:
         ticket_guess = context.slug_hint
     details: dict = {}
     if args.summary:
@@ -132,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     work_item_key = (args.work_item_key or "").strip()
     scope_key = (args.scope_key or "").strip()
     if not stage:
-        stage = (target / "docs" / ".active_stage").read_text(encoding="utf-8").strip().lower() if (target / "docs" / ".active_stage").exists() else ""
+        stage = runtime.read_active_stage(target)
     if not scope_key:
         if stage == "qa":
             scope_key = runtime.resolve_scope_key("", ticket)

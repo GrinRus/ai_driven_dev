@@ -75,9 +75,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         critical = [
             "AGENTS.md",
-            "docs/loops/README.md",
-            "docs/sdlc-flow.md",
-            "docs/status-machine.md",
+            "docs/prompting/conventions.md",
+            "docs/loops/template.loop-pack.md",
+            "docs/tasklist/template.md",
         ]
         for rel in critical:
             target = project_root / rel

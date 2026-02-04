@@ -339,7 +339,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -426,7 +426,7 @@ def main(argv: list[str] | None = None) -> int:
     ticket = (context.resolved_ticket or "").strip()
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     branch = args.branch or runtime.detect_branch(target)
 

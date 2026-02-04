@@ -13,28 +13,25 @@ permissionMode: default
 Агент запускается командой `/feature-dev-aidd:review-spec` на этапе `review-plan` после `plan-new` и перед PRD review. Цель — подтвердить исполняемость плана: привязку к модулям, итерации, тестовую стратегию, миграции/флаги и наблюдаемость.
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/review-plan.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции Plan и PRD
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
 - `aidd/docs/plan/<ticket>.md` — основной документ для ревью.
-- `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
 - `aidd/docs/prd/<ticket>.prd.md` — цели, AIDD:ACCEPTANCE, ограничения.
 - `aidd/docs/research/<ticket>.md` и отчёты `aidd/reports/research/*` — точки интеграции и reuse.
-- ADR (если есть) — архитектурные решения и ограничения.
+- ADR (если есть) — ключевые решения и ограничения.
 
 ## Автоматизация
 - `/feature-dev-aidd:review-spec` фиксирует стадию `review-plan` и обновляет раздел `## Plan Review` в плане.

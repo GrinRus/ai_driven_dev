@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Build a compact context pack from AIDD anchors."""
+"""Build a compact context pack from a template."""
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Optional
 
 from tools import runtime
 from tools.io_utils import utc_timestamp
 
-SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b", re.IGNORECASE)
-HEADING_RE = re.compile(r"^##\s+")
+DEFAULT_TEMPLATE = Path("reports") / "context" / "template.context-pack.md"
 
 
 def _read_text(path: Path) -> str:
@@ -21,43 +19,6 @@ def _read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except OSError:
         return ""
-
-
-def extract_aidd_sections(text: str) -> List[Tuple[str, str]]:
-    lines = text.splitlines()
-    sections: List[Tuple[str, str]] = []
-    index = 0
-    while index < len(lines):
-        line = lines[index].strip()
-        match = SECTION_RE.match(line)
-        if not match:
-            index += 1
-            continue
-        name = match.group(1).upper()
-        index += 1
-        collected: List[str] = []
-        while index < len(lines):
-            if HEADING_RE.match(lines[index].strip()):
-                break
-            collected.append(lines[index].rstrip())
-            index += 1
-        content = "\n".join(collected).strip()
-        if content:
-            sections.append((name, content))
-    return sections
-
-
-def _format_sections(title: str, sections: Iterable[Tuple[str, str]]) -> List[str]:
-    lines: List[str] = []
-    section_list = list(sections)
-    if not section_list:
-        return lines
-    lines.append(f"## {title}")
-    for name, content in section_list:
-        lines.append(f"### {name}")
-        lines.append(content)
-        lines.append("")
-    return lines
 
 
 def _apply_template(
@@ -102,42 +63,18 @@ def build_context_pack(
     stage: str = "",
     template_path: Optional[Path] = None,
 ) -> str:
-    if template_path is not None:
-        resolved_stage = stage.strip() or agent
-        if not resolved_stage:
-            raise ValueError("stage is required when using --template")
-        return _apply_template(
-            root,
-            ticket=ticket,
-            agent=agent,
-            stage=resolved_stage,
-            template_path=template_path,
-        )
-    prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
-    plan_path = root / "docs" / "plan" / f"{ticket}.md"
-    tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
-
-    prd_sections = extract_aidd_sections(_read_text(prd_path)) if prd_path.exists() else []
-    plan_sections = extract_aidd_sections(_read_text(plan_path)) if plan_path.exists() else []
-    tasklist_sections = extract_aidd_sections(_read_text(tasklist_path)) if tasklist_path.exists() else []
-
-    parts: List[str] = []
-    parts.append(f"# Context Pack — {ticket} ({agent})")
-    parts.append(f"Generated: {utc_timestamp()}")
-    parts.append("Sources:")
-    if prd_path.exists():
-        parts.append(f"- PRD: {prd_path.as_posix()}")
-    if plan_path.exists():
-        parts.append(f"- Plan: {plan_path.as_posix()}")
-    if tasklist_path.exists():
-        parts.append(f"- Tasklist: {tasklist_path.as_posix()}")
-    parts.append("")
-
-    parts.extend(_format_sections("Tasklist anchors", tasklist_sections))
-    parts.extend(_format_sections("Plan anchors", plan_sections))
-    parts.extend(_format_sections("PRD anchors", prd_sections))
-
-    return "\n".join(parts).rstrip() + "\n"
+    resolved_stage = stage.strip() or agent
+    if not resolved_stage:
+        raise ValueError("stage is required when using template packs")
+    if template_path is None:
+        template_path = root / DEFAULT_TEMPLATE
+    return _apply_template(
+        root,
+        ticket=ticket,
+        agent=agent,
+        stage=resolved_stage,
+        template_path=template_path,
+    )
 
 
 def write_context_pack(
@@ -149,12 +86,8 @@ def write_context_pack(
     template_path: Optional[Path] = None,
     output: Optional[Path] = None,
 ) -> Path:
-    use_template = template_path is not None
     if output is None:
-        if use_template:
-            output = root / "reports" / "context" / f"{ticket}.{agent}.pack.md"
-        else:
-            output = root / "reports" / "context" / f"{ticket}-{agent}.md"
+        output = root / "reports" / "context" / f"{ticket}.pack.md"
     output.parent.mkdir(parents=True, exist_ok=True)
     content = build_context_pack(root, ticket, agent, stage=stage, template_path=template_path)
     output.write_text(content, encoding="utf-8")
@@ -163,17 +96,17 @@ def write_context_pack(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build a compact context pack from AIDD anchors.",
+        description="Build a compact context pack from a template.",
     )
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to pack (defaults to docs/.active_ticket).",
+        help="Ticket identifier to pack (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override (defaults to docs/.active_feature).",
+        help="Optional slug hint override (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--agent",
@@ -185,11 +118,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--template",
-        help="Optional template path to use instead of anchor extraction.",
+        help="Optional template path (defaults to aidd/reports/context/template.context-pack.md).",
     )
     parser.add_argument(
         "--output",
-        help="Optional output path override (default: aidd/reports/context/<ticket>-<agent>.md).",
+        help="Optional output path override (default: aidd/reports/context/<ticket>.pack.md).",
     )
     return parser.parse_args(argv)
 

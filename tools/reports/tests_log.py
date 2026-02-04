@@ -12,10 +12,6 @@ def tests_log_dir(root: Path, ticket: str) -> Path:
     return root / "reports" / "tests" / ticket
 
 
-def legacy_tests_log_path(root: Path, ticket: str) -> Path:
-    return root / "reports" / "tests" / f"{ticket}.jsonl"
-
-
 def tests_log_path(root: Path, ticket: str, scope_key: str) -> Path:
     scope = runtime.sanitize_scope_key(scope_key)
     if not scope:
@@ -130,14 +126,10 @@ def read_log(
     if scope_key:
         events = _load_events(tests_log_path(root, ticket, scope_key))
     else:
-        legacy_path = legacy_tests_log_path(root, ticket)
-        if legacy_path.exists():
-            events = _load_events(legacy_path)
-        else:
-            dir_path = tests_log_dir(root, ticket)
-            if dir_path.exists():
-                for path in sorted(dir_path.glob("*.jsonl")):
-                    events.extend(_load_events(path))
+        dir_path = tests_log_dir(root, ticket)
+        if dir_path.exists():
+            for path in sorted(dir_path.glob("*.jsonl")):
+                events.extend(_load_events(path))
 
     if stage_value:
         events = [entry for entry in events if str(entry.get("stage") or "").strip().lower() == stage_value]
@@ -157,11 +149,6 @@ def latest_entry(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Path]]:
     path = tests_log_path(root, ticket, scope_key)
     events = _load_events(path)
-    if not events and not path.exists():
-        legacy_path = legacy_tests_log_path(root, ticket)
-        if legacy_path.exists():
-            events = _load_events(legacy_path)
-            path = legacy_path
     if not events:
         return None, path if path.exists() else None
     stage_set = {str(stage or "").strip().lower() for stage in (stages or []) if str(stage or "").strip()}

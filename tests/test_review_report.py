@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
 from tools.io_utils import parse_front_matter
 
 
@@ -12,7 +12,7 @@ class ReviewReportTests(unittest.TestCase):
     def test_review_report_idempotent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-report-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-REPORT")
+            write_active_state(root, ticket="DEMO-REPORT")
             findings_path = root / "reports" / "reviewer" / "DEMO-REPORT-findings.json"
             findings_path.parent.mkdir(parents=True, exist_ok=True)
             findings_path.write_text(
@@ -59,8 +59,7 @@ class ReviewReportTests(unittest.TestCase):
     def test_review_report_autogenerates_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-report-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-PACK")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_active_state(root, ticket="DEMO-PACK", work_item="iteration_id=I2")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"

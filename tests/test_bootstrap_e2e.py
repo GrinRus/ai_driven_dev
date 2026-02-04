@@ -8,15 +8,17 @@ from .helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 # Represent key artefacts that must match templates byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
     "AGENTS.md",
-    "conventions.md",
     "config/context_gc.json",
     "config/conventions.json",
     "config/gates.json",
     "docs/prd/template.md",
+    "docs/plan/template.md",
     "docs/spec/template.spec.yaml",
     "docs/tasklist/template.md",
     "docs/research/template.md",
-    "docs/anchors/idea.md",
+    "docs/prompting/conventions.md",
+    "docs/loops/template.loop-pack.md",
+    "reports/context/template.context-pack.md",
 )
 
 PROJECT_DIRECTORIES = (

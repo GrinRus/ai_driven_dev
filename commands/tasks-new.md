@@ -22,9 +22,9 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-Команда `/feature-dev-aidd:tasks-new` работает inline: готовит `aidd/docs/tasklist/$1.md` (шаблон + anchors), собирает Context Pack и явно запускает саб‑агента **feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
+Команда `/feature-dev-aidd:tasks-new` работает inline: готовит `aidd/docs/tasklist/$1.md` (шаблон), собирает Context Pack и явно запускает саб‑агента **feature-dev-aidd:tasklist-refiner** для детальной разбивки задач по plan/PRD/spec.
 Интервью проводится командой `/feature-dev-aidd:spec-interview` (опционально), которая пишет `aidd/docs/spec/$1.spec.yaml`. Tasklist обновляется только через `/feature-dev-aidd:tasks-new`.
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/tasklist.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md` — итерации и DoD.
@@ -37,7 +37,6 @@ disable-model-invocation: false
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:review-spec`, перед `/feature-dev-aidd:implement`.
@@ -55,8 +54,8 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Целевой файл: `aidd/reports/context/$1.tasklist.pack.md` (stage/agent/paths/what-to-do заполняются под tasklist).
-- Paths: plan, tasklist, prd, arch_profile, spec/research/test_policy (if exists).
+- Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
+- Заполни поля stage/agent/read_next/artefact_links под tasklist.
 - What to do now: refine AIDD:SPEC_PACK/TEST_* and produce executable NEXT_3.
 - User note: $ARGUMENTS.
 
@@ -65,8 +64,8 @@ disable-model-invocation: false
 2. Команда (до subagent): проверь PRD через `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` (при ошибке → `BLOCKED`).
 3. Команда (до subagent): создай/открой tasklist; при отсутствии скопируй `aidd/docs/tasklist/template.md`.
 4. Команда (до subagent): если секций `AIDD:SPEC_PACK`/`AIDD:TEST_STRATEGY`/`AIDD:TEST_EXECUTION`/`AIDD:ITERATIONS_FULL` нет — добавь их из шаблона.
-5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.tasklist.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-6. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.tasklist.pack.md`.**
+5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+6. Команда → subagent: **Use the feature-dev-aidd:tasklist-refiner subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 7. Subagent: обновляет `AIDD:SPEC_PACK`, `AIDD:TEST_STRATEGY`, `AIDD:TEST_EXECUTION`, `AIDD:ITERATIONS_FULL` (чекбоксы + iteration_id/parent_iteration_id + optional deps/locks/Priority/Blocking) и `AIDD:NEXT_3` (pointer list с `ref: iteration_id|id`, deps удовлетворены).
 8. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1`. При ошибках (включая spec‑required) верни `Status: BLOCKED` и запроси `/feature-dev-aidd:spec-interview`, затем `/feature-dev-aidd:tasks-new`.
 

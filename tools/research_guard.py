@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from tools import gates
+from tools import runtime
 from tools.feature_ids import resolve_aidd_root
 from tools.rlm_config import detect_lang
 
@@ -150,10 +151,7 @@ def _load_pack_payload(path: Path) -> Optional[dict]:
 
 
 def _load_stage(root: Path) -> str:
-    stage_path = root / "docs" / ".active_stage"
-    if not stage_path.exists():
-        return ""
-    return stage_path.read_text(encoding="utf-8", errors="replace").strip().lower()
+    return runtime.read_active_stage(root)
 
 
 def _detect_langs_from_files(files: Iterable[str], required_langs: Iterable[str]) -> set[str]:
@@ -572,7 +570,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validate the Researcher report status for the active feature.",
     )
-    parser.add_argument("--ticket", "--slug", dest="ticket", required=True, help="Feature ticket to validate (legacy alias: --slug).")
+    parser.add_argument("--ticket", "--slug", dest="ticket", required=True, help="Feature ticket to validate (alias: --slug).")
     parser.add_argument(
         "--branch",
         help="Current Git branch (used to evaluate branch/skip rules in config/gates.json).",

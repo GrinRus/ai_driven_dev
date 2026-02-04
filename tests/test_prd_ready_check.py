@@ -37,6 +37,29 @@ class PrdReadyCheckTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("BLOCK: PRD Status:", result.stderr)
 
+    def test_prd_ready_cache_hit_skips(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="prd-check-") as tmpdir:
+            root = Path(tmpdir)
+            write_file(root, "docs/prd/demo.prd.md", "# PRD\n\nStatus: READY\n")
+            first = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(first.returncode, 0, msg=first.stderr)
+
+            second = subprocess.run(
+                cli_cmd("prd-check", "--ticket", "demo"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(second.returncode, 0, msg=second.stderr)
+            self.assertIn("cache hit", second.stderr.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

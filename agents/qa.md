@@ -35,33 +35,29 @@ QA-агент проверяет фичу после ревью и формир�
 - Не превышать budgets (TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк).
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/qa.md`
-- `aidd/reports/context/<ticket>.qa.pack.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` (если есть)
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (если есть)
-- `aidd/docs/architecture/profile.md`
 - `AIDD:*` секции PRD и tasklist
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
-- `aidd/reports/context/<ticket>.qa.pack.md` — первичный контекст QA.
+- `aidd/reports/context/<ticket>.pack.md` — первичный контекст QA.
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` (если есть).
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (если есть).
 - `aidd/docs/prd/<ticket>.prd.md` — AIDD:ACCEPTANCE и требования.
 - `aidd/docs/plan/<ticket>.md` — тест-стратегия.
 - `aidd/docs/tasklist/<ticket>.md` — QA секция и чекбоксы.
-- `aidd/docs/architecture/profile.md`.
 - `aidd/reports/research/<ticket>-rlm.pack.*`, `rlm-slice` pack (предпочтительно).
 - Отчёты тестов/гейтов и diff.
 
@@ -100,4 +96,4 @@ QA-агент проверяет фичу после ревью и формир�
 - `Tests: run|skipped|not-required <profile/summary/evidence>`.
 - `Blockers/Handoff: ...` (если пусто — `none`).
 - `Next actions: ...`.
-- `Context read: <packs/excerpts only>`.
+- `AIDD:READ_LOG: <paths>`.

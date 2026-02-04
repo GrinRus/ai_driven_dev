@@ -356,10 +356,6 @@ class ResearcherContextBuilder:
         settings = self._settings.get("keyword_settings")
         return settings if isinstance(settings, dict) else {}
 
-    def ast_grep_settings(self) -> Dict[str, Any]:
-        settings = self._settings.get("ast_grep")
-        return settings if isinstance(settings, dict) else {}
-
     def build_scope(self, ticket: str, slug_hint: Optional[str] = None) -> Scope:
         ticket_value = (ticket or "").strip()
         if not ticket_value:
@@ -1473,7 +1469,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ticket",
         "--slug",
         dest="ticket",
-        help="Ticket identifier to analyse (defaults to docs/.active_ticket or legacy .active_feature).",
+        help="Ticket identifier to analyse (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -1526,7 +1522,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = identifiers.resolved_ticket
     if not ticket:
-        parser.error("feature ticket is required (--ticket) or set docs/.active_ticket first.")
+        parser.error("feature ticket is required (--ticket) or set docs/.active.json first.")
 
     config_path = Path(args.config).resolve() if args.config else None
     builder = ResearcherContextBuilder(root, config_path=config_path)

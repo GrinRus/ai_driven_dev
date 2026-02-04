@@ -141,16 +141,15 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
 
     template = str(
         reviewer_cfg.get("tests_marker")
-        or reviewer_cfg.get("marker")
         or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
     )
-    field = str(reviewer_cfg.get("tests_field") or reviewer_cfg.get("field") or "tests")
-    required_values_source = reviewer_cfg.get("requiredValues", reviewer_cfg.get("required_values", ["required"]))
+    field = str(reviewer_cfg.get("tests_field") or "tests")
+    required_values_source = reviewer_cfg.get("required_values", ["required"])
     if isinstance(required_values_source, list):
         required_values = [str(value).strip().lower() for value in required_values_source]
     else:
         required_values = ["required"]
-    optional_values = reviewer_cfg.get("optionalValues", reviewer_cfg.get("optional_values", []))
+    optional_values = reviewer_cfg.get("optional_values", [])
     if isinstance(optional_values, list):
         optional_values = [str(value).strip().lower() for value in optional_values]
     else:
@@ -171,12 +170,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
             scope_key=scope_key,
         )
     except Exception:
-        raw_scope = ""
-        try:
-            raw_scope = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
-        except OSError:
-            raw_scope = ""
-        raw_scope = raw_scope or ticket or ""
+        raw_scope = _runtime.read_active_work_item(root) or ticket or ""
         cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
         raw_path = (
             template.replace("{ticket}", ticket)
@@ -256,15 +250,17 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
         except Exception:
             return True
 
-        label = marker_for(report_path)
-        blocks = tasks_derive._derive_tasks_from_research_context(payload, label)
-        ast_path = root / "reports" / "research" / f"{ticket}-ast-grep.pack.json"
-        if ast_path.exists():
+        rlm_path = root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+        if rlm_path.exists():
             try:
-                ast_payload = json.loads(ast_path.read_text(encoding="utf-8"))
+                rlm_payload = json.loads(rlm_path.read_text(encoding="utf-8"))
             except Exception:
-                ast_payload = {}
-            blocks.extend(tasks_derive._derive_tasks_from_ast_grep_pack(ast_payload, marker_for(ast_path)))
+                rlm_payload = {}
+            label = marker_for(rlm_path)
+            blocks = tasks_derive._derive_tasks_from_rlm_pack(rlm_payload, label)
+        else:
+            label = marker_for(report_path)
+            blocks = tasks_derive._derive_tasks_from_research_context(payload, label)
         blocks = tasks_derive._dedupe_task_blocks(blocks)
         blocks = tasks_derive._filter_research_handoff_blocks(blocks)
         return bool(blocks)
@@ -295,7 +291,9 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
 
     research_path = resolve_report(root / "reports" / "research" / f"{ticket}-context.json")
     if research_path and research_requires_handoff(research_path):
-        reports.append(("research", research_path, marker_for(research_path)))
+        rlm_marker_path = root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+        marker_path = rlm_marker_path if rlm_marker_path.exists() else research_path
+        reports.append(("research", research_path, marker_for(marker_path)))
 
     reviewer_cfg = config.get("reviewer") or {}
     review_template = (
@@ -318,7 +316,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     except Exception:
         raw_scope = ""
         try:
-            raw_scope = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
+            raw_scope = _runtime.read_active_work_item(root)
         except OSError:
             raw_scope = ""
         raw_scope = raw_scope or ticket or ""
@@ -411,6 +409,8 @@ def main() -> int:
         return 2
 
     os.chdir(root)
+    hooks_mode = hooklib.resolve_hooks_mode()
+    fast_mode = hooks_mode == "fast"
 
     payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
@@ -426,9 +426,9 @@ def main() -> int:
 
     has_src_changes = any(re.search(r"(^|/)src/", candidate) for candidate in changed_files)
 
-    ticket_path = root / "docs" / ".active_ticket"
-    slug_path = root / "docs" / ".active_feature"
-    if not ticket_path.exists() and not slug_path.exists():
+    ticket_path = root / "docs" / ".active.json"
+    slug_path = root / "docs" / ".active.json"
+    if not ticket_path.exists():
         return 0
 
     ticket = hooklib.read_ticket(ticket_path, slug_path)
@@ -437,7 +437,7 @@ def main() -> int:
         _log_stdout("WARN: active ticket not set; skipping tasklist checks.")
         return 0
 
-    active_stage = hooklib.resolve_stage(root / "docs" / ".active_stage") or ""
+    active_stage = hooklib.resolve_stage(root / "docs" / ".active.json") or ""
     if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
         if active_stage and active_stage not in {"implement", "review", "qa"}:
             if has_src_changes:
@@ -472,6 +472,7 @@ def main() -> int:
 
     event_status = "fail"
     event_should_log = True
+    fast_mode_warn = False
     try:
         hooklib.ensure_template(root, "docs/research/template.md", root / "docs" / "research" / f"{ticket}.md")
         hooklib.ensure_template(root, "docs/prd/template.md", root / "docs" / "prd" / f"{ticket}.prd.md")
@@ -500,19 +501,33 @@ def main() -> int:
 
         status, output = _run_plan_review_gate(root, ticket, file_path, current_branch)
         if status != 0:
-            if output:
-                _log_stderr(output)
+            if fast_mode and active_stage == "implement":
+                fast_mode_warn = True
+                message = output or f"WARN: Plan Review не готов → выполните /feature-dev-aidd:review-spec {ticket}"
+                if message.startswith("BLOCK:"):
+                    message = message.replace("BLOCK:", "WARN:", 1)
+                _log_stdout(f"{message} (reason_code=fast_mode_warn)")
             else:
-                _log_stderr(f"BLOCK: Plan Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
-            return 2
+                if output:
+                    _log_stderr(output)
+                else:
+                    _log_stderr(f"BLOCK: Plan Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
+                return 2
 
         status, output = _run_prd_review_gate(root, ticket, slug_hint, file_path, current_branch)
         if status != 0:
-            if output:
-                _log_stderr(output)
+            if fast_mode and active_stage == "implement":
+                fast_mode_warn = True
+                message = output or f"WARN: PRD Review не готов → выполните /feature-dev-aidd:review-spec {ticket}"
+                if message.startswith("BLOCK:"):
+                    message = message.replace("BLOCK:", "WARN:", 1)
+                _log_stdout(f"{message} (reason_code=fast_mode_warn)")
             else:
-                _log_stderr(f"BLOCK: PRD Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
-            return 2
+                if output:
+                    _log_stderr(output)
+                else:
+                    _log_stderr(f"BLOCK: PRD Review не готов → выполните /feature-dev-aidd:review-spec {ticket}")
+                return 2
 
         research_settings = load_research_settings(root)
         try:
@@ -556,7 +571,7 @@ def main() -> int:
         if progress_result.message:
             _log_stdout(progress_result.message)
 
-        event_status = "pass"
+        event_status = "warn" if fast_mode_warn else "pass"
         return 0
     finally:
         if event_should_log:

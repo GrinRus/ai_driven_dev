@@ -699,7 +699,7 @@ def _write_stats(path: Path, payload: Dict[str, object]) -> None:
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build RLM links from verified nodes.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--nodes", help="Override nodes.jsonl path.")
     parser.add_argument("--targets", help="Override rlm-targets.json path.")
     parser.add_argument("--output", help="Override links.jsonl path.")

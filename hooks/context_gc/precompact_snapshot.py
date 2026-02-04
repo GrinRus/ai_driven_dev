@@ -5,7 +5,14 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from hooks.hooklib import load_config, read_hook_context, resolve_aidd_root, resolve_project_dir, stat_file_bytes
+from hooks.hooklib import (
+    load_config,
+    read_hook_context,
+    resolve_aidd_root,
+    resolve_context_gc_mode,
+    resolve_project_dir,
+    stat_file_bytes,
+)
 from .working_set_builder import build_working_set
 
 
@@ -62,6 +69,9 @@ def main() -> None:
         return
     if not cfg.get("enabled", True):
         _log(aidd_root, f"skip: context-gc disabled (aidd_root={aidd_root})")
+        return
+    if resolve_context_gc_mode(cfg) == "off":
+        _log(aidd_root, f"skip: context-gc mode=off (aidd_root={aidd_root})")
         return
 
     reports_dir = aidd_root / "reports" / "context"

@@ -34,7 +34,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:qa` работает inline: фиксирует стадию и активную фичу, запускает `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --gate` для отчёта, пишет Context Pack и явно запускает саб‑агента **feature-dev-aidd:qa**. Агент обновляет QA секцию tasklist; команда формирует handoff‑задачи и фиксирует прогресс. Выполняется после `/feature-dev-aidd:review`.
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/qa.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
 - `aidd/docs/prd/$1.prd.md` (AIDD:ACCEPTANCE).
@@ -49,12 +49,11 @@ disable-model-invocation: false
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:review`, перед релизом.
 - Повторять при новых изменениях.
-- Если QA `BLOCKED` и требуется вернуться в implement/review‑loop — используйте loop‑скрипты с `--from-qa` (см. `aidd/docs/loops/README.md`).
+- Если QA `BLOCKED` и требуется вернуться в implement/review‑loop — используйте loop‑скрипты с `--from-qa`.
 
 ## Автоматические хуки и переменные
 - `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` фиксирует стадию `qa`.
@@ -71,16 +70,16 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Целевой файл: `aidd/reports/context/$1.qa.pack.md` (stage/agent/paths/what-to-do заполняются под qa).
-- Paths: plan, tasklist, prd, arch_profile, spec/research/test_policy (if exists), qa_report.
+- Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
+- Заполни поля stage/agent/read_next/artefact_links под qa.
 - What to do now: validate acceptance criteria, add QA traceability + handoff.
 - User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `qa` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.qa.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
-4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.qa.pack.md`.**
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
+4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED` (`tests_required=soft` + missing/skip → `WARN`, `tests_required=hard` → `BLOCKED`).
 6. Subagent: выполняет verify results (QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source qa --append --ticket $1`.
@@ -92,7 +91,7 @@ disable-model-invocation: false
 ## Fail-fast и вопросы
 - Нет tasklist/PRD — остановись и попроси обновить артефакты.
 - Отчёт не записался — перезапусти CLI команду и приложи stderr.
-- Если `aidd/reports/context/$1.qa.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
+- Если `aidd/reports/context/$1.pack.md` отсутствует после записи — верни `Status: BLOCKED`.
 - Если `.active_mode=loop` и требуются ответы — `Status: BLOCKED` + handoff (без вопросов в чат).
 - Любой ранний `BLOCKED` фиксируй через `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh` (при необходимости `--allow-missing-work-item`).
 - Любой ранний `BLOCKED` (до subagent) всё равно выводит полный контракт: `Status/Work item key/Artifacts updated/Tests/Blockers/Handoff/Next actions`; если данных нет — `n/a`. `Tests: run` запрещён без tests_log → используй `Tests: skipped` + reason_code.
@@ -105,6 +104,7 @@ disable-model-invocation: false
 - `Tests: run|skipped|not-required <profile/summary/evidence>` (без tests_log → `skipped` + reason_code).
 - `Blockers/Handoff: ...`.
 - `Next actions: ...`.
+- `AIDD:READ_LOG: <paths>`.
 - Финальный `Status` должен совпадать с выводом `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh`.
 - Итоговый Status в ответе: приоритет `stage_result` → `qa report` → `pack`. При расхождении выбери безопасный статус (BLOCKED > WARN > READY) и укажи `reason_code=sync_drift_warn`.
 - Ответ содержит `Checkbox updated` (если есть).

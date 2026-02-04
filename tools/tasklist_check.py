@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import difflib
 import json
 import re
@@ -93,12 +94,10 @@ PROGRESS_SOURCES = {"implement", "review", "qa", "research", "normalize"}
 PROGRESS_KINDS = {"iteration", "handoff"}
 STRICT_STAGES = {"review", "qa"}
 
-LEGACY_HANDOFF_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s*(research|qa|review)(?:\s+report)?\s*:", re.IGNORECASE)
 SECTION_HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
 REF_RE = re.compile(r"\bref\s*:\s*([^\)]+)")
 ID_RE = re.compile(r"\bid\s*:\s*([A-Za-z0-9_.:-]+)")
-HANDOFF_ID_RE = re.compile(r"\bhandoff_id\s*:\s*([A-Za-z0-9_.:-]+)")
 ITERATION_ID_RE = re.compile(r"\biteration_id\s*[:=]\s*([A-Za-z0-9_.:-]+)")
 STATE_RE = re.compile(r"\bstate\s*:\s*([A-Za-z0-9_-]+)", re.IGNORECASE)
 PARENT_ITERATION_RE = re.compile(r"\bparent_iteration_id\s*:\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
@@ -163,7 +162,6 @@ class HandoffItem:
     blocking: bool
     source: str
     lines: List[str]
-    legacy: bool = False
 
 
 @dataclass
@@ -185,7 +183,7 @@ class NormalizeResult:
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate tasklist readiness.")
-    parser.add_argument("--ticket", default=None, help="Feature ticket (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", default=None, help="Feature ticket (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", default=None, help="Optional slug hint override.")
     parser.add_argument("--branch", default="", help="Current branch name for branch filters.")
     parser.add_argument(
@@ -214,6 +212,35 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         help="Show changes without modifying files (requires --fix).",
     )
     return parser.parse_args(list(argv) if argv is not None else None)
+
+
+def _tasklist_cache_path(root: Path) -> Path:
+    return root / ".cache" / "tasklist.hash"
+
+
+def _tasklist_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _load_tasklist_cache(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _write_tasklist_cache(path: Path, *, ticket: str, stage: str, hash_value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ticket": ticket,
+        "stage": stage,
+        "hash": hash_value,
+        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def read_text(path: Path) -> str:
@@ -409,9 +436,6 @@ def extract_handoff_id(block: List[str]) -> str | None:
         match = ID_RE.search(line)
         if match:
             return match.group(1).strip()
-        match = HANDOFF_ID_RE.search(line)
-        if match:
-            return match.group(1).strip()
     return None
 
 
@@ -465,25 +489,25 @@ def parse_iteration_items(section_lines: List[str]) -> List[IterationItem]:
     for block in split_iteration_blocks(section_lines):
         header = block[0].strip()
         checkbox_state = "unknown"
-        match = CHECKBOX_RE.match(header)
-        if match:
-            checkbox_state = "done" if match.group("state").lower() == "x" else "open"
+        checkbox_match = CHECKBOX_RE.match(header)
+        if checkbox_match:
+            checkbox_state = "done" if checkbox_match.group("state").lower() == "x" else "open"
         fields = parse_parenthetical_fields(header)
         iteration_id = extract_iteration_id(block) or ""
         explicit_id = any(ITERATION_ID_RE.search(line) for line in block)
         parent_id = None
         for line in block:
-            match = PARENT_ITERATION_RE.search(line)
-            if match:
-                parent_id = match.group(1).strip()
+            parent_match = PARENT_ITERATION_RE.search(line)
+            if parent_match:
+                parent_id = parent_match.group(1).strip()
                 break
         state_value = extract_field_value(block, "State")
         state = (state_value or "").strip().lower()
         if not state:
             state = ""
         title = header
-        if match:
-            title = match.group("body").strip()
+        if checkbox_match:
+            title = checkbox_match.group("body").strip()
         else:
             if title.startswith("-"):
                 title = title.lstrip("-").strip()
@@ -522,8 +546,6 @@ def parse_handoff_items(section_lines: List[str]) -> List[HandoffItem]:
     parsed: List[HandoffItem] = []
     for block in split_checkbox_blocks(section_lines):
         header = block[0]
-        legacy = bool(LEGACY_HANDOFF_RE.match(header))
-        handoff_id_used = any(HANDOFF_ID_RE.search(line) for line in block)
         checkbox_state = "unknown"
         match = CHECKBOX_RE.match(header)
         if match:
@@ -531,11 +553,7 @@ def parse_handoff_items(section_lines: List[str]) -> List[HandoffItem]:
         title = match.group("body").strip() if match else header.strip()
         title = re.sub(r"\([^\)]*\)", "", title).strip()
         fields = parse_parenthetical_fields(header)
-        if fields.get("handoff_id"):
-            handoff_id_used = True
         item_id = fields.get("id") or extract_handoff_id(block) or ""
-        if fields.get("handoff_id"):
-            item_id = fields.get("handoff_id")
         priority = (fields.get("priority") or extract_field_value(block, "Priority") or "").strip().lower()
         blocking_raw = (fields.get("blocking") or extract_field_value(block, "Blocking") or "").strip().lower()
         blocking = blocking_raw == "true"
@@ -553,7 +571,6 @@ def parse_handoff_items(section_lines: List[str]) -> List[HandoffItem]:
                 blocking=blocking,
                 source=source,
                 lines=block,
-                legacy=legacy or not item_id or handoff_id_used,
             )
         )
     return parsed
@@ -675,14 +692,9 @@ def severity_for_stage(stage: str, *, strict: bool = False) -> str:
 
 
 def resolve_stage(root: Path, context_pack: List[str]) -> str:
-    active_stage = root / "docs" / ".active_stage"
-    if active_stage.exists():
-        try:
-            value = active_stage.read_text(encoding="utf-8").strip()
-        except OSError:
-            value = ""
-        if value:
-            return value.lower()
+    value = runtime.read_active_stage(root)
+    if value:
+        return value.lower()
     stage_value = extract_field_value(context_pack, "Stage")
     return (stage_value or "").strip().lower()
 
@@ -1064,7 +1076,7 @@ def normalize_progress_section(
     elif overflow:
         summary.append(f"(dry-run) would archive {len(overflow)} progress entries -> {archive_path}")
     if invalid:
-        summary.append(f"removed {len(invalid)} invalid progress entries")
+        summary.append(f"dropped {len(invalid)} invalid progress entries")
     new_lines = [lines[0], *preamble]
     for entry in deduped:
         new_lines.append(progress_entry_line(entry))
@@ -1178,12 +1190,6 @@ def normalize_handoff_section(sections: List[Section], summary: List[str]) -> Li
 
     manual_tasks: List[str] = []
     for block in loose_tasks:
-        header = block[0] if block else ""
-        legacy = bool(LEGACY_HANDOFF_RE.match(header))
-        item_id = extract_handoff_id(block)
-        if legacy and not item_id:
-            summary.append("removed legacy handoff task outside block")
-            continue
         manual_tasks.extend(block)
 
     if manual_block:
@@ -1202,80 +1208,11 @@ def normalize_handoff_section(sections: List[Section], summary: List[str]) -> Li
         task_blocks = split_checkbox_blocks(raw_lines)
         kept: List[List[str]] = []
         dedup: dict[str, List[str]] = {}
-        legacy_removed = 0
-        legacy_migrated = 0
         deduped = 0
         source = normalize_source(source)
-        priority_map = {
-            "blocker": "critical",
-            "critical": "critical",
-            "major": "high",
-            "high": "high",
-            "medium": "medium",
-            "minor": "low",
-            "low": "low",
-        }
-
-        def legacy_block_to_structured(block: List[str], item_id: str) -> List[str]:
-            header = block[0].strip()
-            checkbox_state = "open"
-            match = CHECKBOX_RE.match(header)
-            if match:
-                checkbox_state = "done" if match.group("state").lower() == "x" else "open"
-                title_raw = match.group("body").strip()
-            else:
-                title_raw = header.lstrip("-").strip()
-            title = re.sub(r"\([^\)]*\)", "", title_raw).strip()
-            title = re.sub(
-                r"^(Research|QA|Review)(?:\s+report)?\s*:\s*",
-                "",
-                title,
-                flags=re.IGNORECASE,
-            ).strip()
-            if not title:
-                title = "Legacy handoff task"
-            severity_match = re.search(r"\[(blocker|critical|major|minor|high|medium|low)\]", title_raw, re.IGNORECASE)
-            priority = "medium"
-            blocking = False
-            if severity_match:
-                severity = severity_match.group(1).lower()
-                priority = priority_map.get(severity, "medium")
-                if severity in {"blocker", "critical"}:
-                    blocking = True
-            status = "done" if checkbox_state == "done" else "open"
-            header_line = (
-                f"- [{'x' if status == 'done' else ' '}] {title} "
-                f"(id: {item_id}) (Priority: {priority}) (Blocking: {str(blocking).lower()})"
-            )
-            return [
-                header_line,
-                f"  - source: {source or 'manual'}",
-                "  - Report: legacy",
-                f"  - Status: {status}",
-                f"  - title: {title}",
-                "  - scope: n/a",
-                "  - DoD: define completion criteria",
-                "  - Boundaries:",
-                "    - must-touch: []",
-                "    - must-not-touch: []",
-                "  - Tests:",
-                "    - profile: none",
-                "    - tasks: []",
-                "    - filters: []",
-            ]
 
         for block in task_blocks:
-            header = block[0] if block else ""
-            legacy = bool(LEGACY_HANDOFF_RE.match(header))
             item_id = extract_handoff_id(block)
-            if legacy:
-                if not item_id:
-                    legacy_removed += 1
-                    continue
-                block = legacy_block_to_structured(block, item_id)
-                legacy_migrated += 1
-                item_id = extract_handoff_id(block)
-            block = [line.replace("handoff_id:", "id:") for line in block]
             block = [line.replace("source: reviewer", "source: review") for line in block]
             block = [line.replace("source: Reviewer", "source: review") for line in block]
             if not item_id:
@@ -1292,10 +1229,6 @@ def normalize_handoff_section(sections: List[Section], summary: List[str]) -> Li
                 dedup[item_id] = block
         for block in dedup.values():
             kept.append(block)
-        if legacy_removed:
-            summary.append(f"removed {legacy_removed} legacy handoff line(s)")
-        if legacy_migrated:
-            summary.append(f"migrated {legacy_migrated} legacy handoff task(s)")
         if deduped:
             summary.append(f"deduped {deduped} handoff task(s)")
         return [line for block in kept for line in block]
@@ -1521,7 +1454,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
         plan_mentions_ui = mentions_spec_required(
             extract_section_text(
                 plan_text,
-                ("AIDD:FILES_TOUCHED", "AIDD:ITERATIONS", "AIDD:ARCHITECTURE", "AIDD:TEST_STRATEGY"),
+                ("AIDD:FILES_TOUCHED", "AIDD:ITERATIONS", "AIDD:DESIGN", "AIDD:TEST_STRATEGY"),
             )
         )
         prd_mentions_ui = mentions_spec_required(
@@ -1687,7 +1620,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
                 add_issue("error", "keyword ready for deploy present while NOT MET")
                 break
 
-    # enum validation and legacy formats
+    # enum validation
     for iteration in iter_items:
         if iteration.state and iteration.state not in ITERATION_STATE_VALUES:
             add_issue(severity_for_stage(stage), f"iteration {iteration.item_id or '?'} has invalid State={iteration.state}")
@@ -1706,8 +1639,9 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             )
 
     for handoff in handoff_items:
-        if handoff.legacy:
-            add_issue(severity_for_stage(stage), "legacy handoff task format detected")
+        if not handoff.item_id:
+            add_issue(severity_for_stage(stage), "handoff task missing id")
+            continue
         if handoff.source and handoff.source not in HANDOFF_SOURCE_VALUES:
             add_issue(severity_for_stage(stage), f"handoff {handoff.item_id} invalid source={handoff.source}")
         if handoff.item_id and not handoff.source:
@@ -1780,10 +1714,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
             add_issue(severity_for_stage(stage), f"handoff {handoff.item_id} marked done without evidence")
 
     # test failures
-    slug_hint = None
-    slug_path = root / "docs" / ".active_feature"
-    if slug_path.exists():
-        slug_hint = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
+    slug_hint = runtime.read_active_slug(root) or None
     gates_cfg = runtime.load_gates_config(root)
     reviewer_cfg = gates_cfg.get("reviewer") if isinstance(gates_cfg, dict) else {}
     if not isinstance(reviewer_cfg, dict):
@@ -1908,39 +1839,62 @@ def run_check(args: argparse.Namespace) -> int:
     identifiers = resolve_identifiers(root, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = (identifiers.resolved_ticket or "").strip()
     if not ticket:
-        result = TasklistCheckResult(status="error", message="ticket not provided and docs/.active_ticket missing")
+        result = TasklistCheckResult(status="error", message="ticket not provided and docs/.active.json missing")
     else:
         tasklist_path = tasklist_path_for(root, ticket)
-        if args.fix:
-            if not tasklist_path.exists():
-                print(f"[tasklist-check] WARN: tasklist not found: {tasklist_path}", file=sys.stderr)
-                return 0
-            original = tasklist_path.read_text(encoding="utf-8")
-            normalized = normalize_tasklist(root, ticket, original, dry_run=args.dry_run)
-            if args.dry_run:
-                diff = difflib.unified_diff(
-                    original.splitlines(),
-                    normalized.updated_text.splitlines(),
-                    fromfile=str(tasklist_path),
-                    tofile=str(tasklist_path),
-                    lineterm="",
-                )
-                for line in diff:
-                    print(line)
-                for line in normalized.summary:
-                    print(f"[tasklist-check] {line}")
-                return 0
-            if normalized.changed:
-                backup_dir = root / "reports" / "tasklist_backups" / ticket
-                backup_dir.mkdir(parents=True, exist_ok=True)
-                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-                backup_path = backup_dir / f"{timestamp}.md"
-                backup_path.write_text(original, encoding="utf-8")
-                tasklist_path.write_text(normalized.updated_text, encoding="utf-8")
-                for line in normalized.summary:
-                    print(f"[tasklist-check] {line}")
-                print(f"[tasklist-check] backup saved: {backup_path}")
-            result = check_tasklist(root, ticket)
+        if not tasklist_path.exists():
+            result = TasklistCheckResult(status="error", message=f"tasklist not found: {tasklist_path}")
+        else:
+            tasklist_text = tasklist_path.read_text(encoding="utf-8")
+            stage_value = runtime.read_active_stage(root)
+            cache_path = _tasklist_cache_path(root)
+            current_hash = _tasklist_hash(tasklist_text)
+
+            if not args.fix and not args.dry_run:
+                cache_payload = _load_tasklist_cache(cache_path)
+                if (
+                    cache_payload.get("ticket") == ticket
+                    and cache_payload.get("stage") == stage_value
+                    and cache_payload.get("hash") == current_hash
+                ):
+                    if not args.quiet_ok:
+                        print("[tasklist-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
+                    return 0
+
+            if args.fix:
+                original = tasklist_text
+                normalized = normalize_tasklist(root, ticket, original, dry_run=args.dry_run)
+                if args.dry_run:
+                    diff = difflib.unified_diff(
+                        original.splitlines(),
+                        normalized.updated_text.splitlines(),
+                        fromfile=str(tasklist_path),
+                        tofile=str(tasklist_path),
+                        lineterm="",
+                    )
+                    for line in diff:
+                        print(line)
+                    for line in normalized.summary:
+                        print(f"[tasklist-check] {line}")
+                    return 0
+                if normalized.changed:
+                    backup_dir = root / "reports" / "tasklist_backups" / ticket
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+                    backup_path = backup_dir / f"{timestamp}.md"
+                    backup_path.write_text(original, encoding="utf-8")
+                    tasklist_path.write_text(normalized.updated_text, encoding="utf-8")
+                    for line in normalized.summary:
+                        print(f"[tasklist-check] {line}")
+                    print(f"[tasklist-check] backup saved: {backup_path}")
+                result = check_tasklist(root, ticket)
+            else:
+                result = check_tasklist_text(root, ticket, tasklist_text)
+
+            if result.status in {"ok", "warn"}:
+                updated_text = tasklist_path.read_text(encoding="utf-8")
+                updated_hash = _tasklist_hash(updated_text)
+                _write_tasklist_cache(cache_path, ticket=ticket, stage=stage_value, hash_value=updated_hash)
             if result.status == "error":
                 if result.details:
                     for entry in result.details:
@@ -1952,9 +1906,6 @@ def run_check(args: argparse.Namespace) -> int:
                     for entry in result.details:
                         print(f"[tasklist-check] WARN: {entry}", file=sys.stderr)
             return result.exit_code()
-        else:
-            result = check_tasklist(root, ticket)
-
     if result.status == "error":
         if result.details:
             for entry in result.details:

@@ -9,6 +9,7 @@ from hooks.hooklib import (
     json_out,
     load_config,
     read_hook_context,
+    resolve_context_gc_mode,
     resolve_aidd_root,
     resolve_project_dir,
     stat_file_bytes,
@@ -97,6 +98,8 @@ def main() -> None:
     aidd_root = resolve_aidd_root(project_dir)
     cfg = load_config(aidd_root)
     if not cfg.get("enabled", True):
+        return
+    if resolve_context_gc_mode(cfg) == "off":
         return
 
     limits = cfg.get("context_limits", {})

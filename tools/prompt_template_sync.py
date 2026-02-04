@@ -67,7 +67,6 @@ def main(argv: List[str] | None = None) -> int:
     pair_roots = [
         (repo_root / "agents", repo_root / "templates" / "aidd" / "agents"),
         (repo_root / "commands", repo_root / "templates" / "aidd" / "commands"),
-        (repo_root / "templates" / "aidd" / "docs" / "anchors", repo_root / "aidd" / "docs" / "anchors"),
     ]
     file_pairs = [
         (repo_root / "templates" / "aidd" / "AGENTS.md", repo_root / "aidd" / "AGENTS.md"),

@@ -39,23 +39,20 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 - Не превышать budgets (TL;DR <=12 bullets, Blockers summary <=8 строк, NEXT_3 item <=12 строк, HANDOFF item <=20 строк).
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/review.md`
-- `aidd/docs/loops/README.md`
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md`
 - `aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md` (если есть)
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции tasklist/plan **только если** excerpt в loop pack неполон
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
@@ -63,7 +60,6 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` — первичный контекст итерации.
 - Полный tasklist/plan/spec — только если excerpt в loop pack не содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance или REVISE требует контекста.
 - `aidd/docs/prd/<ticket>.prd.md`, `aidd/docs/plan/<ticket>.md`, `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/docs/architecture/profile.md`.
 - `aidd/reports/research/<ticket>-rlm.pack.*`, `rlm-slice` pack (предпочтительно).
 - Отчёты тестов/гейтов и `aidd/reports/reviewer/<ticket>/<scope_key>.json` (если есть).
 
@@ -109,7 +105,7 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
 - `Tests: run|skipped|not-required <profile/summary/evidence>`.
 - `Blockers/Handoff: ...` (если пусто — `none`).
 - `Next actions: ...`.
-- `Context read: <packs/excerpts only>`.
+- `AIDD:READ_LOG: <paths>`.
 - При verdict=REVISE включай блок `Fix Plan` (см. формат выше).
 - Если findings есть или tests evidence отсутствует (tests_required=soft) — статус не может быть READY; итог должен совпадать с `review.latest.pack.md`/`stage.review.result.json`.
 - Без логов/стектрейсов/диффов — только ссылки на `aidd/reports/**`.

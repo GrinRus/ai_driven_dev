@@ -154,7 +154,7 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         pack_path = report_path.with_suffix(".pack.json")
         self.assertTrue(pack_path.exists(), "QA pack should be written")
-        self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")
+        self.assertFalse(report_path.exists(), "JSON report should be absent in pack-only mode")
 
     def test_missing_tests_flags_major_warning(self):
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")

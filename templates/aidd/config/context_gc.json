@@ -1,5 +1,6 @@
 {
   "enabled": true,
+  "mode": "light",
   "working_set": {
     "max_chars": 12000,
     "max_tasks": 40,

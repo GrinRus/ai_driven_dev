@@ -14,22 +14,19 @@ permissionMode: default
 
 ### MUST KNOW FIRST
 - `aidd/AGENTS.md`
-- `aidd/docs/anchors/spec-interview.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/docs/sdlc-flow.md`
-- `aidd/docs/status-machine.md`
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
 ## Входные артефакты
 - `aidd/docs/plan/<ticket>.md`
 - `aidd/docs/prd/<ticket>.prd.md`
-- `aidd/docs/architecture/profile.md`
 - `aidd/docs/research/<ticket>.md`
 - `aidd/reports/spec/<ticket>.interview.jsonl`
 - `aidd/docs/spec/template.spec.yaml`

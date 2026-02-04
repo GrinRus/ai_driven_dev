@@ -70,12 +70,11 @@ PAIRINGS: List[Tuple[str, str]] = [
 
 REQUIRED_AGENT_REFERENCES = [
     "aidd/AGENTS.md",
-    "aidd/docs/sdlc-flow.md",
-    "aidd/docs/status-machine.md",
     "aidd/docs/prompting/conventions.md",
 ]
 
 REQUIRED_COMMAND_REFERENCES = [
+    "aidd/AGENTS.md",
     "aidd/docs/prompting/conventions.md",
 ]
 
@@ -87,7 +86,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
-        "Context read:",
+        "AIDD:READ_LOG:",
     ],
     "agents/reviewer.md": [
         "Status:",
@@ -96,7 +95,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
-        "Context read:",
+        "AIDD:READ_LOG:",
     ],
     "agents/qa.md": [
         "Status:",
@@ -105,7 +104,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
-        "Context read:",
+        "AIDD:READ_LOG:",
     ],
     "commands/implement.md": [
         "Status:",
@@ -114,6 +113,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
+        "AIDD:READ_LOG:",
     ],
     "commands/review.md": [
         "Status:",
@@ -122,6 +122,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
+        "AIDD:READ_LOG:",
     ],
     "commands/qa.md": [
         "Status:",
@@ -130,6 +131,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Tests:",
         "Blockers/Handoff:",
         "Next actions:",
+        "AIDD:READ_LOG:",
     ],
 }
 
@@ -141,19 +143,6 @@ OUTPUT_STATUS_LINES = {
     "commands/review.md": "Status: READY|WARN|BLOCKED",
     "commands/qa.md": "Status: READY|WARN|BLOCKED",
 }
-
-REQUIRED_STAGE_ANCHORS = [
-    "idea",
-    "research",
-    "plan",
-    "review-plan",
-    "review-prd",
-    "spec-interview",
-    "tasklist",
-    "implement",
-    "review",
-    "qa",
-]
 
 REQUIRED_WRITE_TOOLS = {
     "agents/implementer.md",
@@ -177,7 +166,7 @@ LOOP_NO_QUESTIONS_HINTS = {
 
 REVIEW_PACK_ORDER_HINTS = {
     "agents/reviewer.md": ["после loop pack", "review.latest.pack.md"],
-    "commands/review.md": ["read loop pack", "review.latest.pack.md", "review.pack.md"],
+    "commands/review.md": ["read loop pack", "review.latest.pack.md", "aidd/reports/context/$1.pack.md"],
 }
 
 PARALLEL_PATH_HINTS = {
@@ -203,65 +192,20 @@ VERIFY_STEP_HINTS = {
 }
 
 REQUIRED_CONTEXT_PACK_REFERENCES = {
-    "commands/review.md": "aidd/reports/context/$1.review.pack.md",
-    "commands/qa.md": "aidd/reports/context/$1.qa.pack.md",
+    "commands/review.md": "aidd/reports/context/$1.pack.md",
+    "commands/qa.md": "aidd/reports/context/$1.pack.md",
 }
 
 CRITICAL_TEMPLATE_ARTIFACTS = [
     "aidd/AGENTS.md",
-    "aidd/docs/loops/README.md",
-    "aidd/docs/sdlc-flow.md",
-    "aidd/docs/status-machine.md",
+    "aidd/docs/prompting/conventions.md",
+    "aidd/reports/context/template.context-pack.md",
+    "aidd/docs/loops/template.loop-pack.md",
+    "aidd/docs/prd/template.md",
+    "aidd/docs/plan/template.md",
+    "aidd/docs/research/template.md",
+    "aidd/docs/tasklist/template.md",
 ]
-
-CORE_ANCHORS = [
-    "AIDD:CONTEXT_PACK",
-    "AIDD:NON_NEGOTIABLES",
-    "AIDD:OPEN_QUESTIONS",
-    "AIDD:RISKS",
-    "AIDD:DECISIONS",
-]
-
-TEMPLATE_ANCHORS = {
-    "docs/prd/template.md": [
-        *CORE_ANCHORS,
-        "AIDD:ANSWERS",
-        "AIDD:GOALS",
-        "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE",
-        "AIDD:METRICS",
-        "AIDD:ROLL_OUT",
-    ],
-    "docs/plan/template.md": [
-        *CORE_ANCHORS,
-        "AIDD:ANSWERS",
-        "AIDD:ARCHITECTURE",
-        "AIDD:FILES_TOUCHED",
-        "AIDD:ITERATIONS",
-        "AIDD:TEST_STRATEGY",
-    ],
-    "docs/research/template.md": [
-        *CORE_ANCHORS,
-        "AIDD:INTEGRATION_POINTS",
-        "AIDD:REUSE_CANDIDATES",
-        "AIDD:COMMANDS_RUN",
-        "AIDD:TEST_HOOKS",
-    ],
-    "docs/tasklist/template.md": [
-        "AIDD:CONTEXT_PACK",
-        "AIDD:SPEC_PACK",
-        "AIDD:TEST_STRATEGY",
-        "AIDD:TEST_EXECUTION",
-        "AIDD:ITERATIONS_FULL",
-        "AIDD:NEXT_3",
-        "AIDD:OUT_OF_SCOPE_BACKLOG",
-        "AIDD:HANDOFF_INBOX",
-        "AIDD:QA_TRACEABILITY",
-        "AIDD:CHECKLIST",
-        "AIDD:PROGRESS_LOG",
-        "AIDD:HOW_TO_UPDATE",
-    ],
-}
 
 QUESTION_TEMPLATE = {
     "ru": "Вопрос N (Blocker|Clarification)",
@@ -876,42 +820,6 @@ def validate_template_artifacts(root: Path) -> List[str]:
     return errors
 
 
-def _extract_headings(text: str) -> set[str]:
-    return {
-        line.strip()[3:].strip()
-        for line in text.splitlines()
-        if line.strip().startswith("## ")
-    }
-
-
-def validate_stage_anchors(root: Path) -> List[str]:
-    errors: List[str] = []
-    aidd_root = _resolve_aidd_root(root)
-    anchors_dir = aidd_root / "docs" / "anchors"
-    if not anchors_dir.exists():
-        return [f"{anchors_dir}: missing anchors directory"]
-    for stage in REQUIRED_STAGE_ANCHORS:
-        anchor = anchors_dir / f"{stage}.md"
-        if not anchor.exists():
-            errors.append(f"{anchor}: missing stage anchor")
-    return errors
-
-
-def validate_template_anchors(root: Path) -> List[str]:
-    errors: List[str] = []
-    aidd_root = _resolve_aidd_root(root)
-    for rel_path, required in TEMPLATE_ANCHORS.items():
-        path = aidd_root / rel_path
-        if not path.exists():
-            errors.append(f"{path}: missing template")
-            continue
-        headings = _extract_headings(path.read_text(encoding="utf-8"))
-        missing = [section for section in required if section not in headings]
-        if missing:
-            errors.append(f"{path}: missing AIDD sections {missing}")
-    return errors
-
-
 def lint_prompts(root: Path) -> Tuple[List[str], Dict[str, Dict[str, Dict[str, PromptFile]]]]:
     errors: List[str] = []
     files: Dict[str, Dict[str, Dict[str, PromptFile]]] = {
@@ -1008,8 +916,6 @@ def main() -> int:
         print(f"[prompt-lint] root {root} does not exist", file=sys.stderr)
         return 1
     errors, _ = lint_prompts(root)
-    errors.extend(validate_stage_anchors(root))
-    errors.extend(validate_template_anchors(root))
     errors.extend(validate_index_schema(root))
     if errors:
         for msg in errors:

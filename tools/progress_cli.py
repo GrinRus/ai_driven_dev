@@ -15,7 +15,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",

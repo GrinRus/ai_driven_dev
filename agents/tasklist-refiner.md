@@ -16,27 +16,23 @@ permissionMode: default
 Loop mode: 1 iteration = 1 work_item. Всё лишнее → `AIDD:OUT_OF_SCOPE_BACKLOG`.
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/tasklist.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции tasklist (CONTEXT_PACK → SPEC_PACK → TEST_EXECUTION → ITERATIONS_FULL → NEXT_3)
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`
-- `aidd/docs/sdlc-flow.md`
-- `aidd/docs/status-machine.md`
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
 Следуй attention‑policy из `aidd/AGENTS.md`.
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
 - `aidd/docs/plan/<ticket>.md` — итерации, DoD, boundaries.
 - `aidd/docs/prd/<ticket>.prd.md` — acceptance, UX/rollout.
-- `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
 - `aidd/docs/research/<ticket>.md` — интеграции, риски.
 - `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (предпочтительно).
 - `aidd/docs/spec/<ticket>.spec.yaml` — спецификация (если есть).

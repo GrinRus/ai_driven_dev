@@ -60,13 +60,13 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--slug",
         dest="ticket",
         required=True,
-        help="Active feature ticket (legacy alias: --slug).",
+        help="Active feature ticket (alias: --slug).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
         default="",
-        help="Optional slug hint used for messaging (defaults to docs/.active_feature).",
+        help="Optional slug hint used for messaging (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--file-path",

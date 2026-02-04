@@ -15,7 +15,6 @@ from tools import runtime
 _TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
 _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
 _TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
-_LEGACY_TASK_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s*(Research|QA|Review)(?:\s+report)?\s*:", re.IGNORECASE)
 _FIELD_HEADER_RE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9 _-]*)\s*:")
 _TASK_PRIORITY_RE = re.compile(r"\(Priority:\s*([^)]+)\)", re.IGNORECASE)
 _TASK_BLOCKING_RE = re.compile(r"\(Blocking:\s*(true|false)\)", re.IGNORECASE)
@@ -478,49 +477,6 @@ def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reu
     return blocks
 
 
-def _derive_tasks_from_ast_grep_pack(payload: Dict, report_label: str) -> List[List[str]]:
-    blocks: List[List[str]] = []
-    rules = payload.get("rules") or []
-    if not isinstance(rules, list):
-        return blocks
-    for rule in rules:
-        if not isinstance(rule, dict):
-            continue
-        rule_id = str(rule.get("rule_id") or "").strip() or "ast-grep"
-        examples = rule.get("examples") or []
-        if not isinstance(examples, list) or not examples:
-            continue
-        example = examples[0] if isinstance(examples[0], dict) else {}
-        path = str(example.get("path") or "").strip()
-        line = example.get("line")
-        message = str(example.get("message") or "").strip()
-        if not path:
-            continue
-        line_label = f":{line}" if line not in (None, "") else ""
-        title = f"Research: ast-grep {rule_id} @ {path}{line_label}"
-        if message:
-            title = f"{title} — {message}"
-        task_id = _canonical_task_id(
-            "research",
-            f"astgrep:{_stable_task_id('astgrep', rule_id, path, line)}",
-        )
-        spec = TaskSpec(
-            source="research",
-            task_id=task_id,
-            title=title,
-            scope=path,
-            dod=f"Review ast-grep evidence ({report_label})",
-            priority="low",
-            blocking=False,
-            status="open",
-            test_profile="none",
-            notes="",
-            report_label=report_label,
-        )
-        blocks.append(_task_block(spec))
-    return blocks
-
-
 def _derive_tasks_from_rlm_pack(payload: Dict, report_label: str) -> List[List[str]]:
     blocks: List[List[str]] = []
     source = "research"
@@ -859,17 +815,16 @@ def _merge_handoff_tasks(existing: Sequence[str], new_tasks: Sequence[str], *, a
 def _extract_handoff_block(lines: List[str], source: str) -> tuple[int, int, List[str]]:
     canonical = _canonical_source(source)
     hint_label = f"handoff:{canonical}"
-    alias_label = f"handoff:reviewer" if canonical == "review" else ""
     start = -1
     end = -1
     for idx, line in enumerate(lines):
-        if (hint_label in line or (alias_label and alias_label in line)) and line.strip().startswith("<!--"):
+        if hint_label in line and line.strip().startswith("<!--"):
             start = idx
             break
     if start == -1:
         return -1, -1, []
     for idx in range(start + 1, len(lines)):
-        if (hint_label in lines[idx] or (alias_label and alias_label in lines[idx])) and lines[idx].strip().endswith("-->"):
+        if hint_label in lines[idx] and lines[idx].strip().endswith("-->"):
             end = idx + 1
             break
     if end == -1:
@@ -909,10 +864,6 @@ def _apply_handoff_tasks(
     if handoff_start != -1:
         start_marker = block[0] if block else f"<!-- handoff:{source} start -->"
         end_marker = block[-1] if block else f"<!-- handoff:{source} end -->"
-        if "handoff:reviewer" in start_marker and source == "review":
-            start_marker = start_marker.replace("handoff:reviewer", "handoff:review")
-        if "handoff:reviewer" in end_marker and source == "review":
-            end_marker = end_marker.replace("handoff:reviewer", "handoff:review")
         new_block = [start_marker, *new_tasks, end_marker]
         new_lines = lines[:handoff_start] + new_block + lines[handoff_end:]
         new_text = "\n".join(new_lines)
@@ -951,7 +902,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -992,7 +943,7 @@ def main(argv: list[str] | None = None) -> int:
     ticket = (context.resolved_ticket or "").strip()
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
     work_item_key = runtime.read_active_work_item(target)
     scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
@@ -1056,10 +1007,6 @@ def main(argv: list[str] | None = None) -> int:
             derived_blocks = _derive_tasks_from_rlm_pack(payload, report_label)
         else:
             derived_blocks = _derive_tasks_from_research_context(payload, report_label)
-            ast_pack = target / "reports" / "research" / f"{ticket}-ast-grep.pack.json"
-            if ast_pack.exists():
-                ast_payload, ast_label = _load_with_pack(ast_pack, prefer_pack_first=True)
-                derived_blocks.extend(_derive_tasks_from_ast_grep_pack(ast_payload, ast_label))
     else:
         derived_blocks = []
 
@@ -1097,83 +1044,6 @@ def main(argv: list[str] | None = None) -> int:
         append=bool(args.append),
         section_candidates=_HANDOFF_SECTION_HINTS.get(source, ()),
     )
-
-    def _block_has_id(block: Sequence[str]) -> bool:
-        return any(_TASK_ID_RE.search(line) for line in block)
-
-    def _block_is_structured(block: Sequence[str]) -> bool:
-        for line in block[1:]:
-            if re.match(
-                r"^\s*-\s*(Status|Priority|Blocking|source|DoD|Boundaries|Tests)\s*:",
-                line,
-                re.IGNORECASE,
-            ):
-                return True
-        return False
-
-    def _clean_legacy_handoff_inbox(raw_text: str) -> str:
-        raw_lines = raw_text.splitlines()
-        start = None
-        end = len(raw_lines)
-        for idx, line in enumerate(raw_lines):
-            if line.strip().lower().startswith("## aidd:handoff_inbox"):
-                start = idx
-                break
-        if start is None:
-            return raw_text
-        for idx in range(start + 1, len(raw_lines)):
-            if raw_lines[idx].strip().startswith("##"):
-                end = idx
-                break
-        header = raw_lines[start]
-        body = raw_lines[start + 1 : end]
-        new_body: List[str] = []
-        manual = False
-        current: List[str] = []
-
-        def flush_block() -> None:
-            nonlocal current
-            if not current:
-                return
-            header_line = current[0]
-            is_legacy = bool(_LEGACY_TASK_RE.match(header_line))
-            is_structured = _block_is_structured(current)
-            if is_legacy and not is_structured:
-                current = []
-                return
-            new_body.extend(current)
-            current = []
-
-        for line in body:
-            if "<!--" in line and "handoff:manual" in line:
-                flush_block()
-                if "start" in line:
-                    manual = True
-                elif "end" in line:
-                    manual = False
-                new_body.append(line)
-                continue
-            if manual:
-                new_body.append(line)
-                continue
-            if _is_task_start(line):
-                flush_block()
-                current = [line]
-                continue
-            if current:
-                current.append(line)
-                continue
-            new_body.append(line)
-        flush_block()
-        merged = raw_lines[:start] + [header, *new_body] + raw_lines[end:]
-        merged_text = "\n".join(merged)
-        if not merged_text.endswith("\n"):
-            merged_text += "\n"
-        return merged_text
-
-    updated_text = _clean_legacy_handoff_inbox(updated_text)
-    if updated_text != tasklist_text:
-        changed = True
 
     section_display = heading_label or "end of file"
     if args.dry_run:

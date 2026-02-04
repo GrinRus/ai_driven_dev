@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
+from tools import gates
 from tools import runtime
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
@@ -91,7 +92,7 @@ def _stream_jsonl_for(stream_log: Path) -> Optional[Path]:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write stage result (aidd.stage_result.v1).")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", help="Optional slug hint override.")
     parser.add_argument("--stage", required=True, choices=("implement", "review", "qa"))
     parser.add_argument("--result", required=True, choices=("blocked", "continue", "done"))
@@ -126,8 +127,7 @@ def _reviewer_requirements(
     if reviewer_cfg.get("enabled") is False:
         return False, False, ""
     marker_template = str(
-        reviewer_cfg.get("marker")
-        or reviewer_cfg.get("tests_marker")
+        reviewer_cfg.get("tests_marker")
         or DEFAULT_REVIEWER_MARKER
     )
     marker_path = runtime.reviewer_marker_path(
@@ -145,13 +145,10 @@ def _reviewer_requirements(
         return False, False, runtime.rel_path(marker_path, target)
     field_name = str(
         reviewer_cfg.get("tests_field")
-        or reviewer_cfg.get("field")
         or "tests"
     )
     marker_value = str(payload.get(field_name) or "").strip().lower()
-    required_values = reviewer_cfg.get("required_values")
-    if required_values is None:
-        required_values = reviewer_cfg.get("requiredValues") or ["required"]
+    required_values = reviewer_cfg.get("required_values") or ["required"]
     if not isinstance(required_values, list):
         required_values = [required_values]
     required_values = [str(value).strip().lower() for value in required_values if str(value).strip()]
@@ -166,11 +163,22 @@ def _tests_policy(
     ticket: str,
     slug_hint: Optional[str],
     scope_key: str,
+    stage: str,
 ) -> Tuple[bool, bool, str]:
     config = runtime.load_gates_config(target)
     mode = str(config.get("tests_required", "disabled") if isinstance(config, dict) else "disabled").strip().lower()
     require = mode in {"soft", "hard"}
     block = mode == "hard"
+
+    stage_policy = gates.resolve_stage_tests_policy(config if isinstance(config, dict) else {}, stage)
+    if stage_policy == "none":
+        return False, False, ""
+    if stage_policy == "full":
+        require = True
+        block = True
+    elif stage_policy == "targeted":
+        require = True
+
     reviewer_required, reviewer_block, marker_source = _reviewer_requirements(
         target,
         ticket=ticket,
@@ -238,7 +246,7 @@ def _load_qa_report_status(target: Path, ticket: str) -> str:
 
 
 def _review_context_pack_placeholder(target: Path, ticket: str) -> bool:
-    pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+    pack_path = target / "reports" / "context" / f"{ticket}.pack.md"
     if not pack_path.exists():
         return False
     try:
@@ -290,13 +298,14 @@ def main(argv: list[str] | None = None) -> int:
         ticket=ticket,
         slug_hint=context.slug_hint,
         scope_key=scope_key,
+        stage=stage,
     )
     pack_verdict = ""
     context_pack_missing = False
     context_pack_placeholder = False
     if stage == "review":
         pack_verdict = _load_review_pack_verdict(target, ticket, scope_key)
-        context_pack_path = target / "reports" / "context" / f"{ticket}.review.pack.md"
+        context_pack_path = target / "reports" / "context" / f"{ticket}.pack.md"
         if not context_pack_path.exists():
             context_pack_missing = True
         else:
@@ -314,9 +323,14 @@ def main(argv: list[str] | None = None) -> int:
         evidence_links.setdefault("tests_log", tests_link)
     skip_reason_code = ""
     skip_reason = ""
+    tests_failed = False
+    tests_entry_status = ""
+    if tests_entry:
+        tests_entry_status = str(tests_entry.get("status") or "").strip().lower()
+        if tests_entry_status == "fail":
+            tests_failed = True
     if tests_entry and not tests_evidence:
-        status_value = str(tests_entry.get("status") or "").strip().lower()
-        if status_value in {"skipped", "not-run", "skip"}:
+        if tests_entry_status in {"skipped", "not-run", "skip"}:
             skip_reason_code = str(tests_entry.get("reason_code") or "").strip().lower() or "tests_skipped"
             skip_reason = str(tests_entry.get("reason") or "").strip()
             if not skip_reason:
@@ -333,12 +347,13 @@ def main(argv: list[str] | None = None) -> int:
             if not reason:
                 reason = "tests evidence required but not found"
     missing_tests = tests_required and not tests_evidence
+    docs_only_skip = skip_reason_code == "docs_only"
     tests_reason_codes = {"missing_test_evidence"}
     if skip_reason_code:
         tests_reason_codes.add(skip_reason_code)
     tests_reason = bool(reason_code and reason_code in tests_reason_codes)
     if missing_tests:
-        if tests_block:
+        if tests_block and not docs_only_skip:
             result = "blocked"
             if stage == "review":
                 verdict = "BLOCKED"
@@ -357,6 +372,7 @@ def main(argv: list[str] | None = None) -> int:
         "no_boundaries_defined_warn",
         "auto_boundary_extend_warn",
         "review_context_pack_placeholder_warn",
+        "fast_mode_warn",
     }
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
@@ -364,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     if stage == "qa" and qa_report_status:
         if qa_report_status == "BLOCKED":
             result = "blocked"
-        elif qa_report_status in {"READY", "WARN"} and result == "blocked":
+        elif qa_report_status in {"READY", "WARN"} and result == "blocked" and not missing_tests:
             result = "done"
         if qa_report_status == "BLOCKED":
             if reason_code in {"", "manual_skip"}:
@@ -372,15 +388,24 @@ def main(argv: list[str] | None = None) -> int:
                 if not reason:
                     reason = "qa report blocked"
         elif qa_report_status == "WARN":
-            if not reason_code or reason_code == "manual_skip":
+            if (not reason_code or reason_code == "manual_skip") and not missing_tests:
                 reason_code = "qa_warn"
                 if not reason:
                     reason = "qa report warn"
 
+    if stage == "qa" and tests_failed:
+        result = "blocked"
+        if reason_code != "qa_tests_failed":
+            if reason:
+                if "qa tests failed" not in reason:
+                    reason = f"{reason}; qa tests failed"
+            else:
+                reason = "qa tests failed"
+            reason_code = "qa_tests_failed"
+
     if stage == "review" and context_pack_missing:
         result = "blocked"
-        if not reason_code:
-            reason_code = "review_context_pack_missing"
+        reason_code = "review_context_pack_missing"
         if not reason:
             reason = "review context pack missing"
         verdict = "BLOCKED"
@@ -391,8 +416,7 @@ def main(argv: list[str] | None = None) -> int:
             reason = "review context pack placeholder found"
         elif "review context pack placeholder found" not in reason:
             reason = f"{reason}; review context pack placeholder found"
-        if not reason_code:
-            reason_code = placeholder_reason
+        reason_code = placeholder_reason
         if result == "done":
             result = "continue"
         elif reason_code == placeholder_reason and result == "blocked":

@@ -28,13 +28,13 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:researcher` работает inline: читает `## AIDD:RESEARCH_HINTS` из PRD, запускает `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, пишет Context Pack и явно запускает саб‑агента `feature-dev-aidd:researcher`, который обновляет `aidd/docs/research/$1.md`. Свободный ввод после тикета используй как заметку в отчёте. RLM evidence сохраняется как pack + worklist.
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/research.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
-- `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`.
+- `aidd/docs/.active.json`.
 - `aidd/docs/prd/$1.prd.md` (раздел `## AIDD:RESEARCH_HINTS`).
 - `aidd/docs/research/template.md` — шаблон.
-- `aidd/reports/research/$1-context.pack.json` (pack-first), `-context.json` (fallback, читать только фрагментами/offset+limit).
+- `aidd/reports/research/$1-context.pack.json` (pack-first).
 - `aidd/reports/research/$1-rlm.pack.json` (pack-first), `rlm-slice` pack (по запросу).
 - `aidd/reports/research/$1-rlm-targets.json`, `-rlm-manifest.json`, `-rlm.worklist.pack.json` (если `rlm_status=pending`).
 
@@ -42,7 +42,6 @@ disable-model-invocation: false
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new`, до `/feature-dev-aidd:plan-new`.
@@ -66,17 +65,17 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Целевой файл: `aidd/reports/context/$1.research.pack.md` (stage/agent/paths/what-to-do заполняются под research).
-- Paths: prd, arch_profile, research, plan/tasklist/spec/test_policy (if exists), research_context/targets (optional).
+- Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
+- Заполни поля stage/agent/read_next/artefact_links под research.
 - What to do now: summarize integration points/reuse/risks, validate RLM pack/slice.
 - User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй активную фичу `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"` при необходимости и выставь стадию `research` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh research`.
 2. Команда (до subagent): извлеки `## AIDD:RESEARCH_HINTS` и запусти `${CLAUDE_PLUGIN_ROOT}/tools/research.sh ...` с `--paths/--keywords/--note`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.research.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.research.pack.md`.**
-5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings; секция `AIDD:PRD_OVERRIDES` должна совпадать с PRD (`USER OVERRIDE`) и не содержать устаревших решений.
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+4. Команда → subagent: **Use the feature-dev-aidd:researcher subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
+5. Subagent: обновляет `aidd/docs/research/$1.md` и фиксирует findings; секция `AIDD:PRD_OVERRIDES` должна совпадать с PRD (`USER OVERRIDE`) и не содержать неактуальных решений.
 6. Команда (после subagent): если `rlm_status=pending` или отсутствует `*-rlm.pack.json` — убедись, что `*-rlm.nodes.jsonl` существует; при отсутствии создай baseline `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket $1`.
 7. Команда (после subagent): запусти `rlm-finalize.sh --ticket $1` (verify → links → compact → refresh worklist → reports-pack --update-context).
 8. Команда (после subagent): если после `rlm-finalize` остаётся `rlm_status=pending` или pack/nodes/links отсутствуют — верни `Status: BLOCKED` и требуй завершить agent‑flow.

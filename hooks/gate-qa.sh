@@ -189,9 +189,22 @@ def main(argv: Iterable[str] | None = None) -> int:
         )
         return 2
 
+    file_path = hooklib.payload_file_path(payload) or ""
+    qa_report_changed = False
+    if file_path:
+        normalized = file_path.replace("\\", "/").lstrip("./")
+        if normalized.startswith(("reports/qa/", "aidd/reports/qa/")):
+            qa_report_changed = True
+    if not qa_report_changed:
+        for changed in hooklib.collect_changed_files(root):
+            normalized = changed.replace("\\", "/").lstrip("./")
+            if normalized.startswith(("reports/qa/", "aidd/reports/qa/")):
+                qa_report_changed = True
+                break
+
     if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
-        active_stage = hooklib.resolve_stage(root / "docs" / ".active_stage")
-        if active_stage != "qa":
+        active_stage = hooklib.resolve_stage(root / "docs" / ".active.json")
+        if active_stage != "qa" and not qa_report_changed:
             return 0
 
     config_path = root / "config" / "gates.json"
@@ -217,7 +230,6 @@ def main(argv: Iterable[str] | None = None) -> int:
     if qa_skip and _matches_any(branch, qa_skip):
         return 0
 
-    file_path = hooklib.payload_file_path(payload) or ""
     if file_path:
         if file_path.startswith(("docs/qa/", "reports/qa/", "aidd/docs/qa/", "aidd/reports/qa/")):
             pass
@@ -226,8 +238,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         else:
             return 0
 
-    ticket_path = root / "docs" / ".active_ticket"
-    slug_path = root / "docs" / ".active_feature"
+    ticket_path = root / "docs" / ".active.json"
+    slug_path = root / "docs" / ".active.json"
     ticket = hooklib.read_ticket(ticket_path, slug_path)
     slug_hint = hooklib.read_slug(slug_path) if slug_path.exists() else ""
 

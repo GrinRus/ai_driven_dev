@@ -117,7 +117,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
     ticket = (context.resolved_ticket or "").strip()
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     branch = args.branch or runtime.detect_branch(target)
     work_item_key = (args.work_item_key or runtime.read_active_work_item(target)).strip()
@@ -248,40 +248,6 @@ def main(argv: list[str] | None = None) -> int:
         if "findings" in payload or "blocking_findings_count" in payload:
             return True
         return False
-
-    if report_path.exists():
-        try:
-            legacy_payload = json.loads(report_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            legacy_payload = {}
-        if isinstance(legacy_payload, dict) and not _looks_like_report_payload(legacy_payload):
-            gates_cfg = runtime.load_gates_config(target)
-            reviewer_cfg = gates_cfg.get("reviewer") if isinstance(gates_cfg, dict) else {}
-            if not isinstance(reviewer_cfg, dict):
-                reviewer_cfg = {}
-            marker_template = str(
-                reviewer_cfg.get("tests_marker")
-                or reviewer_cfg.get("marker")
-                or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
-            )
-            marker_path = runtime.reviewer_marker_path(
-                target,
-                marker_template,
-                ticket,
-                slug_hint,
-                scope_key=scope_key,
-            )
-            if marker_path.resolve() != report_path.resolve():
-                if not marker_path.exists():
-                    marker_path.parent.mkdir(parents=True, exist_ok=True)
-                    marker_path.write_text(
-                        json.dumps(legacy_payload, ensure_ascii=False, indent=2) + "\n",
-                        encoding="utf-8",
-                    )
-                try:
-                    report_path.unlink()
-                except OSError:
-                    pass
 
     existing_payload: Dict[str, Any] = {}
     existing_findings: List[Dict] = []

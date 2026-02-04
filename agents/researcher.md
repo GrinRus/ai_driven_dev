@@ -13,28 +13,25 @@ permissionMode: default
 Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff.
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/research.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции PRD и Research
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` (раздел `## AIDD:RESEARCH_HINTS`), `aidd/docs/plan/<ticket>.md` (если есть), `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
 - `aidd/reports/research/<ticket>-context.pack.*` (pack-first) и `-targets.json`; `-context.json` только если pack отсутствует и читать его надо фрагментами (offset/limit или `rg`).
 - `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (по запросу); `-rlm.nodes.jsonl`/`-rlm.links.jsonl` — только `rg` для spot‑check.
-- slug-hint в `aidd/docs/.active_feature`, ADR/исторические PR.
+- slug-hint в `aidd/docs/.active.json`, ADR/исторические PR.
 
 ## Автоматизация
 - Команда `/feature-dev-aidd:researcher` запускает сбор контекста и обновляет `aidd/reports/research/<ticket>-context.json`/`-targets.json` + RLM targets/manifest/worklist.

@@ -13,7 +13,6 @@ commands_required:
   - <doc/ref or command>
 tests_required:
   - <test command>
-arch_profile: aidd/docs/architecture/profile.md
 evidence_policy: RLM-first
 ---
 

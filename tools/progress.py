@@ -554,7 +554,7 @@ def check_progress(
             tasklist_path=None,
             code_files=code_files,
             new_items=[],
-            message="Не удалось определить ticket фичи. Убедитесь, что docs/.active_ticket заполнен или передайте --ticket.",
+            message="Не удалось определить ticket фичи. Убедитесь, что docs/.active.json заполнен или передайте --ticket.",
         )
 
     tasklist_rel = TASKLIST_DIR / f"{ticket}.md"
@@ -671,12 +671,12 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--ticket",
         "--slug",
         dest="ticket",
-        help="Идентификатор фичи (ticket). По умолчанию берётся из docs/.active_ticket или legacy .active_feature.",
+        help="Идентификатор фичи (ticket). По умолчанию берётся из docs/.active.json.",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Необязательный slug-хинт (по умолчанию считывается из docs/.active_feature, если присутствует).",
+        help="Необязательный slug-хинт (по умолчанию считывается из docs/.active.json, если присутствует).",
     )
     parser.add_argument(
         "--branch",

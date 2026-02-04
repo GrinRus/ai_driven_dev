@@ -398,24 +398,48 @@ def write_json(root: pathlib.Path, relative: str, data: Dict[str, Any]) -> pathl
     target = project_root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    if "reports/research" in target.as_posix() and target.name.endswith("-context.json"):
-        ticket = target.name.replace("-context.json", "")
-        pack_path = target.with_name(f"{ticket}-ast-grep.pack.json")
-        if not pack_path.exists():
-            pack_path.write_text(json.dumps({"type": "ast-grep", "status": "ok"}, indent=2), encoding="utf-8")
     return target
 
 
-def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[str] = None) -> None:
+def _read_active_state(project_root: pathlib.Path) -> Dict[str, Any]:
+    path = project_root / "docs" / ".active.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_active_state(
+    root: pathlib.Path,
+    *,
+    ticket: Optional[str] = None,
+    slug_hint: Optional[str] = None,
+    stage: Optional[str] = None,
+    work_item: Optional[str] = None,
+) -> None:
     project_root = _project_root(root)
-    write_file(project_root, "docs/.active_ticket", ticket)
+    state = _read_active_state(project_root)
+    if ticket is not None:
+        state["ticket"] = ticket
+    if slug_hint is not None:
+        state["slug_hint"] = slug_hint
+    if stage is not None:
+        state["stage"] = stage
+    if work_item is not None:
+        state["work_item"] = work_item
+    write_file(project_root, "docs/.active.json", json.dumps(state, indent=2) + "\n")
+
+
+def write_active_feature(root: pathlib.Path, ticket: str, slug_hint: Optional[str] = None) -> None:
     hint = ticket if slug_hint is None else slug_hint
-    write_file(project_root, "docs/.active_feature", hint)
+    write_active_state(root, ticket=ticket, slug_hint=hint)
 
 
 def write_active_stage(root: pathlib.Path, stage: str) -> None:
-    project_root = _project_root(root)
-    write_file(project_root, "docs/.active_stage", stage)
+    write_active_state(root, stage=stage)
 
 
 def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
@@ -477,7 +501,7 @@ def cli_cmd(*args: str) -> list[str]:
     cmd = args[0]
     rest = list(args[1:])
     if cmd == "context-gc":
-        raise ValueError("context-gc entrypoints removed; use hooks/context-gc-*.sh")
+        raise ValueError("context-gc entrypoints unavailable; use hooks/context-gc-*.sh")
     script = REPO_ROOT / "tools" / f"{cmd}.sh"
     return [str(script), *rest]
 

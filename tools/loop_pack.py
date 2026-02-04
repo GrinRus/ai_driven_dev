@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
+from tools.feature_ids import write_active_state
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 from tools.tasklist_parser import extract_boundaries
 
@@ -151,30 +152,45 @@ def parse_review_pack_handoff_ids(lines: List[str]) -> Tuple[str, ...]:
     return tuple(handoff_ids)
 
 
-def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
-    active_work_item = runtime.read_active_work_item(root)
-    scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else ""
-    pack_path = None
-    if scope_key:
-        candidate = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-        if candidate.exists():
-            pack_path = candidate
-    if pack_path is None:
-        legacy_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
-        if legacy_path.exists():
-            pack_path = legacy_path
-    if pack_path is None:
-        return ReviewPackMeta("", "", "", tuple())
+REVIEW_PACK_SCHEMAS = {"aidd.review_pack.v1", "aidd.review_pack.v2"}
+
+
+def _load_review_pack_meta(pack_path: Path, ticket: str) -> ReviewPackMeta | None:
     lines = read_text(pack_path).splitlines()
     front = parse_front_matter(lines)
     schema = (front.get("schema") or "").strip()
-    if schema and schema not in {"aidd.review_pack.v1", "aidd.review_pack.v2"}:
-        return ReviewPackMeta("", "", "", tuple(), schema)
+    if schema and schema not in REVIEW_PACK_SCHEMAS:
+        return None
     verdict = (front.get("verdict") or "").strip().upper()
     work_item_key = (front.get("work_item_key") or "").strip()
     scope_key = (front.get("scope_key") or "").strip() or runtime.resolve_scope_key(work_item_key, ticket)
     handoff_ids = parse_review_pack_handoff_ids(lines)
     return ReviewPackMeta(verdict, work_item_key, scope_key, handoff_ids, schema)
+
+
+def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
+    active_work_item = runtime.read_active_work_item(root)
+    scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else ""
+    if scope_key:
+        candidate = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if candidate.exists():
+            meta = _load_review_pack_meta(candidate, ticket)
+            return meta or ReviewPackMeta("", "", "", tuple())
+
+    base_dir = root / "reports" / "loops" / ticket
+    if base_dir.exists():
+        fallback_meta: ReviewPackMeta | None = None
+        for candidate in sorted(base_dir.glob("*/review.latest.pack.md")):
+            meta = _load_review_pack_meta(candidate, ticket)
+            if not meta:
+                continue
+            if meta.verdict == "REVISE":
+                return meta
+            if fallback_meta is None:
+                fallback_meta = meta
+        if fallback_meta:
+            return fallback_meta
+    return ReviewPackMeta("", "", "", tuple())
 
 
 def review_pack_v2_required(root: Path) -> bool:
@@ -489,29 +505,6 @@ def parse_progress_ref(lines: List[str]) -> Optional[WorkItemRef]:
     return None
 
 
-def read_active_ticket(root: Path) -> str:
-    path = root / "docs" / ".active_ticket"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def read_active_work_item(root: Path) -> str:
-    path = root / "docs" / ".active_work_item"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def write_active_state(root: Path, ticket: str, work_item_key: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_ticket").write_text(ticket + "\n", encoding="utf-8")
-    (docs_dir / ".active_work_item").write_text(work_item_key + "\n", encoding="utf-8")
-
-
 def find_work_item(items: Iterable[WorkItem], scope_key: str) -> Optional[WorkItem]:
     for item in items:
         if item.scope_key == scope_key:
@@ -572,7 +565,6 @@ def build_front_matter(
     boundaries: Dict[str, List[str]],
     commands_required: List[str],
     tests_required: List[str],
-    arch_profile: str,
     evidence_policy: str,
     updated_at: str,
     reason_code: str = "",
@@ -609,7 +601,6 @@ def build_front_matter(
         lines.extend([f"  - {command}" for command in tests_required])
     else:
         lines.append("tests_required: []")
-    lines.append(f"arch_profile: {arch_profile}")
     lines.append(f"evidence_policy: {evidence_policy}")
     if reason_code:
         lines.append(f"reason_code: {reason_code}")
@@ -624,7 +615,6 @@ def build_pack(
     boundaries: Dict[str, List[str]],
     commands_required: List[str],
     tests_required: List[str],
-    arch_profile: str,
     updated_at: str,
     reason_code: str = "",
 ) -> str:
@@ -634,7 +624,6 @@ def build_pack(
         boundaries=boundaries,
         commands_required=commands_required,
         tests_required=tests_required,
-        arch_profile=arch_profile,
         evidence_policy="RLM-first",
         updated_at=updated_at,
         reason_code=reason_code,
@@ -696,7 +685,6 @@ def write_pack_for_item(
     output_dir: Path,
     ticket: str,
     work_item: WorkItem,
-    arch_profile: str,
 ) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str, str]:
     if work_item.boundaries_defined:
         boundaries = {
@@ -726,7 +714,6 @@ def write_pack_for_item(
         boundaries=boundaries,
         commands_required=commands_required,
         tests_required=tests_required,
-        arch_profile=arch_profile,
         updated_at=updated_at,
         reason_code=reason_code,
     )
@@ -738,7 +725,7 @@ def write_pack_for_item(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate loop pack for a single work item.")
-    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", help="Optional slug hint override.")
     parser.add_argument(
         "--stage",
@@ -769,7 +756,7 @@ def main(argv: list[str] | None = None) -> int:
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = (context.resolved_ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     tasklist_path = target / "docs" / "tasklist" / f"{ticket}.md"
     if not tasklist_path.exists():
@@ -781,8 +768,8 @@ def main(argv: list[str] | None = None) -> int:
     handoffs = parse_handoff_items(sections.get("AIDD:HANDOFF_INBOX", []))
     all_items = iterations + handoffs
 
-    active_ticket = read_active_ticket(target)
-    active_work_item = read_active_work_item(target)
+    active_ticket = runtime.read_active_ticket(target)
+    active_work_item = runtime.read_active_work_item(target)
     selected_item: Optional[WorkItem] = None
     selection_reason = ""
     review_meta = (
@@ -995,10 +982,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(message)
             return 2
 
-    write_active_state(target, ticket, selected_item.work_item_key)
-
-    arch_profile_path = target / "docs" / "architecture" / "profile.md"
-    arch_profile = runtime.rel_path(arch_profile_path, target)
+    write_active_state(target, ticket=ticket, work_item=selected_item.work_item_key)
 
     output_dir = target / "reports" / "loops" / ticket
 
@@ -1027,7 +1011,6 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=output_dir,
             ticket=ticket,
             work_item=item,
-            arch_profile=arch_profile,
         )
         if item.scope_key == selected_item.scope_key:
             selected_pack_path = pack_path
@@ -1055,7 +1038,6 @@ def main(argv: list[str] | None = None) -> int:
         "boundaries": boundaries,
         "commands_required": commands_required,
         "tests_required": tests_required,
-        "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",
     }
     if selected_reason_code:

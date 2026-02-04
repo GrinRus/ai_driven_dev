@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from tools.io_utils import utc_timestamp
+
 from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
-ACTIVE_TICKET_FILE = Path("docs") / ".active_ticket"
-SLUG_HINT_FILE = Path("docs") / ".active_feature"
+ACTIVE_STATE_FILE = Path("docs") / ".active.json"
 PRD_TEMPLATE_FILE = Path("docs") / "prd" / "template.md"
 PRD_DIR = Path("docs") / "prd"
 
@@ -16,14 +18,6 @@ def resolve_aidd_root(raw: Path) -> Path:
     """Resolve workflow root for any path inside the workspace."""
     _, project_root = resolve_workspace_root(raw, DEFAULT_PROJECT_SUBDIR)
     return project_root
-
-
-def _read_text(path: Path) -> Optional[str]:
-    try:
-        value = path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
 
 
 @dataclass(frozen=True)
@@ -42,14 +36,54 @@ class FeatureIdentifiers:
 
 def read_identifiers(root: Path) -> FeatureIdentifiers:
     root = resolve_aidd_root(root)
-    ticket = _read_text(root / ACTIVE_TICKET_FILE)
-    slug_hint = _read_text(root / SLUG_HINT_FILE)
+    payload = _read_active_state_payload(root)
+    ticket = _normalize_state_value(payload.get("ticket"))
+    slug_hint = _normalize_state_value(payload.get("slug_hint"))
     if ticket:
         return FeatureIdentifiers(ticket=ticket, slug_hint=slug_hint)
     if slug_hint:
-        # legacy setups used slug as primary identifier
+        # earlier setups used slug as primary identifier
         return FeatureIdentifiers(ticket=slug_hint, slug_hint=slug_hint)
     return FeatureIdentifiers(ticket=None, slug_hint=slug_hint)
+
+
+def read_active_state(root: Path) -> ActiveState:
+    root = resolve_aidd_root(root)
+    payload = _read_active_state_payload(root)
+    return ActiveState(
+        ticket=_normalize_state_value(payload.get("ticket")),
+        slug_hint=_normalize_state_value(payload.get("slug_hint")),
+        stage=_normalize_state_value(payload.get("stage")),
+        work_item=_normalize_state_value(payload.get("work_item")),
+        updated_at=_normalize_state_value(payload.get("updated_at")),
+    )
+
+
+def write_active_state(
+    root: Path,
+    *,
+    ticket: Optional[str] = None,
+    slug_hint: Optional[str] = None,
+    stage: Optional[str] = None,
+    work_item: Optional[str] = None,
+) -> ActiveState:
+    root = resolve_aidd_root(root)
+    current = read_active_state(root)
+    ticket_value = (ticket if ticket is not None else current.ticket) or ""
+    slug_value = (slug_hint if slug_hint is not None else current.slug_hint) or ""
+    stage_value = (stage if stage is not None else current.stage) or ""
+    work_item_value = (work_item if work_item is not None else current.work_item) or ""
+    payload = {
+        "ticket": ticket_value or None,
+        "slug_hint": slug_value or None,
+        "stage": stage_value or None,
+        "work_item": work_item_value or None,
+        "updated_at": utc_timestamp(),
+    }
+    path = root / ACTIVE_STATE_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return read_active_state(root)
 
 
 def resolve_identifiers(
@@ -108,12 +142,7 @@ def write_identifiers(
     if not ticket_value:
         raise ValueError("ticket must be a non-empty string")
 
-    stored = read_identifiers(root)
-
-    ticket_path = root / ACTIVE_TICKET_FILE
-    ticket_path.parent.mkdir(parents=True, exist_ok=True)
-    ticket_path.write_text(ticket_value, encoding="utf-8")
-
+    stored = read_active_state(root)
     if slug_hint is None:
         if stored.slug_hint and (stored.ticket or stored.slug_hint) == ticket_value:
             hint_value = stored.slug_hint
@@ -124,9 +153,32 @@ def write_identifiers(
     if not hint_value:
         hint_value = ticket_value
 
-    hint_path = root / SLUG_HINT_FILE
-    hint_path.parent.mkdir(parents=True, exist_ok=True)
-    hint_path.write_text(hint_value, encoding="utf-8")
+    write_active_state(root, ticket=ticket_value, slug_hint=hint_value)
 
     if scaffold_prd_file:
         scaffold_prd(root, ticket_value)
+
+
+def _read_active_state_payload(root: Path) -> dict:
+    path = root / ACTIVE_STATE_FILE
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _normalize_state_value(value: object) -> Optional[str]:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+@dataclass(frozen=True)
+class ActiveState:
+    ticket: Optional[str] = None
+    slug_hint: Optional[str] = None
+    stage: Optional[str] = None
+    work_item: Optional[str] = None
+    updated_at: Optional[str] = None

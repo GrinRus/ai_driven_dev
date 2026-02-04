@@ -21,9 +21,10 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
-- Автоформат и выборочные тесты на стадии `implement`.
+- Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
+- Hooks mode: по умолчанию `AIDD_HOOKS_MODE=fast`, строгий режим — `AIDD_HOOKS_MODE=strict`.
+- Автоформат + тест‑политика по стадиям: `implement` — без тестов, `review` — targeted, `qa` — full.
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
-- Architecture Profile как канон архитектурных ограничений и процессов тестов/формата/запуска (если они описаны в проекте).
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
@@ -48,12 +49,6 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
-Для автозаполнения `stack_hint` в Architecture Profile:
-
-```text
-/feature-dev-aidd:aidd-init --detect-stack
-```
-
 ### 3. Запустите фичу в Claude Code
 
 ```text
@@ -72,7 +67,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
 - Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы.
 
-### Миграция
+### Обновление workspace
 - `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
 - Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
 - Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `templates/aidd/AGENTS.md`).
@@ -107,7 +102,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools] [--detect-stack]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
 | `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
@@ -122,7 +117,6 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ## Research RLM
 
 RLM evidence используется как основной источник интеграций/рисков/связей (pack-first + slice on demand).
-Legacy `ast_grep` evidence deprecated и disabled by default.
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
@@ -137,7 +131,7 @@ RLM artifacts (pack-first):
 ## Loop mode (implement↔review)
 
 Loop = 1 work_item → implement → review → (revise)* → ship.
-Если после SHIP есть открытые итерации в `AIDD:NEXT_3`/`AIDD:ITERATIONS_FULL`, loop-run выбирает следующий work_item, обновляет `.active_work_item`/`.active_stage` и продолжает implement.
+Если после SHIP есть открытые итерации в `AIDD:NEXT_3`/`AIDD:ITERATIONS_FULL`, loop-run выбирает следующий work_item, обновляет `aidd/docs/.active.json` (work_item/stage) и продолжает implement.
 
 Ключевые артефакты:
 - `aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md` — тонкий контекст итерации.
@@ -170,7 +164,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 - Review pack обязателен; при наличии review report + loop pack допускается авто‑пересборка.
 - Финальный Status в командах implement/review/qa должен совпадать со `stage_result`.
 - Allowed paths берутся из `Expected paths` итерации (`AIDD:ITERATIONS_FULL`).
-- Loop-mode тесты: implement не запускает тесты по умолчанию; нужен `AIDD_LOOP_TESTS=1` или `AIDD_TEST_FORCE=1`. Review тесты не запускает.
+- Loop-mode тесты следуют stage policy: `implement` — без тестов, `review` — targeted, `qa` — full.
 - Tests evidence: `tests_log` со `status=skipped` + `reason_code` считается evidence при `tests_required=soft` (для `hard` → BLOCKED).
 
 ## Предпосылки
@@ -188,9 +182,8 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 - Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 
 ## Документация
-- Базовый workflow: `aidd/docs/sdlc-flow.md` (после init).
-- Architecture Profile: `aidd/docs/architecture/profile.md`.
-- Пользовательский гайд: `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
+- Канон ответа и pack-first: `aidd/docs/prompting/conventions.md`.
+- Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
 - Английская версия: `README.en.md`.
 
 ## Примеры
