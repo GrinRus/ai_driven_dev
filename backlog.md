@@ -239,37 +239,43 @@ _Статус: новый, приоритет 1. Цель — убрать ду�
 _Статус: новый, приоритет 1. Закрывает выявленные проблемы аудита флоу/loop-паков и тест‑evidence._
 
 - [ ] **W89.5-1** `tools/research_guard.py`, `tools/research.py`, `tools/reports_pack.py`, `tests/*`:
-  - при `rlm.require_links=true` и пустых links — выставлять WARN (а не reviewed), добавить reason_code `rlm_links_empty_warn`;
-  - в отчёте research явно фиксировать отсутствие links и ссылаться на pack/manifest.
-  **AC:** пустые links не дают READY; статус WARN + reason_code; tests обновлены.
+  - при `rlm.require_links=true` и `links_total=0` (или entries=0) — выставлять WARN (не reviewed/ready), reason_code `rlm_links_empty_warn`;
+  - в research отчёте фиксировать отсутствие links и ссылаться на `*-rlm.links.stats.json`/pack;
+  - гейт не должен считать research “ready” при пустых links.
+  **AC:** пустые links → WARN + reason_code; research не может быть READY; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-2** `agents/reviewer.md`, `commands/review.md`, `hooks/review-report.sh`, `tools/review_report.py`, `tests/*`:
-  - унифицировать вывод findings: reviewer пишет JSON (AIDD:WRITE_JSON), report читает через `--findings-file`;
-  - findings попадают в review pack и reviewer report без ручных правок.
-  **AC:** findings всегда присутствуют в review report/pack; `review-report.sh` использует `--findings-file`; tests обновлены.
+  - унифицировать вывод findings: reviewer пишет JSON (AIDD:WRITE_JSON), `review-report.sh` читает через `--findings-file`;
+  - гарантировать генерацию `review.latest.pack.md` и review report per scope_key;
+  - при REVISE обязателен `review.fix_plan.json` + ссылка в `stage_result.evidence_links.fix_plan_json`;
+  - при ошибке записи report/pack → явный BLOCKED (reason_code `review_report_write_failed`).
+  **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-3** `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
   - если `tests_required=soft|hard` и tests skipped/no‑evidence → review verdict `REVISE`/`BLOCKED` соответственно;
+  - reason_code должен отражать no-tests (`no_tests_soft|no_tests_hard`);
   - `stage_result.evidence_links.tests_log` обязателен и указывает на tests log.
-  **AC:** soft → REVISE, hard → BLOCKED; evidence_links.tests_log всегда заполнен; tests обновлены.
+  **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-4** `tools/qa.py`, `tools/tasklist_parse.py` (или эквивалент), `tests/*`:
-  - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд;
-  - расширить skip‑детекцию (RU/EN фразы) и всегда писать tests_log (run|skipped + reason_code).
-  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_log обязателен; tests обновлены.
+  - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд (если profile != none);
+  - расширить skip‑детекцию (RU/EN фразы) и всегда писать tests_log (run|skipped + reason_code);
+  - при skipped tests_summary не может быть `pass` (должно быть warn/skip).
+  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:
   - добавить CLI‑поля `read_next/what_to_do/artefact_links` и заполнение вместо placeholder‑строк;
-  - команды implement/review/qa передают значения из артефактов.
-  **AC:** rolling pack содержит заполненные поля; placeholder‑строки не остаются; tests обновлены.
+  - команды implement/review/qa передают значения из артефактов;
+  - если заполнить нельзя — выставлять WARN (placeholder не допускается молча).
+  **AC:** rolling pack без placeholder‑строк; при missing values — WARN; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-6** `tools/loop_pack.py`, `tools/diff_boundary_check.py`, `tests/*`:
-  - если Boundaries пусты — fallback к Expected paths или allowed_paths из rolling pack;
+  - если Boundaries пусты — fallback к Expected paths (tasklist), затем allowed_paths (rolling pack);
   - при авто‑расширении выставлять WARN (`auto_boundary_extend_warn`), не BLOCKED.
   **AC:** loop pack всегда содержит границы; авто‑расширение даёт WARN; tests обновлены.
   **Deps:** -
