@@ -232,15 +232,33 @@ def _load_tasklist_cache(path: Path) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _write_tasklist_cache(path: Path, *, ticket: str, stage: str, hash_value: str) -> None:
+def _write_tasklist_cache(
+    path: Path,
+    *,
+    ticket: str,
+    stage: str,
+    hash_value: str,
+    config_hash: str,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "ticket": ticket,
         "stage": stage,
         "hash": hash_value,
+        "config_hash": config_hash,
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _config_fingerprint(path: Path) -> str:
+    if not path.exists():
+        return "missing"
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return "error"
+    return hashlib.sha256(data).hexdigest()
 
 
 def read_text(path: Path) -> str:
@@ -1849,6 +1867,7 @@ def run_check(args: argparse.Namespace) -> int:
             stage_value = runtime.read_active_stage(root)
             cache_path = _tasklist_cache_path(root)
             current_hash = _tasklist_hash(tasklist_text)
+            config_hash = _config_fingerprint(config_path)
 
             if not args.fix and not args.dry_run:
                 cache_payload = _load_tasklist_cache(cache_path)
@@ -1856,6 +1875,7 @@ def run_check(args: argparse.Namespace) -> int:
                     cache_payload.get("ticket") == ticket
                     and cache_payload.get("stage") == stage_value
                     and cache_payload.get("hash") == current_hash
+                    and cache_payload.get("config_hash") == config_hash
                 ):
                     if not args.quiet_ok:
                         print("[tasklist-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
@@ -1894,7 +1914,13 @@ def run_check(args: argparse.Namespace) -> int:
             if result.status in {"ok", "warn"}:
                 updated_text = tasklist_path.read_text(encoding="utf-8")
                 updated_hash = _tasklist_hash(updated_text)
-                _write_tasklist_cache(cache_path, ticket=ticket, stage=stage_value, hash_value=updated_hash)
+                _write_tasklist_cache(
+                    cache_path,
+                    ticket=ticket,
+                    stage=stage_value,
+                    hash_value=updated_hash,
+                    config_hash=config_hash,
+                )
             if result.status == "error":
                 if result.details:
                     for entry in result.details:
