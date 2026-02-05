@@ -391,14 +391,14 @@ _Статус: новый, приоритет 1. Обратная совмест
 
 _Статус: новый, приоритет 1. Цель — вынести канон из команд/агентов в skills, сократить промпты и перевести stage entrypoints на skills._
 
-- [ ] **W91-0 (добавить)** Language decision record
+- [x] **W91-0 (добавить)** Language decision record
   - зафиксировать в одном документе (например, `docs/skill-language.md` или `README.en.md`):
     - `skills/aidd-core`, `skills/aidd-loop`, `skills/<stage>` пишутся на **EN**;
     - user-facing README/шаблоны могут быть RU, без дублирования исполняемых алгоритмов.
   **AC:** есть единый источник истины по языку; правило применяется в W91-1/W91-3.
   **Deps:** —
 
-- [ ] **W91-1** `skills/aidd-core/**`, `skills/aidd-loop/**`, `skills/aidd-reference/**` (опц.)
+- [x] **W91-1** `skills/aidd-core/**`, `skills/aidd-loop/**`, `skills/aidd-reference/**` (опц.)
   - создать `skills/aidd-core/SKILL.md`:
     - pack-first/read-budget как политика по умолчанию;
     - `AIDD:READ_LOG` как обязательный output;
@@ -427,7 +427,7 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   - reference вынесен отдельно и не preload’ится.
   **Deps:** —
 
-- [ ] **W91-2** `agents/*.md`
+- [x] **W91-2** `agents/*.md`
   - добавить preload skills:
     - минимум `feature-dev-aidd:aidd-core`;
     - для loop‑агентов ещё `feature-dev-aidd:aidd-loop` (только implement/review/qa);
@@ -439,13 +439,13 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   - добавлен smoke‑чек “skills реально подхватились” (через compiled‑prompt check или анализ frontmatter `skills:`).
   **Deps:** W91-1
 
-- [ ] **W91-7 (рекомендуется)** Language policy enforcement
+- [x] **W91-7 (рекомендуется)** Language policy enforcement
   - добавить мини‑checklist “как писать EN skills” (коротко, imperative, без воды);
   - проверить, что core/loop/stage skills соответствуют EN‑политике из W91‑0.
   **AC:** политика языка соблюдается и зафиксирована в docs/linters.
   **Deps:** W91-0, W91-3
 
-- [ ] **W91-3.0** Frontmatter parity baseline (commands → skills)
+- [x] **W91-3.0** Frontmatter parity baseline (commands → skills)
   - сделать baseline‑отчёт (md+json), фиксирующий для каждого stage:
     - `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`, `argument-hint`;
     - связь “legacy command → stage skill”.
@@ -453,7 +453,7 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   **AC:** baseline существует и используется для паритетной проверки frontmatter.
   **Deps:** W91-0
 
-- [ ] **W91-3** `skills/<stage>/**`
+- [x] **W91-3** `skills/<stage>/**`
   - создать stage skills: `aidd-init`, `idea-new`, `researcher`, `plan-new`, `review-spec`, `spec-interview`, `tasks-new`, `implement`, `review`, `qa`, `status`;
   - “исполняемый алгоритм” в `SKILL.md` (коротко), детали в `DETAILS.md`/`CHECKLIST.md`;
   - frontmatter (минимальный стандарт):
@@ -474,21 +474,21 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   - нет больших канон‑дублей в stage skills (только ссылки “следуем aidd-core/aidd-loop”).
   **Deps:** W91-0, W91-1, W91-2, W91-3.0
 
-- [ ] **W91-3.1** `commands/`, `docs/legacy/commands/`
+- [x] **W91-3.1** `commands/`, `docs/legacy/commands/`
   - устранить источники дублей:
     - `commands/` либо удалён/переименован, либо очищен от stage entrypoints;
     - legacy команды (если нужны) перенести в `docs/legacy/commands/` (без автосканирования).
   **AC:** каждый `/feature-dev-aidd:<stage>` определяется ровно один раз (skill‑first); CI/линт ловит дубли имён между skills и commands.
   **Deps:** W91-3
 
-- [ ] **W91-4** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
+- [x] **W91-4** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
   - проверить `plugin.json`: если skills лежат в стандартной директории `skills/`, не добавлять лишнего; иначе явно указать пути;
   - обновить entrypoints так, чтобы источником правды были skills;
   - обновить версию/CHANGELOG при user‑facing изменениях; marketplace.json — при публикации/релизе.
   **AC:** plugin.json валиден; skills подхватываются; нет конфликтов/дублей; версии/CHANGELOG синхронизированы при релизе.
   **Deps:** W91-3.1
 
-- [ ] **W91-5** `tests/repo_tools/*`, `tools/prompt_template_sync.py`, `tests/test_gate_workflow.py`
+- [x] **W91-5** `tests/repo_tools/*`, `tools/prompt_template_sync.py`, `tests/test_gate_workflow.py`
   - обновить lint/regression под `skills/**`;
   - добавить guards:
     - `SKILL.md ≤ N lines`;
@@ -508,7 +508,7 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   **AC:** `ci-lint.sh` проходит; guards работают; тест “нет stage commands” проходит.
   **Deps:** W91-4
 
-- [ ] **W91-6** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `README*.md`, `aidd_test_flow_prompt_ralph_script.txt`
+- [x] **W91-6** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `README*.md`, `aidd_test_flow_prompt_ralph_script.txt`
   - переписать доки в стиле “skill‑first”: вместо дублей — ссылки на `skills/aidd-core` и `skills/aidd-loop`;
   - smoke‑workflow: bootstrap (`/feature-dev-aidd:aidd-init`) и минимальный loop (tasks → implement → review → qa).
   **AC:** шаблоны/README отражают skill‑first; bootstrap + smoke проходят.
