@@ -46,12 +46,18 @@ def _validate_progress_params(params: dict, errors: List[str], *, prefix: str = 
     date = params.get("date")
     if date and (not _is_str(date) or not DATE_RE.match(date)):
         errors.append(f"{prefix}invalid date (expected YYYY-MM-DD): {date}")
-    source = params.get("source")
-    if source and (_is_str(source)) and source.lower() not in PROGRESS_SOURCES:
-        errors.append(f"{prefix}invalid source: {source}")
-    kind = params.get("kind")
-    if kind and (_is_str(kind)) and kind.lower() not in PROGRESS_KINDS:
-        errors.append(f"{prefix}invalid kind: {kind}")
+    if "source" in params:
+        source = params.get("source")
+        if not _is_str(source):
+            errors.append(f"{prefix}source must be string")
+        elif source.lower() not in PROGRESS_SOURCES:
+            errors.append(f"{prefix}invalid source: {source}")
+    if "kind" in params:
+        kind = params.get("kind")
+        if not _is_str(kind):
+            errors.append(f"{prefix}kind must be string")
+        elif kind.lower() not in PROGRESS_KINDS:
+            errors.append(f"{prefix}invalid kind: {kind}")
     for key in ("item_id", "hash", "msg"):
         val = params.get(key)
         if val is not None and not _is_str(val):
