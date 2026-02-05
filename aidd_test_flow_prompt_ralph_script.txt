@@ -112,17 +112,10 @@ Rolling context pack:
 ДОПОЛНИТЕЛЬНО (только если AUDIT_MODE=SKILL_FIRST)
 
 DocOps / Actions discipline:
-- implement/review/qa ответы обязаны включать:
-  - AIDD:READ_LOG: <packs/slices/readmap only>
-  - AIDD:ACTIONS_LOG: <path> (или явное n/a только если политика позволяет; в loop ожидается не n/a)
-- Перед implement/review/qa должен быть preflight-набор артефактов (имена могут отличаться, смысл обязателен):
-  - readmap.{md,json} для <ticket>/<scope_key>
-  - writemap.{md,json} для <ticket>/<scope_key>
-  - actions.template.json (валидный пустой шаблон)
-  - stage.preflight.result.json (или preflight в stage_result)
-- Обновления aidd/docs/tasklist/** и aidd/reports/context/** в loop-стадиях должны быть трассируемы:
-  - через actions_log + docops apply logs/markers
-  - LLM пишет intents/actions, “руки” — scripts (DocOps)
+- Канон DocOps и output‑контракта живёт в skills:
+  - $PLUGIN_DIR/skills/aidd-core/SKILL.md
+  - $PLUGIN_DIR/skills/aidd-loop/SKILL.md
+- Проверяй AIDD:READ_LOG/AIDD:ACTIONS_LOG и preflight/DocOps требования строго по skills (без дублей правил здесь).
 
 Entry points:
 - Проверить отсутствие дублей stage entrypoints между commands/ и skills/.
@@ -164,14 +157,8 @@ AIDD:ANSWERS (универсальный цикл)
 EVIDENCE НА КАЖДОМ ШАГЕ (минимум)
 
 A) Команда и результат (ключевой stdout/stderr) + проверка output-контракта:
-   - Status: READY|WARN|BLOCKED|PENDING (implementer) или Status: READY|WARN|BLOCKED (reviewer/qa)
-   - Work item key: ...
-   - Artifacts updated: ...
-   - Tests: run|skipped|not-required <profile/summary/evidence>
-   - Blockers/Handoff: ... (если пусто — none)
-   - Next actions: ...
-   - AIDD:READ_LOG: <packs/slices/readmap only>
-   - Если AUDIT_MODE=SKILL_FIRST и стадия loop: AIDD:ACTIONS_LOG: <path>
+   - Проверить output‑контракт по `skills/aidd-core` (включая AIDD:READ_LOG).
+   - Если AUDIT_MODE=SKILL_FIRST и стадия loop: проверить AIDD:ACTIONS_LOG по `skills/aidd-core`.
 
 B) Артефакты: список путей + git diff --stat.
 C) Active markers (если есть): aidd/docs/.active.json (ticket/slug_hint/stage/work_item/mode).

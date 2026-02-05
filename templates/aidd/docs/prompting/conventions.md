@@ -13,18 +13,13 @@
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 
 ## AIDD:READ_LOG (обязателен)
-- Указывай только реально прочитанные packs/excerpts (1–3 файла).
-- Для full-read — кратко зафиксируй причину.
+- Формат и требования см. `skills/aidd-core` (указывайте только реально прочитанные packs/excerpts).
 
-## Output‑контракт (summary)
-- `Status`, `Work item key`, `Artifacts updated`, `Tests`, `Blockers/Handoff`, `Next actions`, `AIDD:READ_LOG`.
-- Полный формат см. `skills/aidd-core`.
+## Output‑контракт
+Полный формат см. `skills/aidd-core`.
 
-## DocOps (summary)
-- Loop stages: не редактировать `aidd/docs/tasklist/**` и `aidd/reports/context/**` (только intents).
-- Planning stages: редактирование допустимо; структурные секции — DocOps‑managed.
-- Полная политика см. `skills/aidd-core`.
+## DocOps
+Полная политика см. `skills/aidd-core`.
 
-## Loop discipline (summary)
-- Loop pack first, no questions in loop-mode, scope guard.
-- Полная дисциплина см. `skills/aidd-loop`.
+## Loop discipline
+Полная дисциплина см. `skills/aidd-loop`.

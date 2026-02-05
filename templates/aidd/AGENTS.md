@@ -9,20 +9,12 @@
 
 ## Базовые правила
 - Все артефакты находятся в `aidd/**` (paths от root).
-- Саб‑агенты не меняют `aidd/docs/.active.json`.
-- Pack‑first/read‑budget и output‑контракт — см. `skills/aidd-core`.
+- Pack‑first/read‑budget, output‑контракт, question format, DocOps и subagent‑guard — см. `skills/aidd-core`.
+- Loop discipline — см. `skills/aidd-loop`.
 
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
-
-## Question format (from aidd-core)
-```
-Question N (Blocker|Clarification): ...
-Why: ...
-Options: A) ... B) ...
-Default: ...
-```
 
 ## Ответы пользователя
 Ответы давайте в рамках той же команды (без смены стадии). Если ответы приходят в чате, попросите блок:
