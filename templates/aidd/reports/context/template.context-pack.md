@@ -1,5 +1,4 @@
 # AIDD Context Pack — <stage>
-> Fill stage/agent/read_next/artefact_links, keep only relevant lines, and remove empty placeholders.
 
 ticket: <ticket>
 stage: <stage>

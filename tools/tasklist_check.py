@@ -972,6 +972,29 @@ def deps_satisfied(
     return True
 
 
+def unmet_deps(
+    deps: List[str],
+    iteration_map: dict[str, IterationItem],
+    handoff_map: dict[str, HandoffItem],
+) -> List[str]:
+    unmet: List[str] = []
+    for dep_id in deps:
+        dep_id = normalize_dep_id(dep_id)
+        if not dep_id:
+            continue
+        if dep_id in iteration_map:
+            open_state, _ = pick_open_state(iteration_map[dep_id].checkbox, iteration_map[dep_id].state)
+            if open_state is None or open_state:
+                unmet.append(dep_id)
+            continue
+        if dep_id in handoff_map:
+            open_state, _ = handoff_open_state(handoff_map[dep_id].checkbox, handoff_map[dep_id].status)
+            if open_state is None or open_state:
+                unmet.append(dep_id)
+            continue
+        unmet.append(dep_id)
+    return unmet
+
 def build_open_items(
     iterations: List[IterationItem],
     handoff_items: List[HandoffItem],
@@ -1531,9 +1554,9 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
 
     placeholder = next3_placeholder_present(next3_lines)
     expected = min(3, len(open_items)) if open_items else 0
+    count_mismatch = False
     if open_items:
-        if len(next3_blocks) != expected:
-            add_issue("error", f"AIDD:NEXT_3 has {len(next3_blocks)} items, expected {expected}")
+        count_mismatch = len(next3_blocks) != expected
         if placeholder:
             add_issue("error", "AIDD:NEXT_3 contains placeholder with open items")
     else:
@@ -1544,6 +1567,7 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
 
     next3_ids: List[str] = []
     next3_order_keys: List[tuple] = []
+    next3_unmet: Dict[str, List[str]] = {}
     for block in next3_blocks:
         header = block[0].lower()
         if "[x]" in header:
@@ -1555,12 +1579,15 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
         if not has_ref:
             add_issue(severity_for_stage(stage), "AIDD:NEXT_3 item missing ref:")
         next3_ids.append(ref_id)
-        if ref_id not in open_ids:
-            add_issue("error", f"AIDD:NEXT_3 item {ref_id} is not open")
         if ref_id in iteration_map:
             item = iteration_map[ref_id]
-            if item.deps and not deps_satisfied(item.deps, iteration_map, handoff_map):
-                add_issue("error", f"AIDD:NEXT_3 item {ref_id} has unmet deps")
+            unmet: List[str] = []
+            if item.deps:
+                unmet = unmet_deps(item.deps, iteration_map, handoff_map)
+                if unmet:
+                    next3_unmet[ref_id] = unmet
+                    deps_label = ", ".join(sorted(unmet))
+                    add_issue("warn", f"AIDD:NEXT_3 item {ref_id} has unmet deps: {deps_label}")
             priority = item.priority or "medium"
             if priority not in PRIORITY_ORDER:
                 priority = "medium"
@@ -1579,6 +1606,8 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
                 add_issue("error", f"iteration {ref_id} missing Boundaries")
             if not block_has_heading(item.lines, "Tests"):
                 add_issue("error", f"iteration {ref_id} missing Tests")
+            if ref_id not in open_ids and ref_id not in next3_unmet:
+                add_issue("error", f"AIDD:NEXT_3 item {ref_id} is not open")
         elif ref_id in handoff_map:
             item = handoff_map[ref_id]
             priority = item.priority or "medium"
@@ -1595,11 +1624,23 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
                 add_issue("error", f"handoff {ref_id} missing Boundaries")
             if not block_has_heading(item.lines, "Tests"):
                 add_issue("error", f"handoff {ref_id} missing Tests")
+            if ref_id not in open_ids:
+                add_issue("error", f"AIDD:NEXT_3 item {ref_id} is not open")
         else:
             add_issue("error", f"AIDD:NEXT_3 references unknown id {ref_id}")
 
     if len(next3_ids) != len(set(next3_ids)):
         add_issue("error", "AIDD:NEXT_3 has duplicate ids")
+
+    if open_items and count_mismatch:
+        if next3_unmet:
+            unmet_ids = ", ".join(sorted(next3_unmet.keys()))
+            add_issue(
+                "warn",
+                f"AIDD:NEXT_3 has {len(next3_blocks)} items, expected {expected} (unmet deps: {unmet_ids})",
+            )
+        else:
+            add_issue("error", f"AIDD:NEXT_3 has {len(next3_blocks)} items, expected {expected}")
 
     if open_items and len(next3_ids) == expected:
         expected_ids = [item.item_id for item in open_items[:expected]]
@@ -1713,6 +1754,26 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
         archive_entries, _ = progress_entries_from_lines(archive_lines)
         archive_ids = {entry.get("item_id") for entry in archive_entries}
     evidence_ids = progress_ids | archive_ids
+
+    warned_progress: set[tuple[str, str]] = set()
+    for entry in progress_entries:
+        item_id = str(entry.get("item_id") or "").strip()
+        kind = str(entry.get("kind") or "").strip().lower()
+        if not item_id or not kind:
+            continue
+        key = (kind, item_id)
+        if key in warned_progress:
+            continue
+        if kind == "iteration" and item_id in iteration_map:
+            open_state, _ = pick_open_state(iteration_map[item_id].checkbox, iteration_map[item_id].state)
+            if open_state is None or open_state:
+                add_issue("warn", f"PROGRESS_LOG entry for {item_id} but checkbox not done")
+                warned_progress.add(key)
+        elif kind == "handoff" and item_id in handoff_map:
+            open_state, _ = handoff_open_state(handoff_map[item_id].checkbox, handoff_map[item_id].status)
+            if open_state is None or open_state:
+                add_issue("warn", f"PROGRESS_LOG entry for {item_id} but checkbox not done")
+                warned_progress.add(key)
 
     def block_has_link(block: List[str]) -> bool:
         for line in block:

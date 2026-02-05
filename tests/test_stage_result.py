@@ -51,7 +51,7 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("requested_result"), "done")
             self.assertEqual(payload.get("result"), "continue")
-            self.assertEqual(payload.get("reason_code"), "missing_test_evidence")
+            self.assertEqual(payload.get("reason_code"), "no_tests_soft")
 
     def test_review_missing_tests_hard_blocks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -84,7 +84,7 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("requested_result"), "done")
             self.assertEqual(payload.get("result"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "missing_test_evidence")
+            self.assertEqual(payload.get("reason_code"), "no_tests_hard")
 
     def test_review_blocked_preserved_when_tests_missing_soft(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -229,7 +229,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "continue")
-            self.assertEqual(payload.get("reason_code"), "manual_skip")
+            self.assertEqual(payload.get("reason_code"), "no_tests_soft")
 
     def test_review_uses_latest_pass_when_review_skipped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -339,7 +339,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "manual_skip")
+            self.assertEqual(payload.get("reason_code"), "no_tests_hard")
 
     def test_review_stage_result_links_fix_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:

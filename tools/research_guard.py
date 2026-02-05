@@ -242,6 +242,16 @@ def _count_rlm_nodes(path: Path) -> int:
     return count
 
 
+def _load_rlm_links_stats(path: Path) -> Optional[dict]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def _should_require_rlm(
     root: Path,
     ticket: str,
@@ -340,6 +350,12 @@ def _validate_rlm_evidence(
         "rlm_pack_path",
         _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.json"),
     )
+    rlm_links_stats_path = _resolve_rlm_path(
+        root,
+        context,
+        "rlm_links_stats_path",
+        root / "reports" / "research" / f"{ticket}-rlm.links.stats.json",
+    )
 
     rlm_status = str(context.get("rlm_status") or "pending").strip().lower()
     worklist_status = None
@@ -374,6 +390,19 @@ def _validate_rlm_evidence(
     links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
     pack_ok = rlm_pack_path.exists()
     nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
+    links_total: Optional[int] = None
+    links_stats = _load_rlm_links_stats(rlm_links_stats_path)
+    if isinstance(links_stats, dict):
+        try:
+            links_total = int(links_stats.get("links_total") or 0)
+        except (TypeError, ValueError):
+            links_total = None
+    links_empty = False
+    if links_total is not None:
+        links_empty = links_total == 0
+    else:
+        links_empty = not links_ok
+    links_warn = settings.rlm_require_links and links_empty
 
     if rlm_status == "ready":
         if settings.rlm_require_nodes and not nodes_ok:
@@ -386,9 +415,16 @@ def _validate_rlm_evidence(
                 "BLOCK: rlm_status=ready, но nodes.jsonl пустой. "
                 f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
-        if settings.rlm_require_links and not links_ok:
+        if links_warn:
+            message = (
+                "rlm links empty (reason_code=rlm_links_empty_warn)"
+                if links_total == 0
+                else "rlm links missing (reason_code=rlm_links_empty_warn)"
+            )
+            if ready_required:
+                raise ResearchValidationError(f"BLOCK: {message}.")
             print(
-                "[aidd] WARN: rlm_status=ready, но links.jsonl отсутствует или пустой. "
+                f"[aidd] WARN: {message}. "
                 f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`.",
                 file=sys.stderr,
             )
@@ -400,13 +436,20 @@ def _validate_rlm_evidence(
             )
         return
 
+    if rlm_status in {"warn", "warning"}:
+        message = "rlm links empty (reason_code=rlm_links_empty_warn)"
+        if ready_required:
+            raise ResearchValidationError(f"BLOCK: {message}.")
+        print(
+            f"[aidd] WARN: {message}. "
+            f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`.",
+            file=sys.stderr,
+        )
+        return
+
     if ready_required:
-        if settings.rlm_require_links and pack_ok and not links_ok:
-            print(
-                f"[aidd] WARN: rlm_status=pending for stage={stage}; links.jsonl отсутствует или пустой.",
-                file=sys.stderr,
-            )
-            return
+        if links_warn and pack_ok:
+            raise ResearchValidationError("BLOCK: rlm links empty (reason_code=rlm_links_empty_warn).")
         raise ResearchValidationError(
             "BLOCK: rlm_status=pending — требуется rlm_status=ready "
             "с nodes/links/pack для текущей стадии."

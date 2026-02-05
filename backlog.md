@@ -244,6 +244,8 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - гейт не должен считать research “ready” при пустых links.
   **AC:** пустые links → WARN + reason_code; research не может быть READY; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** FAIL — `*-rlm.links.jsonl` пуст, но research помечен reviewed.
+  **Риск:** downstream стадии идут без RLM links‑evidence.
 
 - [ ] **W89.5-2** `agents/reviewer.md`, `commands/review.md`, `hooks/review-report.sh`, `tools/review_report.py`, `tests/*`:
   - унифицировать вывод findings: reviewer пишет JSON (AIDD:WRITE_JSON), `review-report.sh` читает через `--findings-file`;
@@ -255,6 +257,8 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - reviewer marker `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json` всегда создаётся (включая handoff scope_key вроде `id_review_F*`).
   **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; blocking_findings_count корректен; reviewer marker всегда есть для всех scope_key; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** FAIL — отсутствуют `review.latest.pack.md` и `reviewer/<scope_key>.json`; loop‑run blocked `review_pack_missing`.
+  **Риск:** loop‑runner не продвигается после review, автолооп останавливается.
 
 - [ ] **W89.5-3** `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
   - если `tests_required=soft|hard` и tests skipped/no‑evidence → review verdict `REVISE`/`BLOCKED` соответственно;
@@ -266,6 +270,8 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - `Status` в выводе review должен совпадать со `stage_result.result` (или `status-summary.sh`).
   **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; WARN не превращается в blocked; stage_result путь корректен; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — кейсы `no_tests_soft|no_tests_hard` в прогоне не воспроизведены.
+  **Риск:** возможен повтор рассинхрона `Status` vs `stage_result` при пропуске тестов в review.
 
 - [ ] **W89.5-4** `tools/qa.py`, `tools/tasklist_parse.py` (или эквивалент), `tests/*`:
   - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд (если profile != none);
@@ -275,16 +281,19 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - stage.qa.result `evidence_links` должны ссылаться на QA‑логи/qa report, а не loop-step.
   **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; stage_result обязателен; qa evidence links корректные; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** PARTIAL — QA берёт команды из tasklist, но tests_log vs stdout расходятся; CWD тестов = `.../aidd`.
+  **Риск:** ложные BLOCKED/FAIL в QA, несоответствие evidence.
 
-- [ ] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:
+- [x] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:
   - добавить CLI‑поля `read_next/what_to_do/artefact_links` и заполнение вместо placeholder‑строк;
   - команды implement/review/qa передают значения из артефактов;
   - если заполнить нельзя — выставлять WARN (placeholder не допускается молча).
   - удалять шаблонную строку типа “Fill stage/agent/read_next/artefact_links…” при генерации context pack (или WARN, если осталась).
   **AC:** rolling pack без placeholder‑строк; при missing values — WARN; шаблонная строка не попадает в pack; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** PASS — placeholder‑строк в context pack не обнаружено, read_next/artefact_links заполнены.
 
-- [ ] **W89.5-6** `tools/loop_pack.py`, `tools/diff_boundary_check.py`, `tests/*`:
+- [x] **W89.5-6** `tools/loop_pack.py`, `tools/diff_boundary_check.py`, `tests/*`:
   - если Boundaries пусты — fallback к Expected paths (tasklist), затем allowed_paths (rolling pack);
   - при авто‑расширении выставлять WARN (`auto_boundary_extend_warn`), не BLOCKED.
   - OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED → WARN + reason_code `out_of_scope_warn|no_boundaries_defined_warn`;
@@ -292,13 +301,15 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - если commands_required явно требует изменения существующего файла — включать его в allowed_paths (или фиксировать WARN с auto‑expand).
   **AC:** loop pack всегда содержит границы; авто‑расширение даёт WARN; commands_required не конфликтует с boundaries; reason_code маппится корректно; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** PASS — auto_boundary_extend_warn выставляется, allowed_paths заполнены.
 
-- [ ] **W89.5-7** `tools/tasklist_check.py`, `tests/*`:
+- [x] **W89.5-7** `tools/tasklist_check.py`, `tests/*`:
   - добавить проверку консистентности: progress log отмечен done, а checkbox `[ ]` не установлен;
   - выводить WARN с указанием work_item_key (без авто‑фикса).
   - проверять `AIDD:NEXT_3`: не включает итерации с незакрытыми deps (иначе WARN с указанием deps).
   **AC:** несоответствие лог/checkbox даёт WARN; NEXT_3 не содержит unmet deps или выдаёт WARN; не происходит авто‑изменений; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** PASS (по проверке кода/тестов); в e2e прогоне конфликтов не возникало.
 
 - [ ] **W89.5-8** `tools/output_contract.py` (новый) или `tools/runtime.py`, `tests/*`:
   - валидация output‑контракта для implement/review/qa (Status/Work item/Tests/AIDD:READ_LOG/Next actions);
@@ -310,6 +321,8 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - `AIDD:READ_LOG` должен содержать только packs/excerpts (код/полные файлы — только при явной причине missing fields).
   **AC:** неполный вывод детектируется как WARN; read‑budget violations фиксируются; read‑order violations фиксируются; Status/`stage_result` совпадают; excessive/full‑read фиксируется; read_log только packs/excerpts; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** FAIL — AIDD:READ_LOG содержит >3 файлов и raw‑paths, без WARN.
+  **Риск:** нарушения pack‑first проходят незамеченными.
 
 - [ ] **W89.5-9** `tools/loop_run.py` (или эквивалент), `tools/set_active_feature.py`, `tests/*`:
   - после SHIP и при открытых итерациях loop‑runner обязан выбрать следующий work_item, обновить `aidd/docs/.active.json` (work_item/stage) и продолжить implement;
@@ -318,6 +331,8 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - `review_pack_stale` не должен блокировать loop-run: перегенерировать pack или повторить review с корректным evidence_links.
   **AC:** loop‑runner корректно продвигает active markers после SHIP; loop завершается только при отсутствии итераций; stage_result создаётся для следующего work_item или выдаётся BLOCKED с reason_code; review_pack_stale не блокирует loop-run; tests обновлены.
   **Deps:** -
+  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — loop‑run блокируется раньше (review_pack_missing).
+  **Риск:** автоматический прогон не достигает SHIP/next work_item; stream jsonl пустой.
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
 
@@ -372,115 +387,350 @@ _Статус: новый, приоритет 1. Обратная совмест
   **AC:** тесты проходят в режиме RLM‑only; отсутствуют упоминания `*-context*` в тестах.
   **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
 
-## Wave 91 — Skill-first prompts (канон в skills, короткие entrypoints)
+## Wave 91 — Skill‑first prompts (канон в skills, короткие entrypoints)
 
 _Статус: новый, приоритет 1. Цель — вынести канон из команд/агентов в skills, сократить промпты и перевести stage entrypoints на skills._
 
-- [ ] **W91-1** `skills/aidd-core/**`, `skills/aidd-loop/**`, `skills/aidd-reference/**` (опционально):
-  - создать `skills/aidd-core/SKILL.md` (контекст‑преференс, pack‑first/read‑budget, `AIDD:READ_LOG`, output‑контракт, формат вопросов, запрет на `.active.json`);
-  - создать `skills/aidd-loop/SKILL.md` (loop discipline, test policy, out‑of‑scope/REVISE правила);
-  - для `aidd-core` и `aidd-loop`: `disable-model-invocation: true` + `user-invocable: false` (скрыть из /‑меню; preload в subagents остаётся);
-  - для `aidd-reference` (если используется): по умолчанию `disable-model-invocation: true`, `user-invocable: false` (вручной вызов при необходимости);
-  - длинные справочники вынести в отдельный **non‑preloaded** skill (`skills/aidd-reference/**`) или в docs; core/loop держать минимальными;
-  - supporting files допускаются только на **один уровень глубины** (SKILL.md → DETAILS/REFERENCE, без цепочек).
-  **AC:** `skills/aidd-core` и `skills/aidd-loop` существуют; `SKILL.md` ≤ 250–300 строк; **общий размер директории** (SKILL + supporting files) ограничен (например ≤ 400 строк суммарно или ≤ 60KB); длинные справочники вынесены в non‑preloaded skill/доки; `description` у preloaded skills ≤ 1–2 строки; supporting files не глубже 1 уровня.
-  **Deps:** -
+- [ ] **W91-0 (добавить)** Language decision record
+  - зафиксировать в одном документе (например, `docs/skill-language.md` или `README.en.md`):
+    - `skills/aidd-core`, `skills/aidd-loop`, `skills/<stage>` пишутся на **EN**;
+    - user-facing README/шаблоны могут быть RU, без дублирования исполняемых алгоритмов.
+  **AC:** есть единый источник истины по языку; правило применяется в W91-1/W91-3.
+  **Deps:** —
 
-- [ ] **W91-2** `agents/*.md`:
-  - добавить `skills:` preload (минимум `feature-dev-aidd:aidd-core`; для loop‑агентов — также `feature-dev-aidd:aidd-loop`);
-  - удалить дубли канона (context precedence/read policy/output contract/loop discipline) из агентов, оставить только роль‑/стадия‑специфику;
-  - оставить короткий якорь: “Output follows aidd-core skill”.
-  **AC:** все агенты preload‑ят core/loop skills по роли; повторяющиеся блоки канона удалены; роли остаются исполнимыми; есть smoke‑проверка, что skills реально подхватились (front‑matter `skills:` содержит нужные значения или compiled‑prompt check).
+- [ ] **W91-1** `skills/aidd-core/**`, `skills/aidd-loop/**`, `skills/aidd-reference/**` (опц.)
+  - создать `skills/aidd-core/SKILL.md`:
+    - pack-first/read-budget как политика по умолчанию;
+    - `AIDD:READ_LOG` как обязательный output;
+    - output‑контракт (Status/Work item key/Artifacts updated/Tests/Blockers/Next actions);
+    - DocOps policy (v1, stage‑scoped):
+      - loop‑stages (implement/review/qa/status): **запрет** прямого Edit/Write для `aidd/docs/tasklist/**` и `aidd/reports/context/**` (опц. `aidd/docs/.active.json`); LLM пишет только actions/intents;
+      - planning‑stages (idea/research/plan/tasks/spec): разрешён прямой Edit/Write для создания/крупных правок; структурные секции (progress/iterations/next3) — через DocOps или не трогать в planning;
+    - добавить обязательное поле ответа `AIDD:ACTIONS_LOG: <path>` (обязателен для loop‑stages, `n/a` допустим для planning‑stages);
+    - формат вопросов к пользователю;
+    - запрет на правку `aidd/docs/.active.json` саб‑агентами;
+  - создать `skills/aidd-loop/SKILL.md`:
+    - loop discipline, REVISE/out-of-scope, test policy;
+  - длинные справочники вынести в **non‑preloaded** `skills/aidd-reference/**` или docs;
+  - supporting files только 1 уровень глубины (SKILL → DETAILS/REFERENCE, без цепочек), допускаются подпапки `scripts/`, `examples/`, `assets/` (опц.);
+  - frontmatter:
+    - `name` (совпадает с именем skill);
+    - у preloaded skills `description` ≤ 1–2 строки;
+    - `user-invocable: false` для core/loop/reference;
+    - для core/loop **не** ставить `disable-model-invocation: true` (preload обеспечивает доступ).
+  **AC:**
+  - `skills/aidd-core` и `skills/aidd-loop` существуют;
+  - core/loop содержат DocOps policy + `AIDD:ACTIONS_LOG` в контракте;
+  - `SKILL.md` ≤ 250–300 строк;
+  - общий размер директории preloaded‑skill ограничен (например ≤ 60KB или ≤ 400 строк суммарно);
+  - supporting files не глубже 1 уровня;
+  - reference вынесен отдельно и не preload’ится.
+  **Deps:** —
+
+- [ ] **W91-2** `agents/*.md`
+  - добавить preload skills:
+    - минимум `feature-dev-aidd:aidd-core`;
+    - для loop‑агентов ещё `feature-dev-aidd:aidd-loop` (только implement/review/qa);
+  - удалить дубли канона из агентов, оставить только роль/стадия‑специфику;
+  - оставить “якорь”: `Output follows aidd-core skill`.
+  **AC:**
+  - все агенты preload’ят core/loop по роли;
+  - повторяющиеся блоки удалены;
+  - добавлен smoke‑чек “skills реально подхватились” (через compiled‑prompt check или анализ frontmatter `skills:`).
   **Deps:** W91-1
 
-- [ ] **W91-3** `skills/<stage>/**`, `commands/*.md`:
+- [ ] **W91-7 (рекомендуется)** Language policy enforcement
+  - добавить мини‑checklist “как писать EN skills” (коротко, imperative, без воды);
+  - проверить, что core/loop/stage skills соответствуют EN‑политике из W91‑0.
+  **AC:** политика языка соблюдается и зафиксирована в docs/linters.
+  **Deps:** W91-0, W91-3
+
+- [ ] **W91-3.0** Frontmatter parity baseline (commands → skills)
+  - сделать baseline‑отчёт (md+json), фиксирующий для каждого stage:
+    - `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`, `argument-hint`;
+    - связь “legacy command → stage skill”.
+  - хранить как артефакт (например, `aidd/reports/migrations/commands_to_skills_frontmatter.{md,json}`).
+  **AC:** baseline существует и используется для паритетной проверки frontmatter.
+  **Deps:** W91-0
+
+- [ ] **W91-3** `skills/<stage>/**`
   - создать stage skills: `aidd-init`, `idea-new`, `researcher`, `plan-new`, `review-spec`, `spec-interview`, `tasks-new`, `implement`, `review`, `qa`, `status`;
-  - перенести “исполняемый алгоритм” в `SKILL.md` (кратко), длинные справочные блоки — в `DETAILS.md`/`CHECKLIST.md`;
-  - перенести `allowed-tools` из `commands/*.md` в `skills/<stage>/SKILL.md`;
-  - перенести `argument-hint`, `model: inherit`, `prompt_version`, `source_version` из `commands/*.md` в `skills/<stage>/SKILL.md`;
-  - проставить `disable-model-invocation: true` для side‑effects (init/idea/research/plan/review‑spec/spec‑interview/tasks/implement/review/qa); для `status` оставить `disable-model-invocation: false`; `user-invocable` выставить по смыслу (core/loop/reference = false).
-  - команды либо превращаются в короткие wrappers, либо переносятся в `docs/legacy/commands/` (без авто‑сканирования).
-  **AC:** каждый stage имеет `skills/<stage>/SKILL.md` ≤ 250–400 строк; side‑effect skills помечены `disable-model-invocation: true`; **нет stage‑entrypoints в `commands/`** после миграции; нет больших канон‑дублей.
+  - “исполняемый алгоритм” в `SKILL.md` (коротко), детали в `DETAILS.md`/`CHECKLIST.md`;
+  - frontmatter (минимальный стандарт):
+    - `name` (совпадает с именем stage);
+    - `description` 1–2 строки;
+    - `argument-hint`;
+    - `allowed-tools`, `model: inherit`, `prompt_version`, `source_version`, `lang` — паритет с legacy commands (skills = источник истины);
+    - `disable-model-invocation: true` для side-effects (init/idea/research/plan/review-spec/spec-interview/tasks/implement/review/qa);
+    - для `status` оставить `disable-model-invocation: false`;
+    - `context: fork` + `agent: <role>` только для single‑executor стадий: `idea-new`, `researcher`, `tasks-new`, `implement`, `review`, `qa`; оркестраторы остаются в main context;
+    - `user-invocable: true` для stage skills, `false` для core/loop/reference.
+  - implement/review/qa обязаны ссылаться на `scripts/preflight.sh` и `scripts/postflight.sh`; для остальных стадий — recommended по мере миграции.
+  - implement/review/qa обязаны содержать шаг “Fill actions.json”: заполнить `.../<stage>.actions.json` по шаблону и провалидировать schema перед postflight.
+  **AC:**
+  - каждый stage имеет `skills/<stage>/SKILL.md` ≤ 250–400 строк;
+  - side-effect skills помечены `disable-model-invocation: true`;
+  - `context: fork` выставлен для: `idea-new`, `researcher`, `tasks-new`, `implement`, `review`, `qa`;
+  - нет больших канон‑дублей в stage skills (только ссылки “следуем aidd-core/aidd-loop”).
+  **Deps:** W91-0, W91-1, W91-2, W91-3.0
+
+- [ ] **W91-3.1** `commands/`, `docs/legacy/commands/`
+  - устранить источники дублей:
+    - `commands/` либо удалён/переименован, либо очищен от stage entrypoints;
+    - legacy команды (если нужны) перенести в `docs/legacy/commands/` (без автосканирования).
+  **AC:** каждый `/feature-dev-aidd:<stage>` определяется ровно один раз (skill‑first); CI/линт ловит дубли имён между skills и commands.
+  **Deps:** W91-3
+
+- [ ] **W91-4** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
+  - проверить `plugin.json`: если skills лежат в стандартной директории `skills/`, не добавлять лишнего; иначе явно указать пути;
+  - обновить entrypoints так, чтобы источником правды были skills;
+  - обновить версию/CHANGELOG при user‑facing изменениях; marketplace.json — при публикации/релизе.
+  **AC:** plugin.json валиден; skills подхватываются; нет конфликтов/дублей; версии/CHANGELOG синхронизированы при релизе.
+  **Deps:** W91-3.1
+
+- [ ] **W91-5** `tests/repo_tools/*`, `tools/prompt_template_sync.py`, `tests/test_gate_workflow.py`
+  - обновить lint/regression под `skills/**`;
+  - добавить guards:
+    - `SKILL.md ≤ N lines`;
+    - общий размер preloaded skill‑директории ≤ лимита;
+    - supporting files ≤ 1 уровень глубины (разрешены `scripts/`, `examples/`, `assets/`);
+    - `disable-model-invocation` корректен для side-effects; core/loop без `disable-model-invocation: true`;
+    - обязательные frontmatter поля, включая `name`, `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`.
+    - agent/skill parity guard:
+      - собрать `agent_ids` из `agents/*.md` (`name:` фронтматтера);
+      - если `context: fork` → `agent:` обязателен и входит в `agent_ids`;
+      - `context: fork` разрешён только для whitelist стадий (idea-new, researcher, tasks-new, implement, review, qa).
+  - добавить тест на отсутствие stage‑entrypoints в `commands/`.
+  - зафиксировать entrypoints‑bundle как derived‑артефакт:
+    - SoT: `.claude-plugin/plugin.json` + `skills/**/SKILL.md`;
+    - генератор: `tools/entrypoints_bundle.py`;
+    - `tools/entrypoints-bundle.txt` пересобирается и проверяется в CI (diff‑guard).
+  **AC:** `ci-lint.sh` проходит; guards работают; тест “нет stage commands” проходит.
+  **Deps:** W91-4
+
+- [ ] **W91-6** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `README*.md`, `aidd_test_flow_prompt_ralph_script.txt`
+  - переписать доки в стиле “skill‑first”: вместо дублей — ссылки на `skills/aidd-core` и `skills/aidd-loop`;
+  - smoke‑workflow: bootstrap (`/feature-dev-aidd:aidd-init`) и минимальный loop (tasks → implement → review → qa).
+  **AC:** шаблоны/README отражают skill‑first; bootstrap + smoke проходят.
+  **Deps:** W91-5
+
+## Wave 92 — Skill‑local scripts + tool proximity
+
+_Статус: новый, приоритет 2. Цель — приблизить исполняемую логику к skills без поломки runtime, сделать wrapper‑интерфейс единым и переносить stage‑специфичные скрипты через shims._
+
+- [ ] **W92-0 (добавить)** Wrapper contract (единый интерфейс)
+  - определить стандарт вызова для wrapper’ов:
+    - вход: `--ticket`, `--scope-key`, `--work-item-key`, `--stage` (или чтение из `.active.json`, но аргументы приоритетнее);
+    - вход: `--actions <path>` (actions/intents файл);
+    - canonical path для actions:
+      - template: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.template.json`
+      - actual: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.json`
+      - apply log: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.apply.jsonl` (или `.log`)
+    - если `--actions` не задан → вычислить canonical path и вывести его в stdout (`actions_path=...`);
+    - логи: `aidd/reports/logs/<stage>/<ticket>/<scope_key>/...`;
+    - stderr: только важные summary/ошибки;
+    - exit code: строго 0/!=0.
+  - путь к assets: использовать `${CLAUDE_PLUGIN_ROOT}`; запрещены `../` вне корня плагина;
+  - артефакты/логи пишутся в workspace (`aidd/reports/**`), не в plugin root.
+  - прямые правки tasklist/context pack запрещены: только DocOps‑скрипты.
+  - добавить `templates/aidd/reports/actions/.gitkeep` (+ опц. README).
+  **AC:** есть короткий `skills/aidd-reference/wrapper_contract.md` (non-preloaded) + линтер это проверяет.
   **Deps:** W91-1
 
-- [ ] **W91-3.0** `commands/`, `skills/**`:
-  - name collision check: после добавления stage skills убедиться, что в `commands/` нет файлов с теми же `/feature-dev-aidd:<stage>`;
-  - `commands/` либо удалён/переименован, либо очищен от stage entrypoints (иначе дубли).
-  **AC:** каждый `/feature-dev-aidd:<stage>` определяется ровно один раз (skill‑first).
-  **Deps:** W91-3
+- [ ] **W92-0.1 (добавить)** Actions format v0 (минимальный)
+  - определить минимальный формат `aidd.actions.v0`:
+    - `schema_version`, `stage`, `ticket`, `scope_key`, `work_item_key`, `actions: []`;
+    - базовые types для DocOps (`tasklist_ops.*`, `context_pack_update`).
+  - добавить лёгкий валидатор v0 в tools (без полной registry/readmap).
+  **AC:** actions v0 валиден; W92‑1 может создавать `actions.template` без зависимости от W93 schemas.
+  **Deps:** W91-1
 
-- [ ] **W91-4** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`:
-  - зарегистрировать `skills` в плагине; обновить список entrypoints (skills vs commands);
-  - сохранить совместимость `/feature-dev-aidd:<stage>` (без дублей/конфликтов);
-  - при user‑facing изменениях обновить версии и `CHANGELOG.md`.
-  **AC:** plugin.json содержит `skills`; entrypoints доступны; версии/CHANGELOG синхронизированы при необходимости.
-  **Deps:** W91-3.0
-
-- [ ] **W91-5** `tests/repo_tools/*`, `tools/prompt_template_sync.py`, `tests/test_gate_workflow.py`:
-  - адаптировать lint/regression под `skills/**` (section titles, output‑contract checks, prompt‑version bump);
-  - обновить `prompt_template_sync.py` и тесты, которые ожидают `commands/`/`agents/` пути;
-  - добавить guard “SKILL.md ≤ N lines” и **guard на общий размер preloaded skill‑директории**; проверку `disable-model-invocation` для side‑effects;
-  - добавить guard на обязательные front‑matter поля для skills (`description`, `lang`, `prompt_version`, `source_version`, `model`);
-  - добавить guard: `description` у stage skills ≤ 1–2 строки;
-  - добавить тест на отсутствие stage‑entrypoints в `commands/` после миграции;
-  - добавить guard “supporting files ≤ 1 уровень глубины” для `.md` supporting docs (подпапки типа `scripts/` допускаются).
-  **AC:** `tests/repo_tools/ci-lint.sh` проходит; lint/regression учитывают skills; новые guards (line + dir size + depth) работают; тест на отсутствие stage‑commands проходит.
-  **Deps:** W91-3.0, W91-4
-
-- [ ] **W91-6** `templates/aidd/AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `README*.md`, `aidd_test_flow_prompt_ralph_script.txt`:
-  - синхронизировать канон с skill‑first подходом (короткие ссылки на skills вместо дублей);
-  - обновить примеры/доки, чтобы отражали новые entrypoints и структуру skills;
-  - проверить bootstrap (`/feature-dev-aidd:aidd-init`) и smoke‑workflow.
-  **AC:** шаблоны и README соответствуют skill‑first; bootstrap и smoke проходят.
-  **Deps:** W91-2, W91-3, W91-5
-
-## Wave 92 — Skill‑local scripts + tool proximity (wrappers + shims)
-
-_Статус: новый, приоритет 2. Цель — приблизить исполняемую логику к skills без поломки runtime: stage‑локальные wrapper‑скрипты и аккуратные shims для tool‑миграции._
-
-- [ ] **W92-1** `skills/<stage>/scripts/*`:
-  - инвентаризировать `tools/*.sh` и их вызовы (commands/agents/hooks/tests) → **сформировать отчёт** `aidd/reports/tools/tools-inventory.{md,json}` (script → consumers);
-  - добавить генератор отчёта `tools/tools-inventory.sh` (или `tools/tools_inventory.py` + `.sh` entrypoint);
+- [ ] **W92-1** `skills/<stage>/scripts/*`
+  - инвентаризировать `tools/*.sh` и их вызовы (commands/agents/hooks/tests) → отчёт `aidd/reports/tools/tools-inventory.{md,json}` (script → consumers);
+  - добавить генератор отчёта (например, `tools/tools-inventory.py` + `.sh` wrapper);
   - добавить `templates/aidd/reports/tools/.gitkeep` для каталога отчётов;
-  - зафиксировать **wrapper‑контракт**: аргументы `--ticket` (обяз.), `--stage` (опц.), `--scope-key` (опц., иначе вычисляется), summary‑артефакт в `aidd/reports/**`, stdout ≤ 5–20 строк + пути к артефактам;
   - для stage‑локальных шагов создать wrapper‑скрипты в `skills/<stage>/scripts/` (preflight/postflight/bundle);
-  - wrapper = orchestration (склеивает существующие tools), не дублирует их логику;
-  - в `skills/<stage>/SKILL.md` ссылаться на wrapper‑скрипты вместо длинных списков tool‑вызовов.
-  **AC:** у implement/review/qa (минимум) есть wrapper‑скрипты; SKILL.md короче и ссылается на scripts; wrapper‑скрипты пишут summary‑артефакты (например `aidd/reports/<stage>/<ticket>/<scope_key>.wrapper.<name>.{md,json}`) и большие выводы — в `aidd/reports/**`.
+  - в `skills/<stage>/SKILL.md` ссылаться на wrapper’ы вместо длинных списков tool‑вызовов.
+  **AC:**
+  - у implement/review/qa есть wrapper’ы минимум: `preflight.sh`, `run.sh`, `postflight.sh`;
+  - SKILL.md короче и ссылается на scripts;
+  - preflight создаёт `.../<stage>.actions.template.json` (пустой, валидный по v0);
+  - run.sh/skill‑шаг заполняет `.../<stage>.actions.json` из template (или оставляет валидно пустым) и валидирует schema;
+  - postflight применяет actions через DocOps и обновляет документы;
+  - postflight пишет apply log `.../<stage>.apply.jsonl`;
+  - postflight идемпотентен (повторный запуск не дублирует записи/задачи);
+  - wrapper’ы пишут большие выводы в `aidd/reports/**`;
+  - wrapper’ы пишут лог в `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.<name>.<timestamp>.log` и печатают в stdout только путь+summary.
   **Deps:** W91-3
 
-- [ ] **W92-2** `tools/*.sh`:
-  - определить минимальный набор скриптов, реально переносимых из `tools/` в `skills/<stage>/scripts/` по критериям: **используется только одним stage, не вызывается из hooks/tests**;
-  - для перенесённых — оставить shim в `tools/` (проксирование в новый путь) до полной миграции ссылок;
-  - shim‑контракт: `exec` 1:1, сохранение exit‑code, deprecation‑notice в stderr (stdout не ломать);
-  - обновить ссылки в skills/commands/agents на новый путь (через `${CLAUDE_PLUGIN_ROOT}/skills/<stage>/scripts/...`).
-  **AC:** переносимые tool‑скрипты имеют shims; shims используют `exec`, сохраняют exit‑code, пишут notice в stderr; нет разрыва совместимости; ссылки обновлены поэтапно.
+- [ ] **W92-2** `tools/*.sh`
+  - определить переносимые скрипты по критериям:
+    - используется только одним stage;
+    - не вызывается из hooks/tests;
+    - не является shared tooling по смыслу (оставлять общие инструменты в `tools/`).
+  - перенесённым оставить shim в `tools/` (проксирование в новый путь) до полной миграции ссылок;
+  - shim‑контракт:
+    - `exec` 1:1;
+    - сохраняет exit‑code;
+    - deprecation‑notice в stderr;
+  - обновить ссылки в skills/agents на `${CLAUDE_PLUGIN_ROOT}/skills/<stage>/scripts/...`.
+  **AC:**
+  - переносимые tool‑скрипты имеют shims;
+  - нет разрыва совместимости;
+  - миграция ссылок идёт поэтапно (можно катить небольшими PR).
   **Deps:** W92-1
 
-- [ ] **W92-3** `tests/repo_tools/*`:
-  - добавить guards для `skills/<stage>/scripts/*`:
+- [ ] **W92-3** `tests/repo_tools/*`
+  - guards для `skills/<stage>/scripts/*`:
     - `.sh` обязаны иметь `set -euo pipefail`;
-    - stdout ≤ 200 строк (или ≤ 50KB); всё большее — только в `aidd/reports/**` с коротким tail;
-    - каждый скрипт упомянут в соответствующем `SKILL.md` **или** `DETAILS.md`;
-    - запрет тяжёлых бинарей/данных в `skills/**` (лимиты + список расширений);
-    - `#!/usr/bin/env bash` + исполняемый бит для `.sh`.
-  **AC:** ci‑lint ловит нарушения; stage skills с scripts проходят guards; stdout/size лимиты соблюдаются.
-  **Deps:** W92-1
+    - stdout ≤ 200 lines или ≤ 50KB; всё большее — только в `aidd/reports/**` с коротким tail;
+    - stderr ≤ 50 lines (summary/errors);
+    - каждый скрипт упомянут в `SKILL.md` или `DETAILS.md`;
+    - запрет тяжёлых бинарей/данных в `skills/**`;
+    - соответствие wrapper contract из W92-0.
+    - `#!/usr/bin/env bash` + executable bit для `.sh`.
+  **AC:** ci‑lint ловит нарушения; stage skills со scripts проходят guards.
+  **Deps:** W92-0, W92-1
 
-- [ ] **W92-4** `hooks/hooks.json`, `tests/*`:
-  - правило: hooks/CI используют только `tools/*` (или shims), **не** `skills/**`;
+- [ ] **W92-4** `hooks/hooks.json`, `tests/*`
+  - правило: hooks/CI используют только `tools/*` (или shims), не `skills/**`;
   - проверить, что hooks/CI продолжают ссылаться на `tools/*` (или на shims) без изменения поведения;
-  - добавить регрессию: в `hooks/**` нет `${CLAUDE_PLUGIN_ROOT}/skills/` и `skills/` в путях вызова.
-  - добавить регрессию на shim‑совместимость.
+  - регрессия: hooks не обращаются напрямую к `skills/**`;
+  - регрессия shim‑совместимости (старый путь работает, новый тоже).
   **AC:** hooks работают без изменений; регрессии подтверждают проксирование.
   **Deps:** W92-2
 
-- [ ] **W92-5** `templates/aidd/docs/prompting/conventions.md`, `README*.md`:
-  - документировать правило: “stage‑локальные скрипты живут в `skills/<stage>/scripts/`; shared tooling остаётся в `tools/`”;
-  - описать формат wrapper‑скриптов и правила вывода в `aidd/reports/**`;
-  - описать shim‑lifecycle (зачем, как устроен, когда удаляется).
-  **AC:** документация отражает новую структуру; нет конфликтов с W91.
-  **Deps:** W92-1, W92-2, W92-3, W92-4
+- [ ] **W92-5** docs
+  - правило: “stage‑локальные скрипты живут в `skills/<stage>/scripts/`; shared tooling остаётся в `tools/`”;
+  - формат wrapper‑скриптов и правила вывода в `aidd/reports/**`.
+  **AC:** документация отражает структуру; нет конфликтов с W91.
+  **Deps:** W92-3
+
+- [ ] **W92-6 (добавить)** DocOps toolkit v1 (механические операции)
+  - реализовать детерминированные операции над AIDD md‑доками (shared tooling в `tools/`):
+    - минимально для implement/review/qa: `tasklist_ops.set_iteration_done`, `tasklist_ops.append_progress_log`, `tasklist_ops.next3_recompute`;
+    - `context_pack_ops.context_pack_update`;
+    - расширения (handoff_add/frontmatter_set/md_patch) — позже отдельным шагом.
+  - wrappers `postflight.sh` используют DocOps вместо прямого Edit;
+  - операции валидируются (ошибка schema → stage BLOCKED).
+  **AC:** implement/review/qa postflight обновляет tasklist/context pack без LLM Edit; операции идемпотентны.
+  **Deps:** W92-1
+
+## Wave 93 — Context discipline 2.0: preflight stage + read/write contracts + progressive disclosure + DAG‑готовность
+
+_Статус: план. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
+
+- [ ] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
+  - определить схемы:
+    - `aidd.skill_contract.v1.json` (или YAML schema);
+    - `aidd.readmap.v1.json`;
+    - `aidd.stage_result.preflight.v1.json` (или расширение текущего stage_result).
+    - `aidd.actions.v1.json`;
+    - `aidd.writemap.v1.json`.
+  - разместить схемы в `tools/schemas/aidd/` (канон); при необходимости создать каталог.
+  - legacy schemas (v0) тоже живут в `tools/schemas/aidd/` (например `aidd.actions.v0.schema.json`); валидатор сообщает supported versions.
+  - валидатор проверяет schema-version и required поля; CI падает на несовпадении.
+  **AC:** схемы существуют; валидатор гоняется в CI.
+  **Deps:** W91-3
+
+- [ ] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
+  - ввести machine‑readable контракт для каждого stage skill:
+    - `skills/<stage>/CONTRACT.yaml` (или централизованный `aidd/config/skills.registry.yaml`);
+  - поля (минимум):
+    - `skill_id`, `stage`, `entrypoints` (wrapper scripts);
+    - `reads.required`, `reads.optional` (предпочтительно block‑address: `path.md#AIDD:SECTION`);
+    - `writes` (файлы/паттерны);
+    - `writes.blocks` (block‑addresses);
+    - `writes.via.docops_only: true|false`;
+    - `outputs` (артефакты стадий);
+    - `gates.before/after` (какие проверки обязательны);
+    - `context_budget` (max files/max bytes);
+    - `actions.schema: aidd.actions.v1`;
+    - `actions.required: true|false`.
+  - добавить валидатор `tools/skill_contract_validate.py` + CI‑guard.
+  **AC:**
+  - у implement/review/qa есть CONTRACT;
+  - валидатор гоняется в CI;
+  - contracts становятся источником правды для preflight + hooks.
+  **Deps:** W93-0, W91-3, W92-1
+
+- [ ] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
+  - формализовать адресацию блоков:
+    - `path.md#AIDD:SECTION_NAME` (для `## AIDD:` заголовков);
+    - `path.md@handoff:<id>` (для marker‑блоков `<!-- handoff:* -->`);
+  - сделать утилиту `tools/md_slice.py` или `tools/md_slice.sh`:
+    - извлекает блок по адресу;
+    - пишет результат в `aidd/reports/context/slices/...`;
+    - возвращает короткий stdout (путь + краткий summary).
+  - добавить `tools/md_patch.py` (write‑by‑block) для DocOps.
+  - обновить `aidd-core` skill: “читать через slice tool, полный Read — только если slice недостаточен”.
+  **AC:**
+  - slice tool покрывает оба типа блоков;
+  - implement/review используют slice как default;
+  - есть тесты на корректность извлечения.
+  **Deps:** W91-1
+
+- [ ] **W93-3** Mandatory preflight перед implement/review/qa
+  - расширить wrapper’ы `skills/implement/scripts/preflight.sh` (и аналогично review/qa), чтобы preflight:
+    1) генерил/обновлял `loop.pack.md` (+ `review.latest.pack.md` если есть);
+    2) генерил READ MAP: `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`:
+       - required reads (packs + ключевые блоки);
+       - optional reads;
+       - бюджет (max_files/max_bytes);
+       - “если не хватает — делай context-expand”;
+    3) генерил WRITE MAP: `aidd/reports/context/<ticket>/<scope_key>.writemap.{md,json}`;
+    4) генерил `.../<stage>.actions.template.json` (пустой, валидный, со списком допустимых action types);
+    5) генерил “working set” (опционально);
+    6) писал `stage.preflight.result.json` (отдельный stage_result).
+  - изменить stage skills implement/review/qa: первый шаг = запуск preflight wrapper.
+  **AC:**
+  - preflight всегда создаёт readmap;
+  - preflight всегда создаёт writemap + actions template;
+  - implement/review/qa начинают с readmap + pack, а не “сканируют репо”;
+  - preflight может упасть “раньше” с понятным BLOCKED.
+  **Deps:** W92-0, W92-1, W92-0.1, W93-0, W93-1, W93-2
+
+- [ ] **W93-4** Progressive disclosure: controlled context expansion
+  - добавить механизм “расширить контекст” как явное действие:
+    - либо отдельный skill `/feature-dev-aidd:context-expand` (с `disable-model-invocation: true`);
+    - либо wrapper `skills/aidd-core/scripts/context_expand.sh`;
+  - поведение:
+    - принимает запрос: `path + reason_code + reason`;
+    - дописывает в readmap и/или writemap;
+    - по умолчанию расширяет только readmap; расширение writemap/boundaries — отдельный флаг/режим с audit trail;
+    - регенерит pack.
+  **AC:**
+  - любое расширение контекста оставляет след: reason_code + запись в отчёт;
+  - implement/review не делают “тихий full-read”, а требуют expansion step.
+  **Deps:** W93-3
+
+- [ ] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
+  - расширить guard, чтобы в implement/review/qa:
+    - в `fast` режиме: warn/ask при чтении вне readmap/allowed_paths;
+    - в `strict` режиме: deny чтение/правки вне readmap/allowed_paths.
+  - расширить enforcement на **запись**:
+    - `strict`: deny Edit/Write для `aidd/docs/tasklist/**` и `aidd/reports/context/**`, allow только `aidd/reports/actions/**` + DocOps;
+    - `fast`: warn + ссылка на DocOps/context-expand write.
+  - применение строгого enforcement только для loop‑стадий; planning‑стадии — allow по writemap (или отдельный режим).
+  - allowlist по стадиям:
+    - planning‑stages: PRD/Plan/Spec/Tasklist — allow по writemap/contract;
+    - loop‑stages: прямой Edit/Write tasklist/context pack запрещён (только DocOps/actions).
+  - источник истины: `readmap.json` + `writemap.json` + loop pack `allowed_paths`; `aidd/reports/**` и `aidd/reports/actions/**` всегда allow.
+  **AC:**
+  - в strict реально нельзя “случайно” читать левое;
+  - в fast есть заметный warning + ссылка на context-expand.
+  **Deps:** W92-6, W93-3, W93-4
+
+- [ ] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
+  - сделать `tools/dag_export.py`:
+    - строит DAG по work_item’ам/loop (узлы: preflight → implement → review → qa);
+    - в каждый узел кладёт `scope_key`, `allowed_paths`, `readmap`, `writemap`;
+    - эвристика конфликтов: пересечение `writemap.allowed_paths` (или loop pack `allowed_paths` до появления writemap) = “не параллелить”.
+  - сохранять `aidd/reports/dag/<ticket>.{json,md}`.
+  **AC:**
+  - есть машинный DAG для ticket;
+  - можно в будущем подключить оркестратор/параллельный раннер.
+  **Deps:** W93-1, W93-3
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 

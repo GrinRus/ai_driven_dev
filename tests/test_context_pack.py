@@ -44,7 +44,8 @@ class ContextPackTests(unittest.TestCase):
             self.assertIn("ticket: DEMO-1", text)
             self.assertIn("stage: review", text)
             self.assertIn("agent: review", text)
-            self.assertIn("iteration_id_I1", text)
+            self.assertIn("read_next:", text)
+            self.assertIn("artefact_links:", text)
 
     def test_context_pack_warns_on_stage_specific_placeholder(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-pack-placeholder-") as tmpdir:
@@ -86,7 +87,7 @@ class ContextPackTests(unittest.TestCase):
                 env=cli_env(),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            self.assertIn("context pack template placeholder", result.stderr)
+            self.assertIn("context pack missing what_to_do", result.stderr)
 
 
 if __name__ == "__main__":

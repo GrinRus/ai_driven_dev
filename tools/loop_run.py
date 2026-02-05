@@ -379,6 +379,10 @@ def main(argv: List[str] | None = None) -> int:
                 "runner_label": runner_label,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
+                "reason": reason,
+                "reason_code": log_reason_code,
+                "runner_cmd": runner_effective,
+                "scope_key": chosen_scope,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }

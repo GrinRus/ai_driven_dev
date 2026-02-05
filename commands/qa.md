@@ -2,8 +2,8 @@
 description: "Финальная QA-проверка фичи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.29
-source_version: 1.0.29
+prompt_version: 1.0.30
+source_version: 1.0.30
 allowed-tools:
   - Read
   - Edit
@@ -71,14 +71,15 @@ disable-model-invocation: false
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
 - Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
-- Заполни поля stage/agent/read_next/artefact_links под qa.
+- Заполни поля stage/agent/read_next/artefact_links/what_to_do/user_note под qa.
+- Read next: rolling context pack → QA report (если есть) → tasklist excerpt.
 - What to do now: validate acceptance criteria, add QA traceability + handoff.
 - User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `qa` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh qa` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket $1 --report "aidd/reports/qa/$1.json" --gate`.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`; если pack не записался — верни `Status: BLOCKED`.
+3. Команда (до subagent): собери Context Pack через `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent qa --stage qa --read-next "aidd/reports/context/$1.pack.md" --read-next "aidd/reports/qa/$1.json" --read-next "<tasklist excerpt>" --artefact-link "<artifact: path>" --what-to-do "<qa focus>" --user-note "$ARGUMENTS"`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:qa subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 5. Subagent: обновляет QA секцию tasklist (AIDD:CHECKLIST_QA или QA‑подсекцию `AIDD:CHECKLIST`), `AIDD:QA_TRACEABILITY`, вычисляет QA статус (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`) по правилам NOT MET/NOT VERIFIED и reviewer‑tests; статус только `READY|WARN|BLOCKED` (`tests_required=soft` + missing/skip → `WARN`, `tests_required=hard` → `BLOCKED`).
 6. Subagent: выполняет verify results (QA evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).

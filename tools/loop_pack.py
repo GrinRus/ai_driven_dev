@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from tools import runtime
 from tools.feature_ids import write_active_state
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
-from tools.tasklist_parser import extract_boundaries
+from tools.tasklist_parser import PATH_TOKEN_RE, extract_boundaries
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -51,6 +51,79 @@ def _extend_boundaries_for_changelog(boundaries: Dict[str, List[str]]) -> None:
         return
     if _needs_changelog_master(allowed) and CHANGELOG_MASTER_PATH not in allowed:
         allowed.append(CHANGELOG_MASTER_PATH)
+
+
+def _strip_placeholder(value: str) -> str:
+    text = value.strip()
+    if not text:
+        return ""
+    if text.startswith("<") and text.endswith(">"):
+        return ""
+    return text
+
+
+def _dedupe_paths(paths: Iterable[str]) -> List[str]:
+    seen = set()
+    ordered: List[str] = []
+    for raw in paths:
+        item = raw.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def parse_context_allowed_paths(lines: List[str]) -> List[str]:
+    allowed: List[str] = []
+    in_allowed = False
+    header_indent = 0
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("## "):
+            if in_allowed:
+                break
+            continue
+        lower = stripped.lower()
+        if not in_allowed:
+            if "allowed paths" in lower:
+                in_allowed = True
+                header_indent = len(raw) - len(raw.lstrip(" "))
+            continue
+        if "forbidden" in lower or "out-of-scope" in lower:
+            break
+        if stripped.startswith("-"):
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent <= header_indent and "allowed paths" not in lower:
+                break
+            item = _strip_placeholder(stripped.lstrip("-").strip())
+            if item:
+                allowed.append(item)
+        elif stripped and (len(raw) - len(raw.lstrip(" ")) <= header_indent):
+            break
+    return _dedupe_paths(allowed)
+
+
+def _extract_command_paths(commands: Iterable[str], root: Path) -> List[str]:
+    paths: List[str] = []
+    for command in commands:
+        for match in PATH_TOKEN_RE.findall(str(command)):
+            cleaned = match.strip().strip("`'\" ,);")
+            if not cleaned or any(ch in cleaned for ch in "*?[]"):
+                continue
+            candidate = Path(cleaned)
+            if not candidate.is_absolute():
+                candidate = root / candidate
+            try:
+                if not candidate.exists():
+                    continue
+            except OSError:
+                continue
+            rel_path = runtime.rel_path(candidate, root)
+            if root.name == "aidd" and rel_path.startswith("aidd/"):
+                rel_path = rel_path.split("/", 1)[1]
+            paths.append(rel_path)
+    return _dedupe_paths(paths)
 
 
 @dataclass(frozen=True)
@@ -685,6 +758,7 @@ def write_pack_for_item(
     output_dir: Path,
     ticket: str,
     work_item: WorkItem,
+    context_allowed_paths: List[str],
 ) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str, str]:
     if work_item.boundaries_defined:
         boundaries = {
@@ -702,10 +776,22 @@ def write_pack_for_item(
         if missing_expected:
             boundaries["allowed_paths"].extend(missing_expected)
             reason_code = "auto_boundary_extend_warn"
+    if not boundaries.get("allowed_paths") and context_allowed_paths:
+        boundaries["allowed_paths"].extend(context_allowed_paths)
+        reason_code = "auto_boundary_extend_warn"
     if boundaries.get("allowed_paths"):
         boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
     _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
+    command_paths = _extract_command_paths(commands_required, root)
+    if command_paths:
+        missing_command_paths = [
+            path for path in command_paths if path not in boundaries.get("allowed_paths", [])
+        ]
+        if missing_command_paths:
+            boundaries["allowed_paths"].extend(missing_command_paths)
+            boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
+            reason_code = "auto_boundary_extend_warn"
     tests_required = list(work_item.tests_required)
     updated_at = utc_timestamp()
     pack_text = build_pack(
@@ -764,6 +850,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tasklist_lines = read_text(tasklist_path).splitlines()
     sections = parse_sections(tasklist_lines)
+    context_allowed_paths = parse_context_allowed_paths(sections.get("AIDD:CONTEXT_PACK", []))
     iterations = parse_iteration_items(sections.get("AIDD:ITERATIONS_FULL", []))
     handoffs = parse_handoff_items(sections.get("AIDD:HANDOFF_INBOX", []))
     all_items = iterations + handoffs
@@ -1011,6 +1098,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=output_dir,
             ticket=ticket,
             work_item=item,
+            context_allowed_paths=context_allowed_paths,
         )
         if item.scope_key == selected_item.scope_key:
             selected_pack_path = pack_path

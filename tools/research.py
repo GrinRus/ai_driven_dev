@@ -391,15 +391,39 @@ def run(args: argparse.Namespace) -> int:
     pack_exists = rlm_pack_path.exists()
     rlm_status = "pending"
     rlm_warnings: list[str] = []
+    gates_cfg = runtime.load_gates_config(target)
+    rlm_cfg = gates_cfg.get("rlm") if isinstance(gates_cfg, dict) else {}
+    require_links = bool(rlm_cfg.get("require_links")) if isinstance(rlm_cfg, dict) else False
+    links_total = None
+    links_stats_path = target / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+    if links_stats_path.exists():
+        try:
+            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
+        except Exception:
+            stats_payload = None
+        if isinstance(stats_payload, dict):
+            try:
+                links_total = int(stats_payload.get("links_total") or 0)
+            except (TypeError, ValueError):
+                links_total = None
+    links_empty = False
+    if links_total is not None:
+        links_empty = links_total == 0
+    else:
+        links_empty = not links_ok
     if pack_exists:
-        rlm_status = "ready"
-        if not links_ok:
+        if require_links and links_empty:
+            rlm_status = "warn"
             rlm_warnings.append("rlm_links_empty_warn")
-            print("[aidd] WARN: rlm links empty; rlm_status set to ready with warning.", file=sys.stderr)
+            print("[aidd] WARN: rlm links empty; rlm_status set to warn.", file=sys.stderr)
+        else:
+            rlm_status = "ready"
 
     collected_context["rlm_nodes_path"] = nodes_path.relative_to(target).as_posix()
     collected_context["rlm_links_path"] = links_path.relative_to(target).as_posix()
     collected_context["rlm_pack_path"] = rlm_pack_rel
+    if links_stats_path.exists():
+        collected_context["rlm_links_stats_path"] = links_stats_path.relative_to(target).as_posix()
     collected_context["rlm_status"] = rlm_status
     collected_context["rlm_pack_status"] = "found" if pack_exists else "missing"
     if pack_exists:

@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.32
-source_version: 1.0.32
+prompt_version: 1.0.33
+source_version: 1.0.33
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 model: inherit
 permissionMode: default
@@ -80,6 +80,9 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
       - DoD: как проверить, что исправлено
       - Boundaries: какие файлы/модули трогать и что не трогать
       - Tests: профиль/задачи/фильтры (или ссылка на `AIDD:TEST_EXECUTION`)
+   2. Сохрани findings в JSON через `AIDD:WRITE_JSON` по пути
+      `aidd/reports/reviewer/<ticket>/<scope_key>.findings.json`:
+      - `findings`: список объектов с `id`, `severity`, `blocking`, `scope`, `summary`, `details`, `recommendation`, `links`.
 4. При verdict=REVISE добавь Fix Plan (структурированный блок):
    - steps (нумерованные, краткие)
    - commands
@@ -88,6 +91,8 @@ Reviewer анализирует diff и сверяет его с PRD/плано�
    - acceptance_check
    - links
    - fixes: список `finding_id` для каждого blocking finding
+   - сохрани Fix Plan в JSON через `AIDD:WRITE_JSON` по пути
+     `aidd/reports/reviewer/<ticket>/<scope_key>.fix_plan.json` (объект `fix_plan`).
 5. Не делай рефакторинг «ради красоты» — только критичные правки или конкретные дефекты.
 6. Верифицируй результаты (review evidence) и не выставляй финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
 7. Обнови tasklist и статусы READY/WARN/BLOCKED (front‑matter `Status` + `AIDD:CONTEXT_PACK Status`).

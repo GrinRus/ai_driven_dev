@@ -469,7 +469,22 @@ def validate_review_pack(
         pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
         report_updated = parse_timestamp(str(report.get("updated_at") or report.get("generated_at") or ""))
         if pack_updated and report_updated and pack_updated < report_updated:
-            return False, "review pack stale", "review_pack_stale"
+            ok, regen_message = _maybe_regen_review_pack(
+                root,
+                ticket=ticket,
+                slug_hint=slug_hint,
+                scope_key=scope_key,
+            )
+            if not ok:
+                return False, regen_message or "review pack stale", "review_pack_stale"
+            try:
+                refreshed = pack_path.read_text(encoding="utf-8").splitlines()
+                front = parse_front_matter(refreshed)
+            except OSError:
+                front = front
+            pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
+            if pack_updated and report_updated and pack_updated < report_updated:
+                return False, "review pack stale", "review_pack_stale"
     return True, "", ""
 
 
@@ -1118,6 +1133,29 @@ def main(argv: list[str] | None = None) -> int:
                 stream_jsonl_path=stream_jsonl_rel,
                 cli_log_path=cli_log_path,
             )
+    output_contract_path = ""
+    output_contract_status = ""
+    try:
+        from tools import output_contract as _output_contract
+
+        report = _output_contract.check_output_contract(
+            target=target,
+            ticket=ticket,
+            stage=next_stage,
+            scope_key=next_scope_key,
+            work_item_key=next_work_item_key,
+            log_path=log_path,
+            stage_result_path=result_path,
+            max_read_items=3,
+        )
+        output_contract_status = str(report.get("status") or "")
+        output_dir = target / "reports" / "loops" / ticket / next_scope_key
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / "output.contract.json"
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        output_contract_path = runtime.rel_path(report_path, target)
+    except Exception as exc:
+        print(f"[loop-step] WARN: output contract check failed: {exc}", file=sys.stderr)
     status = result if result in {"blocked", "continue", "done"} else "blocked"
     code = DONE_CODE if status == "done" else BLOCKED_CODE if status == "blocked" else CONTINUE_CODE
     return emit_result(
@@ -1139,6 +1177,8 @@ def main(argv: list[str] | None = None) -> int:
         stream_log_path=stream_log_rel,
         stream_jsonl_path=stream_jsonl_rel,
         cli_log_path=cli_log_path,
+        output_contract_path=output_contract_path,
+        output_contract_status=output_contract_status,
     )
 
 
@@ -1162,6 +1202,8 @@ def emit_result(
     stream_log_path: str = "",
     stream_jsonl_path: str = "",
     cli_log_path: Path | None = None,
+    output_contract_path: str = "",
+    output_contract_status: str = "",
 ) -> int:
     log_value = str(log_path) if log_path else ""
     payload = {
@@ -1179,6 +1221,8 @@ def emit_result(
         "repair_scope_key": repair_scope_key,
         "stream_log_path": stream_log_path,
         "stream_jsonl_path": stream_jsonl_path,
+        "output_contract_path": output_contract_path,
+        "output_contract_status": output_contract_status,
         "updated_at": utc_timestamp(),
         "reason": reason,
         "reason_code": reason_code,

@@ -105,7 +105,7 @@ def _extract_links(entry: Dict[str, Any], fallback: Optional[Dict[str, Any]] = N
 def _normalize_blocking(entry: Dict[str, Any], severity: str) -> bool:
     if entry.get("blocking") is True:
         return True
-    if severity in {"blocker", "critical"}:
+    if severity in {"blocker", "critical", "blocking"}:
         return True
     return False
 
@@ -408,7 +408,10 @@ def main(argv: list[str] | None = None) -> int:
     if changed:
         record["updated_at"] = now
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        try:
+            report_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError("BLOCKED: review_report_write_failed") from exc
     else:
         record["updated_at"] = existing_updated_at or now
 
@@ -419,17 +422,58 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[aidd] review report unchanged ({rel_report}).")
     runtime.maybe_sync_index(target, ticket, slug_hint or None, reason="review-report")
 
+    def _ensure_reviewer_marker() -> None:
+        config = runtime.load_gates_config(target)
+        reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
+        if not isinstance(reviewer_cfg, dict):
+            reviewer_cfg = {}
+        marker_template = str(
+            reviewer_cfg.get("tests_marker")
+            or reviewer_cfg.get("marker")
+            or runtime.DEFAULT_REVIEW_REPORT.replace(".json", ".tests.json")
+        )
+        marker_path = runtime.reviewer_marker_path(
+            target,
+            marker_template,
+            ticket,
+            slug_hint,
+            scope_key=scope_key,
+        )
+        if marker_path.exists():
+            return
+        field_name = str(
+            reviewer_cfg.get("tests_field")
+            or reviewer_cfg.get("field")
+            or "tests"
+        )
+        optional_values = reviewer_cfg.get("optional_values") or ["optional", "skipped", "not-required"]
+        if not isinstance(optional_values, list):
+            optional_values = [optional_values]
+        status_value = str(optional_values[0]) if optional_values else "optional"
+        payload = {
+            "ticket": ticket,
+            "slug": slug_hint or ticket,
+            field_name: status_value,
+            "updated_at": now,
+        }
+        marker_path.parent.mkdir(parents=True, exist_ok=True)
+        marker_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    _ensure_reviewer_marker()
+
     active_work_item = runtime.read_active_work_item(target).strip()
     if active_work_item and active_work_item == work_item_key:
         loop_pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
         pack_path = target / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-        if loop_pack_path.exists() and (changed or not pack_path.exists()):
+        if not loop_pack_path.exists():
+            raise RuntimeError("BLOCKED: review_report_write_failed")
+        if changed or not pack_path.exists():
             try:
                 from tools import review_pack as review_pack_module
 
                 review_pack_module.main(["--ticket", ticket])
             except Exception as exc:
-                print(f"[aidd] WARN: failed to auto-generate review pack: {exc}", file=sys.stderr)
+                raise RuntimeError("BLOCKED: review_report_write_failed") from exc
     return 0
 
 

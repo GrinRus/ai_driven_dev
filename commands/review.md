@@ -2,8 +2,8 @@
 description: "Код-ревью и возврат замечаний в задачи"
 argument-hint: "$1 [note...]"
 lang: ru
-prompt_version: 1.0.32
-source_version: 1.0.32
+prompt_version: 1.0.33
+source_version: 1.0.33
 allowed-tools:
   - Read
   - Edit
@@ -67,28 +67,30 @@ disable-model-invocation: false
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
 - Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
-- Рекомендуемый CLI: `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md`.
-- Заполни поля stage/agent/read_next/artefact_links под review.
+- Рекомендуемый CLI: `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md --read-next "<loop pack>" --read-next "<review pack if exists>" --read-next "<rolling context>" --artefact-link "<artifact: path>" --what-to-do "<review focus>" --user-note "$ARGUMENTS"`.
+- Заполни поля stage/agent/read_next/artefact_links/what_to_do/user_note под review.
+- Read next: loop pack → review pack (если есть) → rolling context.
 - What to do now: review diff vs plan/tasklist, add handoff findings.
 - User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `review` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): создай loop pack `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket $1 --stage review`.
-3. Команда (до subagent): собери Context Pack `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md`; если pack не записался — верни `Status: BLOCKED`.
+3. Команда (до subagent): собери Context Pack `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md --read-next "<loop pack>" --read-next "<review pack if exists>" --read-next "<rolling context>" --artefact-link "<artifact: path>" --what-to-do "<review focus>" --user-note "$ARGUMENTS"`; если pack не записался — верни `Status: BLOCKED`.
 4. Команда → subagent: **Use the feature-dev-aidd:reviewer subagent. First action: Read loop pack, затем (если есть) `review.latest.pack.md`, затем `aidd/reports/context/$1.pack.md`.** Если excerpt в loop pack содержит Goal/DoD/Boundaries/Expected paths/Size budget/Tests/Acceptance — запрещено читать полный tasklist/PRD/Plan/Research/Spec.
 5. Subagent: обновляет tasklist (AIDD:CHECKLIST_REVIEW, handoff, front‑matter `Status/Updated`, `AIDD:CONTEXT_PACK Status`) и использует только `READY|WARN|BLOCKED` (исправимые дефекты → `WARN`/`REVISE`).
-6. Subagent: при verdict=REVISE включает Fix Plan (структурированный блок; каждый blocking finding отражён).
-7. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
-8. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff, `FORBIDDEN → Status: BLOCKED`.
-9. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1 --findings-file <json> --fix-plan-file <json>` (Fix Plan обязателен при REVISE).
-10. Команда (после subagent): собери review pack `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` и убедись, что `review.fix_plan.json` создан при REVISE (review-report авто‑синхронизирует pack при наличии loop-pack/work_item в `aidd/docs/.active.json`, но явный вызов остаётся обязательным).
-11. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage review --result <blocked|continue|done> --verdict <SHIP|REVISE|BLOCKED> --work-item-key <iteration_id=...>` (work_item_key бери из `aidd/docs/.active.json`; `done` при SHIP, `continue` при REVISE; `blocked` только при missing artifacts/evidence или `FORBIDDEN`; `tests_required=soft` + missing/skipped → `verdict=REVISE`/`result=continue`, `tests_required=hard` → `verdict=BLOCKED`/`result=blocked`).
-12. Команда (после subagent): при необходимости запроси автотесты через `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` (или `--clear`).
-13. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1`.
-14. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1`.
-15. Команда (после subagent): сформируй финальный статус через `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket $1 --stage review` и используй его в ответе (single source of truth).
-16. Если tasklist невалиден — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
+6. Subagent: пишет findings JSON через `AIDD:WRITE_JSON` в `aidd/reports/reviewer/$1/<scope_key>.findings.json`; при verdict=REVISE пишет Fix Plan JSON в `aidd/reports/reviewer/$1/<scope_key>.fix_plan.json`.
+7. Subagent: при verdict=REVISE включает Fix Plan (структурированный блок; каждый blocking finding отражён).
+8. Subagent: выполняет verify results (review evidence) и не выставляет финальный non‑BLOCKED статус без верификации (кроме `profile: none`).
+9. Команда (после subagent): проверь scope через `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket $1` и зафиксируй результат (`OK|OUT_OF_SCOPE <path>|FORBIDDEN <path>|NO_BOUNDARIES_DEFINED`) в ответе/логах; `OUT_OF_SCOPE/NO_BOUNDARIES_DEFINED → Status: WARN` + handoff, `FORBIDDEN → Status: BLOCKED`.
+10. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1 --findings-file "aidd/reports/reviewer/$1/<scope_key>.findings.json" --fix-plan-file "aidd/reports/reviewer/$1/<scope_key>.fix_plan.json"` (Fix Plan обязателен при REVISE).
+11. Команда (после subagent): собери review pack `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` и убедись, что `review.fix_plan.json` создан при REVISE (review-report авто‑синхронизирует pack при наличии loop-pack/work_item в `aidd/docs/.active.json`, но явный вызов остаётся обязательным).
+12. Команда (после subagent): запиши stage result `${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh --ticket $1 --stage review --result <blocked|continue|done> --verdict <SHIP|REVISE|BLOCKED> --work-item-key <iteration_id=...>` (work_item_key бери из `aidd/docs/.active.json`; `done` при SHIP, `continue` при REVISE; `blocked` только при missing artifacts/evidence или `FORBIDDEN`; `tests_required=soft` + missing/skipped → `verdict=REVISE`/`result=continue`, `tests_required=hard` → `verdict=BLOCKED`/`result=blocked`).
+13. Команда (после subagent): всегда обнови reviewer‑маркер через `${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh --ticket $1 --status required|optional|skipped|not-required` (выбери статус явно, даже если тесты не нужны).
+14. Команда (после subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source review --append --ticket $1`.
+15. Команда (после subagent): подтверди прогресс через `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source review --ticket $1`.
+16. Команда (после subagent): сформируй финальный статус через `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket $1 --stage review` и используй его в ответе (single source of truth).
+17. Если tasklist невалиден — `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket $1` → `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh --ticket $1 --fix`.
 
 ## Fail-fast и вопросы
 - Нет актуального tasklist/плана — остановись и попроси обновить артефакты.

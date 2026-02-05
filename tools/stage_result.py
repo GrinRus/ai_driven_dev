@@ -256,6 +256,17 @@ def _review_context_pack_placeholder(target: Path, ticket: str) -> bool:
     return "<stage-specific goal>" in content
 
 
+def _normalize_work_item_key(value: str) -> str:
+    raw = str(value or "").strip()
+    if raw.startswith("id="):
+        suffix = raw[3:]
+        if suffix.startswith("iteration_id="):
+            return suffix
+        if suffix.startswith("iteration_id_"):
+            return f"iteration_id={suffix[len('iteration_id_'):]}"
+    return raw
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -266,10 +277,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     stage = (args.stage or "").strip().lower()
-    work_item_key = (args.work_item_key or "").strip()
+    work_item_key = _normalize_work_item_key(args.work_item_key or "")
     if stage in {"implement", "review"} and not work_item_key:
-        work_item_key = runtime.read_active_work_item(target)
+        work_item_key = _normalize_work_item_key(runtime.read_active_work_item(target))
     scope_key = (args.scope_key or "").strip()
+    if stage in {"implement", "review"} and work_item_key:
+        scope_key = runtime.resolve_scope_key(work_item_key, ticket)
     if not scope_key:
         if stage == "qa":
             scope_key = runtime.resolve_scope_key("", ticket)
@@ -321,6 +334,36 @@ def main(argv: list[str] | None = None) -> int:
     )
     if tests_link:
         evidence_links.setdefault("tests_log", tests_link)
+    no_tests_code = ""
+    if tests_required:
+        no_tests_code = "no_tests_hard" if tests_block else "no_tests_soft"
+    if tests_required and not tests_link:
+        try:
+            from tools.reports import tests_log as _tests_log
+
+            _tests_log.append_log(
+                target,
+                ticket=ticket,
+                slug_hint=context.slug_hint or ticket,
+                stage=stage,
+                scope_key=scope_key,
+                work_item_key=work_item_key or None,
+                profile="none",
+                tasks=None,
+                filters=None,
+                exit_code=None,
+                log_path=None,
+                status="skipped",
+                reason_code=no_tests_code or "no_tests",
+                reason="tests evidence missing",
+                details={"stage_result": True},
+                source="stage-result",
+                cwd=str(target),
+            )
+            tests_link = runtime.rel_path(_tests_log.tests_log_path(target, ticket, scope_key), target)
+            evidence_links.setdefault("tests_log", tests_link)
+        except Exception:
+            pass
     skip_reason_code = ""
     skip_reason = ""
     tests_failed = False
@@ -337,18 +380,16 @@ def main(argv: list[str] | None = None) -> int:
                 details = tests_entry.get("details")
                 if isinstance(details, dict):
                     skip_reason = str(details.get("reason") or "").strip()
-    if tests_required and not tests_evidence and not reason_code:
-        if skip_reason_code:
-            reason_code = skip_reason_code
-            if not reason and skip_reason:
-                reason = skip_reason
-        else:
-            reason_code = "missing_test_evidence"
+    if tests_required and not tests_evidence:
+        if not reason_code or reason_code in {skip_reason_code or "", "missing_test_evidence"}:
+            reason_code = no_tests_code or "missing_test_evidence"
             if not reason:
                 reason = "tests evidence required but not found"
+        if skip_reason and reason and skip_reason not in reason:
+            reason = f"{reason}; {skip_reason}"
     missing_tests = tests_required and not tests_evidence
     docs_only_skip = skip_reason_code == "docs_only"
-    tests_reason_codes = {"missing_test_evidence"}
+    tests_reason_codes = {"missing_test_evidence", "no_tests_soft", "no_tests_hard"}
     if skip_reason_code:
         tests_reason_codes.add(skip_reason_code)
     tests_reason = bool(reason_code and reason_code in tests_reason_codes)
@@ -373,6 +414,7 @@ def main(argv: list[str] | None = None) -> int:
         "auto_boundary_extend_warn",
         "review_context_pack_placeholder_warn",
         "fast_mode_warn",
+        "output_contract_warn",
     }
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"
@@ -461,22 +503,30 @@ def main(argv: list[str] | None = None) -> int:
         fix_plan_path = target / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
         if fix_plan_path.exists():
             evidence_links.setdefault("fix_plan_json", runtime.rel_path(fix_plan_path, target))
+    if stage == "qa":
+        qa_report_path = target / "reports" / "qa" / f"{ticket}.json"
+        if qa_report_path.exists():
+            evidence_links.setdefault("qa_report", runtime.rel_path(qa_report_path, target))
+        qa_pack_path = qa_report_path.with_suffix(".pack.json")
+        if qa_pack_path.exists():
+            evidence_links.setdefault("qa_pack", runtime.rel_path(qa_pack_path, target))
 
-    if "cli_log" not in evidence_links:
-        stream_log = _latest_stream_log(target, ticket)
-        if stream_log:
-            evidence_links["cli_log"] = runtime.rel_path(stream_log, target)
-            if "cli_stream" not in evidence_links:
-                stream_jsonl = _stream_jsonl_for(stream_log)
+    if stage != "qa":
+        if "cli_log" not in evidence_links:
+            stream_log = _latest_stream_log(target, ticket)
+            if stream_log:
+                evidence_links["cli_log"] = runtime.rel_path(stream_log, target)
+                if "cli_stream" not in evidence_links:
+                    stream_jsonl = _stream_jsonl_for(stream_log)
+                    if stream_jsonl:
+                        evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
+        elif "cli_stream" not in evidence_links:
+            cli_log_value = str(evidence_links.get("cli_log") or "")
+            if cli_log_value:
+                cli_log_path = runtime.resolve_path_for_target(Path(cli_log_value), target)
+                stream_jsonl = _stream_jsonl_for(cli_log_path)
                 if stream_jsonl:
                     evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
-    elif "cli_stream" not in evidence_links:
-        cli_log_value = str(evidence_links.get("cli_log") or "")
-        if cli_log_value:
-            cli_log_path = runtime.resolve_path_for_target(Path(cli_log_value), target)
-            stream_jsonl = _stream_jsonl_for(cli_log_path)
-            if stream_jsonl:
-                evidence_links["cli_stream"] = runtime.rel_path(stream_jsonl, target)
 
     if not evidence_links:
         evidence_links = {}

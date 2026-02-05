@@ -97,7 +97,7 @@ def normalize_links(entry: Dict[str, object]) -> List[str]:
 def normalize_finding(entry: Dict[str, object]) -> Dict[str, object]:
     entry_id = str(entry.get("id") or "").strip() or "n/a"
     severity = normalize_severity(entry.get("severity"))
-    blocking = entry.get("blocking") is True or severity in {"blocker", "critical"}
+    blocking = entry.get("blocking") is True or severity in {"blocker", "critical", "blocking"}
     return {
         "id": entry_id,
         "summary": finding_summary(entry),

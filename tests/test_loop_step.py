@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools import loop_step as loop_step_module
 from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json
 
 
@@ -118,6 +119,63 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_validate_review_pack_regens_when_stale(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STALE"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            loop_pack = (
+                "---\n"
+                "schema: aidd.loop_pack.v1\n"
+                "updated_at: 2024-01-01T00:00:00Z\n"
+                f"ticket: {ticket}\n"
+                "work_item_id: I1\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n"
+            )
+            write_file(root, f"reports/loops/{ticket}/iteration_id_I1.loop.pack.md", loop_pack)
+            review_report = {
+                "schema": "aidd.review_report.v1",
+                "updated_at": "2024-01-03T00:00:00Z",
+                "ticket": ticket,
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "status": "READY",
+                "findings": [],
+            }
+            write_file(
+                root,
+                f"reports/reviewer/{ticket}/iteration_id_I1.json",
+                json.dumps(review_report),
+            )
+            stale_pack = (
+                "---\n"
+                "schema: aidd.review_pack.v2\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: SHIP\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n"
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/review.latest.pack.md",
+                stale_pack,
+            )
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                ok, message, code = loop_step_module.validate_review_pack(
+                    root,
+                    ticket=ticket,
+                    slug_hint=ticket,
+                    scope_key="iteration_id_I1",
+                )
+            finally:
+                os.chdir(cwd)
+            self.assertTrue(ok, msg=f"{code}: {message}")
 
     def test_loop_step_blocked_without_review_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

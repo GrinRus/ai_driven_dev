@@ -35,6 +35,7 @@ RESEARCH_LIMITS: Dict[str, int] = {
     "tests_evidence": 10,
     "suggested_test_tasks": 10,
     "recommendations": 10,
+    "rlm_warnings": 10,
 }
 
 RESEARCH_BUDGET = {
@@ -743,6 +744,7 @@ def build_research_context_pack(
     tests_evidence = _truncate_list(profile.get("tests_evidence") or [], lim["tests_evidence"])
     suggested_test_tasks = _truncate_list(profile.get("suggested_test_tasks") or [], lim["suggested_test_tasks"])
     manual_notes = _truncate_list(payload.get("manual_notes") or [], lim["manual_notes"])
+    rlm_warnings = _truncate_list(payload.get("rlm_warnings") or [], lim["rlm_warnings"])
 
     packed = {
         "schema": SCHEMA,
@@ -780,8 +782,10 @@ def build_research_context_pack(
         "rlm_worklist_path": payload.get("rlm_worklist_path"),
         "rlm_nodes_path": payload.get("rlm_nodes_path"),
         "rlm_links_path": payload.get("rlm_links_path"),
+        "rlm_links_stats_path": payload.get("rlm_links_stats_path"),
         "rlm_pack_path": payload.get("rlm_pack_path"),
         "rlm_status": payload.get("rlm_status"),
+        "rlm_warnings": rlm_warnings,
         "deep_mode": payload.get("deep_mode"),
         "auto_mode": payload.get("auto_mode"),
         "stats": {
@@ -897,6 +901,8 @@ def _load_rlm_links_stats(root: Path, ticket: str) -> Optional[Dict[str, Any]]:
 
 def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
     warnings: List[str] = []
+    if "links_total" in stats and int(stats.get("links_total") or 0) == 0:
+        warnings.append("rlm_links_empty_warn")
     if stats.get("links_truncated"):
         warnings.append("rlm links truncated: max_links reached")
     if int(stats.get("target_files_trimmed") or 0) > 0:
@@ -1247,6 +1253,21 @@ def _update_rlm_context(
 ) -> Path:
     payload = json.loads(context_path.read_text(encoding="utf-8"))
     ticket = str(payload.get("ticket") or "").strip()
+    link_warnings: List[str] = []
+    links_total = None
+    links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+    if links_stats_path.exists():
+        payload["rlm_links_stats_path"] = runtime.rel_path(links_stats_path, root)
+        try:
+            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
+        except Exception:
+            stats_payload = None
+        if isinstance(stats_payload, dict):
+            link_warnings = _rlm_link_warnings(stats_payload)
+            try:
+                links_total = int(stats_payload.get("links_total") or 0)
+            except (TypeError, ValueError):
+                links_total = None
     worklist_status, worklist_entries, worklist_path = _load_rlm_worklist_summary(
         root,
         ticket,
@@ -1258,6 +1279,11 @@ def _update_rlm_context(
     links_ready = links_path.exists()
     nodes_has_data = nodes_ready and nodes_path.stat().st_size > 0
     links_has_data = links_ready and links_path.stat().st_size > 0
+    links_empty = False
+    if links_total is not None:
+        links_empty = links_total == 0
+    else:
+        links_empty = not links_has_data
     if worklist_status is not None:
         if worklist_status == "ready" and worklist_entries == 0 and nodes_ready and links_ready:
             rlm_status = "ready"
@@ -1265,6 +1291,20 @@ def _update_rlm_context(
             rlm_status = "pending"
     else:
         rlm_status = "ready" if nodes_has_data and links_has_data else "pending"
+    gates_cfg = runtime.load_gates_config(root)
+    rlm_cfg = gates_cfg.get("rlm") if isinstance(gates_cfg, dict) else {}
+    require_links = bool(rlm_cfg.get("require_links")) if isinstance(rlm_cfg, dict) else False
+    if require_links and links_empty:
+        rlm_status = "warn"
+        if "rlm_links_empty_warn" not in link_warnings:
+            link_warnings.append("rlm_links_empty_warn")
+    if link_warnings:
+        existing = payload.get("rlm_warnings")
+        merged = list(existing) if isinstance(existing, list) else []
+        for warning in link_warnings:
+            if warning not in merged:
+                merged.append(warning)
+        payload["rlm_warnings"] = merged
     payload["rlm_status"] = rlm_status
     payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
     payload["rlm_links_path"] = runtime.rel_path(links_path, root)

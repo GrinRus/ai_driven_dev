@@ -224,6 +224,54 @@ class ResearchCheckTests(unittest.TestCase):
 
         self.assertIn("rlm_status=pending", str(excinfo.exception))
 
+    def test_research_check_blocks_ready_links_empty(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-links-empty"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        self._write_base_research(project_root, ticket, status="reviewed")
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+
+        nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+        nodes_path.parent.mkdir(parents=True, exist_ok=True)
+        nodes_path.write_text(
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+            encoding="utf-8",
+        )
+        links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+        links_path.write_text("", encoding="utf-8")
+        pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+        pack_path.write_text("{}", encoding="utf-8")
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 0},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-context.json",
+            {
+                "ticket": ticket,
+                "generated_at": _timestamp(),
+                "rlm_status": "ready",
+                "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
+                "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
+                "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.json",
+                "rlm_links_stats_path": f"reports/research/{ticket}-rlm.links.stats.json",
+            },
+        )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("rlm_links_empty_warn", str(excinfo.exception))
+
     def test_research_check_blocks_ready_missing_nodes(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-ready-missing"
@@ -268,7 +316,15 @@ class ResearchCheckTests(unittest.TestCase):
             '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
             encoding="utf-8",
         )
-        links_path.write_text("", encoding="utf-8")
+        links_path.write_text(
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+            encoding="utf-8",
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
         write_json(
             project_root,
             f"reports/research/{ticket}-rlm.pack.json",

@@ -168,6 +168,43 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_warns_on_next3_unmet_deps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-9B"
+            tasklist = helpers.tasklist_ready_text(ticket)
+            tasklist = tasklist.replace(
+                "  - Steps:\n",
+                "  - deps: I2\n  - Steps:\n",
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket, iteration_ids=["I1", "I2"])
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn")
+            self.assertTrue(
+                any("unmet deps" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_check_warns_on_progress_log_without_checkbox(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-9C"
+            tasklist = helpers.tasklist_ready_text(ticket)
+            tasklist = tasklist.replace(
+                "## AIDD:PROGRESS_LOG\n- (empty)\n",
+                "## AIDD:PROGRESS_LOG\n- 2024-01-02 source=implement id=I1 kind=iteration hash=abc123 link=aidd/reports/tests/demo.jsonl msg=done\n",
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "warn")
+            self.assertTrue(
+                any("PROGRESS_LOG entry for I1" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_when_qa_not_met_but_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

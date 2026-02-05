@@ -79,6 +79,8 @@ PATH_TOKEN_RE = re.compile(
     r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.*/-]+|\b[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b"
 )
 
+SECTION_HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
+
 
 def _dedupe(items: List[str]) -> List[str]:
     seen = set()
@@ -134,3 +136,48 @@ def extract_boundaries(lines: List[str]) -> Tuple[List[str], List[str], bool]:
         else:
             allowed.extend(paths)
     return _dedupe(allowed), _dedupe(forbidden), has_boundaries
+
+
+def extract_section(lines: List[str], title: str) -> List[str]:
+    """Return section body lines for a given heading (without the heading line)."""
+    in_section = False
+    collected: List[str] = []
+    for line in lines:
+        match = SECTION_HEADER_RE.match(line)
+        if match:
+            heading = match.group(1).strip()
+            if in_section:
+                break
+            if heading == title:
+                in_section = True
+            continue
+        if in_section:
+            collected.append(line)
+    return collected
+
+
+def parse_test_execution(lines: List[str]) -> Dict[str, object]:
+    profile = (extract_scalar_field(lines, "profile") or "").strip()
+    tasks_raw = extract_scalar_field(lines, "tasks") or ""
+    filters_raw = extract_scalar_field(lines, "filters") or ""
+    when = (extract_scalar_field(lines, "when") or "").strip()
+    reason = (extract_scalar_field(lines, "reason") or "").strip()
+    tasks_list = extract_list_field(lines, "tasks")
+    filters_list = extract_list_field(lines, "filters")
+    tasks: List[str] = []
+    if tasks_list:
+        tasks = tasks_list
+    elif tasks_raw:
+        tasks = [item.strip() for item in re.split(r"\s*;\s*", tasks_raw) if item.strip()]
+    filters: List[str] = []
+    if filters_list:
+        filters = filters_list
+    elif filters_raw:
+        filters = [item.strip() for item in re.split(r"\s*,\s*", filters_raw) if item.strip()]
+    return {
+        "profile": profile,
+        "tasks": tasks,
+        "filters": filters,
+        "when": when,
+        "reason": reason,
+    }

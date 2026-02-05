@@ -2,8 +2,8 @@
 description: "Реализация фичи по плану: малые итерации + управляемые проверки"
 argument-hint: "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
 lang: ru
-prompt_version: 1.1.38
-source_version: 1.1.38
+prompt_version: 1.1.39
+source_version: 1.1.39
 allowed-tools:
   - Read
   - Edit
@@ -86,7 +86,8 @@ disable-model-invocation: false
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
 - Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
-- Заполни поля stage/agent/read_next/artefact_links под implement.
+- Заполни поля stage/agent/read_next/artefact_links/what_to_do/user_note под implement.
+- Read next: loop pack → review pack (если есть) → rolling context.
 - What to do now: take next item from AIDD:NEXT_3, limit to 1 checkbox.
 - User note: $ARGUMENTS.
 
@@ -97,7 +98,7 @@ disable-model-invocation: false
 4. Команда (до subagent): убедись, что `aidd/reports/loops/$1/<scope_key>.loop.pack.md` существует (используй `aidd/docs/.active.json` → work_item → scope_key); если pack отсутствует — верни `Status: BLOCKED` и попроси rerun.
 5. Команда (до subagent): если есть review pack и verdict=REVISE — убедись, что `review.fix_plan.json` существует; иначе `Status: BLOCKED`.
 6. Команда (до subagent): на implement **не** обновляй `aidd/.cache/test-policy.env` и игнорируй `test=.../tasks=.../tests=...` (тесты запрещены).
-7. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+7. Команда (до subagent): собери Context Pack через `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent implement --stage implement --read-next "<loop pack>" --read-next "<review pack if exists>" --read-next "aidd/reports/context/$1.pack.md" --artefact-link "<artifact: path>" --what-to-do "<NEXT_3 item>" --user-note "$ARGUMENTS"`.
 8. Команда → subagent: **Use the feature-dev-aidd:implementer subagent. First action: Read loop pack → review pack (если есть) → fix_plan.json (если verdict=REVISE) → `aidd/reports/context/$1.pack.md`.**
 9. Subagent: реализует следующий пункт, обновляет tasklist (REVISE не закрывает чекбокс и не меняет `AIDD:NEXT_3`), добавляет ссылку/доказательство в `AIDD:PROGRESS_LOG`.
 10. Subagent: верифицирует соответствие DoD и scope; тесты выполняются на review/qa.
