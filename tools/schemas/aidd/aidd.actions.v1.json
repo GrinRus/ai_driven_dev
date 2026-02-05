@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.actions.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.actions.v1",
+  "title": "AIDD Actions v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "stage",
+    "ticket",
+    "scope_key",
+    "work_item_key",
+    "allowed_action_types",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "aidd.actions.v1"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "implement",
+        "review",
+        "qa"
+      ]
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "work_item_key": {
+      "type": "string"
+    },
+    "allowed_action_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "actions": {
+      "type": "array"
+    },
+    "meta": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

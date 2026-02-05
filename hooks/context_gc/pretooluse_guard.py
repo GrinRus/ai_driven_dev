@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import re
 import shlex
 import time
@@ -12,10 +13,14 @@ from hooks.hooklib import (
     load_config,
     pretooluse_decision,
     read_hook_context,
+    read_stage,
+    read_ticket,
     resolve_aidd_root,
     resolve_context_gc_mode,
+    resolve_hooks_mode,
     resolve_project_dir,
 )
+from tools.diff_boundary_check import extract_boundaries, matches_pattern, parse_front_matter
 
 
 def _resolve_log_dir(project_dir: Path, aidd_root: Optional[Path], rel_log_dir: str) -> Path:
@@ -139,6 +144,376 @@ def _is_aidd_scoped(path_value: str, project_dir: Path, aidd_root: Optional[Path
 def _command_targets_aidd(command: str) -> bool:
     lowered = command.lower()
     return any(token in lowered for token in ("aidd/", "docs/", "reports/", "config/", ".cache/"))
+
+
+LOOP_STAGES = {"implement", "review", "qa", "status"}
+PLANNING_STAGES = {"idea", "research", "plan", "review-plan", "review-prd", "tasklist", "tasks", "spec", "spec-interview"}
+ALWAYS_ALLOW_PATTERNS = ["aidd/reports/**", "aidd/reports/actions/**"]
+_SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _sanitize_scope_key(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    cleaned = _SCOPE_KEY_RE.sub("_", raw)
+    cleaned = cleaned.strip("._-")
+    return cleaned or ""
+
+
+def _resolve_scope_key(ticket: str, work_item_key: str) -> str:
+    scope = _sanitize_scope_key(work_item_key)
+    if scope:
+        return scope
+    scope = _sanitize_scope_key(ticket)
+    return scope or "ticket"
+
+
+def _read_active_payload(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _resolve_tool_path(path_value: str, project_dir: Path, aidd_root: Optional[Path]) -> Path:
+    raw = Path(path_value)
+    if raw.is_absolute():
+        return raw.resolve()
+
+    candidates: list[Path] = []
+    if path_value.startswith("aidd/"):
+        if aidd_root and aidd_root.name == "aidd":
+            candidates.append((aidd_root.parent / raw).resolve())
+        else:
+            candidates.append((project_dir / raw).resolve())
+    else:
+        candidates.append((project_dir / raw).resolve())
+        if aidd_root:
+            candidates.append((aidd_root / raw).resolve())
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                return candidate.resolve()
+        except Exception:
+            continue
+    if candidates:
+        return candidates[0]
+    return (project_dir / raw).resolve()
+
+
+def _path_candidates(path: Path, project_dir: Path, aidd_root: Optional[Path]) -> list[str]:
+    normalized: list[str] = []
+
+    def _add(value: str) -> None:
+        candidate = value.replace("\\", "/").strip()
+        if not candidate:
+            return
+        if candidate.startswith("./"):
+            candidate = candidate[2:]
+        if candidate not in normalized:
+            normalized.append(candidate)
+
+    _add(path.as_posix())
+
+    try:
+        rel_project = path.relative_to(project_dir).as_posix()
+        _add(rel_project)
+        if project_dir.name == "aidd":
+            _add(f"aidd/{rel_project}")
+    except Exception:
+        pass
+
+    if aidd_root:
+        try:
+            rel_aidd = path.relative_to(aidd_root).as_posix()
+            _add(rel_aidd)
+            _add(f"aidd/{rel_aidd}")
+        except Exception:
+            pass
+
+    return normalized
+
+
+def _load_json_map(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _extract_loop_allowed_paths(loop_pack_path: Path) -> list[str]:
+    if not loop_pack_path.exists():
+        return []
+    try:
+        lines = loop_pack_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    allowed, _forbidden = extract_boundaries(parse_front_matter(lines))
+    deduped: list[str] = []
+    for item in allowed:
+        value = str(item or "").strip()
+        if value and value not in deduped:
+            deduped.append(value)
+    return deduped
+
+
+def _matches_any_pattern(candidates: list[str], patterns: list[str]) -> bool:
+    for pattern in patterns:
+        raw_pattern = str(pattern or "").strip()
+        if not raw_pattern:
+            continue
+        for candidate in candidates:
+            if matches_pattern(candidate, raw_pattern):
+                return True
+    return False
+
+
+def _tool_input_path(tool_input: Dict[str, Any]) -> str:
+    for key in ("file_path", "path", "filename", "file", "pattern"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _normalize_candidate(value: str) -> str:
+    normalized = str(value or "").replace("\\", "/").strip()
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _glob_candidates(tool_input: Dict[str, Any], project_dir: Path, aidd_root: Optional[Path]) -> list[str]:
+    candidates: list[str] = []
+
+    def _add(raw: str) -> None:
+        normalized = _normalize_candidate(raw)
+        if normalized and normalized not in candidates:
+            candidates.append(normalized)
+
+    base_raw = str(tool_input.get("path") or "").strip()
+    pattern_raw = str(tool_input.get("pattern") or "").strip()
+
+    if base_raw:
+        base_path = _resolve_tool_path(base_raw, project_dir, aidd_root)
+        for item in _path_candidates(base_path, project_dir, aidd_root):
+            _add(item)
+
+    if pattern_raw:
+        _add(pattern_raw)
+        if base_raw and not Path(pattern_raw).is_absolute():
+            _add((Path(base_raw) / pattern_raw).as_posix())
+
+    return candidates
+
+
+def _policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any]:
+    root = aidd_root or project_dir
+    active_path = root / "docs" / ".active.json"
+    ticket = read_ticket(active_path, active_path) or ""
+    stage = read_stage(active_path) or ""
+    active_payload = _read_active_payload(active_path)
+    work_item_key = str(active_payload.get("work_item") or "").strip()
+    scope_key = _resolve_scope_key(ticket, work_item_key)
+
+    if not ticket or not stage:
+        return {}
+
+    base = root / "reports" / "actions" / ticket / scope_key
+    readmap_path = base / "readmap.json"
+    writemap_path = base / "writemap.json"
+    loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
+
+    readmap = _load_json_map(readmap_path)
+    writemap = _load_json_map(writemap_path)
+
+    read_allowed = []
+    if isinstance(readmap.get("allowed_paths"), list):
+        read_allowed.extend(str(item) for item in readmap.get("allowed_paths") if str(item).strip())
+    if isinstance(readmap.get("loop_allowed_paths"), list):
+        read_allowed.extend(str(item) for item in readmap.get("loop_allowed_paths") if str(item).strip())
+    read_allowed.extend(_extract_loop_allowed_paths(loop_pack_path))
+    if isinstance(readmap.get("always_allow"), list):
+        read_allowed.extend(str(item) for item in readmap.get("always_allow") if str(item).strip())
+    read_allowed.extend(ALWAYS_ALLOW_PATTERNS)
+
+    write_allowed = []
+    if isinstance(writemap.get("allowed_paths"), list):
+        write_allowed.extend(str(item) for item in writemap.get("allowed_paths") if str(item).strip())
+    if isinstance(writemap.get("loop_allowed_paths"), list):
+        write_allowed.extend(str(item) for item in writemap.get("loop_allowed_paths") if str(item).strip())
+    write_allowed.extend(_extract_loop_allowed_paths(loop_pack_path))
+    if isinstance(writemap.get("always_allow"), list):
+        write_allowed.extend(str(item) for item in writemap.get("always_allow") if str(item).strip())
+    write_allowed.extend(ALWAYS_ALLOW_PATTERNS)
+
+    docops_only = []
+    if isinstance(writemap.get("docops_only_paths"), list):
+        docops_only.extend(str(item) for item in writemap.get("docops_only_paths") if str(item).strip())
+
+    return {
+        "root": root,
+        "ticket": ticket,
+        "stage": stage,
+        "scope_key": scope_key,
+        "work_item_key": work_item_key,
+        "readmap_path": readmap_path,
+        "writemap_path": writemap_path,
+        "readmap_exists": readmap_path.exists(),
+        "writemap_exists": writemap_path.exists(),
+        "read_allowed": read_allowed,
+        "write_allowed": write_allowed,
+        "docops_only": docops_only,
+    }
+
+
+def _is_tasklist_or_context_pack(candidates: list[str]) -> bool:
+    prefixes = (
+        "docs/tasklist/",
+        "aidd/docs/tasklist/",
+        "reports/context/",
+        "aidd/reports/context/",
+    )
+    for candidate in candidates:
+        if any(candidate.startswith(prefix) for prefix in prefixes):
+            return True
+    return False
+
+
+def _always_allow(candidates: list[str]) -> bool:
+    return _matches_any_pattern(candidates, ALWAYS_ALLOW_PATTERNS)
+
+
+def _deny_or_warn(strict: bool, *, reason: str, system_message: str) -> Dict[str, str]:
+    if strict:
+        return {"decision": "deny", "reason": reason, "system_message": system_message}
+    return {"decision": "allow", "reason": reason, "system_message": system_message}
+
+
+def _docops_only_violation(candidates: list[str], state: Dict[str, Any]) -> bool:
+    docops_only = state.get("docops_only") or []
+    if not isinstance(docops_only, list) or not docops_only:
+        return False
+    return _matches_any_pattern(candidates, [str(item) for item in docops_only])
+
+
+def _enforce_rw_policy(
+    *,
+    tool_name: str,
+    tool_input: Dict[str, Any],
+    project_dir: Path,
+    aidd_root: Optional[Path],
+) -> Optional[Dict[str, str]]:
+    if tool_name not in {"Read", "Write", "Edit", "Glob"}:
+        return None
+
+    if tool_name == "Glob":
+        candidates = _glob_candidates(tool_input, project_dir, aidd_root)
+        if not candidates:
+            return None
+    else:
+        path_value = _tool_input_path(tool_input)
+        if not path_value:
+            return None
+        path = _resolve_tool_path(path_value, project_dir, aidd_root)
+        candidates = _path_candidates(path, project_dir, aidd_root)
+    strict_mode = resolve_hooks_mode() == "strict"
+
+    state = _policy_state(project_dir, aidd_root)
+    if not state:
+        return None
+
+    stage = str(state.get("stage") or "").strip().lower()
+    loop_stage = stage in LOOP_STAGES
+    planning_stage = stage in PLANNING_STAGES
+
+    if _always_allow(candidates):
+        if tool_name in {"Write", "Edit"} and loop_stage:
+            if _is_tasklist_or_context_pack(candidates) or _docops_only_violation(candidates, state):
+                return _deny_or_warn(
+                    strict_mode,
+                    reason="Loop stage writes to DocOps-only paths must go through actions.",
+                    system_message=(
+                        "Loop stage policy: direct Edit/Write to DocOps-only paths is forbidden. "
+                        "Use actions + DocOps (`tools/actions-apply.sh`)."
+                    ),
+                )
+        return None
+
+    if tool_name in {"Read", "Glob"} and loop_stage:
+        if not state.get("readmap_exists"):
+            return _deny_or_warn(
+                strict_mode,
+                reason="Missing readmap for loop stage. Run preflight first.",
+                system_message=(
+                    "No readmap found for current loop scope. Run preflight (`skills/<stage>/scripts/preflight.sh`) "
+                    "before reading additional files."
+                ),
+            )
+        allowed = state.get("read_allowed") or []
+        if not _matches_any_pattern(candidates, allowed):
+            return _deny_or_warn(
+                strict_mode,
+                reason="Read is outside readmap/allowed_paths.",
+                system_message=(
+                    "Read is outside readmap/allowed_paths. Use `tools/context-expand.sh --path <path> "
+                    "--reason-code <code> --reason <text>` to request progressive disclosure."
+                ),
+            )
+
+    if tool_name in {"Write", "Edit"}:
+        if loop_stage and (_is_tasklist_or_context_pack(candidates) or _docops_only_violation(candidates, state)):
+            return _deny_or_warn(
+                strict_mode,
+                reason="Loop stage writes to DocOps-only paths must go through actions.",
+                system_message=(
+                    "Loop stage policy: direct Edit/Write to DocOps-only paths is forbidden. "
+                    "Use actions + DocOps (`tools/actions-apply.sh`)."
+                ),
+            )
+
+        if loop_stage:
+            if not state.get("writemap_exists"):
+                return _deny_or_warn(
+                    strict_mode,
+                    reason="Missing writemap for loop stage. Run preflight first.",
+                    system_message=(
+                        "No writemap found for current loop scope. Run preflight (`skills/<stage>/scripts/preflight.sh`) "
+                        "before writing files."
+                    ),
+                )
+            allowed = state.get("write_allowed") or []
+            if not _matches_any_pattern(candidates, allowed):
+                return _deny_or_warn(
+                    strict_mode,
+                    reason="Write is outside writemap.",
+                    system_message=(
+                        "Write is outside writemap. Use `tools/context-expand.sh --expand-write --path <path> "
+                        "--reason-code <code> --reason <text>` to expand boundaries."
+                    ),
+                )
+
+        if planning_stage and state.get("writemap_exists"):
+            allowed = state.get("write_allowed") or []
+            if not _matches_any_pattern(candidates, allowed):
+                return _deny_or_warn(
+                    strict_mode,
+                    reason="Write is outside planning-stage writemap.",
+                    system_message=(
+                        "Planning-stage write is outside writemap/contract. "
+                        "Expand with `tools/context-expand.sh --expand-write ...` or update stage contract."
+                    ),
+                )
+
+    return None
 
 
 def _prompt_injection_guard_message(
@@ -377,13 +752,28 @@ def main() -> None:
     cfg = load_config(aidd_root)
     if not cfg.get("enabled", True):
         return
-    mode = resolve_context_gc_mode(cfg)
-    if mode == "off":
-        return
 
     tool_name = str(ctx.raw.get("tool_name", ""))
     tool_input = ctx.raw.get("tool_input") or {}
     if not isinstance(tool_input, dict):
+        return
+
+    policy_decision = _enforce_rw_policy(
+        tool_name=tool_name,
+        tool_input=tool_input,
+        project_dir=project_dir,
+        aidd_root=aidd_root,
+    )
+    if policy_decision:
+        pretooluse_decision(
+            permission_decision=policy_decision["decision"],
+            reason=policy_decision["reason"],
+            system_message=policy_decision["system_message"],
+        )
+        return
+
+    mode = resolve_context_gc_mode(cfg)
+    if mode == "off":
         return
 
     if mode == "light":

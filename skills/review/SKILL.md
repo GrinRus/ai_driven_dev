@@ -38,11 +38,12 @@ agent: reviewer
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Preflight reference: `skills/review/scripts/preflight.sh`. Ensure active feature/stage and loop pack readiness.
-2. Run subagent `feature-dev-aidd:reviewer` (fork). First action: loop pack -> review pack (if any) -> rolling context pack.
-3. Produce review artifacts with `review-report.sh`, `review-pack.sh`, `reviewer-tests.sh`, and `tasks-derive.sh` as applicable.
-4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` from template and validate schema via `skills/review/scripts/run.sh`.
-5. Postflight reference: `skills/review/scripts/postflight.sh`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
+1. Preflight reference: `skills/review/scripts/preflight.sh`. This step is mandatory and must produce `readmap/writemap`, actions template, and `stage.preflight.result.json`.
+2. Read order after preflight: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+3. Run subagent `feature-dev-aidd:reviewer` (fork).
+4. Produce review artifacts with `review-report.sh`, `review-pack.sh`, `reviewer-tests.sh`, and `tasks-derive.sh` as applicable.
+5. Fill actions.json (v1): create `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` from template and validate schema via `skills/review/scripts/run.sh` before postflight.
+6. Postflight reference: `skills/review/scripts/postflight.sh`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
 
 ## Notes
 - Review stage runs targeted tests per policy.

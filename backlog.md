@@ -618,9 +618,9 @@ _Статус: новый, приоритет 2. Цель — приблизит
 
 ## Wave 93 — Context discipline 2.0: preflight stage + read/write contracts + progressive disclosure + DAG‑готовность
 
-_Статус: план. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
+_Статус: выполнено. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
 
-- [ ] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
+- [x] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
   - определить схемы:
     - `aidd.skill_contract.v1.json` (или YAML schema);
     - `aidd.readmap.v1.json`;
@@ -633,7 +633,7 @@ _Статус: план. Цель — формализовать чтение/з
   **AC:** схемы существуют; валидатор гоняется в CI.
   **Deps:** W91-3
 
-- [ ] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
+- [x] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
   - ввести machine‑readable контракт для каждого stage skill:
     - `skills/<stage>/CONTRACT.yaml` (или централизованный `aidd/config/skills.registry.yaml`);
   - поля (минимум):
@@ -654,7 +654,7 @@ _Статус: план. Цель — формализовать чтение/з
   - contracts становятся источником правды для preflight + hooks.
   **Deps:** W93-0, W91-3, W92-1
 
-- [ ] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
+- [x] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
   - формализовать адресацию блоков:
     - `path.md#AIDD:SECTION_NAME` (для `## AIDD:` заголовков);
     - `path.md@handoff:<id>` (для marker‑блоков `<!-- handoff:* -->`);
@@ -670,7 +670,7 @@ _Статус: план. Цель — формализовать чтение/з
   - есть тесты на корректность извлечения.
   **Deps:** W91-1
 
-- [ ] **W93-3** Mandatory preflight перед implement/review/qa
+- [x] **W93-3** Mandatory preflight перед implement/review/qa
   - расширить wrapper’ы `skills/implement/scripts/preflight.sh` (и аналогично review/qa), чтобы preflight:
     1) генерил/обновлял `loop.pack.md` (+ `review.latest.pack.md` если есть);
     2) генерил READ MAP: `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`:
@@ -690,7 +690,7 @@ _Статус: план. Цель — формализовать чтение/з
   - preflight может упасть “раньше” с понятным BLOCKED.
   **Deps:** W92-0, W92-1, W92-0.1, W93-0, W93-1, W93-2
 
-- [ ] **W93-4** Progressive disclosure: controlled context expansion
+- [x] **W93-4** Progressive disclosure: controlled context expansion
   - добавить механизм “расширить контекст” как явное действие:
     - либо отдельный skill `/feature-dev-aidd:context-expand` (с `disable-model-invocation: true`);
     - либо wrapper `skills/aidd-core/scripts/context_expand.sh`;
@@ -704,7 +704,7 @@ _Статус: план. Цель — формализовать чтение/з
   - implement/review не делают “тихий full-read”, а требуют expansion step.
   **Deps:** W93-3
 
-- [ ] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
+- [x] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
   - расширить guard, чтобы в implement/review/qa:
     - в `fast` режиме: warn/ask при чтении вне readmap/allowed_paths;
     - в `strict` режиме: deny чтение/правки вне readmap/allowed_paths.
@@ -721,7 +721,7 @@ _Статус: план. Цель — формализовать чтение/з
   - в fast есть заметный warning + ссылка на context-expand.
   **Deps:** W92-6, W93-3, W93-4
 
-- [ ] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
+- [x] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
   - сделать `tools/dag_export.py`:
     - строит DAG по work_item’ам/loop (узлы: preflight → implement → review → qa);
     - в каждый узел кладёт `scope_key`, `allowed_paths`, `readmap`, `writemap`;

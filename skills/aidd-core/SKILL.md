@@ -8,6 +8,8 @@ user-invocable: false
 
 ## Pack-first / read budget
 - Read packs and excerpts before full documents.
+- Slice-first rule: for markdown sources use block refs (`path#AIDD:SECTION`, `path@handoff:<id>`) via the `md-slice` wrapper before full Read.
+- Full-file Read is allowed only when the slice is insufficient; record the reason in `AIDD:READ_LOG`.
 - Prefer RLM packs and slices for research evidence.
 - Use the read budget: avoid large logs/diffs; link to `aidd/reports/**` instead.
 
@@ -26,6 +28,10 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 ## DocOps policy v1 (stage-scoped)
 - Loop stages (implement/review/qa/status): do not directly Edit/Write `aidd/docs/tasklist/**` or `aidd/reports/context/**`. Use actions/intents and DocOps automation only; do not manually edit or regenerate context packs. `aidd/docs/.active.json` is command-owned; subagents must not edit it.
 - Planning stages (idea/research/plan/tasks/spec): direct Edit/Write is allowed for creation or major edits. Structured sections (progress/iterations/next3) are DocOps-managed; leave untouched unless explicitly instructed.
+
+## Progressive disclosure
+- Use `skills/aidd-core/scripts/context_expand.sh` to expand `readmap/writemap` with explicit `reason_code` + `reason`.
+- Write-boundary expansion requires explicit `--expand-write` and must leave an audit trace under `aidd/reports/actions/<ticket>/<scope_key>/context-expand.audit.jsonl`.
 
 ## Actions log
 - Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.

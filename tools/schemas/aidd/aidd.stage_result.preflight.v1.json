@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.stage_result.preflight.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.stage_result.preflight.v1",
+  "title": "AIDD Stage Preflight Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "ticket",
+    "stage",
+    "scope_key",
+    "work_item_key",
+    "status",
+    "generated_at",
+    "artifacts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.stage_result.preflight.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "implement",
+        "review",
+        "qa"
+      ]
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "work_item_key": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "blocked"
+      ]
+    },
+    "reason_code": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "contract": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

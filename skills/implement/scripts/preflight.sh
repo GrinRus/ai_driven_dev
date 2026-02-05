@@ -57,34 +57,38 @@ main() {
     "${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh" "$AIDD_TICKET"
     "${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh" "$AIDD_STAGE"
     "${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh" --ticket "$AIDD_TICKET"
-    "${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh" --ticket "$AIDD_TICKET" --stage "$AIDD_STAGE"
+  } >>"$LOG_PATH" 2>&1
 
-    python3 - <<'PY' "$AIDD_ACTIONS_TEMPLATE" "$AIDD_STAGE" "$AIDD_TICKET" "$AIDD_SCOPE_KEY" "$AIDD_WORK_ITEM_KEY"
-import json
-import sys
-from pathlib import Path
+  local preflight_out
+  if ! preflight_out="$("${CLAUDE_PLUGIN_ROOT}/tools/preflight-prepare.sh" \
+    --ticket "$AIDD_TICKET" \
+    --scope-key "$AIDD_SCOPE_KEY" \
+    --work-item-key "$AIDD_WORK_ITEM_KEY" \
+    --stage "$AIDD_STAGE" \
+    --actions-template "$AIDD_ACTIONS_TEMPLATE" \
+    --readmap-json "$AIDD_READMAP_JSON" \
+    --readmap-md "$AIDD_READMAP_MD" \
+    --writemap-json "$AIDD_WRITEMAP_JSON" \
+    --writemap-md "$AIDD_WRITEMAP_MD" \
+    --result "$AIDD_PREFLIGHT_RESULT" 2>&1)"; then
+    printf '%s\n' "$preflight_out" >>"$LOG_PATH"
+    printf '%s\n' "$preflight_out" >&2
+    return 2
+  fi
+  printf '%s\n' "$preflight_out" >>"$LOG_PATH"
 
-path = Path(sys.argv[1])
-stage = sys.argv[2]
-ticket = sys.argv[3]
-scope_key = sys.argv[4]
-work_item_key = sys.argv[5]
-
-payload = {
-    "schema_version": "aidd.actions.v0",
-    "stage": stage,
-    "ticket": ticket,
-    "scope_key": scope_key,
-    "work_item_key": work_item_key,
-    "actions": [],
-}
-path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-PY
+  {
+    "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_READMAP_JSON"
+    "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_WRITEMAP_JSON"
     "${CLAUDE_PLUGIN_ROOT}/tools/actions-validate.sh" --actions "$AIDD_ACTIONS_TEMPLATE"
+    "${CLAUDE_PLUGIN_ROOT}/tools/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
   } >>"$LOG_PATH" 2>&1
 
   echo "log_path=aidd/${LOG_PATH#"${AIDD_ROOT}"/}"
   echo "template_path=aidd/${AIDD_ACTIONS_TEMPLATE#"${AIDD_ROOT}"/}"
+  echo "readmap_path=aidd/${AIDD_READMAP_JSON#"${AIDD_ROOT}"/}"
+  echo "writemap_path=aidd/${AIDD_WRITEMAP_JSON#"${AIDD_ROOT}"/}"
+  echo "preflight_result=aidd/${AIDD_PREFLIGHT_RESULT#"${AIDD_ROOT}"/}"
   if [[ "$ACTIONS_PROVIDED" -eq 0 ]]; then
     echo "actions_path=aidd/${AIDD_ACTIONS_PATH#"${AIDD_ROOT}"/}"
   fi
