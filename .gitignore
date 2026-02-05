@@ -20,4 +20,5 @@ aidd/reports/*
 !/aidd/reports/migrations/commands_to_skills_frontmatter.md
 aidd/docs/.active_*
 aidd_test_flow_prompt_ralph_script.txt
+!aidd_test_flow_prompt_ralph_script.txt
 aidd_test_flow_prompt_ralph_script_legacy.txt

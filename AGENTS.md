@@ -4,7 +4,7 @@
 User‑гайд для workspace находится в `templates/aidd/AGENTS.md` (копируется в `aidd/AGENTS.md` при init).
 
 ## Репозиторий и структура
-- Runtime (плагин): `commands/`, `agents/`, `hooks/`, `tools/`, `.claude-plugin/`.
+- Runtime (плагин): `agents/`, `skills/`, `hooks/`, `tools/`, `.claude-plugin/`.
 - Workspace‑шаблоны: `templates/aidd/` (копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
@@ -43,14 +43,14 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Инструменты: `CLAUDE_PLUGIN_ROOT=$PWD tools/<command>.sh ...`
 - Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
 
-## Как добавлять фичи и команды (шаблон)
+## Как добавлять entrypoints (skill-first)
 1. Runtime‑entrypoint: `tools/<command>.sh` (shebang python, bootstrap `CLAUDE_PLUGIN_ROOT`). Расширение `.sh` сохраняется ради CLI/marketplace совместимости; не переименовывайте в `.py`.
 2. Логика команды: `tools/<command>.py` (или используйте существующий модуль).
-3. Документация: обновите `commands/*.md` и/или `agents/*.md` (allowed‑tools + примеры).
-4. Хуки: если команда участвует в workflow, добавьте вызов в `hooks/hooks.json`.
+3. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`. Legacy‑команды хранятся в `docs/legacy/commands/`.
+4. Хуки: если entrypoint участвует в workflow, добавьте вызов в `hooks/hooks.json`.
 5. Шаблоны: если нужны новые workspace‑файлы — обновите `templates/aidd/**`, затем проверьте `/feature-dev-aidd:aidd-init`.
 6. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
-7. Prompt‑версии: после правок в `commands/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
+7. Prompt‑версии: после правок в `skills/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
 8. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
 
 ## Workflow (кратко)
@@ -102,8 +102,9 @@ Agent‑first правило: сначала читаем артефакты (`a
 ## Prompt versioning
 - Semver: `MAJOR.MINOR.PATCH`.
 - `source_version` всегда равен `prompt_version` для RU.
-- Команды:
-  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>`
+- Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
+- Инструменты:
+  - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>` (agents + legacy commands)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
 
 ## Reports format (MVP)
