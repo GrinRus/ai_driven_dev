@@ -8,6 +8,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Workspace‑шаблоны: `templates/aidd/` (копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
+- Stage‑локальные скрипты: `skills/<stage>/scripts/` (wrappers + stage‑only tooling). Shared tooling остаётся в `tools/` (hooks/CI используют только `tools/*` или shims).
 - Backlog: `backlog.md` (корень).
 - User‑артефакты: `aidd/**` (docs/reports/config/.cache).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
@@ -27,6 +28,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Рабочий root всегда workspace (`./aidd`); только туда пишем `docs/`, `reports/`, `config/`.
 - `${CLAUDE_PLUGIN_ROOT}` используется только для чтения ресурсов плагина (hooks/tools/templates).
 - CWD хуков не гарантирован; корень проекта вычисляется из payload (cwd/workspace), без опоры на plugin root.
+- Wrapper output policy: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишем в `aidd/reports/**` с кратким summary в stdout.
 
 ## Быстрые проверки (repo‑only)
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.

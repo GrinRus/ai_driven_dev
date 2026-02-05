@@ -7,6 +7,15 @@
 - Loop policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/SKILL.md`.
 - Не дублируйте алгоритмы из skills в пользовательских документах.
 
+## Stage-local scripts
+- Stage‑локальные скрипты живут в `skills/<stage>/scripts/` (wrappers + stage‑only tooling).
+- Shared tooling остаётся в `tools/` (hooks/CI используют только `tools/*` или shims).
+
+## Wrapper output policy
+- Логи wrapper’ов: `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.<name>.<timestamp>.log`.
+- Stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines.
+- Большие выводы пишите в `aidd/reports/**`, в stdout только путь + короткое summary.
+
 ## Evidence read policy (pack-first, rolling)
 - Pack-first и read-budget описаны в `skills/aidd-core`.
 - Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`.
