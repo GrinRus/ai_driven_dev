@@ -12,6 +12,10 @@ dist/
 .idea/
 .vscode/
 /.claude/
-/aidd/
+/aidd/*
+!/aidd/reports/
+!/aidd/reports/migrations/
+!/aidd/reports/migrations/commands_to_skills_frontmatter.json
+!/aidd/reports/migrations/commands_to_skills_frontmatter.md
 aidd/docs/.active_*
 aidd_test_flow_prompt_ralph_script.txt
