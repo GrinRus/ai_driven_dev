@@ -19,6 +19,7 @@ user-invocable: false
 - Blockers/Handoff: ...
 - Next actions: ...
 - AIDD:READ_LOG: ... (packs/excerpts only)
+- AIDD:ACTIONS_LOG: ... (loop stages) / n/a (planning)
 
 Include `Checkbox updated: ...` when the stage or agent expects it.
 

@@ -62,6 +62,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Blockers/Handoff:",
         "Next actions:",
         "AIDD:READ_LOG:",
+        "AIDD:ACTIONS_LOG:",
     ]
 }
 

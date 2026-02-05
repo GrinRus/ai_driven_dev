@@ -25,5 +25,6 @@ require_rg "Tests:" "$core_skill"
 require_rg "Blockers/Handoff:" "$core_skill"
 require_rg "Next actions:" "$core_skill"
 require_rg "AIDD:READ_LOG:" "$core_skill"
+require_rg "AIDD:ACTIONS_LOG:" "$core_skill"
 
 exit "$STATUS"
