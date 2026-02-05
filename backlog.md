@@ -250,46 +250,73 @@ _Статус: новый, приоритет 1. Закрывает выявле
   - гарантировать генерацию `review.latest.pack.md` и review report per scope_key;
   - при REVISE обязателен `review.fix_plan.json` + ссылка в `stage_result.evidence_links.fix_plan_json`;
   - при ошибке записи report/pack → явный BLOCKED (reason_code `review_report_write_failed`).
-  **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; tests обновлены.
+  - если `review_pack_v2_required=true`, любой v1 pack → BLOCKED (reason_code `review_pack_v2_required`);
+  - findings с severity=blocking должны иметь `blocking=true`, `blocking_findings_count` корректен;
+  - reviewer marker `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json` всегда создаётся (включая handoff scope_key вроде `id_review_F*`).
+  **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; blocking_findings_count корректен; reviewer marker всегда есть для всех scope_key; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-3** `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
   - если `tests_required=soft|hard` и tests skipped/no‑evidence → review verdict `REVISE`/`BLOCKED` соответственно;
   - reason_code должен отражать no-tests (`no_tests_soft|no_tests_hard`);
   - `stage_result.evidence_links.tests_log` обязателен и указывает на tests log.
-  **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; tests обновлены.
+  - нормализовать `scope_key`/`work_item_key` (не допускать `id_` вместо `iteration_id_`) и писать stage_result в корректный путь;
+  - stage_result обязателен для review и должен быть найден loop-run (иначе BLOCKED).
+  - WARN‑причины (например `review_context_pack_placeholder_warn`) не должны выставлять `result=blocked`; статус = WARN/REVISE с `result=continue`.
+  - `Status` в выводе review должен совпадать со `stage_result.result` (или `status-summary.sh`).
+  **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; WARN не превращается в blocked; stage_result путь корректен; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-4** `tools/qa.py`, `tools/tasklist_parse.py` (или эквивалент), `tests/*`:
   - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд (если profile != none);
   - расширить skip‑детекцию (RU/EN фразы) и всегда писать tests_log (run|skipped + reason_code);
   - при skipped tests_summary не может быть `pass` (должно быть warn/skip).
-  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; tests обновлены.
+  - stage_result для QA обязателен (scope_key=ticket) и reason_code совпадает с QA report (`qa_blocked|qa_warn`).
+  - stage.qa.result `evidence_links` должны ссылаться на QA‑логи/qa report, а не loop-step.
+  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; stage_result обязателен; qa evidence links корректные; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:
   - добавить CLI‑поля `read_next/what_to_do/artefact_links` и заполнение вместо placeholder‑строк;
   - команды implement/review/qa передают значения из артефактов;
   - если заполнить нельзя — выставлять WARN (placeholder не допускается молча).
-  **AC:** rolling pack без placeholder‑строк; при missing values — WARN; tests обновлены.
+  - удалять шаблонную строку типа “Fill stage/agent/read_next/artefact_links…” при генерации context pack (или WARN, если осталась).
+  **AC:** rolling pack без placeholder‑строк; при missing values — WARN; шаблонная строка не попадает в pack; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-6** `tools/loop_pack.py`, `tools/diff_boundary_check.py`, `tests/*`:
   - если Boundaries пусты — fallback к Expected paths (tasklist), затем allowed_paths (rolling pack);
   - при авто‑расширении выставлять WARN (`auto_boundary_extend_warn`), не BLOCKED.
-  **AC:** loop pack всегда содержит границы; авто‑расширение даёт WARN; tests обновлены.
+  - OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED → WARN + reason_code `out_of_scope_warn|no_boundaries_defined_warn`;
+  - FORBIDDEN → BLOCKED (reason_code `forbidden`).
+  - если commands_required явно требует изменения существующего файла — включать его в allowed_paths (или фиксировать WARN с auto‑expand).
+  **AC:** loop pack всегда содержит границы; авто‑расширение даёт WARN; commands_required не конфликтует с boundaries; reason_code маппится корректно; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-7** `tools/tasklist_check.py`, `tests/*`:
   - добавить проверку консистентности: progress log отмечен done, а checkbox `[ ]` не установлен;
   - выводить WARN с указанием work_item_key (без авто‑фикса).
-  **AC:** несоответствие лог/checkbox даёт WARN; не происходит авто‑изменений; tests обновлены.
+  - проверять `AIDD:NEXT_3`: не включает итерации с незакрытыми deps (иначе WARN с указанием deps).
+  **AC:** несоответствие лог/checkbox даёт WARN; NEXT_3 не содержит unmet deps или выдаёт WARN; не происходит авто‑изменений; tests обновлены.
   **Deps:** -
 
 - [ ] **W89.5-8** `tools/output_contract.py` (новый) или `tools/runtime.py`, `tests/*`:
   - валидация output‑контракта для implement/review/qa (Status/Work item/Tests/AIDD:READ_LOG/Next actions);
   - WARN при неполных полях, с reason_code `output_contract_warn`.
-  **AC:** неполный вывод детектируется как WARN; причина отражена в stage_result; tests обновлены.
+  - enforce read‑budget: AIDD:READ_LOG максимум 1–3 файла, без полного PRD/Plan/Tasklist при наличии excerpt;
+  - enforce read order: implement/review читают `loop pack → review pack (если есть) → rolling pack → excerpt`, qa — rolling pack первым;
+  - Status в выводе должен совпадать со `stage_result` (иначе WARN).
+  - фиксировать WARN, если `AIDD:READ_LOG` содержит >3 файлов или включает full PRD/Plan/Spec/Tasklist без причины missing fields.
+  - `AIDD:READ_LOG` должен содержать только packs/excerpts (код/полные файлы — только при явной причине missing fields).
+  **AC:** неполный вывод детектируется как WARN; read‑budget violations фиксируются; read‑order violations фиксируются; Status/`stage_result` совпадают; excessive/full‑read фиксируется; read_log только packs/excerpts; tests обновлены.
+  **Deps:** -
+
+- [ ] **W89.5-9** `tools/loop_run.py` (или эквивалент), `tools/set_active_feature.py`, `tests/*`:
+  - после SHIP и при открытых итерациях loop‑runner обязан выбрать следующий work_item, обновить `aidd/docs/.active.json` (work_item/stage) и продолжить implement;
+  - завершение loop допустимо только если открытых итераций нет.
+  - если выбран следующий work_item — обязателен запуск implement и запись `stage.implement.result.json`; отсутствие файла → BUG + BLOCKED с понятным reason_code и runner_cmd.
+  - `review_pack_stale` не должен блокировать loop-run: перегенерировать pack или повторить review с корректным evidence_links.
+  **AC:** loop‑runner корректно продвигает active markers после SHIP; loop завершается только при отсутствии итераций; stage_result создаётся для следующего work_item или выдаётся BLOCKED с reason_code; review_pack_stale не блокирует loop-run; tests обновлены.
   **Deps:** -
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
