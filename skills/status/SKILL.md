@@ -15,7 +15,7 @@ disable-model-invocation: false
 user-invocable: true
 ---
 
-Follow `feature-dev-aidd:aidd-core`.
+Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Run `${CLAUDE_PLUGIN_ROOT}/tools/status.sh` for the ticket (use the active ticket if omitted).
@@ -23,4 +23,4 @@ Follow `feature-dev-aidd:aidd-core`.
 3. Return the output contract and the status summary.
 
 ## Notes
-- Read-only stage: `AIDD:ACTIONS_LOG: n/a` unless you modified artifacts.
+- Loop stage: `AIDD:ACTIONS_LOG: <path>` is required (use a minimal no-op entry if nothing changed).

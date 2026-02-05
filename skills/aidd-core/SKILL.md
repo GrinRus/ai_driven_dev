@@ -24,7 +24,7 @@ user-invocable: false
 Include `Checkbox updated: ...` when the stage or agent expects it.
 
 ## DocOps policy v1 (stage-scoped)
-- Loop stages (implement/review/qa/status): do not Edit/Write `aidd/docs/tasklist/**` or `aidd/reports/context/**`. Write actions/intents only. `aidd/docs/.active.json` is command-owned; subagents must not edit it.
+- Loop stages (implement/review/qa/status): do not directly Edit/Write `aidd/docs/tasklist/**` or `aidd/reports/context/**`. Use actions/intents and DocOps automation only; do not manually edit or regenerate context packs. `aidd/docs/.active.json` is command-owned; subagents must not edit it.
 - Planning stages (idea/research/plan/tasks/spec): direct Edit/Write is allowed for creation or major edits. Structured sections (progress/iterations/next3) are DocOps-managed; leave untouched unless explicitly instructed.
 
 ## Actions log

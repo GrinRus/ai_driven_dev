@@ -51,7 +51,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Preflight reference: `skills/implement/scripts/preflight.sh`. Ensure active feature/stage, PRD gate, and loop pack are ready.
-2. Build/update the rolling context pack as needed.
+2. Use the existing rolling context pack; do not regenerate it in loop mode.
 3. Run subagent `feature-dev-aidd:implementer` (fork). First action: loop pack -> review pack (if any) -> rolling context pack.
 4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json` from template and validate schema before postflight.
 5. Postflight reference: `skills/implement/scripts/postflight.sh`. Run boundary check, progress check, stage-result, status-summary.
