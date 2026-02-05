@@ -23,4 +23,4 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 3. Return the output contract and the status summary.
 
 ## Notes
-- Loop stage: `AIDD:ACTIONS_LOG: <path>` is required (use a minimal no-op entry if nothing changed).
+- Loop stage: set `AIDD:ACTIONS_LOG` to the most recent `*.actions.json` under `aidd/reports/actions/<ticket>/...` (use `rg` if needed).
