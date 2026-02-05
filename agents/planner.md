@@ -28,6 +28,10 @@ permissionMode: default
 2. Сформируй план: итерации, DoD, boundaries, expected paths, risks, tests.
 3. Синхронизируй открытые вопросы с PRD.
 
+## Design & patterns
+- KISS, YAGNI, DRY, SOLID.
+- Prefer service layer + adapters; reuse existing components.
+
 ## Fail-fast и вопросы
 - Если PRD не READY или research не готов, верни BLOCKED.
 - Вопросы задавай по формату aidd-core.
