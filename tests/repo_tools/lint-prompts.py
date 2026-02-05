@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Claude prompt files."""
+"""Validate Claude prompt and skill files."""
 
 from __future__ import annotations
 
@@ -11,75 +11,50 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-
 PROMPT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 STATUS_RE = re.compile(r"(?:Status|Статус):\s*([A-Za-z-]+)")
 ALLOWED_STATUSES = {"ready", "blocked", "pending", "warn", "reviewed", "draft"}
-VALID_LANGS = {"ru"}
-MAX_COMMAND_LINES = 160
+VALID_LANGS = {"ru", "en"}
+
 TOOL_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/tools/[A-Za-z0-9_.-]+\.sh")
 HOOK_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/hooks/[A-Za-z0-9_.-]+\.sh")
 UNSCOPED_PLUGIN_PATH_RE = re.compile(r"(?<!\$\{CLAUDE_PLUGIN_ROOT\}/)(?:tools|hooks)/[A-Za-z0-9_.-]+\.sh")
 TOOL_CLAUDE_WORKFLOW_RE = re.compile(r"\bclaude-workflow\b", re.IGNORECASE)
+CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 
-LANG_SECTION_TITLES = {
-    "agent": {
-        "ru": [
-            "Контекст",
-            "Входные артефакты",
-            "Автоматизация",
-            "Пошаговый план",
-            "Fail-fast и вопросы",
-            "Формат ответа",
-        ],
-    },
-    "command": {
-        "ru": [
-            "Контекст",
-            "Входные артефакты",
-            "Когда запускать",
-            "Автоматические хуки и переменные",
-            "Что редактируется",
-            "Пошаговый план",
-            "Fail-fast и вопросы",
-            "Ожидаемый вывод",
-            "Примеры CLI",
-        ],
-    },
-}
+MAX_SKILL_LINES = 300
+PRELOADED_SIZE_LIMIT_BYTES = 64 * 1024
+ALLOWED_SUPPORT_DIRS = {"scripts", "examples", "assets"}
 
-LANG_PATHS: Dict[str, Dict[str, List[Path]]] = {
-    "ru": {
-        "agent": [Path("agents")],
-        "command": [Path("commands")],
-    },
-}
-
-
-PAIRINGS: List[Tuple[str, str]] = [
-    ("analyst", "idea-new"),
-    ("planner", "plan-new"),
-    ("plan-reviewer", "review-spec"),
-    ("tasklist-refiner", "tasks-new"),
-    ("spec-interview-writer", "spec-interview"),
-    ("implementer", "implement"),
-    ("reviewer", "review"),
-    ("researcher", "researcher"),
-    ("prd-reviewer", "review-spec"),
+STAGE_SKILLS = [
+    "aidd-init",
+    "idea-new",
+    "researcher",
+    "plan-new",
+    "review-spec",
+    "spec-interview",
+    "tasks-new",
+    "implement",
+    "review",
+    "qa",
+    "status",
 ]
 
-REQUIRED_AGENT_REFERENCES = [
-    "aidd/AGENTS.md",
-    "aidd/docs/prompting/conventions.md",
-]
+FORK_STAGES = {"idea-new", "researcher", "tasks-new", "implement", "review", "qa"}
+LOOP_STAGES = {"implement", "review", "qa", "status"}
+PRELOADED_SKILLS = {"aidd-core", "aidd-loop"}
 
-REQUIRED_COMMAND_REFERENCES = [
-    "aidd/AGENTS.md",
-    "aidd/docs/prompting/conventions.md",
+AGENT_REQUIRED_SECTIONS = [
+    "Контекст",
+    "Входные артефакты",
+    "Автоматизация",
+    "Пошаговый план",
+    "Fail-fast и вопросы",
+    "Формат ответа",
 ]
 
 OUTPUT_CONTRACT_FIELDS = {
-    "agents/implementer.md": [
+    "skills/aidd-core/SKILL.md": [
         "Status:",
         "Work item key:",
         "Artifacts updated:",
@@ -87,128 +62,7 @@ OUTPUT_CONTRACT_FIELDS = {
         "Blockers/Handoff:",
         "Next actions:",
         "AIDD:READ_LOG:",
-    ],
-    "agents/reviewer.md": [
-        "Status:",
-        "Work item key:",
-        "Artifacts updated:",
-        "Tests:",
-        "Blockers/Handoff:",
-        "Next actions:",
-        "AIDD:READ_LOG:",
-    ],
-    "agents/qa.md": [
-        "Status:",
-        "Work item key:",
-        "Artifacts updated:",
-        "Tests:",
-        "Blockers/Handoff:",
-        "Next actions:",
-        "AIDD:READ_LOG:",
-    ],
-    "commands/implement.md": [
-        "Status:",
-        "Work item key:",
-        "Artifacts updated:",
-        "Tests:",
-        "Blockers/Handoff:",
-        "Next actions:",
-        "AIDD:READ_LOG:",
-    ],
-    "commands/review.md": [
-        "Status:",
-        "Work item key:",
-        "Artifacts updated:",
-        "Tests:",
-        "Blockers/Handoff:",
-        "Next actions:",
-        "AIDD:READ_LOG:",
-    ],
-    "commands/qa.md": [
-        "Status:",
-        "Work item key:",
-        "Artifacts updated:",
-        "Tests:",
-        "Blockers/Handoff:",
-        "Next actions:",
-        "AIDD:READ_LOG:",
-    ],
-}
-
-OUTPUT_STATUS_LINES = {
-    "agents/implementer.md": "Status: READY|WARN|BLOCKED|PENDING",
-    "agents/reviewer.md": "Status: READY|WARN|BLOCKED",
-    "agents/qa.md": "Status: READY|WARN|BLOCKED",
-    "commands/implement.md": "Status: READY|WARN|BLOCKED|PENDING",
-    "commands/review.md": "Status: READY|WARN|BLOCKED",
-    "commands/qa.md": "Status: READY|WARN|BLOCKED",
-}
-
-REQUIRED_WRITE_TOOLS = {
-    "agents/implementer.md",
-    "agents/tasklist-refiner.md",
-    "commands/tasks-new.md",
-    "commands/implement.md",
-}
-
-LOOP_DISCIPLINE_HINTS = {
-    "agents/implementer.md": ["loop pack first", "больших вставок"],
-    "agents/reviewer.md": ["loop pack first", "больших вставок"],
-}
-
-LOOP_NO_QUESTIONS_HINTS = {
-    "agents/implementer.md": ["loop", "вопрос"],
-    "agents/reviewer.md": ["loop", "вопрос"],
-    "commands/implement.md": [".active_mode=loop", "без вопросов"],
-    "commands/review.md": [".active_mode=loop", "без вопросов"],
-    "commands/qa.md": [".active_mode=loop", "без вопросов"],
-}
-
-REVIEW_PACK_ORDER_HINTS = {
-    "agents/reviewer.md": ["после loop pack", "review.latest.pack.md"],
-    "commands/review.md": ["read loop pack", "review.latest.pack.md", "aidd/reports/context/$1.pack.md"],
-}
-
-PARALLEL_PATH_HINTS = {
-    "agents/implementer.md": ["<scope_key>"],
-    "agents/reviewer.md": ["<scope_key>"],
-    "commands/implement.md": ["<scope_key>"],
-    "commands/review.md": ["<scope_key>"],
-    "commands/qa.md": ["<scope_key>"],
-}
-
-GRANULARITY_HINTS = {
-    "agents/tasklist-refiner.md": ["steps", "expected paths", "size budget"],
-    "commands/tasks-new.md": ["deps", "priority", "blocking"],
-}
-
-VERIFY_STEP_HINTS = {
-    "agents/implementer.md": ["верифиц", "verify"],
-    "agents/reviewer.md": ["верифиц", "verify"],
-    "agents/qa.md": ["верифиц", "verify"],
-    "commands/implement.md": ["verify results", "верифиц"],
-    "commands/review.md": ["verify results", "верифиц"],
-    "commands/qa.md": ["verify results", "верифиц"],
-}
-
-REQUIRED_CONTEXT_PACK_REFERENCES = {
-    "commands/review.md": "aidd/reports/context/$1.pack.md",
-    "commands/qa.md": "aidd/reports/context/$1.pack.md",
-}
-
-CRITICAL_TEMPLATE_ARTIFACTS = [
-    "aidd/AGENTS.md",
-    "aidd/docs/prompting/conventions.md",
-    "aidd/reports/context/template.context-pack.md",
-    "aidd/docs/loops/template.loop-pack.md",
-    "aidd/docs/prd/template.md",
-    "aidd/docs/plan/template.md",
-    "aidd/docs/research/template.md",
-    "aidd/docs/tasklist/template.md",
-]
-
-QUESTION_TEMPLATE = {
-    "ru": "Вопрос N (Blocker|Clarification)",
+    ]
 }
 
 INDEX_SCHEMA_PATH = Path("docs/index/schema.json")
@@ -227,11 +81,14 @@ INDEX_REQUIRED_FIELDS = [
     "checks",
 ]
 
+POLICY_DOC = Path("docs/skill-language.md")
+BASELINE_JSON = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
+
 
 @dataclass
 class PromptFile:
     path: Path
-    kind: str  # "agent" or "command"
+    kind: str  # "agent" or "skill"
     lang: str
     front_matter: Dict[str, str | list[str]]
     sections: List[str]
@@ -244,12 +101,12 @@ class PromptFile:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate Claude prompt files")
+    parser = argparse.ArgumentParser(description="Validate Claude prompt and skill files")
     parser.add_argument(
         "--root",
         default=Path(__file__).resolve().parents[2],
         type=Path,
-        help="Workflow root containing agents/commands",
+        help="Workflow root containing agents/skills",
     )
     return parser.parse_args()
 
@@ -324,11 +181,9 @@ def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile |
     lang_value = front.get("lang", "")
     lang = lang_value.strip() if isinstance(lang_value, str) else ""
     if lang and lang not in VALID_LANGS:
-        errors.append(f"{path}: unsupported lang `{lang}` (expected ru)")
+        errors.append(f"{path}: unsupported lang `{lang}` (expected one of {sorted(VALID_LANGS)})")
     if expected_lang and lang and lang != expected_lang:
-        errors.append(
-            f"{path}: lang `{lang}` does not match expected `{expected_lang}` based on directory"
-        )
+        errors.append(f"{path}: lang `{lang}` does not match expected `{expected_lang}`")
 
     return (
         PromptFile(
@@ -419,135 +274,6 @@ def validate_checkbox_guidance(info: PromptFile) -> List[str]:
     return errors
 
 
-def validate_agent_references(info: PromptFile) -> List[str]:
-    if info.kind != "agent":
-        return []
-    missing = [ref for ref in REQUIRED_AGENT_REFERENCES if ref not in info.body]
-    if missing:
-        return [f"{info.path}: missing references {missing}"]
-    return []
-
-
-def validate_command_references(info: PromptFile) -> List[str]:
-    if info.kind != "command":
-        return []
-    missing = [ref for ref in REQUIRED_COMMAND_REFERENCES if ref not in info.body]
-    if missing:
-        return [f"{info.path}: missing references {missing}"]
-    return []
-
-
-def _relative_prompt_path(info: PromptFile, root: Path) -> str:
-    try:
-        return info.path.relative_to(root).as_posix()
-    except ValueError:
-        return info.path.as_posix()
-
-
-def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
-    rel_path = _relative_prompt_path(info, root)
-    required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
-    if not required_fields:
-        return []
-    errors: List[str] = []
-    missing = [field for field in required_fields if field not in info.body]
-    if missing:
-        errors.append(f"{info.path}: output contract missing fields {missing}")
-    status_line = OUTPUT_STATUS_LINES.get(rel_path)
-    if status_line and status_line not in info.body:
-        errors.append(f"{info.path}: output contract missing status values `{status_line}`")
-    return errors
-
-
-def validate_question_template(info: PromptFile) -> List[str]:
-    if info.kind != "agent":
-        return []
-    if info.stem not in {"analyst", "validator"}:
-        return []
-    template = QUESTION_TEMPLATE.get(info.lang or "ru", "")
-    if template and template not in info.body:
-        return [f"{info.path}: missing question template `{template}`"]
-    return []
-
-
-def validate_prompt(info: PromptFile, root: Path) -> List[str]:
-    errors: List[str] = []
-    front = info.front_matter
-    if info.kind == "agent":
-        errors.extend(
-            ensure_keys(
-                info,
-                [
-                    "name",
-                    "description",
-                    "lang",
-                    "prompt_version",
-                    "source_version",
-                    "tools",
-                    "permissionMode",
-                ],
-            )
-        )
-    else:
-        errors.extend(
-            ensure_keys(
-                info,
-                [
-                    "description",
-                    "argument-hint",
-                    "lang",
-                    "prompt_version",
-                    "source_version",
-                    "allowed-tools",
-                    "disable-model-invocation",
-                ],
-            )
-        )
-        if info.line_count > MAX_COMMAND_LINES:
-            errors.append(
-                f"{info.path}: exceeds max command length ({info.line_count} > {MAX_COMMAND_LINES} lines)"
-            )
-
-    lang = _as_string(front.get("lang")) or info.lang
-    sections_required = LANG_SECTION_TITLES.get(info.kind, {}).get(lang or "ru")
-    if sections_required:
-        errors.extend(ensure_sections(info, sections_required))
-    if lang and lang not in VALID_LANGS:
-        errors.append(f"{info.path}: unsupported lang `{lang}` (expected ru)")
-
-    version = front.get("prompt_version")
-    if isinstance(version, list):
-        errors.append(f"{info.path}: prompt_version must be a scalar value")
-    elif version and not PROMPT_VERSION_RE.match(version):
-        errors.append(f"{info.path}: prompt_version `{version}` must match X.Y.Z")
-
-    source_version = front.get("source_version")
-    if isinstance(source_version, list):
-        errors.append(f"{info.path}: source_version must be a scalar value")
-    elif source_version and not PROMPT_VERSION_RE.match(source_version):
-        errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
-
-    errors.extend(validate_statuses(info))
-    errors.extend(validate_placeholders(info))
-    errors.extend(validate_checkbox_guidance(info))
-    errors.extend(validate_agent_references(info))
-    errors.extend(validate_command_references(info))
-    errors.extend(validate_output_contract(info, root))
-    errors.extend(validate_question_template(info))
-    errors.extend(validate_tool_mentions(info))
-    errors.extend(validate_verify_steps(info))
-    errors.extend(validate_context_pack_references(info))
-    errors.extend(validate_plugin_asset_mentions(info, root))
-    errors.extend(validate_required_write_tools(info))
-    errors.extend(validate_loop_discipline(info))
-    errors.extend(validate_loop_no_questions(info))
-    errors.extend(validate_parallel_paths(info))
-    errors.extend(validate_granularity_policy(info))
-    errors.extend(validate_review_pack_order(info))
-
-    return errors
-
-
 def _iter_tool_scan_lines(info: PromptFile) -> Iterable[str]:
     lines = info.body.splitlines()
     in_fence = False
@@ -579,7 +305,12 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
     if not tool_mentions and not has_claude_workflow:
         return []
 
-    allowed_tools = set(_normalize_tool_list(info.front_matter.get("allowed-tools") if info.kind == "command" else info.front_matter.get("tools")))
+    if info.kind == "skill":
+        allowed_tools = set(_normalize_tool_list(info.front_matter.get("allowed-tools")))
+    elif info.kind == "agent":
+        allowed_tools = set(_normalize_tool_list(info.front_matter.get("tools")))
+    else:
+        allowed_tools = set()
     allowed_bash = [item for item in allowed_tools if item.startswith("Bash(")]
 
     if has_claude_workflow and not allowed_bash:
@@ -589,35 +320,6 @@ def validate_tool_mentions(info: PromptFile) -> List[str]:
         if not any(mention in tool for tool in allowed_tools if tool.startswith("Bash(")):
             errors.append(f"{info.path}: tool `{mention}` mentioned but not in allowed-tools")
     return errors
-
-
-def validate_verify_steps(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    hints = None
-    for key, markers in VERIFY_STEP_HINTS.items():
-        if rel_path.endswith(key):
-            hints = markers
-            break
-    if not hints:
-        return []
-    body_lower = info.body.lower()
-    if not any(marker in body_lower for marker in hints):
-        return [f"{info.path}: missing verify step markers {hints}"]
-    return []
-
-
-def validate_context_pack_references(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required_ref = None
-    for key, path in REQUIRED_CONTEXT_PACK_REFERENCES.items():
-        if rel_path.endswith(key):
-            required_ref = path
-            break
-    if not required_ref:
-        return []
-    if required_ref not in info.body:
-        return [f"{info.path}: missing context pack reference `{required_ref}`"]
-    return []
 
 
 def validate_plugin_asset_mentions(info: PromptFile, root: Path) -> List[str]:
@@ -640,96 +342,326 @@ def validate_plugin_asset_mentions(info: PromptFile, root: Path) -> List[str]:
 
 
 def validate_required_write_tools(info: PromptFile) -> List[str]:
-    rel_path = str(info.path.as_posix())
-    if not any(rel_path.endswith(path) for path in REQUIRED_WRITE_TOOLS):
+    if info.kind != "agent":
         return []
-    tools = _normalize_tool_list(info.front_matter.get("allowed-tools") if info.kind == "command" else info.front_matter.get("tools"))
+    if info.stem not in {"implementer", "tasklist-refiner"}:
+        return []
+    tools = _normalize_tool_list(info.front_matter.get("tools"))
     missing = [name for name in ("Read", "Write", "Edit") if name not in tools]
     if missing:
         return [f"{info.path}: missing required tools {missing}"]
     return []
 
 
-def validate_loop_discipline(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required: List[str] | None = None
-    for key, markers in LOOP_DISCIPLINE_HINTS.items():
-        if rel_path.endswith(key):
-            required = markers
-            break
-    if not required:
+def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
+    rel_path = _relative_prompt_path(info, root)
+    required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
+    if not required_fields:
         return []
-    body_lower = info.body.lower()
-    missing = [hint for hint in required if hint not in body_lower]
+    errors: List[str] = []
+    missing = [field for field in required_fields if field not in info.body]
     if missing:
-        return [f"{info.path}: missing loop discipline markers {missing}"]
+        errors.append(f"{info.path}: output contract missing fields {missing}")
+    return errors
+
+
+def _relative_prompt_path(info: PromptFile, root: Path) -> str:
+    try:
+        return info.path.relative_to(root).as_posix()
+    except ValueError:
+        return info.path.as_posix()
+
+
+def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
+    errors: List[str] = []
+    agents: Dict[str, PromptFile] = {}
+    agents_dir = root / "agents"
+    if not agents_dir.exists():
+        return [f"{agents_dir}: agents directory is missing"], agents
+
+    for path in sorted(agents_dir.glob("*.md")):
+        info, load_errors = read_prompt(path, "agent", "ru")
+        if load_errors:
+            errors.extend(load_errors)
+            continue
+        if info is None:
+            continue
+        agents[info.stem] = info
+        errors.extend(
+            ensure_keys(
+                info,
+                [
+                    "name",
+                    "description",
+                    "lang",
+                    "prompt_version",
+                    "source_version",
+                    "tools",
+                    "permissionMode",
+                    "skills",
+                ],
+            )
+        )
+        errors.extend(ensure_sections(info, AGENT_REQUIRED_SECTIONS))
+        errors.extend(validate_statuses(info))
+        errors.extend(validate_placeholders(info))
+        errors.extend(validate_checkbox_guidance(info))
+        errors.extend(validate_tool_mentions(info))
+        errors.extend(validate_plugin_asset_mentions(info, root))
+        errors.extend(validate_required_write_tools(info))
+
+        if "Output follows aidd-core skill" not in info.body:
+            errors.append(f"{info.path}: missing anchor line 'Output follows aidd-core skill'")
+
+        skills = _normalize_tool_list(info.front_matter.get("skills"))
+        if "feature-dev-aidd:aidd-core" not in skills:
+            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-core")
+        if info.stem in {"implementer", "reviewer", "qa"} and "feature-dev-aidd:aidd-loop" not in skills:
+            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-loop")
+
+        version = _as_string(info.front_matter.get("prompt_version"))
+        if version and not PROMPT_VERSION_RE.match(version):
+            errors.append(f"{info.path}: prompt_version `{version}` must match X.Y.Z")
+        source_version = _as_string(info.front_matter.get("source_version"))
+        if source_version and not PROMPT_VERSION_RE.match(source_version):
+            errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
+
+    return errors, agents
+
+
+def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
+    errors: List[str] = []
+    skills_root = root / "skills"
+    if not skills_root.exists():
+        return [f"{skills_root}: skills directory is missing"]
+
+    if not (root / POLICY_DOC).exists():
+        errors.append(f"{root / POLICY_DOC}: missing skill language policy doc")
+
+    baseline = None
+    baseline_path = root / BASELINE_JSON
+    if baseline_path.exists():
+        try:
+            baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{baseline_path}: invalid JSON ({exc})")
+    else:
+        errors.append(f"{baseline_path}: missing baseline for skills parity")
+
+    baseline_rows = {row["stage"]: row for row in (baseline or {}).get("rows", [])}
+
+    for path in sorted(skills_root.glob("*/SKILL.md")):
+        info, load_errors = read_prompt(path, "skill", "")
+        if load_errors:
+            errors.extend(load_errors)
+            continue
+        if info is None:
+            continue
+
+        if info.line_count > MAX_SKILL_LINES:
+            errors.append(
+                f"{info.path}: exceeds max skill length ({info.line_count} > {MAX_SKILL_LINES} lines)"
+            )
+
+        raw_text = path.read_text(encoding="utf-8")
+        if CYRILLIC_RE.search(raw_text):
+            errors.append(f"{info.path}: skills must be EN-only (Cyrillic detected)")
+
+        errors.extend(validate_statuses(info))
+        errors.extend(validate_placeholders(info))
+        errors.extend(validate_tool_mentions(info))
+        errors.extend(validate_plugin_asset_mentions(info, root))
+        errors.extend(validate_output_contract(info, root))
+
+        name = _as_string(info.front_matter.get("name"))
+        if name and name != path.parent.name:
+            errors.append(f"{info.path}: front matter name `{name}` does not match directory `{path.parent.name}`")
+
+        lang = _as_string(info.front_matter.get("lang"))
+        if lang and lang not in VALID_LANGS:
+            errors.append(f"{info.path}: unsupported lang `{lang}`")
+
+        model = _as_string(info.front_matter.get("model"))
+        if model and model != "inherit":
+            errors.append(f"{info.path}: model must be inherit")
+
+        if path.parent.name in PRELOADED_SKILLS:
+            errors.extend(
+                ensure_keys(
+                    info,
+                    [
+                        "name",
+                        "description",
+                        "lang",
+                        "model",
+                        "user-invocable",
+                    ],
+                )
+            )
+
+        user_invocable_raw = info.front_matter.get("user-invocable")
+        user_invocable = _as_string(user_invocable_raw)
+        if user_invocable_raw is None:
+            errors.append(f"{info.path}: missing `user-invocable` in front matter")
+        if path.parent.name in PRELOADED_SKILLS:
+            if user_invocable != "false":
+                errors.append(f"{info.path}: preloaded skills must be user-invocable: false")
+        else:
+            if user_invocable != "true":
+                errors.append(f"{info.path}: stage skills must be user-invocable: true")
+
+        disable_invocation = _as_string(info.front_matter.get("disable-model-invocation"))
+        if path.parent.name in PRELOADED_SKILLS:
+            if disable_invocation == "true":
+                errors.append(f"{info.path}: preloaded skills must not set disable-model-invocation: true")
+        elif path.parent.name == "status":
+            if disable_invocation != "false":
+                errors.append(f"{info.path}: status must set disable-model-invocation: false")
+        else:
+            if disable_invocation != "true":
+                errors.append(f"{info.path}: stage skills must set disable-model-invocation: true")
+
+        # stage skill requirements
+        if path.parent.name in STAGE_SKILLS:
+            errors.extend(
+                ensure_keys(
+                    info,
+                    [
+                        "name",
+                        "description",
+                        "argument-hint",
+                        "lang",
+                        "prompt_version",
+                        "source_version",
+                        "allowed-tools",
+                        "model",
+                    ],
+                )
+            )
+            version = _as_string(info.front_matter.get("prompt_version"))
+            if version and not PROMPT_VERSION_RE.match(version):
+                errors.append(f"{info.path}: prompt_version `{version}` must match X.Y.Z")
+            source_version = _as_string(info.front_matter.get("source_version"))
+            if source_version and not PROMPT_VERSION_RE.match(source_version):
+                errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
+
+            if "feature-dev-aidd:aidd-core" not in info.body:
+                errors.append(f"{info.path}: missing reference to feature-dev-aidd:aidd-core")
+            if path.parent.name in {"implement", "review", "qa"} and "feature-dev-aidd:aidd-loop" not in info.body:
+                errors.append(f"{info.path}: missing reference to feature-dev-aidd:aidd-loop")
+
+            if path.parent.name in {"implement", "review", "qa"}:
+                body_lower = info.body.lower()
+                if "preflight.sh" not in body_lower:
+                    errors.append(f"{info.path}: missing preflight.sh reference")
+                if "postflight.sh" not in body_lower:
+                    errors.append(f"{info.path}: missing postflight.sh reference")
+                if "fill actions.json" not in body_lower:
+                    errors.append(f"{info.path}: missing 'Fill actions.json' step")
+
+            context = _as_string(info.front_matter.get("context"))
+            agent = _as_string(info.front_matter.get("agent"))
+            if path.parent.name in FORK_STAGES:
+                if context != "fork":
+                    errors.append(f"{info.path}: fork stages must set context: fork")
+                if not agent:
+                    errors.append(f"{info.path}: fork stages must set agent")
+                elif agent not in agent_ids:
+                    errors.append(f"{info.path}: agent `{agent}` not found in agents/")
+            else:
+                if context == "fork":
+                    errors.append(f"{info.path}: context: fork is only allowed for {sorted(FORK_STAGES)}")
+                if agent:
+                    errors.append(f"{info.path}: agent field is only allowed for fork stages")
+
+            # parity check against baseline
+            row = baseline_rows.get(path.parent.name)
+            if row:
+                baseline_fm = row.get("frontmatter", {})
+                skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+                baseline_tools = list(baseline_fm.get("allowed-tools") or [])
+                if skill_tools != baseline_tools:
+                    errors.append(f"{info.path}: allowed-tools does not match baseline")
+                for key in ("model", "prompt_version", "source_version", "lang", "argument-hint"):
+                    current = _as_string(info.front_matter.get(key))
+                    expected = baseline_fm.get(key)
+                    if current != expected:
+                        errors.append(f"{info.path}: `{key}` does not match baseline ({current!r} != {expected!r})")
+            else:
+                errors.append(f"{info.path}: missing baseline entry for stage {path.parent.name}")
+
+    # required stage skills
+    for stage in STAGE_SKILLS:
+        path = skills_root / stage / "SKILL.md"
+        if not path.exists():
+            errors.append(f"{path}: missing stage skill")
+
+    # support files depth <= 1
+    for skill_dir in sorted(skills_root.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        for file in skill_dir.rglob("*"):
+            if not file.is_file():
+                continue
+            if file.name == "SKILL.md":
+                continue
+            rel = file.relative_to(skill_dir)
+            parts = rel.parts
+            if len(parts) != 2 or parts[0] not in ALLOWED_SUPPORT_DIRS:
+                errors.append(
+                    f"{file}: supporting files must be under one of {sorted(ALLOWED_SUPPORT_DIRS)} with depth <= 1"
+                )
+
+    # preloaded size limit
+    for skill in PRELOADED_SKILLS:
+        skill_dir = skills_root / skill
+        if not skill_dir.exists():
+            errors.append(f"{skill_dir}: missing preloaded skill directory")
+            continue
+        total = sum(p.stat().st_size for p in skill_dir.rglob("*") if p.is_file())
+        if total > PRELOADED_SIZE_LIMIT_BYTES:
+            errors.append(
+                f"{skill_dir}: preloaded skill size {total} exceeds limit {PRELOADED_SIZE_LIMIT_BYTES} bytes"
+            )
+
+    return errors
+
+
+def validate_commands_deprecated(root: Path) -> List[str]:
+    commands_dir = root / "commands"
+    if not commands_dir.exists():
+        return []
+    stage_files = [p for p in commands_dir.glob("*.md")]
+    if stage_files:
+        names = ", ".join(sorted(p.name for p in stage_files))
+        return [f"{commands_dir}: stage entrypoints must not live in commands/ ({names})"]
     return []
 
 
-def validate_loop_no_questions(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required: List[str] | None = None
-    for key, markers in LOOP_NO_QUESTIONS_HINTS.items():
-        if rel_path.endswith(key):
-            required = markers
-            break
-    if not required:
-        return []
-    body_lower = info.body.lower()
-    missing = [hint for hint in required if hint not in body_lower]
-    if missing:
-        return [f"{info.path}: missing loop no-questions markers {missing}"]
-    return []
+def validate_template_artifacts(root: Path) -> List[str]:
+    template_root = root / "templates" / "aidd"
+    errors: List[str] = []
+    critical = [
+        "AGENTS.md",
+        "docs/prompting/conventions.md",
+        "reports/context/template.context-pack.md",
+        "docs/loops/template.loop-pack.md",
+        "docs/prd/template.md",
+        "docs/plan/template.md",
+        "docs/research/template.md",
+        "docs/tasklist/template.md",
+    ]
+    for rel in critical:
+        rel_path = rel
+        if rel_path.startswith("aidd/"):
+            rel_path = rel_path[len("aidd/") :]
+        target = template_root / rel_path
+        if not target.exists():
+            errors.append(f"{target}: missing critical template artifact")
+    return errors
 
 
-def validate_parallel_paths(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required: List[str] | None = None
-    for key, markers in PARALLEL_PATH_HINTS.items():
-        if rel_path.endswith(key):
-            required = markers
-            break
-    if not required:
-        return []
-    missing = [hint for hint in required if hint not in info.body]
-    if missing:
-        return [f"{info.path}: missing parallel path markers {missing}"]
-    return []
-
-
-def validate_granularity_policy(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required: List[str] | None = None
-    for key, markers in GRANULARITY_HINTS.items():
-        if rel_path.endswith(key):
-            required = markers
-            break
-    if not required:
-        return []
-    body_lower = info.body.lower()
-    missing = [hint for hint in required if hint not in body_lower]
-    if missing:
-        return [f"{info.path}: missing granularity policy markers {missing}"]
-    return []
-
-
-def validate_review_pack_order(info: PromptFile) -> List[str]:
-    rel_path = info.path.as_posix()
-    required: List[str] | None = None
-    for key, markers in REVIEW_PACK_ORDER_HINTS.items():
-        if rel_path.endswith(key):
-            required = markers
-            break
-    if not required:
-        return []
-    body_lower = info.body.lower()
-    missing = [hint for hint in required if hint not in body_lower]
-    if missing:
-        return [f"{info.path}: missing review pack order markers {missing}"]
-    return []
-
-
-def validate_plugin_manifest(root: Path) -> List[str]:
+def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expected: List[str]) -> List[str]:
     manifest_path = root / ".claude-plugin" / "plugin.json"
     if not manifest_path.exists():
         return [f"{manifest_path}: plugin manifest is missing"]
@@ -739,28 +671,8 @@ def validate_plugin_manifest(root: Path) -> List[str]:
         return [f"{manifest_path}: invalid JSON ({exc})"]
 
     errors: List[str] = []
-    for key in ("commands", "agents", "hooks"):
-        entries = payload.get(key)
-        if not entries:
-            continue
-        if isinstance(entries, str):
-            entries = [entries]
-        if not isinstance(entries, list):
-            errors.append(f"{manifest_path}: `{key}` must be a string or list of strings")
-            continue
-        for entry in entries:
-            if not isinstance(entry, str):
-                errors.append(f"{manifest_path}: `{key}` entry must be a string")
-                continue
-            if not entry.startswith("./"):
-                errors.append(f"{manifest_path}: `{key}` path must start with ./ ({entry})")
-            if ".." in Path(entry).parts:
-                errors.append(f"{manifest_path}: `{key}` path must not contain .. ({entry})")
-            rel = entry[2:] if entry.startswith("./") else entry
-            if rel and not (root / rel).exists():
-                errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
 
-    def _normalize_manifest_entries(raw) -> List[str]:
+    def _normalize_entries(raw) -> List[str]:
         if raw is None:
             return []
         if isinstance(raw, str):
@@ -776,104 +688,31 @@ def validate_plugin_manifest(root: Path) -> List[str]:
                 normalized.append(value)
         return sorted(set(normalized))
 
-    def _expected_entries(directory: Path, prefix: str) -> List[str]:
-        if not directory.exists():
-            return []
-        return sorted(
-            f"./{prefix}/{path.name}"
-            for path in directory.glob("*.md")
-            if path.is_file()
-        )
-
-    expected_commands = _expected_entries(root / "commands", "commands")
-    expected_agents = _expected_entries(root / "agents", "agents")
-    manifest_commands = _normalize_manifest_entries(payload.get("commands"))
-    manifest_agents = _normalize_manifest_entries(payload.get("agents"))
-    if manifest_commands:
-        missing = [item for item in expected_commands if item not in manifest_commands]
-        extra = [item for item in manifest_commands if item not in expected_commands]
-        if missing:
-            errors.append(f"{manifest_path}: commands missing entries {missing}")
-        if extra:
-            errors.append(f"{manifest_path}: commands has extra entries {extra}")
-    if manifest_agents:
-        missing = [item for item in expected_agents if item not in manifest_agents]
-        extra = [item for item in manifest_agents if item not in expected_agents]
-        if missing:
-            errors.append(f"{manifest_path}: agents missing entries {missing}")
-        if extra:
-            errors.append(f"{manifest_path}: agents has extra entries {extra}")
-
-    return errors
-
-
-def validate_template_artifacts(root: Path) -> List[str]:
-    template_root = root / "templates" / "aidd"
-    errors: List[str] = []
-    for rel in CRITICAL_TEMPLATE_ARTIFACTS:
-        rel_path = rel
-        if rel_path.startswith("aidd/"):
-            rel_path = rel_path[len("aidd/") :]
-        target = template_root / rel_path
-        if not target.exists():
-            errors.append(f"{target}: missing critical template artifact")
-    return errors
-
-
-def lint_prompts(root: Path) -> Tuple[List[str], Dict[str, Dict[str, Dict[str, PromptFile]]]]:
-    errors: List[str] = []
-    files: Dict[str, Dict[str, Dict[str, PromptFile]]] = {
-        lang: {"agent": {}, "command": {}} for lang in LANG_PATHS
-    }
-    for lang, kinds in LANG_PATHS.items():
-        for kind, directories in kinds.items():
-            for rel_dir in directories:
-                directory = root / rel_dir
-                if not directory.exists():
-                    continue
-                for path in sorted(directory.glob("*.md")):
-                    info, load_errors = read_prompt(path, kind, lang)
-                    if load_errors:
-                        errors.extend(load_errors)
-                        continue
-                    if info is None:
-                        continue
-                    files.setdefault(lang, {}).setdefault(kind, {})[info.stem] = info
-                    errors.extend(validate_prompt(info, root))
-    errors.extend(validate_pairings(files))
-    errors.extend(validate_template_artifacts(root))
-    errors.extend(validate_plugin_manifest(root))
-    return errors, files
-
-
-def validate_pairings(files: Dict[str, Dict[str, Dict[str, PromptFile]]]) -> List[str]:
-    errors: List[str] = []
-    kinds = files.get("ru", {})
-    agents = kinds.get("agent", {})
-    commands = kinds.get("command", {})
-    for agent_name, command_name in PAIRINGS:
-        agent = agents.get(agent_name)
-        command = commands.get(command_name)
-        if agent is None:
-            errors.append(
-                f"agents/{agent_name}.md: missing agent for `{command_name}` (or aidd/agents/{agent_name}.md)"
-            )
-        if command is None:
-            errors.append(
-                f"commands/{command_name}.md: missing command for `{agent_name}` (or aidd/commands/{command_name}.md)"
-            )
-        if agent and command:
-            if agent.front_matter.get("prompt_version") != command.front_matter.get("prompt_version"):
-                errors.append(
-                    f"Pair {agent_name}/{command_name}: prompt_version mismatch `{agent.front_matter.get('prompt_version')}` vs `{command.front_matter.get('prompt_version')}`"
-                )
-            agent_tools = set(_normalize_tool_list(agent.front_matter.get("tools")))
-            command_tools = set(_normalize_tool_list(command.front_matter.get("allowed-tools")))
-            missing = sorted(agent_tools - command_tools)
+    def _validate_list(key: str, expected: List[str]) -> None:
+        raw = payload.get(key)
+        entries = _normalize_entries(raw)
+        if raw is None:
+            errors.append(f"{manifest_path}: `{key}` is missing")
+            return
+        if entries:
+            missing = [item for item in expected if item not in entries]
+            extra = [item for item in entries if item not in expected]
             if missing:
-                errors.append(
-                    f"Pair {agent_name}/{command_name}: allowed-tools missing {missing}"
-                )
+                errors.append(f"{manifest_path}: {key} missing entries {missing}")
+            if extra:
+                errors.append(f"{manifest_path}: {key} has extra entries {extra}")
+        for entry in entries:
+            if not entry.startswith("./"):
+                errors.append(f"{manifest_path}: `{key}` path must start with ./ ({entry})")
+            if ".." in Path(entry).parts:
+                errors.append(f"{manifest_path}: `{key}` path must not contain .. ({entry})")
+            rel = entry[2:] if entry.startswith("./") else entry
+            if rel and not (root / rel).exists():
+                errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
+
+    _validate_list("skills", skills_expected)
+    _validate_list("agents", agents_expected)
+
     return errors
 
 
@@ -915,8 +754,23 @@ def main() -> int:
     if not root.exists():
         print(f"[prompt-lint] root {root} does not exist", file=sys.stderr)
         return 1
-    errors, _ = lint_prompts(root)
+
+    errors: List[str] = []
+    agent_errors, agent_files = lint_agents(root)
+    errors.extend(agent_errors)
+    agent_ids = {info.front_matter.get("name", info.stem) for info in agent_files.values()}
+
+    errors.extend(lint_skills(root, {str(x) for x in agent_ids if x}))
+    errors.extend(validate_commands_deprecated(root))
+    errors.extend(validate_template_artifacts(root))
+
+    skills_expected = sorted(
+        f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
+    )
+    agents_expected = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
+    errors.extend(validate_plugin_manifest(root, skills_expected, agents_expected))
     errors.extend(validate_index_schema(root))
+
     if errors:
         for msg in errors:
             print(f"[prompt-lint] {msg}", file=sys.stderr)
@@ -925,5 +779,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())

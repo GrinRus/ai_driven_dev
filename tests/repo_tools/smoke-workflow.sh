@@ -2,6 +2,7 @@
 # Smoke scenario for the Claude workflow bootstrap.
 # This script is executed directly via tests/repo_tools/smoke-workflow.sh.
 # Creates a temporary project, runs init script, mimics the idea→plan→review-spec→spec-interview→tasks cycle,
+# then performs a minimal loop (tasks → implement → review → qa) via CLI tools,
 # and asserts that gate-workflow blocks/permits source edits as expected.
 set -euo pipefail
 
@@ -833,6 +834,16 @@ if ! progress_handoff="$(run_cli progress --ticket "$TICKET" --source handoff --
   exit 1
 fi
 
+log "minimal loop: create loop packs"
+run_cli set-active-stage implement >/dev/null
+run_cli loop-pack --ticket "$TICKET" --stage implement >/dev/null
+[[ -f "reports/loops/${TICKET}/iteration_id_I1.loop.pack.md" ]] || {
+  echo "[smoke] loop-pack (implement) did not create pack" >&2
+  exit 1
+}
+run_cli set-active-stage review >/dev/null
+run_cli loop-pack --ticket "$TICKET" --stage review >/dev/null
+
 log "create review report and derive handoff tasks"
 cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
 [
@@ -844,7 +855,12 @@ cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
   }
 ]
 JSON
-run_cli review-report --ticket "$TICKET" --work-item-key "$TICKET" --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
+run_cli review-report --ticket "$TICKET" --work-item-key "iteration_id=I1" --findings-file "reports/reviewer/${TICKET}-findings.json" --status warn >/dev/null
+run_cli review-pack --ticket "$TICKET" >/dev/null
+[[ -f "reports/loops/${TICKET}/iteration_id_I1/review.latest.pack.md" ]] || {
+  echo "[smoke] review-pack did not create pack" >&2
+  exit 1
+}
 run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
 run_cli tasks-derive --source review --ticket "$TICKET" --append >/dev/null
 grep -q "handoff:review" "docs/tasklist/${TICKET}.md" || {

@@ -17,18 +17,13 @@ require_rg() {
   fi
 }
 
-require_rg "n/a" "${ROOT_DIR}/commands/implement.md"
-require_rg "n/a" "${ROOT_DIR}/commands/review.md"
-require_rg "n/a" "${ROOT_DIR}/commands/qa.md"
-
-require_rg "sync_drift_warn" "${ROOT_DIR}/commands/review.md"
-require_rg "sync_drift_warn" "${ROOT_DIR}/commands/qa.md"
-
-require_rg "stage_result" "${ROOT_DIR}/commands/review.md"
-require_rg "review report" "${ROOT_DIR}/commands/review.md"
-require_rg "review pack" "${ROOT_DIR}/commands/review.md"
-
-require_rg "stage_result" "${ROOT_DIR}/commands/qa.md"
-require_rg "qa report" "${ROOT_DIR}/commands/qa.md"
+core_skill="${ROOT_DIR}/skills/aidd-core/SKILL.md"
+require_rg "Status:" "$core_skill"
+require_rg "Work item key:" "$core_skill"
+require_rg "Artifacts updated:" "$core_skill"
+require_rg "Tests:" "$core_skill"
+require_rg "Blockers/Handoff:" "$core_skill"
+require_rg "Next actions:" "$core_skill"
+require_rg "AIDD:READ_LOG:" "$core_skill"
 
 exit "$STATUS"
