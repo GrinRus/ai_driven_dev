@@ -83,7 +83,7 @@ INDEX_REQUIRED_FIELDS = [
 ]
 
 POLICY_DOC = Path("docs/skill-language.md")
-BASELINE_JSON = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
 
 
 @dataclass

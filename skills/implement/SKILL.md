@@ -3,13 +3,16 @@ name: implement
 description: Implement the next work item with loop discipline.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru
-prompt_version: 1.1.39
-source_version: 1.1.39
+prompt_version: 1.1.40
+source_version: 1.1.40
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/preflight.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/run.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/postflight.sh:*)"
   - "Bash(rg:*)"
   - "Bash(sed:*)"
   - "Bash(cat:*)"
@@ -53,8 +56,8 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 1. Preflight reference: `skills/implement/scripts/preflight.sh`. Ensure active feature/stage, PRD gate, and loop pack are ready.
 2. Use the existing rolling context pack; do not regenerate it in loop mode.
 3. Run subagent `feature-dev-aidd:implementer` (fork). First action: loop pack -> review pack (if any) -> rolling context pack.
-4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json` from template and validate schema before postflight.
-5. Postflight reference: `skills/implement/scripts/postflight.sh`. Run boundary check, progress check, stage-result, status-summary.
+4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json` from template and validate schema via `skills/implement/scripts/run.sh`.
+5. Postflight reference: `skills/implement/scripts/postflight.sh`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
 
 ## Notes
 - Implement stage does not run tests; format-only is allowed.

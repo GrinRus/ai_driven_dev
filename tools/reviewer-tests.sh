@@ -1,27 +1,11 @@
-#!/usr/bin/env python3
-from __future__ import annotations
+#!/usr/bin/env bash
+set -euo pipefail
 
-import os
-import sys
-from pathlib import Path
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [[ -z "$PLUGIN_ROOT" ]]; then
+  PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+fi
 
-
-def _bootstrap() -> None:
-    raw = os.environ.get("CLAUDE_PLUGIN_ROOT")
-    if raw:
-        plugin_root = Path(raw).expanduser().resolve()
-    else:
-        plugin_root = Path(__file__).resolve().parent.parent
-        os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
-    if str(plugin_root) not in sys.path:
-        sys.path.insert(0, str(plugin_root))
-
-
-def main() -> int:
-    _bootstrap()
-    from tools import reviewer_tests as tools_module
-
-    return tools_module.main(sys.argv[1:])
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh" >&2
+exec "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh" "$@"
