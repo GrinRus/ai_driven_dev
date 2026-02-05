@@ -449,7 +449,7 @@ _Статус: новый, приоритет 1. Цель — вынести к�
   - сделать baseline‑отчёт (md+json), фиксирующий для каждого stage:
     - `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`, `argument-hint`;
     - связь “legacy command → stage skill”.
-  - хранить как артефакт (например, `aidd/reports/migrations/commands_to_skills_frontmatter.{md,json}`).
+  - хранить как артефакт (например, `dev/reports/migrations/commands_to_skills_frontmatter.{md,json}`).
   **AC:** baseline существует и используется для паритетной проверки frontmatter.
   **Deps:** W91-0
 
