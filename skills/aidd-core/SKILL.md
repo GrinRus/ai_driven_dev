@@ -29,6 +29,7 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 
 ## Actions log
 - Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.
+- Status is read-only: reference the most recent actions log without modifying it.
 - Planning stages may use `AIDD:ACTIONS_LOG: n/a`.
 
 ## Question format
