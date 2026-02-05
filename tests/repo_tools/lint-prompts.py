@@ -597,7 +597,7 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         if not path.exists():
             errors.append(f"{path}: missing stage skill")
 
-    # support files depth <= 1
+    # support files depth <= 1 (root-level files allowed; subdirs limited)
     for skill_dir in sorted(skills_root.iterdir()):
         if not skill_dir.is_dir():
             continue
@@ -608,9 +608,18 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
                 continue
             rel = file.relative_to(skill_dir)
             parts = rel.parts
-            if len(parts) != 2 or parts[0] not in ALLOWED_SUPPORT_DIRS:
+            if len(parts) == 1:
+                continue
+            if len(parts) == 2 and parts[0] in ALLOWED_SUPPORT_DIRS:
+                continue
+            if len(parts) > 2:
                 errors.append(
-                    f"{file}: supporting files must be under one of {sorted(ALLOWED_SUPPORT_DIRS)} with depth <= 1"
+                    f"{file}: supporting files must be depth <= 1 (root-level or {sorted(ALLOWED_SUPPORT_DIRS)})"
+                )
+                continue
+            if parts[0] not in ALLOWED_SUPPORT_DIRS:
+                errors.append(
+                    f"{file}: supporting files must be root-level or under {sorted(ALLOWED_SUPPORT_DIRS)}"
                 )
 
     # preloaded size limit
