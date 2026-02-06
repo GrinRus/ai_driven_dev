@@ -206,7 +206,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
         label = value or "empty"
         return f"WARN: некорректный статус reviewer marker ({label}). Используйте required|optional|skipped."
     if value in required_values:
-        return f"WARN: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов."
+        return f"BLOCK: reviewer запросил тесты ({marker_path}). Запустите format-and-test или обновите маркер после прогонов."
     return ""
 
 
@@ -241,29 +241,13 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
 
     def research_requires_handoff(report_path: Path) -> bool:
         try:
-            from tools import tasks_derive
-        except Exception:
-            return True
-
-        try:
             payload = json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:
             return True
-
-        rlm_path = root / "reports" / "research" / f"{ticket}-rlm.pack.json"
-        if rlm_path.exists():
-            try:
-                rlm_payload = json.loads(rlm_path.read_text(encoding="utf-8"))
-            except Exception:
-                rlm_payload = {}
-            label = marker_for(rlm_path)
-            blocks = tasks_derive._derive_tasks_from_rlm_pack(rlm_payload, label)
-        else:
-            label = marker_for(report_path)
-            blocks = tasks_derive._derive_tasks_from_research_context(payload, label)
-        blocks = tasks_derive._dedupe_task_blocks(blocks)
-        blocks = tasks_derive._filter_research_handoff_blocks(blocks)
-        return bool(blocks)
+        status = str(payload.get("status") or "").strip().lower()
+        if status in {"pending", "draft"}:
+            return False
+        return True
 
     reports: list[tuple[str, Path, str]] = []
     qa_template = None
@@ -291,19 +275,13 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
 
     research_path = resolve_report(root / "reports" / "research" / f"{ticket}-context.json")
     if research_path and research_requires_handoff(research_path):
-        rlm_marker_path = root / "reports" / "research" / f"{ticket}-rlm.pack.json"
-        marker_path = rlm_marker_path if rlm_marker_path.exists() else research_path
-        reports.append(("research", research_path, marker_for(marker_path)))
+        reports.append(("research", research_path, marker_for(research_path)))
 
     reviewer_cfg = config.get("reviewer") or {}
-    review_template = (
-        reviewer_cfg.get("marker")
-        or reviewer_cfg.get("tests_marker")
-        or "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json"
-    )
     try:
         from tools import runtime as _runtime
 
+        review_template = _runtime.review_report_template(root)
         work_item_key = _runtime.read_active_work_item(root)
         scope_key = _runtime.resolve_scope_key(work_item_key, ticket)
         review_path = _runtime.reviewer_marker_path(
@@ -314,12 +292,18 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
             scope_key=scope_key,
         )
     except Exception:
-        raw_scope = ""
+        review_template = (
+            reviewer_cfg.get("review_report")
+            or reviewer_cfg.get("report")
+            or "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+        )
+        raw_scope = ticket or ""
         try:
-            raw_scope = _runtime.read_active_work_item(root)
-        except OSError:
-            raw_scope = ""
-        raw_scope = raw_scope or ticket or ""
+            state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            if isinstance(state, dict):
+                raw_scope = str(state.get("work_item") or raw_scope)
+        except Exception:
+            pass
         cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
         raw_path = (
             str(review_template)
@@ -376,7 +360,14 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     for name, report_path, marker in reports:
         marker_lower = marker.lower()
         alt_marker = marker_lower.replace("aidd/", "")
-        if marker_lower not in text and alt_marker not in text:
+        source_hint = f"source: {name.lower()}"
+        section_hint = f"handoff:{name.lower()}"
+        if (
+            marker_lower not in text
+            and alt_marker not in text
+            and source_hint not in text
+            and section_hint not in text
+        ):
             missing.append((name, marker))
     if missing:
         items = ", ".join(f"{name}: {marker}" for name, marker in missing)
@@ -546,6 +537,9 @@ def main() -> int:
 
         reviewer_notice = _reviewer_notice(root, ticket, slug_hint)
         if reviewer_notice:
+            if reviewer_notice.startswith("BLOCK:"):
+                _log_stderr(reviewer_notice)
+                return 2
             _log_stdout(reviewer_notice)
 
         handoff_msg = _handoff_block(root, ticket, slug_hint, current_branch, tasklist_path)
@@ -567,6 +561,12 @@ def main() -> int:
                 _log_stderr(progress_result.message)
             else:
                 _log_stderr("BLOCK: tasklist не обновлён — отметьте завершённые чекбоксы перед продолжением.")
+            return 2
+        if progress_result.status == "skip:no-git" and active_stage in {"review", "qa"}:
+            message = progress_result.message or "BLOCK: прогресс не может быть проверен без Git."
+            if not message.startswith("BLOCK:"):
+                message = f"BLOCK: {message}"
+            _log_stderr(message)
             return 2
         if progress_result.message:
             _log_stdout(progress_result.message)

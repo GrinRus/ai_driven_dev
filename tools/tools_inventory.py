@@ -16,6 +16,24 @@ from tools.io_utils import utc_timestamp
 
 TOOL_PATTERN = re.compile(r"tools/([A-Za-z0-9_.-]+\.sh)")
 SCAN_DIRS = ("commands", "agents", "hooks", "tests")
+EXCLUDED_DIRS = {
+    "__pycache__",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "node_modules",
+    "venv",
+}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
+
+
+def _should_skip_path(path: Path) -> bool:
+    if path.suffix.lower() in EXCLUDED_SUFFIXES:
+        return True
+    return any(part in EXCLUDED_DIRS for part in path.parts)
 
 
 def _collect_tool_scripts(repo_root: Path) -> List[str]:
@@ -32,6 +50,8 @@ def _scan_consumers(repo_root: Path, tool_names: Iterable[str]) -> Dict[str, Lis
             continue
         for path in base.rglob("*"):
             if not path.is_file():
+                continue
+            if _should_skip_path(path):
                 continue
             try:
                 text = path.read_text(encoding="utf-8", errors="ignore")

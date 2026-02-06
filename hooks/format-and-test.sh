@@ -576,6 +576,9 @@ def collect_changed_files(base: Path) -> List[str]:
     )
     if proc.returncode == 0:
         files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only", "HEAD"]))
+    else:
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
 
     # untracked
     files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
@@ -778,6 +781,8 @@ def docs_only(files: List[str], *, aidd_root: bool) -> bool:
         return False
     for path in files:
         normalized = normalize_service_path(path)
+        if normalized == "settings.json":
+            continue
         if aidd_root:
             if not normalized.startswith(DOCS_PREFIX):
                 return False
@@ -945,6 +950,7 @@ def main() -> int:
     profile_file = policy_env.get("AIDD_TEST_PROFILE")
     profile_default_env = os.environ.get("AIDD_TEST_PROFILE_DEFAULT")
     explicit_profile_raw = (profile_env or profile_file or "").strip()
+    explicit_profile_requested = bool(explicit_profile_raw)
     profile_source = "default"
     if profile_env:
         profile_raw = profile_env
@@ -1012,7 +1018,16 @@ def main() -> int:
 
     if stage_policy:
         policy_active = True
-        if stage_policy == "none":
+        if explicit_profile_requested:
+            if stage_policy == "targeted" and test_profile == "fast":
+                log(f"Stage policy ({stage_value}) → profile=targeted (fast upgraded).")
+                test_profile = "targeted"
+                profile_source = "stage-policy"
+            else:
+                log(
+                    f"Stage policy ({stage_value}) оставляет явный профиль {test_profile} (source: {profile_source})."
+                )
+        elif stage_policy == "none":
             if test_profile != "none":
                 log(f"Stage policy ({stage_value}) запрещает тесты — используем profile=none.")
             test_profile = "none"
@@ -1159,7 +1174,7 @@ def main() -> int:
     if cadence == "checkpoint":
         log(f"Test cadence: checkpoint (triggers: {', '.join(checkpoint_triggers)})")
         if checkpoint_active:
-            log(f"Checkpoint trigger detected ({checkpoint_reason}).")
+            log(f"checkpoint trigger активен ({checkpoint_reason}).")
     elif cadence == "manual":
         log("Test cadence: manual (cadence=manual)")
 
@@ -1298,7 +1313,7 @@ def main() -> int:
         except Exception:
             return
 
-    if docs_only(changed_files, aidd_root=aidd_root):
+    if docs_only(changed_files, aidd_root=aidd_root) and not active_ticket:
         log("Изменения только в docs — форматирование/тесты пропущены.")
         record_event("skipped", "docs-only")
         record_tests_log(

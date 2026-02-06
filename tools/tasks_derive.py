@@ -15,7 +15,7 @@ from tools import runtime
 _TASK_ID_RE = re.compile(r"\bid:\s*([A-Za-z0-9_.:-]+)")
 _TASK_ID_SIGNATURE_RE = re.compile(r"(,?\s*id:\s*[A-Za-z0-9_.:-]+)")
 _TASK_START_RE = re.compile(r"^\s*-\s*\[[ xX]\]")
-_FIELD_HEADER_RE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9 _-]*)\s*:")
+_FIELD_HEADER_RE = re.compile(r"^\s{2}-\s*([A-Za-z][A-Za-z0-9 _-]*)\s*:")
 _TASK_PRIORITY_RE = re.compile(r"\(Priority:\s*([^)]+)\)", re.IGNORECASE)
 _TASK_BLOCKING_RE = re.compile(r"\(Blocking:\s*(true|false)\)", re.IGNORECASE)
 _SOURCE_ALIASES = {"reviewer": "review"}
@@ -28,7 +28,7 @@ _PRIORITY_MAP = {
     "low": "low",
     "info": "low",
 }
-_PRESERVE_FIELDS = {"scope", "dod", "boundaries", "tests", "notes"}
+_PRESERVE_FIELDS = {"scope", "boundaries", "tests", "notes"}
 _RESEARCH_NON_ACTIONABLE_SCOPES = {"", "n/a", "na"}
 
 
@@ -239,6 +239,8 @@ def _derive_tasks_from_findings(prefix: str, payload: Dict, report_label: str) -
         test_profile = "targeted" if severity in {"blocker", "critical", "major"} else "fast"
         tag = f"{prefix} [{severity}]"
         full_title = f"{tag} {title}".strip()
+        if recommendation:
+            full_title = f"{full_title} — {recommendation}"
         dod = recommendation or details or f"See {report_label}"
         notes = details if recommendation and details and details != recommendation else ""
         spec = TaskSpec(
@@ -708,6 +710,60 @@ def _field_has_value(lines: Sequence[str]) -> bool:
     return False
 
 
+def _field_tokens(lines: Sequence[str]) -> List[str]:
+    tokens: List[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("-"):
+            stripped = stripped.lstrip("-").strip()
+        tokens.append(stripped.lower())
+    return tokens
+
+
+def _is_default_boundaries_field(lines: Sequence[str]) -> bool:
+    tokens = _field_tokens(lines)
+    if not tokens or tokens[0] != "boundaries:":
+        return False
+    body = tokens[1:]
+    return len(body) == 2 and set(body) == {"must-touch: []", "must-not-touch: []"}
+
+
+def _is_default_tests_field(lines: Sequence[str]) -> bool:
+    tokens = _field_tokens(lines)
+    if not tokens or tokens[0] != "tests:":
+        return False
+    profile_seen = 0
+    has_tasks = False
+    has_filters = False
+    for token in tokens[1:]:
+        if token.startswith("profile: "):
+            profile_seen += 1
+            continue
+        if token == "tasks: []":
+            has_tasks = True
+            continue
+        if token == "filters: []":
+            has_filters = True
+            continue
+        return False
+    return profile_seen == 1 and has_tasks and has_filters
+
+
+def _should_preserve_dod(existing_fields: Dict[str, List[str]]) -> bool:
+    notes_lines = existing_fields.get("notes")
+    if notes_lines and _field_has_value(notes_lines):
+        return True
+    boundaries_lines = existing_fields.get("boundaries")
+    if boundaries_lines and not _is_default_boundaries_field(boundaries_lines):
+        return True
+    tests_lines = existing_fields.get("tests")
+    if tests_lines and not _is_default_tests_field(tests_lines):
+        return True
+    return False
+
+
 def _merge_block_fields(existing_block: Sequence[str], new_block: Sequence[str]) -> List[str]:
     if not existing_block:
         return list(new_block)
@@ -722,6 +778,9 @@ def _merge_block_fields(existing_block: Sequence[str], new_block: Sequence[str])
         seen_keys.add(key)
         existing_lines = existing_map.get(key)
         if existing_lines and key in _PRESERVE_FIELDS and _field_has_value(existing_lines):
+            merged_fields.append(existing_lines)
+            continue
+        if key == "dod" and existing_lines and _field_has_value(existing_lines) and _should_preserve_dod(existing_map):
             merged_fields.append(existing_lines)
         else:
             merged_fields.append(lines)

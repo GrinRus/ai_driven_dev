@@ -12,6 +12,6 @@ dist/
 .idea/
 .vscode/
 /.claude/
-/aidd/
+/aidd
 aidd_test_flow_prompt_ralph_script.txt
 aidd_test_flow_prompt_ralph_script_legacy.txt
