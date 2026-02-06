@@ -400,6 +400,77 @@ def test_profile_full_uses_full_tasks(tmp_path):
     assert "Запуск тестов: /bin/echo full_task" in result.stderr
 
 
+def test_stage_policy_none_blocks_explicit_profile_without_force(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fullTasks": ["full_task"],
+                }
+            }
+        },
+    )
+    write_active_feature(project, "demo")
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "full"})
+
+    assert "Stage policy (implement) запрещает тесты — используем profile=none." in result.stderr
+    assert "Запуск тестов" not in result.stderr
+
+
+def test_stage_policy_none_allows_force_override(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    settings = write_settings(
+        project,
+        {
+            "automation": {
+                "tests": {
+                    "fullTasks": ["full_task"],
+                }
+            }
+        },
+    )
+    write_active_feature(project, "demo")
+    write_active_stage(project, "implement")
+    (project / "src").mkdir(parents=True, exist_ok=True)
+    (project / "src" / "main.py").write_text("print('ok')", encoding="utf-8")
+
+    result = run_hook(project, settings, env={"AIDD_TEST_PROFILE": "full", "AIDD_TEST_FORCE": "1"})
+
+    assert "AIDD_TEST_FORCE=1 overrides stage policy (implement)=none." in result.stderr
+    assert "Выбранные задачи тестов (full): full_task" in result.stderr
+    assert "Запуск тестов: /bin/echo full_task" in result.stderr
+
+
+def test_docs_only_ignores_only_active_settings_path(tmp_path):
+    project = tmp_path / "aidd"
+    project.mkdir(parents=True, exist_ok=True)
+    git_init(project)
+    base_settings = write_settings(project, {})
+    settings = project / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text(base_settings.read_text(encoding="utf-8"), encoding="utf-8")
+    base_settings.unlink()
+    write_active_stage(project, "review")
+    (project / "docs").mkdir(parents=True, exist_ok=True)
+    (project / "docs" / "guide.md").write_text("update", encoding="utf-8")
+    (project / "settings.json").write_text("project=true\n", encoding="utf-8")
+
+    result = run_hook(project, settings)
+
+    assert "Изменения только в docs — форматирование/тесты пропущены." not in result.stderr
+    assert "Запуск тестов" in result.stderr
+
+
 def test_profile_fast_uses_fast_tasks(tmp_path):
     project = tmp_path / "aidd"
     project.mkdir(parents=True, exist_ok=True)

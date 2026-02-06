@@ -538,9 +538,13 @@ def main() -> int:
         reviewer_notice = _reviewer_notice(root, ticket, slug_hint)
         if reviewer_notice:
             if reviewer_notice.startswith("BLOCK:"):
-                _log_stderr(reviewer_notice)
-                return 2
-            _log_stdout(reviewer_notice)
+                if active_stage == "implement":
+                    _log_stdout(reviewer_notice.replace("BLOCK:", "WARN:", 1))
+                else:
+                    _log_stderr(reviewer_notice)
+                    return 2
+            else:
+                _log_stdout(reviewer_notice)
 
         handoff_msg = _handoff_block(root, ticket, slug_hint, current_branch, tasklist_path)
         if handoff_msg:
