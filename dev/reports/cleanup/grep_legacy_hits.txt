@@ -1,0 +1,39 @@
+dev/repo_tools/upgrade_aidd_docs.py:2:"""Compatibility shim for legacy dev/repo_tools upgrade entrypoint."""
+dev/reports/cleanup/candidate_tools_no_consumers.json:70:        "./docs/legacy/commands/review.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh:*)\"",
+dev/reports/cleanup/candidate_tools_no_consumers.json:71:        "./docs/legacy/commands/review.md:55:- `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1` сохраняет отчёт ревью в `aidd/reports/reviewer/$1/<scope_key>.json`.",
+dev/reports/cleanup/candidate_tools_no_consumers.json:72:        "./docs/legacy/commands/review.md:86:10. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1 --findings-file \"aidd/reports/reviewer/$1/<scope_key>.findings.json\" --fix-plan-file \"aidd/reports/reviewer/$1/<scope_key>.fix_plan.json\"` (Fix Plan обязателен при REVISE)."
+dev/reports/cleanup/candidate_tools_no_consumers.json:81:        "./docs/legacy/commands/review.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh:*)\"",
+dev/reports/cleanup/candidate_tools_no_consumers.json:82:        "./docs/legacy/commands/review.md:56:- `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` создаёт `review.latest.pack.md` и `review.fix_plan.json` (при REVISE) для следующего implement (per scope_key).",
+dev/reports/cleanup/candidate_tools_no_consumers.json:83:        "./docs/legacy/commands/review.md:87:11. Команда (после subagent): собери review pack `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` и убедись, что `review.fix_plan.json` создан при REVISE (review-report авто‑синхронизирует pack при наличии loop-pack/work_item в `aidd/docs/.active.json`, но явный вызов остаётся обязательным)."
+dev/reports/cleanup/candidate_tools_no_consumers.json:105:        "./docs/legacy/commands/review-spec.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)\""
+dev/reports/cleanup/candidate_tools_no_consumers.json:115:        "./docs/legacy/commands/review.md:22:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh:*)\"",
+dev/reports/cleanup/candidate_tools_no_consumers.json:116:        "./docs/legacy/commands/review.md:70:- Рекомендуемый CLI: `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md --read-next \"<loop pack>\" --read-next \"<review pack if exists>\" --read-next \"<rolling context>\" --artefact-link \"<artifact: path>\" --what-to-do \"<review focus>\" --user-note \"$ARGUMENTS\"`."
+dev/reports/cleanup/candidate_tools_no_consumers.json:137:        "./docs/legacy/commands/idea-new.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)\"",
+dev/reports/cleanup/candidate_tools_no_consumers.json:138:        "./docs/legacy/commands/idea-new.md:44:- `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1` — проверка диалога/статуса после ответов."
+dev/reports/cleanup/candidate_tools_no_consumers.json:193:        "./docs/legacy/commands/implement.md:35:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)\""
+dev/reports/cleanup/logs/20260206T085635Z/smoke_workflow.log:61:[aidd] DEPRECATED: use /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/scripts/reviewer-tests.sh
+dev/reports/cleanup/logs/20260206T085635Z/smoke_workflow.log:85:[aidd] DEPRECATED: use /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/scripts/review-report.sh
+dev/reports/cleanup/logs/20260206T085635Z/smoke_workflow.log:86:[aidd] DEPRECATED: use /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/scripts/review-pack.sh
+dev/reports/cleanup/logs/20260206T085635Z/smoke_workflow.log:89:[aidd] DEPRECATED: use /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/scripts/reviewer-tests.sh
+dev/reports/cleanup/logs/20260206T085635Z/smoke_workflow.log:91:[aidd] DEPRECATED: use /Users/griogrii_riabov/grigorii_projects/ai_driven_dev/skills/review/scripts/reviewer-tests.sh
+skills/review/SKILL.md:51:- Legacy shim only: `context-pack.sh` exists for compatibility; do not use it in loop stage.
+dev/reports/migrations/commands_to_skills_frontmatter.md:3:Source: commands/*.md (legacy) -> skills/<stage>/SKILL.md
+dev/reports/cleanup/logs/20260206T085635Z/ci_lint.log:23:[info] running shim regression checks
+tools/reviewer-tests.sh:10:printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh" >&2
+tools/review-report.sh:10:printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh" >&2
+tools/reviewer_tests.py:87:    legacy_markers: list[Path] = []
+tools/reviewer_tests.py:88:    legacy_flat = runtime.resolve_path_for_target(Path(f"aidd/reports/reviewer/{ticket}.json"), target)
+tools/reviewer_tests.py:89:    legacy_markers.append(legacy_flat)
+tools/reviewer_tests.py:91:        legacy_markers.append(marker_path.with_name(marker_path.name.replace(".tests.json", ".json")))
+tools/reviewer_tests.py:92:    deduped_legacy: list[Path] = []
+tools/reviewer_tests.py:94:    for item in legacy_markers:
+tools/reviewer_tests.py:98:        deduped_legacy.append(item)
+tools/reviewer_tests.py:106:        for legacy_path in deduped_legacy:
+tools/reviewer_tests.py:107:            if legacy_path.exists():
+tools/reviewer_tests.py:109:                    legacy_path.unlink()
+tools/reviewer_tests.py:168:    for legacy_path in deduped_legacy:
+tools/reviewer_tests.py:169:        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+tools/reviewer_tests.py:170:        legacy_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+tools/context-pack.sh:10:printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/context-pack.sh" >&2
+tools/review-pack.sh:10:printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh" >&2
+tools/tools-inventory.sh:2:"""Compatibility shim for legacy tools-inventory.sh entrypoint."""

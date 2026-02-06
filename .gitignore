@@ -7,10 +7,13 @@ build/
 dist/
 .python-version
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.egg-info/
 .tmp-debug/
 .idea/
 .vscode/
+.DS_Store
 /.claude/
 /aidd
 aidd_test_flow_prompt_ralph_script.txt

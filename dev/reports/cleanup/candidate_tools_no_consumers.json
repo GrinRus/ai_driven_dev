@@ -1,0 +1,263 @@
+{
+  "schema": "aidd.cleanup.candidates.v1",
+  "generated_at": "2026-02-06T09:01:22Z",
+  "candidates": [
+    {
+      "tool": "tools/dag-export.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/identifiers.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/md-patch.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/md-slice.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/output-contract.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/plan-review-gate.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/prd-review-gate.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/tests-log.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/tools-inventory.sh",
+      "repo_ref_count_excluding_self": 0,
+      "sample_refs": []
+    },
+    {
+      "tool": "tools/researcher-context.sh",
+      "repo_ref_count_excluding_self": 1,
+      "sample_refs": [
+        "./backlog.md:355:- [ ] **W90-3** `tools/research.py`, `tools/research.sh`, `tools/researcher-context.sh`, `tools/researcher_context.py`, `tools/reports_pack.py`:"
+      ]
+    },
+    {
+      "tool": "tools/preflight-prepare.sh",
+      "repo_ref_count_excluding_self": 3,
+      "sample_refs": [
+        "./skills/implement/scripts/preflight.sh:63:  if ! preflight_out=\"$(\"${CLAUDE_PLUGIN_ROOT}/tools/preflight-prepare.sh\" \\",
+        "./skills/review/scripts/preflight.sh:62:  if ! preflight_out=\"$(\"${CLAUDE_PLUGIN_ROOT}/tools/preflight-prepare.sh\" \\",
+        "./skills/qa/scripts/preflight.sh:62:  if ! preflight_out=\"$(\"${CLAUDE_PLUGIN_ROOT}/tools/preflight-prepare.sh\" \\"
+      ]
+    },
+    {
+      "tool": "tools/review-report.sh",
+      "repo_ref_count_excluding_self": 3,
+      "sample_refs": [
+        "./docs/legacy/commands/review.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh:*)\"",
+        "./docs/legacy/commands/review.md:55:- `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1` сохраняет отчёт ревью в `aidd/reports/reviewer/$1/<scope_key>.json`.",
+        "./docs/legacy/commands/review.md:86:10. Команда (после subagent): сохрани отчёт ревью через `${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh --ticket $1 --findings-file \"aidd/reports/reviewer/$1/<scope_key>.findings.json\" --fix-plan-file \"aidd/reports/reviewer/$1/<scope_key>.fix_plan.json\"` (Fix Plan обязателен при REVISE)."
+      ]
+    },
+    {
+      "tool": "tools/review-pack.sh",
+      "repo_ref_count_excluding_self": 5,
+      "sample_refs": [
+        "./README.md:87:| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |",
+        "./README.en.md:100:| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |",
+        "./docs/legacy/commands/review.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh:*)\"",
+        "./docs/legacy/commands/review.md:56:- `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` создаёт `review.latest.pack.md` и `review.fix_plan.json` (при REVISE) для следующего implement (per scope_key).",
+        "./docs/legacy/commands/review.md:87:11. Команда (после subagent): собери review pack `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket $1` и убедись, что `review.fix_plan.json` создан при REVISE (review-report авто‑синхронизирует pack при наличии loop-pack/work_item в `aidd/docs/.active.json`, но явный вызов остаётся обязательным)."
+      ]
+    },
+    {
+      "tool": "tools/doctor.sh",
+      "repo_ref_count_excluding_self": 6,
+      "sample_refs": [
+        "./AGENTS.md:37:- Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.",
+        "./CHANGELOG.md:6:- `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.",
+        "./README.en.md:94:| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Diagnose environment, paths, and `aidd/` presence |",
+        "./README.en.md:195:- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.",
+        "./README.md:81:| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |"
+      ]
+    },
+    {
+      "tool": "tools/prd-review.sh",
+      "repo_ref_count_excluding_self": 7,
+      "sample_refs": [
+        "./skills/review-spec/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)\"",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:118:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)\",",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.md:11:| review-spec | `commands/review-spec.md` | `skills/review-spec/SKILL.md` | ru | 1.0.19 | 1.0.19 | inherit | $1 [note...] | Read<br>Edit<br>Write<br>Glob<br>Bash(rg:*)<br>Bash(sed:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*) |",
+        "./CHANGELOG.md:24:- Runtime workflow tools: `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh`, `plan-review-gate`, `prd-review-gate`, `research`, and `context-gc-*.sh`.",
+        "./docs/legacy/commands/review-spec.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/context-pack.sh",
+      "repo_ref_count_excluding_self": 8,
+      "sample_refs": [
+        "./backlog.md:80:- [x] **W89-10** `tools/context_pack.py`, `tools/context-pack.sh`, `templates/aidd/reports/context/template.context-pack.md`, `commands/*.md`:",
+        "./backlog.md:196:- [x] **W89-28** `tools/context_pack.py`, `tools/context-pack.sh`, `hooks/context_gc/working_set_builder.py`, `tools/prompt_template_sync.py`, `tests/*`:",
+        "./backlog.md:287:- [x] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:",
+        "./docs/legacy/commands/review.md:22:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh:*)\"",
+        "./docs/legacy/commands/review.md:70:- Рекомендуемый CLI: `${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh --ticket $1 --agent review --stage review --template aidd/reports/context/template.context-pack.md --output aidd/reports/context/$1.pack.md --read-next \"<loop pack>\" --read-next \"<review pack if exists>\" --read-next \"<rolling context>\" --artefact-link \"<artifact: path>\" --what-to-do \"<review focus>\" --user-note \"$ARGUMENTS\"`."
+      ]
+    },
+    {
+      "tool": "tools/index-sync.sh",
+      "repo_ref_count_excluding_self": 8,
+      "sample_refs": [
+        "./skills/status/SKILL.md:12:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*)\"",
+        "./skills/status/SKILL.md:22:2. If index data is missing or stale, run `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>`.",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:316:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*)\"",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.md:17:| status | `commands/status.md` | `skills/status/SKILL.md` | ru | 1.0.5 | 1.0.5 | inherit | [$1] | Read<br>Bash(rg:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*) |",
+        "./README.en.md:109:| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Refresh ticket index `aidd/docs/index/<ticket>.json` |"
+      ]
+    },
+    {
+      "tool": "tools/analyst-check.sh",
+      "repo_ref_count_excluding_self": 9,
+      "sample_refs": [
+        "./CHANGELOG.md:20:- Analyst dialog enforcement: updated `aidd/agents/analyst.md`, PRD template with `## Диалог analyst`, script `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`, gate-workflow integration, smoke coverage, and docs/tests showing the `Ответ N:` workflow.",
+        "./README.md:84:| `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |",
+        "./skills/idea-new/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)\"",
+        "./docs/legacy/commands/idea-new.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)\"",
+        "./docs/legacy/commands/idea-new.md:44:- `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket $1` — проверка диалога/статуса после ответов."
+      ]
+    },
+    {
+      "tool": "tools/status.sh",
+      "repo_ref_count_excluding_self": 10,
+      "sample_refs": [
+        "./skills/status/SKILL.md:11:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)\"",
+        "./skills/status/SKILL.md:21:1. Run `${CLAUDE_PLUGIN_ROOT}/tools/status.sh` for the ticket (use the active ticket if omitted).",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:315:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)\",",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.md:17:| status | `commands/status.md` | `skills/status/SKILL.md` | ru | 1.0.5 | 1.0.5 | inherit | [$1] | Read<br>Bash(rg:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*) |",
+        "./README.md:94:| `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |"
+      ]
+    },
+    {
+      "tool": "tools/research-check.sh",
+      "repo_ref_count_excluding_self": 12,
+      "sample_refs": [
+        "./skills/plan-new/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)\"",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:93:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)\",",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.md:10:| plan-new | `commands/plan-new.md` | `skills/plan-new/SKILL.md` | ru | 1.1.12 | 1.1.12 | inherit | $1 [note...] | Read<br>Edit<br>Write<br>Glob<br>Bash(rg:*)<br>Bash(sed:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)<br>Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*) |",
+        "./CHANGELOG.md:12:- `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` to validate research artefacts before planning.",
+        "./CHANGELOG.md:39:- `analyst-check` no longer validates research; research validation is handled by `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` and `gate-workflow`."
+      ]
+    },
+    {
+      "tool": "tools/loop-pack.sh",
+      "repo_ref_count_excluding_self": 14,
+      "sample_refs": [
+        "./skills/implement/SKILL.md:31:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)\"",
+        "./skills/review/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)\"",
+        "./README.md:86:| `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\\|review` | Сформировать loop pack для текущего work_item |",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:208:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)\",",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:246:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)\","
+      ]
+    },
+    {
+      "tool": "tools/diff-boundary-check.sh",
+      "repo_ref_count_excluding_self": 17,
+      "sample_refs": [
+        "./backlog.md:153:- [x] **W89-22** `tools/diff_boundary_check.py`, `tools/prd_check.py`, `tools/prd-check.sh`, `tools/diff-boundary-check.sh`, `tests/*`:",
+        "./skills/implement/SKILL.md:32:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh:*)\"",
+        "./skills/implement/scripts/postflight.sh:70:    \"${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh\" --ticket \"$AIDD_TICKET\"",
+        "./skills/review/SKILL.md:19:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh:*)\"",
+        "./skills/review/scripts/postflight.sh:70:    \"${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh\" --ticket \"$AIDD_TICKET\""
+      ]
+    },
+    {
+      "tool": "tools/tasklist-normalize.sh",
+      "repo_ref_count_excluding_self": 20,
+      "sample_refs": [
+        "./backlog.md:791:- [ ] **W100-8** `tools/tasklist_consolidate.py`, `tools/tasklist-normalize.sh`:",
+        "./skills/implement/SKILL.md:39:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)\"",
+        "./skills/review/SKILL.md:29:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)\"",
+        "./skills/qa/SKILL.md:33:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)\"",
+        "./docs/legacy/commands/implement.md:35:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/status-summary.sh",
+      "repo_ref_count_excluding_self": 23,
+      "sample_refs": [
+        "./skills/implement/SKILL.md:37:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)\"",
+        "./skills/implement/scripts/postflight.sh:84:    \"${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh\" --ticket \"$AIDD_TICKET\" --stage \"$AIDD_STAGE\" --scope-key \"$AIDD_SCOPE_KEY\"",
+        "./skills/review/SKILL.md:27:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)\"",
+        "./skills/review/scripts/postflight.sh:84:    \"${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh\" --ticket \"$AIDD_TICKET\" --stage \"$AIDD_STAGE\" --scope-key \"$AIDD_SCOPE_KEY\"",
+        "./skills/qa/SKILL.md:31:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/stage-result.sh",
+      "repo_ref_count_excluding_self": 24,
+      "sample_refs": [
+        "./skills/implement/SKILL.md:36:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)\"",
+        "./skills/implement/scripts/postflight.sh:75:    local stage_result_cmd=(\"${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh\" --ticket \"$AIDD_TICKET\" --stage \"$AIDD_STAGE\" --result \"$stage_result\" --scope-key \"$AIDD_SCOPE_KEY\")",
+        "./skills/review/SKILL.md:26:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)\"",
+        "./skills/review/scripts/postflight.sh:75:    local stage_result_cmd=(\"${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh\" --ticket \"$AIDD_TICKET\" --stage \"$AIDD_STAGE\" --result \"$stage_result\" --scope-key \"$AIDD_SCOPE_KEY\")",
+        "./skills/qa/SKILL.md:30:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/prd-check.sh",
+      "repo_ref_count_excluding_self": 26,
+      "sample_refs": [
+        "./backlog.md:153:- [x] **W89-22** `tools/diff_boundary_check.py`, `tools/prd_check.py`, `tools/prd-check.sh`, `tools/diff-boundary-check.sh`, `tests/*`:",
+        "./skills/plan-new/SKILL.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)\"",
+        "./skills/implement/SKILL.md:30:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)\"",
+        "./skills/implement/scripts/preflight.sh:59:    \"${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh\" --ticket \"$AIDD_TICKET\"",
+        "./skills/tasks-new/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/tasklist-check.sh",
+      "repo_ref_count_excluding_self": 27,
+      "sample_refs": [
+        "./skills/implement/SKILL.md:38:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)\"",
+        "./skills/review/SKILL.md:28:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)\"",
+        "./skills/qa/SKILL.md:32:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)\"",
+        "./skills/tasks-new/SKILL.md:20:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)\"",
+        "./dev/reports/migrations/commands_to_skills_frontmatter.json:171:          \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/set-active-feature.sh",
+      "repo_ref_count_excluding_self": 54,
+      "sample_refs": [
+        "./AGENTS.md:222:- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh`, `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).",
+        "./skills/idea-new/SKILL.md:16:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)\"",
+        "./skills/spec-interview/SKILL.md:19:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)\"",
+        "./skills/researcher/SKILL.md:15:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)\"",
+        "./skills/plan-new/SKILL.md:16:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)\""
+      ]
+    },
+    {
+      "tool": "tools/set-active-stage.sh",
+      "repo_ref_count_excluding_self": 59,
+      "sample_refs": [
+        "./skills/idea-new/SKILL.md:17:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)\"",
+        "./skills/spec-interview/SKILL.md:18:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)\"",
+        "./skills/researcher/SKILL.md:16:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)\"",
+        "./skills/plan-new/SKILL.md:15:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)\"",
+        "./skills/implement/SKILL.md:29:  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)\""
+      ]
+    }
+  ]
+}

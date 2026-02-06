@@ -1,0 +1,113 @@
+[info] running prompt lint (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[prompt-lint] all prompts passed
+[info] running prompt-version dry-run (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] running prompt/template sync guard (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] running entrypoints bundle guard
+[info] running prompt regression checks
+[info] running loop regression checks
+[info] checking loop discipline markers in skills
+[info] checking loop-pack schema and active work item
+[info] checking loop-step/loop-run presence and docs
+[info] running output contract regression checks
+[info] running claude stream renderer checks
+[ok] claude stream renderer
+[info] running tool-result id checks
+[info] running skill scripts guard
+[skill-scripts-guard] OK
+[info] running schema + contract guards
+[info] checking actions validator supported versions
+[info] checking context-map validator supported versions
+[info] checking preflight-result validator supported versions
+[info] validating skill contracts
+[info] checking canonical schema registry
+[info] running shim regression checks
+[info] running shellcheck on 27 files (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] running markdownlint on 60 files (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] running yamllint on 7 files (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] no forbidden Answer-pattern strings detected (root: /Users/griogrii_riabov/grigorii_projects/ai_driven_dev)
+[info] running python unittest suite
+..............................................................................................................................................[prd-review] report saved to aidd/reports/prd/demo-feature.json
+{
+  "ticket": "demo-feature",
+  "slug": "demo-feature",
+  "status": "ready",
+  "recommended_status": "ready",
+  "findings": [],
+  "action_items": [],
+  "generated_at": "2026-02-06T09:02:16Z"
+}
+.[prd-review] report saved to aidd/reports/prd/demo-feature.json
+{
+  "ticket": "demo-feature",
+  "slug": "demo-feature",
+  "status": "ready",
+  "recommended_status": "ready",
+  "findings": [],
+  "action_items": [],
+  "generated_at": "2026-02-06T09:02:16Z"
+}
+............[prompt-sync] content mismatch: /private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/prompt-sync-9tap5krr/agents/demo.md vs /private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/prompt-sync-9tap5krr/templates/aidd/agents/demo.md
+.....................[pack-trim] research pack trimmed: drop.matches(-1), drop.reuse_candidates(-1), drop.profile(-1), drop.stats(-1), drop.rlm_targets_path(-1), drop.rlm_manifest_path(-1), drop.rlm_worklist_path(-1), drop.rlm_nodes_path(-1), drop.rlm_links_path(-1), drop.rlm_pack_path(-1), drop.rlm_status(-1), drop.deep_mode(-1), drop.auto_mode(-1), drop.tags(-1), drop.keywords_raw(-1), drop.keywords(-1), drop.non_negotiables(-1), drop.pack_trim_stats(-1)
+[pack-budget] research pack budget exceeded: 2326 chars > 2000. Reduce top-N, trim snippets, or set AIDD_PACK_LIMITS to lower pack size.
+.....[aidd] updated rlm_status=ready in aidd/reports/research/RLM-CTX-1-context.json.
+...[pack-trim] research pack trimmed: matches(-17), drop.pack_trim_stats(-1)
+...[aidd] updated rlm_status=pending in reports/research/RLM-WORKLIST-context.json.
+.[aidd] updated rlm_status=ready in reports/research/RLM-EMPTY-LINKS-context.json.
+.[pack-trim] rlm pack trimmed: links(-5), recommended_reads(-5), hotspots(-5), entrypoints(-5), risks(-6), drop.stats(-1), drop.entrypoints(-1), drop.hotspots(-1), drop.integration_points(-1), drop.test_hooks(-1), drop.risks(-1), drop.recommended_reads(-1), drop.links(-1), drop.slug_hint(-1), drop.source_path(-1), drop.pack_trim_stats_details(-1)
+....[pack-trim] rlm pack trimmed: links(-10), recommended_reads(-10), hotspots(-10), entrypoints(-6), drop.stats(-1)
+...[aidd] updated rlm_status=pending in reports/research/RLM-NODES-MISSING-context.json.
+........[aidd] WARN: missing research paths: src/test (use --paths-relative workspace or update conventions)
+[aidd] WARN: 0 matches for `PY-1` → сузить paths/keywords.
+[pack-trim] research pack trimmed: profile.recommendations(-4), paths.sample(-3), drop.pack_trim_stats(-1)
+..[pack-trim] research pack trimmed: matches(-1), profile.recommendations(-2), paths.sample(-2), drop.pack_trim_stats(-1)
+...[aidd] INFO: research paths synced to --rlm-paths scope.
+[aidd] WARN: 0 matches for `SYNC-1` → сузить paths/keywords.
+[pack-trim] research pack trimmed: profile.recommendations(-3), drop.pack_trim_stats(-1)
+....................................................................s...............................................
+----------------------------------------------------------------------
+Ran 324 tests in 19.735s
+
+OK (skipped=1)
+BLOCK: В Plan Review остались незакрытые action items → обновите docs/plan/DEMO-PLAN-2.md
+BLOCK: В Plan Review остались незакрытые action items → обновите docs/plan/DEMO-PLAN-4.md
+/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/tmpy6q5etoi/aidd/reports/research/RLM-CTX-1-rlm.pack.json
+/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/tmpdafwvra2/reports/research/RLM-WORKLIST-rlm.pack.json
+/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/tmppsxfvqqe/reports/research/RLM-EMPTY-LINKS-rlm.pack.json
+/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/tmpn81cpjmq/reports/research/RLM-NODES-MISSING-rlm.pack.json
+[aidd] research gate OK for `demo-ready` (status: reviewed, paths: 1, age: 0d).
+[aidd] researcher targets saved to reports/research/SYNC-1-targets.json (1 paths, 2 docs; base=workspace:/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/aidd-research-sync-1sike57v/workspace).
+[aidd] research pack saved to reports/research/SYNC-1-context.pack.json.
+[aidd] researcher context saved to reports/research/SYNC-1-context.json (0 matches; base=workspace:/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/aidd-research-sync-1sike57v/workspace).
+[aidd] research summary created at docs/research/SYNC-1.md.
+[aidd] researcher targets saved to reports/research/ZERO-1-targets.json (0 paths, 0 docs; base=workspace:/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/aidd-research-zero-lesko3vd/workspace).
+[aidd] researcher auto profile: fast-scan (no --deep-code).
+[aidd] research pack saved to reports/research/ZERO-1-context.pack.json.
+[aidd] researcher context saved to reports/research/ZERO-1-context.json (0 matches; base=workspace:/private/var/folders/0y/qkpd1n592qjgm3w3rcl_gs6m0000gn/T/aidd-research-zero-lesko3vd/workspace).
+[aidd] research summary created at docs/research/ZERO-1.md.
+[aidd] rlm links saved to aidd/reports/research/RLM-26-rlm.links.jsonl.
+[aidd] rlm slice saved to aidd/reports/context/RLM-26-rlm-slice-201a6b3053.pack.json.
+[aidd] added 2 task(s) from research report (aidd/reports/research/RLM-26-rlm.pack.json) to docs/tasklist/RLM-26.md (section: ## aidd:handoff_inbox; mode=replace).
+[aidd] rlm jsonl compact complete.
+[aidd] rlm links saved to aidd/reports/research/RLM-EXTENDS-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-IMPORTS-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-4-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-9-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-8-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-11-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-TYPE-FILTER-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-13-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-14-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-12-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-TYPE-PREFER-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-6-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-5-rlm.links.jsonl (truncated).
+[aidd] rlm links saved to aidd/reports/research/RLM-RG-VERIFY-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-15-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-KEYCALLS-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-TYPE-rlm.links.jsonl.
+[aidd] rlm links saved to aidd/reports/research/RLM-10-rlm.links.jsonl.
+[aidd] rlm worklist saved to aidd/reports/research/RLM-REFRESH-SCOPE-rlm.worklist.pack.json.
+[aidd] updated rlm_status=pending in aidd/reports/research/RLM-REFRESH-SCOPE-context.json.
+[aidd] rlm worklist saved to aidd/reports/research/RLM-REFRESH-rlm.worklist.pack.json.
+[aidd] updated rlm_status=ready in aidd/reports/research/RLM-REFRESH-context.json.
+[aidd] rlm slice saved to aidd/reports/context/RLM-5-rlm-slice-201a6b3053.pack.json.

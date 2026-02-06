@@ -7,8 +7,15 @@ import argparse
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, Iterable, List
+
+
+if __package__ in {None, ""}:
+    _repo_root = Path(__file__).resolve().parents[1]
+    if str(_repo_root) not in sys.path:
+        sys.path.insert(0, str(_repo_root))
 
 from tools import runtime
 from tools.io_utils import utc_timestamp
@@ -24,6 +31,8 @@ EXCLUDED_DIRS = {
     ".ruff_cache",
     ".tox",
     ".venv",
+    "build",
+    "dist",
     "node_modules",
     "venv",
 }
