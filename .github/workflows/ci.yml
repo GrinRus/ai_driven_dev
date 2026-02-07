@@ -43,3 +43,47 @@ jobs:
           fi
           export CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}"
           hooks/gate-qa.sh --payload '{}'
+
+  smoke-workflow:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect runtime changes
+        id: runtime_changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            runtime:
+              - 'skills/**'
+              - 'hooks/**'
+              - 'tools/**'
+              - 'agents/**'
+              - 'templates/aidd/**'
+              - '.claude-plugin/**'
+
+      - name: Run smoke workflow
+        if: steps.runtime_changes.outputs.runtime == 'true'
+        run: tests/repo_tools/smoke-workflow.sh
+
+      - name: Skip smoke workflow (no runtime changes)
+        if: steps.runtime_changes.outputs.runtime != 'true'
+        run: echo "No runtime changes; skipping smoke"
+
+  dependency-review:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
