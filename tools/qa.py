@@ -282,7 +282,12 @@ def _discover_gradle_wrappers(workspace_root: Path, max_depth: int = 4) -> list[
     return wrappers
 
 
-def _command_execution_plans(command: list[str], workspace_root: Path) -> list[tuple[list[str], Path, str]]:
+def _command_execution_plans(
+    command: list[str],
+    *,
+    target_root: Path,
+    workspace_root: Path,
+) -> list[tuple[list[str], Path, str]]:
     if not command:
         return []
     head = command[0]
@@ -302,7 +307,7 @@ def _command_execution_plans(command: list[str], workspace_root: Path) -> list[t
                 display = f"{rel}/gradlew {' '.join(command_tail)}".strip()
                 plans.append((["./gradlew", *command_tail], cwd, display))
             return plans
-        return [(command, workspace_root, " ".join(command))]
+        return [(command, target_root, " ".join(command))]
 
     if normalized.endswith("/gradlew") or normalized == "gradlew":
         wrapper_path = Path(head)
@@ -311,9 +316,9 @@ def _command_execution_plans(command: list[str], workspace_root: Path) -> list[t
         if wrapper_path.exists():
             display = f"{wrapper_path.parent.relative_to(workspace_root).as_posix()}/gradlew {' '.join(command_tail)}".strip()
             return [(["./gradlew", *command_tail], wrapper_path.parent, display)]
-        return [(command, workspace_root, " ".join(command))]
+        return [(command, target_root, " ".join(command))]
 
-    return [(command, workspace_root, " ".join(command))]
+    return [(command, target_root, " ".join(command))]
 
 
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
@@ -398,7 +403,11 @@ def _run_qa_tests(
         return any(marker in lowered for marker in SKIP_MARKERS)
 
     for index, cmd in enumerate(commands, start=1):
-        execution_plans = _command_execution_plans(cmd, workspace_root)
+        execution_plans = _command_execution_plans(
+            cmd,
+            target_root=target,
+            workspace_root=workspace_root,
+        )
         for plan_index, (plan_cmd, plan_cwd, display_cmd) in enumerate(execution_plans, start=1):
             suffix = ""
             if len(commands) > 1:

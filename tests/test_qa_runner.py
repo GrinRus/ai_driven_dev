@@ -67,6 +67,31 @@ class QaRunnerTests(unittest.TestCase):
             self.assertTrue(log_path.exists())
             self.assertIn("could not locate gradlew", log_path.read_text(encoding="utf-8"))
 
+    def test_non_gradle_commands_run_from_target_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            report_path = target / "reports" / "qa" / "DEMO-QA3.json"
+            marker = target / "test_target_only.py"
+            marker.write_text("import unittest\n", encoding="utf-8")
+
+            executed, summary = qa_module._run_qa_tests(
+                target,
+                workspace,
+                ticket="DEMO-QA3",
+                slug_hint="DEMO-QA3",
+                branch=None,
+                report_path=report_path,
+                allow_missing=True,
+                commands_override=[["bash", "-lc", "test -f test_target_only.py"]],
+                allow_skip_override=True,
+            )
+
+            self.assertEqual(summary, "pass")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("status"), "pass")
+            self.assertEqual(executed[0].get("cwd"), "aidd")
+
 
 if __name__ == "__main__":
     unittest.main()
