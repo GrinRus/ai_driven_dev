@@ -155,20 +155,26 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
         "writemap_json": actions_dir / "writemap.json",
         "preflight_result": actions_dir / "stage.preflight.result.json",
     }
+    allow_legacy_preflight = os.environ.get("AIDD_ALLOW_LEGACY_PREFLIGHT", "").strip() == "1"
 
     missing: list[str] = []
+    preflight_warnings: list[str] = []
     for key, path in required.items():
         if path.exists():
             continue
         legacy = compatibility.get(key)
-        if legacy and legacy.exists():
+        if legacy and legacy.exists() and allow_legacy_preflight:
+            preflight_warnings.append(
+                f"WARN: using legacy preflight artifact ({_runtime.rel_path(legacy, root)}) "
+                "(reason_code=preflight_legacy_path)"
+            )
             continue
         missing.append(_runtime.rel_path(path, root))
 
     if missing:
         return False, f"BLOCK: missing preflight artifacts ({', '.join(missing)}) (reason_code=preflight_missing)"
 
-    warnings: list[str] = []
+    warnings: list[str] = list(preflight_warnings)
     actions_path = actions_dir / f"{stage}.actions.json"
     if not actions_path.exists():
         msg = (

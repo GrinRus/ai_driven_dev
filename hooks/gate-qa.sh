@@ -250,8 +250,6 @@ def main(argv: Iterable[str] | None = None) -> int:
             req_norm = req.strip().lower()
             if req_norm == "gate-tests" and tests_mode.lower() == "disabled":
                 _log_stdout("WARN: qa.requires содержит gate-tests, но tests_required=disabled.")
-            if req_norm == "gate-api-contract" and not hooklib.config_get_bool(config_path, "api_contract", False):
-                _log_stdout("WARN: qa.requires содержит gate-api-contract, но гейт отключён.")
 
     qa_command = _norm_list(qa_cfg.get("command", []))
     if not qa_command:

@@ -218,43 +218,31 @@ def reviewer_marker_path(
     *,
     scope_key: str | None = None,
 ) -> Path:
-    resolved = template.replace("{ticket}", ticket)
-    if "{slug}" in template:
-        resolved = resolved.replace("{slug}", slug_hint or ticket)
-    if "{scope_key}" in template:
-        resolved_scope = ""
-        try:
-            from tools import runtime as _runtime
+    try:
+        from tools import runtime as _runtime
 
-            resolved_scope = _runtime.resolve_scope_key(scope_key, ticket)
-        except Exception:
+        return _runtime.reviewer_marker_path(
+            project_root,
+            template,
+            ticket,
+            slug_hint,
+            scope_key=scope_key,
+        )
+    except Exception:
+        resolved = template.replace("{ticket}", ticket)
+        if "{slug}" in template:
+            resolved = resolved.replace("{slug}", slug_hint or ticket)
+        if "{scope_key}" in template:
             raw = (scope_key or ticket or "").strip()
             cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw)
-            resolved_scope = cleaned.strip("._-")
-        resolved = resolved.replace("{scope_key}", resolved_scope or "ticket")
-    path = Path(resolved)
-    if not path.is_absolute():
-        parts = path.parts
-        if parts and parts[0] == "aidd" and project_root.name == "aidd":
-            path = Path(*parts[1:])
-        path = project_root / path
-    if not path.exists() and path.name.endswith(".tests.json"):
-        old_path = path.with_name(path.name.replace(".tests.json", ".json"))
-        if old_path.exists():
-            try:
-                payload = json.loads(old_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                payload = {}
-            kind = str(payload.get("kind") or "").strip().lower() if isinstance(payload, dict) else ""
-            stage = str(payload.get("stage") or "").strip().lower() if isinstance(payload, dict) else ""
-            if not (kind == "review" or stage == "review" or (isinstance(payload, dict) and "findings" in payload)):
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-                try:
-                    old_path.unlink()
-                except OSError:
-                    pass
-    return path
+            resolved = resolved.replace("{scope_key}", cleaned.strip("._-") or "ticket")
+        path = Path(resolved)
+        if not path.is_absolute():
+            parts = path.parts
+            if parts and parts[0] == "aidd" and project_root.name == "aidd":
+                path = Path(*parts[1:])
+            path = project_root / path
+        return path
 
 
 def reviewer_tests_required(ticket: str, slug_hint: str | None, config: dict, project_root: Path) -> tuple[bool, str]:
