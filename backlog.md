@@ -1,5 +1,146 @@
 # Product Backlog
 
+## Wave 95 — Audit closure F-01..F-13 + quick wins
+
+_Статус: новый, приоритет 0. Цель — закрыть весь аудит одним PR без breaking-change, с переходным warn-only режимом для legacy точек._
+
+### A) Runtime resilience hardening
+
+- [ ] **W95-A1** `tools/gate_workflow.py`, `tests/test_gate_workflow.py`:
+  - устранить аварийный except-path, где error-handler использует переменные из `try` (например runtime instance);
+  - добавить fail-safe обработку import/init ошибок с диагностикой в `stderr` и корректным exit code;
+  - quick win: гарантировать отсутствие secondary exception при падении bootstrap.
+  **AC:** при сбое import/init gate завершается контролируемо (без traceback в traceback), пишет понятную диагностику и возвращает ожидаемый код.
+  **Effort:** M
+  **Risk:** High
+  **Finding:** F-05
+
+- [ ] **W95-A2** `tools/loop_step.py`, `tests/repo_tools/lint-prompts.py`, `tests/*`:
+  - удалить unreachable legacy fallback ветку в loop-step hot path;
+  - синхронизировать связанные проверки lint/tests, чтобы проверялась только живая ветка исполнения;
+  - quick win: убрать лишний return, не меняя functional behavior.
+  **AC:** dead branch удалён; поведение loop-step совпадает с текущим success-path; связанные тесты/линтеры проходят.
+  **Effort:** S
+  **Risk:** Low
+  **Finding:** F-06
+
+### B) Tooling/CLI contract
+
+- [ ] **W95-B1** `tools/init.py`, `README.md`, `README.en.md`, `CHANGELOG.md`, `tests/*`:
+  - привести CLI контракт init к правде: реализовать `--dry-run`/`--enable-ci` или удалить их из CLI+docs;
+  - синхронизировать naming флагов `--detect-build-tools` vs `--detect-stack`;
+  - quick win: покрыть `--help`/dry-run регрессионным тестом.
+  **AC:** help, runtime-поведение и документация совпадают; несуществующих флагов нет; тест фиксирует контракт.
+  **Effort:** M
+  **Risk:** Medium
+  **Finding:** F-07, F-13
+
+- [ ] **W95-B2** `tools/tools_inventory.py`, `tests/test_tools_inventory.py`, `AGENTS.md`, `skills/review/SKILL.md`:
+  - расширить inventory scan на skill-first источники (`skills/**`, `hooks/**`, `agents/**`, при необходимости `templates/aidd/**`);
+  - уменьшить false positive "unused/no consumers" для stage wrappers;
+  - quick win: добавить regression test для canonical skill wrapper consumer chain.
+  **AC:** canonical wrappers из `skills/<stage>/scripts` не попадают в ложный unused; тест предотвращает откат.
+  **Effort:** M
+  **Risk:** Medium
+  **Finding:** F-04
+
+### C) CI policy alignment + security
+
+- [ ] **W95-C1** `.github/workflows/ci.yml`, `CONTRIBUTING.md`, `AGENTS.md`, `tests/repo_tools/smoke-workflow.sh`:
+  - добавить always-on job `smoke-workflow` с path-filter runtime изменений;
+  - при отсутствии runtime-изменений job делает skip с `exit 0`, при наличии запускает smoke;
+  - quick win: выровнять policy docs и CI enforcement.
+  **AC:** smoke-job всегда присутствует в CI checks; runtime changes обязательно прогоняют smoke; docs совпадают с фактом.
+  **Effort:** M
+  **Risk:** High
+  **Finding:** F-09
+
+- [ ] **W95-C2** `.github/workflows/ci.yml`, `tests/repo_tools/ci-lint.sh`, `tools/*`:
+  - добавить security dependency/CVE проверку в PR (dependency-review action, fail на high/critical где возможно);
+  - обеспечить graceful behavior для PR без lockfile/manifest;
+  - quick win: добавить guard, чтобы security check был информативным и не шумел на пустом dependency diff.
+  **AC:** security job запускается на PR и не ломает репо без manifests; high-risk dependency changes блокируют merge.
+  **Effort:** M
+  **Risk:** Medium
+  **Finding:** F-10
+
+### D) Release discipline
+
+- [ ] **W95-D1** `.claude-plugin/marketplace.json`, `tests/repo_tools/ci-lint.sh`, `tests/*`, `CHANGELOG.md`:
+  - убрать feature-branch ref из marketplace metadata, закрепить stable ref (release tag или `main`);
+  - добавить CI/lint guard против feature refs (`codex/wave*`, `feature/*`);
+  - quick win: документировать выбранный stable policy для будущих релизов.
+  **AC:** marketplace ref указывает на stable target; lint/test падает на feature refs; policy отражён в changelog/backlog.
+  **Effort:** S
+  **Risk:** High
+  **Finding:** F-11
+
+### E) Legacy cleanup & deprecation convergence
+
+- [ ] **W95-E1** `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tools/gate_workflow.py`, `tests/*`:
+  - консолидировать preflight contract в одном shared implementation;
+  - перевести stage preflight wrappers на единый источник;
+  - сократить legacy fallback в gate-workflow: canonical by default + explicit warn/flagged legacy path.
+  **AC:** implement/review/qa preflight генерируют согласованный контракт; gate-workflow использует canonical path по умолчанию; legacy fallback контролируемый и помечен warning.
+  **Effort:** L
+  **Risk:** Medium
+  **Finding:** F-01
+
+- [ ] **W95-E2** `tools/runtime.py`, `tools/reviewer_tests.py`, `hooks/format-and-test.sh`, `tests/*`:
+  - централизовать reviewer-marker migration в одной точке runtime;
+  - убрать дубли/side-effects в hooks и утилитах (оставить idempotent ensure call при необходимости);
+  - quick win: добавить тест на идемпотентность и single-source behavior.
+  **AC:** миграция marker вызывается в одном canonical месте и остаётся идемпотентной; хук больше не выполняет скрытую миграцию.
+  **Effort:** M
+  **Risk:** Medium
+  **Finding:** F-02
+
+- [ ] **W95-E3** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README.md`, `README.en.md`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/shim-regression.sh`:
+  - вывести deprecated shims из hot path smoke/docs и закрепить canonical skill wrappers как основной путь;
+  - оставить shim-regression как совместимость (warn-only deprecation);
+  - quick win: smoke не зависит от deprecated shim entrypoints.
+  **AC:** основной smoke и docs используют только canonical wrappers; shim regression отдельно проверяет совместимость и deprecation warning.
+  **Effort:** M
+  **Risk:** Medium
+  **Finding:** F-03
+
+- [ ] **W95-E4 (Phase 2, breaking)** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README*.md`, `CHANGELOG.md`:
+  - спланировать полное удаление deprecated shims после переходного периода;
+  - зафиксировать breaking-change окно и required migration notes для пользователей.
+  **AC:** в backlog есть отдельный план удаления shims с критериями готовности и датой/версией удаления.
+  **Effort:** S
+  **Risk:** High
+  **Finding:** F-03
+
+### F) Repo hygiene + docs consistency
+
+- [ ] **W95-F1** `hooks/gate-api-contract.sh`, `hooks/hooks.json`, `hooks/gate-qa.sh`, `tests/*`, `docs/*`:
+  - закрыть placeholder ambiguity: либо полноценно подключить gate-api-contract, либо удалить placeholder и ссылки;
+  - выбрать безопасный вариант без ложных ожиданий в runtime;
+  - quick win: убрать "мертвый" hook path и привести hooks wiring к факту.
+  **AC:** в hooks wiring нет placeholder без поведения; выбранный путь покрыт smoke/тестом или документирован как удалённый.
+  **Effort:** S
+  **Risk:** Low
+  **Finding:** F-08
+
+- [ ] **W95-F2** `.gitignore`, `aidd_test_flow_prompt_ralph_script.txt`, `docs/examples/**`, `tests/*`:
+  - проверить использование ad-hoc prompt script;
+  - если не используется — удалить из repo и добавить ignore policy; если нужен — переместить в examples с metadata header;
+  - quick win: предотвратить повторное попадание ad-hoc артефактов в tracking.
+  **AC:** ad-hoc файл либо удалён и игнорируется, либо перенесён и документирован; dangling references отсутствуют.
+  **Effort:** S
+  **Risk:** Low
+  **Finding:** F-12
+
+- [ ] **W95-F3** `CHANGELOG.md`, `README.md`, `README.en.md`, `tools/init.py`, `tests/*`:
+  - синхронизировать документацию с реальными флагами/поведением init (`--detect-build-tools` и совместимость aliases при необходимости);
+  - добавить минимальную проверку, что docs/help не расходятся по ключевым флагам;
+  - quick win: устранить пользовательскую путаницу в onboarding CLI.
+  **AC:** docs и CLI help используют единый флаговый контракт; regression test фиксирует соответствие.
+  **Effort:** S
+  **Risk:** Low
+  **Finding:** F-13
+
 ## Wave 89 — Doc consolidation + Flow simplification (pack-first, меньше чтений, без anchors)
 
 _Статус: новый, приоритет 1. Цель — убрать дубли документации, сократить чтения, упростить runtime, сделать pack‑first единственным режимом._
