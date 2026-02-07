@@ -10,8 +10,6 @@ from tests.helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 class InitAiddTests(unittest.TestCase):
     def run_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
         """Run tools/init.sh for the workspace root and return the completed process."""
-        project_root = workdir if workdir.name == PROJECT_SUBDIR else workdir / PROJECT_SUBDIR
-        project_root.mkdir(parents=True, exist_ok=True)
         return subprocess.run(
             cli_cmd("init", *args),
             cwd=workdir,
@@ -104,6 +102,55 @@ class InitAiddTests(unittest.TestCase):
         self.assertIn("**/package.json", tests_cfg["commonPatterns"])
         self.assertIn("codePaths", tests_cfg)
         self.assertIn("codeExtensions", tests_cfg)
+
+    def test_detect_stack_alias_maps_to_detect_build_tools(self):
+        workdir = self.make_tempdir()
+        (workdir / "package.json").write_text('{"name": "demo"}', encoding="utf-8")
+
+        result = self.run_script(workdir, "--detect-stack")
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+
+        settings_path = workdir / ".claude" / "settings.json"
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+        tests_cfg = payload.get("automation", {}).get("tests", {})
+        self.assertIn("**/package.json", tests_cfg.get("commonPatterns", []))
+
+    def test_dry_run_does_not_modify_filesystem(self):
+        workdir = self.make_tempdir()
+        (workdir / "package.json").write_text('{"name":"demo"}', encoding="utf-8")
+
+        result = self.run_script(workdir, "--dry-run", "--detect-build-tools", "--enable-ci")
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+        self.assertIn("dry-run", result.stdout)
+        self.assertFalse((workdir / PROJECT_SUBDIR).exists(), "dry-run must not create project root")
+        self.assertFalse((workdir / ".claude" / "settings.json").exists(), "dry-run must not write settings")
+        self.assertFalse((workdir / ".github" / "workflows" / "aidd-manual.yml").exists(), "dry-run must not write CI")
+
+    def test_enable_ci_writes_manual_workflow(self):
+        workdir = self.make_tempdir()
+
+        result = self.run_script(workdir, "--enable-ci")
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+        workflow = workdir / ".github" / "workflows" / "aidd-manual.yml"
+        self.assertTrue(workflow.exists(), "enable-ci must create workflow file")
+        content = workflow.read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch", content)
+        self.assertIn("AIDD CI scaffold is enabled", content)
+
+    def test_help_lists_supported_init_flags(self):
+        result = subprocess.run(
+            cli_cmd("init", "--help"),
+            cwd=self.make_tempdir(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=cli_env(),
+        )
+        self.assertIn("--enable-ci", result.stdout)
+        self.assertIn("--dry-run", result.stdout)
+        self.assertIn("--detect-build-tools", result.stdout)
+        self.assertNotIn("--detect-stack", result.stdout)
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,11 +51,15 @@ Key features:
 /feature-dev-aidd:aidd-init
 ```
 
-`/feature-dev-aidd:aidd-init` creates `.claude/settings.json` with default `automation.tests`. To refresh/detect stack-specific defaults, run:
+`/feature-dev-aidd:aidd-init` creates `./aidd` and `.claude/settings.json` with default `automation.tests`. To refresh/detect stack-specific defaults, run:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
+
+Additional flags:
+- `--enable-ci` adds a workspace GitHub Actions scaffold (`.github/workflows/aidd-manual.yml`).
+- `--dry-run` prints planned changes without writing files.
 
 For CI or manual use:
 
@@ -116,7 +120,7 @@ Notes:
 
 | Command | Purpose | Arguments |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
+| `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools] [--enable-ci] [--dry-run]` |
 | `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
