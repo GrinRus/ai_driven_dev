@@ -55,6 +55,14 @@
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixes
+- `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
+- `aidd-init` flags `--dry-run` and `--enable-ci` are now functional; `--detect-stack` remains a hidden alias for `--detect-build-tools`.
+- Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; deprecated `tools/review-*.sh` shims remain compatibility-only with warnings.
+- Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
+- Preflight artifacts now use canonical loop/context paths by default; legacy artifact emission requires `AIDD_WRITE_LEGACY_PREFLIGHT=1`, and legacy read fallback in gate requires `AIDD_ALLOW_LEGACY_PREFLIGHT=1`.
+- CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
+- Marketplace metadata is pinned to stable `main`; `ci-lint` now blocks feature refs like `codex/wave*` and `feature/*`.
+- Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
 - RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
 - Tasklist spec-required checks now cover API/DATA/E2E signals and tasklist runs `tasklist-check` post-refine.
