@@ -52,13 +52,9 @@ require_rg "diff-boundary-check.sh --ticket ${TICKET_REGEX}" "commands/review.md
 require_rg "OUT_OF_SCOPE" "commands/review.md"
 check_order "commands/review.md" "loop-pack.sh --ticket ${TICKET_LITERAL} --stage review" "Use the feature-dev-aidd:reviewer subagent"
 
-log "checking loop protocol anchors"
-require_rg "Loop discipline" "templates/aidd/docs/anchors/implement.md"
-require_rg "Loop discipline" "templates/aidd/docs/anchors/review.md"
-
 log "checking loop-pack schema and active work item"
 require_rg "aidd.loop_pack.v1" "tools/loop_pack.py"
-require_rg ".active_work_item" "tools/loop_pack.py"
+require_rg "active.json" "tools/loop_pack.py"
 
 log "checking loop-step/loop-run presence and docs"
 if [[ ! -f "tools/loop-step.sh" ]]; then
@@ -71,7 +67,4 @@ require_rg "loop-step.sh" "README.md"
 require_rg "loop-run.sh" "README.md"
 require_rg "loop-step.sh" "README.en.md"
 require_rg "loop-run.sh" "README.en.md"
-require_rg "loop-step.sh" "templates/aidd/docs/loops/README.md"
-require_rg "loop-run.sh" "templates/aidd/docs/loops/README.md"
-
 exit "$STATUS"

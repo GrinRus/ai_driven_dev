@@ -4,7 +4,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_file
+from tests.helpers import (
+    cli_cmd,
+    cli_env,
+    ensure_gates_config,
+    ensure_project_root,
+    write_active_state,
+    write_file,
+)
 from tools import runtime
 
 
@@ -12,8 +19,8 @@ class ReviewPackTests(unittest.TestCase):
     def test_review_pack_generates_front_matter(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1")
+            write_active_state(root, work_item="iteration_id=I1")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"
@@ -73,8 +80,8 @@ class ReviewPackTests(unittest.TestCase):
     def test_review_pack_blocked_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-2")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_active_state(root, ticket="DEMO-2")
+            write_active_state(root, work_item="iteration_id=I2")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"
@@ -101,8 +108,8 @@ class ReviewPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "soft"})
-            write_file(root, "docs/.active_ticket", "DEMO-4")
-            write_file(root, "docs/.active_work_item", "iteration_id=I4")
+            write_active_state(root, ticket="DEMO-4")
+            write_active_state(root, work_item="iteration_id=I4")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"
@@ -137,8 +144,8 @@ class ReviewPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "soft"})
-            write_file(root, "docs/.active_ticket", "DEMO-5")
-            write_file(root, "docs/.active_work_item", "iteration_id=I5")
+            write_active_state(root, ticket="DEMO-5")
+            write_active_state(root, work_item="iteration_id=I5")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"
@@ -183,8 +190,8 @@ class ReviewPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ensure_gates_config(root, {"tests_required": "hard"})
-            write_file(root, "docs/.active_ticket", "DEMO-6")
-            write_file(root, "docs/.active_work_item", "iteration_id=I6")
+            write_active_state(root, ticket="DEMO-6")
+            write_active_state(root, work_item="iteration_id=I6")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"
@@ -239,8 +246,8 @@ class ReviewPackTests(unittest.TestCase):
     def test_review_pack_message_fallback_and_dedupe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="review-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-3")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-3")
+            write_active_state(root, work_item="iteration_id=I1")
             loop_pack = (
                 "---\n"
                 "schema: aidd.loop_pack.v1\n"

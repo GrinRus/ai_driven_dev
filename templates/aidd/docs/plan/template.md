@@ -3,8 +3,6 @@
 Status: PENDING
 PRD: `aidd/docs/prd/<ticket>.prd.md`
 Research: `aidd/docs/research/<ticket>.md`
-Architecture Profile: `aidd/docs/architecture/profile.md`
-Rule: Plan MUST NOT violate Allowed dependencies and Invariants.
 
 ## AIDD:CONTEXT_PACK
 - `<краткий контекст итерации>`
@@ -28,7 +26,7 @@ Rule: Plan MUST NOT violate Allowed dependencies and Invariants.
 ## AIDD:DECISIONS
 - `<решение> → <почему>`
 
-## AIDD:ARCHITECTURE
+## AIDD:DESIGN
 - `<ключевые слои/границы>`
 
 ## AIDD:FILES_TOUCHED
@@ -50,7 +48,7 @@ Rule: Plan MUST NOT violate Allowed dependencies and Invariants.
 - **Scope:** [что в/что вне]
 - **Ограничения:** [тех/процессные]
 
-## 2. Архитектура и паттерны
+## 2. Дизайн и паттерны
 - **Слои/границы:** [domain/app/infra]
 - **Паттерны:** [service layer / ports-adapters / другое]
 - **Reuse-точки:** [что используем]

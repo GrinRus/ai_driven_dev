@@ -81,7 +81,7 @@ class LoopModeHookTests(unittest.TestCase):
 
             result = run_hook(project, settings)
             self.assertNotIn("Запуск тестов", result.stderr)
-            self.assertIn("loop-mode", result.stderr)
+            self.assertIn("Stage policy (implement) запрещает тесты", result.stderr)
 
     def test_loop_mode_override_runs_tests(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:
@@ -96,7 +96,8 @@ class LoopModeHookTests(unittest.TestCase):
             seed_repo_with_file(project, "src/app.py", "print('ok')\n")
 
             result = run_hook(project, settings, env={"AIDD_LOOP_TESTS": "1"})
-            self.assertIn("Запуск тестов", result.stderr)
+            self.assertNotIn("Запуск тестов", result.stderr)
+            self.assertIn("Stage policy (implement) запрещает тесты", result.stderr)
 
     def test_loop_mode_review_skips_tests(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:
@@ -128,7 +129,7 @@ class LoopModeHookTests(unittest.TestCase):
 
             result = run_hook(project, settings, env={"AIDD_LOOP_TESTS": "1"})
             self.assertNotIn("Запуск тестов", result.stderr)
-            self.assertIn("Diff пустой/только service", result.stderr)
+            self.assertIn("Stage policy (implement) запрещает тесты", result.stderr)
 
     def test_service_only_blocks_override_for_dot_claude(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-hook-") as tmpdir:
@@ -144,7 +145,7 @@ class LoopModeHookTests(unittest.TestCase):
 
             result = run_hook(project, settings, env={"AIDD_LOOP_TESTS": "1"})
             self.assertNotIn("Запуск тестов", result.stderr)
-            self.assertIn("Diff пустой/только service", result.stderr)
+            self.assertIn("Stage policy (implement) запрещает тесты", result.stderr)
 
 
 if __name__ == "__main__":

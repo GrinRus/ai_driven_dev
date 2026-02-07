@@ -35,6 +35,7 @@ RESEARCH_LIMITS: Dict[str, int] = {
     "tests_evidence": 10,
     "suggested_test_tasks": 10,
     "recommendations": 10,
+    "rlm_warnings": 10,
 }
 
 RESEARCH_BUDGET = {
@@ -50,17 +51,6 @@ QA_LIMITS: Dict[str, int] = {
 PRD_LIMITS: Dict[str, int] = {
     "findings": 20,
     "action_items": 10,
-}
-
-AST_GREP_LIMITS: Dict[str, int] = {
-    "rules": 10,
-    "matches_per_rule": 5,
-    "snippet_chars": 200,
-}
-
-AST_GREP_BUDGET = {
-    "max_chars": 1600,
-    "max_lines": 80,
 }
 
 RLM_LIMITS: Dict[str, int] = {
@@ -283,9 +273,6 @@ def _auto_trim_research_pack(payload: Dict[str, Any], max_chars: int, max_lines:
         ("profile.tests_evidence", lambda: _trim_profile_list(payload, "tests_evidence")),
         ("profile.suggested_test_tasks", lambda: _trim_profile_list(payload, "suggested_test_tasks")),
         ("profile.logging_artifacts", lambda: _trim_profile_list(payload, "logging_artifacts")),
-        ("ast_grep_stats", lambda: _drop_field(payload, "ast_grep_stats")),
-        ("ast_grep_path", lambda: _drop_field(payload, "ast_grep_path")),
-        ("ast_grep_schema", lambda: _drop_field(payload, "ast_grep_schema")),
         ("drop.matches", lambda: _drop_columnar_if_empty(payload, "matches")),
         ("drop.reuse_candidates", lambda: _drop_columnar_if_empty(payload, "reuse_candidates")),
         ("drop.profile", lambda: _drop_field(payload, "profile")),
@@ -757,6 +744,7 @@ def build_research_context_pack(
     tests_evidence = _truncate_list(profile.get("tests_evidence") or [], lim["tests_evidence"])
     suggested_test_tasks = _truncate_list(profile.get("suggested_test_tasks") or [], lim["suggested_test_tasks"])
     manual_notes = _truncate_list(payload.get("manual_notes") or [], lim["manual_notes"])
+    rlm_warnings = _truncate_list(payload.get("rlm_warnings") or [], lim["rlm_warnings"])
 
     packed = {
         "schema": SCHEMA,
@@ -789,16 +777,15 @@ def build_research_context_pack(
         "manual_notes": manual_notes,
         "reuse_candidates": _pack_reuse(payload.get("reuse_candidates") or [], lim["reuse_candidates"]),
         "matches": _pack_matches(payload.get("matches") or [], lim["matches"], lim["match_snippet_chars"]),
-        "ast_grep_path": payload.get("ast_grep_path"),
-        "ast_grep_schema": payload.get("ast_grep_schema"),
-        "ast_grep_stats": payload.get("ast_grep_stats"),
         "rlm_targets_path": payload.get("rlm_targets_path"),
         "rlm_manifest_path": payload.get("rlm_manifest_path"),
         "rlm_worklist_path": payload.get("rlm_worklist_path"),
         "rlm_nodes_path": payload.get("rlm_nodes_path"),
         "rlm_links_path": payload.get("rlm_links_path"),
+        "rlm_links_stats_path": payload.get("rlm_links_stats_path"),
         "rlm_pack_path": payload.get("rlm_pack_path"),
         "rlm_status": payload.get("rlm_status"),
+        "rlm_warnings": rlm_warnings,
         "deep_mode": payload.get("deep_mode"),
         "auto_mode": payload.get("auto_mode"),
         "stats": {
@@ -880,95 +867,6 @@ def build_prd_pack(
     return packed
 
 
-def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                raw = line.strip()
-                if not raw:
-                    continue
-                try:
-                    payload = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(payload, dict):
-                    yield payload
-    except OSError:
-        return
-
-
-def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
-    return list(_iter_jsonl(path)) if path.exists() else []
-
-
-def build_ast_grep_pack(
-    payload: Dict[str, Any],
-    *,
-    source_path: Optional[str] = None,
-    limits: Optional[Dict[str, int]] = None,
-) -> Dict[str, Any]:
-    lim = {**AST_GREP_LIMITS, **(limits or {})}
-    matches = payload.get("matches") or []
-    stats_payload = payload.get("stats") or {}
-    rules: Dict[str, List[Dict[str, Any]]] = {}
-    schema_version = None
-    for match in matches:
-        if not isinstance(match, dict):
-            continue
-        rule_id = str(match.get("rule_id") or match.get("ruleId") or match.get("rule") or "").strip()
-        if not rule_id:
-            rule_id = "unknown"
-        schema_version = schema_version or match.get("schema")
-        rules.setdefault(rule_id, []).append(match)
-    if schema_version is None:
-        schema_version = stats_payload.get("schema")
-    packed_rules = []
-    snippet_chars = int(lim.get("snippet_chars", 0) or 0)
-    for rule_id, rule_matches in sorted(rules.items()):
-        examples: List[Dict[str, Any]] = []
-        for entry in _truncate_list(rule_matches, lim["matches_per_rule"]):
-            snippet = entry.get("snippet")
-            if isinstance(snippet, str) and snippet_chars > 0:
-                snippet = snippet[:snippet_chars]
-            examples.append(
-                {
-                    "path": entry.get("path"),
-                    "line": entry.get("line"),
-                    "col": entry.get("col"),
-                    "snippet": snippet,
-                    "message": entry.get("message"),
-                    "tags": entry.get("tags"),
-                }
-            )
-        packed_rules.append(
-            {
-                "rule_id": rule_id,
-                "count": len(rule_matches),
-                "examples": examples,
-            }
-        )
-    packed = {
-        "schema": SCHEMA,
-        "pack_version": PACK_VERSION,
-        "type": "ast-grep",
-        "kind": "pack",
-        "ticket": payload.get("ticket"),
-        "slug": payload.get("slug"),
-        "slug_hint": payload.get("slug_hint"),
-        "generated_at": payload.get("generated_at"),
-        "source_path": source_path,
-        "schema_version": schema_version,
-        "rules": _truncate_list(packed_rules, lim["rules"]),
-        "stats": {
-            "matches_total": stats_payload.get("matches_total", len(matches)),
-            "matches_written": stats_payload.get("matches_written", len(matches)),
-            "rules_total": len(rules),
-            "truncated": stats_payload.get("truncated", False),
-        },
-    }
-    return packed
-
-
 def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     if not path.exists():
         return []
@@ -1003,6 +901,8 @@ def _load_rlm_links_stats(root: Path, ticket: str) -> Optional[Dict[str, Any]]:
 
 def _rlm_link_warnings(stats: Dict[str, Any]) -> List[str]:
     warnings: List[str] = []
+    if "links_total" in stats and int(stats.get("links_total") or 0) == 0:
+        warnings.append("rlm_links_empty_warn")
     if stats.get("links_truncated"):
         warnings.append("rlm links truncated: max_links reached")
     if int(stats.get("target_files_trimmed") or 0) > 0:
@@ -1191,34 +1091,16 @@ def build_rlm_pack(
     )
     link_stats = _load_rlm_links_stats(root, ticket) if root and ticket else None
     link_warnings = _rlm_link_warnings(link_stats) if link_stats else []
-    fallback_warn_ratio: Optional[float] = None
     unverified_warn_ratio: Optional[float] = None
     if root:
         settings = load_rlm_settings(root)
-        raw_ratio = settings.get("link_fallback_warn_ratio")
         raw_unverified_ratio = settings.get("link_unverified_warn_ratio")
-        try:
-            ratio_value = float(raw_ratio)
-        except (TypeError, ValueError):
-            ratio_value = None
         try:
             unverified_value = float(raw_unverified_ratio)
         except (TypeError, ValueError):
             unverified_value = None
-        if ratio_value is not None and 0 < ratio_value <= 1:
-            fallback_warn_ratio = ratio_value
         if unverified_value is not None and 0 < unverified_value <= 1:
             unverified_warn_ratio = unverified_value
-    if link_stats and fallback_warn_ratio and file_nodes:
-        fallback_nodes = int(link_stats.get("fallback_nodes") or 0)
-        total_nodes = len(file_nodes)
-        if total_nodes:
-            ratio = fallback_nodes / total_nodes
-            if ratio >= fallback_warn_ratio:
-                link_warnings.append(
-                    "rlm link fallback ratio high: "
-                    f"fallback_nodes={fallback_nodes} total_nodes={total_nodes} ratio={ratio:.2f}"
-                )
     if unverified_warn_ratio and links_total:
         ratio = links_unverified / links_total
         if ratio >= unverified_warn_ratio:
@@ -1371,6 +1253,21 @@ def _update_rlm_context(
 ) -> Path:
     payload = json.loads(context_path.read_text(encoding="utf-8"))
     ticket = str(payload.get("ticket") or "").strip()
+    link_warnings: List[str] = []
+    links_total = None
+    links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+    if links_stats_path.exists():
+        payload["rlm_links_stats_path"] = runtime.rel_path(links_stats_path, root)
+        try:
+            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
+        except Exception:
+            stats_payload = None
+        if isinstance(stats_payload, dict):
+            link_warnings = _rlm_link_warnings(stats_payload)
+            try:
+                links_total = int(stats_payload.get("links_total") or 0)
+            except (TypeError, ValueError):
+                links_total = None
     worklist_status, worklist_entries, worklist_path = _load_rlm_worklist_summary(
         root,
         ticket,
@@ -1382,6 +1279,11 @@ def _update_rlm_context(
     links_ready = links_path.exists()
     nodes_has_data = nodes_ready and nodes_path.stat().st_size > 0
     links_has_data = links_ready and links_path.stat().st_size > 0
+    links_empty = False
+    if links_total is not None:
+        links_empty = links_total == 0
+    else:
+        links_empty = not links_has_data
     if worklist_status is not None:
         if worklist_status == "ready" and worklist_entries == 0 and nodes_ready and links_ready:
             rlm_status = "ready"
@@ -1389,6 +1291,20 @@ def _update_rlm_context(
             rlm_status = "pending"
     else:
         rlm_status = "ready" if nodes_has_data and links_has_data else "pending"
+    gates_cfg = runtime.load_gates_config(root)
+    rlm_cfg = gates_cfg.get("rlm") if isinstance(gates_cfg, dict) else {}
+    require_links = bool(rlm_cfg.get("require_links")) if isinstance(rlm_cfg, dict) else False
+    if require_links and links_empty:
+        rlm_status = "warn"
+        if "rlm_links_empty_warn" not in link_warnings:
+            link_warnings.append("rlm_links_empty_warn")
+    if link_warnings:
+        existing = payload.get("rlm_warnings")
+        merged = list(existing) if isinstance(existing, list) else []
+        for warning in link_warnings:
+            if warning not in merged:
+                merged.append(warning)
+        payload["rlm_warnings"] = merged
     payload["rlm_status"] = rlm_status
     payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
     payload["rlm_links_path"] = runtime.rel_path(links_path, root)
@@ -1397,81 +1313,6 @@ def _update_rlm_context(
     tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     tmp_path.replace(context_path)
     return context_path
-
-
-def write_ast_grep_pack(
-    jsonl_path: Path,
-    *,
-    ticket: str,
-    slug_hint: Optional[str],
-    stats: Optional[Dict[str, Any]] = None,
-    output: Optional[Path] = None,
-    root: Optional[Path] = None,
-    limits: Optional[Dict[str, int]] = None,
-) -> Path:
-    matches = _load_jsonl(jsonl_path)
-    payload = {
-        "ticket": ticket,
-        "slug": slug_hint or ticket,
-        "slug_hint": slug_hint,
-        "generated_at": _utc_timestamp(),
-        "matches": matches,
-        "stats": stats or {},
-    }
-    source_path = None
-    if root:
-        try:
-            source_path = jsonl_path.relative_to(root).as_posix()
-        except ValueError:
-            source_path = jsonl_path.as_posix()
-    else:
-        source_path = jsonl_path.as_posix()
-    ext = _pack_extension()
-    default_path = jsonl_path.with_name(f"{ticket}-ast-grep{ext}")
-    pack_path = (output or default_path).resolve()
-
-    base_limits = {**AST_GREP_LIMITS, **(limits or {})}
-    current_limits = dict(base_limits)
-    trimmed = False
-    errors: List[str] = []
-    text = ""
-
-    def _shrink_limits(lim: Dict[str, int]) -> bool:
-        for key in ("matches_per_rule", "rules"):
-            value = int(lim.get(key, 0) or 0)
-            if value > 1:
-                lim[key] = value - 1
-                return True
-        snippet_chars = int(lim.get("snippet_chars", 0) or 0)
-        if snippet_chars > 40:
-            lim["snippet_chars"] = max(40, snippet_chars - 20)
-            return True
-        return False
-
-    while True:
-        pack = build_ast_grep_pack(payload, source_path=source_path, limits=current_limits)
-        text = _serialize_pack(pack)
-        errors = check_budget(
-            text,
-            max_chars=AST_GREP_BUDGET["max_chars"],
-            max_lines=AST_GREP_BUDGET["max_lines"],
-            label="ast-grep",
-        )
-        if not errors:
-            break
-        if not _shrink_limits(current_limits):
-            break
-        trimmed = True
-
-    if errors:
-        for error in errors:
-            print(f"[pack-budget] {error}", file=sys.stderr)
-        if _enforce_budget():
-            raise ValueError("; ".join(errors))
-    elif trimmed:
-        print("[pack-trim] ast-grep pack trimmed to fit budget.", file=sys.stderr)
-
-    return _write_pack_text(text, pack_path)
 
 
 def _pack_path_for(json_path: Path) -> Path:

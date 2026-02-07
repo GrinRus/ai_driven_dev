@@ -4,17 +4,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_active_state, write_file
 
 
 def write_review_context_pack(root: Path, ticket: str) -> None:
-    write_file(root, f"reports/context/{ticket}.review.pack.md", f"# Context Pack — {ticket}\n")
+    write_file(root, f"reports/context/{ticket}.pack.md", f"# Context Pack — {ticket}\n")
 
 
 def write_review_context_pack_with_placeholder(root: Path, ticket: str) -> None:
     write_file(
         root,
-        f"reports/context/{ticket}.review.pack.md",
+        f"reports/context/{ticket}.pack.md",
         f"# Context Pack — {ticket}\n\nGoal: <stage-specific goal>\n",
     )
 
@@ -51,7 +51,7 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("requested_result"), "done")
             self.assertEqual(payload.get("result"), "continue")
-            self.assertEqual(payload.get("reason_code"), "missing_test_evidence")
+            self.assertEqual(payload.get("reason_code"), "no_tests_soft")
 
     def test_review_missing_tests_hard_blocks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -84,7 +84,7 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("requested_result"), "done")
             self.assertEqual(payload.get("result"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "missing_test_evidence")
+            self.assertEqual(payload.get("reason_code"), "no_tests_hard")
 
     def test_review_blocked_preserved_when_tests_missing_soft(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -229,7 +229,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "continue")
-            self.assertEqual(payload.get("reason_code"), "manual_skip")
+            self.assertEqual(payload.get("reason_code"), "no_tests_soft")
 
     def test_review_uses_latest_pass_when_review_skipped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -339,7 +339,7 @@ class StageResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(payload.get("result"), "blocked")
-            self.assertEqual(payload.get("reason_code"), "manual_skip")
+            self.assertEqual(payload.get("reason_code"), "no_tests_hard")
 
     def test_review_stage_result_links_fix_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -393,8 +393,7 @@ class StageResultTests(unittest.TestCase):
     def test_review_pack_verdict_overrides_stage_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-PACK")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-PACK", work_item="iteration_id=I1")
             write_review_context_pack(root, "DEMO-PACK")
             write_file(
                 root,
@@ -442,6 +441,21 @@ class StageResultTests(unittest.TestCase):
                 "reports/qa/DEMO-QA.json",
                 json.dumps({"status": "WARN"}, indent=2),
             )
+            write_file(
+                root,
+                "reports/tests/DEMO-QA/DEMO-QA.jsonl",
+                json.dumps(
+                    {
+                        "schema": "aidd.tests_log.v1",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                        "ticket": "DEMO-QA",
+                        "stage": "qa",
+                        "scope_key": "DEMO-QA",
+                        "status": "pass",
+                    }
+                )
+                + "\n",
+            )
 
             result = subprocess.run(
                 cli_cmd(
@@ -475,6 +489,21 @@ class StageResultTests(unittest.TestCase):
                 "reports/qa/DEMO-QA-BLOCK.json",
                 json.dumps({"status": "BLOCKED"}, indent=2),
             )
+            write_file(
+                root,
+                "reports/tests/DEMO-QA-BLOCK/DEMO-QA-BLOCK.jsonl",
+                json.dumps(
+                    {
+                        "schema": "aidd.tests_log.v1",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                        "ticket": "DEMO-QA-BLOCK",
+                        "stage": "qa",
+                        "scope_key": "DEMO-QA-BLOCK",
+                        "status": "pass",
+                    }
+                )
+                + "\n",
+            )
 
             result = subprocess.run(
                 cli_cmd(
@@ -499,6 +528,49 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("result"), "blocked")
             self.assertEqual(payload.get("reason_code"), "qa_blocked")
+
+    def test_qa_tests_failed_blocks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(
+                root,
+                "reports/tests/DEMO-QA-FAIL/DEMO-QA-FAIL.jsonl",
+                json.dumps(
+                    {
+                        "schema": "aidd.tests_log.v1",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                        "ticket": "DEMO-QA-FAIL",
+                        "stage": "qa",
+                        "scope_key": "DEMO-QA-FAIL",
+                        "status": "fail",
+                    }
+                )
+                + "\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-FAIL",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-QA-FAIL" / "DEMO-QA-FAIL" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("result"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "qa_tests_failed")
 
     def test_rejects_composite_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:

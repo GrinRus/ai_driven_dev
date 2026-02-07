@@ -8,9 +8,8 @@ class ImplementerPromptTests(unittest.TestCase):
     def test_prompt_includes_test_scope_and_cadence(self) -> None:
         path = REPO_ROOT / "agents" / "implementer.md"
         text = path.read_text(encoding="utf-8")
-        self.assertIn("Test scope:", text)
-        self.assertIn("Cadence:", text)
-        self.assertIn("Why skipped:", text)
+        self.assertIn("Test policy (IMPLEMENT = NO TESTS)", text)
+        self.assertIn("AIDD_TEST_PROFILE", text)
 
 
 if __name__ == "__main__":

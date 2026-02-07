@@ -69,7 +69,7 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
             "--clear",
         ]
     )
-    assert not marker.exists(), "marker should be removed on --clear"
+    assert not marker.exists(), "marker should be absent on --clear"
 
 
 def test_reviewer_tests_rejects_unknown_status(tmp_path, monkeypatch):

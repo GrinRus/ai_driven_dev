@@ -8,7 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from hooks.hooklib import load_config, pretooluse_decision, read_hook_context, resolve_aidd_root, resolve_project_dir
+from hooks.hooklib import (
+    load_config,
+    pretooluse_decision,
+    read_hook_context,
+    resolve_aidd_root,
+    resolve_context_gc_mode,
+    resolve_project_dir,
+)
 
 
 def _resolve_log_dir(project_dir: Path, aidd_root: Optional[Path], rel_log_dir: str) -> Path:
@@ -107,6 +114,31 @@ def _command_has_guard_segment(command: str, segments: list[str]) -> bool:
         if f"/{seg}/" in lowered or f"{seg}/" in lowered or f"{seg}\\" in lowered:
             return True
     return False
+
+
+def _is_aidd_scoped(path_value: str, project_dir: Path, aidd_root: Optional[Path]) -> bool:
+    if not path_value:
+        return False
+    try:
+        raw_path = Path(path_value)
+    except Exception:
+        return False
+    if not raw_path.is_absolute():
+        raw_path = (project_dir / raw_path).resolve()
+    if aidd_root:
+        try:
+            rel = raw_path.resolve().relative_to(aidd_root.resolve()).as_posix()
+        except Exception:
+            rel = ""
+        if rel:
+            return rel.startswith(("docs/", "reports/", "config/", ".cache/"))
+    text = raw_path.as_posix()
+    return "/aidd/" in text or text.endswith("/aidd") or text.startswith("aidd/")
+
+
+def _command_targets_aidd(command: str) -> bool:
+    lowered = command.lower()
+    return any(token in lowered for token in ("aidd/", "docs/", "reports/", "config/", ".cache/"))
 
 
 def _prompt_injection_guard_message(
@@ -345,11 +377,24 @@ def main() -> None:
     cfg = load_config(aidd_root)
     if not cfg.get("enabled", True):
         return
+    mode = resolve_context_gc_mode(cfg)
+    if mode == "off":
+        return
 
     tool_name = str(ctx.raw.get("tool_name", ""))
     tool_input = ctx.raw.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         return
+
+    if mode == "light":
+        if tool_name == "Bash":
+            cmd = str(tool_input.get("command") or "")
+            if not _command_targets_aidd(cmd):
+                return
+        else:
+            path_value = str(tool_input.get("file_path") or tool_input.get("path") or "")
+            if not _is_aidd_scoped(path_value, project_dir, aidd_root):
+                return
 
     if tool_name == "Bash":
         handle_bash(project_dir, aidd_root, cfg, tool_input)

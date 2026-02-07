@@ -13,26 +13,23 @@ permissionMode: default
 Validator вызывается внутри `/feature-dev-aidd:plan-new` после генерации плана. Он проверяет исполняемость плана и соответствие PRD/Research перед переходом к `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:tasks-new`.
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/plan.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции PRD и Plan
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен.
 - `aidd/docs/plan/<ticket>.md` — черновой план.
-- `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
 - `aidd/docs/research/<ticket>.md` — интеграции/риски/reuse.
 
 ## Автоматизация
@@ -42,7 +39,7 @@ Validator вызывается внутри `/feature-dev-aidd:plan-new` пос�
 Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
 
 ## Пошаговый план
-1. Проверь, что план содержит обязательные секции: Files/Modules touched, Iterations+DoD, Test strategy per iteration, migrations/feature flags, observability. Если есть `AIDD:ANSWERS`, убедись, что блокирующие вопросы закрыты.
+1. Проверь, что план содержит обязательные секции: Files/Modules touched, Iterations+DoD, Test strategy per iteration, schema changes/feature flags, observability. Если есть `AIDD:ANSWERS`, убедись, что блокирующие вопросы закрыты.
    Отдельно проверь, что план **macro‑уровня**: без чекбоксов `- [ ]`, без CLI-команд, без микрошагов по файлам/функциям.
 2. Сопоставь план с PRD: цели, AIDD:ACCEPTANCE, ограничения и риски должны быть покрыты.
 3. Сверь с Research: точки интеграции и reuse отражены в плане.

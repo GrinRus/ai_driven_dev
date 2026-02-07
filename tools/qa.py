@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 
 from tools import qa_agent as _qa_agent
 from tools import runtime
+from tools import tasklist_parser
 
 
 def _default_qa_test_command() -> list[list[str]]:
@@ -46,6 +47,19 @@ DEFAULT_DISCOVERY_ALLOWLIST = (
     "Jenkinsfile",
     "README*",
     "readme*",
+)
+
+SKIP_MARKERS = (
+    "форматирование/тесты пропущены",
+    "стадия тестов пропущена",
+    "тесты пропущены",
+    "tests skipped",
+    "skipping tests",
+    "no tests to run",
+    "no tests ran",
+    "no tests collected",
+    "no test files",
+    "nothing to test",
 )
 
 
@@ -89,6 +103,53 @@ def _extract_test_commands(text: str) -> list[str]:
             if cmd:
                 commands.append(cmd)
             break
+    return commands
+
+
+def _strip_placeholder(value: str) -> str:
+    text = value.strip()
+    if not text:
+        return ""
+    if text.startswith("<") and text.endswith(">"):
+        return ""
+    return text
+
+
+def _load_tasklist_test_execution(root: Path, ticket: str) -> dict:
+    path = root / "docs" / "tasklist" / f"{ticket}.md"
+    if not path.exists():
+        return {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    section = tasklist_parser.extract_section(lines, "AIDD:TEST_EXECUTION")
+    if not section:
+        return {}
+    return tasklist_parser.parse_test_execution(section)
+
+
+def _has_tasklist_execution(data: dict) -> bool:
+    if not data:
+        return False
+    return any(
+        bool(str(data.get(key) or "").strip())
+        for key in ("profile", "when", "reason")
+    ) or bool(data.get("tasks")) or bool(data.get("filters"))
+
+
+def _commands_from_tasks(tasks: list[str]) -> list[list[str]]:
+    commands: list[list[str]] = []
+    for raw in tasks:
+        task = _strip_placeholder(str(raw))
+        if not task or task.lower() in {"none", "[]", "(none)", "n/a"}:
+            continue
+        try:
+            parts = [token for token in shlex.split(task) if token]
+        except ValueError:
+            continue
+        if parts:
+            commands.append(parts)
     return commands
 
 
@@ -260,8 +321,14 @@ def _run_qa_tests(
     branch: str | None,
     report_path: Path,
     allow_missing: bool,
+    commands_override: list[list[str]] | None = None,
+    allow_skip_override: bool | None = None,
 ) -> tuple[list[dict], str]:
-    commands, allow_skip_cfg = _load_qa_tests_config(target)
+    if commands_override is not None:
+        commands = commands_override
+        allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
+    else:
+        commands, allow_skip_cfg = _load_qa_tests_config(target)
     allow_skip = allow_missing or allow_skip_cfg
 
     tests_executed: list[dict] = []
@@ -275,15 +342,7 @@ def _run_qa_tests(
 
     def _output_indicates_skip(text: str) -> bool:
         lowered = text.lower()
-        return any(
-            marker in lowered
-            for marker in (
-                "форматирование/тесты пропущены",
-                "стадия тестов пропущена",
-                "тесты пропущены",
-                "tests skipped",
-            )
-        )
+        return any(marker in lowered for marker in SKIP_MARKERS)
 
     for index, cmd in enumerate(commands, start=1):
         log_path = logs_dir / f"{base_name}-tests{'' if len(commands) == 1 else f'-{index}'}.log"
@@ -339,7 +398,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -426,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
     ticket = (context.resolved_ticket or "").strip()
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     branch = args.branch or runtime.detect_branch(target)
 
@@ -451,6 +510,20 @@ def main(argv: list[str] | None = None) -> int:
         allow_no_tests = True
     skip_tests = bool(getattr(args, "skip_tests", False) or os.getenv("CLAUDE_QA_SKIP_TESTS", "").strip() == "1")
 
+    tasklist_exec = _load_tasklist_test_execution(target, ticket)
+    tasklist_exec_present = _has_tasklist_execution(tasklist_exec)
+    tasklist_profile = str(tasklist_exec.get("profile") or "").strip().lower() if tasklist_exec_present else ""
+    tasklist_tasks = tasklist_exec.get("tasks") or []
+    tasklist_filters = tasklist_exec.get("filters") or []
+    tasklist_commands: list[list[str]] = []
+    if tasklist_exec_present and tasklist_profile != "none":
+        tasklist_commands = _commands_from_tasks(list(tasklist_tasks))
+    commands_override = None
+    allow_skip_override = None
+    if tasklist_exec_present:
+        commands_override = [] if tasklist_profile == "none" else tasklist_commands
+        allow_skip_override = tests_required_mode != "hard"
+
     tests_executed: list[dict] = []
     tests_summary = "skipped" if skip_tests else "not-run"
 
@@ -462,6 +535,8 @@ def main(argv: list[str] | None = None) -> int:
             branch=branch,
             report_path=report_path,
             allow_missing=allow_no_tests,
+            commands_override=commands_override,
+            allow_skip_override=allow_skip_override,
         )
         if tests_summary == "fail":
             print("[aidd] QA tests failed; see aidd/reports/qa/*-tests.log.", file=sys.stderr)
@@ -477,7 +552,10 @@ def main(argv: list[str] | None = None) -> int:
         from tools.reports import tests_log as _tests_log
 
         scope_key = runtime.resolve_scope_key("", ticket)
-        commands = [entry.get("command") for entry in tests_executed if entry.get("command")]
+        if tasklist_exec_present:
+            commands = [str(item) for item in (tasklist_tasks or []) if str(item).strip()]
+        else:
+            commands = [entry.get("command") for entry in tests_executed if entry.get("command")]
         log_path = ""
         for entry in reversed(tests_executed):
             if entry.get("log"):
@@ -491,17 +569,31 @@ def main(argv: list[str] | None = None) -> int:
         reason_code = ""
         reason = ""
         if tests_summary in {"skipped", "not-run"}:
-            reason_code = "manual_skip"
             if skip_tests:
+                reason_code = "manual_skip"
                 reason = "qa skip-tests flag"
+            elif tasklist_exec_present and tasklist_profile == "none":
+                reason_code = "profile_none"
+                reason = "tasklist test profile none"
+            elif tasklist_exec_present and tasklist_profile != "none" and not tasklist_commands:
+                reason_code = "tasklist_no_commands"
+                reason = "tasklist test commands missing"
             elif allow_no_tests:
+                reason_code = "allow_no_tests"
                 reason = "qa allow_no_tests enabled"
             else:
+                reason_code = "tests_skipped"
                 reason = "qa tests skipped"
         if tests_summary in {"skipped", "not-run"}:
-            profile = "none"
+            if tasklist_exec_present and tasklist_profile:
+                profile = tasklist_profile
+            else:
+                profile = "none"
         else:
-            profile = "full" if commands else "none"
+            if tasklist_exec_present and tasklist_profile:
+                profile = tasklist_profile
+            else:
+                profile = "full" if commands else "none"
         _tests_log.append_log(
             target,
             ticket=ticket,
@@ -511,13 +603,16 @@ def main(argv: list[str] | None = None) -> int:
             work_item_key=None,
             profile=profile,
             tasks=commands or None,
-            filters=None,
+            filters=tasklist_filters or None,
             exit_code=exit_code,
             log_path=log_path or None,
             status=tests_summary,
             reason_code=reason_code or None,
             reason=reason or None,
-            details={"qa_tests": True},
+            details={
+                "qa_tests": True,
+                "source": "tasklist" if tasklist_exec_present else "config",
+            },
             source="qa",
             cwd=str(target),
         )
@@ -553,7 +648,10 @@ def main(argv: list[str] | None = None) -> int:
     if report_path:
         qa_args.extend(["--report", str(report_path)])
 
-    _, allow_skip_cfg = _load_qa_tests_config(target)
+    if tasklist_exec_present:
+        allow_skip_cfg = True if allow_skip_override is None else allow_skip_override
+    else:
+        _, allow_skip_cfg = _load_qa_tests_config(target)
     allow_no_tests_env = allow_no_tests or allow_skip_cfg
     if tests_required_mode == "hard":
         allow_no_tests_env = False
@@ -581,6 +679,44 @@ def main(argv: list[str] | None = None) -> int:
         exit_code = max(exit_code, 1)
     elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
         exit_code = max(exit_code, 1)
+
+    try:
+        report_status = ""
+        if report_path.exists():
+            report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+            report_status = str(report_payload.get("status") or "").strip().upper()
+        stage_result_args = [
+            "--ticket",
+            ticket,
+            "--stage",
+            "qa",
+            "--result",
+            "blocked" if report_status == "BLOCKED" else "done",
+        ]
+        if report_path.exists():
+            stage_result_args.extend(
+                ["--evidence-link", f"qa_report={runtime.rel_path(report_path, target)}"]
+            )
+            pack_path = report_path.with_suffix(".pack.json")
+            if pack_path.exists():
+                stage_result_args.extend(
+                    ["--evidence-link", f"qa_pack={runtime.rel_path(pack_path, target)}"]
+                )
+        if tests_executed:
+            log_paths = [entry.get("log") for entry in tests_executed if entry.get("log")]
+            if log_paths:
+                stage_result_args.extend(
+                    ["--evidence-link", f"qa_tests_log={log_paths[-1]}"]
+                )
+        from tools import stage_result as _stage_result
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+
+        stage_result_args.extend(["--format", "json"])
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            _stage_result.main(stage_result_args)
+    except Exception:
+        pass
 
     try:
         from tools.reports import events as _events

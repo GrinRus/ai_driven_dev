@@ -685,27 +685,28 @@ def resolve_workspace_root(ctx: object | None) -> Path:
         return base.parent.resolve()
     return base.resolve()
 
+def read_active_state(project_root: Path) -> dict:
+    path = project_root / "docs" / ".active.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def read_active_stage(project_root: Path) -> str:
     override = os.environ.get("CLAUDE_ACTIVE_STAGE")
     if override:
         return override.strip().lower()
-    stage_path = project_root / "docs" / ".active_stage"
-    if not stage_path.exists():
-        return ""
-    try:
-        return stage_path.read_text(encoding="utf-8").strip().lower()
-    except OSError:
-        return ""
+    state = read_active_state(project_root)
+    return str(state.get("stage") or "").strip().lower()
 
 
 def read_active_work_item(project_root: Path) -> str:
-    path = project_root / "docs" / ".active_work_item"
-    if not path.exists():
-        return ""
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    state = read_active_state(project_root)
+    return str(state.get("work_item") or "").strip()
 
 
 def read_active_mode(project_root: Path) -> str:
@@ -730,12 +731,14 @@ def collect_diff_files(base: Path) -> List[str]:
 
     files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
     files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
+    files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
     return sorted(files)
 
 
 SERVICE_PREFIXES = (".claude/", ".cursor/")
-SERVICE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
+SERVICE_FILES = {"AGENTS.md", ".github/copilot-instructions.md"}
 AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
+DOCS_PREFIX = "docs/"
 
 def normalize_service_path(path: str) -> str:
     normalized = path.replace("\\", "/")
@@ -768,6 +771,20 @@ def service_only(files: List[str], *, aidd_root: bool) -> bool:
     if not files:
         return True
     return all(is_service_file(path, aidd_root=aidd_root) for path in files)
+
+
+def docs_only(files: List[str], *, aidd_root: bool) -> bool:
+    if not files:
+        return False
+    for path in files:
+        normalized = normalize_service_path(path)
+        if aidd_root:
+            if not normalized.startswith(DOCS_PREFIX):
+                return False
+        else:
+            if not normalized.startswith("aidd/" + DOCS_PREFIX):
+                return False
+    return True
 
 
 def main() -> int:
@@ -856,7 +873,7 @@ def main() -> int:
         if not stage:
             log("Активная стадия не задана — форматирование/тесты пропущены.")
             return 0
-        if stage not in {"implement", "review"}:
+        if stage not in {"implement", "review", "qa"}:
             log(f"Активная стадия '{stage}' — форматирование/тесты пропущены.")
             return 0
         if stage == "review" and service_only(diff_files, aidd_root=aidd_root):
@@ -954,10 +971,6 @@ def main() -> int:
     if policy_path.exists():
         policy_active = True
         log(f"Test policy detected: {policy_path}")
-    log(f"Test profile: {test_profile} (source: {profile_source}).")
-
-    if test_profile == "full":
-        changed_only_flag = False
 
     test_tasks: List[str] = []
     test_filters: List[str] = []
@@ -980,6 +993,58 @@ def main() -> int:
         if test_filters:
             changed_only_flag = False
             manual_scope_requested = True
+
+    stage_value = (stage or "implement").strip().lower() or "implement"
+    stage_policy = ""
+    stage_policy_source = ""
+    try:
+        from tools import gates as _gates
+
+        gates_config = _gates.load_gates_config(project_root)
+        stage_policy = _gates.resolve_stage_tests_policy(gates_config, stage_value)
+        if stage_policy:
+            if isinstance(gates_config, dict) and (gates_config.get("tests_policy") or gates_config.get("testsPolicy")):
+                stage_policy_source = "gates.json"
+            else:
+                stage_policy_source = "default"
+    except Exception:
+        stage_policy = ""
+
+    if stage_policy:
+        policy_active = True
+        if stage_policy == "none":
+            if test_profile != "none":
+                log(f"Stage policy ({stage_value}) запрещает тесты — используем profile=none.")
+            test_profile = "none"
+            profile_source = "stage-policy"
+            if manual_scope_requested:
+                log("Stage policy запрещает тесты — manual scope сброшен.")
+            manual_scope_requested = False
+            test_tasks = []
+            test_filters = []
+        elif stage_policy == "targeted":
+            if test_profile != "targeted":
+                log(f"Stage policy ({stage_value}) → profile=targeted.")
+                test_profile = "targeted"
+                profile_source = "stage-policy"
+        elif stage_policy == "full":
+            if test_profile != "full":
+                log(f"Stage policy ({stage_value}) → profile=full.")
+                test_profile = "full"
+                profile_source = "stage-policy"
+            if manual_scope_requested:
+                log("Stage policy full overrides manual scope — запускаем полный прогон.")
+                manual_scope_requested = False
+                test_tasks = []
+                test_filters = []
+            changed_only_flag = False
+
+    log(f"Test profile: {test_profile} (source: {profile_source}).")
+    if stage_policy:
+        log(f"Stage tests policy: {stage_policy} (source: {stage_policy_source}).")
+
+    if test_profile == "full":
+        changed_only_flag = False
 
     code_paths_raw = tests_cfg.get("codePaths")
     if code_paths_raw is None:
@@ -1073,7 +1138,7 @@ def main() -> int:
                 project_root,
             )
         else:
-            log("reviewerGate.enabled=1, но docs/.active_ticket не найден — тесты будут ожидать запроса reviewer.")
+            log("reviewerGate.enabled=1, но docs/.active.json не найден — тесты будут ожидать запроса reviewer.")
 
     cadence = normalize_cadence(tests_cfg.get("cadence"))
     checkpoint_triggers = parse_checkpoint_triggers(
@@ -1169,7 +1234,7 @@ def main() -> int:
             profile_value = "none"
         ticket = identifiers.resolved_ticket
         ticket_guess = ""
-        ticket_file = project_root / "docs" / ".active_ticket"
+        ticket_file = project_root / "docs" / ".active.json"
         if not ticket_file.exists() and identifiers.slug_hint:
             ticket_guess = identifiers.slug_hint
         if not ticket:
@@ -1233,6 +1298,16 @@ def main() -> int:
         except Exception:
             return
 
+    if docs_only(changed_files, aidd_root=aidd_root):
+        log("Изменения только в docs — форматирование/тесты пропущены.")
+        record_event("skipped", "docs-only")
+        record_tests_log(
+            "skipped",
+            reason_code="docs_only",
+            reason="docs-only changes",
+        )
+        return 0
+
     cadence_allows = True
     cadence_reason = ""
     if cadence == "manual":
@@ -1249,8 +1324,12 @@ def main() -> int:
     skip_reason_code = ""
     if test_profile == "none":
         tests_should_run = False
-        skip_reason = "AIDD_TEST_PROFILE=none — стадия тестов пропущена."
-        skip_reason_code = "profile_none"
+        if stage_policy == "none":
+            skip_reason = f"Stage policy ({stage_value}) запрещает тесты — стадия тестов пропущена."
+            skip_reason_code = "tests_forbidden"
+        else:
+            skip_reason = "AIDD_TEST_PROFILE=none — стадия тестов пропущена."
+            skip_reason_code = "profile_none"
     elif skip_tests:
         tests_should_run = False
         skip_reason = f"{skip_env_name}=1 — стадия тестов пропущена."
@@ -1386,12 +1465,17 @@ def main() -> int:
 
     if active_ticket and common_hits:
         changed_only_flag = False
-        if test_profile != "full":
-            test_profile = "full"
-            profile_source = "common-files"
-        log(
-            f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов (profile=full)."
-        )
+        if stage_policy == "targeted":
+            log(
+                f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — stage policy оставляет targeted."
+            )
+        else:
+            if test_profile != "full":
+                test_profile = "full"
+                profile_source = "common-files"
+            log(
+                f"Активная фича '{feature_label(active_ticket, slug_hint)}', изменены общие файлы: {' '.join(common_hits)} — полный прогон тестов (profile=full)."
+            )
 
     if changed_only_flag and changed_files and module_matrix:
         matrix_tasks: List[str] = []

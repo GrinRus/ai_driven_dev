@@ -13,7 +13,7 @@ class PlannerAgentTests(unittest.TestCase):
         self.assertIn("service layer", lower)
         self.assertIn("adapters", lower)
         self.assertIn("reuse", lower)
-        self.assertIn("Architecture & Patterns".lower(), lower)
+        self.assertIn("design & patterns", lower)
 
 
 if __name__ == "__main__":  # pragma: no cover

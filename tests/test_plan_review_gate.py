@@ -78,7 +78,7 @@ class PlanReviewGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-PLAN-4"
-            body = "Status: READY\n- [ ] legacy open item\n"
+            body = "Status: READY\n- [ ] open item\n"
             self.assertEqual(run_gate(root, ticket, body), 1)
 
 

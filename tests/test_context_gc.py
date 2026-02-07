@@ -10,7 +10,15 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-from tests.helpers import REPO_ROOT, git_config_user, git_init, write_active_feature, write_file, write_json
+from tests.helpers import (
+    REPO_ROOT,
+    git_config_user,
+    git_init,
+    write_active_feature,
+    write_active_state,
+    write_file,
+    write_json,
+)
 
 sys.dont_write_bytecode = True
 
@@ -98,8 +106,8 @@ class WorkingSetBuilderTests(unittest.TestCase):
             write_active_feature(root, "demo-ticket", "demo-slug")
             write_file(
                 root,
-                "docs/prd/demo-ticket.prd.md",
-                "# Demo PRD\n\nStatus: draft\n\nLine 1\nLine 2\n",
+                "reports/context/demo-ticket.pack.md",
+                "# Context Pack\n\nAIDD:READ_LOG: aidd/reports/context/demo-ticket.pack.md\n",
             )
             write_file(
                 root,
@@ -123,6 +131,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             self.assertEqual(ws.ticket, "demo-ticket")
             self.assertEqual(ws.slug, "demo-slug")
             self.assertIn("Ticket: demo-ticket", ws.text)
+            self.assertIn("#### Context Pack (rolling)", ws.text)
             self.assertIn("#### Tasklist", ws.text)
             self.assertIn("- [ ] Task A", ws.text)
             self.assertIn("- [ ] Task B", ws.text)
@@ -134,8 +143,8 @@ class WorkingSetBuilderTests(unittest.TestCase):
             write_active_feature(root, "demo-ticket")
             write_file(
                 root,
-                "docs/prd/demo-ticket.prd.md",
-                "# Demo PRD\n\nStatus: draft\n\n" + ("Long line\n" * 200),
+                "reports/context/demo-ticket.pack.md",
+                "# Context Pack\n\n" + ("Long line\n" * 200),
             )
             write_json(
                 root,
@@ -178,19 +187,16 @@ class WorkingSetBuilderTests(unittest.TestCase):
             write_active_feature(root, "demo-ticket")
             write_file(
                 root,
-                "docs/tasklist/demo-ticket.md",
+                "reports/context/demo-ticket.pack.md",
                 "\n".join(
                     [
-                        "# Tasklist",
+                        "# Context Pack",
                         "",
-                        "## AIDD:CONTEXT_PACK",
-                        "- Focus: checkout flow",
-                        "- Files: src/checkout/service.py",
-                        "",
-                        "## AIDD:NEXT_3",
-                        "- [ ] Task A",
+                        "Focus: checkout flow",
+                        "Files: src/checkout/service.py",
                     ]
-                ),
+                )
+                + "\n",
             )
             write_json(
                 root,
@@ -206,38 +212,9 @@ class WorkingSetBuilderTests(unittest.TestCase):
 
             ws = working_set_builder.build_working_set(root)
 
-            self.assertIn("#### Context Pack", ws.text)
+            self.assertIn("#### Context Pack (rolling)", ws.text)
             self.assertIn("Focus: checkout flow", ws.text)
             self.assertIn("Files: src/checkout/service.py", ws.text)
-
-    def test_working_set_builder_includes_rlm_refs(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
-            root = Path(tmpdir)
-            write_active_feature(root, "demo-ticket")
-            write_json(
-                root,
-                "reports/research/demo-ticket-context.json",
-                {
-                    "ticket": "demo-ticket",
-                    "rlm_pack_path": "reports/research/demo-ticket-rlm.pack.json",
-                },
-            )
-            write_file(
-                root,
-                "reports/research/demo-ticket-rlm.pack.json",
-                json.dumps({"type": "rlm", "status": "ready"}),
-            )
-            write_json(
-                root,
-                "config/context_gc.json",
-                {"working_set": {"include_git_status": False}},
-            )
-
-            ws = working_set_builder.build_working_set(root)
-
-            self.assertIn("RLM Evidence", ws.text)
-            self.assertIn("demo-ticket-rlm.pack.json", ws.text)
-            self.assertIn("rlm-slice.sh", ws.text)
 
     def test_context_pack_limits_applied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
@@ -246,18 +223,13 @@ class WorkingSetBuilderTests(unittest.TestCase):
             long_line = "X" * 200
             write_file(
                 root,
-                "docs/tasklist/demo-ticket.md",
+                "reports/context/demo-ticket.pack.md",
                 "\n".join(
                     [
-                        "# Tasklist",
-                        "",
-                        "## AIDD:CONTEXT_PACK",
+                        "# Context Pack",
                         long_line,
                         "short line",
                         "extra line",
-                        "",
-                        "## AIDD:NEXT_3",
-                        "- [ ] Task A",
                     ]
                 ),
             )
@@ -276,7 +248,7 @@ class WorkingSetBuilderTests(unittest.TestCase):
             ws = working_set_builder.build_working_set(root)
             lines = ws.text.splitlines()
             try:
-                start = lines.index("#### Context Pack") + 1
+                start = lines.index("#### Context Pack (rolling)") + 1
             except ValueError:
                 self.fail("Context Pack section missing in working set")
             collected = []
@@ -293,7 +265,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_soft_warning(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -323,7 +295,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_hard_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -352,7 +324,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_token_warns(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -397,7 +369,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_token_blocks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -442,7 +414,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_token_fallbacks_to_bytes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -467,7 +439,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_ignores_sidechain_and_api_errors(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -540,7 +512,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_respects_reserve_and_buffer(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -585,7 +557,7 @@ class UserPromptGuardTests(unittest.TestCase):
     def test_userprompt_guard_bytes_warn_only(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -619,8 +591,8 @@ class SessionStartInjectTests(unittest.TestCase):
             write_active_feature(root, "demo-ticket")
             write_file(
                 root,
-                "docs/prd/demo-ticket.prd.md",
-                "# Demo PRD\n\nStatus: draft\n\n",
+                "reports/context/demo-ticket.pack.md",
+                "# Context Pack\n\nAIDD:READ_LOG: aidd/reports/context/demo-ticket.pack.md\n",
             )
             write_json(
                 root,
@@ -640,6 +612,11 @@ class SessionStartInjectTests(unittest.TestCase):
 
 
 class PreToolUseGuardTests(unittest.TestCase):
+    def _pretool_env(self, root: Path) -> dict[str, str]:
+        env = _env_for_workspace(root)
+        env["AIDD_CONTEXT_GC"] = "full"
+        return env
+
     def test_pretooluse_hook_matches_write_edit_glob(self) -> None:
         hooks_path = REPO_ROOT / "hooks" / "hooks.json"
         data = json.loads(hooks_path.read_text(encoding="utf-8"))
@@ -664,7 +641,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_wraps_bash_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -683,7 +660,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "docker logs app"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -706,7 +683,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "aidd/docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -727,7 +704,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "aidd/docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -737,7 +714,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_warns_on_dependency_read(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -749,7 +726,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "node_modules/pkg/README.md"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -758,7 +735,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_warns_without_read_guard(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -773,7 +750,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "node_modules/pkg/README.md"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -784,7 +761,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_warns_on_dependency_command(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -796,7 +773,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "cat node_modules/pkg/README.md"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -805,7 +782,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_dangerous_bash_asks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -822,7 +799,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "rm -rf /tmp/demo"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -832,7 +809,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_dangerous_bash_denies(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -849,7 +826,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "git reset --hard HEAD~1"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -859,7 +836,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_dangerous_bash_runs_when_output_guard_disabled(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -877,7 +854,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "rm -rf /tmp/demo"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -887,7 +864,7 @@ class PreToolUseGuardTests(unittest.TestCase):
     def test_pretooluse_guard_resolves_log_dir_in_aidd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-gc-") as tmpdir:
             root = Path(tmpdir)
-            write_file(root, "docs/.active_ticket", "demo")
+            write_active_state(root, ticket="demo")
             write_json(
                 root,
                 "config/context_gc.json",
@@ -906,7 +883,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Bash",
                 "tool_input": {"command": "docker logs app"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -929,7 +906,7 @@ class PreToolUseGuardTests(unittest.TestCase):
                 "tool_name": "Read",
                 "tool_input": {"file_path": "docs/large.txt"},
             }
-            result = _run_hook_script(PRETOOLUSE_MODULE, payload, _env_for_workspace(root), root)
+            result = _run_hook_script(PRETOOLUSE_MODULE, payload, self._pretool_env(root), root)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
@@ -1057,8 +1034,8 @@ class StopUpdateTests(unittest.TestCase):
             write_active_feature(root, "demo-ticket")
             write_file(
                 root,
-                "docs/prd/demo-ticket.prd.md",
-                "# Demo PRD\n\nStatus: draft\n\n",
+                "reports/context/demo-ticket.pack.md",
+                "# Context Pack\n\nAIDD:READ_LOG: aidd/reports/context/demo-ticket.pack.md\n",
             )
             write_json(
                 root,

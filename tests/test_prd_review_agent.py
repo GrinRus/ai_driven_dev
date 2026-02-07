@@ -174,7 +174,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         pack_path = report_path.with_suffix(".pack.json")
         self.assertTrue(patch_path.exists(), "PRD patch should be written")
         self.assertTrue(pack_path.exists(), "PRD pack should be written")
-        self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")
+        self.assertFalse(report_path.exists(), "JSON report should be absent in pack-only mode")
 
     def test_cli_default_report_path_under_plugin_root(self):
         workspace = self.workspace

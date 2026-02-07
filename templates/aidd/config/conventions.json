@@ -86,8 +86,6 @@
     "link_key_calls_source": "key_calls",
     "link_type_refs_mode": "additive",
     "link_type_refs_priority": "prefer",
-    "link_fallback_mode": "types_only",
-    "link_fallback_warn_ratio": 0.3,
     "link_unverified_warn_ratio": 0.5,
     "link_rg_verify": "auto",
     "type_refs_include_prefixes": [],
@@ -200,14 +198,6 @@
     ],
     "path_discovery": {
       "max_discovered": 12
-    },
-    "ast_grep": {
-      "enabled": false,
-      "required_for_langs": [],
-      "max_files": 400,
-      "max_matches": 300,
-      "timeout_s": 60,
-      "batch_size": 120
     },
     "auto_tags": {
       "jvm": {

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -13,12 +15,13 @@ from typing import Iterable, List, Tuple
 from tools import runtime
 
 IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
-IGNORE_FILES = {"AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"}
+IGNORE_FILES = {"AGENTS.md", ".github/copilot-instructions.md"}
 AIDD_ROOT_PREFIXES = ("docs/", "reports/", "config/", ".cache/")
 STATUS_OK = "OK"
 STATUS_NO_BOUNDARIES = "NO_BOUNDARIES_DEFINED"
 STATUS_OUT_OF_SCOPE = "OUT_OF_SCOPE"
 STATUS_FORBIDDEN = "FORBIDDEN"
+CACHE_FILENAME = "diff-boundary.hash"
 
 
 def normalize_path(path: str) -> str:
@@ -120,6 +123,38 @@ def parse_allowed_arg(value: str | None) -> List[str]:
     return items
 
 
+def _cache_path(root: Path) -> Path:
+    return root / ".cache" / CACHE_FILENAME
+
+
+def _load_cache(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _write_cache(path: Path, *, ticket: str, hash_value: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"ticket": ticket, "hash": hash_value}
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return
+
+
+def _hash_inputs(diff_files: List[str], allowed_paths: List[str], forbidden_paths: List[str]) -> str:
+    payload = {
+        "diff": sorted(diff_files),
+        "allowed": sorted(allowed_paths),
+        "forbidden": sorted(forbidden_paths),
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def git_lines(args: List[str]) -> List[str]:
     proc = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if proc.returncode != 0:
@@ -155,8 +190,8 @@ def collect_diff_files(base: Path) -> List[str]:
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate diff files against loop-pack boundaries.")
-    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active_ticket).")
-    parser.add_argument("--loop-pack", help="Path to loop pack (default: resolve via .active_work_item).")
+    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active.json).")
+    parser.add_argument("--loop-pack", help="Path to loop pack (default: resolve via active work_item).")
     parser.add_argument("--allowed", help="Override allowed paths (comma/space separated).")
     return parser.parse_args(argv)
 
@@ -167,15 +202,15 @@ def main(argv: List[str] | None = None) -> int:
 
     if args.loop_pack:
         pack_path = runtime.resolve_path_for_target(Path(args.loop_pack), target)
-        ticket = args.ticket or read_active_ticket(target) or ""
+        ticket = args.ticket or runtime.read_active_ticket(target) or ""
     else:
         context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=None)
         ticket = (context.resolved_ticket or "").strip()
         if not ticket:
-            raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
-        active_work_item = read_active_work_item(target)
+            raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
+        active_work_item = runtime.read_active_work_item(target)
         if not active_work_item:
-            raise FileNotFoundError("docs/.active_work_item not found; run loop-pack first")
+            raise FileNotFoundError("active work_item missing; run loop-pack first")
         scope_key = runtime.resolve_scope_key(active_work_item, ticket)
         pack_path = target / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
 
@@ -194,6 +229,12 @@ def main(argv: List[str] | None = None) -> int:
 
     aidd_root = target.name == "aidd"
     diff_files = [path for path in collect_diff_files(target) if not is_ignored(path, aidd_root=aidd_root)]
+    cache_path = _cache_path(target)
+    current_hash = _hash_inputs(diff_files, allowed_paths, forbidden_paths)
+    cache_payload = _load_cache(cache_path)
+    if cache_payload.get("ticket") == ticket and cache_payload.get("hash") == current_hash:
+        print("[diff-boundary-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
+        return 0
     blocked: List[str] = []
     warnings: List[str] = []
     for path in diff_files:
@@ -206,26 +247,13 @@ def main(argv: List[str] | None = None) -> int:
     if blocked or warnings:
         for line in sorted(blocked + warnings):
             print(line)
+        if not blocked:
+            _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
         return 2 if blocked else 0
 
     print(STATUS_OK)
+    _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
     return 0
-
-
-def read_active_ticket(root: Path) -> str:
-    path = root / "docs" / ".active_ticket"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def read_active_work_item(root: Path) -> str:
-    path = root / "docs" / ".active_work_item"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
 
 
 def read_text(path: Path) -> str:

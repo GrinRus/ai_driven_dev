@@ -5,6 +5,12 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Iterable
 
+DEFAULT_TESTS_POLICY = {
+    "implement": "none",
+    "review": "targeted",
+    "qa": "full",
+}
+
 
 def _resolve_gates_path(target: Path) -> Path:
     return target / "config" / "gates.json" if target.is_dir() else target
@@ -37,6 +43,34 @@ def normalize_patterns(raw: Iterable[str] | None) -> list[str] | None:
         if text:
             patterns.append(text)
     return patterns or None
+
+
+def _normalize_tests_policy_value(value: object) -> str:
+    if value is None:
+        return ""
+    raw = str(value).strip().lower()
+    if raw in {"none", "no", "off", "disabled", "skip"}:
+        return "none"
+    if raw in {"targeted", "selective"}:
+        return "targeted"
+    if raw in {"full", "all"}:
+        return "full"
+    return ""
+
+
+def resolve_stage_tests_policy(config: dict, stage: str) -> str:
+    stage_value = str(stage or "").strip().lower()
+    if stage_value not in DEFAULT_TESTS_POLICY:
+        return ""
+    raw_policy = config.get("tests_policy") or config.get("testsPolicy") if isinstance(config, dict) else None
+    policy_value = ""
+    if isinstance(raw_policy, dict):
+        policy_value = _normalize_tests_policy_value(raw_policy.get(stage_value))
+    elif raw_policy is not None:
+        policy_value = _normalize_tests_policy_value(raw_policy)
+    if policy_value:
+        return policy_value
+    return DEFAULT_TESTS_POLICY.get(stage_value, "")
 
 
 def matches(patterns: Iterable[str] | None, value: str) -> bool:

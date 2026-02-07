@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_pack"
@@ -14,8 +14,6 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_pack"
 def seed_loop_pack_fixture(root: Path, ticket: str = "DEMO-1") -> None:
     tasklist = (FIXTURES / "tasklist.md").read_text(encoding="utf-8")
     write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
-    profile = (FIXTURES / "docs" / "architecture" / "profile.md").read_text(encoding="utf-8")
-    write_file(root, "docs/architecture/profile.md", profile)
 
 
 class LoopPackTests(unittest.TestCase):
@@ -49,7 +47,6 @@ class LoopPackTests(unittest.TestCase):
                 "- [ ] I1: boundaries (ref: iteration_id=I1)\n"
             )
             write_file(root, "docs/tasklist/DEMO-BND.md", tasklist)
-            write_file(root, "docs/architecture/profile.md", "# Profile\n")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-BND", "--stage", "implement", "--format", "json"),
@@ -94,7 +91,6 @@ class LoopPackTests(unittest.TestCase):
                 "- [ ] I1: no boundaries (ref: iteration_id=I1)\n"
             )
             write_file(root, "docs/tasklist/DEMO-NO-BND.md", tasklist)
-            write_file(root, "docs/architecture/profile.md", "# Profile\n")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-NO-BND", "--stage", "implement", "--format", "json"),
@@ -112,6 +108,98 @@ class LoopPackTests(unittest.TestCase):
             pack_path = root / "reports" / "loops" / "DEMO-NO-BND" / "iteration_id_I1.loop.pack.md"
             pack_text = pack_path.read_text(encoding="utf-8")
             self.assertIn("reason_code: auto_boundary_extend_warn", pack_text)
+
+    def test_loop_pack_falls_back_to_context_allowed_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-CTX\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-CTX\n"
+                "\n"
+                "## AIDD:CONTEXT_PACK\n"
+                "### Scope & boundaries\n"
+                "- Allowed paths (patch boundaries):\n"
+                "  - src/context/**\n"
+                "- Forbidden / out-of-scope:\n"
+                "  - docs/**\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: No boundaries (iteration_id: I1)\n"
+                "  - Goal: Use context boundaries\n"
+                "  - DoD: Done\n"
+                "  - Commands:\n"
+                "    - pytest -q\n"
+                "  - Tests:\n"
+                "    - profile: targeted\n"
+                "    - tasks: pytest -q\n"
+                "  - Exit criteria:\n"
+                "    - ok\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: no boundaries (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-CTX.md", tasklist)
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-CTX", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertIn("src/context/**", allowed_paths)
+            self.assertEqual(payload.get("reason_code"), "auto_boundary_extend_warn")
+
+    def test_loop_pack_adds_command_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "src/alpha.py", "print('ok')\n")
+            tasklist = (
+                "---\n"
+                "Ticket: DEMO-CMD\n"
+                "Status: READY\n"
+                "---\n"
+                "\n"
+                "# Tasklist: DEMO-CMD\n"
+                "\n"
+                "## AIDD:ITERATIONS_FULL\n"
+                "- [ ] I1: Command paths (iteration_id: I1)\n"
+                "  - Goal: Use command path\n"
+                "  - DoD: Done\n"
+                "  - Boundaries: src/allowed/**\n"
+                "  - Commands:\n"
+                "    - edit src/alpha.py\n"
+                "  - Tests:\n"
+                "    - profile: none\n"
+                "    - tasks: []\n"
+                "  - Exit criteria:\n"
+                "    - ok\n"
+                "\n"
+                "## AIDD:NEXT_3\n"
+                "- [ ] I1: cmd paths (ref: iteration_id=I1)\n"
+            )
+            write_file(root, "docs/tasklist/DEMO-CMD.md", tasklist)
+
+            result = subprocess.run(
+                cli_cmd("loop-pack", "--ticket", "DEMO-CMD", "--stage", "implement", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            allowed_paths = payload.get("boundaries", {}).get("allowed_paths", [])
+            self.assertIn("src/allowed/**", allowed_paths)
+            self.assertIn("src/alpha.py", allowed_paths)
+            self.assertEqual(payload.get("reason_code"), "auto_boundary_extend_warn")
 
     def test_loop_pack_adds_changelog_master(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -143,7 +231,6 @@ class LoopPackTests(unittest.TestCase):
                 "- [ ] I1: migration (ref: iteration_id=I1)\n"
             )
             write_file(root, "docs/tasklist/DEMO-CH.md", tasklist)
-            write_file(root, "docs/architecture/profile.md", "# Profile\n")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-CH", "--stage", "implement", "--format", "json"),
@@ -190,8 +277,8 @@ class LoopPackTests(unittest.TestCase):
             self.assertIn("DoD:", pack_text)
             self.assertIn("Boundaries:", pack_text)
             self.assertIn("Acceptance mapping:", pack_text)
-            active_work_item = (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip()
-            self.assertEqual(active_work_item, "iteration_id=I1")
+            active_payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("work_item"), "iteration_id=I1")
 
     def test_loop_pack_skips_done_active_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
@@ -201,8 +288,8 @@ class LoopPackTests(unittest.TestCase):
             tasklist_text = tasklist_path.read_text(encoding="utf-8")
             tasklist_text = tasklist_text.replace("- [ ] I1:", "- [x] I1:", 1)
             write_file(root, "docs/tasklist/DEMO-1.md", tasklist_text)
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1")
+            write_active_state(root, work_item="iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -221,8 +308,8 @@ class LoopPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             seed_loop_pack_fixture(root)
-            write_file(root, "docs/.active_ticket", "OTHER")
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_active_state(root, ticket="OTHER")
+            write_active_state(root, work_item="iteration_id=I2")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "review", "--format", "json"),
@@ -240,8 +327,8 @@ class LoopPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-pack-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             seed_loop_pack_fixture(root)
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I9")
+            write_active_state(root, ticket="DEMO-1")
+            write_active_state(root, work_item="iteration_id=I9")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "review", "--format", "json"),
@@ -297,8 +384,8 @@ class LoopPackTests(unittest.TestCase):
                 "---\n"
             )
             write_file(root, "reports/loops/DEMO-1/iteration_id_I1/review.latest.pack.md", review_pack)
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1")
+            write_active_state(root, work_item="iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -333,8 +420,8 @@ class LoopPackTests(unittest.TestCase):
                 "- handoff_ids:\n"
                 "  - F6\n"
             )
-            write_file(root, "reports/loops/DEMO-1/review.latest.pack.md", review_pack)
-            write_file(root, "docs/.active_ticket", "DEMO-1")
+            write_file(root, "reports/loops/DEMO-1/iteration_id_I9/review.latest.pack.md", review_pack)
+            write_active_state(root, ticket="DEMO-1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -364,8 +451,8 @@ class LoopPackTests(unittest.TestCase):
                 "---\n"
             )
             write_file(root, "reports/loops/DEMO-1/iteration_id_I1/review.latest.pack.md", review_pack)
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1")
+            write_active_state(root, work_item="iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),
@@ -392,7 +479,7 @@ class LoopPackTests(unittest.TestCase):
                 "---\n"
             )
             write_file(root, "reports/loops/DEMO-1/iteration_id_I2/review.latest.pack.md", review_pack)
-            write_file(root, "docs/.active_work_item", "iteration_id=I2")
+            write_active_state(root, work_item="iteration_id=I2")
 
             result = subprocess.run(
                 cli_cmd("loop-pack", "--ticket", "DEMO-1", "--stage", "implement", "--format", "json"),

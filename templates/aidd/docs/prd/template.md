@@ -31,11 +31,6 @@ Default: `<Что принять по умолчанию>`
 - **Keywords**: `<kw1,kw2>` (например, `payment,checkout`)
 - **Notes**: `<что искать/проверить>`
 
-## AIDD:ARCH_PROFILE
-- Architecture Profile: `aidd/docs/architecture/profile.md`
-- Ticket-specific notes:
-  - <...>
-
 ## AIDD:CONTEXT_PACK
 - `<краткий контекст, ≤ 20 строк>`
 

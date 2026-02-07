@@ -23,71 +23,16 @@ REQUIRED_AGENT_PAIRS = [
     ("prd-reviewer", "review-spec"),
 ]
 
-REQUIRED_STAGE_ANCHORS = [
-    "idea",
-    "research",
-    "plan",
-    "review-plan",
-    "review-prd",
-    "spec-interview",
-    "tasklist",
-    "implement",
-    "review",
-    "qa",
+CRITICAL_TEMPLATE_FILES = [
+    "AGENTS.md",
+    "docs/prompting/conventions.md",
+    "reports/context/template.context-pack.md",
+    "docs/loops/template.loop-pack.md",
+    "docs/prd/template.md",
+    "docs/plan/template.md",
+    "docs/research/template.md",
+    "docs/tasklist/template.md",
 ]
-
-TEMPLATE_ANCHORS = {
-    "docs/prd/template.md": [
-        "AIDD:CONTEXT_PACK",
-        "AIDD:NON_NEGOTIABLES",
-        "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS",
-        "AIDD:DECISIONS",
-        "AIDD:ANSWERS",
-        "AIDD:GOALS",
-        "AIDD:NON_GOALS",
-        "AIDD:ACCEPTANCE",
-        "AIDD:METRICS",
-        "AIDD:ROLL_OUT",
-    ],
-    "docs/plan/template.md": [
-        "AIDD:CONTEXT_PACK",
-        "AIDD:NON_NEGOTIABLES",
-        "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS",
-        "AIDD:DECISIONS",
-        "AIDD:ANSWERS",
-        "AIDD:ARCHITECTURE",
-        "AIDD:FILES_TOUCHED",
-        "AIDD:ITERATIONS",
-        "AIDD:TEST_STRATEGY",
-    ],
-    "docs/research/template.md": [
-        "AIDD:CONTEXT_PACK",
-        "AIDD:NON_NEGOTIABLES",
-        "AIDD:OPEN_QUESTIONS",
-        "AIDD:RISKS",
-        "AIDD:DECISIONS",
-        "AIDD:INTEGRATION_POINTS",
-        "AIDD:REUSE_CANDIDATES",
-        "AIDD:COMMANDS_RUN",
-        "AIDD:TEST_HOOKS",
-    ],
-    "docs/tasklist/template.md": [
-        "AIDD:CONTEXT_PACK",
-        "AIDD:SPEC_PACK",
-        "AIDD:TEST_STRATEGY",
-        "AIDD:TEST_EXECUTION",
-        "AIDD:ITERATIONS_FULL",
-        "AIDD:NEXT_3",
-        "AIDD:OUT_OF_SCOPE_BACKLOG",
-        "AIDD:HANDOFF_INBOX",
-        "AIDD:QA_TRACEABILITY",
-        "AIDD:CHECKLIST",
-        "AIDD:PROGRESS_LOG",
-        "AIDD:HOW_TO_UPDATE",
-    ],
-}
 
 def build_agent(name: str) -> str:
     question = ""
@@ -124,7 +69,7 @@ def build_agent(name: str) -> str:
             "Tests: ...\n"
             "Blockers/Handoff: ...\n"
             "Next actions: ...\n"
-            "Context read: ...\n"
+            "AIDD:READ_LOG: ...\n"
         )
         format_response = format_response.replace("\n", "\n            ")
     return (
@@ -142,7 +87,7 @@ def build_agent(name: str) -> str:
             ---
 
             ## Контекст
-            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/sdlc-flow.md, aidd/docs/status-machine.md, aidd/docs/prompting/conventions.md.
+            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/prompting/conventions.md.
             Text.{loop_markers}{granularity_hint}
 
             ## Входные артефакты
@@ -175,12 +120,12 @@ def build_command(description: str = "test command") -> str:
     if description in {"implement", "review", "qa"}:
         verify_step = "\n        2. verify results.\n"
     if description == "review":
-        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.review.pack.md\n"
-        review_order_hint = "\n        Read loop pack, затем review.latest.pack.md, затем aidd/reports/context/$1.review.pack.md\n"
+        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.pack.md\n"
+        review_order_hint = "\n        Read loop pack, затем review.latest.pack.md, затем aidd/reports/context/$1.pack.md\n"
         loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
         scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
     elif description == "qa":
-        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.qa.pack.md\n"
+        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.pack.md\n"
     elif description == "implement":
         loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
         scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
@@ -196,6 +141,7 @@ def build_command(description: str = "test command") -> str:
             "Tests: ...\n"
             "Blockers/Handoff: ...\n"
             "Next actions: ...\n"
+            "AIDD:READ_LOG: ...\n"
         )
         expected_output = expected_output.replace("\n", "\n        ")
     return dedent(
@@ -213,7 +159,7 @@ def build_command(description: str = "test command") -> str:
 
         ## Контекст
         Text.{context_pack_hint}{review_order_hint}
-        Канон: aidd/docs/prompting/conventions.md.{loop_guard_hint}{scope_hint}{granularity_hint}
+        Канон: aidd/AGENTS.md, aidd/docs/prompting/conventions.md.{loop_guard_hint}{scope_hint}{granularity_hint}
 
         ## Входные артефакты
         - item
@@ -274,42 +220,21 @@ class PromptLintTests(unittest.TestCase):
         self.write_docs(root)
 
     def write_docs(self, root: Path) -> None:
-        anchors_dir = root / "docs" / "anchors"
-        anchors_dir.mkdir(parents=True, exist_ok=True)
-        for stage in REQUIRED_STAGE_ANCHORS:
-            (anchors_dir / f"{stage}.md").write_text(f"# Anchor: {stage}\n", encoding="utf-8")
-
-        for rel_path, sections in TEMPLATE_ANCHORS.items():
-            template_path = root / rel_path
-            template_path.parent.mkdir(parents=True, exist_ok=True)
-            lines = ["# Template"]
-            for section in sections:
-                lines.append(f"## {section}")
-            template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
         templates_root = root / "templates" / "aidd"
-        templates_root.mkdir(parents=True, exist_ok=True)
-        (templates_root / "AGENTS.md").write_text("# AGENTS\n", encoding="utf-8")
-        loops_root = templates_root / "docs" / "loops"
-        loops_root.mkdir(parents=True, exist_ok=True)
-        (loops_root / "README.md").write_text("# Loop Mode\n", encoding="utf-8")
-        docs_root = templates_root / "docs"
-        docs_root.mkdir(parents=True, exist_ok=True)
-        (docs_root / "sdlc-flow.md").write_text("# SDLC Flow\n", encoding="utf-8")
-        (docs_root / "status-machine.md").write_text("# Status Machine\n", encoding="utf-8")
-
-        template_anchors = templates_root / "docs" / "anchors"
-        template_anchors.mkdir(parents=True, exist_ok=True)
-        for stage in REQUIRED_STAGE_ANCHORS:
-            (template_anchors / f"{stage}.md").write_text(f"# Anchor: {stage}\n", encoding="utf-8")
-
-        for rel_path, sections in TEMPLATE_ANCHORS.items():
-            template_path = templates_root / rel_path
-            template_path.parent.mkdir(parents=True, exist_ok=True)
-            lines = ["# Template"]
-            for section in sections:
-                lines.append(f"## {section}")
-            template_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        for rel_path in CRITICAL_TEMPLATE_FILES:
+            target = templates_root / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if rel_path.endswith("conventions.md"):
+                content = "# Conventions\n\n## Evidence read policy (pack-first, rolling)\n"
+            elif rel_path.endswith("template.context-pack.md"):
+                content = "# Context Pack Template\n"
+            elif rel_path.endswith("template.loop-pack.md"):
+                content = "# Loop Pack Template\n"
+            elif rel_path.endswith("AGENTS.md"):
+                content = "# AGENTS\n"
+            else:
+                content = "# Template\n"
+            target.write_text(content, encoding="utf-8")
 
         index_schema_path = templates_root / "docs" / "index" / "schema.json"
         index_schema_path.parent.mkdir(parents=True, exist_ok=True)

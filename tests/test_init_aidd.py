@@ -37,14 +37,17 @@ class InitAiddTests(unittest.TestCase):
         expected_paths = [
             "config/context_gc.json",
             "config/conventions.json",
+            "config/gates.json",
             "docs/prd/template.md",
-            "docs/architecture/profile.md",
-            "docs/architecture/README.md",
-            "docs/loops/README.md",
-            "docs/sdlc-flow.md",
-            "docs/status-machine.md",
+            "docs/plan/template.md",
+            "docs/tasklist/template.md",
+            "docs/research/template.md",
+            "docs/spec/template.spec.yaml",
+            "docs/prompting/conventions.md",
+            "docs/loops/template.loop-pack.md",
             "reports/prd/.gitkeep",
             "reports/loops/.gitkeep",
+            "reports/context/template.context-pack.md",
             "AGENTS.md",
         ]
         for rel in expected_paths:

@@ -133,22 +133,6 @@ run_tool_result_id_check() {
     STATUS=1
   fi
 }
-run_arch_profile_validate() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    warn "python3 not found; skipping arch profile validate"
-    return
-  fi
-  if [[ ! -f "tools/arch-profile-validate.sh" ]]; then
-    warn "tools/arch-profile-validate.sh missing; skipping"
-    return
-  fi
-  log "running arch profile validation (template)"
-  if ! python3 tools/arch-profile-validate.sh --path templates/aidd/docs/architecture/profile.md; then
-    err "arch profile validation failed"
-    STATUS=1
-  fi
-}
-
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -200,7 +184,7 @@ run_markdownlint() {
   local FILTERED=()
   for file in "${MD_FILES[@]}"; do
     case "$file" in
-      */backlog.md|*/CHANGELOG.md|*/all-agents-commands-anchors-templates.md)
+      */backlog.md|*/CHANGELOG.md)
         continue
         ;;
     esac
@@ -331,7 +315,6 @@ run_loop_regression
 run_output_contract_regression
 run_claude_stream_renderer
 run_tool_result_id_check
-run_arch_profile_validate
 run_repo_linters
 
 run_python_tests

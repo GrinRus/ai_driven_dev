@@ -13,12 +13,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to validate (defaults to docs/.active_ticket).",
+        help="Ticket identifier to validate (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override for messaging (defaults to docs/.active_feature if present).",
+        help="Optional slug hint override for messaging (defaults to docs/.active.json if present).",
     )
     parser.add_argument(
         "--branch",

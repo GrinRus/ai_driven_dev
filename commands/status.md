@@ -15,13 +15,13 @@ disable-model-invocation: false
 
 ## Контекст
 `/feature-dev-aidd:status` показывает краткий статус тикета: stage, summary, артефакты, отчёты, последние события и тест‑логи (JSONL). CLI автоматически обновляет индекс при отсутствии или по `--refresh`, а также после ключевых команд (research/prd-review/qa/progress/reviewer-tests/tasks-derive/set-active-*).
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/<stage>.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md`.
 
 ## Входные артефакты
 - `aidd/docs/index/$1.json` — derived‑index (обновляется автоматически при `/feature-dev-aidd:status` и после ключевых команд).
 - `aidd/reports/events/$1.jsonl` — последние события (если есть).
 - `aidd/reports/tests/$1/<scope_key>.jsonl` — тест‑логи по scope (если есть).
-- `aidd/docs/.active_ticket`, `aidd/docs/.active_feature`, `aidd/docs/.active_stage` — маркеры активного тикета.
+- `aidd/docs/.active.json` — маркеры активного тикета.
 
 ## Когда запускать
 - Перед началом работы, чтобы быстро понять контекст.
@@ -35,7 +35,7 @@ disable-model-invocation: false
 - Ничего (read-only).
 
 ## Пошаговый план
-1. Определи ticket: аргумент команды или `aidd/docs/.active_ticket`.
+1. Определи ticket: аргумент команды или `aidd/docs/.active.json`.
 2. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket $1 [--refresh]` — индекс обновится автоматически.
 3. Покажи stage, summary, список артефактов/отчётов и последние события.
 

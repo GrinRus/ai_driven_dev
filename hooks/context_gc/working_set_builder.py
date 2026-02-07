@@ -9,14 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from hooks.hooklib import load_config, resolve_aidd_root
+from hooks.hooklib import load_config, resolve_aidd_root, resolve_context_gc_mode
 
 
 CODE_FENCE_RE = re.compile(r"^```")
 TASK_RE = re.compile(r"^\s*-\s*\[\s*\]\s+(.*)$")
 DONE_TASK_RE = re.compile(r"^\s*-\s*\[\s*[xX]\s*\]\s+(.*)$")
-CONTEXT_PACK_RE = re.compile(r"^##\s*AIDD:CONTEXT_PACK\b", re.IGNORECASE)
-HEADING_RE = re.compile(r"^##\s+")
 
 
 @dataclass(frozen=True)
@@ -60,20 +58,6 @@ def _strip_long_code_blocks(md: str, max_block_lines: int = 25) -> str:
     return "\n".join(out)
 
 
-def _extract_status_line(md: str) -> Optional[str]:
-    for line in md.splitlines()[:80]:
-        if line.lower().startswith("status:"):
-            return line.strip()
-    return None
-
-
-def _extract_heading_title(md: str) -> Optional[str]:
-    for line in md.splitlines()[:40]:
-        if line.startswith("#"):
-            return line.strip()
-    return None
-
-
 def _extract_tasks(md: str, max_tasks: int) -> Tuple[List[str], int, int]:
     todos: List[str] = []
     total = 0
@@ -91,21 +75,8 @@ def _extract_tasks(md: str, max_tasks: int) -> Tuple[List[str], int, int]:
     return todos, done, total
 
 
-def _extract_context_pack(md: str, max_lines: int, max_chars: int) -> Optional[str]:
-    lines = md.splitlines()
-    start = None
-    for idx, line in enumerate(lines):
-        if CONTEXT_PACK_RE.match(line.strip()):
-            start = idx + 1
-            break
-    if start is None:
-        return None
-    collected: List[str] = []
-    for line in lines[start:]:
-        if HEADING_RE.match(line) and not CONTEXT_PACK_RE.match(line.strip()):
-            break
-        collected.append(line)
-    text = "\n".join(collected).strip()
+def _extract_pack_excerpt(md: str, max_lines: int, max_chars: int) -> Optional[str]:
+    text = md.strip()
     if not text:
         return None
     if max_lines > 0:
@@ -123,26 +94,6 @@ def _rel_to_root(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
-
-
-def _find_rlm_artifacts(aidd_root: Path, ticket: str) -> dict:
-    context_path = aidd_root / "reports" / "research" / f"{ticket}-context.json"
-    pack_path: Optional[Path] = None
-    if context_path.exists():
-        try:
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-        except Exception:
-            payload = {}
-        pack_raw = payload.get("rlm_pack_path")
-        if isinstance(pack_raw, str) and pack_raw:
-            pack_path = aidd_root / pack_raw if not Path(pack_raw).is_absolute() else Path(pack_raw)
-    if pack_path is None:
-        candidate = aidd_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
-        if candidate.exists():
-            pack_path = candidate
-    return {
-        "pack": _rel_to_root(aidd_root, pack_path) if pack_path else None,
-    }
 
 
 def _run_git(project_dir: Path, args: List[str], timeout: float = 1.5) -> Optional[str]:
@@ -165,6 +116,8 @@ def build_working_set(project_dir: Path) -> WorkingSet:
     cfg = load_config(aidd_root)
     if not cfg.get("enabled", True):
         return WorkingSet(text="", ticket=None, slug=None)
+    if resolve_context_gc_mode(cfg) == "off":
+        return WorkingSet(text="", ticket=None, slug=None)
 
     ws_cfg = cfg.get("working_set", {})
     max_chars = int(ws_cfg.get("max_chars", 6000))
@@ -177,15 +130,18 @@ def build_working_set(project_dir: Path) -> WorkingSet:
     stage = None
 
     if aidd_root:
-        ticket_path = aidd_root / "docs" / ".active_ticket"
-        slug_path = aidd_root / "docs" / ".active_feature"
-        stage_path = aidd_root / "docs" / ".active_stage"
-        if ticket_path.exists():
-            ticket = ticket_path.read_text(encoding="utf-8", errors="replace").strip() or None
-        if slug_path.exists():
-            slug = slug_path.read_text(encoding="utf-8", errors="replace").strip() or None
-        if stage_path.exists():
-            stage = stage_path.read_text(encoding="utf-8", errors="replace").strip() or None
+        state_path = aidd_root / "docs" / ".active.json"
+        if state_path.exists():
+            try:
+                payload = json.loads(state_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                payload = {}
+            if isinstance(payload, dict):
+                slug = str(payload.get("slug_hint") or "").strip() or None
+                ticket = str(payload.get("ticket") or "").strip() or None
+                stage = str(payload.get("stage") or "").strip() or None
+        if ticket is None:
+            ticket = slug
 
     parts: List[str] = []
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -195,56 +151,22 @@ def build_working_set(project_dir: Path) -> WorkingSet:
         parts.append(f"- Ticket: {ticket}" + (f" (slug: {slug})" if slug else ""))
     if stage:
         parts.append(f"- Stage: {stage}")
-        if aidd_root:
-            anchor_path = aidd_root / "docs" / "anchors" / f"{stage}.md"
-            if anchor_path.exists():
-                rel_anchor = anchor_path.relative_to(aidd_root).as_posix()
-                parts.append(f"- Stage anchor: {rel_anchor}")
     parts.append("")
 
     if aidd_root and ticket:
-        prd = aidd_root / "docs" / "prd" / f"{ticket}.prd.md"
+        context_pack_path = aidd_root / "reports" / "context" / f"{ticket}.pack.md"
         tasklist = aidd_root / "docs" / "tasklist" / f"{ticket}.md"
-        research = aidd_root / "docs" / "research" / f"{ticket}.md"
-
-        if prd.exists():
-            md = _strip_long_code_blocks(_read_text(prd))
-            title = _extract_heading_title(md)
-            status = _extract_status_line(md)
-            parts.append("#### PRD")
-            if title:
-                parts.append(f"- {title}")
-            if status:
-                parts.append(f"- {status}")
-            excerpt = "\n".join(md.splitlines()[:220]).strip()
+        if context_pack_path.exists():
+            md = _strip_long_code_blocks(_read_text(context_pack_path))
+            excerpt = _extract_pack_excerpt(md, pack_max_lines, pack_max_chars)
             if excerpt:
+                parts.append("#### Context Pack (rolling)")
+                parts.append(excerpt)
                 parts.append("")
-                parts.append(excerpt[:1500].rstrip())
-                parts.append("")
-
-        if research.exists():
-            md = _strip_long_code_blocks(_read_text(research))
-            parts.append("#### Research (excerpt)")
-            parts.append(md[:1200].rstrip())
-            parts.append("")
-
-        rlm_artifacts = _find_rlm_artifacts(aidd_root, ticket)
-        if rlm_artifacts.get("pack"):
-            parts.append("#### RLM Evidence (pack-first)")
-            parts.append(f"- Pack: {rlm_artifacts['pack']}")
-            parts.append(
-                f"- Slice (prefer): ${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-slice.sh --ticket {ticket} --query \"<token>\""
-            )
-            parts.append("")
 
         if tasklist.exists():
             md = _read_text(tasklist)
-            context_pack = _extract_context_pack(md, pack_max_lines, pack_max_chars)
             todos, done, total = _extract_tasks(md, max_tasks=max_tasks)
-            if context_pack:
-                parts.append("#### Context Pack")
-                parts.append(context_pack)
-                parts.append("")
             parts.append("#### Tasklist")
             if total:
                 parts.append(f"- Progress: {done}/{total} done")

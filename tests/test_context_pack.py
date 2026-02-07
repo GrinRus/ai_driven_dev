@@ -7,55 +7,18 @@ from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, writ
 
 
 class ContextPackTests(unittest.TestCase):
-    def test_context_pack_collects_anchors(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="context-pack-") as tmpdir:
-            root = ensure_project_root(Path(tmpdir))
-            write_file(
-                root,
-                "docs/prd/DEMO-1.prd.md",
-                "# PRD\n\n## AIDD:GOALS\n- goal\n",
-            )
-            write_file(
-                root,
-                "docs/plan/DEMO-1.md",
-                "# Plan\n\n## AIDD:FILES_TOUCHED\n- src/app.py\n",
-            )
-            write_file(
-                root,
-                "docs/tasklist/DEMO-1.md",
-                "# Tasklist\n\n## AIDD:CONTEXT_PACK\n- Focus: demo\n\n## AIDD:QA_TRACEABILITY\n- AC-1 → check → met → evidence\n",
-            )
-            result = subprocess.run(
-                cli_cmd(
-                    "context-pack",
-                    "--ticket",
-                    "DEMO-1",
-                    "--agent",
-                    "implementer",
-                ),
-                text=True,
-                capture_output=True,
-                cwd=root,
-                env=cli_env(),
-            )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-
-            pack_path = root / "reports" / "context" / "DEMO-1-implementer.md"
-            self.assertTrue(pack_path.exists())
-            text = pack_path.read_text(encoding="utf-8")
-            self.assertIn("AIDD:CONTEXT_PACK", text)
-            self.assertIn("AIDD:QA_TRACEABILITY", text)
-            self.assertIn("AIDD:FILES_TOUCHED", text)
-            self.assertIn("AIDD:GOALS", text)
-
-    def test_context_pack_template_writes_review_pack(self) -> None:
+    def test_context_pack_template_writes_rolling_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-pack-template-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             template_text = (
                 REPO_ROOT / "templates" / "aidd" / "reports" / "context" / "template.context-pack.md"
             ).read_text(encoding="utf-8")
             write_file(root, "reports/context/template.context-pack.md", template_text)
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_file(
+                root,
+                "docs/.active.json",
+                '{"ticket": "DEMO-1", "slug_hint": "demo-1", "stage": "review", "work_item": "iteration_id=I1"}\n',
+            )
 
             result = subprocess.run(
                 cli_cmd(
@@ -75,13 +38,14 @@ class ContextPackTests(unittest.TestCase):
                 env=cli_env(),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            pack_path = root / "reports" / "context" / "DEMO-1.review.pack.md"
+            pack_path = root / "reports" / "context" / "DEMO-1.pack.md"
             self.assertTrue(pack_path.exists())
             text = pack_path.read_text(encoding="utf-8")
             self.assertIn("ticket: DEMO-1", text)
             self.assertIn("stage: review", text)
             self.assertIn("agent: review", text)
-            self.assertIn("iteration_id_I1", text)
+            self.assertIn("read_next:", text)
+            self.assertIn("artefact_links:", text)
 
     def test_context_pack_warns_on_stage_specific_placeholder(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-pack-placeholder-") as tmpdir:
@@ -99,7 +63,11 @@ class ContextPackTests(unittest.TestCase):
                 "<stage-specific goal>\n"
             )
             write_file(root, "reports/context/template.context-pack.md", template_text)
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_file(
+                root,
+                "docs/.active.json",
+                '{"ticket": "DEMO-2", "slug_hint": "demo-2", "stage": "review", "work_item": "iteration_id=I1"}\n',
+            )
 
             result = subprocess.run(
                 cli_cmd(
@@ -119,7 +87,7 @@ class ContextPackTests(unittest.TestCase):
                 env=cli_env(),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            self.assertIn("context pack template placeholder", result.stderr)
+            self.assertIn("context pack missing what_to_do", result.stderr)
 
 
 if __name__ == "__main__":

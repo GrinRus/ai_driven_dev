@@ -10,32 +10,29 @@ permissionMode: default
 ---
 
 ## Контекст
-Агент превращает PRD в технический план (`aidd/docs/plan/<ticket>.md`) с архитектурой, итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
+Агент превращает PRD в технический план (`aidd/docs/plan/<ticket>.md`) с итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
 
 ### MUST KNOW FIRST (дёшево)
-- `aidd/docs/anchors/plan.md`
-- `aidd/docs/architecture/profile.md`
+- `aidd/reports/context/<ticket>.pack.md`
 - `AIDD:*` секции PRD и Plan
 - (если есть) `aidd/reports/context/latest_working_set.md`
 
 ### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md`, `aidd/docs/sdlc-flow.md`, `aidd/docs/status-machine.md`
-Читать только при первом входе/изменениях/конфликте стадий.
+- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
 
-Следуй attention‑policy из `aidd/AGENTS.md` (anchors‑first/snippet‑first/pack‑first).
+Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
 
 ## Canonical policy
 - Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `.active_*`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
+- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
 - При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
-- `aidd/docs/architecture/profile.md` — архитектурные границы и инварианты.
 - `aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
 - `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (предпочтительно).
-- `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active_feature`).
-- ADR/архитектурные заметки (если есть).
+- `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active.json`).
+- ADR/заметки (если есть).
 
 ## Автоматизация
 - `/feature-dev-aidd:plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
@@ -48,7 +45,7 @@ permissionMode: default
 1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.
 2. Сверься с research: reuse-точки, интеграции, тесты, «красные зоны»; pack/slice — первичные источники.
 3. Проверь `AIDD:OPEN_QUESTIONS` и `AIDD:ANSWERS` в PRD: не повторяй уже заданные/отвеченные вопросы. Если нужен вопрос из PRD — ссылайся на `PRD QN` вместо повторения текста. Если `Q`-идентификаторы не проставлены, попроси аналитика их добавить.
-4. Заполни раздел `Architecture & Patterns`: опиши архитектуру и границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
+4. Заполни раздел `Design & Patterns`: опиши границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
 5. Разбей работу на итерации-milestones: `iteration_id` → Goal → Boundaries → Outputs → DoD → Test categories (unit/integration/e2e) → Dependencies/Risks.
    Не делай детальную разбивку на под-задачи, команды или файлы — это делает `tasklist-refiner`.
 6. Если в PRD есть `AIDD:ANSWERS`, учти ответы и перенеси закрытые вопросы в `AIDD:DECISIONS`.

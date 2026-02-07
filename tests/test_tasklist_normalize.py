@@ -292,9 +292,9 @@ def test_tasklist_normalize_shifts_next3_when_item_closed(tmp_path):
     assert "(ref: iteration_id=I1)" in updated
 
 
-def test_tasklist_normalize_migrates_legacy_handoff(tmp_path):
+def test_tasklist_normalize_keeps_unstructured_handoff(tmp_path):
     project_root = ensure_project_root(tmp_path)
-    ticket = "demo-legacy"
+    ticket = "demo-handoff"
     write_active_feature(project_root, ticket)
     _write_plan(project_root, ticket)
 
@@ -337,7 +337,7 @@ def test_tasklist_normalize_migrates_legacy_handoff(tmp_path):
 
         ## AIDD:HANDOFF_INBOX
         <!-- handoff:qa start -->
-        - [ ] QA: legacy issue (id: qa:legacy-1)
+        - [ ] QA: issue (id: qa:handoff-1)
         <!-- handoff:qa end -->
 
         ## AIDD:QA_TRACEABILITY
@@ -366,8 +366,7 @@ def test_tasklist_normalize_migrates_legacy_handoff(tmp_path):
     assert result.returncode == 0, result.stderr
 
     updated = (project_root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
-    assert "Report: legacy" in updated
-    assert "source: qa" in updated
+    assert "- [ ] QA: issue (id: qa:handoff-1)" in updated
 
 
 def test_tasklist_normalize_dry_run_does_not_write_archive(tmp_path):

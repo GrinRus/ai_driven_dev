@@ -179,6 +179,50 @@ def test_skip_env_allows(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_skips_when_not_qa_and_no_report_change(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": True,
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-skip-stage")
+    write_active_stage(tmp_path, "review")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+
+    result = run_hook(tmp_path, "gate-qa.sh", SRC_PAYLOAD)
+
+    assert result.returncode == 0, result.stderr
+    assert "Запуск QA-агента" not in (result.stdout + result.stderr)
+
+
+def test_runs_on_report_change_without_qa_stage(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": True,
+                "report": "aidd/reports/qa/{ticket}.json",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-report-change")
+    write_active_stage(tmp_path, "review")
+    write_file(tmp_path, "reports/qa/qa-report-change.json", "{}\n")
+
+    payload = '{"tool_input":{"file_path":"reports/qa/qa-report-change.json"}}'
+    result = run_hook(tmp_path, "gate-qa.sh", payload)
+
+    assert result.returncode == 0, result.stderr
+    assert "Запуск QA-агента" in (result.stdout + result.stderr)
+
+
 def test_discovery_respects_allowlist(tmp_path):
     ensure_gates_config(
         tmp_path,

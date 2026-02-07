@@ -61,8 +61,8 @@ def main() -> int:
     payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
 
-    ticket_path = root / "docs" / ".active_ticket"
-    slug_path = root / "docs" / ".active_feature"
+    ticket_path = root / "docs" / ".active.json"
+    slug_path = root / "docs" / ".active.json"
     if not ticket_path.exists() and not slug_path.exists():
         return 0
     ticket = hooklib.read_ticket(ticket_path, slug_path)

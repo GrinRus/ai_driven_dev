@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from tools import runtime
+from tools.feature_ids import write_active_state
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
-from tools.tasklist_parser import extract_boundaries
+from tools.tasklist_parser import PATH_TOKEN_RE, extract_boundaries
 
 SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b")
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -50,6 +51,79 @@ def _extend_boundaries_for_changelog(boundaries: Dict[str, List[str]]) -> None:
         return
     if _needs_changelog_master(allowed) and CHANGELOG_MASTER_PATH not in allowed:
         allowed.append(CHANGELOG_MASTER_PATH)
+
+
+def _strip_placeholder(value: str) -> str:
+    text = value.strip()
+    if not text:
+        return ""
+    if text.startswith("<") and text.endswith(">"):
+        return ""
+    return text
+
+
+def _dedupe_paths(paths: Iterable[str]) -> List[str]:
+    seen = set()
+    ordered: List[str] = []
+    for raw in paths:
+        item = raw.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def parse_context_allowed_paths(lines: List[str]) -> List[str]:
+    allowed: List[str] = []
+    in_allowed = False
+    header_indent = 0
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("## "):
+            if in_allowed:
+                break
+            continue
+        lower = stripped.lower()
+        if not in_allowed:
+            if "allowed paths" in lower:
+                in_allowed = True
+                header_indent = len(raw) - len(raw.lstrip(" "))
+            continue
+        if "forbidden" in lower or "out-of-scope" in lower:
+            break
+        if stripped.startswith("-"):
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent <= header_indent and "allowed paths" not in lower:
+                break
+            item = _strip_placeholder(stripped.lstrip("-").strip())
+            if item:
+                allowed.append(item)
+        elif stripped and (len(raw) - len(raw.lstrip(" ")) <= header_indent):
+            break
+    return _dedupe_paths(allowed)
+
+
+def _extract_command_paths(commands: Iterable[str], root: Path) -> List[str]:
+    paths: List[str] = []
+    for command in commands:
+        for match in PATH_TOKEN_RE.findall(str(command)):
+            cleaned = match.strip().strip("`'\" ,);")
+            if not cleaned or any(ch in cleaned for ch in "*?[]"):
+                continue
+            candidate = Path(cleaned)
+            if not candidate.is_absolute():
+                candidate = root / candidate
+            try:
+                if not candidate.exists():
+                    continue
+            except OSError:
+                continue
+            rel_path = runtime.rel_path(candidate, root)
+            if root.name == "aidd" and rel_path.startswith("aidd/"):
+                rel_path = rel_path.split("/", 1)[1]
+            paths.append(rel_path)
+    return _dedupe_paths(paths)
 
 
 @dataclass(frozen=True)
@@ -151,30 +225,45 @@ def parse_review_pack_handoff_ids(lines: List[str]) -> Tuple[str, ...]:
     return tuple(handoff_ids)
 
 
-def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
-    active_work_item = runtime.read_active_work_item(root)
-    scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else ""
-    pack_path = None
-    if scope_key:
-        candidate = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-        if candidate.exists():
-            pack_path = candidate
-    if pack_path is None:
-        legacy_path = root / "reports" / "loops" / ticket / "review.latest.pack.md"
-        if legacy_path.exists():
-            pack_path = legacy_path
-    if pack_path is None:
-        return ReviewPackMeta("", "", "", tuple())
+REVIEW_PACK_SCHEMAS = {"aidd.review_pack.v1", "aidd.review_pack.v2"}
+
+
+def _load_review_pack_meta(pack_path: Path, ticket: str) -> ReviewPackMeta | None:
     lines = read_text(pack_path).splitlines()
     front = parse_front_matter(lines)
     schema = (front.get("schema") or "").strip()
-    if schema and schema not in {"aidd.review_pack.v1", "aidd.review_pack.v2"}:
-        return ReviewPackMeta("", "", "", tuple(), schema)
+    if schema and schema not in REVIEW_PACK_SCHEMAS:
+        return None
     verdict = (front.get("verdict") or "").strip().upper()
     work_item_key = (front.get("work_item_key") or "").strip()
     scope_key = (front.get("scope_key") or "").strip() or runtime.resolve_scope_key(work_item_key, ticket)
     handoff_ids = parse_review_pack_handoff_ids(lines)
     return ReviewPackMeta(verdict, work_item_key, scope_key, handoff_ids, schema)
+
+
+def read_review_pack_meta(root: Path, ticket: str) -> ReviewPackMeta:
+    active_work_item = runtime.read_active_work_item(root)
+    scope_key = runtime.resolve_scope_key(active_work_item, ticket) if active_work_item else ""
+    if scope_key:
+        candidate = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
+        if candidate.exists():
+            meta = _load_review_pack_meta(candidate, ticket)
+            return meta or ReviewPackMeta("", "", "", tuple())
+
+    base_dir = root / "reports" / "loops" / ticket
+    if base_dir.exists():
+        fallback_meta: ReviewPackMeta | None = None
+        for candidate in sorted(base_dir.glob("*/review.latest.pack.md")):
+            meta = _load_review_pack_meta(candidate, ticket)
+            if not meta:
+                continue
+            if meta.verdict == "REVISE":
+                return meta
+            if fallback_meta is None:
+                fallback_meta = meta
+        if fallback_meta:
+            return fallback_meta
+    return ReviewPackMeta("", "", "", tuple())
 
 
 def review_pack_v2_required(root: Path) -> bool:
@@ -489,29 +578,6 @@ def parse_progress_ref(lines: List[str]) -> Optional[WorkItemRef]:
     return None
 
 
-def read_active_ticket(root: Path) -> str:
-    path = root / "docs" / ".active_ticket"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def read_active_work_item(root: Path) -> str:
-    path = root / "docs" / ".active_work_item"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def write_active_state(root: Path, ticket: str, work_item_key: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_ticket").write_text(ticket + "\n", encoding="utf-8")
-    (docs_dir / ".active_work_item").write_text(work_item_key + "\n", encoding="utf-8")
-
-
 def find_work_item(items: Iterable[WorkItem], scope_key: str) -> Optional[WorkItem]:
     for item in items:
         if item.scope_key == scope_key:
@@ -572,7 +638,6 @@ def build_front_matter(
     boundaries: Dict[str, List[str]],
     commands_required: List[str],
     tests_required: List[str],
-    arch_profile: str,
     evidence_policy: str,
     updated_at: str,
     reason_code: str = "",
@@ -609,7 +674,6 @@ def build_front_matter(
         lines.extend([f"  - {command}" for command in tests_required])
     else:
         lines.append("tests_required: []")
-    lines.append(f"arch_profile: {arch_profile}")
     lines.append(f"evidence_policy: {evidence_policy}")
     if reason_code:
         lines.append(f"reason_code: {reason_code}")
@@ -624,7 +688,6 @@ def build_pack(
     boundaries: Dict[str, List[str]],
     commands_required: List[str],
     tests_required: List[str],
-    arch_profile: str,
     updated_at: str,
     reason_code: str = "",
 ) -> str:
@@ -634,7 +697,6 @@ def build_pack(
         boundaries=boundaries,
         commands_required=commands_required,
         tests_required=tests_required,
-        arch_profile=arch_profile,
         evidence_policy="RLM-first",
         updated_at=updated_at,
         reason_code=reason_code,
@@ -696,7 +758,7 @@ def write_pack_for_item(
     output_dir: Path,
     ticket: str,
     work_item: WorkItem,
-    arch_profile: str,
+    context_allowed_paths: List[str],
 ) -> Tuple[Path, Dict[str, List[str]], List[str], List[str], str, str]:
     if work_item.boundaries_defined:
         boundaries = {
@@ -714,10 +776,22 @@ def write_pack_for_item(
         if missing_expected:
             boundaries["allowed_paths"].extend(missing_expected)
             reason_code = "auto_boundary_extend_warn"
+    if not boundaries.get("allowed_paths") and context_allowed_paths:
+        boundaries["allowed_paths"].extend(context_allowed_paths)
+        reason_code = "auto_boundary_extend_warn"
     if boundaries.get("allowed_paths"):
         boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
     _extend_boundaries_for_changelog(boundaries)
     commands_required = list(work_item.commands)
+    command_paths = _extract_command_paths(commands_required, root)
+    if command_paths:
+        missing_command_paths = [
+            path for path in command_paths if path not in boundaries.get("allowed_paths", [])
+        ]
+        if missing_command_paths:
+            boundaries["allowed_paths"].extend(missing_command_paths)
+            boundaries["allowed_paths"] = list(dict.fromkeys(boundaries["allowed_paths"]))
+            reason_code = "auto_boundary_extend_warn"
     tests_required = list(work_item.tests_required)
     updated_at = utc_timestamp()
     pack_text = build_pack(
@@ -726,7 +800,6 @@ def write_pack_for_item(
         boundaries=boundaries,
         commands_required=commands_required,
         tests_required=tests_required,
-        arch_profile=arch_profile,
         updated_at=updated_at,
         reason_code=reason_code,
     )
@@ -738,7 +811,7 @@ def write_pack_for_item(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate loop pack for a single work item.")
-    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", help="Optional slug hint override.")
     parser.add_argument(
         "--stage",
@@ -769,7 +842,7 @@ def main(argv: list[str] | None = None) -> int:
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = (context.resolved_ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     tasklist_path = target / "docs" / "tasklist" / f"{ticket}.md"
     if not tasklist_path.exists():
@@ -777,12 +850,13 @@ def main(argv: list[str] | None = None) -> int:
 
     tasklist_lines = read_text(tasklist_path).splitlines()
     sections = parse_sections(tasklist_lines)
+    context_allowed_paths = parse_context_allowed_paths(sections.get("AIDD:CONTEXT_PACK", []))
     iterations = parse_iteration_items(sections.get("AIDD:ITERATIONS_FULL", []))
     handoffs = parse_handoff_items(sections.get("AIDD:HANDOFF_INBOX", []))
     all_items = iterations + handoffs
 
-    active_ticket = read_active_ticket(target)
-    active_work_item = read_active_work_item(target)
+    active_ticket = runtime.read_active_ticket(target)
+    active_work_item = runtime.read_active_work_item(target)
     selected_item: Optional[WorkItem] = None
     selection_reason = ""
     review_meta = (
@@ -995,10 +1069,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(message)
             return 2
 
-    write_active_state(target, ticket, selected_item.work_item_key)
-
-    arch_profile_path = target / "docs" / "architecture" / "profile.md"
-    arch_profile = runtime.rel_path(arch_profile_path, target)
+    write_active_state(target, ticket=ticket, work_item=selected_item.work_item_key)
 
     output_dir = target / "reports" / "loops" / ticket
 
@@ -1027,7 +1098,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=output_dir,
             ticket=ticket,
             work_item=item,
-            arch_profile=arch_profile,
+            context_allowed_paths=context_allowed_paths,
         )
         if item.scope_key == selected_item.scope_key:
             selected_pack_path = pack_path
@@ -1055,7 +1126,6 @@ def main(argv: list[str] | None = None) -> int:
         "boundaries": boundaries,
         "commands_required": commands_required,
         "tests_required": tests_required,
-        "arch_profile": arch_profile,
         "evidence_policy": "RLM-first",
     }
     if selected_reason_code:

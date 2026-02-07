@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -14,9 +14,7 @@ class LoopRunTests(unittest.TestCase):
     def test_loop_run_ship_clears_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_stage", "review")
-            write_file(root, "docs/.active_ticket", "DEMO-1")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-1", stage="review", work_item="iteration_id=I1")
             write_file(root, "docs/.active_mode", "loop")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
@@ -54,8 +52,7 @@ class LoopRunTests(unittest.TestCase):
     def test_loop_run_blocked(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_stage", "review")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, stage="review", work_item="iteration_id=I1")
 
             result = subprocess.run(
                 cli_cmd("loop-run", "--ticket", "DEMO-2", "--max-iterations", "1", "--format", "json"),
@@ -71,7 +68,7 @@ class LoopRunTests(unittest.TestCase):
     def test_loop_run_max_iterations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, work_item="iteration_id=I1")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-3",
@@ -112,8 +109,7 @@ class LoopRunTests(unittest.TestCase):
     def test_loop_run_stream_creates_jsonl(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_file(root, "docs/.active_ticket", "DEMO-STREAM")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket="DEMO-STREAM", work_item="iteration_id=I1")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-STREAM",

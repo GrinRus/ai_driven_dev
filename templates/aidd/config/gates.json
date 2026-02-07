@@ -1,5 +1,10 @@
 {
   "tests_required": "soft",
+  "tests_policy": {
+    "implement": "none",
+    "review": "targeted",
+    "qa": "full"
+  },
   "tests_gate": {
     "source_roots": [
       "src/main",

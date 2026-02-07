@@ -12,7 +12,7 @@ DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/readme.md"}}'
 
 def test_allows_when_disabled(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "disabled"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
 
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
@@ -21,7 +21,7 @@ def test_allows_when_disabled(tmp_path):
 
 def test_warns_but_allows_in_soft_mode(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "soft"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
 
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
@@ -31,7 +31,7 @@ def test_warns_but_allows_in_soft_mode(tmp_path):
 
 def test_blocks_in_hard_mode_without_tests(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
 
     result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
@@ -41,7 +41,7 @@ def test_blocks_in_hard_mode_without_tests(tmp_path):
 
 def test_allows_in_hard_mode_with_matching_test(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
     write_file(tmp_path, "src/test/kotlin/service/RuleEngineTest.kt", "class RuleEngineTest")
 
@@ -51,7 +51,7 @@ def test_allows_in_hard_mode_with_matching_test(tmp_path):
 
 def test_allows_with_plural_suffix(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
     write_file(tmp_path, "src/test/kotlin/service/RuleEngineTests.kt", "class RuleEngineTests")
 
@@ -61,7 +61,7 @@ def test_allows_with_plural_suffix(tmp_path):
 
 def test_non_source_paths_not_checked(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_file(tmp_path, "docs/readme.md", "docs")
 
     result = run_hook(tmp_path, "gate-tests.sh", DOC_PAYLOAD)
@@ -81,7 +81,7 @@ def test_skips_test_directories(tmp_path):
 def test_warns_when_reviewer_requests_tests(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "soft"})
     write_active_feature(tmp_path, "demo")
-    write_active_stage(tmp_path, "implement")
+    write_active_stage(tmp_path, "review")
     write_json(
         tmp_path,
         "reports/reviewer/demo/demo.tests.json",
@@ -137,7 +137,7 @@ class GateTestsEventTests(unittest.TestCase):
             tmp_path = Path(tmpdir)
             ensure_gates_config(tmp_path, {"tests_required": "soft"})
             write_active_feature(tmp_path, "gate-soft")
-            write_active_stage(tmp_path, "implement")
+            write_active_stage(tmp_path, "review")
             write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
 
             result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)

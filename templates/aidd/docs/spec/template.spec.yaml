@@ -2,7 +2,7 @@
 schema: aidd.spec.v1
 
 # Core
-status: draft   # draft|ready|deprecated
+status: draft   # draft|ready|retired
 updated_at: "<YYYY-MM-DD>"
 ticket: "<ABC-123>"
 slug: "<short-slug>"
@@ -81,10 +81,10 @@ api_contract:
 
 data_model:
   entities: []
-  migrations:
+  schema_changes:
     required: false
     notes: ""
-  compatibility: "backward"
+  versioning: "backward"
   idempotency: ""
 
 tradeoffs:

@@ -105,13 +105,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--ticket",
-        help="Feature ticket to analyse (defaults to docs/.active_ticket).",
+        help="Feature ticket to analyse (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug",
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override (defaults to docs/.active_feature when available).",
+        help="Optional slug hint override (defaults to docs/.active.json when available).",
     )
     parser.add_argument(
         "--prd",
@@ -147,14 +147,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _read_optional_text(path: Path) -> Optional[str]:
-    try:
-        value = path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
-
-
 def detect_feature(root: Path, ticket_arg: Optional[str], slug_arg: Optional[str]) -> tuple[str, str]:
     ticket_candidate = (ticket_arg or "").strip() or None
     slug_candidate = (slug_arg or "").strip() or None
@@ -168,14 +160,6 @@ def detect_feature(root: Path, ticket_arg: Optional[str], slug_arg: Optional[str
     if ticket_candidate:
         return ticket_candidate, slug_candidate or ticket_candidate
 
-    ticket_file = root / "docs" / ".active_ticket"
-    slug_file = root / "docs" / ".active_feature"
-    ticket_value = _read_optional_text(ticket_file)
-    slug_value = _read_optional_text(slug_file)
-    if ticket_value:
-        return ticket_value, slug_value or ticket_value
-    if slug_value:
-        return slug_value, slug_value
     return "", ""
 
 
@@ -298,7 +282,7 @@ def run(args: argparse.Namespace) -> int:
     if not ticket:
         print(
             "[prd-review] Cannot determine feature ticket. "
-            "Pass --ticket or create docs/.active_ticket (legacy fallback: docs/.active_feature).",
+            "Pass --ticket or create docs/.active.json.",
             file=sys.stderr,
         )
         return 1

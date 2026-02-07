@@ -1,6 +1,6 @@
 ---
 description: "Развёртывание инфраструктуры AIDD в ./aidd"
-argument-hint: "[--force] [--detect-build-tools] [--detect-stack]"
+argument-hint: "[--force] [--detect-build-tools]"
 lang: ru
 prompt_version: 0.1.5
 source_version: 0.1.5
@@ -13,10 +13,11 @@ disable-model-invocation: false
 ---
 
 ## Контекст
-`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools` и заполнить Architecture Profile stack‑hint через `--detect-stack`. Канон промптов после init: `aidd/docs/prompting/conventions.md`.
+`/feature-dev-aidd:aidd-init` разворачивает рабочую директорию `./aidd` из шаблонов `templates/aidd`. Команда копирует отсутствующие файлы и каталоги, не перезаписывая пользовательские изменения (без `--force`). Опционально можно заполнить `.claude/settings.json` шаблонами `automation.tests` через `--detect-build-tools`. Канон runtime и промптов после init: `aidd/AGENTS.md` + `aidd/docs/prompting/conventions.md`.
 
 ## Входные артефакты
 - `templates/aidd/**` — источник шаблонов.
+- `templates/aidd/AGENTS.md` — runtime‑гайд (копируется в `aidd/AGENTS.md`).
 - `templates/aidd/docs/prompting/conventions.md` — канон промптов (копируется в `aidd/docs/prompting/conventions.md`).
 
 ## Когда запускать
@@ -34,7 +35,6 @@ disable-model-invocation: false
 1. Запусти `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` (опционально `--force`).
 2. Убедись, что появились `aidd/docs`, `aidd/reports`, `aidd/docs/{prd,plan,tasklist}`.
 3. При необходимости добавь `--detect-build-tools`, чтобы заполнить `.claude/settings.json` дефолтами для `automation.tests`.
-4. При необходимости добавь `--detect-stack`, чтобы заполнить `aidd/docs/architecture/profile.md` stack‑hint.
 
 ## Fail-fast и вопросы
 - Если `templates/aidd` не найден — переустановите плагин и повторите `/feature-dev-aidd:aidd-init`.
@@ -49,4 +49,3 @@ disable-model-invocation: false
 - `${CLAUDE_PLUGIN_ROOT}/tools/init.sh`
 - `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --force`
 - `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --detect-build-tools`
-- `${CLAUDE_PLUGIN_ROOT}/tools/init.sh --detect-stack`

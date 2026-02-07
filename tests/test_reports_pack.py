@@ -125,45 +125,6 @@ class ReportsPackTests(unittest.TestCase):
         self.assertEqual(pack["findings"]["cols"][0], "id")
         self.assertEqual(pack["findings"]["rows"][0][0], "prd-issue-1")
 
-    def test_ast_grep_pack_auto_trim_meets_budget(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            jsonl_path = tmp_path / "AG-1-ast-grep.jsonl"
-            jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-            lines = []
-            for idx in range(40):
-                lines.append(
-                    json.dumps(
-                        {
-                            "schema": "aidd.ast_grep_match.v1",
-                            "rule_id": f"rule-{idx % 3}",
-                            "path": f"src/Main{idx}.java",
-                            "line": idx + 1,
-                            "col": 1,
-                            "snippet": "x" * 400,
-                            "message": "demo",
-                            "tags": ["jvm"],
-                        }
-                    )
-                )
-            jsonl_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            pack_path = reports_pack.write_ast_grep_pack(
-                jsonl_path,
-                ticket="AG-1",
-                slug_hint="ag-1",
-                root=tmp_path,
-            )
-            pack_text = pack_path.read_text(encoding="utf-8")
-            errors = reports_pack.check_budget(
-                pack_text,
-                max_chars=reports_pack.AST_GREP_BUDGET["max_chars"],
-                max_lines=reports_pack.AST_GREP_BUDGET["max_lines"],
-                label="ast-grep",
-            )
-            self.assertFalse(errors)
-            payload = json.loads(pack_text)
-            self.assertLessEqual(len(payload.get("rules") or []), reports_pack.AST_GREP_LIMITS["rules"])
-
     def test_research_pack_budget_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -774,87 +735,6 @@ class ReportsPackTests(unittest.TestCase):
             payload = json.loads(pack_path.read_text(encoding="utf-8"))
             warnings = payload.get("warnings") or []
             self.assertTrue(any("rlm pack partial" in warning for warning in warnings))
-
-    def test_rlm_pack_warns_on_fallback_ratio(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            workspace = Path(tmpdir)
-            project_root = ensure_project_root(workspace)
-            ticket = "RLM-FALLBACK"
-
-            (project_root / "config").mkdir(parents=True, exist_ok=True)
-            (project_root / "config" / "conventions.json").write_text(
-                json.dumps({"rlm": {"link_fallback_warn_ratio": 0.4}}, indent=2),
-                encoding="utf-8",
-            )
-
-            nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-            nodes_path.parent.mkdir(parents=True, exist_ok=True)
-            nodes = []
-            for idx in range(4):
-                nodes.append(
-                    {
-                        "schema": "aidd.rlm_node.v2",
-                        "schema_version": "v2",
-                        "node_kind": "file",
-                        "file_id": f"file-{idx}",
-                        "id": f"file-{idx}",
-                        "path": f"src/{idx}.py",
-                        "rev_sha": f"rev-{idx}",
-                        "lang": "py",
-                        "prompt_version": "v1",
-                        "summary": "summary",
-                        "public_symbols": [],
-                        "type_refs": [],
-                        "key_calls": [],
-                        "framework_roles": [],
-                        "test_hooks": [],
-                        "risks": [],
-                        "verification": "passed",
-                        "missing_tokens": [],
-                    }
-                )
-            nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")
-
-            links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-            links_path.write_text(
-                json.dumps(
-                    {
-                        "schema": "aidd.rlm_link.v1",
-                        "schema_version": "v1",
-                        "link_id": "link-1",
-                        "src_file_id": "file-0",
-                        "dst_file_id": "file-1",
-                        "type": "calls",
-                        "evidence_ref": {
-                            "path": "src/0.py",
-                            "line_start": 1,
-                            "line_end": 1,
-                            "extractor": "regex",
-                            "match_hash": "hash",
-                        },
-                        "unverified": False,
-                    }
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-
-            stats_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
-            stats_path.write_text(
-                json.dumps({"fallback_nodes": 3}, indent=2),
-                encoding="utf-8",
-            )
-
-            pack_path = reports_pack.write_rlm_pack(
-                nodes_path,
-                links_path,
-                ticket=ticket,
-                slug_hint=ticket,
-                root=project_root,
-            )
-            payload = json.loads(pack_path.read_text(encoding="utf-8"))
-            warnings = payload.get("warnings") or []
-            self.assertTrue(any("fallback ratio" in warning for warning in warnings))
 
     def test_rlm_pack_warns_on_unverified_ratio(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

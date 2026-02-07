@@ -14,6 +14,7 @@ from .helpers import (
     ensure_project_root,
     git_config_user,
     git_init,
+    tasklist_ready_text,
     write_active_feature,
     write_file,
     write_json,
@@ -154,7 +155,7 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         pack_path = report_path.with_suffix(".pack.json")
         self.assertTrue(pack_path.exists(), "QA pack should be written")
-        self.assertFalse(report_path.exists(), "JSON report should be removed in pack-only mode")
+        self.assertFalse(report_path.exists(), "JSON report should be absent in pack-only mode")
 
     def test_missing_tests_flags_major_warning(self):
         write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
@@ -218,6 +219,49 @@ class QaAgentTests(unittest.TestCase):
         self.assertEqual(payload["tests_summary"], "fail")
         self.assertEqual(len(payload["tests_executed"]), 1)
         self.assertEqual(payload["tests_executed"][0]["status"], "fail")
+
+    def test_tasklist_test_execution_overrides_config(self):
+        ticket = "tasklist-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace("- tasks: []\n", "- tasks: echo qa-ok\n", 1)
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        self.assertTrue(payload["tests_executed"], "expected tests from tasklist to run")
+        self.assertEqual(payload["tests_executed"][0]["command"], "echo qa-ok")
+
+    def test_tasklist_profile_none_skips_tests_and_writes_stage_result(self):
+        ticket = "tasklist-none"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "skipped")
+        stage_result = (
+            self.project_root
+            / "reports"
+            / "loops"
+            / ticket
+            / ticket
+            / "stage.qa.result.json"
+        )
+        self.assertTrue(stage_result.exists(), "QA stage_result should be written")
+        stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
+        links = stage_payload.get("evidence_links") or {}
+        self.assertEqual(links.get("qa_report"), f"aidd/reports/qa/{ticket}.json")
 
     def test_qa_skipped_tests_logged_as_skipped(self):
         write_json(

@@ -95,7 +95,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run heuristic QA checks for the current Claude workflow project."
     )
-    parser.add_argument("--ticket", "--slug", dest="ticket", help="Active feature ticket (legacy alias: --slug).")
+    parser.add_argument("--ticket", "--slug", dest="ticket", help="Active feature ticket (alias: --slug).")
     parser.add_argument("--slug-hint", dest="slug_hint", help="Optional slug hint used for messaging.")
     parser.add_argument("--branch", help="Current branch name. Autodetected when omitted.")
     parser.add_argument(

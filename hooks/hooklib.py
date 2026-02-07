@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Optional, Sequence
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": True,
+    "mode": "light",
     "working_set": {
         "max_chars": 12000,
         "max_tasks": 40,
@@ -251,6 +252,27 @@ def load_config(aidd_root: Optional[Path]) -> Dict[str, Any]:
     return deep_merge(cfg, user_cfg)
 
 
+def resolve_context_gc_mode(cfg: Dict[str, Any]) -> str:
+    raw = os.environ.get("AIDD_CONTEXT_GC")
+    if raw:
+        mode = raw.strip().lower()
+    else:
+        mode = str(cfg.get("mode", "light") or "light").strip().lower()
+    if mode not in {"full", "light", "off"}:
+        return "light"
+    return mode
+
+
+def resolve_hooks_mode() -> str:
+    raw = os.environ.get("AIDD_HOOKS_MODE")
+    if not raw:
+        return "fast"
+    mode = raw.strip().lower()
+    if mode not in {"fast", "strict"}:
+        return "fast"
+    return mode
+
+
 def _load_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
@@ -288,31 +310,45 @@ def _read_text(path: Path) -> Optional[str]:
     return value or None
 
 
-def read_slug(path: Path) -> Optional[str]:
+def _read_active_payload(path: Path) -> Dict[str, Any]:
     if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def read_slug(path: Path) -> Optional[str]:
+    payload = _read_active_payload(path)
+    value = payload.get("slug_hint") or payload.get("slug")
+    if value is None:
         return None
-    return _read_text(path)
+    return str(value).strip() or None
 
 
 def read_ticket(ticket_path: Optional[Path], slug_path: Optional[Path] = None) -> Optional[str]:
-    value = None
-    if ticket_path and ticket_path.is_file():
-        value = _read_text(ticket_path)
-    if not value and slug_path and slug_path.is_file():
-        value = _read_text(slug_path)
-    return value or None
-
-
-def read_stage(path: Path = Path("docs/.active_stage")) -> Optional[str]:
-    if not path.is_file():
+    path = ticket_path or slug_path
+    if not path:
         return None
-    value = _read_text(path)
-    if value:
-        return value.lower()
-    return None
+    payload = _read_active_payload(path)
+    value = payload.get("ticket") or payload.get("slug_hint") or payload.get("slug")
+    if value is None:
+        return None
+    return str(value).strip() or None
 
 
-def resolve_stage(path: Path = Path("docs/.active_stage")) -> Optional[str]:
+def read_stage(path: Path = Path("docs/.active.json")) -> Optional[str]:
+    payload = _read_active_payload(path)
+    value = payload.get("stage")
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text.lower() if text else None
+
+
+def resolve_stage(path: Path = Path("docs/.active.json")) -> Optional[str]:
     override = os.environ.get("CLAUDE_ACTIVE_STAGE")
     if override:
         return override.strip().lower()
@@ -327,10 +363,10 @@ def append_event(
     report: str = "",
     source: str = "",
 ) -> None:
-    ticket = read_ticket(root / "docs" / ".active_ticket", root / "docs" / ".active_feature")
+    ticket = read_ticket(root / "docs" / ".active.json")
     if not ticket:
         return
-    slug_hint = read_slug(root / "docs" / ".active_feature") or ticket
+    slug_hint = read_slug(root / "docs" / ".active.json") or ticket
     payload: Dict[str, Any] = {
         "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "ticket": ticket,

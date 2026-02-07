@@ -65,6 +65,7 @@ DEFAULT_EXCLUDE_DIRS = [
     "functionalTest",
     "testFixtures",
 ]
+DOCS_PREFIX = "docs/"
 
 
 def _bootstrap() -> None:
@@ -183,6 +184,27 @@ def _is_excluded_path(path: str, exclude_dirs: list[str]) -> bool:
         if exclude in parts:
             return True
     return False
+
+
+def _normalize_path(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _docs_only(files: list[str], *, aidd_root: bool) -> bool:
+    if not files:
+        return False
+    for path in files:
+        normalized = _normalize_path(path)
+        if aidd_root:
+            if not normalized.startswith(DOCS_PREFIX):
+                return False
+        else:
+            if not normalized.startswith(f"aidd/{DOCS_PREFIX}"):
+                return False
+    return True
 
 
 def _emit_research_hint(root: Path, file_path: str, ticket: str, slug_hint: str) -> None:
@@ -319,17 +341,16 @@ def main() -> int:
         )
         return 2
 
+    stage = ""
     if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
-        stage = hooklib.resolve_stage(root / "docs" / ".active_stage")
-        if stage != "implement":
-            return 0
+        stage = hooklib.resolve_stage(root / "docs" / ".active.json")
 
     payload = ctx.raw
     file_path = hooklib.payload_file_path(payload) or ""
 
     config_path = root / "config" / "gates.json"
-    ticket_path = root / "docs" / ".active_ticket"
-    slug_path = root / "docs" / ".active_feature"
+    ticket_path = root / "docs" / ".active.json"
+    slug_path = root / "docs" / ".active.json"
     ticket = hooklib.read_ticket(ticket_path, slug_path)
     slug_hint = hooklib.read_slug(slug_path) if slug_path.exists() else ""
 
@@ -353,6 +374,7 @@ def main() -> int:
     if file_path:
         changed_files.insert(0, file_path)
     changed_files = _unique(changed_files)
+    docs_only = _docs_only(changed_files, aidd_root=root.name == "aidd")
 
     target_files: list[str] = []
     target_roots: list[str] = []
@@ -375,6 +397,14 @@ def main() -> int:
         target_files.append(candidate)
         target_roots.append(match_root)
 
+    if stage == "implement":
+        return 0
+    if stage not in {"review", "qa"} and not target_files:
+        return 0
+    if docs_only and mode == "soft":
+        _log_stdout("WARN: изменения только в docs — gate-tests пропущен (tests_required=soft).")
+        hooklib.append_event(root, "gate-tests", "warn", source="hook gate-tests")
+        return 0
     if not target_files:
         return 0
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from tools import runtime
-from tools.feature_ids import read_identifiers, resolve_aidd_root, write_identifiers
+from tools.feature_ids import read_active_state, write_active_state, read_identifiers, resolve_aidd_root, write_identifiers
 from tools.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,
@@ -48,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     root = resolve_aidd_root(Path.cwd())
     docs_dir = root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
+    previous_state = read_active_state(root)
 
     write_identifiers(
         root,
@@ -55,6 +56,10 @@ def main(argv: list[str] | None = None) -> int:
         slug_hint=args.slug_note,
         scaffold_prd_file=not args.skip_prd_scaffold,
     )
+    previous_ticket = (previous_state.ticket or "").strip()
+    next_ticket = args.ticket.strip()
+    if previous_ticket and previous_ticket != next_ticket:
+        write_active_state(root, stage="", work_item="")
     identifiers = read_identifiers(root)
     resolved_slug_hint = identifiers.slug_hint or identifiers.ticket or args.ticket
 

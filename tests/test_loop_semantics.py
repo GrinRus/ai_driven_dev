@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_active_state, write_file
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_pack"
@@ -39,11 +39,7 @@ class LoopSemanticsTests(unittest.TestCase):
             ticket = "DEMO-1"
             tasklist = (FIXTURES / "tasklist.md").read_text(encoding="utf-8")
             write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
-            profile = (FIXTURES / "docs" / "architecture" / "profile.md").read_text(encoding="utf-8")
-            write_file(root, "docs/architecture/profile.md", profile)
-            write_file(root, "docs/.active_ticket", ticket)
-            write_file(root, "docs/.active_stage", "review")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
 
             stage_review = {
                 "schema": "aidd.stage_result.v1",
@@ -128,10 +124,8 @@ class LoopSemanticsTests(unittest.TestCase):
 
             after_tasklist = (root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
             self.assertEqual(before_tasklist, after_tasklist)
-            self.assertEqual(
-                (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip(),
-                "iteration_id=I1",
-            )
+            active_payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("work_item"), "iteration_id=I1")
 
     def test_ship_keeps_next3_shift_and_loop_run_ships(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-semantics-") as tmpdir:
@@ -227,8 +221,8 @@ class LoopSemanticsTests(unittest.TestCase):
             self.assertIn("- [ ] I2:", next3_section)
             self.assertNotIn("I1:", next3_section)
 
-            write_file(root, "docs/.active_stage", "review")
-            write_file(root, "docs/.active_work_item", "iteration_id=I1")
+            write_active_state(root, stage="review")
+            write_active_state(root, work_item="iteration_id=I1")
             stage_review = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": ticket,
@@ -255,14 +249,9 @@ class LoopSemanticsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 11, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "max-iterations")
-            self.assertEqual(
-                (root / "docs" / ".active_work_item").read_text(encoding="utf-8").strip(),
-                "iteration_id=I2",
-            )
-            self.assertEqual(
-                (root / "docs" / ".active_stage").read_text(encoding="utf-8").strip(),
-                "implement",
-            )
+            active_payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("work_item"), "iteration_id=I2")
+            self.assertEqual(active_payload.get("stage"), "implement")
             log_path = root / "reports" / "loops" / ticket / "loop.run.log"
             self.assertIn("selected_next_work_item=iteration_id=I2", log_path.read_text(encoding="utf-8"))
 

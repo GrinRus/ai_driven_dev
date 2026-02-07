@@ -25,16 +25,8 @@ def read_text(path: Path) -> str:
 
 
 def load_loop_pack_meta(root: Path, ticket: str) -> Tuple[str, str, str]:
-    active_ticket = (root / "docs" / ".active_ticket")
-    active_work_item = (root / "docs" / ".active_work_item")
-    try:
-        stored_ticket = active_ticket.read_text(encoding="utf-8").strip()
-    except OSError:
-        stored_ticket = ""
-    try:
-        stored_item = active_work_item.read_text(encoding="utf-8").strip()
-    except OSError:
-        stored_item = ""
+    stored_ticket = runtime.read_active_ticket(root)
+    stored_item = runtime.read_active_work_item(root)
     if not stored_ticket or stored_ticket != ticket or not stored_item:
         return "", "", ""
     scope_key = runtime.resolve_scope_key(stored_item, ticket)
@@ -105,7 +97,7 @@ def normalize_links(entry: Dict[str, object]) -> List[str]:
 def normalize_finding(entry: Dict[str, object]) -> Dict[str, object]:
     entry_id = str(entry.get("id") or "").strip() or "n/a"
     severity = normalize_severity(entry.get("severity"))
-    blocking = entry.get("blocking") is True or severity in {"blocker", "critical"}
+    blocking = entry.get("blocking") is True or severity in {"blocker", "critical", "blocking"}
     return {
         "id": entry_id,
         "summary": finding_summary(entry),
@@ -177,8 +169,7 @@ def _reviewer_requirements(
     if reviewer_cfg.get("enabled") is False:
         return False, False
     marker_template = str(
-        reviewer_cfg.get("marker")
-        or reviewer_cfg.get("tests_marker")
+        reviewer_cfg.get("tests_marker")
         or DEFAULT_REVIEWER_MARKER
     )
     marker_path = runtime.reviewer_marker_path(
@@ -196,13 +187,10 @@ def _reviewer_requirements(
         return False, False
     field_name = str(
         reviewer_cfg.get("tests_field")
-        or reviewer_cfg.get("field")
         or "tests"
     )
     marker_value = str(payload.get(field_name) or "").strip().lower()
-    required_values = reviewer_cfg.get("required_values")
-    if required_values is None:
-        required_values = reviewer_cfg.get("requiredValues") or ["required"]
+    required_values = reviewer_cfg.get("required_values") or ["required"]
     if not isinstance(required_values, list):
         required_values = [required_values]
     required_values = [str(value).strip().lower() for value in required_values if str(value).strip()]
@@ -516,7 +504,7 @@ def render_pack(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate review pack from reviewer report.")
-    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier to use (defaults to docs/.active.json).")
     parser.add_argument("--slug-hint", help="Optional slug hint override.")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     return parser.parse_args(argv)
@@ -528,11 +516,11 @@ def main(argv: list[str] | None = None) -> int:
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=args.slug_hint)
     ticket = (context.resolved_ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     work_item_id, work_item_key, scope_key = load_loop_pack_meta(target, ticket)
     if not work_item_id or not work_item_key:
-        raise FileNotFoundError("loop pack metadata not found (run loop-pack and ensure .active_work_item is set)")
+        raise FileNotFoundError("loop pack metadata not found (run loop-pack and ensure active work_item is set)")
     if not scope_key:
         scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 

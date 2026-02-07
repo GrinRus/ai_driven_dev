@@ -26,16 +26,11 @@ check_absent() {
 }
 
 check_absent "Graph Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
+  "${ROOT_DIR}/templates/aidd/AGENTS.md" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
 
-check_present "Evidence Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
-
-check_present "aidd/docs/architecture/profile.md" "${ROOT_DIR}/agents" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
-
-check_present "rlm-slice.sh" "${ROOT_DIR}/agents" "${ROOT_DIR}/commands" \
-  "${ROOT_DIR}/templates/aidd/docs/anchors" "${ROOT_DIR}/templates/aidd/AGENTS.md"
+check_present "Evidence read policy" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
+check_present "AIDD:READ_LOG" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
+check_present "rlm-slice.sh" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
 
 stage_commands=(
   idea-new
@@ -52,10 +47,6 @@ stage_commands=(
 context_pack_template="${ROOT_DIR}/templates/aidd/reports/context/template.context-pack.md"
 if [[ ! -f "${context_pack_template}" ]]; then
   err "context pack template missing: ${context_pack_template}"
-else
-  if ! rg -q "arch_profile: aidd/docs/architecture/profile.md" "${context_pack_template}"; then
-    err "context pack template missing arch_profile path"
-  fi
 fi
 
 for cmd in "${stage_commands[@]}"; do

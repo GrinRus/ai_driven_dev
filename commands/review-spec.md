@@ -23,7 +23,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:review-spec` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов, и **последовательно запускает саб‑агентов** `feature-dev-aidd:plan-reviewer` → `feature-dev-aidd:prd-reviewer`. Она подтверждает исполняемость плана, затем проводит PRD review, обновляет `## Plan Review` и `## PRD Review` и сохраняет отчёт. Свободный ввод после тикета используйте как дополнительный контекст ревью.
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/review-plan.md` и `aidd/docs/anchors/review-prd.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md` — план реализации.
@@ -35,7 +35,6 @@ disable-model-invocation: false
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:plan-new`, чтобы пройти review-plan и review-prd одним шагом.
@@ -57,22 +56,21 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Файл review-plan: `aidd/reports/context/$1.review-plan.pack.md`.
-- Файл review-prd: `aidd/reports/context/$1.review-prd.pack.md`.
-- Paths: plan, prd, arch_profile, research, tasklist/spec/test_policy (if exists).
+- Rolling pack: `aidd/reports/context/$1.pack.md`.
+- Заполни поля stage/agent/read_next/artefact_links под plan-reviewer/prd-reviewer (обновляй между саб‑агентами при необходимости).
 - What to do now: plan-reviewer validates plan; prd-reviewer validates PRD.
 - User note: $ARGUMENTS.
 
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `review-plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): проверь PRD через `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1` (при ошибке → `BLOCKED`).
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.review-plan.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-4. Команда → subagent: **Use the feature-dev-aidd:plan-reviewer subagent. First action: Read `aidd/reports/context/$1.review-plan.pack.md`.**
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md` (read_next для plan-reviewer).
+4. Команда → subagent: **Use the feature-dev-aidd:plan-reviewer subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 5. Subagent (plan-reviewer): обновляет `## Plan Review`. Если `BLOCKED` — остановись и верни вопросы.
 6. Команда (до subagent prd): проверь консистентность PRD (`AIDD:OPEN_QUESTIONS` vs `AIDD:ANSWERS`, статус, метрики/риски).
 7. Команда (до subagent prd): зафиксируй стадию `review-prd` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh review-prd`.
-8. Команда (до subagent prd): собери Context Pack `aidd/reports/context/$1.review-prd.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-9. Команда → subagent: **Use the feature-dev-aidd:prd-reviewer subagent. First action: Read `aidd/reports/context/$1.review-prd.pack.md`.**
+8. Команда (до subagent prd): обнови Context Pack `aidd/reports/context/$1.pack.md` (read_next для prd-reviewer).
+9. Команда → subagent: **Use the feature-dev-aidd:prd-reviewer subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 10. Subagent (prd-reviewer): обновляет `## PRD Review`.
 11. Команда (после subagent): перенеси блокирующие action items в tasklist и сохрани отчёт через `${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh --ticket $1 --report "aidd/reports/prd/$1.json" --emit-text`.
 

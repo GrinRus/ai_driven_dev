@@ -218,10 +218,9 @@ class ResearcherContextTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
 
-        ticket_file = self.root / "docs" / ".active_ticket"
-        self.assertEqual(ticket_file.read_text(encoding="utf-8"), "demo-checkout")
-        slug_file = self.root / "docs" / ".active_feature"
-        self.assertEqual(slug_file.read_text(encoding="utf-8"), "demo-checkout")
+        state = json.loads((self.root / "docs" / ".active.json").read_text(encoding="utf-8"))
+        self.assertEqual(state.get("ticket"), "demo-checkout")
+        self.assertEqual(state.get("slug_hint"), "demo-checkout")
 
         targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
         self.assertTrue(targets_path.exists(), "Researcher targets should be generated")
@@ -266,8 +265,8 @@ class ResearcherContextTests(unittest.TestCase):
         )
         self.assertEqual(second.returncode, 0, msg=second.stderr)
 
-        slug_file = self.root / "docs" / ".active_feature"
-        self.assertEqual(slug_file.read_text(encoding="utf-8"), "checkout-lite")
+        state = json.loads((self.root / "docs" / ".active.json").read_text(encoding="utf-8"))
+        self.assertEqual(state.get("slug_hint"), "checkout-lite")
 
         targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
         targets = json.loads(targets_path.read_text(encoding="utf-8"))

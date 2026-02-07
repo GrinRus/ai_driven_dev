@@ -10,7 +10,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from tools.feature_ids import FeatureIdentifiers, resolve_identifiers
+from tools.feature_ids import FeatureIdentifiers, read_active_state, resolve_identifiers
 from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
@@ -90,7 +90,7 @@ def require_ticket(
     resolved = (context.resolved_ticket or "").strip()
     if not resolved:
         raise ValueError(
-            "feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new."
+            "feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new."
         )
     return resolved, context
 
@@ -169,11 +169,26 @@ def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: st
 
 
 def read_active_work_item(target: Path) -> str:
-    path = target / "docs" / ".active_work_item"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    state = read_active_state(target)
+    return (state.work_item or "").strip()
+
+
+def read_active_stage(target: Path) -> str:
+    state = read_active_state(target)
+    return (state.stage or "").strip().lower()
+
+
+def read_active_ticket(target: Path) -> str:
+    state = read_active_state(target)
+    ticket = (state.ticket or "").strip()
+    if ticket:
+        return ticket
+    return (state.slug_hint or "").strip()
+
+
+def read_active_slug(target: Path) -> str:
+    state = read_active_state(target)
+    return (state.slug_hint or "").strip()
 
 
 def load_json_file(path: Path) -> Dict:

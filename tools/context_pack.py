@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Build a compact context pack from AIDD anchors."""
+"""Build a compact context pack from a template."""
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Optional
 
 from tools import runtime
 from tools.io_utils import utc_timestamp
 
-SECTION_RE = re.compile(r"^##\s+(AIDD:[A-Z0-9_]+)\b", re.IGNORECASE)
-HEADING_RE = re.compile(r"^##\s+")
+DEFAULT_TEMPLATE = Path("reports") / "context" / "template.context-pack.md"
 
 
 def _read_text(path: Path) -> str:
@@ -23,40 +21,33 @@ def _read_text(path: Path) -> str:
         return ""
 
 
-def extract_aidd_sections(text: str) -> List[Tuple[str, str]]:
-    lines = text.splitlines()
-    sections: List[Tuple[str, str]] = []
-    index = 0
-    while index < len(lines):
-        line = lines[index].strip()
-        match = SECTION_RE.match(line)
-        if not match:
-            index += 1
+def _replace_list_section(lines: list[str], header: str, items: list[str]) -> list[str]:
+    for idx, line in enumerate(lines):
+        if line.strip() != f"{header}:":
             continue
-        name = match.group(1).upper()
-        index += 1
-        collected: List[str] = []
-        while index < len(lines):
-            if HEADING_RE.match(lines[index].strip()):
+        start = idx + 1
+        end = start
+        while end < len(lines):
+            if lines[end].lstrip().startswith("-"):
+                end += 1
+                continue
+            break
+        replacement = [f"- {item}" for item in items] if items else ["- n/a"]
+        return lines[:start] + replacement + lines[end:]
+    return lines
+
+
+def _replace_first_list_item(lines: list[str], heading: str, value: str) -> list[str]:
+    for idx, line in enumerate(lines):
+        if line.strip() != heading:
+            continue
+        for j in range(idx + 1, len(lines)):
+            if lines[j].lstrip().startswith("-"):
+                lines[j] = f"- {value or 'n/a'}"
+                return lines
+            if lines[j].startswith("## "):
                 break
-            collected.append(lines[index].rstrip())
-            index += 1
-        content = "\n".join(collected).strip()
-        if content:
-            sections.append((name, content))
-    return sections
-
-
-def _format_sections(title: str, sections: Iterable[Tuple[str, str]]) -> List[str]:
-    lines: List[str] = []
-    section_list = list(sections)
-    if not section_list:
-        return lines
-    lines.append(f"## {title}")
-    for name, content in section_list:
-        lines.append(f"### {name}")
-        lines.append(content)
-        lines.append("")
+        break
     return lines
 
 
@@ -67,6 +58,10 @@ def _apply_template(
     agent: str,
     stage: str,
     template_path: Path,
+    read_next: list[str],
+    artefact_links: list[str],
+    what_to_do: str,
+    user_note: str,
 ) -> str:
     template_text = _read_text(template_path)
     if not template_text:
@@ -81,17 +76,34 @@ def _apply_template(
         "<stage>": stage,
         "<agent>": agent,
         "<UTC ISO-8601>": utc_timestamp(),
-        "<scope_key>": scope_key or "<scope_key>",
+        "<scope_key>": scope_key or "n/a",
     }
-    content = template_text
-    for placeholder, value in replacements.items():
-        content = content.replace(placeholder, value)
-    if "<stage-specific goal>" in content:
+    lines = template_text.splitlines()
+    lines = [line for line in lines if "Fill stage/agent/read_next/artefact_links" not in line]
+    lines = [line.replace("<read_next>", "n/a") for line in lines]
+    for idx, line in enumerate(lines):
+        for placeholder, value in replacements.items():
+            if placeholder in line:
+                lines[idx] = line.replace(placeholder, value)
+    lines = _replace_list_section(lines, "read_next", read_next)
+    lines = _replace_list_section(lines, "artefact_links", artefact_links)
+    lines = _replace_first_list_item(lines, "## What to do now", what_to_do or "n/a")
+    lines = _replace_first_list_item(lines, "## User note", user_note or "n/a")
+    lines = _replace_first_list_item(lines, "## AIDD:READ_LOG", "n/a")
+
+    content = "\n".join(lines).rstrip() + "\n"
+    if "<stage-specific goal>" in content or "<arguments/note>" in content or "<" in content and ">" in content:
         print(
-            "[aidd] WARN: context pack template placeholder '<stage-specific goal>' remains.",
+            "[aidd] WARN: context pack template placeholders remain; fill read_next/what_to_do/artefact_links.",
             file=sys.stderr,
         )
-    return content.rstrip() + "\n"
+    if not read_next:
+        print("[aidd] WARN: context pack missing read_next entries.", file=sys.stderr)
+    if not artefact_links:
+        print("[aidd] WARN: context pack missing artefact_links entries.", file=sys.stderr)
+    if not what_to_do:
+        print("[aidd] WARN: context pack missing what_to_do value.", file=sys.stderr)
+    return content
 
 
 def build_context_pack(
@@ -101,43 +113,27 @@ def build_context_pack(
     *,
     stage: str = "",
     template_path: Optional[Path] = None,
+    read_next: Optional[list[str]] = None,
+    artefact_links: Optional[list[str]] = None,
+    what_to_do: str = "",
+    user_note: str = "",
 ) -> str:
-    if template_path is not None:
-        resolved_stage = stage.strip() or agent
-        if not resolved_stage:
-            raise ValueError("stage is required when using --template")
-        return _apply_template(
-            root,
-            ticket=ticket,
-            agent=agent,
-            stage=resolved_stage,
-            template_path=template_path,
-        )
-    prd_path = root / "docs" / "prd" / f"{ticket}.prd.md"
-    plan_path = root / "docs" / "plan" / f"{ticket}.md"
-    tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
-
-    prd_sections = extract_aidd_sections(_read_text(prd_path)) if prd_path.exists() else []
-    plan_sections = extract_aidd_sections(_read_text(plan_path)) if plan_path.exists() else []
-    tasklist_sections = extract_aidd_sections(_read_text(tasklist_path)) if tasklist_path.exists() else []
-
-    parts: List[str] = []
-    parts.append(f"# Context Pack — {ticket} ({agent})")
-    parts.append(f"Generated: {utc_timestamp()}")
-    parts.append("Sources:")
-    if prd_path.exists():
-        parts.append(f"- PRD: {prd_path.as_posix()}")
-    if plan_path.exists():
-        parts.append(f"- Plan: {plan_path.as_posix()}")
-    if tasklist_path.exists():
-        parts.append(f"- Tasklist: {tasklist_path.as_posix()}")
-    parts.append("")
-
-    parts.extend(_format_sections("Tasklist anchors", tasklist_sections))
-    parts.extend(_format_sections("Plan anchors", plan_sections))
-    parts.extend(_format_sections("PRD anchors", prd_sections))
-
-    return "\n".join(parts).rstrip() + "\n"
+    resolved_stage = stage.strip() or agent
+    if not resolved_stage:
+        raise ValueError("stage is required when using template packs")
+    if template_path is None:
+        template_path = root / DEFAULT_TEMPLATE
+    return _apply_template(
+        root,
+        ticket=ticket,
+        agent=agent,
+        stage=resolved_stage,
+        template_path=template_path,
+        read_next=read_next or [],
+        artefact_links=artefact_links or [],
+        what_to_do=what_to_do,
+        user_note=user_note,
+    )
 
 
 def write_context_pack(
@@ -148,32 +144,42 @@ def write_context_pack(
     stage: str = "",
     template_path: Optional[Path] = None,
     output: Optional[Path] = None,
+    read_next: Optional[list[str]] = None,
+    artefact_links: Optional[list[str]] = None,
+    what_to_do: str = "",
+    user_note: str = "",
 ) -> Path:
-    use_template = template_path is not None
     if output is None:
-        if use_template:
-            output = root / "reports" / "context" / f"{ticket}.{agent}.pack.md"
-        else:
-            output = root / "reports" / "context" / f"{ticket}-{agent}.md"
+        output = root / "reports" / "context" / f"{ticket}.pack.md"
     output.parent.mkdir(parents=True, exist_ok=True)
-    content = build_context_pack(root, ticket, agent, stage=stage, template_path=template_path)
+    content = build_context_pack(
+        root,
+        ticket,
+        agent,
+        stage=stage,
+        template_path=template_path,
+        read_next=read_next,
+        artefact_links=artefact_links,
+        what_to_do=what_to_do,
+        user_note=user_note,
+    )
     output.write_text(content, encoding="utf-8")
     return output
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build a compact context pack from AIDD anchors.",
+        description="Build a compact context pack from a template.",
     )
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to pack (defaults to docs/.active_ticket).",
+        help="Ticket identifier to pack (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override (defaults to docs/.active_feature).",
+        help="Optional slug hint override (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--agent",
@@ -185,11 +191,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--template",
-        help="Optional template path to use instead of anchor extraction.",
+        help="Optional template path (defaults to aidd/reports/context/template.context-pack.md).",
     )
     parser.add_argument(
         "--output",
-        help="Optional output path override (default: aidd/reports/context/<ticket>-<agent>.md).",
+        help="Optional output path override (default: aidd/reports/context/<ticket>.pack.md).",
+    )
+    parser.add_argument(
+        "--read-next",
+        action="append",
+        help="Repeatable read_next entry for the context pack.",
+    )
+    parser.add_argument(
+        "--artefact-link",
+        action="append",
+        help="Repeatable artefact link entry (e.g., 'prd: aidd/docs/prd/TICKET.prd.md').",
+    )
+    parser.add_argument(
+        "--what-to-do",
+        help="Single-line 'What to do now' entry for the context pack.",
+    )
+    parser.add_argument(
+        "--user-note",
+        help="Optional user note to store in the context pack.",
     )
     return parser.parse_args(argv)
 
@@ -219,6 +243,10 @@ def main(argv: list[str] | None = None) -> int:
         stage=(args.stage or "").strip(),
         template_path=template_path,
         output=output,
+        read_next=[item for item in (args.read_next or []) if item],
+        artefact_links=[item for item in (args.artefact_link or []) if item],
+        what_to_do=(args.what_to_do or "").strip(),
+        user_note=(args.user_note or "").strip(),
     )
     rel = runtime.rel_path(pack_path, target)
     print(f"[aidd] context pack saved to {rel}.")

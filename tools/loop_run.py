@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Dict, List
 
 from tools import runtime
+from tools.feature_ids import write_active_state
 from tools.loop_pack import (
     is_open_item,
     parse_iteration_items,
     parse_next3_refs,
     parse_sections,
     select_first_open,
-    write_active_state,
 )
 from tools.io_utils import dump_yaml, utc_timestamp
 
@@ -65,9 +65,7 @@ def append_stream_file(dest: Path, source: Path, *, header: str | None = None) -
 
 
 def write_active_stage(root: Path, stage: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_stage").write_text(stage + "\n", encoding="utf-8")
+    write_active_state(root, stage=stage)
 
 
 def select_next_work_item(target: Path, ticket: str, current_work_item: str) -> tuple[str, int]:
@@ -143,7 +141,7 @@ def run_loop_step(
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run loop-step until SHIP.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--max-iterations", type=int, default=10, help="Maximum number of loop iterations.")
     parser.add_argument("--sleep-seconds", type=float, default=0.0, help="Sleep between iterations.")
     parser.add_argument("--runner", help="Runner command override.")
@@ -205,7 +203,7 @@ def main(argv: List[str] | None = None) -> int:
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=None)
     ticket = (context.resolved_ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
     plugin_root = runtime.require_plugin_root()
     log_path = target / "reports" / "loops" / ticket / "loop.run.log"
@@ -340,7 +338,7 @@ def main(argv: List[str] | None = None) -> int:
                     ),
                 )
                 if selected_next:
-                    write_active_state(target, ticket, selected_next)
+                    write_active_state(target, ticket=ticket, work_item=selected_next)
                     write_active_stage(target, "implement")
                     append_log(
                         log_path,
@@ -381,6 +379,10 @@ def main(argv: List[str] | None = None) -> int:
                 "runner_label": runner_label,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
+                "reason": reason,
+                "reason_code": log_reason_code,
+                "runner_cmd": runner_effective,
+                "scope_key": chosen_scope,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }

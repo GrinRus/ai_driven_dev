@@ -22,7 +22,7 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:spec-interview` работает inline: проводит интервью на верхнем уровне (AskUserQuestionTool), записывает лог интервью, пишет Context Pack для writer‑агента и явно запускает саб‑агента **feature-dev-aidd:spec-interview-writer**. Спека хранится в `aidd/docs/spec/$1.spec.yaml`. Обновление tasklist выполняется только через `/feature-dev-aidd:tasks-new`.
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/spec-interview.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
 - `aidd/docs/plan/$1.md`
@@ -34,7 +34,6 @@ disable-model-invocation: false
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:review-spec` (опционально).
@@ -52,8 +51,8 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Целевой файл: `aidd/reports/context/$1.spec-interview.pack.md` (stage/agent/paths/what-to-do заполняются под spec-interview).
-- Paths: plan, tasklist (if exists), prd, arch_profile, spec, research, interview_log, test_policy (if exists).
+- Целевой файл: `aidd/reports/context/$1.pack.md` (rolling pack).
+- Заполни поля stage/agent/read_next/artefact_links под spec-interview.
 - What to do now: build spec.yaml from interview log, fill iteration_decisions.
 - User note: $ARGUMENTS.
 
@@ -61,10 +60,10 @@ disable-model-invocation: false
 1. Команда (до subagent): зафиксируй стадию `spec-interview` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh spec-interview` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): прочитай plan/PRD/research и собери decision points по `iteration_id`.
 3. Команда (до subagent): проведи интервью через AskUserQuestionTool (non-obvious вопросы) по каждой итерации:
-   - Data/compat/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
+   - Data/versioning/idempotency → Contracts/errors → UX states → Tradeoffs → Tests → Rollout/Obs.
 4. Команда (до subagent): запиши ответы в `aidd/reports/spec/$1.interview.jsonl` (append-only).
-5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.spec-interview.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-6. Команда → subagent: **Use the feature-dev-aidd:spec-interview-writer subagent. First action: Read `aidd/reports/context/$1.spec-interview.pack.md`.**
+5. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
+6. Команда → subagent: **Use the feature-dev-aidd:spec-interview-writer subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 7. Subagent: формирует/обновляет `aidd/docs/spec/$1.spec.yaml` по шаблону.
 8. Обнови tasklist только через `/feature-dev-aidd:tasks-new` (обязательный шаг для синхронизации).
 

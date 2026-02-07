@@ -26,7 +26,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Плагин копируется в cache Claude Code: записи в `${CLAUDE_PLUGIN_ROOT}` недопустимы.
 - Рабочий root всегда workspace (`./aidd`); только туда пишем `docs/`, `reports/`, `config/`.
 - `${CLAUDE_PLUGIN_ROOT}` используется только для чтения ресурсов плагина (hooks/tools/templates).
-- CWD хуков не гарантирован; корень проекта вычисляется из payload (cwd/workspace), без fallback на plugin root.
+- CWD хуков не гарантирован; корень проекта вычисляется из payload (cwd/workspace), без опоры на plugin root.
 
 ## Быстрые проверки (repo‑only)
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
@@ -73,7 +73,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
 - Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.json` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.json`.
 - On-demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
-- Legacy `ast_grep` evidence deprecated и disabled by default.
 - Troubleshooting пустого контекста:
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
   - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
@@ -96,8 +95,9 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `tasklist_progress`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
-  - `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
-  - `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
+- `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
+- `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
+- `AIDD_HOOKS_MODE` (`fast` по умолчанию, `strict` для полного набора стоп‑хуков)
 
 ## Prompt versioning
 - Semver: `MAJOR.MINOR.PATCH`.
@@ -108,6 +108,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Reports format (MVP)
 - Naming:
+  - Context pack (rolling): `aidd/reports/context/<ticket>.pack.md`
   - Research context: `aidd/reports/research/<ticket>-context.json` + `aidd/reports/research/<ticket>-context.pack.json`
   - Research targets: `aidd/reports/research/<ticket>-targets.json`
   - RLM targets: `aidd/reports/research/<ticket>-rlm-targets.json`
@@ -118,7 +119,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - PRD review: `aidd/reports/prd/<ticket>.json` + pack
   - Reviewer marker: `aidd/reports/reviewer/<ticket>/<scope_key>.json`
   - Tests log: `aidd/reports/tests/<ticket>/<scope_key>.jsonl`
-- Pack‑first: читать `*.pack.json` если есть, иначе JSON.
+- Pack‑only: читаем `*.pack.json` как источник; JSON хранится как raw‑артефакт и не используется для чтения.
 - Header (минимум): `schema`, `pack_version`, `type`, `kind`, `ticket`, `slug|slug_hint`, `generated_at`, `status`, `summary` (если есть), `tests_summary` (QA), `source_path`.
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
@@ -164,7 +165,7 @@ model: inherit
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — пример обязательного входа. Укажите, какие файлы требуются и что делать, если их нет.
-- Перечислите остальные артефакты (plan, tasklist, отчёты, `aidd/reports/*.json`) и отметьте условия (READY/BLOCKED). Обязательно опишите, как агент ищет ссылки (например, `rg <ticket> aidd/docs/**`, поиск по ADR, использование slug-hint из `aidd/docs/.active_feature`).
+- Перечислите остальные артефакты (plan, tasklist, отчёты, `aidd/reports/*.json`) и отметьте условия (READY/BLOCKED). Обязательно опишите, как агент ищет ссылки (например, `rg <ticket> aidd/docs/**`, поиск по ADR, использование slug-hint из `aidd/docs/.active.json`).
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
@@ -207,7 +208,7 @@ model: inherit
 Опишите назначение команды, связь с агентами и обязательные предварительные условия (активный ticket, готовые артефакты и т.д.). Уточните, что команда следует agent-first принципам: собирает данные из репозитория и запускает разрешённые CLI автоматически, а вопросы пользователю задаёт только при отсутствии информации.
 
 ## Входные артефакты
-- Перечислите файлы/репорты (`aidd/docs/prd/*.md`, `aidd/docs/research/*.md`, `aidd/reports/*.json`, slug-hint в `aidd/docs/.active_feature`) и укажите, как команда находит их (например, `rg <ticket>`).
+- Перечислите файлы/репорты (`aidd/docs/prd/*.md`, `aidd/docs/research/*.md`, `aidd/reports/*.json`, slug-hint в `aidd/docs/.active.json`) и укажите, как команда находит их (например, `rg <ticket>`).
 - Отметьте, что делать при отсутствии входа (остановиться с BLOCKED, попросить запустить другую команду) и какие команды нужно выполнить, прежде чем просить пользователя о данных.
 
 ## Когда запускать

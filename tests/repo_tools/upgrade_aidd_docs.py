@@ -27,7 +27,7 @@ SECTION_TEMPLATES: Dict[str, List[str]] = {
     "AIDD:ACCEPTANCE": ["- <AC-1>", "- <AC-2>"],
     "AIDD:METRICS": ["- <metric> → <target>"],
     "AIDD:ROLL_OUT": ["- <этапы/флаги/откат>"],
-    "AIDD:ARCHITECTURE": ["- <ключевые слои/границы>"],
+    "AIDD:DESIGN": ["- <ключевые слои/границы>"],
     "AIDD:FILES_TOUCHED": ["- <путь/модуль> — <что меняем>"],
     "AIDD:ITERATIONS": [
         "- iteration_id: I1",
@@ -67,7 +67,7 @@ TYPE_SECTIONS: Dict[str, Sequence[str]] = {
     ],
     "plan": [
         *CORE_SECTIONS,
-        "AIDD:ARCHITECTURE",
+        "AIDD:DESIGN",
         "AIDD:FILES_TOUCHED",
         "AIDD:ITERATIONS",
         "AIDD:TEST_STRATEGY",

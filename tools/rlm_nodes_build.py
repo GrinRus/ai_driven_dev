@@ -519,7 +519,7 @@ def _load_existing_worklist_scope(path: Path) -> Tuple[List[str], List[str]] | N
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate RLM worklist pack for agent nodes.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--manifest", help="Override manifest path.")
     parser.add_argument("--nodes", help="Override nodes.jsonl path.")
     parser.add_argument("--output", help="Override output pack path.")

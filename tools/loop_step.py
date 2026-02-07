@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Optional, TextIO
 
 from tools import claude_stream_render
 from tools import runtime
+from tools.feature_ids import write_active_state
 from tools.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
 DONE_CODE = 0
@@ -49,11 +50,7 @@ STREAM_MODE_ALIASES = {
 
 
 def read_active_stage(root: Path) -> str:
-    stage_path = root / "docs" / ".active_stage"
-    try:
-        return stage_path.read_text(encoding="utf-8").strip().lower()
-    except OSError:
-        return ""
+    return runtime.read_active_stage(root)
 
 
 def write_active_mode(root: Path, mode: str = "loop") -> None:
@@ -63,21 +60,15 @@ def write_active_mode(root: Path, mode: str = "loop") -> None:
 
 
 def write_active_stage(root: Path, stage: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_stage").write_text(stage + "\n", encoding="utf-8")
+    write_active_state(root, stage=stage)
 
 
 def write_active_work_item(root: Path, work_item_key: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_work_item").write_text(work_item_key + "\n", encoding="utf-8")
+    write_active_state(root, work_item=work_item_key)
 
 
 def write_active_ticket(root: Path, ticket: str) -> None:
-    docs_dir = root / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / ".active_ticket").write_text(ticket + "\n", encoding="utf-8")
+    write_active_state(root, ticket=ticket)
 
 
 def resolve_stage_scope(root: Path, ticket: str, stage: str) -> Tuple[str, str]:
@@ -138,29 +129,29 @@ def runner_supports_flag(command: str, flag: str) -> bool:
 
 def _strip_flag_with_value(tokens: List[str], flag: str) -> Tuple[List[str], bool]:
     cleaned: List[str] = []
-    removed = False
+    stripped = False
     skip_next = False
     for token in tokens:
         if skip_next:
             skip_next = False
-            removed = True
+            stripped = True
             continue
         if token == flag:
             skip_next = True
-            removed = True
+            stripped = True
             continue
         if token.startswith(flag + "="):
-            removed = True
+            stripped = True
             continue
         cleaned.append(token)
-    return cleaned, removed
+    return cleaned, stripped
 
 
 def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str], List[str]]:
     notices: List[str] = []
-    updated, removed_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
-    updated, removed_add = _strip_flag_with_value(updated, "--add-dir")
-    if removed_plugin or removed_add:
+    updated, stripped_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
+    updated, stripped_add = _strip_flag_with_value(updated, "--add-dir")
+    if stripped_plugin or stripped_add:
         notices.append("runner plugin flags replaced with CLAUDE_PLUGIN_ROOT")
     updated.extend(["--plugin-dir", str(plugin_root), "--add-dir", str(plugin_root)])
     return updated, notices
@@ -478,7 +469,22 @@ def validate_review_pack(
         pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
         report_updated = parse_timestamp(str(report.get("updated_at") or report.get("generated_at") or ""))
         if pack_updated and report_updated and pack_updated < report_updated:
-            return False, "review pack stale", "review_pack_stale"
+            ok, regen_message = _maybe_regen_review_pack(
+                root,
+                ticket=ticket,
+                slug_hint=slug_hint,
+                scope_key=scope_key,
+            )
+            if not ok:
+                return False, regen_message or "review pack stale", "review_pack_stale"
+            try:
+                refreshed = pack_path.read_text(encoding="utf-8").splitlines()
+                front = parse_front_matter(refreshed)
+            except OSError:
+                front = front
+            pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
+            if pack_updated and report_updated and pack_updated < report_updated:
+                return False, "review pack stale", "review_pack_stale"
     return True, "", ""
 
 
@@ -488,11 +494,11 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
     notices: List[str] = []
     if "-p" in tokens:
         tokens = [token for token in tokens if token != "-p"]
-        notices.append("runner flag -p removed; loop-step adds -p with slash command")
+        notices.append("runner flag -p dropped; loop-step adds -p with slash command")
     if "--no-session-persistence" in tokens:
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
-            notices.append("runner flag --no-session-persistence unsupported; removed")
+            notices.append("runner flag --no-session-persistence unsupported; dropped")
     tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
     notices.extend(flag_notices)
     return tokens, raw, "; ".join(notices)
@@ -612,7 +618,7 @@ def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Execute a single loop step (implement/review).")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--runner", help="Runner command override (default: claude).")
     parser.add_argument("--format", choices=("json", "yaml"), help="Emit structured output to stdout.")
     parser.add_argument(
@@ -659,7 +665,7 @@ def main(argv: list[str] | None = None) -> int:
     ticket = (context.resolved_ticket or "").strip()
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
-        raise ValueError("feature ticket is required; pass --ticket or set docs/.active_ticket via /feature-dev-aidd:idea-new.")
+        raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
     plugin_root = runtime.require_plugin_root()
 
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -1127,6 +1133,29 @@ def main(argv: list[str] | None = None) -> int:
                 stream_jsonl_path=stream_jsonl_rel,
                 cli_log_path=cli_log_path,
             )
+    output_contract_path = ""
+    output_contract_status = ""
+    try:
+        from tools import output_contract as _output_contract
+
+        report = _output_contract.check_output_contract(
+            target=target,
+            ticket=ticket,
+            stage=next_stage,
+            scope_key=next_scope_key,
+            work_item_key=next_work_item_key,
+            log_path=log_path,
+            stage_result_path=result_path,
+            max_read_items=3,
+        )
+        output_contract_status = str(report.get("status") or "")
+        output_dir = target / "reports" / "loops" / ticket / next_scope_key
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / "output.contract.json"
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        output_contract_path = runtime.rel_path(report_path, target)
+    except Exception as exc:
+        print(f"[loop-step] WARN: output contract check failed: {exc}", file=sys.stderr)
     status = result if result in {"blocked", "continue", "done"} else "blocked"
     code = DONE_CODE if status == "done" else BLOCKED_CODE if status == "blocked" else CONTINUE_CODE
     return emit_result(
@@ -1148,6 +1177,8 @@ def main(argv: list[str] | None = None) -> int:
         stream_log_path=stream_log_rel,
         stream_jsonl_path=stream_jsonl_rel,
         cli_log_path=cli_log_path,
+        output_contract_path=output_contract_path,
+        output_contract_status=output_contract_status,
     )
 
 
@@ -1171,6 +1202,8 @@ def emit_result(
     stream_log_path: str = "",
     stream_jsonl_path: str = "",
     cli_log_path: Path | None = None,
+    output_contract_path: str = "",
+    output_contract_status: str = "",
 ) -> int:
     log_value = str(log_path) if log_path else ""
     payload = {
@@ -1188,6 +1221,8 @@ def emit_result(
         "repair_scope_key": repair_scope_key,
         "stream_log_path": stream_log_path,
         "stream_jsonl_path": stream_jsonl_path,
+        "output_contract_path": output_contract_path,
+        "output_contract_status": output_contract_status,
         "updated_at": utc_timestamp(),
         "reason": reason,
         "reason_code": reason_code,

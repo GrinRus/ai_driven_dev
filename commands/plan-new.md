@@ -22,18 +22,17 @@ disable-model-invocation: false
 
 ## Контекст
 Команда `/feature-dev-aidd:plan-new` работает inline (без `context: fork`), потому что саб‑агенты не могут порождать других саб‑агентов. Команда фиксирует стадию `plan`, запускает `research-check`, пишет отдельные Context Pack для planner/validator и явно запускает саб‑агентов `feature-dev-aidd:planner` и `feature-dev-aidd:validator`. Свободный ввод после тикета используйте как уточнения для плана, включая блок `AIDD:ANSWERS` (если ответы уже есть).
-Следуй attention‑policy из `aidd/AGENTS.md`, канону `aidd/docs/prompting/conventions.md` и начни с `aidd/docs/anchors/plan.md`.
+Следуй `aidd/AGENTS.md` и канону `aidd/docs/prompting/conventions.md` (pack‑first/read‑budget).
 
 ## Входные артефакты
 - `aidd/docs/prd/$1.prd.md` — статус `READY` обязателен.
 - `aidd/docs/research/$1.md` — проверяется через `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`.
-- ADR (если есть) — архитектурные решения/ограничения.
+- ADR (если есть) — ключевые решения/ограничения.
 
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
-- Legacy `ast_grep` evidence is fallback-only.
 
 ## Когда запускать
 - После `/feature-dev-aidd:idea-new` и `/feature-dev-aidd:researcher` (если он нужен), когда PRD готов.
@@ -51,9 +50,8 @@ disable-model-invocation: false
 
 ## Context Pack (шаблон)
 - Шаблон: `aidd/reports/context/template.context-pack.md`.
-- Файл planner: `aidd/reports/context/$1.planner.pack.md`.
-- Файл validator: `aidd/reports/context/$1.validator.pack.md`.
-- Paths: prd, arch_profile, research, plan, tasklist/spec/test_policy (if exists).
+- Rolling pack: `aidd/reports/context/$1.pack.md`.
+- Заполни поля stage/agent/read_next/artefact_links под planner/validator (перезапиши между саб‑агентами при необходимости).
 - What to do now: planner drafts macro-plan with iteration_id; validator validates executability.
 - User note: $ARGUMENTS.
 - При необходимости синхронизируй открытые вопросы/риски с PRD.
@@ -61,11 +59,11 @@ disable-model-invocation: false
 ## Пошаговый план
 1. Команда (до subagent): зафиксируй стадию `plan` через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh plan` и активную фичу через `${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh "$1"`.
 2. Команда (до subagent): запусти `${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh --ticket $1`; затем `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket $1` и остановись при ошибке.
-3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.planner.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-4. Команда → subagent: **Use the feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.planner.pack.md`.**
+3. Команда (до subagent): собери Context Pack `aidd/reports/context/$1.pack.md` по шаблону `aidd/reports/context/template.context-pack.md` (read_next для planner).
+4. Команда → subagent: **Use the feature-dev-aidd:planner subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 5. Subagent (planner): обновляет план, учитывает `AIDD:ANSWERS`, закрывает вопросы в `AIDD:DECISIONS`.
-6. Команда (до subagent validator): собери Context Pack `aidd/reports/context/$1.validator.pack.md` по шаблону `aidd/reports/context/template.context-pack.md`.
-7. Команда → subagent: **Use the feature-dev-aidd:validator subagent. First action: Read `aidd/reports/context/$1.validator.pack.md`.**
+6. Команда (до subagent validator): обнови Context Pack `aidd/reports/context/$1.pack.md` (read_next для validator).
+7. Команда → subagent: **Use the feature-dev-aidd:validator subagent. First action: Read `aidd/reports/context/$1.pack.md`.**
 8. Subagent (validator): проверяет исполняемость, возвращает `READY|BLOCKED`.
 
 ## Fail-fast и вопросы

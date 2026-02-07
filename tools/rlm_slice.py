@@ -102,7 +102,7 @@ def _write_pack(path: Path, payload: Dict[str, object]) -> None:
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a compact RLM slice pack.")
-    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active_ticket).")
+    parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
     parser.add_argument("--query", required=True, help="Regex or token to match in nodes/links.")
     parser.add_argument("--max-nodes", type=int, default=None, help="Maximum number of nodes to include.")
     parser.add_argument("--max-links", type=int, default=None, help="Maximum number of links to include.")

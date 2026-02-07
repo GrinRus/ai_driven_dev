@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+from fnmatch import fnmatch
 from pathlib import Path
 
 
@@ -484,15 +485,18 @@ def main() -> int:
     root, _ = hooklib.resolve_project_root(ctx)
     if not (root / "docs").is_dir():
         return 0
-
-    if os.environ.get("CLAUDE_SKIP_STAGE_CHECKS") != "1":
-        stage = hooklib.resolve_stage(root / "docs" / ".active_stage")
-        if stage != "implement":
-            return 0
+    if hooklib.resolve_hooks_mode() == "fast":
+        return 0
 
     config_path = root / "config" / "gates.json"
     if not hooklib.config_get_bool(config_path, "deps_allowlist", False):
         return 0
+
+    dep_files = _resolve_dep_files(config_path)
+    if dep_files:
+        changed_files = hooklib.collect_changed_files(root)
+        if not any(fnmatch(path, pattern) for path in changed_files for pattern in dep_files):
+            return 0
 
     allow_path = root / "config" / "allowed-deps.txt"
     if not allow_path.is_file():
@@ -510,7 +514,6 @@ def main() -> int:
 
     added_lines: dict[str, list[str]] = {}
     if hooklib.git_has_head(root):
-        dep_files = _resolve_dep_files(config_path)
         result = _run_git(
             root,
             [

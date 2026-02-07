@@ -21,7 +21,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ticket",
         dest="ticket",
-        help="Ticket identifier to use (defaults to docs/.active_ticket).",
+        help="Ticket identifier to use (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--slug-hint",
@@ -97,10 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     alias_map = {"skip": "skipped"}
     status = alias_map.get(status, status)
 
-    def _extract_values(primary_key: str, legacy_key: str, fallback: Sequence[str]) -> list[str]:
+    def _extract_values(primary_key: str, fallback: Sequence[str]) -> list[str]:
         raw = reviewer_cfg.get(primary_key)
-        if raw is None:
-            raw = reviewer_cfg.get(legacy_key)
         if raw is None:
             source = fallback
         elif isinstance(raw, list):
@@ -110,8 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         values = [str(value).strip().lower() for value in source if str(value).strip()]
         return values or list(fallback)
 
-    required_values = _extract_values("required_values", "requiredValues", DEFAULT_REVIEWER_REQUIRED)
-    optional_values = _extract_values("optional_values", "optionalValues", DEFAULT_REVIEWER_OPTIONAL)
+    required_values = _extract_values("required_values", DEFAULT_REVIEWER_REQUIRED)
+    optional_values = _extract_values("optional_values", DEFAULT_REVIEWER_OPTIONAL)
     allowed_values = {*required_values, *optional_values}
     if status not in allowed_values:
         choices = ", ".join(sorted(allowed_values))
