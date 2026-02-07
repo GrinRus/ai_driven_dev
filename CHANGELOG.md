@@ -56,7 +56,7 @@
 
 ### Fixes
 - `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
-- `aidd-init` flags `--dry-run` and `--enable-ci` are now functional; `--detect-stack` remains a hidden alias for `--detect-build-tools`.
+- `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
 - Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; deprecated `tools/review-*.sh` shims remain compatibility-only with warnings.
 - Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
 - Preflight artifacts now use canonical loop/context paths by default; legacy artifact emission requires `AIDD_WRITE_LEGACY_PREFLIGHT=1`, and legacy read fallback in gate requires `AIDD_ALLOW_LEGACY_PREFLIGHT=1`.

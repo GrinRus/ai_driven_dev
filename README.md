@@ -50,10 +50,6 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init --detect-build-tools
 ```
 
-Дополнительные флаги:
-- `--enable-ci` — добавить в workspace шаблон GitHub Actions (`.github/workflows/aidd-manual.yml`).
-- `--dry-run` — показать, какие файлы будут созданы/обновлены, без записи на диск.
-
 ### 3. Запустите фичу в Claude Code
 
 ```text
@@ -111,7 +107,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
-| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools] [--enable-ci] [--dry-run]` |
+| `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
 | `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |

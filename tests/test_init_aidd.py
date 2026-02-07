@@ -115,27 +115,20 @@ class InitAiddTests(unittest.TestCase):
         tests_cfg = payload.get("automation", {}).get("tests", {})
         self.assertIn("**/package.json", tests_cfg.get("commonPatterns", []))
 
-    def test_dry_run_does_not_modify_filesystem(self):
+    def test_removed_init_flags_are_rejected(self):
         workdir = self.make_tempdir()
-        (workdir / "package.json").write_text('{"name":"demo"}', encoding="utf-8")
-
-        result = self.run_script(workdir, "--dry-run", "--detect-build-tools", "--enable-ci")
-        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
-        self.assertIn("dry-run", result.stdout)
-        self.assertFalse((workdir / PROJECT_SUBDIR).exists(), "dry-run must not create project root")
-        self.assertFalse((workdir / ".claude" / "settings.json").exists(), "dry-run must not write settings")
-        self.assertFalse((workdir / ".github" / "workflows" / "aidd-manual.yml").exists(), "dry-run must not write CI")
-
-    def test_enable_ci_writes_manual_workflow(self):
-        workdir = self.make_tempdir()
-
-        result = self.run_script(workdir, "--enable-ci")
-        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
-        workflow = workdir / ".github" / "workflows" / "aidd-manual.yml"
-        self.assertTrue(workflow.exists(), "enable-ci must create workflow file")
-        content = workflow.read_text(encoding="utf-8")
-        self.assertIn("workflow_dispatch", content)
-        self.assertIn("AIDD CI scaffold is enabled", content)
+        for flag in ("--dry-run", "--enable-ci"):
+            with self.subTest(flag=flag):
+                result = subprocess.run(
+                    cli_cmd("init", flag),
+                    cwd=workdir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=cli_env(),
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unrecognized arguments", result.stderr)
 
     def test_help_lists_supported_init_flags(self):
         result = subprocess.run(
@@ -147,9 +140,9 @@ class InitAiddTests(unittest.TestCase):
             check=True,
             env=cli_env(),
         )
-        self.assertIn("--enable-ci", result.stdout)
-        self.assertIn("--dry-run", result.stdout)
         self.assertIn("--detect-build-tools", result.stdout)
+        self.assertNotIn("--enable-ci", result.stdout)
+        self.assertNotIn("--dry-run", result.stdout)
         self.assertNotIn("--detect-stack", result.stdout)
 
 if __name__ == "__main__":
