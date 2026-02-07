@@ -113,6 +113,18 @@ def _loop_scope_key(root: Path, ticket: str, stage: str) -> str:
     return _runtime.resolve_scope_key(work_item_key, ticket)
 
 
+def _fallback_scope_key(root: Path, ticket: str) -> str:
+    raw_scope = ticket or ""
+    try:
+        state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+        if isinstance(state, dict):
+            raw_scope = str(state.get("work_item") or raw_scope)
+    except Exception:
+        pass
+    cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope)
+    return cleaned.strip("._-") or "ticket"
+
+
 def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) -> tuple[bool, str]:
     from tools import runtime as _runtime
 
@@ -260,6 +272,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     allowed_values = set(required_values + optional_values)
 
     slug_value = slug_hint.strip() or ticket
+    runtime_fallback = ""
     try:
         from tools import runtime as _runtime
 
@@ -272,9 +285,9 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
             slug_hint or None,
             scope_key=scope_key,
         )
-    except Exception:
-        raw_scope = _runtime.read_active_work_item(root) or ticket or ""
-        cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
+    except Exception as exc:
+        runtime_fallback = f"WARN: reviewer runtime fallback ({exc.__class__.__name__})."
+        cleaned_scope = _fallback_scope_key(root, ticket)
         raw_path = (
             template.replace("{ticket}", ticket)
             .replace("{slug}", slug_value)
@@ -288,12 +301,15 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
 
     if not marker_path.exists():
         if reviewer_cfg.get("warn_on_missing", True):
-            return (
+            message = (
                 "WARN: reviewer маркер не найден ({}). Используйте "
                 "`${{CLAUDE_PLUGIN_ROOT}}/tools/reviewer-tests.sh --status required` при необходимости.".format(
                     marker_path
                 )
             )
+            if runtime_fallback:
+                return f"{runtime_fallback} {message}"
+            return message
         return ""
 
     try:

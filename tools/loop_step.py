@@ -250,7 +250,6 @@ def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str
     if command_path.exists():
         return True, "", ""
     return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
-    return True, "", ""
 
 
 def resolve_stream_mode(raw: Optional[str]) -> str:
