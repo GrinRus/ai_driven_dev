@@ -12,7 +12,7 @@
         "ref": "codex/wave89-work"
       },
       "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "strict": true
     }
   ]

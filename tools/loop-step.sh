@@ -11,11 +11,13 @@ def _detect_plugin_root() -> tuple[Path, bool, str]:
     warn = ""
     if raw:
         plugin_root = Path(raw).expanduser().resolve()
-        if (plugin_root / "commands").exists() and (plugin_root / "tools").exists():
+        if (plugin_root / "tools").exists() and (
+            (plugin_root / "skills").exists() or (plugin_root / "commands").exists()
+        ):
             return plugin_root, False, ""
         warn = f"[loop-step] WARN: CLAUDE_PLUGIN_ROOT invalid: {plugin_root}; trying auto-detect"
     candidate = Path(__file__).resolve().parent.parent
-    if (candidate / "commands").exists() and (candidate / "tools").exists():
+    if (candidate / "tools").exists() and ((candidate / "skills").exists() or (candidate / "commands").exists()):
         os.environ["CLAUDE_PLUGIN_ROOT"] = str(candidate)
         return candidate, True, warn
     raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run loop-step.")

@@ -10,17 +10,41 @@ from typing import Dict, Optional
 
 from .helpers import REPO_ROOT
 
+STAGE_SKILLS = [
+    "aidd-init",
+    "idea-new",
+    "researcher",
+    "plan-new",
+    "review-spec",
+    "spec-interview",
+    "tasks-new",
+    "implement",
+    "review",
+    "qa",
+    "status",
+]
 
-REQUIRED_AGENT_PAIRS = [
-    ("analyst", "idea-new"),
-    ("planner", "plan-new"),
-    ("plan-reviewer", "review-spec"),
-    ("spec-interview-writer", "spec-interview"),
-    ("tasklist-refiner", "tasks-new"),
-    ("implementer", "implement"),
-    ("reviewer", "review"),
-    ("researcher", "researcher"),
-    ("prd-reviewer", "review-spec"),
+FORK_STAGE_AGENT = {
+    "idea-new": "analyst",
+    "researcher": "researcher",
+    "tasks-new": "tasklist-refiner",
+    "implement": "implementer",
+    "review": "reviewer",
+    "qa": "qa",
+}
+
+AGENT_NAMES = [
+    "analyst",
+    "researcher",
+    "planner",
+    "validator",
+    "plan-reviewer",
+    "prd-reviewer",
+    "spec-interview-writer",
+    "tasklist-refiner",
+    "implementer",
+    "reviewer",
+    "qa",
 ]
 
 CRITICAL_TEMPLATE_FILES = [
@@ -34,44 +58,10 @@ CRITICAL_TEMPLATE_FILES = [
     "docs/tasklist/template.md",
 ]
 
+
 def build_agent(name: str) -> str:
-    question = ""
-    if name in {"analyst", "validator"}:
-        question = (
-            "\n        Вопрос N (Blocker|Clarification): ...\n"
-            "        Зачем: ...\n"
-            "        Варианты: A) ... B) ...\n"
-            "        Default: ...\n"
-        )
-    loop_markers = ""
-    if name in {"implementer", "reviewer"}:
-        loop_markers = (
-            "\n            Loop pack first. Никаких больших вставок логов/диффов.\n"
-            "            В loop-режиме вопросы запрещены.\n"
-            "            Loop pack path: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md\n"
-        )
-    if name == "reviewer":
-        loop_markers += "            Прочитай после loop pack: review.latest.pack.md\n"
-    granularity_hint = ""
-    if name == "tasklist-refiner":
-        granularity_hint = "\n            Granularity: steps 3-7, expected paths 1-3, size budget set.\n"
-    verify_step = ""
-    if name in {"implementer", "reviewer", "qa"}:
-        verify_step = "\n            2. Верифицируй результаты.\n"
-    format_response = "Text."
-    if name in {"implementer", "reviewer", "qa"}:
-        status_line = "Status: READY|WARN|BLOCKED|PENDING" if name == "implementer" else "Status: READY|WARN|BLOCKED"
-        format_response = (
-            "Checkbox updated: ...\n"
-            f"{status_line}\n"
-            "Work item key: ...\n"
-            "Artifacts updated: ...\n"
-            "Tests: ...\n"
-            "Blockers/Handoff: ...\n"
-            "Next actions: ...\n"
-            "AIDD:READ_LOG: ...\n"
-        )
-        format_response = format_response.replace("\n", "\n            ")
+    loop_skill = "" if name not in {"implementer", "reviewer", "qa"} else "\n  - feature-dev-aidd:aidd-loop"
+    tools = "Read, Edit, Write"
     return (
         dedent(
             f"""
@@ -81,14 +71,15 @@ def build_agent(name: str) -> str:
             lang: ru
             prompt_version: 1.0.0
             source_version: 1.0.0
-            tools: Read, Edit, Write
+            tools: {tools}
+            skills:
+              - feature-dev-aidd:aidd-core{loop_skill}
             model: inherit
             permissionMode: inherit
             ---
 
             ## Контекст
-            MUST READ FIRST: aidd/AGENTS.md, aidd/docs/prompting/conventions.md.
-            Text.{loop_markers}{granularity_hint}
+            Output follows aidd-core skill.
 
             ## Входные артефакты
             - item
@@ -97,95 +88,109 @@ def build_agent(name: str) -> str:
             Text.
 
             ## Пошаговый план
-            1. step{verify_step}
+            1. step
 
             ## Fail-fast и вопросы
-            Text.{question}
+            Text.
 
             ## Формат ответа
-            {format_response}
+            Output follows aidd-core skill.
             """
         ).strip()
         + "\n"
     )
 
 
-def build_command(description: str = "test command") -> str:
-    verify_step = ""
-    context_pack_hint = ""
-    review_order_hint = ""
-    loop_guard_hint = ""
-    scope_hint = ""
-    granularity_hint = ""
-    if description in {"implement", "review", "qa"}:
-        verify_step = "\n        2. verify results.\n"
-    if description == "review":
-        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.pack.md\n"
-        review_order_hint = "\n        Read loop pack, затем review.latest.pack.md, затем aidd/reports/context/$1.pack.md\n"
-        loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
-        scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
-    elif description == "qa":
-        context_pack_hint = "\n        Context pack: aidd/reports/context/$1.pack.md\n"
-    elif description == "implement":
-        loop_guard_hint = "\n        .active_mode=loop — без вопросов.\n"
-        scope_hint = "\n        Loop paths: aidd/reports/loops/$1/<scope_key>.loop.pack.md\n"
-    if description == "tasks-new":
-        granularity_hint = "\n        Granularity keys: deps, priority, blocking.\n"
-    expected_output = "Text."
-    if description in {"implement", "review", "qa"}:
-        status_line = "Status: READY|WARN|BLOCKED|PENDING" if description == "implement" else "Status: READY|WARN|BLOCKED"
-        expected_output = (
-            f"{status_line}\n"
-            "Work item key: ...\n"
-            "Artifacts updated: ...\n"
-            "Tests: ...\n"
-            "Blockers/Handoff: ...\n"
-            "Next actions: ...\n"
-            "AIDD:READ_LOG: ...\n"
+def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
+    description = f"Test skill for {stage}."
+    argument_hint = "<TICKET>"
+    prompt_version = "1.0.0"
+    source_version = "1.0.0"
+    allowed_tools = ["Read"]
+    disable_invocation = "false" if stage == "status" else "true"
+    context = "fork" if stage in FORK_STAGE_AGENT else ""
+    agent = FORK_STAGE_AGENT.get(stage, "")
+    loop_ref = " and `feature-dev-aidd:aidd-loop`" if stage in {"implement", "review", "qa"} else ""
+
+    lines = [
+        "---",
+        f"name: {stage}",
+        f"description: {description}",
+        f"argument-hint: {argument_hint}",
+        f"lang: {lang}",
+        f"prompt_version: {prompt_version}",
+        f"source_version: {source_version}",
+        "allowed-tools:",
+        "  - Read",
+        "model: inherit",
+        f"disable-model-invocation: {disable_invocation}",
+        "user-invocable: true",
+    ]
+    if context:
+        lines.append(f"context: {context}")
+    if agent:
+        lines.append(f"agent: {agent}")
+    lines.append("---")
+    lines.append("")
+    lines.append(f"Follow `feature-dev-aidd:aidd-core`{loop_ref}.")
+    lines.append("")
+    lines.append("## Steps")
+    if stage in {"implement", "review", "qa"}:
+        lines.append(f"1. Preflight reference: `skills/{stage}/scripts/preflight.sh`.")
+        lines.append(
+            f"2. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
         )
-        expected_output = expected_output.replace("\n", "\n        ")
-    return dedent(
-        f"""
-        ---
-        description: "{description}"
-        argument-hint: "<TICKET>"
-        lang: ru
-        prompt_version: 1.0.0
-        source_version: 1.0.0
-        allowed-tools: Read,Edit,Write
-        model: inherit
-        disable-model-invocation: false
-        ---
+        lines.append(f"3. Postflight reference: `skills/{stage}/scripts/postflight.sh`.")
+    else:
+        lines.append("1. Do the work.")
+    lines.append("")
+    return "\n".join(lines)
 
-        ## Контекст
-        Text.{context_pack_hint}{review_order_hint}
-        Канон: aidd/AGENTS.md, aidd/docs/prompting/conventions.md.{loop_guard_hint}{scope_hint}{granularity_hint}
 
-        ## Входные артефакты
-        - item
+def build_core_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-core
+            description: Core runtime policy for skills.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
 
-        ## Когда запускать
-        Text.
+            ## Output contract
+            - Status: ...
+            - Work item key: ...
+            - Artifacts updated: ...
+            - Tests: ...
+            - Blockers/Handoff: ...
+            - Next actions: ...
+            - AIDD:READ_LOG: ...
+            - AIDD:ACTIONS_LOG: ...
+            """
+        ).strip()
+        + "\n"
+    )
 
-        ## Автоматические хуки и переменные
-        Text.
 
-        ## Что редактируется
-        Text.
+def build_loop_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-loop
+            description: Loop discipline for implement/review/qa.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
 
-        ## Пошаговый план
-        1. step{verify_step}
-
-        ## Fail-fast и вопросы
-        Text.
-
-        ## Ожидаемый вывод
-        {expected_output}
-
-        ## Примеры CLI
-        - `/cmd ABC-123`
-        """
-    ).strip() + "\n"
+            Follow `feature-dev-aidd:aidd-core`.
+            """
+        ).strip()
+        + "\n"
+    )
 
 
 class PromptLintTests(unittest.TestCase):
@@ -203,21 +208,81 @@ class PromptLintTests(unittest.TestCase):
         self,
         root: Path,
         agent_override: Optional[Dict[str, str]] = None,
-        command_override: Optional[Dict[str, str]] = None,
+        skill_override: Optional[Dict[str, str]] = None,
     ) -> None:
         agent_override = agent_override or {}
-        command_override = command_override or {}
-        for agent_name, command_name in REQUIRED_AGENT_PAIRS:
+        skill_override = skill_override or {}
+
+        for agent_name in AGENT_NAMES:
             agent_path = root / "agents" / f"{agent_name}.md"
             agent_path.parent.mkdir(parents=True, exist_ok=True)
             content = agent_override.get(agent_name, build_agent(agent_name))
             agent_path.write_text(content, encoding="utf-8")
 
-            command_path = root / "commands" / f"{command_name}.md"
-            command_path.parent.mkdir(parents=True, exist_ok=True)
-            command_content = command_override.get(command_name, build_command(command_name))
-            command_path.write_text(command_content, encoding="utf-8")
+        skills_root = root / "skills"
+        skills_root.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-core" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-core" / "SKILL.md").write_text(build_core_skill(), encoding="utf-8")
+        (skills_root / "aidd-loop" / "SKILL.md").write_text(build_loop_skill(), encoding="utf-8")
+
+        for stage in STAGE_SKILLS:
+            skill_path = skills_root / stage / "SKILL.md"
+            skill_path.parent.mkdir(parents=True, exist_ok=True)
+            content = skill_override.get(stage, build_stage_skill(stage))
+            skill_path.write_text(content, encoding="utf-8")
+
+        self.write_baseline(root)
+        self.write_policy(root)
         self.write_docs(root)
+        self.write_plugin_manifest(root)
+
+    def write_baseline(self, root: Path) -> None:
+        rows = []
+        for stage in STAGE_SKILLS:
+            rows.append(
+                {
+                    "stage": stage,
+                    "command_path": f"commands/{stage}.md",
+                    "skill_path": f"skills/{stage}/SKILL.md",
+                    "frontmatter": {
+                        "allowed-tools": ["Read"],
+                        "model": "inherit",
+                        "prompt_version": "1.0.0",
+                        "source_version": "1.0.0",
+                        "lang": "ru",
+                        "argument-hint": "<TICKET>",
+                    },
+                }
+            )
+        payload = {
+            "schema": "aidd.commands_to_skills_frontmatter.v1",
+            "rows": rows,
+        }
+        out_dir = root / "aidd" / "reports" / "migrations"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "commands_to_skills_frontmatter.json").write_text(
+            json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+        )
+
+    def write_policy(self, root: Path) -> None:
+        policy_path = root / "docs" / "skill-language.md"
+        policy_path.parent.mkdir(parents=True, exist_ok=True)
+        policy_path.write_text("Skills are EN-only.\n", encoding="utf-8")
+
+    def write_plugin_manifest(self, root: Path) -> None:
+        skills = sorted(
+            f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
+        )
+        agents = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
+        manifest = {
+            "name": "test-plugin",
+            "skills": skills,
+            "agents": agents,
+        }
+        plugin_manifest = root / ".claude-plugin" / "plugin.json"
+        plugin_manifest.parent.mkdir(parents=True, exist_ok=True)
+        plugin_manifest.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
 
     def write_docs(self, root: Path) -> None:
         templates_root = root / "templates" / "aidd"
@@ -262,10 +327,6 @@ class PromptLintTests(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-
-        plugin_manifest = root / ".claude-plugin" / "plugin.json"
-        plugin_manifest.parent.mkdir(parents=True, exist_ok=True)
-        plugin_manifest.write_text('{"name":"test-plugin"}\n', encoding="utf-8")
 
         index_schema = root / "docs" / "index" / "schema.json"
         index_schema.parent.mkdir(parents=True, exist_ok=True)
@@ -314,8 +375,12 @@ class PromptLintTests(unittest.TestCase):
             lang: ru
             prompt_version: 1.0.0
             source_version: 1.0.0
-            tools: Read
+            tools: Read, Edit, Write
+            skills:
+              - feature-dev-aidd:aidd-core
+              - feature-dev-aidd:aidd-loop
             model: inherit
+            permissionMode: inherit
             ---
 
             ## Контекст
@@ -331,7 +396,7 @@ class PromptLintTests(unittest.TestCase):
             Text.
 
             ## Формат ответа
-            Text.
+            Output follows aidd-core skill.
             """
         ).strip() + "\n"
 
@@ -342,38 +407,14 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("missing section", result.stderr)
 
-    def test_missing_command_section_fails(self) -> None:
-        broken_command = dedent(
-            """
-            ---
-            description: "broken"
-            argument-hint: "<TICKET>"
-            lang: ru
-            prompt_version: 1.0.0
-            source_version: 1.0.0
-            allowed-tools: Read
-            model: inherit
-            ---
-
-            ## Контекст
-            Text.
-
-            ## Входные артефакты
-            - item
-
-            ## Пошаговый план
-            1. step
-
-            ## Fail-fast и вопросы
-            Text.
-            """
-        ).strip() + "\n"
+    def test_missing_user_invocable_fails(self) -> None:
+        bad_skill = build_stage_skill("idea-new").replace("user-invocable: true", "", 1)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": broken_command})
+            self.write_prompts(root, skill_override={"idea-new": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("missing section", result.stderr)
+            self.assertIn("user-invocable", result.stderr)
 
     def test_duplicate_front_matter_key_fails(self) -> None:
         duplicate_agent = build_agent("implementer").replace(
@@ -389,58 +430,45 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("duplicate front matter key", result.stderr)
 
     def test_invalid_status_fails(self) -> None:
-        bad_status = build_command().replace(
-            "## Контекст\nText.",
-            "## Контекст\nStatus: approved",
+        bad_skill = build_stage_skill("plan-new").replace(
+            "## Steps\n1. Do the work.",
+            "## Steps\nStatus: approved",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": bad_status})
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unknown status", result.stderr)
-
-    def test_invalid_status_ru_label_fails(self) -> None:
-        bad_status = build_command().replace(
-            "## Контекст\nText.",
-            "## Контекст\nСтатус: approved",
-            1,
-        )
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": bad_status})
-            result = self.run_lint(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("unknown status", result.stderr)
-
-    def test_tool_parity_fails(self) -> None:
-        command_no_write = build_command().replace("allowed-tools: Read,Edit,Write", "allowed-tools: Read", 1)
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": command_no_write})
-            result = self.run_lint(root)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("allowed-tools missing", result.stderr)
 
     def test_html_ticket_escape_fails(self) -> None:
-        bad_command = build_command().replace("Text.", "Text &lt;ticket&gt;.", 1)
+        bad_skill = build_stage_skill("plan-new").replace("Do the work", "Do &lt;ticket&gt; work", 1)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": bad_command})
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("replace HTML escape", result.stderr)
 
-    def test_command_length_limit_fails(self) -> None:
-        long_tail = "\n".join([f"Extra line {idx}" for idx in range(220)])
-        long_command = build_command() + "\n" + long_tail + "\n"
+    def test_parity_fails(self) -> None:
+        bad_skill = build_stage_skill("review").replace("- Read", "- Edit", 1)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, command_override={"implement": long_command})
+            self.write_prompts(root, skill_override={"review": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("exceeds max command length", result.stderr)
+            self.assertIn("allowed-tools does not match baseline", result.stderr)
+
+    def test_skill_length_limit_fails(self) -> None:
+        long_tail = "\n".join([f"Extra line {idx}" for idx in range(340)])
+        long_skill = build_stage_skill("qa") + "\n" + long_tail + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": long_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exceeds max skill length", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

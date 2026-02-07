@@ -5,66 +5,30 @@ lang: ru
 prompt_version: 1.2.30
 source_version: 1.2.30
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)
+skills:
+  - feature-dev-aidd:aidd-core
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Исследователь запускается до планирования и реализации. Он формирует отчёт `aidd/docs/research/<ticket>.md` с подтверждёнными точками интеграции, reuse, рисками и тестами. Отчёт начинается с **Context Pack (TL;DR)** для handoff.
-
-### MUST KNOW FIRST (дёшево)
-- `aidd/reports/context/<ticket>.pack.md`
-- `AIDD:*` секции PRD и Research
-- (если есть) `aidd/reports/context/latest_working_set.md`
-
-### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
-
-Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
-
-## Canonical policy
-- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
-- При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
+Ты обновляешь research report и фиксируешь интеграции/риски. Output follows aidd-core skill.
 
 ## Входные артефакты
-- `aidd/docs/prd/<ticket>.prd.md` (раздел `## AIDD:RESEARCH_HINTS`), `aidd/docs/plan/<ticket>.md` (если есть), `aidd/docs/tasklist/<ticket>.md`.
-- `aidd/reports/research/<ticket>-context.pack.*` (pack-first) и `-targets.json`; `-context.json` только если pack отсутствует и читать его надо фрагментами (offset/limit или `rg`).
-- `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (по запросу); `-rlm.nodes.jsonl`/`-rlm.links.jsonl` — только `rg` для spot‑check.
-- slug-hint в `aidd/docs/.active.json`, ADR/исторические PR.
+- `aidd/docs/prd/<ticket>.prd.md` (AIDD:RESEARCH_HINTS).
+- `aidd/reports/research/<ticket>-rlm.pack.json` и slices (если есть).
+- `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
-- Команда `/feature-dev-aidd:researcher` запускает сбор контекста и обновляет `aidd/reports/research/<ticket>-context.json`/`-targets.json` + RLM targets/manifest/worklist.
-- Для RLM связей используй `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh`; `*-rlm.nodes.jsonl`/`*-rlm.links.jsonl` — только `rg` для точечной проверки.
-- Если `rlm_status=pending` — используй worklist pack и укажи, что команда обязана выполнить `${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh --bootstrap --ticket <ticket>` (если nodes отсутствуют), затем `${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh --ticket <ticket>` (verify → links → compact → refresh worklist → reports-pack --update-context). Без этого не выставляй `Status: reviewed`.
-- Если worklist слишком большой или trimmed — попроси сузить scope через `rlm.worklist_paths/rlm.worklist_keywords` (или `rlm-nodes-build.sh --worklist-paths/--worklist-keywords`) и пересобрать worklist.
-- Для жёсткого контроля scope: `rlm.targets_mode=explicit` (или флаг `--targets-mode explicit` при запуске research) и `rlm.exclude_path_prefixes` для отсечения шумных директорий.
-- Для точечного RLM‑scope используй `--rlm-paths <paths>` (comma/colon‑list) при запуске research.
-- Если pack отсутствует/пустой — попроси повторить `/feature-dev-aidd:researcher` или агент‑flow по worklist, а не запускай CLI сам.
-- Если сканирование пустое, используй шаблон `aidd/docs/research/template.md` и зафиксируй baseline «Контекст пуст, требуется baseline».
-- Статус `reviewed` выставляй только после заполнения обязательных секций и фиксации команд/путей.
-
-Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
+- Нет. Команда запускает research pipeline.
 
 ## Пошаговый план
-1. Сначала проверь `AIDD:*` секции PRD/Research и `## AIDD:RESEARCH_HINTS`, затем точечно читай план/tasklist.
-2. Проверь наличие `aidd/reports/research/<ticket>-targets.json` и pack; `-context.json` не читай целиком (только фрагменты при необходимости).
-3. Используй `*-rlm.pack.*` и `rlm-slice` как первичные источники фактов; `nodes/links.jsonl` — только `rg` для точечной проверки, `*.jsonl` читать фрагментами.
-4. Заполни отчёт по шаблону: **Context Pack**, integration points, reuse, risks, tests, commands run.
-5. Если `rlm_status=pending` или pack отсутствует — зафиксируй, что требуется `rlm-nodes-build.sh --bootstrap` (если nodes нет) и `rlm-finalize` (обязательные команды после subagent).
-6. Выставь `Status: reviewed` только при готовом RLM pack/nodes/links; иначе `pending` + TODO.
+1. Прочитай rolling context pack и RLM pack (если есть).
+2. Обнови `aidd/docs/research/<ticket>.md`: интеграции, reuse, риски, open questions.
+3. Если RLM pack отсутствует или pending, верни BLOCKED и укажи что нужно завершить pipeline.
 
 ## Fail-fast и вопросы
-- Нет активного тикета или PRD — остановись и попроси `/feature-dev-aidd:idea-new`.
-- Если отсутствует `*-rlm.pack.*` или `rlm_status=pending` на стадии review/qa — добавь blocker/handoff и попроси завершить agent‑flow по worklist.
-- Если не хватает данных, задай вопросы в формате:
-  - `Вопрос N (Blocker|Clarification): ...`
-  - `Зачем: ...`
-  - `Варианты: ...`
-  - `Default: ...`
+- Недостаточно контекста -> вопросы в формате aidd-core.
 
 ## Формат ответа
-- `Checkbox updated: not-applicable`.
-- `Status: reviewed|pending`.
-- `Artifacts updated: aidd/docs/research/<ticket>.md`.
-- `Next actions: ...` (handoff, команды для обновления контекста).
+Output follows aidd-core skill.

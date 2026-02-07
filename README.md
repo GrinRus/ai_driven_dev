@@ -19,6 +19,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Ключевые возможности:
 - Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
+- Skill-first промпты: канон выполнения/контракт вывода живут в `skills/aidd-core` и `skills/aidd-loop` (EN); stage entrypoints определяются skill-файлами.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -176,7 +177,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 Поддерживаются macOS/Linux. Для Windows используйте WSL или Git Bash.
 
 ## Диагностика путей
-- Плагин живёт в корне репозитория (директории `commands/`, `agents/`, `hooks/`).
+- Плагин живёт в корне репозитория (директории `agents/`, `skills/`, `hooks/`, `tools/`).
 - Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
 - Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
@@ -184,6 +185,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 ## Документация
 - Канон ответа и pack-first: `aidd/docs/prompting/conventions.md`.
 - Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
+- Skill-first канон: `skills/aidd-core` и `skills/aidd-loop` (EN).
 - Английская версия: `README.en.md`.
 
 ## Примеры

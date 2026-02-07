@@ -74,6 +74,29 @@ run_prompt_sync_guard() {
   fi
 }
 
+
+run_entrypoints_bundle_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping entrypoints bundle guard"
+    return
+  fi
+  if [[ ! -f "tools/entrypoints_bundle.py" ]]; then
+    warn "tools/entrypoints_bundle.py missing; skipping"
+    return
+  fi
+  log "running entrypoints bundle guard"
+  if ! python3 tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
+    err "entrypoints bundle generation failed"
+    STATUS=1
+    return
+  fi
+  if ! git diff --exit-code -- "${ROOT_DIR}/tools/entrypoints-bundle.txt" >/dev/null; then
+    err "entrypoints-bundle.txt out of date; rerun tools/entrypoints_bundle.py"
+    STATUS=1
+  fi
+}
+
+
 run_prompt_regression() {
   if [[ ! -f "tests/repo_tools/prompt-regression.sh" ]]; then
     warn "tests/repo_tools/prompt-regression.sh missing; skipping"
@@ -310,6 +333,7 @@ cd "$ROOT_DIR"
 run_prompt_lint
 run_prompt_version_check
 run_prompt_sync_guard
+run_entrypoints_bundle_guard
 run_prompt_regression
 run_loop_regression
 run_output_contract_regression

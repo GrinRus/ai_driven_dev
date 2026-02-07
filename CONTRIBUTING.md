@@ -14,7 +14,7 @@
 5. Обновите `CHANGELOG.md` в секции **Unreleased** при изменении поведения.
 
 ## Что важно помнить
-- Канонические артефакты плагина: `commands/`, `agents/`, `hooks/`, `tools/`.
+- Канонические артефакты плагина: `skills/`, `agents/`, `hooks/`, `tools/`.
 - Workspace-шаблоны: `templates/aidd/` (копируются через `/feature-dev-aidd:aidd-init`).
 - Runtime запускается как `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`.
 

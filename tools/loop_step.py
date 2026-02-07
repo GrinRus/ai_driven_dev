@@ -160,9 +160,13 @@ def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str]
 def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str, str]:
     if not plugin_root.exists():
         return False, f"plugin root not found: {plugin_root}", "plugin_root_missing"
+    skill_path = plugin_root / "skills" / stage / "SKILL.md"
+    if skill_path.exists():
+        return True, "", ""
     command_path = plugin_root / "commands" / f"{stage}.md"
-    if not command_path.exists():
-        return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
+    if command_path.exists():
+        return True, "", ""
+    return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
     return True, "", ""
 
 
