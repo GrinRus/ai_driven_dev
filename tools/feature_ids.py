@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from tools import active_state as _active_state
 from tools.io_utils import utc_timestamp
 
 from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
@@ -55,6 +56,7 @@ def read_active_state(root: Path) -> ActiveState:
         slug_hint=_normalize_state_value(payload.get("slug_hint")),
         stage=_normalize_state_value(payload.get("stage")),
         work_item=_normalize_state_value(payload.get("work_item")),
+        last_review_report_id=_normalize_state_value(payload.get("last_review_report_id")),
         updated_at=_normalize_state_value(payload.get("updated_at")),
     )
 
@@ -69,15 +71,29 @@ def write_active_state(
 ) -> ActiveState:
     root = resolve_aidd_root(root)
     current = read_active_state(root)
+    current_payload = _read_active_state_payload(root)
     ticket_value = (ticket if ticket is not None else current.ticket) or ""
     slug_value = (slug_hint if slug_hint is not None else current.slug_hint) or ""
     stage_value = (stage if stage is not None else current.stage) or ""
-    work_item_value = (work_item if work_item is not None else current.work_item) or ""
+    requested_work_item = (work_item if work_item is not None else current.work_item) or ""
+    work_item_value, report_id = _active_state.normalize_work_item_for_stage(
+        stage=stage_value,
+        requested_work_item=requested_work_item,
+        current_work_item=current.work_item,
+    )
+    if work_item is None and not requested_work_item and current.work_item:
+        work_item_value = current.work_item
+
+    last_review_report_id = _normalize_state_value(current_payload.get("last_review_report_id"))
+    if report_id:
+        last_review_report_id = report_id
+
     payload = {
         "ticket": ticket_value or None,
         "slug_hint": slug_value or None,
         "stage": stage_value or None,
         "work_item": work_item_value or None,
+        "last_review_report_id": last_review_report_id or None,
         "updated_at": utc_timestamp(),
     }
     path = root / ACTIVE_STATE_FILE
@@ -181,4 +197,5 @@ class ActiveState:
     slug_hint: Optional[str] = None
     stage: Optional[str] = None
     work_item: Optional[str] = None
+    last_review_report_id: Optional[str] = None
     updated_at: Optional[str] = None

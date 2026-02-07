@@ -46,6 +46,7 @@ def _parse_fields(text: str) -> Dict[str, str]:
         "blockers": re.compile(r"^Blockers/Handoff:\s*(.+)$", re.IGNORECASE),
         "next_actions": re.compile(r"^Next actions:\s*(.+)$", re.IGNORECASE),
         "read_log": re.compile(r"^AIDD:READ_LOG:\s*(.+)$", re.IGNORECASE),
+        "actions_log": re.compile(r"^AIDD:ACTIONS_LOG:\s*(.+)$", re.IGNORECASE),
     }
     for raw in text.splitlines():
         line = _normalize_line(raw)
@@ -153,6 +154,11 @@ def check_output_contract(
     context_idx = _find_index(read_entries, lambda item: "/reports/context/" in (item.get("path") or ""))
 
     if stage in {"implement", "review"}:
+        actions_value = str(fields.get("actions_log") or "").strip()
+        if not actions_value:
+            warnings.append("actions_log_missing")
+        elif actions_value.lower() == "n/a":
+            warnings.append("actions_log_invalid")
         if loop_idx < 0:
             warnings.append("read_order_missing_loop_pack")
         if review_idx >= 0 and loop_idx >= 0 and review_idx < loop_idx:
@@ -162,6 +168,11 @@ def check_output_contract(
         if context_idx >= 0 and review_idx >= 0 and context_idx < review_idx:
             warnings.append("read_order_context_before_review")
     elif stage == "qa":
+        actions_value = str(fields.get("actions_log") or "").strip()
+        if not actions_value:
+            warnings.append("actions_log_missing")
+        elif actions_value.lower() == "n/a":
+            warnings.append("actions_log_invalid")
         if context_idx < 0:
             warnings.append("read_order_missing_context_pack")
         elif context_idx != 0:
@@ -195,6 +206,7 @@ def check_output_contract(
         "status_output": status_output,
         "status_expected": expected_status,
         "read_log": read_entries,
+        "actions_log": fields.get("actions_log", ""),
     }
 
 

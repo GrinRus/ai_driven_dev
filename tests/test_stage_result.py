@@ -86,6 +86,55 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("result"), "blocked")
             self.assertEqual(payload.get("reason_code"), "no_tests_hard")
 
+    def test_review_marker_not_required_disables_no_tests_soft(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(
+                root,
+                {
+                    "tests_required": "soft",
+                    "reviewer": {
+                        "enabled": True,
+                        "tests_marker": "aidd/reports/reviewer/{ticket}/{scope_key}.tests.json",
+                        "tests_field": "tests",
+                        "required_values": ["required"],
+                        "optional_values": ["optional", "skipped", "not-required"],
+                    },
+                },
+            )
+            write_review_context_pack(root, "DEMO-NR")
+            write_file(
+                root,
+                "reports/reviewer/DEMO-NR/iteration_id_I1.tests.json",
+                json.dumps({"tests": "not-required"}, indent=2) + "\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-NR",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "done",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-NR" / "iteration_id_I1" / "stage.review.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("result"), "done")
+            self.assertNotEqual(payload.get("reason_code"), "no_tests_soft")
+
     def test_review_blocked_preserved_when_tests_missing_soft(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

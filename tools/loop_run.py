@@ -276,12 +276,19 @@ def main(argv: List[str] | None = None) -> int:
         repair_code = step_payload.get("repair_reason_code") or ""
         repair_scope = step_payload.get("repair_scope_key") or ""
         scope_key = step_payload.get("scope_key") or ""
+        mismatch_warn = step_payload.get("scope_key_mismatch_warn") or ""
+        mismatch_from = step_payload.get("scope_key_mismatch_from") or ""
+        mismatch_to = step_payload.get("scope_key_mismatch_to") or ""
+        tests_log_path = step_payload.get("tests_log_path") or ""
+        stage_diag = step_payload.get("stage_result_diagnostics") or ""
         runner_effective = step_payload.get("runner_effective") or ""
         step_stream_log = step_payload.get("stream_log_path") or ""
         step_stream_jsonl = step_payload.get("stream_jsonl_path") or ""
         step_status = step_payload.get("status")
         log_reason_code = repair_code or reason_code
         chosen_scope = repair_scope or scope_key
+        if mismatch_to:
+            chosen_scope = mismatch_to
         if stream_mode and stream_log_path and step_stream_log:
             step_log_path = runtime.resolve_path_for_target(Path(step_stream_log), target)
             append_stream_file(
@@ -303,6 +310,10 @@ def main(argv: List[str] | None = None) -> int:
                 f"exit_code={result.returncode} reason_code={log_reason_code} runner={runner_label} "
                 f"runner_cmd={runner_effective} reason={reason}"
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
+                + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
+                + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
+                + (f" tests_log_path={tests_log_path}" if tests_log_path else "")
+                + (f" stage_result_diagnostics={stage_diag}" if stage_diag else "")
             ),
         )
         append_log(
