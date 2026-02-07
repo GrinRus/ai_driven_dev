@@ -22,7 +22,19 @@ from tools.io_utils import utc_timestamp
 
 
 TOOL_PATTERN = re.compile(r"tools/([A-Za-z0-9_.-]+\.sh)")
-SCAN_DIRS = ("commands", "agents", "hooks", "tests")
+SCAN_PATHS = (
+    "commands",
+    "agents",
+    "hooks",
+    "skills",
+    "templates",
+    "tests",
+    "docs",
+    "AGENTS.md",
+    "README.md",
+    "README.en.md",
+    "CONTRIBUTING.md",
+)
 EXCLUDED_DIRS = {
     "__pycache__",
     ".git",
@@ -50,26 +62,31 @@ def _collect_tool_scripts(repo_root: Path) -> List[str]:
     return sorted(path.name for path in tools_dir.glob("*.sh"))
 
 
+def _iter_scan_candidates(repo_root: Path) -> Iterable[Path]:
+    for item in SCAN_PATHS:
+        base = repo_root / item
+        if not base.exists():
+            continue
+        if base.is_file():
+            yield base
+            continue
+        yield from (path for path in base.rglob("*") if path.is_file())
+
+
 def _scan_consumers(repo_root: Path, tool_names: Iterable[str]) -> Dict[str, List[str]]:
     names = set(tool_names)
     usage: Dict[str, List[str]] = {name: [] for name in names}
-    for folder in SCAN_DIRS:
-        base = repo_root / folder
-        if not base.exists():
+    for path in _iter_scan_candidates(repo_root):
+        if _should_skip_path(path):
             continue
-        for path in base.rglob("*"):
-            if not path.is_file():
-                continue
-            if _should_skip_path(path):
-                continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                continue
-            for match in TOOL_PATTERN.finditer(text):
-                tool = match.group(1)
-                if tool in names:
-                    usage[tool].append(path.relative_to(repo_root).as_posix())
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for match in TOOL_PATTERN.finditer(text):
+            tool = match.group(1)
+            if tool in names:
+                usage[tool].append(path.relative_to(repo_root).as_posix())
     for key, items in usage.items():
         deduped = sorted(set(items))
         usage[key] = deduped
@@ -93,7 +110,7 @@ def _build_payload(repo_root: Path) -> Dict[str, object]:
         "schema": "aidd.tools_inventory.v1",
         "generated_at": utc_timestamp(),
         "repo_root": repo_root.as_posix(),
-        "scan_dirs": list(SCAN_DIRS),
+        "scan_dirs": list(SCAN_PATHS),
         "tools": tools,
     }
 
@@ -107,7 +124,7 @@ def _render_md(payload: Dict[str, object]) -> str:
         consumers = entry.get("consumers", []) or []
         lines.append(f"## {tool}")
         if not consumers:
-            lines.append("- (no consumers in commands/agents/hooks/tests)")
+            lines.append("- (no consumers in scanned repository sources)")
             lines.append("")
             continue
         for consumer in consumers:

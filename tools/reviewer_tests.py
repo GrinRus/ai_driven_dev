@@ -84,18 +84,10 @@ def main(argv: list[str] | None = None) -> int:
         scope_key=scope_key,
     )
     rel_marker = marker_path.relative_to(target).as_posix()
-    legacy_markers: list[Path] = []
-    legacy_flat = runtime.resolve_path_for_target(Path(f"aidd/reports/reviewer/{ticket}.json"), target)
-    legacy_markers.append(legacy_flat)
+    legacy_markers: list[Path] = [runtime.resolve_path_for_target(Path(f"aidd/reports/reviewer/{ticket}.json"), target)]
     if marker_path.name.endswith(".tests.json"):
         legacy_markers.append(marker_path.with_name(marker_path.name.replace(".tests.json", ".json")))
-    deduped_legacy: list[Path] = []
-    seen_paths: set[Path] = set()
-    for item in legacy_markers:
-        if item == marker_path or item in seen_paths:
-            continue
-        seen_paths.add(item)
-        deduped_legacy.append(item)
+    deduped_legacy = [item for item in dict.fromkeys(legacy_markers) if item != marker_path]
 
     if args.clear:
         if marker_path.exists():
@@ -166,8 +158,12 @@ def main(argv: list[str] | None = None) -> int:
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     for legacy_path in deduped_legacy:
-        legacy_path.parent.mkdir(parents=True, exist_ok=True)
-        legacy_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not legacy_path.exists():
+            continue
+        try:
+            legacy_path.unlink()
+        except OSError:
+            pass
 
     state_label = "required" if status in required_values else status
     print(f"[aidd] reviewer marker updated ({rel_marker} → {state_label}).")

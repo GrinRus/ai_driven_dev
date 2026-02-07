@@ -29,16 +29,40 @@ check_shim() {
   fi
 }
 
+check_shim_runtime_warning() {
+  local tool="$1"
+  local shim_path="${ROOT_DIR}/tools/${tool}"
+  local output rc
+  set +e
+  output="$(CLAUDE_PLUGIN_ROOT="${ROOT_DIR}" "${shim_path}" --help 2>&1)"
+  rc=$?
+  set -e
+  if [[ "$output" != *"DEPRECATED"* ]]; then
+    err "shim did not emit deprecation warning at runtime: tools/${tool} (rc=${rc})"
+  fi
+}
+
+check_smoke_uses_canonical_wrappers() {
+  local smoke="${ROOT_DIR}/tests/repo_tools/smoke-workflow.sh"
+  if ! rg -q "review-pack\\|review-report\\|reviewer-tests" "$smoke"; then
+    err "smoke-workflow is missing canonical review wrapper routing case"
+  fi
+  if ! rg -q "skills/review/scripts/\\$\\{cmd\\}\\.sh" "$smoke"; then
+    err "smoke-workflow does not route review wrappers to skills/review/scripts"
+  fi
+}
+
 check_shim "review-report.sh"
 check_shim "review-pack.sh"
 check_shim "reviewer-tests.sh"
 check_shim "context-pack.sh"
+check_shim_runtime_warning "review-report.sh"
+check_shim_runtime_warning "review-pack.sh"
+check_shim_runtime_warning "reviewer-tests.sh"
+check_smoke_uses_canonical_wrappers
 
 if rg -n "\$\{CLAUDE_PLUGIN_ROOT\}/skills" "${ROOT_DIR}/hooks" >/dev/null; then
   err "hooks reference skills/** directly"
-fi
-if rg -n "\$\{CLAUDE_PLUGIN_ROOT\}/skills" "${ROOT_DIR}/tests" >/dev/null; then
-  err "tests reference skills/** directly"
 fi
 
 exit "$STATUS"

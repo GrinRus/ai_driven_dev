@@ -196,6 +196,51 @@ run_shim_regression() {
     STATUS=1
   fi
 }
+
+run_marketplace_ref_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping marketplace ref guard"
+    return
+  fi
+  if [[ ! -f ".claude-plugin/marketplace.json" ]]; then
+    log "marketplace manifest not found; skipping ref guard"
+    return
+  fi
+  log "running marketplace ref guard"
+  if ! python3 - <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+path = Path(".claude-plugin/marketplace.json")
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"[marketplace-ref] invalid marketplace.json: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+blocked = re.compile(r"^(codex/wave[^/]*|feature/.+|codex/feature/.+)$")
+violations = []
+for plugin in payload.get("plugins", []) or []:
+    if not isinstance(plugin, dict):
+        continue
+    source = plugin.get("source") if isinstance(plugin.get("source"), dict) else {}
+    ref = str(source.get("ref") or "").strip()
+    name = str(plugin.get("name") or "unknown")
+    if ref and blocked.match(ref):
+        violations.append((name, ref))
+
+if violations:
+    for name, ref in violations:
+        print(f"[marketplace-ref] {name}: forbidden unstable ref '{ref}'", file=sys.stderr)
+    raise SystemExit(1)
+PY
+  then
+    err "marketplace ref guard failed"
+    STATUS=1
+  fi
+}
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -382,6 +427,7 @@ run_tool_result_id_check
 run_skill_scripts_guard
 run_schema_guards
 run_shim_regression
+run_marketplace_ref_guard
 run_repo_linters
 
 run_python_tests

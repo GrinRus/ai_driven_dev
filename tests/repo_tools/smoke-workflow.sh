@@ -16,8 +16,16 @@ WORKSPACE_ROOT=""
 run_cli() {
   local cmd="$1"
   shift
-  local tool_path="$PLUGIN_ROOT/tools/${cmd}.sh"
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$tool_path" "$@"
+  local entrypoint=""
+  case "$cmd" in
+    review-pack|review-report|reviewer-tests)
+      entrypoint="$PLUGIN_ROOT/skills/review/scripts/${cmd}.sh"
+      ;;
+    *)
+      entrypoint="$PLUGIN_ROOT/tools/${cmd}.sh"
+      ;;
+  esac
+  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
 }
 
 run_hook() {

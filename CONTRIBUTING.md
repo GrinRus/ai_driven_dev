@@ -7,7 +7,7 @@
 2. Следуйте процессу в `AGENTS.md` (agent-first, порядок стадий, артефакты).
 3. Прогоните проверки:
    - `tests/repo_tools/ci-lint.sh`
-   - `tests/repo_tools/smoke-workflow.sh` (если менялись runtime/хуки/команды)
+   - `tests/repo_tools/smoke-workflow.sh` (обязательно при runtime изменениях; в CI job запускается всегда и auto-skip'ается при отсутствии runtime diff)
 4. Обновите документацию:
    - `README.md` + `README.en.md` (и поле _Last sync_)
    - `AGENTS.md` при изменении поведения
