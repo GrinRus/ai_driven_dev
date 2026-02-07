@@ -68,11 +68,17 @@ scope_key = sys.argv[4]
 work_item_key = sys.argv[5]
 
 payload = {
-    "schema_version": "aidd.actions.v0",
+    "schema_version": "aidd.actions.v1",
     "stage": stage,
     "ticket": ticket,
     "scope_key": scope_key,
     "work_item_key": work_item_key,
+    "allowed_action_types": [
+        "tasklist_ops.set_iteration_done",
+        "tasklist_ops.append_progress_log",
+        "tasklist_ops.next3_recompute",
+        "context_pack_ops.context_pack_update",
+    ],
     "actions": [],
 }
 path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

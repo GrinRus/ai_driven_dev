@@ -395,6 +395,139 @@ def test_tasks_derive_idempotent_by_id(tmp_path):
     assert content.count("id: qa:qa-1") == 1
     assert "Fix spacing v2" in content
     assert "Fix spacing v1" not in content
+    assert "DoD: Fix spacing v2" in content
+    assert "DoD: Fix spacing v1" not in content
+
+
+def test_tasks_derive_preserves_dod_only_manual_edit(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    base = _base_tasklist() + dedent(
+        """
+        <!-- handoff:qa start (source: aidd/reports/qa/demo-checkout.json) -->
+        - [ ] QA [minor] Spacing — Fix spacing v1 (source: aidd/reports/qa/demo-checkout.json, id: qa:qa-1)
+          - source: qa
+          - Status: open
+          - scope: ui
+          - DoD: spacing approved by design
+          - Boundaries:
+            - must-touch: []
+            - must-not-touch: []
+          - Tests:
+            - profile: fast
+            - tasks: []
+            - filters: []
+        <!-- handoff:qa end -->
+        """
+    )
+    write_file(project_root, "docs/tasklist/demo-checkout.md", base)
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {
+            "status": "WARN",
+            "tests_summary": "pass",
+            "tests_executed": [],
+            "findings": [
+                {
+                    "id": "qa-1",
+                    "severity": "minor",
+                    "scope": "ui",
+                    "title": "Spacing",
+                    "recommendation": "Fix spacing v2",
+                },
+            ],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert content.count("id: qa:qa-1") == 1
+    assert "Fix spacing v2" in content
+    assert "DoD: spacing approved by design" in content
+    assert "DoD: Fix spacing v2" not in content
+
+
+def test_tasks_derive_preserves_fields_with_deeper_indentation(tmp_path):
+    project_root = ensure_project_root(tmp_path)
+    write_active_feature(project_root, "demo-checkout")
+    base = _base_tasklist() + dedent(
+        """
+        <!-- handoff:qa start (source: aidd/reports/qa/demo-checkout.json) -->
+          - [ ] QA [minor] Spacing — Fix spacing v1 (source: aidd/reports/qa/demo-checkout.json, id: qa:qa-1)
+            - source: qa
+            - Status: open
+            - scope: ui
+            - DoD: spacing approved by design
+            - Boundaries:
+              - must-touch: ["src/ui/"]
+              - must-not-touch: []
+            - Tests:
+              - profile: full
+              - tasks: ["pytest -q tests/test_ui.py"]
+              - filters: []
+            - Notes: keep existing notes
+        <!-- handoff:qa end -->
+        """
+    )
+    write_file(project_root, "docs/tasklist/demo-checkout.md", base)
+    write_json(
+        project_root,
+        "reports/qa/demo-checkout.json",
+        {
+            "status": "WARN",
+            "tests_summary": "pass",
+            "tests_executed": [],
+            "findings": [
+                {
+                    "id": "qa-1",
+                    "severity": "minor",
+                    "scope": "ui",
+                    "title": "Spacing",
+                    "recommendation": "Fix spacing v2",
+                },
+            ],
+        },
+    )
+
+    result = subprocess.run(
+        cli_cmd(
+            "tasks-derive",
+            "--source",
+            "qa",
+            "--ticket",
+            "demo-checkout",
+            "--append",
+        ),
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+
+    content = (project_root / "docs/tasklist/demo-checkout.md").read_text(encoding="utf-8")
+    assert content.count("id: qa:qa-1") == 1
+    assert "Fix spacing v2" in content
+    assert "DoD: spacing approved by design" in content
+    assert 'must-touch: ["src/ui/"]' in content
+    assert 'tasks: ["pytest -q tests/test_ui.py"]' in content
+    assert "Notes: keep existing notes" in content
 
 
 def test_tasks_derive_preserves_unstructured_handoff(tmp_path):

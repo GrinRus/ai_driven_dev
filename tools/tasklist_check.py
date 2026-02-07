@@ -1355,12 +1355,33 @@ def normalize_tasklist(
         handoff_items = parse_handoff_items(section_body(handoff_section[0]) if handoff_section else [])
         plan_ids = parse_plan_iteration_ids(root, resolve_plan_path(root, front, ticket))
         open_items, _, _ = build_open_items(iter_items, handoff_items, plan_ids)
+        open_ref_tokens: set[str] = set()
+        for item in open_items:
+            if item.kind == "iteration":
+                open_ref_tokens.add(f"(ref: iteration_id={item.item_id})")
+            else:
+                open_ref_tokens.add(f"(ref: id={item.item_id})")
+        archived_refs: List[str] = []
+        seen_archived_refs: set[str] = set()
+        if next3_section:
+            for block in parse_next3_items(section_body(next3_section[0])):
+                kind, ref_id, _ = extract_ref_id(block)
+                if not ref_id:
+                    continue
+                token = f"(ref: iteration_id={ref_id})" if kind == "iteration" else f"(ref: id={ref_id})"
+                if token in open_ref_tokens or token in seen_archived_refs:
+                    continue
+                seen_archived_refs.add(token)
+                archived_refs.append(token)
         preamble = []
         if next3_section:
             for line in section_body(next3_section[0]):
                 if line.strip().startswith("-"):
                     break
                 preamble.append(line)
+        if archived_refs:
+            for token in archived_refs:
+                preamble.append(f"- archived: {token}")
         next3_lines = build_next3_lines(open_items, preamble)
 
         lines = normalized_text.splitlines()
@@ -1389,7 +1410,13 @@ def normalize_tasklist(
     return NormalizeResult(updated_text=normalized_text, summary=summary, changed=normalized_text != text)
 
 
-def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResult:
+def check_tasklist_text(
+    root: Path,
+    ticket: str,
+    text: str,
+    *,
+    normalize_fix_mode: bool = False,
+) -> TasklistCheckResult:
     lines = text.splitlines()
     front, body_start = parse_front_matter(lines)
     sections, section_map = parse_sections(lines)
@@ -1522,7 +1549,11 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     if plan_ids:
         missing_from_tasklist = sorted(set(plan_ids) - set(iteration_ids))
         if missing_from_tasklist:
-            add_issue("error", f"AIDD:ITERATIONS_FULL missing iteration_id(s): {', '.join(missing_from_tasklist)}")
+            missing_ids_severity = "warn" if normalize_fix_mode else "error"
+            add_issue(
+                missing_ids_severity,
+                f"AIDD:ITERATIONS_FULL missing iteration_id(s): {', '.join(missing_from_tasklist)}",
+            )
         for iteration in iter_items:
             if not iteration.item_id:
                 add_issue(severity_for_stage(stage), "iteration missing iteration_id")
@@ -1618,12 +1649,13 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
                 ref_id,
             )
             next3_order_keys.append(order_key)
+            handoff_meta_severity = severity_for_stage(stage) if normalize_fix_mode else "error"
             if not extract_field_value(item.lines, "DoD"):
-                add_issue("error", f"handoff {ref_id} missing DoD")
+                add_issue(handoff_meta_severity, f"handoff {ref_id} missing DoD")
             if not block_has_heading(item.lines, "Boundaries"):
-                add_issue("error", f"handoff {ref_id} missing Boundaries")
+                add_issue(handoff_meta_severity, f"handoff {ref_id} missing Boundaries")
             if not block_has_heading(item.lines, "Tests"):
-                add_issue("error", f"handoff {ref_id} missing Tests")
+                add_issue(handoff_meta_severity, f"handoff {ref_id} missing Tests")
             if ref_id not in open_ids:
                 add_issue("error", f"AIDD:NEXT_3 item {ref_id} is not open")
         else:
@@ -1890,12 +1922,17 @@ def check_tasklist_text(root: Path, ticket: str, text: str) -> TasklistCheckResu
     return TasklistCheckResult(status="ok", message="tasklist ready")
 
 
-def check_tasklist(root: Path, ticket: str) -> TasklistCheckResult:
+def check_tasklist(
+    root: Path,
+    ticket: str,
+    *,
+    normalize_fix_mode: bool = False,
+) -> TasklistCheckResult:
     tasklist_path = tasklist_path_for(root, ticket)
     if not tasklist_path.exists():
         return TasklistCheckResult(status="error", message=f"tasklist not found: {tasklist_path}")
     text = read_text(tasklist_path)
-    return check_tasklist_text(root, ticket, text)
+    return check_tasklist_text(root, ticket, text, normalize_fix_mode=normalize_fix_mode)
 
 
 def run_check(args: argparse.Namespace) -> int:
@@ -1968,7 +2005,7 @@ def run_check(args: argparse.Namespace) -> int:
                     for line in normalized.summary:
                         print(f"[tasklist-check] {line}")
                     print(f"[tasklist-check] backup saved: {backup_path}")
-                result = check_tasklist(root, ticket)
+                result = check_tasklist(root, ticket, normalize_fix_mode=True)
             else:
                 result = check_tasklist_text(root, ticket, tasklist_text)
 

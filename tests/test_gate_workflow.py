@@ -1138,7 +1138,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     )
     write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
     write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
-    write_research_doc(tmp_path, ticket)
+    write_research_doc(tmp_path, ticket, status="pending")
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_tasklist_ready(tmp_path, ticket)
@@ -1155,6 +1155,45 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     combined_output = (result.stdout + result.stderr).lower()
     assert "checkout-lite" in combined_output
     assert "reviewer запросил тесты" in combined_output
+
+
+def test_reviewer_required_warns_but_does_not_block_implement_stage(tmp_path):
+    ticket = "FEAT-124"
+    slug_hint = "checkout-lite"
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    ensure_gates_config(
+        tmp_path,
+        {
+            "prd_review": {"enabled": False},
+            "researcher": {"enabled": False},
+            "analyst": {"enabled": False},
+            "reviewer": {
+                "enabled": True,
+                "tests_marker": "aidd/reports/reviewer/{slug}/{scope_key}.tests.json",
+                "tests_field": "tests",
+                "required_values": ["required"],
+                "warn_on_missing": True,
+            },
+        },
+    )
+    write_active_feature(tmp_path, ticket, slug_hint=slug_hint)
+    write_active_stage(tmp_path, "implement")
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_research_doc(tmp_path, ticket, status="pending")
+    write_plan_with_review(tmp_path, ticket)
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_tasklist_ready(tmp_path, ticket)
+    reviewer_marker = {
+        "ticket": ticket,
+        "slug": slug_hint,
+        "tests": "required",
+    }
+    write_json(tmp_path, f"reports/reviewer/{slug_hint}/{ticket}.tests.json", reviewer_marker)
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 0
+    combined_output = result.stdout + result.stderr
+    assert "WARN: reviewer запросил тесты" in combined_output
 
 
 def test_documents_are_not_blocked(tmp_path):

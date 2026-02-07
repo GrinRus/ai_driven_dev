@@ -81,6 +81,11 @@ aidd_actions_paths() {
   export AIDD_ACTIONS_TEMPLATE="${base}/${stage}.actions.template.json"
   export AIDD_ACTIONS_PATH="${base}/${stage}.actions.json"
   export AIDD_APPLY_LOG="${base}/${stage}.apply.jsonl"
+  export AIDD_READMAP_JSON="${base}/readmap.json"
+  export AIDD_READMAP_MD="${base}/readmap.md"
+  export AIDD_WRITEMAP_JSON="${base}/writemap.json"
+  export AIDD_WRITEMAP_MD="${base}/writemap.md"
+  export AIDD_PREFLIGHT_RESULT="${base}/stage.preflight.result.json"
 }
 
 

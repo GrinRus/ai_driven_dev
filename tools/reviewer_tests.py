@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+from pathlib import Path
 from typing import Sequence
 
 from tools import runtime
@@ -83,6 +84,18 @@ def main(argv: list[str] | None = None) -> int:
         scope_key=scope_key,
     )
     rel_marker = marker_path.relative_to(target).as_posix()
+    legacy_markers: list[Path] = []
+    legacy_flat = runtime.resolve_path_for_target(Path(f"aidd/reports/reviewer/{ticket}.json"), target)
+    legacy_markers.append(legacy_flat)
+    if marker_path.name.endswith(".tests.json"):
+        legacy_markers.append(marker_path.with_name(marker_path.name.replace(".tests.json", ".json")))
+    deduped_legacy: list[Path] = []
+    seen_paths: set[Path] = set()
+    for item in legacy_markers:
+        if item == marker_path or item in seen_paths:
+            continue
+        seen_paths.add(item)
+        deduped_legacy.append(item)
 
     if args.clear:
         if marker_path.exists():
@@ -90,6 +103,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[aidd] reviewer marker cleared ({rel_marker}).")
         else:
             print(f"[aidd] reviewer marker not found at {rel_marker}.")
+        for legacy_path in deduped_legacy:
+            if legacy_path.exists():
+                try:
+                    legacy_path.unlink()
+                except OSError:
+                    pass
         runtime.maybe_sync_index(target, ticket, context.slug_hint, reason="reviewer-tests")
         return 0
 
@@ -146,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
 
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    for legacy_path in deduped_legacy:
+        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+        legacy_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
 
     state_label = "required" if status in required_values else status
     print(f"[aidd] reviewer marker updated ({rel_marker} → {state_label}).")

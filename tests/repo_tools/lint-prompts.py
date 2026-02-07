@@ -83,7 +83,8 @@ INDEX_REQUIRED_FIELDS = [
 ]
 
 POLICY_DOC = Path("docs/skill-language.md")
-BASELINE_JSON = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_LEGACY = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
 
 
 @dataclass
@@ -440,14 +441,19 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         errors.append(f"{root / POLICY_DOC}: missing skill language policy doc")
 
     baseline = None
-    baseline_path = root / BASELINE_JSON
+    baseline_candidates = [
+        root / BASELINE_JSON_PRIMARY,
+        root / BASELINE_JSON_LEGACY,
+    ]
+    baseline_path = next((path for path in baseline_candidates if path.exists()), baseline_candidates[0])
     if baseline_path.exists():
         try:
             baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             errors.append(f"{baseline_path}: invalid JSON ({exc})")
     else:
-        errors.append(f"{baseline_path}: missing baseline for skills parity")
+        tried = ", ".join(path.as_posix() for path in baseline_candidates)
+        errors.append(f"{baseline_candidates[0]}: missing baseline for skills parity (tried: {tried})")
 
     baseline_rows = {row["stage"]: row for row in (baseline or {}).get("rows", [])}
 

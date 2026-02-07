@@ -618,9 +618,9 @@ _Статус: новый, приоритет 2. Цель — приблизит
 
 ## Wave 93 — Context discipline 2.0: preflight stage + read/write contracts + progressive disclosure + DAG‑готовность
 
-_Статус: план. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
+_Статус: выполнено. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
 
-- [ ] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
+- [x] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
   - определить схемы:
     - `aidd.skill_contract.v1.json` (или YAML schema);
     - `aidd.readmap.v1.json`;
@@ -633,7 +633,7 @@ _Статус: план. Цель — формализовать чтение/з
   **AC:** схемы существуют; валидатор гоняется в CI.
   **Deps:** W91-3
 
-- [ ] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
+- [x] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
   - ввести machine‑readable контракт для каждого stage skill:
     - `skills/<stage>/CONTRACT.yaml` (или централизованный `aidd/config/skills.registry.yaml`);
   - поля (минимум):
@@ -654,7 +654,7 @@ _Статус: план. Цель — формализовать чтение/з
   - contracts становятся источником правды для preflight + hooks.
   **Deps:** W93-0, W91-3, W92-1
 
-- [ ] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
+- [x] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
   - формализовать адресацию блоков:
     - `path.md#AIDD:SECTION_NAME` (для `## AIDD:` заголовков);
     - `path.md@handoff:<id>` (для marker‑блоков `<!-- handoff:* -->`);
@@ -670,7 +670,7 @@ _Статус: план. Цель — формализовать чтение/з
   - есть тесты на корректность извлечения.
   **Deps:** W91-1
 
-- [ ] **W93-3** Mandatory preflight перед implement/review/qa
+- [x] **W93-3** Mandatory preflight перед implement/review/qa
   - расширить wrapper’ы `skills/implement/scripts/preflight.sh` (и аналогично review/qa), чтобы preflight:
     1) генерил/обновлял `loop.pack.md` (+ `review.latest.pack.md` если есть);
     2) генерил READ MAP: `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`:
@@ -690,7 +690,7 @@ _Статус: план. Цель — формализовать чтение/з
   - preflight может упасть “раньше” с понятным BLOCKED.
   **Deps:** W92-0, W92-1, W92-0.1, W93-0, W93-1, W93-2
 
-- [ ] **W93-4** Progressive disclosure: controlled context expansion
+- [x] **W93-4** Progressive disclosure: controlled context expansion
   - добавить механизм “расширить контекст” как явное действие:
     - либо отдельный skill `/feature-dev-aidd:context-expand` (с `disable-model-invocation: true`);
     - либо wrapper `skills/aidd-core/scripts/context_expand.sh`;
@@ -704,7 +704,7 @@ _Статус: план. Цель — формализовать чтение/з
   - implement/review не делают “тихий full-read”, а требуют expansion step.
   **Deps:** W93-3
 
-- [ ] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
+- [x] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
   - расширить guard, чтобы в implement/review/qa:
     - в `fast` режиме: warn/ask при чтении вне readmap/allowed_paths;
     - в `strict` режиме: deny чтение/правки вне readmap/allowed_paths.
@@ -721,7 +721,7 @@ _Статус: план. Цель — формализовать чтение/з
   - в fast есть заметный warning + ссылка на context-expand.
   **Deps:** W92-6, W93-3, W93-4
 
-- [ ] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
+- [x] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
   - сделать `tools/dag_export.py`:
     - строит DAG по work_item’ам/loop (узлы: preflight → implement → review → qa);
     - в каждый узел кладёт `scope_key`, `allowed_paths`, `readmap`, `writemap`;
@@ -731,6 +731,109 @@ _Статус: план. Цель — формализовать чтение/з
   - есть машинный DAG для ticket;
   - можно в будущем подключить оркестратор/параллельный раннер.
   **Deps:** W93-1, W93-3
+
+## Wave 94 — Runtime stabilization & determinism after W91–W93
+
+_Статус: новый, приоритет 0. Цель — закрыть дефекты runtime, выявленные e2e/audit: slug pollution, scope mismatch в loop-run, отсутствующие W92/W93 runtime-артефакты, marker/gate policy mismatch и QA cwd._
+
+- [ ] **W94-1 (P0)** `.active.json.work_item`: стабилизировать контракт iteration-key
+  - проверить все writer-пути активного состояния: `tools/runtime.py`, `tools/review_report.py`, `tools/reviewer_tests.py`, `tools/loop_step.py`, `tools/set_active_stage.py`, `tools/set_active_feature.py`;
+  - для loop-стадий (`implement|review`) хранить в `aidd/docs/.active.json.work_item` только `iteration_id=<I#>` (или `null`), не `id=review:*`;
+  - если нужен report id, хранить отдельно (`last_review_report_id`) без влияния на loop scope resolution.
+  **AC:**
+  - после `review` поле `work_item` остаётся `iteration_id=I<N>`;
+  - happy path не порождает `id_review_review-report-*` scope в loop-run;
+  - `find aidd/reports/tests/<ticket> -name "id_review_*"` пуст в happy path (или строго legacy-only, задокументировано).
+  **Regression/Tests:**
+  - unit: валидатор `work_item` (allowlist pattern);
+  - integration: инъекция `id=review:*` в `.active.json` + проверка поведения `loop-step` (normalize/explicit block с `invalid_work_item_key`).
+  **Deps:** -
+
+- [ ] **W94-2 (P0)** loop-run/loop-step: scope из `stage_result` как source-of-truth
+  - обновить `tools/loop_run.py`, `tools/loop_step.py`:
+    - после stage-команды брать фактический `stage.<stage>.result.json` из `aidd/reports/loops/<ticket>/**` по `updated_at`/mtime в окне запуска;
+    - при mismatch (`chosen_scope_key != stage_result.scope_key`) писать `scope_key_mismatch_warn` и продолжать по canonical scope из `stage_result`;
+    - `tests_log` резолвить из `stage_result.evidence_links.tests_log` при наличии.
+  **AC:**
+  - при mismatch loop-run не падает в `stage_result_missing_or_invalid` без диагностики;
+  - в loop logs есть явный факт mismatch + canonical scope.
+  **Regression/Tests:**
+  - integration fixture: mismatch (`chosen_scope_key` ≠ фактический `stage_result.scope_key`) -> recovery path.
+  **Deps:** W94-1
+
+- [ ] **W94-3 (P0)** W92/W93 runtime wiring: обязательный preflight/readmap/writemap/actions
+  - включить детерминированную оркестрацию wrapper-цепочки для loop stages (`implement|review|qa`) в `tools/loop_step.py`:
+    - `skills/<stage>/scripts/preflight.sh` -> stage command -> `skills/<stage>/scripts/run.sh` -> `skills/<stage>/scripts/postflight.sh`;
+  - в `tools/gate_workflow.py` добавить enforcement для `SKILL_FIRST`:
+    - block при отсутствии `stage.preflight.result.json`, readmap/writemap, `actions.template`;
+    - режимно (`fast|strict`) эскалировать отсутствие `actions.json`/`AIDD:ACTIONS_LOG`.
+  **AC:**
+  - после каждого loop stage создаются:
+    - `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.template.json`,
+    - `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.json`,
+    - `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`,
+    - `aidd/reports/context/<ticket>/<scope_key>.writemap.{md,json}`,
+    - `aidd/reports/loops/<ticket>/<scope_key>/stage.preflight.result.json`,
+    - `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.*.log`;
+  - output-contract для loop stages содержит `AIDD:ACTIONS_LOG`.
+  **Regression/Tests:**
+  - unit/integration на наличие обязательных артефактов;
+  - smoke: минимум один loop step в `SKILL_FIRST` с проверкой preflight/docops артефактов.
+  **Deps:** W94-2
+
+- [ ] **W94-4 (P1)** reviewer marker semantics: `tests=not-required` отключает `no_tests_soft`
+  - в resolver (review stage / gate-workflow) закрепить:
+    - marker `tests: not-required` => requirement `none`;
+    - `tests_log: skipped` считается валидным evidence;
+    - reason-code `no_tests_soft` не должен выставляться.
+  **AC:**
+  - `stage.review.result.json` при marker `not-required` не содержит `reason_code=no_tests_soft`;
+  - loop-run не пишет `tests evidence required but not found` для этого режима.
+  **Regression/Tests:**
+  - unit: marker -> requirement mapping;
+  - integration: marker `not-required` + skipped tests log -> review stage stays non-degraded.
+  **Deps:** W94-3
+
+- [ ] **W94-5 (P1)** QA runner cwd resolution для multi-module Gradle
+  - обновить `tools/qa.py` (или runner внутри qa flow):
+    - для `backend/gradlew` и `backend-mcp/gradlew` запускать тесты с `cwd=<module_dir>` или `cd <module> && ./gradlew ...`;
+    - логировать `cwd` в QA report для каждого test command;
+    - fallback: при отсутствии root `./gradlew` искать `**/gradlew` и выдавать явный `BLOCKED` с подсказкой.
+  **AC:**
+  - QA test logs не содержат `command not found: ./gradlew` в multi-module проекте;
+  - QA report отражает корректный cwd/command.
+  **Regression/Tests:**
+  - unit: resolver для `gradlew` в subdirs;
+  - smoke: fixture без root-gradlew и с module-gradlew.
+  **Deps:** -
+
+- [ ] **W94-6 (P1)** write-safety: runtime-артефакты только в workspace
+  - централизовать root resolve для всех write-paths (workspace-first, plugin-root read-only);
+  - fail-fast, если write-path уходит вне workspace root;
+  - проверить инструменты на запись ticket-артефактов в plugin repo.
+  **AC:**
+  - `git status` в plugin repo чист после e2e/audit;
+  - попытка write вне workspace завершается понятной ошибкой.
+  **Regression/Tests:**
+  - integration: запуск tools с `cwd=plugin_dir` и `--root=<workspace>` пишет только в workspace.
+  **Deps:** W94-3
+
+- [ ] **W94-7 (P2)** language policy drift: синхронизировать SoT и frontmatter
+  - выбрать одно решение:
+    - A) обновить `docs/skill-language.md` (временное разрешение `lang: ru` для stage skills),
+    - B) перевести stage skills на `lang: en` и обновить frontmatter;
+  - синхронизировать policy checks / bundle guards.
+  **AC:**
+  - lint/policy checks не создают ложный drift noise;
+  - entrypoints/prompt metadata соответствуют выбранному SoT.
+  **Deps:** -
+
+- [ ] **W94-Order (рекомендованный порядок)** `backlog.md`
+  - P0: `W94-1` -> `W94-2` -> `W94-3`
+  - P1: `W94-5` -> `W94-4` -> `W94-6`
+  - P2: `W94-7`
+  **AC:** порядок отражён в release/work plan как fast path для green e2e.
+  **Deps:** W94-1, W94-2, W94-3, W94-5
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 

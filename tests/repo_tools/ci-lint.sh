@@ -173,6 +173,18 @@ run_skill_scripts_guard() {
   fi
 }
 
+run_schema_guards() {
+  if [[ ! -f "tests/repo_tools/schema-guards.sh" ]]; then
+    warn "tests/repo_tools/schema-guards.sh missing; skipping"
+    return
+  fi
+  log "running schema + contract guards"
+  if ! bash tests/repo_tools/schema-guards.sh; then
+    err "schema + contract guards failed"
+    STATUS=1
+  fi
+}
+
 run_shim_regression() {
   if [[ ! -f "tests/repo_tools/shim-regression.sh" ]]; then
     warn "tests/repo_tools/shim-regression.sh missing; skipping"
@@ -368,6 +380,7 @@ run_output_contract_regression
 run_claude_stream_renderer
 run_tool_result_id_check
 run_skill_scripts_guard
+run_schema_guards
 run_shim_regression
 run_repo_linters
 

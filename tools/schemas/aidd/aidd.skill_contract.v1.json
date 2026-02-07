@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.skill_contract.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.skill_contract.v1",
+  "title": "AIDD Skill Contract v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "skill_id",
+    "stage",
+    "entrypoints",
+    "reads",
+    "writes",
+    "outputs",
+    "gates",
+    "context_budget",
+    "actions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.skill_contract.v1"
+    },
+    "skill_id": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "entrypoints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "reads": {
+      "type": "object"
+    },
+    "writes": {
+      "type": "object"
+    },
+    "outputs": {
+      "type": "array"
+    },
+    "gates": {
+      "type": "object"
+    },
+    "context_budget": {
+      "type": "object"
+    },
+    "actions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

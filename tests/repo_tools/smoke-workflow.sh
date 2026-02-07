@@ -136,6 +136,16 @@ class App {
     fun run(): String = "ok"
 }
 KT
+cat <<'KT' >"$WORKDIR/src/main/kotlin/CheckoutService.kt"
+package demo
+
+class CheckoutService {
+    fun checkout(): String {
+        val app = App()
+        return app.run()
+    }
+}
+KT
 
 log "gate allows edits when feature inactive"
 assert_gate_exit 0 "no active feature"
@@ -229,40 +239,55 @@ from tools.rlm_config import (
 )
 
 project_root = Path.cwd().resolve()
-source_path = (project_root / "src/main/kotlin/App.kt").resolve()
-data = source_path.read_bytes()
 base_root = paths_base_for(project_root).resolve()
-try:
-    rel_path = source_path.relative_to(base_root)
-except ValueError:
-    rel_path = source_path
-rel_norm = rel_path.as_posix().lstrip("./")
 settings = load_rlm_settings(project_root)
 prompt_ver = prompt_version(settings)
-file_id = file_id_for_path(Path(rel_norm))
-rev_sha = rev_sha_for_bytes(data)
-lang = detect_lang(source_path)
-nodes = [
-    {
+
+def make_node(rel_source: str, *, summary: str, public_symbols: list[str], key_calls: list[str], type_refs: list[str]) -> dict:
+    source_path = (project_root / rel_source).resolve()
+    data = source_path.read_bytes()
+    try:
+        rel_path = source_path.relative_to(base_root)
+    except ValueError:
+        rel_path = source_path
+    rel_norm = rel_path.as_posix().lstrip("./")
+    file_id = file_id_for_path(Path(rel_norm))
+    return {
         "schema": "aidd.rlm_node.v2",
         "schema_version": "v2",
         "node_kind": "file",
         "file_id": file_id,
         "id": file_id,
         "path": rel_norm,
-        "rev_sha": rev_sha,
-        "lang": lang,
+        "rev_sha": rev_sha_for_bytes(data),
+        "lang": detect_lang(source_path),
         "prompt_version": prompt_ver,
-        "summary": "Smoke baseline node.",
-        "public_symbols": [],
-        "type_refs": [],
-        "key_calls": [],
+        "summary": summary,
+        "public_symbols": public_symbols,
+        "type_refs": type_refs,
+        "key_calls": key_calls,
         "framework_roles": ["service"],
         "test_hooks": [],
         "risks": [],
         "verification": "passed",
         "missing_tokens": [],
     }
+
+nodes = [
+    make_node(
+        "src/main/kotlin/App.kt",
+        summary="Smoke baseline node.",
+        public_symbols=["App"],
+        key_calls=[],
+        type_refs=[],
+    ),
+    make_node(
+        "src/main/kotlin/CheckoutService.kt",
+        summary="Smoke consumer node.",
+        public_symbols=["CheckoutService"],
+        key_calls=["App"],
+        type_refs=["App"],
+    ),
 ]
 nodes_path.write_text("\n".join(json.dumps(item) for item in nodes) + "\n", encoding="utf-8")
 PY
@@ -842,7 +867,16 @@ run_cli loop-pack --ticket "$TICKET" --stage implement >/dev/null
   exit 1
 }
 run_cli set-active-stage review >/dev/null
-run_cli loop-pack --ticket "$TICKET" --stage review >/dev/null
+python3 <<'PY'
+import json
+from pathlib import Path
+
+path = Path("docs/.active.json")
+payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+payload["work_item"] = "iteration_id=I1"
+path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
+run_cli loop-pack --ticket "$TICKET" --stage review --work-item "iteration_id=I1" >/dev/null
 
 log "create review report and derive handoff tasks"
 cat <<'JSON' >"reports/reviewer/${TICKET}-findings.json"
@@ -879,7 +913,7 @@ log "verify generated artifacts"
 
 log "reviewer requests automated tests"
 run_cli reviewer-tests --ticket "$TICKET" --status required >/dev/null
-[[ -f "$WORKDIR/reports/reviewer/${TICKET}/${TICKET}.tests.json" ]] || {
+[[ -f "$WORKDIR/reports/reviewer/${TICKET}/iteration_id_I1.tests.json" ]] || {
   echo "[smoke] reviewer marker was not created" >&2
   exit 1
 }

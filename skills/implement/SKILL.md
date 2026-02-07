@@ -53,11 +53,12 @@ agent: implementer
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Preflight reference: `skills/implement/scripts/preflight.sh`. Ensure active feature/stage, PRD gate, and loop pack are ready.
-2. Use the existing rolling context pack; do not regenerate it in loop mode.
-3. Run subagent `feature-dev-aidd:implementer` (fork). First action: loop pack -> review pack (if any) -> rolling context pack.
-4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json` from template and validate schema via `skills/implement/scripts/run.sh`.
-5. Postflight reference: `skills/implement/scripts/postflight.sh`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
+1. Preflight reference: `skills/implement/scripts/preflight.sh`. This step is mandatory and must produce `readmap/writemap`, actions template, and `stage.preflight.result.json`.
+2. Read order after preflight: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+3. Use the existing rolling context pack; do not regenerate it in loop mode.
+4. Run subagent `feature-dev-aidd:implementer` (fork).
+5. Fill actions.json (v1): create `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json` from template and validate schema via `skills/implement/scripts/run.sh` before postflight.
+6. Postflight reference: `skills/implement/scripts/postflight.sh`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
 
 ## Notes
 - Implement stage does not run tests; format-only is allowed.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate AIDD actions v0 payloads."""
+"""Validate AIDD actions payloads (v0 + v1)."""
 
 from __future__ import annotations
 
@@ -10,13 +10,17 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, List
 
+from tools import aidd_schemas
+
 try:
     from tools.tasklist_check import PROGRESS_KINDS, PROGRESS_SOURCES
 except Exception:  # pragma: no cover - allow standalone runs
     PROGRESS_SOURCES = {"implement", "review", "qa", "research", "normalize"}
     PROGRESS_KINDS = {"iteration", "handoff"}
 
-SCHEMA_VERSION = "aidd.actions.v0"
+SCHEMA_V0 = "aidd.actions.v0"
+SCHEMA_V1 = "aidd.actions.v1"
+SUPPORTED_SCHEMA_VERSIONS = tuple(sorted({SCHEMA_V0, SCHEMA_V1}))
 KNOWN_TYPES = {
     "tasklist_ops.set_iteration_done",
     "tasklist_ops.append_progress_log",
@@ -105,15 +109,35 @@ def _validate_context_pack_params(params: dict, errors: List[str], *, prefix: st
             errors.append(f"{prefix}{key} must be string")
 
 
-def validate_actions_data(payload: dict) -> List[str]:
-    errors: List[str] = []
-    if not isinstance(payload, dict):
-        return ["payload must be a JSON object"]
+def _validate_action_item(action: dict, errors: List[str], *, prefix: str, allowed_types: set[str]) -> None:
+    action_type = action.get("type")
+    if not action_type or not _is_str(action_type):
+        errors.append(f"{prefix}missing or invalid type")
+        return
+    if action_type not in KNOWN_TYPES:
+        errors.append(f"{prefix}unsupported type '{action_type}'")
+        return
+    if action_type not in allowed_types:
+        errors.append(f"{prefix}type '{action_type}' is not allowed by payload")
+        return
+    params = action.get("params", {})
+    if params is None:
+        params = {}
+    if not isinstance(params, dict):
+        errors.append(f"{prefix}params must be object")
+        return
+    if action_type == "tasklist_ops.set_iteration_done":
+        _validate_set_done_params(params, errors, prefix=prefix)
+    elif action_type == "tasklist_ops.append_progress_log":
+        _validate_progress_params(params, errors, prefix=prefix)
+    elif action_type == "tasklist_ops.next3_recompute":
+        if params:
+            errors.append(f"{prefix}params must be empty for next3_recompute")
+    elif action_type == "context_pack_ops.context_pack_update":
+        _validate_context_pack_params(params, errors, prefix=prefix)
 
-    schema_version = payload.get("schema_version")
-    if schema_version != SCHEMA_VERSION:
-        errors.append(f"schema_version must be '{SCHEMA_VERSION}'")
 
+def _validate_v0(payload: dict, errors: List[str]) -> None:
     for key in ("stage", "ticket", "scope_key", "work_item_key"):
         if key not in payload:
             errors.append(f"missing field: {key}")
@@ -123,36 +147,71 @@ def validate_actions_data(payload: dict) -> List[str]:
     actions = payload.get("actions")
     if actions is None:
         errors.append("missing field: actions")
-    elif not isinstance(actions, list):
+        return
+    if not isinstance(actions, list):
         errors.append("actions must be a list")
+        return
+
+    allowed_types = set(KNOWN_TYPES)
+    for idx, action in enumerate(actions):
+        prefix = f"actions[{idx}]: "
+        if not isinstance(action, dict):
+            errors.append(f"{prefix}action must be object")
+            continue
+        _validate_action_item(action, errors, prefix=prefix, allowed_types=allowed_types)
+
+
+def _validate_v1(payload: dict, errors: List[str]) -> None:
+    for key in ("stage", "ticket", "scope_key", "work_item_key"):
+        if key not in payload:
+            errors.append(f"missing field: {key}")
+        elif not _is_str(payload.get(key)):
+            errors.append(f"field {key} must be string")
+
+    allowed_action_types = payload.get("allowed_action_types")
+    if allowed_action_types is None:
+        errors.append("missing field: allowed_action_types")
+        allowed_types: set[str] = set()
+    elif not isinstance(allowed_action_types, list) or not all(_is_str(item) for item in allowed_action_types):
+        errors.append("allowed_action_types must be list[str]")
+        allowed_types = set()
     else:
-        for idx, action in enumerate(actions):
-            prefix = f"actions[{idx}]: "
-            if not isinstance(action, dict):
-                errors.append(f"{prefix}action must be object")
-                continue
-            action_type = action.get("type")
-            if not action_type or not _is_str(action_type):
-                errors.append(f"{prefix}missing or invalid type")
-                continue
-            if action_type not in KNOWN_TYPES:
-                errors.append(f"{prefix}unsupported type '{action_type}'")
-                continue
-            params = action.get("params", {})
-            if params is None:
-                params = {}
-            if not isinstance(params, dict):
-                errors.append(f"{prefix}params must be object")
-                continue
-            if action_type == "tasklist_ops.set_iteration_done":
-                _validate_set_done_params(params, errors, prefix=prefix)
-            elif action_type == "tasklist_ops.append_progress_log":
-                _validate_progress_params(params, errors, prefix=prefix)
-            elif action_type == "tasklist_ops.next3_recompute":
-                if params:
-                    errors.append(f"{prefix}params must be empty for next3_recompute")
-            elif action_type == "context_pack_ops.context_pack_update":
-                _validate_context_pack_params(params, errors, prefix=prefix)
+        allowed_types = {str(item) for item in allowed_action_types}
+        unknown = sorted(item for item in allowed_types if item not in KNOWN_TYPES)
+        if unknown:
+            errors.append(f"allowed_action_types contains unsupported values: {', '.join(unknown)}")
+
+    actions = payload.get("actions")
+    if actions is None:
+        errors.append("missing field: actions")
+        return
+    if not isinstance(actions, list):
+        errors.append("actions must be a list")
+        return
+
+    for idx, action in enumerate(actions):
+        prefix = f"actions[{idx}]: "
+        if not isinstance(action, dict):
+            errors.append(f"{prefix}action must be object")
+            continue
+        _validate_action_item(action, errors, prefix=prefix, allowed_types=allowed_types)
+
+
+def validate_actions_data(payload: dict) -> List[str]:
+    errors: List[str] = []
+    if not isinstance(payload, dict):
+        return ["payload must be a JSON object"]
+
+    schema_version = payload.get("schema_version")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        values = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+        errors.append(f"schema_version must be one of: {values}")
+        return errors
+
+    if schema_version == SCHEMA_V0:
+        _validate_v0(payload, errors)
+    elif schema_version == SCHEMA_V1:
+        _validate_v1(payload, errors)
 
     return errors
 
@@ -170,14 +229,28 @@ def load_actions(path: Path) -> dict:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate AIDD actions v0 payload.")
-    parser.add_argument("--actions", required=True, help="Path to actions.json file")
+    parser = argparse.ArgumentParser(description="Validate AIDD actions payload (v0 + v1).")
+    parser.add_argument("--actions", help="Path to actions.json file")
     parser.add_argument("--quiet", action="store_true", help="Suppress OK output")
+    parser.add_argument(
+        "--print-supported-versions",
+        action="store_true",
+        help="Print supported schema versions and exit.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.print_supported_versions:
+        values = ",".join(aidd_schemas.supported_schema_versions("aidd.actions.v"))
+        print(values)
+        return 0
+
+    if not args.actions:
+        print("[actions-validate] ERROR: --actions is required unless --print-supported-versions is used", file=sys.stderr)
+        return 2
+
     path = Path(args.actions)
     try:
         payload = load_actions(path)
@@ -192,7 +265,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if not args.quiet:
-        print(f"[actions-validate] OK: {path}")
+        schema_version = str(payload.get("schema_version") or "")
+        print(f"[actions-validate] OK: {path} ({schema_version})")
     return 0
 
 
