@@ -31,18 +31,22 @@ jobs:
 
       - name: Bootstrap AIDD workspace for QA gate
         run: |
+          QA_WORKSPACE="$(mktemp -d)"
+          echo "QA_WORKSPACE=${QA_WORKSPACE}" >> "${GITHUB_ENV}"
+          cd "${QA_WORKSPACE}"
           CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}" \
-            tools/init.sh
+            "${GITHUB_WORKSPACE}/tools/init.sh"
 
       - name: Run QA gate
         run: |
+          cd "${QA_WORKSPACE}"
           if [[ -n "${GITHUB_BASE_REF}" ]]; then
             export QA_AGENT_DIFF_BASE="${GITHUB_BASE_REF}"
           else
             unset QA_AGENT_DIFF_BASE
           fi
           export CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}"
-          hooks/gate-qa.sh --payload '{}'
+          "${GITHUB_WORKSPACE}/hooks/gate-qa.sh" --payload '{}'
 
   smoke-workflow:
     runs-on: ubuntu-latest
