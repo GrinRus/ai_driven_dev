@@ -592,7 +592,6 @@ echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
     def test_loop_step_recovers_scope_from_stage_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="implement")
             write_active_state(root, work_item="iteration_id=I2")
             implement_result = {
                 "schema": "aidd.stage_result.v1",
@@ -638,6 +637,74 @@ echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("scope_key"), "iteration_id_I4")
             self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
+
+    def test_loop_step_realigns_actions_log_scope_on_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            fake_plugin = Path(tmpdir) / "plugin"
+            (fake_plugin / "skills" / "aidd-core").mkdir(parents=True, exist_ok=True)
+            (fake_plugin / "skills" / "implement" / "scripts").mkdir(parents=True, exist_ok=True)
+            (fake_plugin / "tools").mkdir(parents=True, exist_ok=True)
+            (fake_plugin / "skills" / "aidd-core" / "SKILL.md").write_text("name: aidd-core\n", encoding="utf-8")
+            (fake_plugin / "skills" / "implement" / "SKILL.md").write_text("name: implement\n", encoding="utf-8")
+
+            for kind in ("preflight", "run", "postflight"):
+                script = fake_plugin / "skills" / "implement" / "scripts" / f"{kind}.sh"
+                script.write_text(
+                    """#!/usr/bin/env bash
+set -euo pipefail
+ticket=""; scope=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --ticket) ticket="$2"; shift 2 ;;
+    --scope-key) scope="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+mkdir -p "aidd/reports/actions/$ticket/$scope"
+echo '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I2","allowed_action_types":[],"actions":[]}' > "aidd/reports/actions/$ticket/$scope/implement.actions.json"
+echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
+""",
+                    encoding="utf-8",
+                )
+                script.chmod(0o755)
+
+            write_active_state(root, work_item="iteration_id=I2")
+            implement_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-ACTIONS-MISMATCH",
+                "stage": "implement",
+                "scope_key": "iteration_id_I4",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-ACTIONS-MISMATCH/iteration_id_I4/stage.implement.result.json",
+                json.dumps(implement_result),
+            )
+            write_file(
+                root,
+                "reports/actions/DEMO-ACTIONS-MISMATCH/iteration_id_I4/implement.actions.json",
+                '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"DEMO-ACTIONS-MISMATCH","scope_key":"iteration_id_I4","work_item_key":"iteration_id=I4","allowed_action_types":[],"actions":[]}',
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-ACTIONS-MISMATCH",
+                log_path,
+                {"AIDD_STAGE_WRAPPERS_ROOT": str(fake_plugin), "AIDD_FORCE_STAGE_WRAPPERS": "1"},
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I4")
+            self.assertEqual(payload.get("scope_key_mismatch_warn"), "1")
+            self.assertEqual(
+                payload.get("actions_log_path"),
+                "aidd/reports/actions/DEMO-ACTIONS-MISMATCH/iteration_id_I4/implement.actions.json",
+            )
 
 
 if __name__ == "__main__":

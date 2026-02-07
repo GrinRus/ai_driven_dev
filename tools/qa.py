@@ -314,7 +314,12 @@ def _command_execution_plans(
         if not wrapper_path.is_absolute():
             wrapper_path = (workspace_root / wrapper_path).resolve()
         if wrapper_path.exists():
-            display = f"{wrapper_path.parent.relative_to(workspace_root).as_posix()}/gradlew {' '.join(command_tail)}".strip()
+            try:
+                rel_parent = wrapper_path.parent.relative_to(workspace_root).as_posix()
+                display_head = f"{rel_parent}/gradlew" if rel_parent else "./gradlew"
+            except ValueError:
+                display_head = wrapper_path.as_posix()
+            display = f"{display_head} {' '.join(command_tail)}".strip()
             return [(["./gradlew", *command_tail], wrapper_path.parent, display)]
         return [(command, target_root, " ".join(command))]
 

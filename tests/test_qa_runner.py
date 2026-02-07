@@ -92,6 +92,32 @@ class QaRunnerTests(unittest.TestCase):
             self.assertEqual(executed[0].get("status"), "pass")
             self.assertEqual(executed[0].get("cwd"), "aidd")
 
+    def test_absolute_gradlew_outside_workspace_uses_fallback_display(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-runner-") as tmpdir, tempfile.TemporaryDirectory(prefix="qa-ext-") as extdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            report_path = target / "reports" / "qa" / "DEMO-QA4.json"
+            external_gradlew = Path(extdir) / "gradlew"
+            external_gradlew.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            external_gradlew.chmod(0o755)
+
+            executed, summary = qa_module._run_qa_tests(
+                target,
+                workspace,
+                ticket="DEMO-QA4",
+                slug_hint="DEMO-QA4",
+                branch=None,
+                report_path=report_path,
+                allow_missing=True,
+                commands_override=[[str(external_gradlew), "test"]],
+                allow_skip_override=True,
+            )
+
+            self.assertEqual(summary, "pass")
+            self.assertEqual(len(executed), 1)
+            self.assertEqual(executed[0].get("status"), "pass")
+            self.assertTrue(str(executed[0].get("command") or "").startswith(str(external_gradlew)))
+
 
 if __name__ == "__main__":
     unittest.main()

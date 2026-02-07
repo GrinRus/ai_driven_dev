@@ -699,6 +699,34 @@ def run_stage_wrapper(
     return True, parsed, ""
 
 
+def _canonical_actions_log_rel(ticket: str, scope_key: str, stage: str) -> str:
+    return f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json"
+
+
+def _align_actions_log_scope(
+    *,
+    actions_log_rel: str,
+    ticket: str,
+    stage: str,
+    mismatch_from: str,
+    mismatch_to: str,
+    target: Path,
+) -> str:
+    if not mismatch_to or stage not in {"implement", "review", "qa"}:
+        return actions_log_rel
+    canonical_rel = _canonical_actions_log_rel(ticket, mismatch_to, stage)
+    if actions_log_rel and f"/{mismatch_to}/" in actions_log_rel:
+        return actions_log_rel
+    canonical_path = runtime.resolve_path_for_target(Path(canonical_rel), target)
+    if canonical_path.exists():
+        return runtime.rel_path(canonical_path, target)
+    if not actions_log_rel:
+        return canonical_rel
+    if mismatch_from and f"/{mismatch_from}/" in actions_log_rel:
+        return canonical_rel
+    return canonical_rel
+
+
 def build_command(stage: str, ticket: str) -> List[str]:
     command = f"/feature-dev-aidd:{stage} {ticket}"
     return ["-p", command]
@@ -1463,6 +1491,21 @@ def main(argv: list[str] | None = None) -> int:
         scope_key_mismatch_from = mismatch_from
         scope_key_mismatch_to = mismatch_to
         next_scope_key = mismatch_to
+        aligned_actions_log_rel = _align_actions_log_scope(
+            actions_log_rel=actions_log_rel,
+            ticket=ticket,
+            stage=next_stage,
+            mismatch_from=mismatch_from,
+            mismatch_to=mismatch_to,
+            target=target,
+        )
+        if aligned_actions_log_rel != actions_log_rel:
+            print(
+                "[loop-step] WARN: actions_log_scope_realigned "
+                f"from={actions_log_rel or 'n/a'} to={aligned_actions_log_rel}",
+                file=sys.stderr,
+            )
+            actions_log_rel = aligned_actions_log_rel
         print(
             f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
             file=sys.stderr,
