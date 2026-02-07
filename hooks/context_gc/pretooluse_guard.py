@@ -328,8 +328,13 @@ def _policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any
         return {}
 
     base = root / "reports" / "actions" / ticket / scope_key
-    readmap_path = base / "readmap.json"
-    writemap_path = base / "writemap.json"
+    context_base = root / "reports" / "context" / ticket
+    readmap_path = context_base / f"{scope_key}.readmap.json"
+    writemap_path = context_base / f"{scope_key}.writemap.json"
+    if not readmap_path.exists():
+        readmap_path = base / "readmap.json"
+    if not writemap_path.exists():
+        writemap_path = base / "writemap.json"
     loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
 
     readmap = _load_json_map(readmap_path)

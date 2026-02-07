@@ -76,6 +76,8 @@ def resolve_stage_scope(root: Path, ticket: str, stage: str) -> Tuple[str, str]:
         work_item_key = runtime.read_active_work_item(root)
         if not work_item_key:
             return "", ""
+        if not runtime.is_valid_work_item_key(work_item_key):
+            return work_item_key, ""
         return work_item_key, runtime.resolve_scope_key(work_item_key, ticket)
     return "", runtime.resolve_scope_key("", ticket)
 
@@ -84,25 +86,106 @@ def stage_result_path(root: Path, ticket: str, scope_key: str, stage: str) -> Pa
     return root / "reports" / "loops" / ticket / scope_key / f"stage.{stage}.result.json"
 
 
-def load_stage_result(root: Path, ticket: str, scope_key: str, stage: str) -> Tuple[Dict[str, object] | None, Path, str]:
-    path = stage_result_path(root, ticket, scope_key, stage)
+def _parse_stage_result(path: Path, stage: str) -> Tuple[Dict[str, object] | None, str]:
     if not path.exists():
-        return None, path, "stage_result_missing_or_invalid"
+        return None, "missing"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return None, path, "stage_result_missing_or_invalid"
+        return None, "invalid-json"
     if str(payload.get("schema") or "") != "aidd.stage_result.v1":
-        return None, path, "stage_result_missing_or_invalid"
+        return None, "invalid-schema"
     if str(payload.get("stage") or "").strip().lower() != stage:
-        return None, path, "stage_result_missing_or_invalid"
+        return None, "wrong-stage"
     result = str(payload.get("result") or "").strip().lower()
     if result not in {"blocked", "continue", "done"}:
-        return None, path, "stage_result_missing_or_invalid"
+        return None, "invalid-result"
     work_item_key = str(payload.get("work_item_key") or "").strip()
     if work_item_key and not runtime.is_valid_work_item_key(work_item_key):
-        return None, path, "stage_result_invalid_work_item"
-    return payload, path, ""
+        return None, "invalid-work-item"
+    return payload, ""
+
+
+def _collect_stage_result_candidates(root: Path, ticket: str, stage: str) -> List[Path]:
+    base = root / "reports" / "loops" / ticket
+    if not base.exists():
+        return []
+    return sorted(
+        base.rglob(f"stage.{stage}.result.json"),
+        key=lambda candidate: candidate.stat().st_mtime if candidate.exists() else 0.0,
+        reverse=True,
+    )
+
+
+def _in_window(path: Path, *, started_at: float | None, finished_at: float | None, tolerance_seconds: float = 5.0) -> bool:
+    if started_at is None or finished_at is None:
+        return True
+    if not path.exists():
+        return False
+    mtime = path.stat().st_mtime
+    return (started_at - tolerance_seconds) <= mtime <= (finished_at + tolerance_seconds)
+
+
+def _stage_result_diagnostics(candidates: List[Tuple[Path, str]]) -> str:
+    if not candidates:
+        return "candidates=none"
+    parts: List[str] = []
+    for path, status in candidates[:5]:
+        timestamp = "n/a"
+        if path.exists():
+            timestamp = dt.datetime.fromtimestamp(path.stat().st_mtime, tz=dt.timezone.utc).isoformat()
+        parts.append(f"{path.as_posix()}:{status}@{timestamp}")
+    return "candidates=" + ", ".join(parts)
+
+
+def load_stage_result(
+    root: Path,
+    ticket: str,
+    scope_key: str,
+    stage: str,
+    *,
+    started_at: float | None = None,
+    finished_at: float | None = None,
+) -> Tuple[Dict[str, object] | None, Path, str, str, str, str]:
+    preferred_path = stage_result_path(root, ticket, scope_key, stage)
+    preferred_payload, preferred_error = _parse_stage_result(preferred_path, stage)
+    if preferred_payload is not None:
+        return preferred_payload, preferred_path, "", "", "", ""
+
+    validated: List[Tuple[Path, Dict[str, object]]] = []
+    diagnostics: List[Tuple[Path, str]] = [(preferred_path, preferred_error)]
+    for candidate in _collect_stage_result_candidates(root, ticket, stage):
+        if candidate == preferred_path:
+            continue
+        payload, status = _parse_stage_result(candidate, stage)
+        diagnostics.append((candidate, status))
+        if payload is None:
+            continue
+        validated.append((candidate, payload))
+
+    fresh = [
+        (path, payload)
+        for path, payload in validated
+        if _in_window(path, started_at=started_at, finished_at=finished_at)
+    ]
+    selected_pool = fresh or validated
+    if not selected_pool:
+        return (
+            None,
+            preferred_path,
+            "stage_result_missing_or_invalid",
+            "",
+            "",
+            _stage_result_diagnostics(diagnostics),
+        )
+
+    selected_path, selected_payload = selected_pool[0]
+    selected_scope = str(selected_payload.get("scope_key") or "").strip() or selected_path.parent.name
+    mismatch_from = scope_key or ""
+    mismatch_to = ""
+    if scope_key and selected_scope and selected_scope != scope_key:
+        mismatch_to = selected_scope
+    return selected_payload, selected_path, "", mismatch_from, mismatch_to, _stage_result_diagnostics(diagnostics)
 
 
 def normalize_stage_result(result: str, reason_code: str) -> str:
@@ -508,6 +591,114 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
     return tokens, raw, "; ".join(notices)
 
 
+def is_skill_first(plugin_root: Path) -> bool:
+    core = plugin_root / "skills" / "aidd-core" / "SKILL.md"
+    if not core.exists():
+        return False
+    for stage in ("implement", "review", "qa"):
+        if (plugin_root / "skills" / stage / "SKILL.md").exists():
+            return True
+    return False
+
+
+def resolve_wrapper_plugin_root(plugin_root: Path) -> Path:
+    for env_name in ("AIDD_STAGE_WRAPPERS_ROOT", "AIDD_WRAPPER_PLUGIN_ROOT"):
+        raw = os.environ.get(env_name, "").strip()
+        if not raw:
+            continue
+        candidate = Path(raw).expanduser().resolve()
+        if (candidate / "skills").exists():
+            return candidate
+        print(
+            f"[loop-step] WARN: {env_name}={candidate} has no skills/; using {plugin_root}",
+            file=sys.stderr,
+        )
+    return plugin_root
+
+
+def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
+    if stage not in {"implement", "review", "qa"}:
+        return False
+    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1":
+        return False
+    if not is_skill_first(plugin_root):
+        return False
+    if os.environ.get("AIDD_FORCE_STAGE_WRAPPERS", "").strip() == "1":
+        return True
+    raw = (runner_raw or "").strip()
+    if not raw:
+        return True
+    tokens = shlex.split(raw)
+    if not tokens:
+        return True
+    return Path(tokens[0]).name == "claude"
+
+
+def _parse_wrapper_output(stdout: str) -> Dict[str, str]:
+    payload: Dict[str, str] = {}
+    for raw in stdout.splitlines():
+        line = raw.strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            continue
+        payload[key] = value
+    return payload
+
+
+def run_stage_wrapper(
+    *,
+    plugin_root: Path,
+    workspace_root: Path,
+    stage: str,
+    kind: str,
+    ticket: str,
+    scope_key: str,
+    work_item_key: str,
+    actions_path: str = "",
+    result: str = "",
+    verdict: str = "",
+) -> Tuple[bool, Dict[str, str], str]:
+    script = plugin_root / "skills" / stage / "scripts" / f"{kind}.sh"
+    if not script.exists():
+        return False, {}, f"wrapper script missing: {script}"
+    cmd = [
+        str(script),
+        "--ticket",
+        ticket,
+        "--scope-key",
+        scope_key,
+        "--work-item-key",
+        work_item_key,
+        "--stage",
+        stage,
+    ]
+    if actions_path:
+        cmd.extend(["--actions", actions_path])
+    if kind == "postflight" and result:
+        cmd.extend(["--result", result])
+    if kind == "postflight" and verdict:
+        cmd.extend(["--verdict", verdict])
+    proc = subprocess.run(
+        cmd,
+        cwd=workspace_root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    parsed = _parse_wrapper_output(proc.stdout or "")
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        stdout = (proc.stdout or "").strip()
+        details = stderr or stdout or f"exit={proc.returncode}"
+        return False, parsed, f"{kind} wrapper failed: {details}"
+    return True, parsed, ""
+
+
 def build_command(stage: str, ticket: str) -> List[str]:
     command = f"/feature-dev-aidd:{stage} {ticket}"
     return ["-p", command]
@@ -671,6 +862,7 @@ def main(argv: list[str] | None = None) -> int:
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
     plugin_root = runtime.require_plugin_root()
+    wrapper_plugin_root = resolve_wrapper_plugin_root(plugin_root)
 
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.log"
@@ -684,6 +876,10 @@ def main(argv: list[str] | None = None) -> int:
     stage_result_rel = ""
     repair_reason_code = ""
     repair_scope_key = ""
+    scope_key_mismatch_warn = ""
+    scope_key_mismatch_from = ""
+    scope_key_mismatch_to = ""
+    stage_result_diag = ""
 
     if from_qa_requested and stage != "qa":
         reason = f"qa repair requested but active stage is '{stage or 'unset'}'"
@@ -704,23 +900,57 @@ def main(argv: list[str] | None = None) -> int:
         next_stage = "implement"
     else:
         work_item_key, scope_key = resolve_stage_scope(target, ticket, stage)
-        if stage in {"implement", "review"} and not scope_key:
-            reason = "active work item missing"
-            reason_code = "stage_result_missing_or_invalid"
-            return emit_result(
-                args.format,
-                ticket,
-                stage,
-                "blocked",
-                BLOCKED_CODE,
-                "",
-                reason,
-                reason_code,
-                cli_log_path=cli_log_path,
-            )
-        payload, result_path, error = load_stage_result(target, ticket, scope_key, stage)
+        if stage in {"implement", "review"}:
+            if not work_item_key:
+                reason = "active work item missing"
+                reason_code = "stage_result_missing_or_invalid"
+                return emit_result(
+                    args.format,
+                    ticket,
+                    stage,
+                    "blocked",
+                    BLOCKED_CODE,
+                    "",
+                    reason,
+                    reason_code,
+                    cli_log_path=cli_log_path,
+                )
+            if not runtime.is_valid_work_item_key(work_item_key):
+                reason = f"invalid active work item key: {work_item_key}"
+                reason_code = "invalid_work_item_key"
+                return emit_result(
+                    args.format,
+                    ticket,
+                    stage,
+                    "blocked",
+                    BLOCKED_CODE,
+                    "",
+                    reason,
+                    reason_code,
+                    cli_log_path=cli_log_path,
+                )
+            if not runtime.is_iteration_work_item_key(work_item_key):
+                reason = (
+                    f"invalid active work item key for loop stage: {work_item_key}; "
+                    "expected iteration_id=<id>. Update tasklist/active work item."
+                )
+                reason_code = "invalid_work_item_key"
+                return emit_result(
+                    args.format,
+                    ticket,
+                    stage,
+                    "blocked",
+                    BLOCKED_CODE,
+                    "",
+                    reason,
+                    reason_code,
+                    cli_log_path=cli_log_path,
+                )
+        payload, result_path, error, mismatch_from, mismatch_to, diag = load_stage_result(
+            target, ticket, scope_key, stage
+        )
         if error:
-            reason = error
+            reason = f"{error}; {diag}" if diag else error
             reason_code = error
             return emit_result(
                 args.format,
@@ -732,8 +962,18 @@ def main(argv: list[str] | None = None) -> int:
                 reason,
                 reason_code,
                 scope_key=scope_key,
+                stage_result_diag=diag,
                 cli_log_path=cli_log_path,
             )
+        if mismatch_to:
+            scope_key_mismatch_warn = "1"
+            scope_key_mismatch_from = mismatch_from
+            scope_key_mismatch_to = mismatch_to
+            print(
+                f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
+                file=sys.stderr,
+            )
+            scope_key = mismatch_to
         result = str(payload.get("result") or "").strip().lower()
         reason = str(payload.get("reason") or "").strip()
         reason_code = str(payload.get("reason_code") or "").strip().lower()
@@ -1004,6 +1244,41 @@ def main(argv: list[str] | None = None) -> int:
             cli_log_path=cli_log_path,
         )
     runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner, plugin_root)
+    wrapper_enabled = should_run_wrappers(next_stage, runner_raw, wrapper_plugin_root)
+    wrapper_logs: List[str] = []
+    actions_log_rel = ""
+    wrapper_scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
+    wrapper_work_item_key = runtime.read_active_work_item(target)
+    if next_stage == "qa":
+        wrapper_scope_key = runtime.resolve_scope_key("", ticket)
+        wrapper_work_item_key = wrapper_work_item_key or ""
+    if wrapper_enabled:
+        ok_wrapper, preflight_payload, wrapper_error = run_stage_wrapper(
+            plugin_root=wrapper_plugin_root,
+            workspace_root=workspace_root,
+            stage=next_stage,
+            kind="preflight",
+            ticket=ticket,
+            scope_key=wrapper_scope_key,
+            work_item_key=wrapper_work_item_key,
+        )
+        if not ok_wrapper:
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                wrapper_error,
+                "preflight_missing",
+                scope_key=wrapper_scope_key,
+                cli_log_path=cli_log_path,
+            )
+        if preflight_payload.get("log_path"):
+            wrapper_logs.append(preflight_payload["log_path"])
+        actions_log_rel = preflight_payload.get("actions_path", actions_log_rel)
+
     command = list(runner_tokens)
     if stream_mode:
         command.extend(["--output-format", "stream-json", "--include-partial-messages", "--verbose"])
@@ -1014,6 +1289,7 @@ def main(argv: list[str] | None = None) -> int:
 
     stream_log_rel = ""
     stream_jsonl_rel = ""
+    run_started_at = dt.datetime.now(dt.timezone.utc).timestamp()
     if stream_mode:
         stream_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.stream.log"
         stream_jsonl_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.stream.jsonl"
@@ -1037,6 +1313,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         returncode = run_command(command, workspace_root, log_path)
+    run_finished_at = dt.datetime.now(dt.timezone.utc).timestamp()
     if returncode != 0:
         status = "error"
         code = ERROR_CODE
@@ -1063,8 +1340,11 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     next_work_item_key, next_scope_key = resolve_stage_scope(target, ticket, next_stage)
-    if next_stage in {"implement", "review"} and not next_scope_key:
-        reason = "stage_result_missing_or_invalid"
+    if next_stage in {"implement", "review"} and next_work_item_key and not runtime.is_iteration_work_item_key(next_work_item_key):
+        reason = (
+            f"invalid active work item key for loop stage: {next_work_item_key}; "
+            "expected iteration_id=<id>. Update tasklist/active work item."
+        )
         return emit_result(
             args.format,
             ticket,
@@ -1073,7 +1353,7 @@ def main(argv: list[str] | None = None) -> int:
             BLOCKED_CODE,
             log_path,
             reason,
-            "stage_result_missing_or_invalid",
+            "invalid_work_item_key",
             runner=runner_raw,
             runner_effective=runner_effective,
             runner_notice=runner_notice,
@@ -1083,7 +1363,111 @@ def main(argv: list[str] | None = None) -> int:
             stream_jsonl_path=stream_jsonl_rel,
             cli_log_path=cli_log_path,
         )
-    payload, result_path, error = load_stage_result(target, ticket, next_scope_key, next_stage)
+
+    if wrapper_enabled:
+        ok_wrapper, run_payload, wrapper_error = run_stage_wrapper(
+            plugin_root=wrapper_plugin_root,
+            workspace_root=workspace_root,
+            stage=next_stage,
+            kind="run",
+            ticket=ticket,
+            scope_key=wrapper_scope_key,
+            work_item_key=wrapper_work_item_key,
+            actions_path=actions_log_rel,
+        )
+        if not ok_wrapper:
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                log_path,
+                wrapper_error,
+                "actions_missing",
+                scope_key=wrapper_scope_key,
+                runner=runner_raw,
+                runner_effective=runner_effective,
+                runner_notice=runner_notice,
+                repair_reason_code=repair_reason_code,
+                repair_scope_key=repair_scope_key,
+                stream_log_path=stream_log_rel,
+                stream_jsonl_path=stream_jsonl_rel,
+                cli_log_path=cli_log_path,
+            )
+        if run_payload.get("log_path"):
+            wrapper_logs.append(run_payload["log_path"])
+        actions_log_rel = run_payload.get("actions_path", actions_log_rel)
+
+    payload, result_path, error, mismatch_from, mismatch_to, diag = load_stage_result(
+        target,
+        ticket,
+        next_scope_key,
+        next_stage,
+        started_at=run_started_at,
+        finished_at=run_finished_at,
+    )
+    preliminary_result = str(payload.get("result") or "").strip().lower() if payload else "continue"
+    preliminary_verdict = str(payload.get("verdict") or "").strip().upper() if payload else ""
+
+    if wrapper_enabled:
+        ok_wrapper, post_payload, wrapper_error = run_stage_wrapper(
+            plugin_root=wrapper_plugin_root,
+            workspace_root=workspace_root,
+            stage=next_stage,
+            kind="postflight",
+            ticket=ticket,
+            scope_key=wrapper_scope_key,
+            work_item_key=wrapper_work_item_key,
+            actions_path=actions_log_rel,
+            result=preliminary_result or "continue",
+            verdict=preliminary_verdict,
+        )
+        if not ok_wrapper:
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                log_path,
+                wrapper_error,
+                "postflight_missing",
+                scope_key=wrapper_scope_key,
+                runner=runner_raw,
+                runner_effective=runner_effective,
+                runner_notice=runner_notice,
+                repair_reason_code=repair_reason_code,
+                repair_scope_key=repair_scope_key,
+                stream_log_path=stream_log_rel,
+                stream_jsonl_path=stream_jsonl_rel,
+                cli_log_path=cli_log_path,
+            )
+        if post_payload.get("log_path"):
+            wrapper_logs.append(post_payload["log_path"])
+        if post_payload.get("apply_log"):
+            wrapper_logs.append(post_payload["apply_log"])
+        actions_log_rel = post_payload.get("actions_path", actions_log_rel)
+        run_finished_at = dt.datetime.now(dt.timezone.utc).timestamp()
+        payload, result_path, error, mismatch_from, mismatch_to, diag = load_stage_result(
+            target,
+            ticket,
+            next_scope_key,
+            next_stage,
+            started_at=run_started_at,
+            finished_at=run_finished_at,
+        )
+
+    if mismatch_to:
+        scope_key_mismatch_warn = "1"
+        scope_key_mismatch_from = mismatch_from
+        scope_key_mismatch_to = mismatch_to
+        next_scope_key = mismatch_to
+        print(
+            f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
+            file=sys.stderr,
+        )
+
     if error:
         return emit_result(
             args.format,
@@ -1092,7 +1476,7 @@ def main(argv: list[str] | None = None) -> int:
             "blocked",
             BLOCKED_CODE,
             log_path,
-            error,
+            f"{error}; {diag}" if diag else error,
             error,
             scope_key=next_scope_key,
             stage_result_path=runtime.rel_path(result_path, target),
@@ -1103,12 +1487,29 @@ def main(argv: list[str] | None = None) -> int:
             repair_scope_key=repair_scope_key,
             stream_log_path=stream_log_rel,
             stream_jsonl_path=stream_jsonl_rel,
+            stage_result_diag=diag,
+            scope_key_mismatch_warn=scope_key_mismatch_warn,
+            scope_key_mismatch_from=scope_key_mismatch_from,
+            scope_key_mismatch_to=scope_key_mismatch_to,
             cli_log_path=cli_log_path,
         )
+    next_scope_key = str(payload.get("scope_key") or next_scope_key or "").strip() or next_scope_key
+    next_work_item_key = str(payload.get("work_item_key") or next_work_item_key or "").strip() or next_work_item_key
     result = str(payload.get("result") or "").strip().lower()
     reason = str(payload.get("reason") or "").strip()
     reason_code = str(payload.get("reason_code") or "").strip().lower()
     result = normalize_stage_result(result, reason_code)
+    evidence_links = payload.get("evidence_links") if isinstance(payload, dict) else {}
+    tests_log_path = ""
+    if isinstance(evidence_links, dict):
+        tests_log_path = str(evidence_links.get("tests_log") or "").strip()
+    if not actions_log_rel and next_stage in {"implement", "review", "qa"}:
+        default_actions = target / "reports" / "actions" / ticket / next_scope_key / f"{next_stage}.actions.json"
+        if default_actions.exists():
+            actions_log_rel = runtime.rel_path(default_actions, target)
+    if next_stage in {"implement", "review", "qa"} and actions_log_rel:
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"\nAIDD:ACTIONS_LOG: {actions_log_rel}\n")
     if next_stage == "review" and result in {"continue", "done"}:
         ok, message, code = validate_review_pack(
             target,
@@ -1135,6 +1536,12 @@ def main(argv: list[str] | None = None) -> int:
                 repair_scope_key=repair_scope_key,
                 stream_log_path=stream_log_rel,
                 stream_jsonl_path=stream_jsonl_rel,
+                scope_key_mismatch_warn=scope_key_mismatch_warn,
+                scope_key_mismatch_from=scope_key_mismatch_from,
+                scope_key_mismatch_to=scope_key_mismatch_to,
+                actions_log_path=actions_log_rel,
+                tests_log_path=tests_log_path,
+                wrapper_logs=wrapper_logs,
                 cli_log_path=cli_log_path,
             )
     output_contract_path = ""
@@ -1180,6 +1587,12 @@ def main(argv: list[str] | None = None) -> int:
         repair_scope_key=repair_scope_key,
         stream_log_path=stream_log_rel,
         stream_jsonl_path=stream_jsonl_rel,
+        scope_key_mismatch_warn=scope_key_mismatch_warn,
+        scope_key_mismatch_from=scope_key_mismatch_from,
+        scope_key_mismatch_to=scope_key_mismatch_to,
+        actions_log_path=actions_log_rel,
+        tests_log_path=tests_log_path,
+        wrapper_logs=wrapper_logs,
         cli_log_path=cli_log_path,
         output_contract_path=output_contract_path,
         output_contract_status=output_contract_status,
@@ -1208,6 +1621,13 @@ def emit_result(
     cli_log_path: Path | None = None,
     output_contract_path: str = "",
     output_contract_status: str = "",
+    scope_key_mismatch_warn: str = "",
+    scope_key_mismatch_from: str = "",
+    scope_key_mismatch_to: str = "",
+    stage_result_diag: str = "",
+    actions_log_path: str = "",
+    tests_log_path: str = "",
+    wrapper_logs: List[str] | None = None,
 ) -> int:
     log_value = str(log_path) if log_path else ""
     payload = {
@@ -1227,6 +1647,13 @@ def emit_result(
         "stream_jsonl_path": stream_jsonl_path,
         "output_contract_path": output_contract_path,
         "output_contract_status": output_contract_status,
+        "scope_key_mismatch_warn": scope_key_mismatch_warn,
+        "scope_key_mismatch_from": scope_key_mismatch_from,
+        "scope_key_mismatch_to": scope_key_mismatch_to,
+        "stage_result_diagnostics": stage_result_diag,
+        "actions_log_path": actions_log_path,
+        "tests_log_path": tests_log_path,
+        "wrapper_logs": wrapper_logs or [],
         "updated_at": utc_timestamp(),
         "reason": reason,
         "reason_code": reason_code,

@@ -83,6 +83,13 @@ main() {
     "${CLAUDE_PLUGIN_ROOT}/tools/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
   } >>"$LOG_PATH" 2>&1
 
+  mkdir -p "$(dirname "$AIDD_READMAP_JSON_LEGACY")" "$(dirname "$AIDD_WRITEMAP_JSON_LEGACY")" "$(dirname "$AIDD_PREFLIGHT_RESULT_LEGACY")"
+  cp "$AIDD_READMAP_JSON" "$AIDD_READMAP_JSON_LEGACY"
+  cp "$AIDD_READMAP_MD" "$AIDD_READMAP_MD_LEGACY"
+  cp "$AIDD_WRITEMAP_JSON" "$AIDD_WRITEMAP_JSON_LEGACY"
+  cp "$AIDD_WRITEMAP_MD" "$AIDD_WRITEMAP_MD_LEGACY"
+  cp "$AIDD_PREFLIGHT_RESULT" "$AIDD_PREFLIGHT_RESULT_LEGACY"
+
   echo "log_path=aidd/${LOG_PATH#"${AIDD_ROOT}"/}"
   echo "template_path=aidd/${AIDD_ACTIONS_TEMPLATE#"${AIDD_ROOT}"/}"
   echo "readmap_path=aidd/${AIDD_READMAP_JSON#"${AIDD_ROOT}"/}"

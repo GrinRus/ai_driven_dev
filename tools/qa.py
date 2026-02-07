@@ -264,6 +264,58 @@ def _discover_test_commands(
     return [shlex.split(cmd) for cmd in commands if cmd.strip()]
 
 
+def _discover_gradle_wrappers(workspace_root: Path, max_depth: int = 4) -> list[Path]:
+    wrappers: list[Path] = []
+    for candidate in workspace_root.rglob("gradlew"):
+        if not candidate.is_file():
+            continue
+        try:
+            rel = candidate.relative_to(workspace_root)
+        except ValueError:
+            continue
+        if len(rel.parts) > max_depth:
+            continue
+        if any(part.startswith(".") and part not in {".", ".."} for part in rel.parts):
+            continue
+        wrappers.append(candidate)
+    wrappers.sort()
+    return wrappers
+
+
+def _command_execution_plans(command: list[str], workspace_root: Path) -> list[tuple[list[str], Path, str]]:
+    if not command:
+        return []
+    head = command[0]
+    command_tail = command[1:]
+    normalized = head.replace("\\", "/")
+
+    if normalized in {"./gradlew", "gradlew"}:
+        root_gradlew = workspace_root / "gradlew"
+        if root_gradlew.exists():
+            return [([ "./gradlew", *command_tail], workspace_root, " ".join(["./gradlew", *command_tail]).strip())]
+        wrappers = _discover_gradle_wrappers(workspace_root)
+        if wrappers:
+            plans: list[tuple[list[str], Path, str]] = []
+            for wrapper in wrappers:
+                cwd = wrapper.parent
+                rel = cwd.relative_to(workspace_root).as_posix()
+                display = f"{rel}/gradlew {' '.join(command_tail)}".strip()
+                plans.append((["./gradlew", *command_tail], cwd, display))
+            return plans
+        return [(command, workspace_root, " ".join(command))]
+
+    if normalized.endswith("/gradlew") or normalized == "gradlew":
+        wrapper_path = Path(head)
+        if not wrapper_path.is_absolute():
+            wrapper_path = (workspace_root / wrapper_path).resolve()
+        if wrapper_path.exists():
+            display = f"{wrapper_path.parent.relative_to(workspace_root).as_posix()}/gradlew {' '.join(command_tail)}".strip()
+            return [(["./gradlew", *command_tail], wrapper_path.parent, display)]
+        return [(command, workspace_root, " ".join(command))]
+
+    return [(command, workspace_root, " ".join(command))]
+
+
 def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
     config_path = root / "config" / "gates.json"
     commands: list[list[str]] = []
@@ -315,6 +367,7 @@ def _load_qa_tests_config(root: Path) -> tuple[list[list[str]], bool]:
 
 def _run_qa_tests(
     target: Path,
+    workspace_root: Path,
     *,
     ticket: str,
     slug_hint: str | None,
@@ -345,38 +398,58 @@ def _run_qa_tests(
         return any(marker in lowered for marker in SKIP_MARKERS)
 
     for index, cmd in enumerate(commands, start=1):
-        log_path = logs_dir / f"{base_name}-tests{'' if len(commands) == 1 else f'-{index}'}.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        status = "fail"
-        exit_code: Optional[int] = None
-        output = ""
-        try:
-            proc = subprocess.run(
-                cmd,
-                cwd=target,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
-            )
-            output = proc.stdout or ""
-            exit_code = proc.returncode
-            status = "pass" if proc.returncode == 0 else "fail"
-        except FileNotFoundError as exc:
+        execution_plans = _command_execution_plans(cmd, workspace_root)
+        for plan_index, (plan_cmd, plan_cwd, display_cmd) in enumerate(execution_plans, start=1):
+            suffix = ""
+            if len(commands) > 1:
+                suffix = f"-{index}"
+            if len(execution_plans) > 1:
+                suffix += f"-m{plan_index}"
+            log_path = logs_dir / f"{base_name}-tests{suffix}.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
             status = "fail"
-            output = f"command not found: {cmd[0]} ({exc})"
-        log_path.write_text(output, encoding="utf-8")
-        if status == "pass" and _output_indicates_skip(output):
-            status = "skipped"
+            exit_code: Optional[int] = None
+            output = ""
+            if plan_cmd and plan_cmd[0] in {"./gradlew", "gradlew"} and not (plan_cwd / "gradlew").exists():
+                status = "fail"
+                output = (
+                    "command not found: ./gradlew "
+                    "(qa runner could not locate gradlew in project root; "
+                    "configure module-specific command or add wrapper in module dir)"
+                )
+            else:
+                try:
+                    proc = subprocess.run(
+                        plan_cmd,
+                        cwd=plan_cwd,
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        check=False,
+                    )
+                    output = proc.stdout or ""
+                    exit_code = proc.returncode
+                    status = "pass" if proc.returncode == 0 else "fail"
+                except FileNotFoundError as exc:
+                    status = "fail"
+                    output = f"command not found: {plan_cmd[0]} ({exc})"
+            log_path.write_text(output, encoding="utf-8")
+            if status == "pass" and _output_indicates_skip(output):
+                status = "skipped"
 
-        tests_executed.append(
-            {
-                "command": " ".join(cmd),
-                "status": status,
-                "log": runtime.rel_path(log_path, target),
-                "exit_code": exit_code,
-            }
-        )
+            try:
+                cwd_rel = plan_cwd.relative_to(workspace_root).as_posix()
+            except ValueError:
+                cwd_rel = plan_cwd.as_posix()
+            tests_executed.append(
+                {
+                    "command": display_cmd or " ".join(plan_cmd),
+                    "status": status,
+                    "cwd": cwd_rel or ".",
+                    "log": runtime.rel_path(log_path, target),
+                    "exit_code": exit_code,
+                }
+            )
 
     if any(entry.get("status") == "fail" for entry in tests_executed):
         summary = "fail"
@@ -472,7 +545,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    _, target = runtime.require_workflow_root()
+    workspace_root, target = runtime.require_workflow_root()
 
     gates_config = runtime.load_gates_config(target)
     tests_required_mode = str(gates_config.get("tests_required", "disabled")).strip().lower()
@@ -530,6 +603,7 @@ def main(argv: list[str] | None = None) -> int:
     if not skip_tests:
         tests_executed, tests_summary = _run_qa_tests(
             target,
+            workspace_root,
             ticket=ticket,
             slug_hint=slug_hint or None,
             branch=branch,

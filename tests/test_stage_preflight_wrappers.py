@@ -48,6 +48,9 @@ class StagePreflightWrapperTests(unittest.TestCase):
             self.assertTrue((base / "writemap.json").exists())
             self.assertTrue((base / "stage.preflight.result.json").exists())
             self.assertTrue((base / f"{stage}.actions.template.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
+            self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
 
             payload = json.loads((base / "stage.preflight.result.json").read_text(encoding="utf-8"))
             self.assertEqual(payload.get("schema"), "aidd.stage_result.preflight.v1")

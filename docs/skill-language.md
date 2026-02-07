@@ -1,11 +1,18 @@
 # Skill Language Policy (SoT)
 
 ## Scope
-- `skills/aidd-core/**`, `skills/aidd-loop/**`, and `skills/<stage>/**` are **English-only**.
-- User-facing templates and READMEs may be in Russian, but must not duplicate executable algorithms that live in skills.
+- `skills/aidd-core/**` and `skills/aidd-loop/**` are **English-only**.
+- Stage skills under `skills/<stage>/**` are currently **Russian (`lang: ru`)** for runtime compatibility with existing prompts and workflows.
+- User-facing templates and READMEs may be in Russian, but must not duplicate executable algorithms that live in core loop skills.
 
-## Enforcement reference (W91-7)
-- CI/lint checks reference this file to enforce the EN-only skills policy.
+## Transitional policy (Wave 94)
+- The repository is in a transitional language mode:
+  - core/loop skills: `lang: en` (required),
+  - stage skills: `lang: ru` (allowed until dedicated migration wave).
+- CI/lint checks must treat this split as canonical and must not fail on stage skill `lang: ru`.
+
+## Enforcement reference
+- CI/lint checks reference this file as language SoT.
 
 ## EN skills writing checklist
 - Write in English only (no Cyrillic characters).
