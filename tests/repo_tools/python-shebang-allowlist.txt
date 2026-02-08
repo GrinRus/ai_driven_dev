@@ -36,15 +36,8 @@ tools/preflight-prepare.sh
 tools/preflight-result-validate.sh
 tools/progress.sh
 tools/qa.sh
-tools/reports-pack.sh
-tools/research.sh
 tools/researcher-context.sh
-tools/rlm-finalize.sh
-tools/rlm-jsonl-compact.sh
-tools/rlm-links-build.sh
-tools/rlm-nodes-build.sh
 tools/rlm-slice.sh
-tools/rlm-verify.sh
 tools/set-active-feature.sh
 tools/set-active-stage.sh
 tools/skill-contract-validate.sh

@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import unittest
 from pathlib import Path
 
@@ -23,7 +22,7 @@ class RlmWrapperTests(unittest.TestCase):
                 self.assertTrue(wrapper.exists())
                 self.assertTrue(os.access(wrapper, os.X_OK))
                 proc = subprocess.run(
-                    [sys.executable, str(wrapper), "--help"],
+                    [str(wrapper), "--help"],
                     cwd=REPO_ROOT,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
