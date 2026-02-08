@@ -114,7 +114,9 @@ cwd = Path.cwd()
 try:
     _, root = runtime.resolve_roots(cwd, create=False)
 except Exception:
-    root = cwd
+    fallback = Path(os.environ.get("AIDD_WRAPPER_LOG_ROOT") or "/tmp/aidd-wrapper")
+    fallback.mkdir(parents=True, exist_ok=True)
+    root = fallback
 print(root)
 PY
 )"
