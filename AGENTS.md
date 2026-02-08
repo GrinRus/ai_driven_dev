@@ -8,7 +8,9 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Workspace‑шаблоны: `templates/aidd/` (копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
-- Stage‑локальные скрипты: `skills/<stage>/scripts/` (wrappers + stage‑only tooling). Shared tooling остаётся в `tools/` (hooks/CI используют только `tools/*` или shims).
+- Stage‑локальные shell wrappers: `skills/<stage>/scripts/` (canonical entrypoints).
+- Stage‑локальный Python runtime (если не shared): `skills/<stage>/runtime/`.
+- Shared tooling остаётся в `tools/` (hooks/CI используют только `tools/*` или shims).
 - Backlog: `backlog.md` (корень).
 - User‑артефакты: `aidd/**` (docs/reports/config/.cache).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.

@@ -9,7 +9,8 @@
 - Не дублируйте алгоритмы из skills в пользовательских документах.
 
 ## Stage-local scripts
-- Stage‑локальные entrypoints живут в `skills/<stage>/scripts/` (wrappers + stage‑only tooling).
+- Stage‑локальные entrypoints живут в `skills/<stage>/scripts/` (canonical shell wrappers).
+- Stage‑локальный Python runtime храните в `skills/<stage>/runtime/` (если модуль не используется в других стадиях).
 - Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*`.
 - Во время migration window старые `tools/*.sh` допускаются только как compatibility shims (`DEPRECATED` + `exec` canonical path).
 - `tools/` остаётся зоной shared runtime library/orchestrator (а не stage-local CLI).

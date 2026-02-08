@@ -24,7 +24,7 @@ CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 
 MAX_SKILL_LINES = 300
 PRELOADED_SIZE_LIMIT_BYTES = 64 * 1024
-ALLOWED_SUPPORT_DIRS = {"scripts", "examples", "assets"}
+ALLOWED_SUPPORT_DIRS = {"scripts", "runtime", "examples", "assets"}
 
 STAGE_SKILLS = [
     "aidd-init",

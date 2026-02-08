@@ -12,7 +12,8 @@
 - Все артефакты находятся в `aidd/**` (paths от root).
 - Pack‑first/read‑budget, output‑контракт, question format, DocOps и subagent‑guard — см. `skills/aidd-core`.
 - Loop discipline — см. `skills/aidd-loop`.
-- Stage‑локальные entrypoints: `skills/<stage>/scripts/*` (canonical).
+- Stage‑локальные entrypoints: `skills/<stage>/scripts/*` (canonical shell wrappers).
+- Stage‑локальный Python runtime: `skills/<stage>/runtime/*` (когда логика не shared).
 - Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*`; до завершения миграции совместимость сохраняется через `tools/*.sh` shims.
 - `tools/` — shared runtime library/orchestrator и compatibility shims на migration window.
 - Wrapper‑вывод: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишите в `aidd/reports/**`.

@@ -10,4 +10,4 @@ fi
 source "${CLAUDE_PLUGIN_ROOT}/skills/aidd-reference/wrapper_lib.sh"
 
 # Contract note: aidd_run_python_module uses aidd_log_path + aidd_run_guarded internally.
-aidd_run_python_module "research" "rlm-nodes-build" "tools/rlm_nodes_build.py" "$@"
+aidd_run_python_module "research" "rlm-nodes-build" "skills/researcher/runtime/rlm_nodes_build.py" "$@"
