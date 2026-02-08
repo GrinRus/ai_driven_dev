@@ -23,6 +23,7 @@
   ],
   "skills": [
     "./skills/aidd-core/SKILL.md",
+    "./skills/aidd-rlm/SKILL.md",
     "./skills/aidd-loop/SKILL.md",
     "./skills/aidd-init/SKILL.md",
     "./skills/idea-new/SKILL.md",

@@ -7,6 +7,7 @@ source_version: 1.0.12
 tools: Read, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-rlm
 model: inherit
 permissionMode: default
 ---

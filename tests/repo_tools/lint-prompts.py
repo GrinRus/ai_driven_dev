@@ -42,7 +42,25 @@ STAGE_SKILLS = [
 
 FORK_STAGES = {"idea-new", "researcher", "tasks-new", "implement", "review", "qa"}
 LOOP_STAGES = {"implement", "review", "qa", "status"}
-PRELOADED_SKILLS = {"aidd-core", "aidd-loop"}
+PRELOADED_SKILLS = {"aidd-core", "aidd-loop", "aidd-rlm"}
+AGENT_REQUIRED_SHARED_SKILLS = {"feature-dev-aidd:aidd-core"}
+AGENT_REQUIRED_LOOP_SKILLS = {"feature-dev-aidd:aidd-loop"}
+AGENT_REQUIRED_RLM_SKILL = "feature-dev-aidd:aidd-rlm"
+
+FORBIDDEN_AGENT_STAGE_TOOL_MAP = {
+    "${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh": "${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh": "${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh": "${CLAUDE_PLUGIN_ROOT}/skills/review-spec/scripts/prd-review.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh": "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/qa.sh": "${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/status.sh": "${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh",
+    "${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh": "${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh",
+}
 
 AGENT_REQUIRED_SECTIONS = [
     "Контекст",
@@ -355,6 +373,50 @@ def validate_required_write_tools(info: PromptFile) -> List[str]:
     return []
 
 
+def _skill_ref_to_name(raw: str) -> str:
+    value = raw.strip()
+    if ":" in value:
+        value = value.rsplit(":", 1)[-1]
+    return value.strip()
+
+
+def validate_agent_skill_refs(info: PromptFile, root: Path) -> List[str]:
+    errors: List[str] = []
+    skills = _normalize_tool_list(info.front_matter.get("skills"))
+    for skill_ref in skills:
+        skill_name = _skill_ref_to_name(skill_ref)
+        if not skill_name:
+            errors.append(f"{info.path}: invalid empty skill ref `{skill_ref}`")
+            continue
+        skill_path = root / "skills" / skill_name / "SKILL.md"
+        if not skill_path.exists():
+            errors.append(f"{info.path}: missing preload skill `{skill_ref}` -> {skill_path}")
+    return errors
+
+
+def validate_agent_tool_policy(info: PromptFile) -> List[str]:
+    errors: List[str] = []
+    tools = _normalize_tool_list(info.front_matter.get("tools"))
+    for entry in tools:
+        for legacy_path, canonical_path in FORBIDDEN_AGENT_STAGE_TOOL_MAP.items():
+            if legacy_path in entry:
+                errors.append(
+                    f"{info.path}: agent tools must use `{canonical_path}` instead of legacy shim `{legacy_path}`"
+                )
+    has_rlm_tooling = any(
+        "rlm-" in entry or "reports-pack.sh" in entry or "rlm-slice.sh" in entry
+        for entry in tools
+        if entry.startswith("Bash(")
+    )
+    if has_rlm_tooling:
+        skills = _normalize_tool_list(info.front_matter.get("skills"))
+        if AGENT_REQUIRED_RLM_SKILL not in skills:
+            errors.append(
+                f"{info.path}: RLM tools require preload skill `{AGENT_REQUIRED_RLM_SKILL}`"
+            )
+    return errors
+
+
 def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
     rel_path = _relative_prompt_path(info, root)
     required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
@@ -411,15 +473,20 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
         errors.extend(validate_required_write_tools(info))
+        errors.extend(validate_agent_skill_refs(info, root))
+        errors.extend(validate_agent_tool_policy(info))
 
         if "Output follows aidd-core skill" not in info.body:
             errors.append(f"{info.path}: missing anchor line 'Output follows aidd-core skill'")
 
         skills = _normalize_tool_list(info.front_matter.get("skills"))
-        if "feature-dev-aidd:aidd-core" not in skills:
-            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-core")
-        if info.stem in {"implementer", "reviewer", "qa"} and "feature-dev-aidd:aidd-loop" not in skills:
-            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-loop")
+        for required in AGENT_REQUIRED_SHARED_SKILLS:
+            if required not in skills:
+                errors.append(f"{info.path}: missing skill preload {required}")
+        if info.stem in {"implementer", "reviewer", "qa"}:
+            for required in AGENT_REQUIRED_LOOP_SKILLS:
+                if required not in skills:
+                    errors.append(f"{info.path}: missing skill preload {required}")
 
         version = _as_string(info.front_matter.get("prompt_version"))
         if version and not PROMPT_VERSION_RE.match(version):

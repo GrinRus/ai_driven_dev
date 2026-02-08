@@ -108,6 +108,15 @@
       "user_invocable": "false"
     },
     {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-rlm",
+      "path": "skills/aidd-rlm/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
       "disable_model_invocation": "true",
       "lang": "ru",
       "name": "idea-new",

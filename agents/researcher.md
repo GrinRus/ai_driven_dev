@@ -7,6 +7,7 @@ source_version: 1.2.30
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-rlm
 model: inherit
 permissionMode: default
 ---

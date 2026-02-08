@@ -193,6 +193,25 @@ def build_loop_skill() -> str:
     )
 
 
+def build_rlm_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-rlm
+            description: Shared RLM preload skill for subagents.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
+
+            Follow `feature-dev-aidd:aidd-core`.
+            """
+        ).strip()
+        + "\n"
+    )
+
+
 class PromptLintTests(unittest.TestCase):
     def run_lint(self, root: Path) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
@@ -223,8 +242,10 @@ class PromptLintTests(unittest.TestCase):
         skills_root.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-core" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-rlm" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-core" / "SKILL.md").write_text(build_core_skill(), encoding="utf-8")
         (skills_root / "aidd-loop" / "SKILL.md").write_text(build_loop_skill(), encoding="utf-8")
+        (skills_root / "aidd-rlm" / "SKILL.md").write_text(build_rlm_skill(), encoding="utf-8")
 
         for stage in STAGE_SKILLS:
             skill_path = skills_root / stage / "SKILL.md"
@@ -469,6 +490,61 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("exceeds max skill length", result.stderr)
+
+    def test_missing_agent_preload_skill_fails(self) -> None:
+        broken = build_agent("analyst").replace("feature-dev-aidd:aidd-core", "feature-dev-aidd:missing-skill", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"analyst": broken})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing preload skill", result.stderr)
+
+    def test_agent_stage_local_tool_shim_ref_fails(self) -> None:
+        bad_agent = (
+            dedent(
+                """
+                ---
+                name: researcher
+                description: bad
+                lang: ru
+                prompt_version: 1.0.0
+                source_version: 1.0.0
+                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*)
+                skills:
+                  - feature-dev-aidd:aidd-core
+                  - feature-dev-aidd:aidd-rlm
+                model: inherit
+                permissionMode: inherit
+                ---
+
+                ## Контекст
+                Output follows aidd-core skill.
+
+                ## Входные артефакты
+                - item
+
+                ## Автоматизация
+                Text.
+
+                ## Пошаговый план
+                1. step
+
+                ## Fail-fast и вопросы
+                Text.
+
+                ## Формат ответа
+                Output follows aidd-core skill.
+                """
+            ).strip()
+            + "\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"researcher": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent tools must use", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover
