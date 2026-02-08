@@ -30,7 +30,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"

@@ -48,7 +48,7 @@ Artifacts:
 - Pack bytes: {{rlm_pack_bytes}}
 - Pack updated_at: {{rlm_pack_updated_at}}
 - Warnings: {{rlm_warnings}} (e.g., rlm_links_empty_warn)
-- Slice: ${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket {{ticket}} --query "<token>"
+- Slice: ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 
 ## AIDD:TEST_HOOKS

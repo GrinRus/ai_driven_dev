@@ -12,7 +12,7 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review-spec/scripts/prd-review.sh:*)"

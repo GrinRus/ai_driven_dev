@@ -22,7 +22,7 @@
 ## Evidence read policy (pack-first, rolling)
 - Pack-first и read-budget описаны в `skills/aidd-core`.
 - Primary research evidence: `aidd/reports/research/<ticket>-rlm.pack.json`.
-- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 
 ## AIDD:READ_LOG (обязателен)
 - Формат и требования см. `skills/aidd-core` (указывайте только реально прочитанные packs/excerpts).

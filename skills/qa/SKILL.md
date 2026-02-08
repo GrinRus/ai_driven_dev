@@ -22,7 +22,7 @@ allowed-tools:
   - "Bash(mvn:*)"
   - "Bash(make:*)"
   - "Bash(./gradlew:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"

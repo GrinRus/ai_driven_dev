@@ -9,6 +9,7 @@ user-invocable: false
 ## Pack-first / read budget
 - Read packs and excerpts before full documents.
 - Slice-first rule: for markdown sources use block refs (`path#AIDD:SECTION`, `path@handoff:<id>`) via the `md-slice` wrapper before full Read.
+- Use `skills/aidd-core/scripts/rlm-slice.sh` for targeted RLM evidence retrieval.
 - Full-file Read is allowed only when the slice is insufficient; record the reason in `AIDD:READ_LOG`.
 - Prefer RLM packs and slices for research evidence.
 - Use the read budget: avoid large logs/diffs; link to `aidd/reports/**` instead.

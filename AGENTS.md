@@ -80,7 +80,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 ## RLM в Research
 - Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
 - Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.json` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.json`.
-- On-demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- On-demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Troubleshooting пустого контекста:
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
   - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
@@ -88,7 +88,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
-- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 

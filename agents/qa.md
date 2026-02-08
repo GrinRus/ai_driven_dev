@@ -4,7 +4,7 @@ description: Финальная QA-проверка с отчётом по sever
 lang: ru
 prompt_version: 1.0.28
 source_version: 1.0.28
-tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-rlm

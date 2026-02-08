@@ -4,7 +4,7 @@ description: Build spec.yaml from interview log (tasklist обновляется
 lang: ru
 prompt_version: 1.0.11
 source_version: 1.0.11
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-rlm

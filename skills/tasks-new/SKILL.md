@@ -16,7 +16,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
 model: inherit
 disable-model-invocation: true

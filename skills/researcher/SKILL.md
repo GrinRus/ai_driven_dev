@@ -16,7 +16,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh:*)"

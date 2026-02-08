@@ -17,7 +17,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh:*)"

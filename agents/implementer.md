@@ -4,7 +4,7 @@ description: Реализация по плану/tasklist малыми итер
 lang: ru
 prompt_version: 1.1.38
 source_version: 1.1.38
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-rlm

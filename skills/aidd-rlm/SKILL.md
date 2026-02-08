@@ -3,7 +3,7 @@ name: aidd-rlm
 description: Shared RLM evidence workflow for subagents (slice, build, verify, finalize, pack).
 lang: en
 allowed-tools:
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh:*)"
@@ -20,7 +20,7 @@ user-invocable: false
 - Use it to keep RLM behavior consistent across agents without duplicating long instructions.
 
 ## Canonical command paths
-- Slice (shared): `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh`
+- Slice (shared): `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh`
 - Researcher stage wrappers:
   - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh`
   - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh`

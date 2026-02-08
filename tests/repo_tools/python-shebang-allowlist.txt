@@ -35,7 +35,6 @@ tools/preflight-prepare.sh
 tools/preflight-result-validate.sh
 tools/progress.sh
 tools/researcher-context.sh
-tools/rlm-slice.sh
 tools/set-active-feature.sh
 tools/set-active-stage.sh
 tools/skill-contract-validate.sh

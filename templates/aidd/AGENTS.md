@@ -20,7 +20,7 @@
 
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.
-- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
 
 ## Ответы пользователя
 Ответы давайте в рамках той же команды (без смены стадии). Если ответы приходят в чате, попросите блок:
