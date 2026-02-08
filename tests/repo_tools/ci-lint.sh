@@ -173,6 +173,22 @@ run_skill_scripts_guard() {
   fi
 }
 
+run_bash_runtime_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping bash runtime guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/bash-runtime-guard.py" ]]; then
+    warn "tests/repo_tools/bash-runtime-guard.py missing; skipping"
+    return
+  fi
+  log "running bash runtime guard"
+  if ! python3 tests/repo_tools/bash-runtime-guard.py; then
+    err "bash runtime guard failed"
+    STATUS=1
+  fi
+}
+
 run_schema_guards() {
   if [[ ! -f "tests/repo_tools/schema-guards.sh" ]]; then
     warn "tests/repo_tools/schema-guards.sh missing; skipping"
@@ -406,9 +422,14 @@ run_python_tests() {
     log "tests/ directory not found; skipping python tests"
     return
   fi
-  log "running python unittest suite"
-  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m unittest discover -s tests -t .; then
-    err "python tests failed"
+  if ! python3 -m pytest --version >/dev/null 2>&1; then
+    err "pytest is required for repo checks (python3 -m pytest not available)"
+    STATUS=1
+    return
+  fi
+  log "running python pytest suite"
+  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m pytest -q tests; then
+    err "python pytest suite failed"
     STATUS=1
   fi
 }
@@ -425,6 +446,7 @@ run_output_contract_regression
 run_claude_stream_renderer
 run_tool_result_id_check
 run_skill_scripts_guard
+run_bash_runtime_guard
 run_schema_guards
 run_shim_regression
 run_marketplace_ref_guard

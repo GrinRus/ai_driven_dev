@@ -34,7 +34,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
 - CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
-- Дополнительно (если нужно): `python3 -m unittest discover -s tests -t .`.
+- Дополнительно (если нужно): `python3 -m pytest -q tests`.
 - Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
 
