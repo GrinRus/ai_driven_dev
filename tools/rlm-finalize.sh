@@ -3,7 +3,8 @@ set -euo pipefail
 
 if [[ -z "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  export CLAUDE_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  export CLAUDE_PLUGIN_ROOT="${PLUGIN_ROOT}"
 fi
 
 printf '[aidd] DEPRECATED: use %s\n' "${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh" >&2

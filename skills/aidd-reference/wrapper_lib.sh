@@ -96,6 +96,50 @@ aidd_actions_paths() {
 }
 
 
+aidd_resolve_workflow_root_or_cwd() {
+  aidd_bootstrap_plugin_root
+  local resolved
+  resolved="$(python3 - <<'PY'
+import os
+import sys
+from pathlib import Path
+
+plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).expanduser().resolve()
+if str(plugin_root) not in sys.path:
+    sys.path.insert(0, str(plugin_root))
+
+from tools import runtime
+
+cwd = Path.cwd()
+try:
+    _, root = runtime.resolve_roots(cwd, create=False)
+except Exception:
+    root = cwd
+print(root)
+PY
+)"
+  printf '%s' "$resolved"
+}
+
+
+aidd_run_python_module() {
+  local stage="$1"
+  local log_name="$2"
+  local module_path="$3"
+  shift 3
+
+  aidd_bootstrap_plugin_root
+  local root ticket scope_key log_path
+  root="$(aidd_resolve_workflow_root_or_cwd)"
+  ticket="${AIDD_TICKET:-adhoc}"
+  scope_key="${AIDD_SCOPE_KEY:-adhoc}"
+  log_path="$(aidd_log_path "$root" "$stage" "$ticket" "$scope_key" "$log_name")"
+
+  export PYTHONPATH="${CLAUDE_PLUGIN_ROOT}:${PYTHONPATH:-}"
+  aidd_run_guarded "$log_path" python3 "${CLAUDE_PLUGIN_ROOT}/${module_path}" "$@"
+}
+
+
 aidd_write_legacy_preflight_artifacts() {
   if [[ "${AIDD_WRITE_LEGACY_PREFLIGHT:-0}" != "1" ]]; then
     return 0
