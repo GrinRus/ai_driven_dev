@@ -98,6 +98,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `tasklist_progress`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
+  - `AIDD_SKIP_STAGE_WRAPPERS` — debug-only escape hatch; в `strict` и для стадий `review|qa` даёт BLOCK (`reason_code=wrappers_skipped_unsafe`), в `fast` на `implement` допускается только WARN.
 - `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
 - `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
 - `AIDD_HOOKS_MODE` (`fast` по умолчанию, `strict` для полного набора стоп‑хуков)

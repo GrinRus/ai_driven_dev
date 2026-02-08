@@ -768,11 +768,18 @@ def main(argv: list[str] | None = None) -> int:
     elif tests_summary in {"not-run", "skipped"} and not allow_no_tests_env:
         exit_code = max(exit_code, 1)
 
-    try:
-        report_status = ""
-        if report_path.exists():
+    report_status = ""
+    if report_path.exists():
+        try:
             report_payload = json.loads(report_path.read_text(encoding="utf-8"))
-            report_status = str(report_payload.get("status") or "").strip().upper()
+        except Exception:
+            report_payload = {}
+        report_status = str(report_payload.get("status") or "").strip().upper()
+    if report_status == "BLOCKED":
+        exit_code = 2
+        print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
+
+    try:
         stage_result_args = [
             "--ticket",
             ticket,

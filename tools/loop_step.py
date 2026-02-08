@@ -30,6 +30,11 @@ WARN_REASON_CODES = {
     "auto_boundary_extend_warn",
     "review_context_pack_placeholder_warn",
 }
+HARD_BLOCK_REASON_CODES = {
+    "user_approval_required",
+}
+WRAPPER_SKIP_BLOCK_REASON_CODE = "wrappers_skipped_unsafe"
+WRAPPER_SKIP_WARN_REASON_CODE = "wrappers_skipped_warn"
 HANDOFF_QA_START = "<!-- handoff:qa start -->"
 HANDOFF_QA_END = "<!-- handoff:qa end -->"
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -189,6 +194,8 @@ def load_stage_result(
 
 
 def normalize_stage_result(result: str, reason_code: str) -> str:
+    if reason_code in HARD_BLOCK_REASON_CODES:
+        return "blocked"
     if result == "blocked" and reason_code in WARN_REASON_CODES:
         return "continue"
     return result
@@ -622,15 +629,28 @@ def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
         return False
     if not is_skill_first(plugin_root):
         return False
-    if os.environ.get("AIDD_FORCE_STAGE_WRAPPERS", "").strip() == "1":
-        return True
-    raw = (runner_raw or "").strip()
-    if not raw:
-        return True
-    tokens = shlex.split(raw)
-    if not tokens:
-        return True
-    return Path(tokens[0]).name == "claude"
+    # Wrapper chain is part of the SKILL_FIRST runtime contract and must not depend on
+    # the underlying runner implementation.
+    return True
+
+
+def resolve_hooks_mode() -> str:
+    raw = (os.environ.get("AIDD_HOOKS_MODE") or "").strip().lower()
+    return "strict" if raw == "strict" else "fast"
+
+
+def evaluate_wrapper_skip_policy(stage: str, plugin_root: Path) -> Tuple[str, str, str]:
+    if stage not in {"implement", "review", "qa"}:
+        return "", "", ""
+    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() != "1":
+        return "", "", ""
+    if not is_skill_first(plugin_root):
+        return "", "", ""
+    message = "stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1"
+    hooks_mode = resolve_hooks_mode()
+    if hooks_mode == "strict" or stage in {"review", "qa"}:
+        return "blocked", message, WRAPPER_SKIP_BLOCK_REASON_CODE
+    return "warn", message, WRAPPER_SKIP_WARN_REASON_CODE
 
 
 def _parse_wrapper_output(stdout: str) -> Dict[str, str]:
@@ -721,9 +741,60 @@ def _align_actions_log_scope(
         return runtime.rel_path(canonical_path, target)
     if not actions_log_rel:
         return canonical_rel
+    current_path = runtime.resolve_path_for_target(Path(actions_log_rel), target)
+    if current_path.exists():
+        return runtime.rel_path(current_path, target)
     if mismatch_from and f"/{mismatch_from}/" in actions_log_rel:
-        return canonical_rel
-    return canonical_rel
+        return actions_log_rel
+    return actions_log_rel
+
+
+def _validate_stage_wrapper_contract(
+    *,
+    target: Path,
+    ticket: str,
+    scope_key: str,
+    stage: str,
+    actions_log_rel: str,
+) -> Tuple[bool, str, str]:
+    if stage not in {"implement", "review", "qa"}:
+        return True, "", ""
+    actions_dir = target / "reports" / "actions" / ticket / scope_key
+    context_dir = target / "reports" / "context" / ticket
+    loops_dir = target / "reports" / "loops" / ticket / scope_key
+    logs_dir = target / "reports" / "logs" / stage / ticket / scope_key
+
+    required_paths = {
+        "actions_template": actions_dir / f"{stage}.actions.template.json",
+        "actions_payload": actions_dir / f"{stage}.actions.json",
+        "readmap_json": context_dir / f"{scope_key}.readmap.json",
+        "readmap_md": context_dir / f"{scope_key}.readmap.md",
+        "writemap_json": context_dir / f"{scope_key}.writemap.json",
+        "writemap_md": context_dir / f"{scope_key}.writemap.md",
+        "preflight_result": loops_dir / "stage.preflight.result.json",
+    }
+    missing: List[str] = []
+    for path in required_paths.values():
+        if not path.exists():
+            missing.append(runtime.rel_path(path, target))
+
+    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
+    if not wrapper_logs:
+        missing.append(runtime.rel_path(logs_dir / "wrapper.*.log", target))
+
+    actions_log_value = (actions_log_rel or "").strip()
+    if not actions_log_value:
+        missing.append("AIDD:ACTIONS_LOG")
+    else:
+        actions_log_path = runtime.resolve_path_for_target(Path(actions_log_value), target)
+        if not actions_log_path.exists():
+            missing.append(runtime.rel_path(actions_log_path, target))
+
+    if not missing:
+        return True, "", ""
+    reason_code = "actions_missing" if any("actions" in item.lower() for item in missing) else "preflight_missing"
+    message = "missing stage wrapper artifacts: " + ", ".join(missing)
+    return False, message, reason_code
 
 
 def build_command(stage: str, ticket: str) -> List[str]:
@@ -1279,6 +1350,30 @@ def main(argv: list[str] | None = None) -> int:
     if next_stage == "qa":
         wrapper_scope_key = runtime.resolve_scope_key("", ticket)
         wrapper_work_item_key = wrapper_work_item_key or ""
+    wrapper_skip_policy, wrapper_skip_reason, wrapper_skip_code = evaluate_wrapper_skip_policy(
+        next_stage,
+        wrapper_plugin_root,
+    )
+    if wrapper_skip_policy == "blocked":
+        return emit_result(
+            args.format,
+            ticket,
+            next_stage,
+            "blocked",
+            BLOCKED_CODE,
+            "",
+            wrapper_skip_reason,
+            wrapper_skip_code,
+            scope_key=wrapper_scope_key,
+            runner=runner_raw,
+            repair_reason_code=repair_reason_code,
+            repair_scope_key=repair_scope_key,
+            cli_log_path=cli_log_path,
+        )
+    if wrapper_skip_policy == "warn":
+        wrapper_skip_message = f"{wrapper_skip_reason} (reason_code={wrapper_skip_code})"
+        print(f"[loop-step] WARN: {wrapper_skip_message}", file=sys.stderr)
+        runner_notice = f"{runner_notice}; {wrapper_skip_message}" if runner_notice else wrapper_skip_message
     if wrapper_enabled:
         ok_wrapper, preflight_payload, wrapper_error = run_stage_wrapper(
             plugin_root=wrapper_plugin_root,
@@ -1549,6 +1644,42 @@ def main(argv: list[str] | None = None) -> int:
         default_actions = target / "reports" / "actions" / ticket / next_scope_key / f"{next_stage}.actions.json"
         if default_actions.exists():
             actions_log_rel = runtime.rel_path(default_actions, target)
+    artifact_scope_key = wrapper_scope_key or next_scope_key
+    if wrapper_enabled and next_stage in {"implement", "review", "qa"}:
+        ok_contract, contract_message, contract_reason_code = _validate_stage_wrapper_contract(
+            target=target,
+            ticket=ticket,
+            scope_key=artifact_scope_key,
+            stage=next_stage,
+            actions_log_rel=actions_log_rel,
+        )
+        if not ok_contract:
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                log_path,
+                contract_message,
+                contract_reason_code,
+                scope_key=artifact_scope_key,
+                stage_result_path=runtime.rel_path(result_path, target),
+                runner=runner_raw,
+                runner_effective=runner_effective,
+                runner_notice=runner_notice,
+                repair_reason_code=repair_reason_code,
+                repair_scope_key=repair_scope_key,
+                stream_log_path=stream_log_rel,
+                stream_jsonl_path=stream_jsonl_rel,
+                scope_key_mismatch_warn=scope_key_mismatch_warn,
+                scope_key_mismatch_from=scope_key_mismatch_from,
+                scope_key_mismatch_to=scope_key_mismatch_to,
+                actions_log_path=actions_log_rel,
+                tests_log_path=tests_log_path,
+                wrapper_logs=wrapper_logs,
+                cli_log_path=cli_log_path,
+            )
     if next_stage in {"implement", "review", "qa"} and actions_log_rel:
         with log_path.open("a", encoding="utf-8") as handle:
             handle.write(f"\nAIDD:ACTIONS_LOG: {actions_log_rel}\n")

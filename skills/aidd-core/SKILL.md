@@ -38,6 +38,13 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 - Status is read-only: reference the most recent actions log without modifying it.
 - Planning stages may use `AIDD:ACTIONS_LOG: n/a`.
 
+## Wrapper safety
+- `AIDD_SKIP_STAGE_WRAPPERS=1` is debug-only and unsafe for normal loop execution.
+- Runtime policy:
+  - `strict` mode or stages `review|qa` => BLOCK (`reason_code=wrappers_skipped_unsafe`).
+  - `fast` mode on `implement` => WARN (`reason_code=wrappers_skipped_warn`) and continue only for diagnostics.
+- If wrappers are skipped, treat missing preflight/readmap/writemap/actions/log artifacts as contract violation.
+
 ## Question format
 Use this exact format when you must ask the user:
 

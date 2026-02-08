@@ -281,10 +281,23 @@ def main(argv: List[str] | None = None) -> int:
         mismatch_to = step_payload.get("scope_key_mismatch_to") or ""
         tests_log_path = step_payload.get("tests_log_path") or ""
         stage_diag = step_payload.get("stage_result_diagnostics") or ""
+        stage_result_path = step_payload.get("stage_result_path") or ""
+        wrapper_logs_raw = step_payload.get("wrapper_logs")
+        wrapper_logs = (
+            [str(item) for item in wrapper_logs_raw if str(item).strip()]
+            if isinstance(wrapper_logs_raw, list)
+            else []
+        )
         runner_effective = step_payload.get("runner_effective") or ""
         step_stream_log = step_payload.get("stream_log_path") or ""
         step_stream_jsonl = step_payload.get("stream_jsonl_path") or ""
         step_status = step_payload.get("status")
+        step_exit_code = result.returncode
+        if step_exit_code == CONTINUE_CODE and str(reason_code).strip().lower() == "user_approval_required":
+            step_exit_code = BLOCKED_CODE
+            step_status = "blocked"
+            if not reason:
+                reason = "user approval required"
         log_reason_code = repair_code or reason_code
         chosen_scope = repair_scope or scope_key
         if mismatch_to:
@@ -307,24 +320,26 @@ def main(argv: List[str] | None = None) -> int:
             (
                 f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} "
                 f"result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} "
-                f"exit_code={result.returncode} reason_code={log_reason_code} runner={runner_label} "
+                f"exit_code={step_exit_code} reason_code={log_reason_code} runner={runner_label} "
                 f"runner_cmd={runner_effective} reason={reason}"
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
                 + (f" tests_log_path={tests_log_path}" if tests_log_path else "")
                 + (f" stage_result_diagnostics={stage_diag}" if stage_diag else "")
+                + (f" stage_result_path={stage_result_path}" if stage_result_path else "")
+                + (f" wrapper_logs={','.join(wrapper_logs)}" if wrapper_logs else "")
             ),
         )
         append_log(
             cli_log_path,
             (
-                f"{utc_timestamp()} event=step iteration={iteration} status={step_payload.get('status')} "
-                f"stage={step_payload.get('stage')} scope_key={scope_key} exit_code={result.returncode} "
+                f"{utc_timestamp()} event=step iteration={iteration} status={step_status} "
+                f"stage={step_payload.get('stage')} scope_key={scope_key} exit_code={step_exit_code} "
                 f"runner_cmd={runner_effective}"
             ),
         )
-        if result.returncode == DONE_CODE:
+        if step_exit_code == DONE_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             selected_next = ""
             pending_count = 0
@@ -379,7 +394,7 @@ def main(argv: List[str] | None = None) -> int:
             append_log(cli_log_path, f"{utc_timestamp()} event=done iterations={iteration}")
             emit(args.format, payload)
             return DONE_CODE
-        if result.returncode == BLOCKED_CODE:
+        if step_exit_code == BLOCKED_CODE:
             clear_active_mode(target)
             payload = {
                 "status": "blocked",
@@ -394,6 +409,8 @@ def main(argv: List[str] | None = None) -> int:
                 "reason_code": log_reason_code,
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
+                "stage_result_path": stage_result_path,
+                "wrapper_logs": wrapper_logs,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }

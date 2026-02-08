@@ -159,6 +159,10 @@ def check_output_contract(
             warnings.append("actions_log_missing")
         elif actions_value.lower() == "n/a":
             warnings.append("actions_log_invalid")
+        else:
+            actions_path = runtime.resolve_path_for_target(Path(actions_value), target)
+            if not actions_path.exists():
+                warnings.append("actions_log_path_missing")
         if loop_idx < 0:
             warnings.append("read_order_missing_loop_pack")
         if review_idx >= 0 and loop_idx >= 0 and review_idx < loop_idx:
@@ -173,6 +177,10 @@ def check_output_contract(
             warnings.append("actions_log_missing")
         elif actions_value.lower() == "n/a":
             warnings.append("actions_log_invalid")
+        else:
+            actions_path = runtime.resolve_path_for_target(Path(actions_value), target)
+            if not actions_path.exists():
+                warnings.append("actions_log_path_missing")
         if context_idx < 0:
             warnings.append("read_order_missing_context_pack")
         elif context_idx != 0:

@@ -39,6 +39,48 @@ class ActiveStateTests(unittest.TestCase):
             self.assertEqual(payload.get("work_item"), "iteration_id=I1")
             self.assertEqual(payload.get("last_review_report_id"), "review:report-99")
 
+    def test_write_identifiers_normalizes_slug_token_from_note(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="active-state-") as tmpdir:
+            workspace = Path(tmpdir)
+            aidd = workspace / "aidd"
+            (aidd / "docs").mkdir(parents=True, exist_ok=True)
+
+            feature_ids.write_identifiers(
+                aidd,
+                ticket="TST-001",
+                slug_hint="tst-001-demo Audit backend workflow determinism",
+                scaffold_prd_file=False,
+            )
+
+            payload = json.loads((aidd / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("slug_hint"), "tst-001-demo")
+
+    def test_write_identifiers_keeps_existing_slug_when_note_is_not_token(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="active-state-") as tmpdir:
+            workspace = Path(tmpdir)
+            aidd = workspace / "aidd"
+            (aidd / "docs").mkdir(parents=True, exist_ok=True)
+
+            feature_ids.write_identifiers(
+                aidd,
+                ticket="TST-001",
+                slug_hint="slug=tst-001-demo",
+                scaffold_prd_file=False,
+            )
+            feature_ids.write_identifiers(
+                aidd,
+                ticket="TST-001",
+                slug_hint="AIDD:ANSWERS answer 1: proceed with defaults",
+                scaffold_prd_file=False,
+            )
+
+            payload = json.loads((aidd / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("slug_hint"), "tst-001-demo")
+
+    def test_iteration_work_item_allows_i_and_m_prefixes(self) -> None:
+        self.assertTrue(active_state.is_iteration_work_item_key("iteration_id=I1"))
+        self.assertTrue(active_state.is_iteration_work_item_key("iteration_id=M4"))
+
 
 if __name__ == "__main__":
     unittest.main()
