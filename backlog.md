@@ -322,223 +322,45 @@ _Статус: proposed, приоритет 1. Цель — сократить �
   **Effort:** M
   **Risk:** Medium
 
-## Wave 95 — Audit closure F-01..F-13 + quick wins
+## Wave 97 — Residual backlog after W95/W89.5 audit
 
-_Статус: новый, приоритет 0. Цель — закрыть весь аудит одним PR без breaking-change, с переходным warn-only режимом для legacy точек._
+_Статус: новый, приоритет 0. Цель — оставить только реально незакрытые задачи после code-аудита и убрать исторический шум._
 
-### A) Runtime resilience hardening
-
-- [ ] **W95-A1** `tools/gate_workflow.py`, `tests/test_gate_workflow.py`:
-  - устранить аварийный except-path, где error-handler использует переменные из `try` (например runtime instance);
-  - добавить fail-safe обработку import/init ошибок с диагностикой в `stderr` и корректным exit code;
-  - quick win: гарантировать отсутствие secondary exception при падении bootstrap.
-  **AC:** при сбое import/init gate завершается контролируемо (без traceback в traceback), пишет понятную диагностику и возвращает ожидаемый код.
-  **Effort:** M
-  **Risk:** High
-  **Finding:** F-05
-
-- [ ] **W95-A2** `tools/loop_step.py`, `tests/repo_tools/lint-prompts.py`, `tests/*`:
-  - удалить unreachable legacy fallback ветку в loop-step hot path;
-  - синхронизировать связанные проверки lint/tests, чтобы проверялась только живая ветка исполнения;
-  - quick win: убрать лишний return, не меняя functional behavior.
-  **AC:** dead branch удалён; поведение loop-step совпадает с текущим success-path; связанные тесты/линтеры проходят.
+- [ ] **W97-1 (carry-over W95-F2, P1) Cleanup tracked ad-hoc prompt artifact** `aidd_test_flow_prompt_ralph_script.txt`, `.gitignore`, `docs/examples/**`, `CHANGELOG.md`, `README.md`, `README.en.md`:
+  - определить статус `aidd_test_flow_prompt_ralph_script.txt`: удалить из tracking или перенести в `docs/examples/**` с metadata header;
+  - синхронизировать `.gitignore` и release notes (сейчас ignore-паттерн есть, но файл всё ещё tracked);
+  - убрать dangling references после финального решения по пути.
+  **AC:** ad-hoc артефакт либо удалён из tracking, либо формализован в `docs/examples/**`; docs/changelog не противоречат фактическому состоянию.
   **Effort:** S
   **Risk:** Low
-  **Finding:** F-06
+  **Carry-over:** W95-F2
 
-### B) Tooling/CLI contract
-
-- [ ] **W95-B1** `tools/init.py`, `README.md`, `README.en.md`, `CHANGELOG.md`, `tests/*`:
-  - привести CLI контракт init к правде: реализовать `--dry-run`/`--enable-ci` или удалить их из CLI+docs;
-  - синхронизировать naming флагов `--detect-build-tools` vs `--detect-stack`;
-  - quick win: покрыть `--help`/dry-run регрессионным тестом.
-  **AC:** help, runtime-поведение и документация совпадают; несуществующих флагов нет; тест фиксирует контракт.
-  **Effort:** M
+- [ ] **W97-2 (carry-over W95-E4, P2) Phase-2 removal plan for deprecated review shims** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README.md`, `README.en.md`, `CHANGELOG.md`, `tests/repo_tools/shim-regression.sh`:
+  - зафиксировать срок и условия удаления compatibility shim entrypoints review toolchain;
+  - описать migration window и release policy для breaking-change;
+  - добавить guard, чтобы после removal-window shim path действительно удалялся.
+  **AC:** утверждён phase-2 план удаления review shim-ов с конкретным removal-window и проверками в CI/docs.
+  **Effort:** S
   **Risk:** Medium
-  **Finding:** F-07, F-13
+  **Carry-over:** W95-E4
 
-- [ ] **W95-B2** `tools/tools_inventory.py`, `tests/test_tools_inventory.py`, `AGENTS.md`, `skills/review/SKILL.md`:
-  - расширить inventory scan на skill-first источники (`skills/**`, `hooks/**`, `agents/**`, при необходимости `templates/aidd/**`);
-  - уменьшить false positive "unused/no consumers" для stage wrappers;
-  - quick win: добавить regression test для canonical skill wrapper consumer chain.
-  **AC:** canonical wrappers из `skills/<stage>/scripts` не попадают в ложный unused; тест предотвращает откат.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-04
-
-### C) CI policy alignment + security
-
-- [ ] **W95-C1** `.github/workflows/ci.yml`, `CONTRIBUTING.md`, `AGENTS.md`, `tests/repo_tools/smoke-workflow.sh`:
-  - добавить always-on job `smoke-workflow` с path-filter runtime изменений;
-  - при отсутствии runtime-изменений job делает skip с `exit 0`, при наличии запускает smoke;
-  - quick win: выровнять policy docs и CI enforcement.
-  **AC:** smoke-job всегда присутствует в CI checks; runtime changes обязательно прогоняют smoke; docs совпадают с фактом.
+- [ ] **W97-3 (carry-over W89.5-8, P1) Enforce output-contract warnings in loop/gates** `tools/output_contract.py`, `tools/loop_step.py`, `tools/gate_workflow.py`, `tools/stage_result.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow.py`:
+  - перевести `output.contract.json` из diagnostic-only в policy input (минимум WARN/BLOCK rules по профилю fast|strict);
+  - добавить явный reason-code propagation в stage_result/loop payload при нарушениях read-budget/read-order/status mismatch;
+  - покрыть интеграционными тестами сценарии `read_log_too_long`, `full_doc_without_missing_fields`, `read_order_*`.
+  **AC:** нарушения output-contract детерминированно влияют на gate/loop решение; `reason_code` отражается в stage_result и loop logs.
   **Effort:** M
   **Risk:** High
-  **Finding:** F-09
+  **Carry-over:** W89.5-8
 
-- [ ] **W95-C2** `.github/workflows/ci.yml`, `tests/repo_tools/ci-lint.sh`, `tools/*`:
-  - добавить security dependency/CVE проверку в PR (dependency-review action, fail на high/critical где возможно);
-  - обеспечить graceful behavior для PR без lockfile/manifest;
-  - quick win: добавить guard, чтобы security check был информативным и не шумел на пустом dependency diff.
-  **AC:** security job запускается на PR и не ломает репо без manifests; high-risk dependency changes блокируют merge.
+- [ ] **W97-4 (carry-over W89.5-9, P1) Non-blocking stale review-pack recovery path** `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_loop_semantics.py`:
+  - убрать hard-block на `review_pack_stale` в recoverable сценариях (при успешной регенерации pack/review evidence);
+  - оставить BLOCK только для неустранимых состояний (`review_pack_missing` после retry, invalid schema и т.п.);
+  - добавить telemetry в loop logs: `stale_recovered` vs `stale_blocked`.
+  **AC:** stale review-pack по recoverable сценариям не останавливает loop-run; tests фиксируют recovery path и отличимые reason-codes.
   **Effort:** M
   **Risk:** Medium
-  **Finding:** F-10
-
-### D) Release discipline
-
-- [ ] **W95-D1** `.claude-plugin/marketplace.json`, `tests/repo_tools/ci-lint.sh`, `tests/*`, `CHANGELOG.md`:
-  - убрать feature-branch ref из marketplace metadata, закрепить stable ref (release tag или `main`);
-  - добавить CI/lint guard против feature refs (`codex/wave*`, `feature/*`);
-  - quick win: документировать выбранный stable policy для будущих релизов.
-  **AC:** marketplace ref указывает на stable target; lint/test падает на feature refs; policy отражён в changelog/backlog.
-  **Effort:** S
-  **Risk:** High
-  **Finding:** F-11
-
-### E) Legacy cleanup & deprecation convergence
-
-- [ ] **W95-E1** `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tools/gate_workflow.py`, `tests/*`:
-  - консолидировать preflight contract в одном shared implementation;
-  - перевести stage preflight wrappers на единый источник;
-  - сократить legacy fallback в gate-workflow: canonical by default + explicit warn/flagged legacy path.
-  **AC:** implement/review/qa preflight генерируют согласованный контракт; gate-workflow использует canonical path по умолчанию; legacy fallback контролируемый и помечен warning.
-  **Effort:** L
-  **Risk:** Medium
-  **Finding:** F-01
-
-- [ ] **W95-E2** `tools/runtime.py`, `tools/reviewer_tests.py`, `hooks/format-and-test.sh`, `tests/*`:
-  - централизовать reviewer-marker migration в одной точке runtime;
-  - убрать дубли/side-effects в hooks и утилитах (оставить idempotent ensure call при необходимости);
-  - quick win: добавить тест на идемпотентность и single-source behavior.
-  **AC:** миграция marker вызывается в одном canonical месте и остаётся идемпотентной; хук больше не выполняет скрытую миграцию.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-02
-
-- [ ] **W95-E3** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README.md`, `README.en.md`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/shim-regression.sh`:
-  - вывести deprecated shims из hot path smoke/docs и закрепить canonical skill wrappers как основной путь;
-  - оставить shim-regression как совместимость (warn-only deprecation);
-  - quick win: smoke не зависит от deprecated shim entrypoints.
-  **AC:** основной smoke и docs используют только canonical wrappers; shim regression отдельно проверяет совместимость и deprecation warning.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-03
-
-- [ ] **W95-E4 (Phase 2, breaking)** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README*.md`, `CHANGELOG.md`:
-  - спланировать полное удаление deprecated shims после переходного периода;
-  - зафиксировать breaking-change окно и required migration notes для пользователей.
-  **AC:** в backlog есть отдельный план удаления shims с критериями готовности и датой/версией удаления.
-  **Effort:** S
-  **Risk:** High
-  **Finding:** F-03
-
-### F) Repo hygiene + docs consistency
-
-- [ ] **W95-F1** `hooks/gate-api-contract.sh`, `hooks/hooks.json`, `hooks/gate-qa.sh`, `tests/*`, `docs/*`:
-  - закрыть placeholder ambiguity: либо полноценно подключить gate-api-contract, либо удалить placeholder и ссылки;
-  - выбрать безопасный вариант без ложных ожиданий в runtime;
-  - quick win: убрать "мертвый" hook path и привести hooks wiring к факту.
-  **AC:** в hooks wiring нет placeholder без поведения; выбранный путь покрыт smoke/тестом или документирован как удалённый.
-  **Effort:** S
-  **Risk:** Low
-  **Finding:** F-08
-
-- [ ] **W95-F2** `.gitignore`, `aidd_test_flow_prompt_ralph_script.txt`, `docs/examples/**`, `tests/*`:
-  - проверить использование ad-hoc prompt script;
-  - если не используется — удалить из repo и добавить ignore policy; если нужен — переместить в examples с metadata header;
-  - quick win: предотвратить повторное попадание ad-hoc артефактов в tracking.
-  **AC:** ad-hoc файл либо удалён и игнорируется, либо перенесён и документирован; dangling references отсутствуют.
-  **Effort:** S
-  **Risk:** Low
-  **Finding:** F-12
-
-- [ ] **W95-F3** `CHANGELOG.md`, `README.md`, `README.en.md`, `tools/init.py`, `tests/*`:
-  - синхронизировать документацию с реальными флагами/поведением init (`--detect-build-tools` и совместимость aliases при необходимости);
-  - добавить минимальную проверку, что docs/help не расходятся по ключевым флагам;
-  - quick win: устранить пользовательскую путаницу в onboarding CLI.
-  **AC:** docs и CLI help используют единый флаговый контракт; regression test фиксирует соответствие.
-  **Effort:** S
-  **Risk:** Low
-  **Finding:** F-13
-
-## Wave 89 — Doc consolidation + Flow simplification (pack-first, меньше чтений, без anchors)
-
-_Статус: новый, приоритет 1. Цель — убрать дубли документации, сократить чтения, упростить runtime, сделать pack‑first единственным режимом._
-
-## Wave 89.5 — AIDD Flow Audit fixes (Ralph loop compliance + QA/tests)
-
-_Статус: новый, приоритет 1. Закрывает выявленные проблемы аудита флоу/loop-паков и тест‑evidence._
-
-- [ ] **W89.5-1** `tools/research_guard.py`, `tools/research.py`, `tools/reports_pack.py`, `tests/*`:
-  - при `rlm.require_links=true` и `links_total=0` (или entries=0) — выставлять WARN (не reviewed/ready), reason_code `rlm_links_empty_warn`;
-  - в research отчёте фиксировать отсутствие links и ссылаться на `*-rlm.links.stats.json`/pack;
-  - гейт не должен считать research “ready” при пустых links.
-  **AC:** пустые links → WARN + reason_code; research не может быть READY; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — `*-rlm.links.jsonl` пуст, но research помечен reviewed.
-  **Риск:** downstream стадии идут без RLM links‑evidence.
-
-- [ ] **W89.5-2** `agents/reviewer.md`, `commands/review.md`, `hooks/review-report.sh`, `tools/review_report.py`, `tests/*`:
-  - унифицировать вывод findings: reviewer пишет JSON (AIDD:WRITE_JSON), `review-report.sh` читает через `--findings-file`;
-  - гарантировать генерацию `review.latest.pack.md` и review report per scope_key;
-  - при REVISE обязателен `review.fix_plan.json` + ссылка в `stage_result.evidence_links.fix_plan_json`;
-  - при ошибке записи report/pack → явный BLOCKED (reason_code `review_report_write_failed`).
-  - если `review_pack_v2_required=true`, любой v1 pack → BLOCKED (reason_code `review_pack_v2_required`);
-  - findings с severity=blocking должны иметь `blocking=true`, `blocking_findings_count` корректен;
-  - reviewer marker `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json` всегда создаётся (включая handoff scope_key вроде `id_review_F*`).
-  **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; blocking_findings_count корректен; reviewer marker всегда есть для всех scope_key; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — отсутствуют `review.latest.pack.md` и `reviewer/<scope_key>.json`; loop‑run blocked `review_pack_missing`.
-  **Риск:** loop‑runner не продвигается после review, автолооп останавливается.
-
-- [ ] **W89.5-3** `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
-  - если `tests_required=soft|hard` и tests skipped/no‑evidence → review verdict `REVISE`/`BLOCKED` соответственно;
-  - reason_code должен отражать no-tests (`no_tests_soft|no_tests_hard`);
-  - `stage_result.evidence_links.tests_log` обязателен и указывает на tests log.
-  - нормализовать `scope_key`/`work_item_key` (не допускать `id_` вместо `iteration_id_`) и писать stage_result в корректный путь;
-  - stage_result обязателен для review и должен быть найден loop-run (иначе BLOCKED).
-  - WARN‑причины (например `review_context_pack_placeholder_warn`) не должны выставлять `result=blocked`; статус = WARN/REVISE с `result=continue`.
-  - `Status` в выводе review должен совпадать со `stage_result.result` (или `status-summary.sh`).
-  **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; WARN не превращается в blocked; stage_result путь корректен; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — кейсы `no_tests_soft|no_tests_hard` в прогоне не воспроизведены.
-  **Риск:** возможен повтор рассинхрона `Status` vs `stage_result` при пропуске тестов в review.
-
-- [ ] **W89.5-4** `tools/qa.py`, `tools/tasklist_parse.py` (или эквивалент), `tests/*`:
-  - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд (если profile != none);
-  - расширить skip‑детекцию (RU/EN фразы) и всегда писать tests_log (run|skipped + reason_code);
-  - при skipped tests_summary не может быть `pass` (должно быть warn/skip).
-  - stage_result для QA обязателен (scope_key=ticket) и reason_code совпадает с QA report (`qa_blocked|qa_warn`).
-  - stage.qa.result `evidence_links` должны ссылаться на QA‑логи/qa report, а не loop-step.
-  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; stage_result обязателен; qa evidence links корректные; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** PARTIAL — QA берёт команды из tasklist, но tests_log vs stdout расходятся; CWD тестов = `.../aidd`.
-  **Риск:** ложные BLOCKED/FAIL в QA, несоответствие evidence.
-
-- [ ] **W89.5-8** `tools/output_contract.py` (новый) или `tools/runtime.py`, `tests/*`:
-  - валидация output‑контракта для implement/review/qa (Status/Work item/Tests/AIDD:READ_LOG/Next actions);
-  - WARN при неполных полях, с reason_code `output_contract_warn`.
-  - enforce read‑budget: AIDD:READ_LOG максимум 1–3 файла, без полного PRD/Plan/Tasklist при наличии excerpt;
-  - enforce read order: implement/review читают `loop pack → review pack (если есть) → rolling pack → excerpt`, qa — rolling pack первым;
-  - Status в выводе должен совпадать со `stage_result` (иначе WARN).
-  - фиксировать WARN, если `AIDD:READ_LOG` содержит >3 файлов или включает full PRD/Plan/Spec/Tasklist без причины missing fields.
-  - `AIDD:READ_LOG` должен содержать только packs/excerpts (код/полные файлы — только при явной причине missing fields).
-  **AC:** неполный вывод детектируется как WARN; read‑budget violations фиксируются; read‑order violations фиксируются; Status/`stage_result` совпадают; excessive/full‑read фиксируется; read_log только packs/excerpts; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — AIDD:READ_LOG содержит >3 файлов и raw‑paths, без WARN.
-  **Риск:** нарушения pack‑first проходят незамеченными.
-
-- [ ] **W89.5-9** `tools/loop_run.py` (или эквивалент), `tools/set_active_feature.py`, `tests/*`:
-  - после SHIP и при открытых итерациях loop‑runner обязан выбрать следующий work_item, обновить `aidd/docs/.active.json` (work_item/stage) и продолжить implement;
-  - завершение loop допустимо только если открытых итераций нет.
-  - если выбран следующий work_item — обязателен запуск implement и запись `stage.implement.result.json`; отсутствие файла → BUG + BLOCKED с понятным reason_code и runner_cmd.
-  - `review_pack_stale` не должен блокировать loop-run: перегенерировать pack или повторить review с корректным evidence_links.
-  **AC:** loop‑runner корректно продвигает active markers после SHIP; loop завершается только при отсутствии итераций; stage_result создаётся для следующего work_item или выдаётся BLOCKED с reason_code; review_pack_stale не блокирует loop-run; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — loop‑run блокируется раньше (review_pack_missing).
-  **Риск:** автоматический прогон не достигает SHIP/next work_item; stream jsonl пустой.
+  **Carry-over:** W89.5-9
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
 
