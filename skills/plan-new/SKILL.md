@@ -15,7 +15,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
 model: inherit
 disable-model-invocation: true

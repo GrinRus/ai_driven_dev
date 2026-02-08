@@ -15,7 +15,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh:*)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true

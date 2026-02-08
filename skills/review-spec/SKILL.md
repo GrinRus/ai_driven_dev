@@ -15,7 +15,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review-spec/scripts/prd-review.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
 model: inherit

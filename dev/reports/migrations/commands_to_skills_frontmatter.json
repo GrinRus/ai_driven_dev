@@ -35,7 +35,7 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh:*)"
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh:*)"
         ],
         "model": "inherit",
         "prompt_version": "1.3.16",
@@ -90,7 +90,7 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
         ],
         "model": "inherit",
@@ -115,7 +115,7 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review-spec/scripts/prd-review.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
         ],

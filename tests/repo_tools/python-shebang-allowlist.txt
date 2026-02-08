@@ -15,7 +15,6 @@ hooks/gate-workflow.sh
 hooks/lint-deps.sh
 tools/actions-apply.sh
 tools/actions-validate.sh
-tools/analyst-check.sh
 tools/context-expand.sh
 tools/context-map-validate.sh
 tools/dag-export.sh
@@ -33,13 +32,11 @@ tools/output-contract.sh
 tools/plan-review-gate.sh
 tools/prd-check.sh
 tools/prd-review-gate.sh
-tools/prd-review.sh
 tools/preflight-prepare.sh
 tools/preflight-result-validate.sh
 tools/progress.sh
 tools/qa.sh
 tools/reports-pack.sh
-tools/research-check.sh
 tools/research.sh
 tools/researcher-context.sh
 tools/rlm-finalize.sh
