@@ -160,12 +160,12 @@ def write_identifiers(
 
     stored = read_active_state(root)
     if slug_hint is None:
-        if stored.slug_hint and (stored.ticket or stored.slug_hint) == ticket_value:
-            hint_value = stored.slug_hint
-        else:
-            hint_value = None
+        hint_value = None
     else:
-        hint_value = slug_hint.strip() or None
+        # Accept only a compact slug token and ignore trailing note/answers text.
+        hint_value = _active_state.normalize_slug_hint_token(slug_hint) or None
+    if not hint_value and stored.slug_hint and (stored.ticket or stored.slug_hint) == ticket_value:
+        hint_value = stored.slug_hint
     if not hint_value:
         hint_value = ticket_value
 

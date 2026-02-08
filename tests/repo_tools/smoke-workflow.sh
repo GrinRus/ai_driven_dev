@@ -36,6 +36,46 @@ log() {
   printf '[smoke] %s\n' "$*"
 }
 
+seed_preflight_contract_artifacts() {
+  local ticket="$1"
+  local stage="$2"
+  local scope_key="$3"
+  local actions_dir="$WORKDIR/reports/actions/${ticket}/${scope_key}"
+  local context_dir="$WORKDIR/reports/context/${ticket}"
+  local loops_dir="$WORKDIR/reports/loops/${ticket}/${scope_key}"
+  local logs_dir="$WORKDIR/reports/logs/${stage}/${ticket}/${scope_key}"
+
+  mkdir -p "$actions_dir" "$context_dir" "$loops_dir" "$logs_dir"
+
+  cat >"$actions_dir/${stage}.actions.template.json" <<'JSON'
+{"schema_version":"aidd.actions.v1","actions":[]}
+JSON
+  cat >"$actions_dir/${stage}.actions.json" <<'JSON'
+{"schema_version":"aidd.actions.v1","actions":[]}
+JSON
+  cat >"$context_dir/${scope_key}.readmap.json" <<'JSON'
+{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
+JSON
+  cat >"$context_dir/${scope_key}.readmap.md" <<'MD'
+# readmap
+MD
+  cat >"$context_dir/${scope_key}.writemap.json" <<'JSON'
+{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
+JSON
+  cat >"$context_dir/${scope_key}.writemap.md" <<'MD'
+# writemap
+MD
+  cat >"$loops_dir/stage.preflight.result.json" <<'JSON'
+{"schema":"aidd.stage_result.preflight.v1","status":"ok"}
+JSON
+  echo "ok" >"$logs_dir/wrapper.preflight.log"
+  echo "ok" >"$logs_dir/wrapper.run.log"
+  echo "ok" >"$logs_dir/wrapper.postflight.log"
+  cat >"$loops_dir/output.contract.json" <<JSON
+{"status":"ok","actions_log":"aidd/reports/actions/${ticket}/${scope_key}/${stage}.actions.json"}
+JSON
+}
+
 assert_gate_exit() {
   local expected="$1"
   local note="$2"
@@ -684,6 +724,7 @@ run_cli set-active-stage implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --append >/dev/null
 run_cli tasklist-normalize --ticket "$TICKET" --fix >/dev/null
+seed_preflight_contract_artifacts "$TICKET" "implement" "$TICKET"
 # Skip progress gate for preset-created artifacts: no code changes yet
 CLAUDE_SKIP_TASKLIST_PROGRESS=1 assert_gate_exit 0 "all artifacts ready"
 
@@ -798,6 +839,7 @@ if ! progress_ok="$(run_cli progress --ticket "$TICKET" --source implement --ver
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
+seed_preflight_contract_artifacts "$TICKET" "qa" "$TICKET"
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
@@ -820,8 +862,12 @@ for old, new in replacements.items():
 path.write_text(text, encoding="utf-8")
 PY
 
+qa_exit=0
 if ! run_cli qa --ticket "$TICKET" --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
-  echo "[smoke] qa command failed" >&2
+  qa_exit=$?
+fi
+if [[ "$qa_exit" -ne 0 && "$qa_exit" -ne 2 ]]; then
+  echo "[smoke] qa command failed (exit=$qa_exit)" >&2
   exit 1
 fi
 [[ -f "$WORKDIR/reports/qa/${TICKET}.json" ]] || {

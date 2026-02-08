@@ -84,7 +84,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -125,7 +125,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -155,7 +155,7 @@ class LoopRunTests(unittest.TestCase):
     def test_loop_run_logs_scope_mismatch_warning(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, ticket="DEMO-MISMATCH", stage="implement", work_item="iteration_id=I2")
+            write_active_state(root, ticket="DEMO-MISMATCH", stage="review", work_item="iteration_id=I2")
             write_file(
                 root,
                 "reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.implement.result.json",
@@ -191,7 +191,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -212,6 +212,56 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result.returncode, 11, msg=result.stderr)
             loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
             self.assertIn("scope_key_mismatch_warn=1", loop_log)
+
+    def test_loop_run_stops_on_user_approval_required(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-APPROVAL", stage="implement", work_item="iteration_id=M4")
+            write_file(
+                root,
+                "reports/loops/DEMO-APPROVAL/iteration_id_M4/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-APPROVAL",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_M4",
+                        "work_item_key": "iteration_id=M4",
+                        "result": "continue",
+                        "reason_code": "user_approval_required",
+                        "reason": "manual approval is required",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-APPROVAL",
+                    "--max-iterations",
+                    "2",
+                    "--runner",
+                    f"bash {runner}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "user_approval_required")
+            self.assertEqual(payload.get("scope_key"), "iteration_id_M4")
+            loop_log = (root / "reports" / "loops" / "DEMO-APPROVAL" / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("stage=implement", loop_log)
+            self.assertIn("reason_code=user_approval_required", loop_log)
 
 
 if __name__ == "__main__":

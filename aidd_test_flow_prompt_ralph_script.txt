@@ -1,6 +1,7 @@
-Задача: AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + W91/W92/W93 (Skill-first/DocOps/Preflight) Readiness
+Задача: AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + Skill-first/DocOps/Preflight Readiness
 
-Роль: ты — один аудитор-агент. Проведи полный e2e прогон AIDD флоу в одном репозитории и собери доказательства (логи/артефакты). НЕ “чиняй” проект и НЕ делай ручные правки AIDD docs ради прохождения гейтов.
+Роль: ты — один аудитор-агент. Проведи полный e2e прогон AIDD флоу в одном репозитории и собери доказательства (логи/артефакты).
+НЕ “чиняй” проект и НЕ делай ручные правки AIDD docs ради прохождения гейтов.
 
 Канон vs runtime:
 - Канон templates: $PLUGIN_DIR/templates/aidd/**
@@ -16,7 +17,7 @@
 - CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR
 
 - TICKET=TST-001
-- SLUG_HINT=tst-001-demo   # фиксируем slug-hint, чтобы не “загрязнялся” note/answers
+- SLUG_HINT=tst-001-demo   # slug-hint должен оставаться токеном, без note/answers
 
 - LOOP_MODE=loop-run|loop-step          # default: loop-run
 - LOOP_RUNNER=<optional>
@@ -30,9 +31,9 @@
 Правила:
 - Не прерывай команды claude/loop-run/loop-step раньше бюджетов ниже.
 - Heartbeat каждые 30s = значит процесс жив. Пока heartbeat идёт — продолжаем ждать.
-- Если в окружении есть параметр timeout на выполнение shell-команд (например в executor/tool) — выставь:
-  - для claude команд: >= 7200s
-  - для loop-run: >= 9000s
+- Если в окружении есть параметр timeout на выполнение shell-команд (executor/tool) — выставь:
+  - для claude команд: >= 60000s
+  - для loop-run: >= 90000s
 
 Бюджеты (максимум ожидания до принудительной остановки):
 - idea-new / researcher / plan-new / review-spec / tasks-new: до 60 минут каждая
@@ -67,6 +68,10 @@ R2) No manual edits:
 R3) Secrets hygiene:
 - Не читать/не печатать секреты (.env/keys/tokens). Если встретилось — SKIPPED/REDACTED.
 
+R4) Stage wrappers must be ON:
+- НЕ выставляй AIDD_SKIP_STAGE_WRAPPERS=1.
+- Если переменная уже выставлена в окружении — зафиксируй в логах и unset перед аудитом.
+
 ============================================================
 0) DETECT MODE: LEGACY vs SKILL_FIRST
 
@@ -77,7 +82,7 @@ AUDIT_MODE = SKILL_FIRST если:
 Иначе: LEGACY.
 
 LEGACY: DocOps/readmap/writemap/actions/preflight = NOT APPLICABLE.
-SKILL_FIRST: DocOps/readmap/writemap/actions/preflight = обязательны (если команда дошла до соответствующей точки и завершилась нормально).
+SKILL_FIRST: DocOps/readmap/writemap/actions/preflight = обязательны (если команда дошла до loop-стадии и завершилась нормально).
 
 ============================================================
 КАНОН (must-read)
@@ -115,6 +120,9 @@ export TICKET="..."
 export SLUG_HINT="..."
 export AIDD_HOOKS_MODE="${AIDD_HOOKS_MODE:-fast}"
 
+# Ensure stage wrappers are not skipped
+unset AIDD_SKIP_STAGE_WRAPPERS || true
+
 RUN_TS="$(date -u +%Y%m%dT%H%M%SZ)"
 AUDIT_DIR="$PROJECT_DIR/.aidd_audit/$TICKET/$RUN_TS"
 mkdir -p "$AUDIT_DIR"
@@ -127,6 +135,7 @@ run_logged () {
     echo "CMD: $*"
     echo "AIDD_HOOKS_MODE=${AIDD_HOOKS_MODE:-}"
     echo "CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-}"
+    echo "AIDD_SKIP_STAGE_WRAPPERS=${AIDD_SKIP_STAGE_WRAPPERS:-}"
     echo "==============================="
   } >>"$log"
 
@@ -135,8 +144,8 @@ run_logged () {
 
   while kill -0 "$pid" >/dev/null 2>&1; do
     echo "[audit] still running $(date -u +%Y-%m-%dT%H:%M:%SZ) pid=$pid" | tee -a "$log"
-    # показываем хвост лога, чтобы видно было прогресс, даже если “тихо”
-    tail -n 10 "$log" 2>/dev/null | sed 's/^/[tail] /' | tee -a "$log" >/dev/null
+    # печатаем хвост в stdout, чтобы executor видел прогресс и не думал, что зависло
+    tail -n 10 "$log" 2>/dev/null | sed 's/^/[tail] /'
     sleep 30
   done
 
@@ -190,7 +199,6 @@ Workspace считается готовым, если существует:
 
 После:
 - find aidd -maxdepth 4 -type f | sort > "$AUDIT_DIR/04_aidd_tree_post.txt"
-- (опционально) mkdir -p "$PROJECT_DIR/aidd/reports/audit/$TICKET/$RUN_TS" и копировать туда AUDIT_DIR в самом конце.
 
 5) Happy path
 5.1) idea-new
@@ -202,6 +210,20 @@ Workspace считается готовым, если существует:
 Сними:
 - cat aidd/docs/.active.json > "$AUDIT_DIR/05_active.json" || true
 - sed -n '1,80p' aidd/docs/prd/$TICKET.prd.md > "$AUDIT_DIR/05_prd_head.txt" || true
+
+Slug check (обязательно):
+- вытащи slug_hint и сравни с $SLUG_HINT (должен совпасть с токеном, без пробелов/добавок):
+  python3 - <<'PY' > "$AUDIT_DIR/05_slug_check.txt" || true
+import json
+p="aidd/docs/.active.json"
+try:
+  s=json.load(open(p,"r",encoding="utf-8")).get("slug_hint","")
+  tok=(s or "").strip().split()[0] if isinstance(s,str) else ""
+  print("slug_hint_raw:", s)
+  print("slug_hint_token:", tok)
+except Exception as e:
+  print("ERROR:", e)
+PY
 
 5.2) researcher (ticket-only)
 - run_claude "$AUDIT_DIR/05_researcher.log" "/feature-dev-aidd:researcher $TICKET"
@@ -217,36 +239,70 @@ Workspace считается готовым, если существует:
 5.5) tasks-new
 - run_claude "$AUDIT_DIR/05_tasks_new.log" "/feature-dev-aidd:tasks-new $TICKET"
 Проверка статуса:
-- извлеки header Status из tasklist и запиши в "$AUDIT_DIR/05_tasklist_status_check.txt"
-  (например grep 'Status:' первые 40 строк)
+- grep -n "Status:" -n aidd/docs/tasklist/$TICKET.md | head -n 5 > "$AUDIT_DIR/05_tasklist_status_check.txt" || true
 Если команда заявила READY, а tasklist остался PENDING:
-- BUG major (status sync mismatch), но продолжай (это важно для проверки loop стадий).
+- BUG major (status sync mismatch), но продолжай (важно для проверки loop стадий).
 
 6) Loop (seed implement/review — 1 раз)
 - run_claude "$AUDIT_DIR/06_implement_seed.log" "/feature-dev-aidd:implement $TICKET"
 - run_claude "$AUDIT_DIR/06_review_seed.log" "/feature-dev-aidd:review $TICKET"
 
+Active state invariant check:
+- cat aidd/docs/.active.json > "$AUDIT_DIR/06_active_after_review.json" || true
+- work_item валиден только если:
+  - null
+  - iteration_id=<I|M><N> (например iteration_id=I1 или iteration_id=M1)
+  - и точно НЕ id=review:*
+  python3 - <<'PY' > "$AUDIT_DIR/06_work_item_check.txt" || true
+import json,re
+p="aidd/docs/.active.json"
+try:
+  st=json.load(open(p,"r",encoding="utf-8"))
+  wi=st.get("work_item")
+  ok = (wi is None) or bool(re.match(r"^iteration_id=[IM]\d+$", str(wi)))
+  bad = str(wi).startswith("id=review:")
+  print("work_item:", wi)
+  print("ok_pattern:", ok)
+  print("bad_review_id:", bad)
+except Exception as e:
+  print("ERROR:", e)
+PY
+
 ВАЖНО:
-- Если эти команды были ПРИНУДИТЕЛЬНО остановлены (exit 143/137/etc):
-  - фиксируй BUG “command did not terminate”
-  - НЕ делай вывод “stage_result missing” как blocker‑регрессию; пометь stage_result checks как NOT VERIFIED (killed).
+- Если implement/review были ПРИНУДИТЕЛЬНО остановлены (exit 143/137/etc):
+  - BUG “command did not terminate”
+  - stage_result/preflight/artifacts checks = NOT VERIFIED (killed)
   - затем всё равно пробуй loop-run, чтобы зафиксировать деградацию.
 
-Диагностика preflight (SKILL_FIRST) — делай сразу после старта implement/review, если кажется “тихо”:
-- через 2–3 минуты (НЕ останавливая процесс) посмотри, появились ли:
-  - aidd/reports/actions/**/<stage>.actions.template.json
-  - aidd/reports/context/**.readmap.*
-  - aidd/reports/context/**.writemap.*
-  - stage.preflight.result.json
-Если нет — это сильный сигнал, что preflight вообще не запускается (major/blocker по W93).
+SKILL_FIRST: обязательный инвентарь wrapper/preflight артефактов (если implement/review завершились нормально):
+- find aidd/reports/actions -type f | sort > "$AUDIT_DIR/06_actions_tree.txt" || true
+- find aidd/reports/context -type f | sort > "$AUDIT_DIR/06_context_tree.txt" || true
+- find aidd/reports/loops/$TICKET -type f | rg -n "stage\.preflight\.result\.json|stage\.(implement|review)\.result\.json|output\.contract\.json|\.loop\.pack\.md" | sed 's/^/[hit] /' > "$AUDIT_DIR/06_loop_artifacts_hits.txt" || true
+- find aidd/reports/logs -type f 2>/dev/null | sort > "$AUDIT_DIR/06_wrapper_logs_tree.txt" || echo "aidd/reports/logs: missing" > "$AUDIT_DIR/06_wrapper_logs_tree.txt"
+
+Если implement/review завершились нормально (exit 0/10), но отсутствуют actions/readmap/writemap/preflight/wrapper logs:
+- это BUG blocker (preflight/docops/wrapper contract broken).
 
 7) Auto-loop
-- run_logged "$AUDIT_DIR/07_loop_run.log" bash -lc "cd \"$PROJECT_DIR\" && CLAUDE_PLUGIN_ROOT=\"$PLUGIN_DIR\" \"$PLUGIN_DIR/tools/loop-run.sh\" --ticket \"$TICKET\" --max-iterations 6 --stream"
+- run_logged "$AUDIT_DIR/07_loop_run.log" bash -lc "cd \"$PROJECT_DIR\" && CLAUDE_PLUGIN_ROOT=\"$PLUGIN_DIR\" \"$PLUGIN_DIR/tools/loop-run.sh\" --ticket \"$TICKET\" --max-iterations 6 --stream" || true
+
+Loop stop semantics:
+- Если loop-run остановился из-за user_approval_required:
+  - это ожидаемый hard stop (WARN), НЕ BUG;
+  - зафиксируй stage_result_path/wrapper_logs (если есть).
+- Если loop-run упал с stage_result_missing_or_invalid / invalid_work_item_key / missing wrappers:
+  - это BUG blocker.
 
 8) QA
-- run_claude "$AUDIT_DIR/08_qa.log" "/feature-dev-aidd:qa $TICKET"
-Если QA был убит:
-- BUG major “qa termination/hang”, а выводы про stage.qa.result делать осторожно.
+- run_claude "$AUDIT_DIR/08_qa.log" "/feature-dev-aidd:qa $TICKET" || true
+
+QA exit-code semantics:
+- exit 2 при QA Status=BLOCKED — корректный блок (не crash).
+- exit != {0,2} — BUG major/blocker.
+- итоговый статус QA определяй по aidd/reports/qa/$TICKET.json.
+
+Доп. checks:
+- [ -f "aidd/reports/qa/$TICKET.json" ] && rg -n "\"status\"|gradlew not found|BLOCK:" "aidd/reports/qa/$TICKET.json" > "$AUDIT_DIR/08_qa_status_extract.txt" || true
 
 ============================================================
 ФИНАЛЬНЫЙ ОТЧЁТ (в чат)
@@ -255,6 +311,12 @@ Workspace считается готовым, если существует:
 - Отдельно: что было NOT VERIFIED из-за kill
 - BUG REPORTS (severity)
 - Ralph loop summary (если дошёл)
+- Contract checks summary:
+  - slug_check (token == SLUG_HINT)
+  - work_item pattern
+  - wrappers/preflight artifacts present
+  - loop stop semantics (user_approval_required vs real failure)
+  - QA exit code semantics
 - Список команд + пути к логам в AUDIT_DIR
 
 Последняя строка:

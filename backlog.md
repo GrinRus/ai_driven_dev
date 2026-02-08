@@ -835,6 +835,68 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   **AC:** порядок отражён в release/work plan как fast path для green e2e.
   **Deps:** W94-1, W94-2, W94-3, W94-5
 
+## Wave 96 — Runtime stabilization after W94 (E2E parity)
+
+_Статус: завершено, приоритет 0. Цель — закрыть e2e TST-001 gaps: slug hygiene, wrapper artifacts contract, deterministic loop stop on user approval, iteration format compatibility, QA exit-code parity._
+
+- [x] **W96-1 (P0)** Slug hygiene: `slug_hint` хранит только slug token
+  - исправить запись active state (`slug_hint`) так, чтобы note/answers не загрязняли токен;
+  - нормализация slug token по regex; при невалидном candidate сохранять прежний валидный slug_hint;
+  - не смешивать `slug_hint` с feature label/description.
+  **AC:**
+  - после `idea-new <ticket> <slug> <note...>`: `.active.json.slug_hint == <slug>`;
+  - повторные вызовы с `AIDD:ANSWERS` не перетирают валидный slug_hint длинным текстом.
+  **Regression/Tests:**
+  - unit tests в `tests/test_active_state.py` (token extraction/preservation).
+  **Deps:** -
+
+- [x] **W96-2 (P0, blocker)** SKILL_FIRST wrapper/preflight artifacts contract
+  - сделать wrapper-chain детерминированным для `implement|review|qa` в loop-step независимо от runner бинаря;
+  - enforce обязательные артефакты: preflight result, readmap/writemap (md+json), actions template/actions json, wrapper logs;
+  - проверять `AIDD:ACTIONS_LOG` как существующий файл (не только marker строка).
+  **AC:**
+  - после loop-stage в SKILL_FIRST создаётся обязательный набор preflight/docops/logs;
+  - отсутствие обязательных артефактов => BLOCK с диагностикой.
+  **Regression/Tests:**
+  - `tests/test_e2e_contract_minimal.py`
+  - `tests/test_gate_workflow_preflight_contract.py`
+  - `tests/test_loop_step.py` (контракт wrapper артефактов).
+  **Deps:** W96-1
+
+- [x] **W96-3 (P1)** `user_approval_required` semantics в loop-run
+  - reason_code `user_approval_required` трактуется как hard block на текущей стадии;
+  - loop-run останавливается детерминированно без перехода к следующей стадии;
+  - логирует stage/scope/reason_code + ссылки на stage_result/wrapper logs.
+  **AC:**
+  - нет сценария “continue на implement, blocked на следующем review” для того же approval gate;
+  - blocked причина явно диагностируема в loop logs/payload.
+  **Regression/Tests:**
+  - `tests/test_loop_run.py`
+  - `tests/test_loop_semantics.py`.
+  **Deps:** W96-2
+
+- [x] **W96-4 (P1)** iteration_id allowlist: `M#` и `I#`
+  - принять `iteration_id=M1` как валидный формат наравне с `I1`;
+  - убрать ложные WARN/invalid при scope resolution для legacy/current форматов.
+  **AC:**
+  - active work_item с `M#`/`I#` обрабатывается корректно без деградации loop-stage.
+  **Regression/Tests:**
+  - unit coverage в `tests/test_active_state.py`.
+  **Deps:** W96-1
+
+- [x] **W96-5 (P1)** QA exit-code policy
+  - выровнять policy: QA report `BLOCKED` => стабильный non-zero exit code (`2`);
+  - `READY|WARN` остаются `0`;
+  - smoke tooling принимает новую семантику QA и валидирует report.
+  **AC:**
+  - `qa` возвращает `2` для BLOCKED и печатает `BLOCK:` в stderr;
+  - pipeline/smoke корректно интерпретирует status по report.
+  **Regression/Tests:**
+  - `tests/test_qa_exit_code.py`
+  - `tests/test_qa_agent.py`
+  - `tests/repo_tools/smoke-workflow.sh`.
+  **Deps:** W96-2
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._

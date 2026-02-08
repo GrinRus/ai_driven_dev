@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from tools import loop_step as loop_step_module
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json, write_tasklist_ready
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -15,7 +15,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
 class LoopStepTests(unittest.TestCase):
     def run_loop_step(self, root: Path, ticket: str, log_path: Path, extra_env: dict | None = None, *args: str):
         runner = FIXTURES / "runner.sh"
-        env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+        env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
@@ -55,11 +55,116 @@ class LoopStepTests(unittest.TestCase):
             cli_logs = list((root / "reports" / "loops" / "DEMO-1").glob("cli.loop-step.*.log"))
             self.assertTrue(cli_logs, "cli.loop-step log should be written")
 
+    def test_loop_step_user_approval_required_blocks_same_stage(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-APPROVAL", stage="implement", work_item="iteration_id=M4")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-APPROVAL",
+                "stage": "implement",
+                "scope_key": "iteration_id_M4",
+                "result": "continue",
+                "reason_code": "user_approval_required",
+                "reason": "manual approval is required",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-APPROVAL/iteration_id_M4/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-APPROVAL", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("stage"), "implement")
+            self.assertEqual(payload.get("reason_code"), "user_approval_required")
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_when_wrappers_skipped_in_strict_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-SKIP", work_item="iteration_id=I1")
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-SKIP",
+                log_path,
+                {"AIDD_HOOKS_MODE": "strict", "AIDD_SKIP_STAGE_WRAPPERS": "1"},
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("stage"), "implement")
+            self.assertEqual(payload.get("reason_code"), "wrappers_skipped_unsafe")
+            self.assertIn("AIDD_SKIP_STAGE_WRAPPERS=1", str(payload.get("reason") or ""))
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_runner_with_wrappers_produces_required_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-WRAP"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": scope_key,
+                "work_item_key": work_item_key,
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            actions_log_rel = str(payload.get("actions_log_path") or "")
+            self.assertTrue(actions_log_rel)
+            actions_log_abs = (root.parent / actions_log_rel).resolve()
+            self.assertTrue(actions_log_abs.exists())
+
+            actions_dir = root / "reports" / "actions" / ticket / scope_key
+            self.assertTrue((actions_dir / "implement.actions.template.json").exists())
+            self.assertTrue((actions_dir / "implement.actions.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.md").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.md").exists())
+            self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
+            wrapper_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.*.log"))
+            self.assertGreaterEqual(len(wrapper_logs), 3)
+
     def test_loop_step_runs_review_when_stage_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, stage="implement")
             write_active_state(root, work_item="iteration_id=I1")
+            write_tasklist_ready(root, "DEMO-2")
+            write_file(root, "docs/prd/DEMO-2.prd.md", "Status: READY\n")
+            write_file(root, "reports/context/DEMO-2.pack.md", "# Context pack\n\nStatus: READY\n")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-2",
@@ -90,7 +195,7 @@ class LoopStepTests(unittest.TestCase):
                 json.dumps(review_result),
             )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-2", log_path)
+            result = self.run_loop_step(root, "DEMO-2", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
 
@@ -493,7 +598,9 @@ done
 mkdir -p "aidd/reports/actions/$ticket/$scope" "aidd/reports/context/$ticket" "aidd/reports/loops/$ticket/$scope" "aidd/reports/logs/$stage/$ticket/$scope"
 echo '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}' > "aidd/reports/actions/$ticket/$scope/implement.actions.template.json"
 echo '{"schema":"aidd.context_map.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","allowed_paths":["src/**"],"forbidden_paths":[]}' > "aidd/reports/context/$ticket/$scope.readmap.json"
+echo '# readmap' > "aidd/reports/context/$ticket/$scope.readmap.md"
 echo '{"schema":"aidd.context_map.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","allowed_paths":["src/**"],"forbidden_paths":[]}' > "aidd/reports/context/$ticket/$scope.writemap.json"
+echo '# writemap' > "aidd/reports/context/$ticket/$scope.writemap.md"
 echo '{"schema":"aidd.stage_result.preflight.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","status":"ok","generated_at":"2024-01-01T00:00:00Z"}' > "aidd/reports/loops/$ticket/$scope/stage.preflight.result.json"
 echo "ok" > "aidd/reports/logs/$stage/$ticket/$scope/wrapper.preflight.log"
 echo "log_path=aidd/reports/logs/$stage/$ticket/$scope/wrapper.preflight.log"
@@ -564,7 +671,7 @@ echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
                 root,
                 "DEMO-WRAP",
                 log_path,
-                {"AIDD_STAGE_WRAPPERS_ROOT": str(fake_plugin), "AIDD_FORCE_STAGE_WRAPPERS": "1"},
+                {"AIDD_STAGE_WRAPPERS_ROOT": str(fake_plugin), "AIDD_FORCE_STAGE_WRAPPERS": "1", "AIDD_SKIP_STAGE_WRAPPERS": "0"},
                 "--format",
                 "json",
             )
