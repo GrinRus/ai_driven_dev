@@ -86,7 +86,7 @@ PY
     fi
   fi
 
-  "${CLAUDE_PLUGIN_ROOT}/tools/actions-validate.sh" --actions "$AIDD_ACTIONS_PATH" >>"$LOG_PATH" 2>&1
+  "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/actions-validate.sh" --actions "$AIDD_ACTIONS_PATH" >>"$LOG_PATH" 2>&1
 
   echo "log_path=aidd/${LOG_PATH#"${AIDD_ROOT}"/}"
   if [[ "$ACTIONS_PROVIDED" -eq 0 ]]; then

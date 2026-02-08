@@ -14,9 +14,7 @@ hooks/gate-tests.sh
 hooks/gate-workflow.sh
 hooks/lint-deps.sh
 tools/actions-apply.sh
-tools/actions-validate.sh
 tools/context-expand.sh
-tools/context-map-validate.sh
 tools/dag-export.sh
 tools/doctor.sh
 tools/identifiers.sh

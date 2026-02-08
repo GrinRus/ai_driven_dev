@@ -19,12 +19,12 @@ require_contains() {
 cd "$ROOT_DIR"
 
 log "checking actions validator supported versions"
-actions_versions="$(python3 tools/actions-validate.sh --print-supported-versions 2>/dev/null || true)"
+actions_versions="$(skills/aidd-core/scripts/actions-validate.sh --print-supported-versions 2>/dev/null || true)"
 require_contains "$actions_versions" "aidd.actions.v0" "actions validator"
 require_contains "$actions_versions" "aidd.actions.v1" "actions validator"
 
 log "checking context-map validator supported versions"
-map_versions="$(python3 tools/context-map-validate.sh --print-supported-versions 2>/dev/null || true)"
+map_versions="$(skills/aidd-core/scripts/context-map-validate.sh --print-supported-versions 2>/dev/null || true)"
 require_contains "$map_versions" "aidd.readmap.v1" "context-map validator"
 require_contains "$map_versions" "aidd.writemap.v1" "context-map validator"
 

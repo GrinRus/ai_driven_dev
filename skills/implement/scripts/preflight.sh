@@ -78,9 +78,9 @@ main() {
   printf '%s\n' "$preflight_out" >>"$LOG_PATH"
 
   {
-    "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_READMAP_JSON"
-    "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_WRITEMAP_JSON"
-    "${CLAUDE_PLUGIN_ROOT}/tools/actions-validate.sh" --actions "$AIDD_ACTIONS_TEMPLATE"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/context-map-validate.sh" --map "$AIDD_READMAP_JSON"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/context-map-validate.sh" --map "$AIDD_WRITEMAP_JSON"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/actions-validate.sh" --actions "$AIDD_ACTIONS_TEMPLATE"
     "${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
   } >>"$LOG_PATH" 2>&1
 

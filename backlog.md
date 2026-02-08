@@ -4,6 +4,8 @@
 
 _Статус: новый, приоритет 0. Цель — перевести runtime на SKILL-first модель: stage/shared entrypoints живут рядом со SKILL, а `tools/` остаётся shared library/orchestrator + compatibility shims._
 
+_Доп. вводные (breaking target): в рамках доработки Wave 96 допускается поломка обратной совместимости ради полного вывода runtime из `tools/` с финальным удалением директории._
+
 ### Success Metrics (tracked per checkpoint)
 
 - **M1:** stage-specific entrypoints left in `tools/` (excluding explicit shims) -> target `0` после Phase 1.
@@ -22,6 +24,7 @@ _Статус: новый, приоритет 0. Цель — перевести
 - **Phase 2 (можно начать):** stage-local python relocation (`W96-11..W96-14`).
 - **Phase 3 (после Phase 1):** shared shell relocation to `skills/aidd-core/scripts/*` (`W96-15`) + docs/templates/gates alignment (`W96-1c`, `W96-22`, `W96-23`).
 - **Phase 4 (optional, P2):** hardening (`W96-28..W96-30`) after migration baseline is stable.
+- **Phase 5 (обязательное, breaking):** полный runtime cutover с удалением `tools/` (`W96-32..W96-40`).
 
 ### Phase 0 — Policy, Guards, Inventory, Freeze
 
@@ -216,6 +219,134 @@ _Статус: новый, приоритет 0. Цель — перевести
 
 - [ ] **W96-30 (P2) SKILL-first wrapper contract hardening in loop/gates** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`.
   **AC:** no false-success without mandatory wrapper artifacts + actions log.
+
+### Phase 5 — Full `tools/` retirement (required, breaking)
+
+- [ ] **W96-32 (P0) Breaking migration contract + release policy for tools-free runtime** `AGENTS.md`, `README.md`, `README.en.md`, `CHANGELOG.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`:
+  - зафиксировать целевой state: runtime entrypoints только в `skills/*/scripts/*` и `hooks/*`; `tools/` не используется как runtime API;
+  - явно задокументировать breaking change policy и миграционные заметки для пользователей/интеграций;
+  - выровнять release metadata под breaking-wave.
+  **AC:** policy/docs/metadata однозначно описывают tools-free runtime и breaking semantics.
+  **Regression/tests:** docs lint + metadata consistency checks.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W96-33 (P0) CI guardrails: block any new runtime dependency on `tools/`** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/lint-prompts.py`, `tests/repo_tools/skill-scripts-guard.py`, `tests/repo_tools/bash-runtime-guard.py`, `tests/test_prompt_lint.py`:
+  - добавить fail-fast guard: runtime/skills/hooks/agents/templates не должны ссылаться на `tools/*` (кроме задач в активном migration allowlist до cutover);
+  - запретить `from tools import ...` и `${CLAUDE_PLUGIN_ROOT}/tools/...` в canonical runtime paths;
+  - добавить отчёт о нарушениях в CI.
+  **AC:** новые/сохранившиеся runtime refs на `tools/` детерминированно блокируются в CI.
+  **Regression/tests:** prompt-lint + guard unit/integration tests.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-34 (P1) Relocate remaining shared shell entrypoints out of `tools/` (no shims)** `skills/aidd-core/scripts/*.sh`, `skills/aidd-loop/scripts/*.sh`, `skills/*/scripts/*.sh`, `tools/*.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/shim-regression.sh`:
+  - перенести оставшиеся shared shell entrypoints (`actions-validate`, `context-map-validate`, `loop-run`, `loop-step`, `doctor`, `md-*`, `*-review-gate`, `researcher-context`, `skill-contract-validate`, `tests-log`, `tools-inventory`) в canonical scripts под skills/hooks;
+  - убрать shim-pattern и deprecation dual-path для этих entrypoints;
+  - обновить smoke/регрессии под canonical-only вызовы.
+  **AC:** runtime shell entrypoints не живут в `tools/`; shim-regression больше не требуется для удалённых путей.
+  **Regression/tests:** smoke-workflow + repo tools regression suite.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-35 (P1) Hook runtime decoupling from `tools` package** `hooks/*.sh`, `hooks/**/*.py`, `hooks/runtime/*.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_gate_workflow*.py`, `tests/test_wave95_policy_guards.py`:
+  - вынести Python runtime, используемый hook-ами, из `tools` в `skills/aidd-core/runtime/*`;
+  - заменить импорты `from tools ...` в hook-ах на новые canonical runtime модули;
+  - обновить hook wiring/tests без fallback на `tools`.
+  **AC:** hooks выполняются без импортов из `tools` и без вызовов `tools/*.sh`.
+  **Regression/tests:** hook unit/integration + policy guard tests.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-36 (P1) Shared Python runtime relocation to skills-core runtime** `skills/aidd-core/runtime/*.py`, `skills/aidd-loop/runtime/*.py`, `skills/aidd-reference/wrapper_lib.sh`, `skills/aidd-core/scripts/*.sh`, `skills/aidd-loop/scripts/*.sh`, `tests/test_*`:
+  - перенести shared python модули из `tools/*.py` в `skills/aidd-core/runtime/*` (и loop-specific в `skills/aidd-loop/runtime/*`);
+  - обновить wrapper bootstrap/launcher так, чтобы canonical scripts запускали runtime из `skills/*/runtime`;
+  - удалить runtime imports, завязанные на пакет `tools`.
+  **AC:** shared runtime исполняется из `skills/*/runtime`; `tools/*.py` не является execution path.
+  **Regression/tests:** unit + smoke + workflow integration.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-37 (P1) Stage runtime completion: remove proxy wrappers in `skills/*/runtime`** `skills/idea-new/runtime/*.py`, `skills/plan-new/runtime/*.py`, `skills/review-spec/runtime/*.py`, `skills/researcher/runtime/*.py`, `skills/review/runtime/*.py`, `skills/qa/runtime/*.py`, `skills/status/runtime/*.py`, `tests/test_*`:
+  - заменить текущие proxy-обёртки в stage runtime на реальные модули (без `from tools import ... as tools_module`);
+  - привести imports/stage scripts к локальному runtime пути;
+  - обновить stage-specific тесты.
+  **AC:** `skills/<stage>/runtime/*` не содержит прокси на `tools`; stage flows проходят на локальном runtime.
+  **Regression/tests:** stage unit/integration + smoke.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-38 (P1) Canonical-path sweep in prompts/docs/templates/configs (tools-free references)** `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**`, `templates/aidd/config/*.json`, `README.md`, `README.en.md`, `agents/*.md`, `skills/*/SKILL.md`, `hooks/*.sh`, `hooks/**/*.py`:
+  - удалить/заменить все user-facing и hook hints c `tools/*` на canonical paths в `skills/*/scripts/*` и `hooks/*`;
+  - убрать legacy/deprecation примечания про `tools` из документации migration window;
+  - синхронизировать prompt conventions и gate/config references.
+  **AC:** в docs/prompts/config/hints нет runtime references на `tools/*`.
+  **Regression/tests:** prompt lint + docs consistency + hook hint checks.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-39 (P1) Tests/CI harness migration to tools-free layout** `tests/**/*.py`, `tests/repo_tools/*.sh`, `.github/workflows/ci.yml`, `tests/helpers.py`, `tests/test_deferred_core_api_contract.py`:
+  - переписать тестовые harness/фикстуры с `tools/*` на canonical skills/hooks paths;
+  - удалить/заменить contract tests, завязанные на deferred-core APIs в `tools/*`;
+  - выровнять CI path filters и smoke сценарии под новый layout.
+  **AC:** CI/smoke/test helpers не используют `tools/*`; regression coverage сохранена.
+  **Regression/tests:** full `tests/repo_tools/ci-lint.sh` + `tests/repo_tools/smoke-workflow.sh` + targeted pytest.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-40 (P0) Final cutover: remove `tools/` directory from runtime and repository tree** `tools/**`, `AGENTS.md`, `README.md`, `README.en.md`, `tests/repo_tools/ci-lint.sh`, `.github/workflows/ci.yml`:
+  - удалить директорию `tools/` после переноса runtime/entrypoints/tests/docs;
+  - добавить repo guard, запрещающий повторное появление runtime в `tools/`;
+  - проверить install/smoke/workflow после физического удаления директории.
+  **AC:** `tools/` отсутствует в дереве репозитория; workflow функционирует через `skills/` и `hooks/`.
+  **Regression/tests:** full CI lint + smoke-workflow + critical stage flows.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-41 (P0) Shared scripts ownership map: 1 owner = 1 canonical skill/hook path** `backlog.md`, `AGENTS.md`, `README.md`, `README.en.md`, `aidd/reports/tools/*.json`:
+  - зафиксировать owner-matrix для оставшихся shared entrypoints (`loop-run`, `loop-step`, `doctor`, `dag-export`, `identifiers`, `skill-contract-validate`, `tests-log`, `tools-inventory`, `plan-review-gate`, `prd-review-gate`, `researcher-context`);
+  - для каждого entrypoint определить только один canonical owner (`skills/<name>/scripts/*` или `hooks/*`) и migration destination;
+  - отметить deprecated/removed candidates без canonical owner (если функциональность дублируется).
+  **AC:** каждый shared entrypoint имеет однозначный owner и target path; нет "orphan/shared без владельца".
+  **Regression/tests:** tools-inventory + docs consistency checks.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W96-42 (P1) Execute ownership map: relocate all remaining `shared_tool` entrypoints** `skills/aidd-core/scripts/*.sh`, `skills/aidd-loop/scripts/*.sh`, `skills/aidd-init/scripts/*.sh`, `skills/aidd-maintainer/scripts/*.sh`, `hooks/*.sh`, `tools/*.sh`, `tests/repo_tools/smoke-workflow.sh`:
+  - перенести оставшиеся `shared_tool` скрипты по owner-map в canonical skills/hooks paths;
+  - удалить `researcher-context` path, если RLM-only pipeline покрывает сценарий без регресса;
+  - обновить smoke/CLI examples на новые canonical entrypoints.
+  **AC:** в inventory нет classification=`shared_tool`; все entrypoints либо canonical (`skills/hooks`), либо удалены.
+  **Regression/tests:** smoke-workflow + loop/gate regression + inventory diff.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-43 (P0) Command-skill execution contract: agents do not call wrappers directly** `AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - закрепить контракт: wrappers (`skills/*/scripts/*`) вызываются только command-skills/hooks, не subagents;
+  - запретить в `agents/*.md` прямые `Bash(${CLAUDE_PLUGIN_ROOT}/skills/*/scripts/*.sh:*)` refs;
+  - добавить lint-правило и migration notes для agent prompts.
+  **AC:** агенты работают через артефакты и общий toolset; orchestration wrappers принадлежат command-skills/hooks.
+  **Regression/tests:** prompt-lint unit/integration coverage for agent wrapper ban.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-44 (P1) User-invocable skills: local script ownership and no `tools/*` fallback** `skills/*/SKILL.md`, `skills/*/scripts/*.sh`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `README.md`, `README.en.md`:
+  - привести user-invocable skills (`aidd-init`, `researcher`, `review`, `qa`, и др.) к вызову только canonical `skills/*/scripts/*` и `hooks/*`;
+  - убрать остаточные `tools/*` refs в `allowed-tools` и steps;
+  - валидировать, что у каждой user-invocable команды есть owner scripts по необходимости.
+  **AC:** в user-invocable `SKILL.md` отсутствуют runtime refs на `tools/*`; command skills полностью self-contained по скриптам.
+  **Regression/tests:** prompt-lint + skill contract checks + smoke for user commands.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-45 (P1) Deferred-core decomposition into skill owners (breaking)** `skills/aidd-init/scripts/*.sh`, `skills/researcher/scripts/*.sh`, `skills/aidd-core/scripts/*.sh`, `hooks/*.sh`, `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`:
+  - разложить бывшие deferred-core API по ownership: init -> `aidd-init`, research -> `researcher`, tasks-derive/actions/context-expand -> `aidd-core`/hooks;
+  - удалить deferred-core freeze assumptions и contract tests, ожидающие `tools/*` API;
+  - выровнять вызовы в hooks/skills/docs на новые owner entrypoints.
+  **AC:** бывшие deferred-core сценарии доступны только через canonical skills/hooks paths без `tools/*` API.
+  **Regression/tests:** workflow integration + gate-tests + qa/research/tasklist paths.
+  **Effort:** L
+  **Risk:** High
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
 
