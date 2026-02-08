@@ -217,7 +217,7 @@ def _run_loop_pack(target: Path, *, ticket: str, stage: str, work_item_key: str)
         loop_stage = "implement"
     plugin_root = runtime.require_plugin_root()
     cmd = [
-        str(plugin_root / "tools" / "loop-pack.sh"),
+        str(plugin_root / "skills" / "aidd-loop" / "scripts" / "loop-pack.sh"),
         "--ticket",
         ticket,
         "--stage",

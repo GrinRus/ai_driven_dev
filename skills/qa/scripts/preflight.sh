@@ -59,7 +59,7 @@ main() {
   } >>"$LOG_PATH" 2>&1
 
   local preflight_out
-  if ! preflight_out="$("${CLAUDE_PLUGIN_ROOT}/tools/preflight-prepare.sh" \
+  if ! preflight_out="$("${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/preflight-prepare.sh" \
     --ticket "$AIDD_TICKET" \
     --scope-key "$AIDD_SCOPE_KEY" \
     --work-item-key "$AIDD_WORK_ITEM_KEY" \
@@ -80,7 +80,7 @@ main() {
     "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_READMAP_JSON"
     "${CLAUDE_PLUGIN_ROOT}/tools/context-map-validate.sh" --map "$AIDD_WRITEMAP_JSON"
     "${CLAUDE_PLUGIN_ROOT}/tools/actions-validate.sh" --actions "$AIDD_ACTIONS_TEMPLATE"
-    "${CLAUDE_PLUGIN_ROOT}/tools/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
   } >>"$LOG_PATH" 2>&1
 
   aidd_write_legacy_preflight_artifacts

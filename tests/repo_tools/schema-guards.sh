@@ -29,7 +29,7 @@ require_contains "$map_versions" "aidd.readmap.v1" "context-map validator"
 require_contains "$map_versions" "aidd.writemap.v1" "context-map validator"
 
 log "checking preflight-result validator supported versions"
-preflight_versions="$(python3 tools/preflight-result-validate.sh --print-supported-versions 2>/dev/null || true)"
+preflight_versions="$(tools/preflight-result-validate.sh --print-supported-versions 2>/dev/null || true)"
 require_contains "$preflight_versions" "aidd.stage_result.preflight.v1" "preflight-result validator"
 
 log "validating skill contracts"

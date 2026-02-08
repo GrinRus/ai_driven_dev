@@ -28,7 +28,7 @@ allowed-tools:
   - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/prd-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*)"

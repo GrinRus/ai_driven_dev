@@ -21,16 +21,12 @@ tools/dag-export.sh
 tools/doctor.sh
 tools/identifiers.sh
 tools/init.sh
-tools/loop-pack.sh
 tools/loop-run.sh
 tools/loop-step.sh
 tools/md-patch.sh
 tools/md-slice.sh
-tools/output-contract.sh
 tools/plan-review-gate.sh
 tools/prd-review-gate.sh
-tools/preflight-prepare.sh
-tools/preflight-result-validate.sh
 tools/researcher-context.sh
 tools/skill-contract-validate.sh
 tools/tasks-derive.sh

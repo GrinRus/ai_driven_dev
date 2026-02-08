@@ -16,3 +16,12 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 5. Scope guard: out-of-scope -> WARN + handoff; forbidden -> BLOCKED. Never expand boundaries yourself.
 6. Tests: follow loop pack or reviewer policy; do not invent new test requirements.
 7. No large logs/diffs in chat; link to `aidd/reports/**`.
+
+## Canonical shared wrappers
+- `skills/aidd-loop/scripts/loop-pack.sh`
+- `skills/aidd-loop/scripts/preflight-prepare.sh`
+- `skills/aidd-loop/scripts/preflight-result-validate.sh`
+- `skills/aidd-loop/scripts/output-contract.sh`
+
+## Additional resources
+- For wrapper paths and shim-compat details, see [reference.md](reference.md).
