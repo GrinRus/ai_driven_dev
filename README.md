@@ -90,19 +90,19 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Сгенерировать research-контекст (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Сформировать review report |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Обновить reviewer marker для тестовой политики |
-| `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
 | `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
 | `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/status.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Обновить индекс тикета (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`) |
 | `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
@@ -154,7 +154,7 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
 - Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
-- Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
+- Scope guard: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>`.
 - Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
    `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
 

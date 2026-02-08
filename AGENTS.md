@@ -75,7 +75,7 @@ Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN
 - Ревью: `/feature-dev-aidd:review <ticket>`.
 - QA: `/feature-dev-aidd:qa <ticket>` → отчёт `aidd/reports/qa/<ticket>.json`.
 
-Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, тесты), затем задаём вопросы пользователю.
+Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh`, тесты), затем задаём вопросы пользователю.
 
 ## RLM в Research
 - Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
@@ -179,7 +179,7 @@ model: inherit
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
-- Укажите разрешённые CLI-команды (`<test-runner> …`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
+- Укажите разрешённые CLI-команды (`<test-runner> …`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
 
 ## Пошаговый план
 1. Распишите действия агента (чтение артефактов, запуск `rg`/`<test-runner>`, обновление файлов, обращение к другим агентам).
@@ -226,7 +226,7 @@ model: inherit
 - Уточните ограничения (например, только после `/feature-dev-aidd:review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh`, `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`), `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh`, `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`), `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
 - Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
 
 ## Что редактируется
@@ -235,7 +235,7 @@ model: inherit
 
 ## Пошаговый план
 1. Распишите последовательность действий команды (вызов саб-агентов, запуск скриптов, обновление артефактов).
-2. Добавьте проверки готовности (например, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source ...`).
+2. Добавьте проверки готовности (например, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source ...`).
 3. При необходимости предусмотрите ветки для ручных вмешательств.
 
 ## Fail-fast и вопросы

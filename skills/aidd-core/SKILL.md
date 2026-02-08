@@ -34,6 +34,18 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 - Use `skills/aidd-core/scripts/context_expand.sh` to expand `readmap/writemap` with explicit `reason_code` + `reason`.
 - Write-boundary expansion requires explicit `--expand-write` and must leave an audit trace under `aidd/reports/actions/<ticket>/<scope_key>/context-expand.audit.jsonl`.
 
+## Canonical shared wrappers
+- `skills/aidd-core/scripts/rlm-slice.sh`
+- `skills/aidd-core/scripts/set-active-stage.sh`
+- `skills/aidd-core/scripts/set-active-feature.sh`
+- `skills/aidd-core/scripts/progress.sh`
+- `skills/aidd-core/scripts/stage-result.sh`
+- `skills/aidd-core/scripts/status-summary.sh`
+- `skills/aidd-core/scripts/tasklist-check.sh`
+- `skills/aidd-core/scripts/tasklist-normalize.sh`
+- `skills/aidd-core/scripts/prd-check.sh`
+- `skills/aidd-core/scripts/diff-boundary-check.sh`
+
 ## Actions log
 - Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.
 - Status is read-only: reference the most recent actions log without modifying it.

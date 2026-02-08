@@ -103,19 +103,19 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Generate research context (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Generate review report |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Update reviewer marker for test policy |
-| `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
 | `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
 | `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
 | `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/status.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Refresh ticket index (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`) |
 | `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
@@ -166,7 +166,7 @@ Commands:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
 - Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
 - One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
-- Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
+- Scope guard: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>`.
 - Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
   `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
 

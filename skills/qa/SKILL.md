@@ -23,15 +23,15 @@ allowed-tools:
   - "Bash(make:*)"
   - "Bash(./gradlew:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-normalize.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/stage-result.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-normalize.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh:*)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true

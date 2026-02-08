@@ -115,7 +115,7 @@ Default: `<Что принять по умолчанию>`
 
 ## 8. План и этапы
 - **Майлстоуны**: `<MVP, Beta, GA>`
-- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source implement --ticket ABC-123`)
+- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source implement --ticket ABC-123`)
 - **Системные интеграции**: `<Сервисы, API, очереди, от которых зависит фича>`
 
 ## 9. Риски и стратегии
