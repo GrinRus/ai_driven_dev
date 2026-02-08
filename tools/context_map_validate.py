@@ -14,7 +14,22 @@ from tools import aidd_schemas
 SCHEMA_READMAP = "aidd.readmap.v1"
 SCHEMA_WRITEMAP = "aidd.writemap.v1"
 SUPPORTED_SCHEMA_VERSIONS = tuple(sorted({SCHEMA_READMAP, SCHEMA_WRITEMAP}))
-VALID_STAGES = {"implement", "review", "qa", "idea", "research", "plan", "review-plan", "review-prd", "tasklist", "tasks", "spec", "spec-interview", "status"}
+VALID_STAGES = {
+    "implement",
+    "review",
+    "qa",
+    "idea",
+    "research",
+    "plan",
+    "review-spec",
+    "review-plan",
+    "review-prd",
+    "tasklist",
+    "tasks",
+    "spec",
+    "spec-interview",
+    "status",
+}
 
 
 class ValidationError(ValueError):

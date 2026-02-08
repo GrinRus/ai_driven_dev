@@ -624,7 +624,7 @@ def check_progress(
         guidance = (
             f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
             f"но handoff-задачи не добавлены. Добавьте новые `- [ ] ... (source: aidd/reports/qa|research/...)` "
-            f"в {tasklist_rel} и повторите `${{CLAUDE_PLUGIN_ROOT}}/tools/progress.sh "
+            f"в {tasklist_rel} и повторите `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-core/scripts/progress.sh "
             f"--source handoff --ticket {ticket}`."
         )
     else:
@@ -632,7 +632,7 @@ def check_progress(
             f"BLOCK: в фиче `{ticket}` есть изменения в коде ({summary}), "
             f"но файл {tasklist_rel} не получил новых `- [x]`.\n"
             "Переведите соответствующие пункты `- [ ] → - [x]`, добавьте отметку даты/итерации, "
-            "обновите строку `Checkbox updated: …` и повторите `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh "
+            "обновите строку `Checkbox updated: …` и повторите `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh "
             f"--source {context or 'manual'} --ticket {ticket}`."
         )
     return ProgressCheckResult(

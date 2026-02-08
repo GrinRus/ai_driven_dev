@@ -11,6 +11,7 @@ VALID_STAGES = {
     "idea",
     "research",
     "plan",
+    "review-spec",
     "review-plan",
     "review-prd",
     "spec-interview",
