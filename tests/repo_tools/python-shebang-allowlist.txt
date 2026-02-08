@@ -23,8 +23,6 @@ tools/identifiers.sh
 tools/init.sh
 tools/loop-run.sh
 tools/loop-step.sh
-tools/md-patch.sh
-tools/md-slice.sh
 tools/plan-review-gate.sh
 tools/prd-review-gate.sh
 tools/researcher-context.sh

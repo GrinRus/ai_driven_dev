@@ -45,6 +45,8 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 - `skills/aidd-core/scripts/tasklist-normalize.sh`
 - `skills/aidd-core/scripts/prd-check.sh`
 - `skills/aidd-core/scripts/diff-boundary-check.sh`
+- `skills/aidd-core/scripts/md-slice.sh`
+- `skills/aidd-core/scripts/md-patch.sh`
 
 ## Actions log
 - Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.
