@@ -5,11 +5,14 @@
 ## Skill-first канон
 - Core policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/SKILL.md`.
 - Loop policy: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/SKILL.md`.
+- Stage lexicon (public/internal): `aidd/docs/shared/stage-lexicon.md`.
 - Не дублируйте алгоритмы из skills в пользовательских документах.
 
 ## Stage-local scripts
-- Stage‑локальные скрипты живут в `skills/<stage>/scripts/` (wrappers + stage‑only tooling).
-- Shared tooling остаётся в `tools/` (hooks/CI используют только `tools/*` или shims).
+- Stage‑локальные entrypoints живут в `skills/<stage>/scripts/` (wrappers + stage‑only tooling).
+- Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*`.
+- Во время migration window старые `tools/*.sh` допускаются только как compatibility shims (`DEPRECATED` + `exec` canonical path).
+- `tools/` остаётся зоной shared runtime library/orchestrator (а не stage-local CLI).
 
 ## Wrapper output policy
 - Логи wrapper’ов: `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.<name>.<timestamp>.log`.

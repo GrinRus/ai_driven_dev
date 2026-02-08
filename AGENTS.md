@@ -43,21 +43,25 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
-- Инструменты: `CLAUDE_PLUGIN_ROOT=$PWD tools/<command>.sh ...`
+- Stage entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD skills/<stage>/scripts/<command>.sh ...`
+- Deferred-core/orchestrator/shim entrypoints: `CLAUDE_PLUGIN_ROOT=$PWD tools/<command>.sh ...`
 - Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
 
 ## Как добавлять entrypoints (skill-first)
-1. Runtime‑entrypoint: `tools/<command>.sh` (shebang python, bootstrap `CLAUDE_PLUGIN_ROOT`). Расширение `.sh` сохраняется ради CLI/marketplace совместимости; не переименовывайте в `.py`.
-2. Логика команды: `tools/<command>.py` (или используйте существующий модуль).
-3. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`. Legacy‑команды хранятся в `docs/legacy/commands/`.
-4. Хуки: если entrypoint участвует в workflow, добавьте вызов в `hooks/hooks.json`.
-5. Шаблоны: если нужны новые workspace‑файлы — обновите `templates/aidd/**`, затем проверьте `/feature-dev-aidd:aidd-init`.
-6. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
-7. Prompt‑версии: после правок в `skills/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
-8. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
+1. Stage runtime entrypoint: `skills/<stage>/scripts/<command>.sh` (строгий bash: `#!/usr/bin/env bash`, `set -euo pipefail`).
+2. Shared shell entrypoints: целевой canonical путь `skills/aidd-core/scripts/*` (Phase 3). До завершения миграции допускаются compat shims в `tools/*.sh`.
+3. Python‑логика: shared модули остаются в `tools/*.py`; stage‑specific Python переезжает в `skills/<stage>/runtime/*` поэтапно (Phase 2).
+4. При переносе из `tools/*`: старый путь остаётся shim (warn `DEPRECATED` + `exec` canonical path) на migration window.
+5. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`. Legacy‑команды хранятся в `docs/legacy/commands/`.
+6. Хуки: если entrypoint участвует в workflow, добавьте вызов в `hooks/hooks.json`.
+7. Шаблоны: если нужны новые workspace‑файлы — обновите `templates/aidd/**`, затем проверьте `/feature-dev-aidd:aidd-init`.
+8. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
+9. Prompt‑версии: после правок в `skills/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
+10. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
 
 ## Workflow (кратко)
-Канонические стадии: `idea → research → plan → review-plan → review-prd → tasklist → implement → review → qa`.
+Публичные стадии: `idea → research → plan → review-spec → tasklist → implement → review → qa`.
+`review-spec` — umbrella stage с внутренними подстадиями `review-plan` и `review-prd` (см. `templates/aidd/docs/shared/stage-lexicon.md`).
 Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN` → BLOCKED.
 
 Ключевые команды:

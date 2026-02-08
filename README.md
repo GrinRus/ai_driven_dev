@@ -29,6 +29,13 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
 
+## SKILL-first runtime path policy
+- Stage-specific entrypoints: canonical путь `skills/<stage>/scripts/*`.
+- Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*` (поэтапная миграция).
+- `tools/*` в migration window используются как orchestrator/deferred-core API или compatibility shims.
+- Любой shim обязан печатать deprecation warning и `exec`-делегировать на canonical path с сохранением exit code.
+- Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
+
 ## Быстрый старт
 
 ### 1. Подключите marketplace и установите плагин

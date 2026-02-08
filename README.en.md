@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-07._
+_Last sync with `README.md`: 2026-02-08._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -35,6 +35,13 @@ Key features:
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
 - Unified `AIDD:ANSWERS` format plus Q identifiers in `AIDD:OPEN_QUESTIONS` (the plan references `PRD QN` without duplication).
 - Branch and commit conventions via `aidd/config/conventions.json`.
+
+## SKILL-first runtime path policy
+- Stage-specific entrypoints: canonical path `skills/<stage>/scripts/*`.
+- Shared entrypoints: target canonical path `skills/aidd-core/scripts/*` (phased migration).
+- During the migration window, `tools/*` is limited to orchestrator/deferred-core APIs or compatibility shims.
+- Every shim must emit a deprecation warning and `exec` the canonical path to preserve exit codes.
+- Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
 
 ## Get Started
 
