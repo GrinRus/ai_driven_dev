@@ -44,6 +44,20 @@ class ResearchCheckSummary:
     skipped_reason: Optional[str] = None
 
 
+def _research_cmd_hint(ticket: str) -> str:
+    return (
+        f"${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/research.sh --ticket {ticket} --auto "
+        f"(legacy: ${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh, DEPRECATED shim)"
+    )
+
+
+def _rlm_links_cmd_hint(ticket: str) -> str:
+    return (
+        f"${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/rlm-links-build.sh --ticket {ticket} "
+        f"(legacy: ${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh, DEPRECATED shim)"
+    )
+
+
 def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
     if not raw:
         return None
@@ -299,7 +313,7 @@ def _validate_rlm_evidence(
     except FileNotFoundError:
         raise ResearchValidationError(
             f"BLOCK: отсутствует {context_path}; выполните "
-            f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+            f"{_research_cmd_hint(ticket)}."
         )
     except json.JSONDecodeError:
         raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
@@ -425,7 +439,7 @@ def _validate_rlm_evidence(
                 raise ResearchValidationError(f"BLOCK: {message}.")
             print(
                 f"[aidd] WARN: {message}. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`.",
+                f"Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.",
                 file=sys.stderr,
             )
             return
@@ -442,7 +456,7 @@ def _validate_rlm_evidence(
             raise ResearchValidationError(f"BLOCK: {message}.")
         print(
             f"[aidd] WARN: {message}. "
-            f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/tools/rlm-links-build.sh --ticket {ticket}`.",
+            f"Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.",
             file=sys.stderr,
         )
         return
@@ -466,7 +480,7 @@ def _validate_rlm_evidence(
         missing_label = ", ".join(missing)
         raise ResearchValidationError(
             f"BLOCK: rlm_status=pending, но отсутствуют {missing_label}. "
-            f"Пересоберите research или запустите `${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto`."
+            f"Пересоберите research или запустите `{_research_cmd_hint(ticket)}`."
         )
     if stage in {"research", "implement"}:
         print(
@@ -505,7 +519,7 @@ def validate_research(
             return ResearchCheckSummary(status=None, skipped_reason="missing-allowed")
         raise ResearchValidationError(
             f"BLOCK: нет отчёта Researcher для {ticket} → запустите "
-            f"`${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto` "
+            f"`{_research_cmd_hint(ticket)}` "
             f"и оформите docs/research/{ticket}.md"
         )
 
@@ -530,7 +544,7 @@ def validate_research(
                     except FileNotFoundError:
                         raise ResearchValidationError(
                             f"BLOCK: отсутствует {context_path}; выполните "
-                            f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+                            f"{_research_cmd_hint(ticket)}."
                         )
                     except json.JSONDecodeError:
                         raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
@@ -554,7 +568,7 @@ def validate_research(
         except json.JSONDecodeError:
             raise ResearchValidationError(
                 f"BLOCK: повреждён файл {targets_path}; пересоберите его командой "
-                f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+                f"{_research_cmd_hint(ticket)}."
             )
         paths = targets.get("paths") or []
         path_count = len(paths)
@@ -571,7 +585,7 @@ def validate_research(
         except FileNotFoundError:
             raise ResearchValidationError(
                 f"BLOCK: отсутствует {context_path}; выполните "
-                f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+                f"{_research_cmd_hint(ticket)}."
             )
         except json.JSONDecodeError:
             raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
@@ -594,7 +608,7 @@ def validate_research(
         if age_days > int(freshness_days):
             raise ResearchValidationError(
                 f"BLOCK: контекст Researcher устарел ({age_days} дней) → обновите "
-                f"${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh --ticket {ticket} --auto."
+                f"{_research_cmd_hint(ticket)}."
             )
 
     _validate_rlm_evidence(

@@ -252,8 +252,9 @@ def main(argv: Iterable[str] | None = None) -> int:
                 _log_stdout("WARN: qa.requires содержит gate-tests, но tests_required=disabled.")
 
     qa_command = _norm_list(qa_cfg.get("command", []))
+    canonical_qa = str(plugin_root / "skills" / "qa" / "scripts" / "qa.sh")
     if not qa_command:
-        qa_command = [str(plugin_root / "tools" / "qa.sh")]
+        qa_command = [canonical_qa]
     override = os.environ.get("CLAUDE_QA_COMMAND")
     if override:
         qa_command = shlex.split(override)
@@ -263,6 +264,12 @@ def main(argv: Iterable[str] | None = None) -> int:
         for part in qa_command
         if part
     ]
+    if cmd and cmd[0].endswith("/tools/qa.sh"):
+        _log_stdout(
+            "WARN: используется legacy QA shim `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh` "
+            "(DEPRECATED). Canonical path: "
+            "`${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh`."
+        )
 
     qa_block = [item.lower() for item in _norm_list(qa_cfg.get("block_on", ("blocker", "critical")))]
     qa_warn = [item.lower() for item in _norm_list(qa_cfg.get("warn_on", ("major", "minor")))]

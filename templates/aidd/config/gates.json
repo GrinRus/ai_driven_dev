@@ -188,7 +188,7 @@
       "gate-tests"
     ],
     "command": [
-      "${CLAUDE_PLUGIN_ROOT}/tools/qa.sh"
+      "${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh"
     ],
     "debounce_minutes": 10,
     "timeout": 600,

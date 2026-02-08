@@ -242,7 +242,9 @@ def _emit_research_hint(root: Path, file_path: str, ticket: str, slug_hint: str)
     label = ticket if not slug_hint or slug_hint == ticket else f"{ticket} (slug hint: {slug_hint})"
     _log_stdout(
         "WARN: {} не входит в список Researcher targets → обновите "
-        "${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh для {} или настройте paths.".format(file_path, label)
+        "${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/research.sh для {} "
+        "(legacy: ${{CLAUDE_PLUGIN_ROOT}}/tools/research.sh, DEPRECATED shim) "
+        "или настройте paths.".format(file_path, label)
     )
 
 
