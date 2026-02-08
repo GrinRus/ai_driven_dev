@@ -45,6 +45,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 ## Локальный запуск entrypoints
 - Stage entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD skills/<stage>/scripts/<command>.sh ...`
 - Deferred-core/orchestrator/shim entrypoints: `CLAUDE_PLUGIN_ROOT=$PWD tools/<command>.sh ...`
+  - Deferred-core freeze (wave-1): `init.sh`, `research.sh`, `tasks-derive.sh`, `actions-apply.sh`, `context-expand.sh`.
 - Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
 
 ## Как добавлять entrypoints (skill-first)

@@ -33,6 +33,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Stage-specific entrypoints: canonical путь `skills/<stage>/scripts/*`.
 - Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*` (поэтапная миграция).
 - `tools/*` в migration window используются как orchestrator/deferred-core API или compatibility shims.
+- Deferred-core API (wave-1 freeze): `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`.
 - Любой shim обязан печатать deprecation warning и `exec`-делегировать на canonical path с сохранением exit code.
 - Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
 

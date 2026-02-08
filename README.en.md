@@ -40,6 +40,7 @@ Key features:
 - Stage-specific entrypoints: canonical path `skills/<stage>/scripts/*`.
 - Shared entrypoints: target canonical path `skills/aidd-core/scripts/*` (phased migration).
 - During the migration window, `tools/*` is limited to orchestrator/deferred-core APIs or compatibility shims.
+- Deferred-core API (wave-1 freeze): `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`.
 - Every shim must emit a deprecation warning and `exec` the canonical path to preserve exit codes.
 - Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
 
