@@ -21,7 +21,6 @@ tools/dag-export.sh
 tools/diff-boundary-check.sh
 tools/doctor.sh
 tools/identifiers.sh
-tools/index-sync.sh
 tools/init.sh
 tools/loop-pack.sh
 tools/loop-run.sh
@@ -35,7 +34,6 @@ tools/prd-review-gate.sh
 tools/preflight-prepare.sh
 tools/preflight-result-validate.sh
 tools/progress.sh
-tools/qa.sh
 tools/researcher-context.sh
 tools/rlm-slice.sh
 tools/set-active-feature.sh
@@ -43,7 +41,6 @@ tools/set-active-stage.sh
 tools/skill-contract-validate.sh
 tools/stage-result.sh
 tools/status-summary.sh
-tools/status.sh
 tools/tasklist-check.sh
 tools/tasklist-normalize.sh
 tools/tasks-derive.sh

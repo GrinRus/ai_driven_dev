@@ -288,7 +288,7 @@
           "Bash(./gradlew:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/qa.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)",
@@ -312,8 +312,8 @@
         "allowed-tools": [
           "Read",
           "Bash(rg:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh:*)"
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh:*)"
         ],
         "model": "inherit",
         "prompt_version": "1.0.5",
