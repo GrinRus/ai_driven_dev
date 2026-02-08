@@ -1,5 +1,124 @@
 # Product Backlog
 
+## Wave 96 — Runtime stabilization after W94 (E2E parity)
+
+_Статус: новый, приоритет 0. Цель — закрыть блокеры TST-001 и вернуть детерминированный e2e-contract для idea/loop/qa._
+
+### P0 — Fast path к зелёному e2e
+
+- [ ] **W96-0 (P0) Repro harness + e2e contract checks** `tests/test_e2e_contract_minimal.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - добавить/расширить минимальный integration contract-check: temp workspace, минимальный прогон стадий и проверка обязательных артефактов;
+  - зафиксировать инварианты `.active.json` и базовый набор stage wrapper outputs в одном тестовом месте;
+  - обеспечить воспроизведение slug pollution и missing preflight artifacts без ручного e2e.
+  **AC:** contract-check локально воспроизводит текущие проблемы и детерминированно показывает регрессию/фикс.
+  **Regression/tests:** новый `tests/test_e2e_contract_minimal.py` или эквивалентное расширение существующих integration тестов.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-1 (P0) Slug hygiene: `slug_hint` только токен** `tools/active_state.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_active_state.py`, `tests/test_feature_ids_root.py`:
+  - развести `slug_hint` (стабильный токен) и feature label/note/answers (отдельное поле или только PRD/plan/tasklist);
+  - обновить writer active-state для `idea-new`: валидный slug пишется как есть, note никогда не конкатенируется в `slug_hint`;
+  - добавить валидацию slug токена (`^[a-z0-9][a-z0-9-]{0,80}$`) и правило: невалидный второй аргумент трактуется как note.
+  **AC:** после `idea-new TST-001 tst-001-demo <note>` поле `aidd/docs/.active.json.slug_hint` равно `tst-001-demo`; повторный запуск с `AIDD:ANSWERS` не загрязняет slug.
+  **Regression/tests:** unit + integration кейс “slug + длинный note” сохраняет чистый `slug_hint`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-2 (P0, blocker) SKILL_FIRST wrappers: preflight/readmap/writemap/actions/logs always-on** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `tools/output_contract.py`, `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - выровнять единый stage wrapper orchestration для `implement|review|qa` (preflight -> stage core -> run/postflight) в ручном и loop путях;
+  - гарантировать минимальные артефакты даже при “нулевых действиях”: `actions.template/actions`, `readmap/writemap`, `stage.preflight.result`, `wrapper.*.log`;
+  - усилить enforcement в gate-workflow (SKILL_FIRST): отсутствие обязательных артефактов и `AIDD:ACTIONS_LOG` не проходит как success;
+  - зафиксировать workspace path resolution: записи только в `$PROJECT_DIR/aidd/**`, отсутствие root = явный BLOCKED.
+  **AC:** после seed `implement` и `review` обязательные артефакты созданы, output-contract содержит существующий `AIDD:ACTIONS_LOG`.
+  **Regression/tests:** unit + integration + smoke проверяют полный набор обязательных wrapper outputs.
+  **Effort:** L
+  **Risk:** High
+
+### P1 — Семантика loop/qa и инварианты
+
+- [ ] **W96-3 (P1) `user_approval_required` contract + loop-run diagnostics** `tools/loop_run.py`, `tools/loop_step.py`, `tools/runtime.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - унифицировать семантику reason-code: если нужен approval, стадия возвращает `blocked`, а loop-run останавливается на текущей стадии;
+  - убрать сценарий “continue на implement -> blocked на review” для одного и того же work item;
+  - расширить диагностику blocked: обязательные `reason_code`, `reason`, ссылка на stage result и wrapper/cli logs.
+  **AC:** при `user_approval_required` loop-run завершается детерминированно на корректной стадии с полным diagnostic output (без “немого” exit 20).
+  **Regression/tests:** integration fixture на approval-required + unit mapping reason-code -> status/exit.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-4 (P1) iteration_id format policy (`M#` и `I#`)** `tools/feature_ids.py`, `tools/active_state.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_feature_ids_root.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - быстрый путь: принять оба формата `iteration_id=(I|M)\\d+` в валидаторах/invariants;
+  - синхронизировать проверки loop/stage/tests и устранить лишние WARN из-за расхождения ожиданий;
+  - документировать выбранную политику формата в backlog/release notes при необходимости.
+  **AC:** `iteration_id=M1` и `iteration_id=I1` валидны в active state/loop/test contracts.
+  **Regression/tests:** unit валидатора + integration loop-step без деградации на `M1`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-5 (P1) QA exit-code policy aligned with report status** `tools/qa.py`, `tools/qa.sh`, `hooks/gate-qa.sh`, `tools/runtime.py`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`:
+  - синхронизировать exit-code команды QA со статусом отчёта;
+  - policy: `BLOCKED -> exit 2`, `READY|WARN -> exit 0`, и одинаковая семантика в stdout/stage_result/report;
+  - исключить “exit 0 при BLOCKED report” в CI automation path.
+  **AC:** QA возвращает не-zero при `BLOCKED`, а generated report/stage_result/stdout не противоречат друг другу.
+  **Regression/tests:** unit mapping report_status -> exit_code + integration fixture с blocker findings.
+  **Effort:** S
+  **Risk:** Medium
+
+### Wave 96 follow-up — re-audit gaps (TST-001 rerun)
+
+- [ ] **W96-6 (P0) Manual seed parity: wrappers обязательны не только в loop-step** `tools/runtime.py`, `tools/loop_step.py`, `tools/output_contract.py`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `tests/test_loop_step.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - выровнять исполнение `implement/review` в ручном seed и loop-path: одинаковый wrapper chain и одинаковые артефакты;
+  - исключить сценарий “seed exit=0, но actions/readmap/writemap/preflight/logs отсутствуют”;
+  - закрепить в output contract обязательный `AIDD:ACTIONS_LOG` для seed run.
+  **AC:** ручные seed `implement` + `review` создают тот же обязательный набор wrapper-артефактов, что и loop-step.
+  **Regression/tests:** integration тест seed run проверяет наличие `stage.preflight.result.json`, readmap/writemap, actions.template/actions, wrapper logs.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-7 (P0) Gate preflight enforcement без зависимости от src-changes** `tools/gate_workflow.py`, `tools/loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`:
+  - убрать условие, при котором проверка preflight contract срабатывает только при `has_src_changes`;
+  - для SKILL_FIRST stage-success требовать обязательный preflight/docops минимум независимо от diff типа (code/doc/none);
+  - сохранить осмысленную диагностику `reason_code` при BLOCK.
+  **AC:** stage не может пройти success без обязательных preflight/docops артефактов даже при отсутствии src-изменений.
+  **Regression/tests:** unit + integration кейс “no src changes, stage success” должен блокироваться при отсутствии preflight contract.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-8 (P1) Scope-key consistency между wrapper chain и stage_result** `tools/loop_step.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_loop_step.py`, `tests/test_feature_ids_root.py`:
+  - устранить дрейф scope key (например, wrapper logs под `I1`, а iteration summary сообщает `I2`);
+  - закрепить единый источник scope key для preflight/run/postflight и финального stage_result;
+  - добавить trace в loop logs: `scope_key_before`, `scope_key_after`, `scope_key_effective`.
+  **AC:** paths в wrapper logs, actions/context и `stage.<stage>.result.json` совпадают по одному `scope_key` на итерацию.
+  **Regression/tests:** integration fixture проверяет совпадение scope key в путях артефактов и summary loop-step.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-9 (P1) BLOCKED diagnostics completeness: reason/reason_code/stage_result_path обязательны** `tools/loop_run.py`, `tools/loop_step.py`, `tools/stage_result.py`, `skills/review/scripts/postflight.sh`, `tests/test_loop_run.py`, `tests/test_stage_result.py`:
+  - запретить “немой blocked”: если `result=blocked`, то должны быть заполнены `reason_code` и человекочитаемый `reason`;
+  - добавить fallback mapping в loop-run при blocked без reason-code (например `blocked_without_reason`);
+  - в postflight wrappers пробрасывать исходные ошибки shell/permission в stage_result.
+  **AC:** любой blocked в loop-run имеет детерминированный `reason_code`, `reason` и ссылку на stage_result/wrapper log.
+  **Regression/tests:** фикстура blocked без reason приводит к стабильному fallback reason-code и информативному loop-run output.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-10 (P1) QA tri-source consistency: report vs stage_result vs process exit** `tools/qa.py`, `tools/stage_result.py`, `hooks/gate-qa.sh`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`, `tests/test_stage_result.py`:
+  - устранить рассинхрон, когда QA report `WARN`, а `stage.qa.result` = `blocked/no_tests_hard`;
+  - определить единый SoT для QA финального статуса и маппинг в exit-code/loop semantics;
+  - добавить явные правила для `no_tests_hard`: когда это WARN, когда BLOCKED.
+  **AC:** QA report, stage_result и код процесса согласованы и не противоречат друг другу в одном прогоне.
+  **Regression/tests:** matrix тестов на `READY|WARN|BLOCKED|no_tests_hard` проверяет единый итоговый статус и код выхода.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-11 (P2) Contract/docs alignment for audit tooling (work_item + QA/loop semantics)** `templates/aidd/AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/smoke-workflow.sh`:
+  - синхронизировать аудит-инварианты с runtime: допустимый формат `work_item` (`iteration_id=<ticket>-I<N>|M<N>`), QA exit `2` при BLOCKED, `user_approval_required` как корректный hard stop;
+  - обновить e2e-подсказки, чтобы валидное поведение не помечалось как ложный FAIL;
+  - сохранить backward-compatible формулировки для legacy mode.
+  **AC:** аудит-скрипт не выдаёт ложных blocker-findings на корректное поведение Wave 96.
+  **Regression/tests:** smoke/audit fixture проверяет новые контракты и не падает на ожидаемых WARN-сценариях.
+  **Effort:** S
+  **Risk:** Low
+
 ## Wave 95 — Audit closure F-01..F-13 + quick wins
 
 _Статус: новый, приоритет 0. Цель — закрыть весь аудит одним PR без breaking-change, с переходным warn-only режимом для legacy точек._
