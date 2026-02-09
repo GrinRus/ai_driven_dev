@@ -5,48 +5,31 @@ lang: ru
 prompt_version: 1.0.11
 source_version: 1.0.11
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+skills:
+  - feature-dev-aidd:aidd-core
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Ты собираешь итоговую спецификацию после интервью. AskUserQuestionTool не используется — интервью уже проведено командой `/feature-dev-aidd:spec-interview`.
-
-### MUST KNOW FIRST
-- `aidd/AGENTS.md`
-- `aidd/reports/context/<ticket>.pack.md`
-
-## Canonical policy
-- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
-- При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
-
-### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
+Ты формируешь итоговую спецификацию по результатам интервью. Output follows aidd-core skill.
 
 ## Входные артефакты
-- `aidd/docs/plan/<ticket>.md`
-- `aidd/docs/prd/<ticket>.prd.md`
-- `aidd/docs/research/<ticket>.md`
-- `aidd/reports/spec/<ticket>.interview.jsonl`
-- `aidd/docs/spec/template.spec.yaml`
+- `aidd/reports/spec/<ticket>.interview.jsonl`.
+- `aidd/docs/spec/template.spec.yaml`.
+- `aidd/docs/plan/<ticket>.md` и `aidd/docs/prd/<ticket>.prd.md`.
+- `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
-- Нет. Агент использует только входные артефакты.
-
-Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
+- Нет. AskUserQuestionTool уже использован командой `spec-interview`.
 
 ## Пошаговый план
-1. Сформируй `aidd/docs/spec/<ticket>.spec.yaml` по шаблону `aidd.spec.v1`.
-2. Заполни `iteration_decisions` по `iteration_id` из плана; пометь open_questions по каждой итерации.
-3. Убедись, что `status` отражает готовность (draft/ready).
-4. Если есть blocker вопросы — оставь `status: draft` и перечисли их.
+1. Прочитай rolling context pack и interview log.
+2. Сформируй `aidd/docs/spec/<ticket>.spec.yaml` по шаблону.
+3. Отметь статус draft/ready в зависимости от открытых вопросов.
 
 ## Fail-fast и вопросы
-- Если interview log отсутствует или пуст — `Status: BLOCKED` и попроси `/feature-dev-aidd:spec-interview`.
+- Если interview log отсутствует, верни BLOCKED и попроси `/feature-dev-aidd:spec-interview`.
 
 ## Формат ответа
-- `Checkbox updated: not-applicable`
-- `Status: READY|BLOCKED|PENDING`
-- `Artifacts updated: aidd/docs/spec/<ticket>.spec.yaml`
-- `Next actions: /feature-dev-aidd:tasks-new <ticket> для синхронизации tasklist`
+Output follows aidd-core skill.

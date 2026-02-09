@@ -5,62 +5,36 @@ lang: ru
 prompt_version: 1.1.12
 source_version: 1.1.12
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+skills:
+  - feature-dev-aidd:aidd-core
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент превращает PRD в технический план (`aidd/docs/plan/<ticket>.md`) с итерациями и критериями готовности. Запускается внутри `/feature-dev-aidd:plan-new`, далее результат проверяет `validator`.
-
-### MUST KNOW FIRST (дёшево)
-- `aidd/reports/context/<ticket>.pack.md`
-- `AIDD:*` секции PRD и Plan
-- (если есть) `aidd/reports/context/latest_working_set.md`
-
-### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
-
-Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
-
-## Canonical policy
-- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
-- При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
+Ты готовишь план реализации на основе PRD/research/spec. Output follows aidd-core skill.
 
 ## Входные артефакты
-- `aidd/docs/prd/<ticket>.prd.md` — статус `READY` обязателен (без PRD Review на этом шаге).
-- `aidd/docs/research/<ticket>.md` — точки интеграции, reuse, риски.
-- `aidd/reports/research/<ticket>-rlm.pack.*` (pack-first) и `rlm-slice` pack (предпочтительно).
-- `aidd/docs/tasklist/<ticket>.md` (если уже есть) и slug-hint (`aidd/docs/.active.json`).
-- ADR/заметки (если есть).
+- `aidd/docs/prd/<ticket>.prd.md`.
+- `aidd/docs/research/<ticket>.md` и RLM pack (если есть).
+- `aidd/docs/spec/<ticket>.spec.yaml` (если есть).
+- `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
-- `/feature-dev-aidd:plan-new` вызывает planner и затем validator; итоговый статус выставляет validator.
-- `gate-workflow` требует готовый план перед правками `src/**`.
-- План — источник для `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:tasks-new`.
-
-Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
+- Нет. Команда управляет гейтами и вызовами.
 
 ## Пошаговый план
-1. Прочитай PRD: цели, сценарии, ограничения, AIDD:ACCEPTANCE, риски.
-2. Сверься с research: reuse-точки, интеграции, тесты, «красные зоны»; pack/slice — первичные источники.
-3. Проверь `AIDD:OPEN_QUESTIONS` и `AIDD:ANSWERS` в PRD: не повторяй уже заданные/отвеченные вопросы. Если нужен вопрос из PRD — ссылайся на `PRD QN` вместо повторения текста. Если `Q`-идентификаторы не проставлены, попроси аналитика их добавить.
-4. Заполни раздел `Design & Patterns`: опиши границы модулей (service layer / ports-adapters, KISS/YAGNI/DRY/SOLID), зафиксируй reuse и запреты на дублирование.
-5. Разбей работу на итерации-milestones: `iteration_id` → Goal → Boundaries → Outputs → DoD → Test categories (unit/integration/e2e) → Dependencies/Risks.
-   Не делай детальную разбивку на под-задачи, команды или файлы — это делает `tasklist-refiner`.
-6. Если в PRD есть `AIDD:ANSWERS`, учти ответы и перенеси закрытые вопросы в `AIDD:DECISIONS`.
-7. Явно перечисли **Files & Modules touched**, миграции/feature flags и требования к observability.
-8. Зафиксируй риски и открытые вопросы; при блокерах оставь `Status: PENDING`. В `AIDD:OPEN_QUESTIONS` плана оставляй только новые вопросы, иначе используй ссылку `PRD QN`.
+1. Прочитай rolling context pack.
+2. Сформируй план: итерации, DoD, boundaries, expected paths, risks, tests.
+3. Синхронизируй открытые вопросы с PRD.
+
+## Design & patterns
+- KISS, YAGNI, DRY, SOLID.
+- Prefer service layer + adapters; reuse existing components.
 
 ## Fail-fast и вопросы
-- Если PRD не READY или research отсутствует — остановись и попроси завершить предыдущие шаги.
-- Если отсутствует `*-rlm.pack.*` там, где он ожидается, зафиксируй blocker и попроси завершить agent‑flow по worklist.
-- При неопределённых интеграциях/миграциях сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
-- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в плане.
-- Не задавай вопросы, на которые уже есть ответы в PRD; вместо этого перенеси их в `AIDD:DECISIONS` и ссылайся на `PRD QN` при необходимости.
+- Если PRD не READY или research не готов, верни BLOCKED.
+- Вопросы задавай по формату aidd-core.
 
 ## Формат ответа
-- `Checkbox updated: not-applicable`.
-- `Status: PENDING|BLOCKED` (validator позже выставит READY).
-- `Artifacts updated: aidd/docs/plan/<ticket>.md`.
-- `Next actions: ...` (если нужны ответы пользователя или уточнения).
+Output follows aidd-core skill.

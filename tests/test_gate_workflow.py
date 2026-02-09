@@ -25,7 +25,7 @@ from .helpers import (
 SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 PROMPT_PAYLOAD = '{"tool_input":{"file_path":"agents/analyst.md"}}'
-CMD_PAYLOAD = '{"tool_input":{"file_path":"commands/plan-new.md"}}'
+CMD_PAYLOAD = '{"tool_input":{"file_path":"skills/plan-new/SKILL.md"}}'
 AIDD_SRC_PAYLOAD = '{"tool_input":{"file_path":"aidd/src/main/kotlin/App.kt"}}'
 IDEA_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt","ticket":"demo-thin"}}'
 PROMPT_PAIRS = [

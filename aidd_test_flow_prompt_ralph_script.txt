@@ -1,0 +1,357 @@
+Задача: AIDD Flow Audit + Ralph Loop Compliance + Skill/DocOps Readiness (плагин feature-dev-aidd)
+
+Роль: ты — один аудитор-агент. Проведи полный e2e прогон AIDD флоу в одном репозитории и собери доказательства (логи/артефакты), НЕ “чиня” проект.
+
+ВАЖНО: plugin templates и skills — канон, runtime-артефакты — в workspace ($PROJECT_DIR/aidd/**).
+- Канон templates читать из: $PLUGIN_DIR/templates/aidd/**
+- Канон skills (если включён skill-first) читать из: $PLUGIN_DIR/skills/**
+- Проверки делать по: $PROJECT_DIR/aidd/** (после aidd-init)
+- Runtime tooling: $PLUGIN_DIR/tools/** и $PLUGIN_DIR/hooks/**
+
+============================================================
+ПЕРЕМЕННЫЕ
+- PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge
+- PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev
+- CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR
+- TICKET=TST-001
+- LOOP_MODE=loop-run|loop-step   (по умолчанию loop-run)
+- LOOP_RUNNER=<optional>         (если нужен кастомный runner)
+- AIDD_HOOKS_MODE=fast|strict    (по умолчанию fast; strict включать только если явно попросили)
+
+============================================================
+ЦЕЛИ
+1) Проверить, что workflow работает end-to-end (happy path) и корректно блокируется на обязательных гейтах/артефактах.
+2) Проверить, что “файлы памяти” AIDD (prd/plan/research/tasklist + active markers + packs/results/logs) корректны, консистентны и обновляются только командой-владельцем (или DocOps-скриптами, если включён DocOps режим).
+3) Проверить Ralph loop дисциплину ТОЛЬКО для implement/review: loop pack, порядок чтения, boundaries, 1-checkbox итерации, REVISE + fix plan.
+4) (Если включён skill-first/DocOps) проверить, что:
+   - stage entrypoints действительно skill-first (нет дублей с legacy commands),
+   - loop-стадии используют preflight/readmap/writemap/actions,
+   - обновления документов в loop-mode делаются DocOps-скриптами, а LLM пишет intents/actions.
+
+============================================================
+HARD RULES (ОБЯЗАТЕЛЬНО)
+
+R0) Ticket-only first call:
+- При ПЕРВОМ запуске каждой команды (КРОМЕ idea-new) передавай ТОЛЬКО $TICKET, без note/slug/доп.параметров.
+- Доп. текст разрешён ТОЛЬКО на ПОВТОРНОМ запуске той же команды из-за вопросов, и этот текст должен содержать ТОЛЬКО блок AIDD:ANSWERS (без доп. хотелок).
+
+R1) Manual implement/review only once:
+- Ровно ОДНА ручная итерация implement -> review (seed run).
+- После seed run ОБЯЗАТЕЛЬНО запуск ralph script (loop-run или loop-step).
+- Если script недоступен/падает — BUG REPORT и НЕ делать дополнительные ручные implement/review итерации.
+
+R2) No manual edits:
+- НЕ редактируй вручную PRD/Plan/Research/Tasklist/.active.json ради фиксов или ускорения.
+- Разрешены только: запуск команд, чтение артефактов, сбор доказательств.
+
+R3) Secrets hygiene:
+- Не читай и не выводи секреты (.env, токены, ключи). Если нужно — SKIPPED/REDACTED.
+
+============================================================
+0) DETECT MODE: LEGACY vs SKILL_FIRST (обязательно)
+
+Определи AUDIT_MODE:
+
+SKILL_FIRST если существуют:
+- $PLUGIN_DIR/skills/aidd-core/SKILL.md
+- и хотя бы один stage skill: $PLUGIN_DIR/skills/implement/SKILL.md (или review/qa)
+
+Иначе: LEGACY.
+
+Правила:
+- LEGACY: проверки про readmap/writemap/actions/DocOps/preflight помечай NOT APPLICABLE (legacy) и продолжай.
+- SKILL_FIRST: проверки про readmap/writemap/actions/DocOps/preflight обязательны; отсутствие артефактов = BUG или FAIL (см. критерии ниже).
+
+============================================================
+КАНОН (must-read перед стартом аудита)
+
+Всегда (templates):
+- $PLUGIN_DIR/templates/aidd/AGENTS.md
+- $PLUGIN_DIR/templates/aidd/docs/prompting/conventions.md
+- $PLUGIN_DIR/templates/aidd/docs/loops/template.loop-pack.md
+- $PLUGIN_DIR/templates/aidd/docs/tasklist/template.md
+
+Если AUDIT_MODE=SKILL_FIRST (skills):
+- $PLUGIN_DIR/skills/aidd-core/SKILL.md
+- $PLUGIN_DIR/skills/aidd-loop/SKILL.md
+- (если есть) $PLUGIN_DIR/skills/aidd-reference/wrapper_contract.md
+- (если есть) $PLUGIN_DIR/skills/implement/SKILL.md
+- (если есть) $PLUGIN_DIR/skills/review/SKILL.md
+- (если есть) $PLUGIN_DIR/skills/qa/SKILL.md
+
+============================================================
+CORE ИНВАРИАНТЫ (всегда)
+
+- Ralph loop применим строго к implement/review. Остальные стадии — rolling context pack дисциплина (если pack создаётся).
+- scope_key = sanitize(work_item_key). Все per-work-item артефакты используют scope_key.
+- Test policy: implement — tests not required (format-only ok), review — targeted tests, qa — full tests.
+- tests_required=soft: отсутствие evidence -> WARN/REVISE; tests_required=hard -> BLOCKED.
+  tests_log со status=skipped + reason_code считается evidence.
+- Hooks mode по умолчанию fast (если AIDD_HOOKS_MODE не задан). strict включать только при явном env/запросе.
+- Subagents не должны менять aidd/docs/.active.json; несоответствие стадии — ожидаем BLOCKED/подсказку; иначе BUG.
+- Термины и источники истины:
+  - Artifact status: READY|WARN|BLOCKED|PENDING|DRAFT
+  - Review verdict: SHIP|REVISE|BLOCKED
+  - Stage result: blocked|continue|done — машинная истина для loop-gating
+  - Final Status: вывод команд = stage_result (single source of truth) или status-summary.sh
+
+Stage result обязателен для implement/review/qa:
+- implement/review: aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json
+- qa: ticket-scoped (scope_key=ticket) по канону текущего репозитория (если путь отличается — зафиксируй как факт и сравни с каноном)
+
+Boundary semantics:
+- Expected paths, отсутствующие в allowed_paths -> WARN (auto_boundary_extend_warn), не BLOCKED.
+- FORBIDDEN -> BLOCKED.
+- OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED -> WARN + handoff + reason_code (out_of_scope_warn|no_boundaries_defined_warn|auto_boundary_extend_warn).
+- При REVISE обязателен review.fix_plan.json, а stage_result.evidence_links.fix_plan_json ссылается на него.
+
+Rolling context pack:
+- placeholders допустимы, но должны быть WARN; loop pack остаётся первым источником истины.
+
+============================================================
+ДОПОЛНИТЕЛЬНО (только если AUDIT_MODE=SKILL_FIRST)
+
+DocOps / Actions discipline:
+- Канон DocOps и output‑контракта живёт в skills:
+  - $PLUGIN_DIR/skills/aidd-core/SKILL.md
+  - $PLUGIN_DIR/skills/aidd-loop/SKILL.md
+- Проверяй AIDD:READ_LOG/AIDD:ACTIONS_LOG и preflight/DocOps требования строго по skills (без дублей правил здесь).
+
+Entry points:
+- Проверить отсутствие дублей stage entrypoints между commands/ и skills/.
+- Если commands/ всё ещё содержит stage prompts в режиме skill-first — FAIL/BUG (зависит от политики, но минимум WARN + backlog).
+
+============================================================
+ПРАВИЛА БЕЗОПАСНОСТИ/ГИГИЕНЫ
+1) Работай в отдельной git-ветке audit/aidd-flow-TST-001. Не пушь и не создавай PR.
+2) Не запускай ничего “самопроизвольно”: только шаги ниже.
+3) Если шаг сломался/ведёт себя странно — BUG REPORT и продолжай только если это логично (не пытайся “исправлять” проект).
+
+============================================================
+КАК ЗАПУСКАТЬ CLAUDE CODE (CLI)
+- cd "$PROJECT_DIR"
+- Команды (print mode):
+  claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:<cmd> ..."
+- Не используй -c (continue).
+
+Ralph scripts:
+- loop-run:
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" "$PLUGIN_DIR/tools/loop-run.sh" --ticket "$TICKET" --max-iterations 6 [--runner "$LOOP_RUNNER"] [--stream]
+- loop-step:
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" "$PLUGIN_DIR/tools/loop-step.sh" --ticket "$TICKET" [--runner "$LOOP_RUNNER"] [--stream=text|tools|raw]
+
+============================================================
+AIDD:ANSWERS (универсальный цикл)
+Если команда вернула вопросы:
+1) выпиши вопросы списком;
+2) подготовь блок:
+   AIDD:ANSWERS
+   Answer 1: ...
+   Answer 2: ...
+3) перезапусти ТУ ЖЕ команду:
+   - idea-new: повтори idea-new, добавив AIDD:ANSWERS в note (можно вместе с исходным описанием задачи).
+   - любая другая команда: повторный запуск допускает note, но note должен содержать ТОЛЬКО AIDD:ANSWERS (см. R0).
+НЕ редактируй вручную PRD/Plan/Research/Tasklist ради фиксации ответов.
+
+============================================================
+EVIDENCE НА КАЖДОМ ШАГЕ (минимум)
+
+A) Команда и результат (ключевой stdout/stderr) + проверка output-контракта:
+   - Проверить output‑контракт по `skills/aidd-core` (включая AIDD:READ_LOG).
+   - Если AUDIT_MODE=SKILL_FIRST и стадия loop: проверить AIDD:ACTIONS_LOG по `skills/aidd-core`.
+
+B) Артефакты: список путей + git diff --stat.
+C) Active markers (если есть): aidd/docs/.active.json (ticket/slug_hint/stage/work_item/mode).
+D) Файлы памяти: PRD/Research/Plan/Tasklist (статусы, OPEN_QUESTIONS/ANSWERS, review-секции).
+E) Packs и порядок чтения:
+   - НЕ implement/review: rolling context pack aidd/reports/context/<ticket>.pack.md (если создаётся) должен быть первым Read сабагента.
+     Если rolling pack не создаётся командой — NOT APPLICABLE (не BUG).
+   - implement/review: loop pack → review pack (если есть) → (readmap/rolling pack) → excerpt/slices.
+   - Запрещено читать full PRD/Plan/Tasklist/Research целиком, если excerpt/slices достаточны.
+F) Loop artifacts / evidence (per scope_key):
+   - loop pack: aidd/reports/loops/<ticket>/<scope_key>.loop.pack.md
+   - stage_result: aidd/reports/loops/<ticket>/<scope_key>/stage.<stage>.result.json
+   - review report: aidd/reports/reviewer/<ticket>/<scope_key>.json
+   - reviewer marker: aidd/reports/reviewer/<ticket>/<scope_key>.tests.json (если есть)
+   - review pack: aidd/reports/loops/<ticket>/<scope_key>/review.latest.pack.md
+   - fix plan (REVISE): aidd/reports/loops/<ticket>/<scope_key>/review.fix_plan.json
+   - tests evidence log: aidd/reports/tests/<ticket>/<scope_key>.jsonl (обязателен даже при skipped)
+   - Если AUDIT_MODE=SKILL_FIRST дополнительно:
+     - wrapper logs: aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.*.log
+     - readmap/writemap/actions.template + stage.preflight.result
+     - actions log path из AIDD:ACTIONS_LOG
+
+G) Subagent transcripts (если доступны):
+   - ~/.claude/projects/.../subagents/agent-*.jsonl
+   - если transcripts нет -> NOT VERIFIED + приложи loop logs/packs.
+
+============================================================
+BUG REPORT формат:
+- Шаг/команда:
+- Ожидание:
+- Факт:
+- Логи/ошибка (stdout/stderr + при наличии фрагмент transcript):
+- Виновный файл/скрипт/skill/промпт (если удалось локализовать):
+- Severity: blocker | major | minor
+
+============================================================
+0) Clean state (обязательно)
+В "$PROJECT_DIR":
+- git status --porcelain
+- если не пусто -> git stash push -u -m "pre-aidd-flow-audit TST-001"
+- снова git status --porcelain (должно быть пусто)
+Если stash невозможен -> BUG REPORT и STOP.
+
+1) Preflight
+1.1) Ветка:
+- git checkout -b audit/aidd-flow-TST-001 (или checkout, если уже есть)
+
+1.2) Определи AUDIT_MODE (LEGACY vs SKILL_FIRST) и явно напиши его в отчёте.
+
+1.3) Прочитай must-read canon (templates + skills, если есть).
+
+1.4) Проверка плагина (если команда status существует):
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:status $TICKET"
+Если status неизвестен — зафиксируй и продолжай.
+
+2) Baseline
+- git status
+- git rev-parse --abbrev-ref HEAD
+- ls -la
+- ls -la aidd || true
+
+3) Сформулируй задачу для TST-001 (чтобы флоу был осмысленным)
+Требования:
+- проанализируй репозиторий $PROJECT_DIR
+- средний размер (implement/review/qa имеют смысл),
+- предпочтительно backend (если есть UI — отметить, нужен ли spec),
+- дробится на 3–6 итераций (loop-run может остановиться раньше — это нормально).
+Результат:
+- 3–6 предложений + 2–4 AC + (опционально) rollout/flags.
+
+4) aidd-init (если ./aidd нет)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:aidd-init"
+После:
+- проверь, что появились aidd/**
+- прочитай workspace-канон (если скопировался init’ом):
+  aidd/AGENTS.md
+  aidd/docs/prompting/conventions.md
+  aidd/docs/loops/template.loop-pack.md
+  aidd/docs/tasklist/template.md
+- проверь наличие `.claude/settings.json` в корне workspace (если нет — BUG; тесты должны логировать settings_missing).
+
+5) Happy path (end-to-end)
+5.1) idea-new (единственная команда, где сразу даём задачу)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:idea-new $TICKET <note: описание задачи + AC>"
+Если вопросы -> AIDD:ANSWERS цикл (перезапуск idea-new с note + AIDD:ANSWERS).
+
+5.2) researcher (first call ticket-only)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:researcher $TICKET"
+Если вопросы -> AIDD:ANSWERS цикл (повтор researcher с note только из AIDD:ANSWERS).
+
+5.3) plan-new (first call ticket-only)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:plan-new $TICKET"
+Если вопросы -> AIDD:ANSWERS цикл.
+
+5.4) review-spec (first call ticket-only)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:review-spec $TICKET"
+Если вопросы/action items -> AIDD:ANSWERS цикл.
+
+5.5) spec-interview (только если реально нужно по policy; first call ticket-only)
+- запускать только если tasks-new/implement BLOCKED без spec, или задача требует API/UI/DATA/E2E контрактов.
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:spec-interview $TICKET"
+Если вопросы -> AIDD:ANSWERS цикл.
+
+5.6) tasks-new (first call ticket-only)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:tasks-new $TICKET"
+Проверки:
+- ITERATIONS_FULL детален, NEXT_3 исполним, NEXT_3 без [x]
+- итерации “в одно окно”
+- в итерациях есть Expected paths/Size budget/Tests/Acceptance (или эквиваленты по канону)
+- deps/locks (если поддерживаются) — не ломают NEXT_3
+- описан verify plan (или корректный BLOCKED "need commands")
+
+6) Ralph loop (ТОЛЬКО implement/review)
+Ralph checks (core):
+- На каждой implement/review итерации существует loop pack (по template.loop-pack.md).
+- Первое чтение сабагента на implement/review — loop pack.
+- Правило чтения: loop pack → review pack (если есть) → (readmap/rolling pack) → excerpt/slices.
+- Запрещено читать full PRD/Plan/Tasklist/Research целиком, если excerpt/slices достаточны.
+- Loop-gating опирается на stage_result.
+- WARN: OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED -> handoff + reason_code=out_of_scope_warn|no_boundaries_defined_warn; FORBIDDEN -> BLOCKED.
+- Expected paths не входят в allowed_paths -> WARN (auto_boundary_extend_warn), не BLOCKED.
+- 1 iteration = 1 checkbox + STOP.
+- Verify evidence: tests_required=soft -> implement WARN, review REVISE, qa WARN + handoff “run tests”; tests_required=hard -> BLOCKED.
+  tests_log со status=skipped + reason_code считается evidence.
+- Для REVISE: review.fix_plan.json существует и stage_result.evidence_links.fix_plan_json ссылается на него.
+- В loop-mode вопросы в чат НЕЛЬЗЯ: фиксируй blocker/handoff в артефактах.
+
+Если AUDIT_MODE=SKILL_FIRST — дополнительные Ralph checks:
+- перед implement/review должны быть preflight artifacts: readmap/writemap/actions.template + stage.preflight.result
+- ответы implement/review должны включать AIDD:ACTIONS_LOG и файл должен существовать
+- обновления tasklist/context pack должны быть трассируемы к DocOps apply (через actions/docops logs)
+
+6.1) Seed manual iteration (РОВНО ОДИН РАЗ)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:implement $TICKET"
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:review $TICKET"
+Проверки:
+- создался loop pack + review.latest.pack (per scope_key)
+- stage_result создан для implement и review (scope_key=sanitize(work_item_key))
+- aidd/docs/.active.json синхронизирован с последним loop pack (если файл есть)
+- (если доступны) transcripts: докажи pack-first order + excerpt/full policy
+
+6.2) Auto loop (обязателен после seed-run)
+Если LOOP_MODE=loop-run (по умолчанию):
+- CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" "$PLUGIN_DIR/tools/loop-run.sh" --ticket "$TICKET" --max-iterations 6 [--runner "$LOOP_RUNNER"] [--stream]
+Если LOOP_MODE=loop-step:
+- запусти step до 3 раз (или пока exit code != CONTINUE), фиксируя stdout/stderr каждого шага:
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" "$PLUGIN_DIR/tools/loop-step.sh" --ticket "$TICKET" [--runner "$LOOP_RUNNER"] [--stream=text|tools|raw]
+
+Если script отсутствует/не исполняется/падает:
+- BUG REPORT (severity=blocker),
+- НЕ делать дополнительные ручные implement/review итерации (см. R1),
+- перейти к QA (проверить хотя бы QA на частичном прогрессе).
+
+6.3) Evidence для auto-loop
+- stdout/stderr loop-run/loop-step
+- пути к cli.*.log, cli.loop-*.stream.(log|jsonl) и loop.run.log (если есть); при --stream stream.jsonl обязателен
+- stage_result по каждой выполненной стадии (scope_key)
+- tests evidence log по scope_key (обязателен; при skipped — тоже)
+- если transcripts недоступны -> NOT VERIFIED (но packs/logs обязаны быть)
+
+7) QA (first call ticket-only)
+- claude --plugin-dir "$PLUGIN_DIR" --add-dir "$PLUGIN_DIR" -p "/feature-dev-aidd:qa $TICKET"
+Проверки:
+- QA traceability AC -> check -> result -> evidence
+- статус QA только READY|WARN|BLOCKED
+- stage_result для qa существует (ticket-scope)
+- если tests != profile:none, то есть tests evidence log для qa (ticket-scope), статус run|skipped с reason_code
+- stage.qa.result reason_code соответствует QA report
+
+8) Итоговый отчёт (обязательно, в чат)
+8.1) Таблица: шаг -> PASS/FAIL -> ключевые проблемы -> артефакты/пути.
+Шаги минимум:
+- clean state
+- preflight + mode detect
+- aidd-init
+- idea-new
+- researcher
+- plan-new
+- review-spec
+- spec-interview (если был)
+- tasks-new
+- implement(seed manual)
+- review(seed manual)
+- auto-loop (loop-run/loop-step)
+- qa
+
+8.2) Ralph loop summary:
+- seed iteration: loop pack path, read order, excerpt/full policy, boundaries, boundary-check, verdict, stage_result, tests evidence
+- auto-loop iterations: перечисли по loop packs/logs (scope_key/work_item_key, boundaries, diff summary, verdicts, stage_result results)
+
+8.3) BUG REPORTs (с severity).
+8.4) Backlog улучшений (эпики): skill-first entrypoints, wrappers/preflight, docops/actions, readmap/writemap enforcement, hooks/logging, loop-protocol, gates.
+8.5) Приложи команды, которые запускались, и пути к ключевым transcripts/logs.
+
+ОБЯЗАТЕЛЬНЫЙ ФИНАЛЬНЫЙ МАРКЕР (последняя строка ответа):
+AUDIT_COMPLETE TST-001

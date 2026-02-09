@@ -19,13 +19,14 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-03._
+_Last sync with `README.md`: 2026-02-05._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
 
 Key features:
 - Slash commands and agents for the idea → research → plan → review-spec → spec-interview (optional) → tasklist → implement → review → qa flow.
+- Skill-first prompts: canonical runtime/output policy lives in `skills/aidd-core` and `skills/aidd-loop` (EN); stage entrypoints are defined by skills.
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -188,7 +189,7 @@ Rules:
 macOS/Linux are supported. For Windows use WSL or Git Bash.
 
 ## Path Troubleshooting
-- The plugin lives at the repo root (`commands/`, `agents/`, `hooks/`).
+- The plugin lives at the repo root (`agents/`, `skills/`, `hooks/`, `tools/`).
 - Workspace artifacts are created in `./aidd` after `/feature-dev-aidd:aidd-init`.
 - If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
 - For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
@@ -196,6 +197,7 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 ## Documentation
 - Canonical response and pack-first rules: `aidd/docs/prompting/conventions.md`.
 - User guide (runtime): `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
+- Skill-first canon: `skills/aidd-core` and `skills/aidd-loop` (EN).
 - Russian version: `README.md`.
 
 ## Examples

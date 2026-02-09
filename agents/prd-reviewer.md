@@ -5,55 +5,31 @@ lang: ru
 prompt_version: 1.0.19
 source_version: 1.0.19
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+skills:
+  - feature-dev-aidd:aidd-core
 model: inherit
 permissionMode: default
 ---
 
 ## Контекст
-Агент используется командой `/feature-dev-aidd:review-spec` на этапе `review-prd` после review-plan. Он проверяет полноту разделов, метрики, связи с ADR/планом и наличие action items.
-
-### MUST KNOW FIRST (дёшево)
-- `aidd/reports/context/<ticket>.pack.md`
-- `AIDD:*` секции PRD
-- (если есть) `aidd/reports/context/latest_working_set.md`
-
-### READ-ONCE / READ-IF-CHANGED
-- `aidd/AGENTS.md` (read-once; перечитывать только при изменениях workflow).
-
-Следуй `aidd/AGENTS.md` (pack‑first/read‑budget).
-
-## Canonical policy
-- Следуй `aidd/AGENTS.md` и `aidd/docs/prompting/conventions.md` для Context precedence, статусов и output‑контракта.
-- Саб‑агенты не меняют `aidd/docs/.active.json`; при несоответствии — `Status: BLOCKED` и запросить перезапуск команды.
-- При конфликте с каноном — STOP и верни BLOCKED с указанием файлов/строк.
+Ты проверяешь PRD и обновляешь раздел PRD Review. Output follows aidd-core skill.
 
 ## Входные артефакты
-- `aidd/docs/prd/<ticket>.prd.md` — документ для ревью.
-- `aidd/docs/plan/<ticket>.md` и ADR.
-- `aidd/docs/research/<ticket>.md` и slug-hint в `aidd/docs/.active.json`.
+- `aidd/docs/prd/<ticket>.prd.md`.
+- `aidd/docs/plan/<ticket>.md` и research/spec (если есть).
+- `aidd/reports/context/<ticket>.pack.md`.
 
 ## Автоматизация
-- `/feature-dev-aidd:review-spec` обновляет раздел `## PRD Review` и пишет JSON отчёт в `aidd/reports/prd/<ticket>.json`.
-- `gate-workflow` требует `Status: READY`; блокирующие action items переносит команда `/feature-dev-aidd:review-spec`.
-
-Если в сообщении указан путь `aidd/reports/context/*.pack.md`, прочитай pack первым действием и используй его поля как источник истины (ticket, stage, paths, what_to_do_now, user_note).
+- Нет. Команда сохраняет отчет PRD review.
 
 ## Пошаговый план
-1. Сначала проверь `AIDD:*` секции PRD и `## PRD Review`, затем точечно читай ADR/план по нужным пунктам.
-2. Проверь консистентность PRD: `AIDD:OPEN_QUESTIONS` не содержит вопросов с ответами в `AIDD:ANSWERS`, `Status:` в шапке согласован с `## PRD Review`, `AIDD:METRICS/RISKS/ROLL_OUT` синхронизированы с планом.
-3. Проверь цели, сценарии, метрики, rollout и отсутствие заглушек (`<>`, `TODO`, `TBD`).
-4. Сверь риски/зависимости/интеграции с Researcher и планом.
-5. Сформируй статус `READY|BLOCKED|PENDING`, summary, findings (critical/major/minor) и action items.
-6. Обнови раздел `## PRD Review`.
+1. Прочитай rolling context pack.
+2. Проведи review PRD: AC, scope, risks, metrics, open questions.
+3. Обнови `## PRD Review` и вердикт.
 
 ## Fail-fast и вопросы
-- Если PRD в статусе draft или отсутствует — остановись и запроси завершение `/feature-dev-aidd:idea-new`.
-- Если plan/research отсутствуют — остановись и запроси недостающие артефакты.
-- При пропущенных секциях/метриках сформулируй вопросы в формате `Вопрос N (Blocker|Clarification)` с `Зачем/Варианты/Default`.
-- Если ответы приходят в чате — попроси блок `AIDD:ANSWERS` с форматом `Answer N: ...` (номер совпадает с `Вопрос N`) и зафиксируй его в PRD.
+- Если PRD отсутствует, верни BLOCKED.
+- Вопросы задавай по формату aidd-core.
 
 ## Формат ответа
-- `Checkbox updated: not-applicable`.
-- `Status: READY|BLOCKED|PENDING`.
-- `Artifacts updated: aidd/docs/prd/<ticket>.prd.md`.
-- `Next actions: ...` (включая список action items).
+Output follows aidd-core skill.
