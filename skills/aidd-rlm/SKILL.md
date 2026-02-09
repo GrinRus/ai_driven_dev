@@ -3,13 +3,13 @@ name: aidd-rlm
 description: Shared RLM evidence workflow for subagents (slice, build, verify, finalize, pack).
 lang: en
 allowed-tools:
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_verify.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_jsonl_compact.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/reports_pack.py:*)"
 model: inherit
 user-invocable: false
 ---
@@ -17,20 +17,21 @@ user-invocable: false
 ## Scope
 - This skill is preload-only for subagents.
 - Use it to keep RLM behavior consistent across agents without duplicating long instructions.
+- Preload matrix v2 roles: `analyst`, `planner`, `plan-reviewer`, `prd-reviewer`, `researcher`, `reviewer`, `spec-interview-writer`, `tasklist-refiner`, `validator`.
+- Do not preload for `implementer` or `qa`.
 
 ## Canonical command paths
-- Slice (shared): `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh`
-- Researcher stage wrappers:
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh`
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh`
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh`
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh`
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh`
-  - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh`
+- Slice (shared): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py`
+- RLM runtime entrypoints:
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py`
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_verify.py`
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py`
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_jsonl_compact.py`
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py`
+  - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/reports_pack.py`
 
 ## Fallback paths
-- RLM redirect wrappers remain fallback paths during the migration window.
-- If a redirect wrapper is used, prefer canonical skill paths in new prompts.
+- Use canonical Python runtime entrypoints only for new prompts/integrations.
 
 ## Evidence policy
 - Read pack-first: `aidd/reports/research/<ticket>-rlm.pack.json`.

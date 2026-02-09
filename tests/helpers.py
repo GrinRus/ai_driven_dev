@@ -126,7 +126,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],
         "skip_branches": ["docs/*"],
-        "command": ["${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh"],
+        "command": ["python3", "${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py"],
         "debounce_minutes": 10,
         "report": "aidd/reports/qa/{ticket}.json",
         "allow_missing_report": False,
@@ -500,20 +500,36 @@ def cli_cmd(*args: str) -> list[str]:
         return []
     cmd = args[0]
     rest = list(args[1:])
+    python_mode = False
     if cmd == "context-gc":
         raise ValueError("context-gc entrypoints unavailable; use hooks/context-gc-*.sh")
     if cmd == "init":
-        script = REPO_ROOT / "skills" / "aidd-init" / "scripts" / "init.sh"
+        script = REPO_ROOT / "skills" / "aidd-init" / "runtime" / "init.py"
+        python_mode = True
     elif cmd in {"loop-pack", "loop-step", "loop-run", "preflight-prepare", "preflight-result-validate", "output-contract"}:
-        script = REPO_ROOT / "skills" / "aidd-loop" / "scripts" / f"{cmd}.sh"
+        loop_runtime_map = {
+            "loop-pack": "loop_pack.py",
+            "loop-step": "loop_step.py",
+            "loop-run": "loop_run.py",
+            "preflight-prepare": "preflight_prepare.py",
+            "preflight-result-validate": "preflight_result_validate.py",
+            "output-contract": "output_contract.py",
+        }
+        script = REPO_ROOT / "skills" / "aidd-loop" / "runtime" / loop_runtime_map[cmd]
+        python_mode = True
     elif cmd in {"analyst-check"}:
-        script = REPO_ROOT / "skills" / "idea-new" / "scripts" / f"{cmd}.sh"
+        script = REPO_ROOT / "skills" / "idea-new" / "runtime" / "analyst_check.py"
+        python_mode = True
     elif cmd in {"research-check"}:
-        script = REPO_ROOT / "skills" / "plan-new" / "scripts" / f"{cmd}.sh"
+        script = REPO_ROOT / "skills" / "plan-new" / "runtime" / "research_check.py"
+        python_mode = True
     elif cmd in {"prd-review"}:
-        script = REPO_ROOT / "skills" / "review-spec" / "scripts" / f"{cmd}.sh"
+        script = REPO_ROOT / "skills" / "review-spec" / "runtime" / "prd_review_cli.py"
+        python_mode = True
+    elif cmd == "research":
+        script = REPO_ROOT / "skills" / "researcher" / "runtime" / "research.py"
+        python_mode = True
     elif cmd in {
-        "research",
         "reports-pack",
         "rlm-nodes-build",
         "rlm-links-build",
@@ -521,15 +537,93 @@ def cli_cmd(*args: str) -> list[str]:
         "rlm-finalize",
         "rlm-verify",
     }:
-        script = REPO_ROOT / "skills" / "researcher" / "scripts" / f"{cmd}.sh"
+        rlm_runtime_map = {
+            "reports-pack": "reports_pack.py",
+            "rlm-nodes-build": "rlm_nodes_build.py",
+            "rlm-links-build": "rlm_links_build.py",
+            "rlm-jsonl-compact": "rlm_jsonl_compact.py",
+            "rlm-finalize": "rlm_finalize.py",
+            "rlm-verify": "rlm_verify.py",
+        }
+        script = REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / rlm_runtime_map[cmd]
+        python_mode = True
     elif cmd in {"review-pack", "review-report", "reviewer-tests", "context-pack"}:
-        script = REPO_ROOT / "skills" / "review" / "scripts" / f"{cmd}.sh"
+        review_runtime_map = {
+            "review-pack": "review_pack.py",
+            "review-report": "review_report.py",
+            "reviewer-tests": "reviewer_tests.py",
+            "context-pack": "context_pack.py",
+        }
+        script = REPO_ROOT / "skills" / "review" / "runtime" / review_runtime_map[cmd]
+        python_mode = True
     elif cmd in {"qa"}:
-        script = REPO_ROOT / "skills" / "qa" / "scripts" / "qa.sh"
+        script = REPO_ROOT / "skills" / "qa" / "runtime" / "qa.py"
+        python_mode = True
     elif cmd in {"status", "index-sync"}:
-        script = REPO_ROOT / "skills" / "status" / "scripts" / f"{cmd}.sh"
+        status_runtime_map = {
+            "status": "status.py",
+            "index-sync": "index_sync.py",
+        }
+        script = REPO_ROOT / "skills" / "status" / "runtime" / status_runtime_map[cmd]
+        python_mode = True
     else:
-        script = REPO_ROOT / "skills" / "aidd-core" / "scripts" / f"{cmd}.sh"
+        docio_runtime_map = {
+            "actions-apply": "actions_apply.py",
+            "actions-validate": "actions_validate.py",
+            "context-expand": "context_expand.py",
+            "context-map-validate": "context_map_validate.py",
+            "md-patch": "md_patch.py",
+            "md-slice": "md_slice.py",
+        }
+        flow_state_runtime_map = {
+            "prd-check": "prd_check.py",
+            "progress": "progress_cli.py",
+            "set-active-feature": "set_active_feature.py",
+            "set-active-stage": "set_active_stage.py",
+            "stage-result": "stage_result.py",
+            "status-summary": "status_summary.py",
+            "tasklist-check": "tasklist_check.py",
+            "tasklist-normalize": "tasklist_check.py",
+            "tasks-derive": "tasks_derive.py",
+        }
+        observability_runtime_map = {
+            "dag-export": "dag_export.py",
+            "doctor": "doctor.py",
+            "identifiers": "identifiers.py",
+            "tests-log": "tests_log.py",
+            "tools-inventory": "tools_inventory.py",
+        }
+        rlm_runtime_map = {
+            "rlm-slice": "rlm_slice.py",
+        }
+        core_runtime_map = {
+            "diff-boundary-check": "diff_boundary_check.py",
+            "plan-review-gate": "plan_review_gate.py",
+            "prd-review-gate": "prd_review_gate.py",
+            "researcher-context": "researcher_context.py",
+            "skill-contract-validate": "skill_contract_validate.py",
+        }
+        if cmd in docio_runtime_map:
+            script = REPO_ROOT / "skills" / "aidd-docio" / "runtime" / docio_runtime_map[cmd]
+            python_mode = True
+        elif cmd in flow_state_runtime_map:
+            script = REPO_ROOT / "skills" / "aidd-flow-state" / "runtime" / flow_state_runtime_map[cmd]
+            if cmd == "tasklist-normalize":
+                rest = ["--fix", *rest]
+            python_mode = True
+        elif cmd in observability_runtime_map:
+            script = REPO_ROOT / "skills" / "aidd-observability" / "runtime" / observability_runtime_map[cmd]
+            python_mode = True
+        elif cmd in rlm_runtime_map:
+            script = REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / rlm_runtime_map[cmd]
+            python_mode = True
+        elif cmd in core_runtime_map:
+            script = REPO_ROOT / "skills" / "aidd-core" / "runtime" / core_runtime_map[cmd]
+            python_mode = True
+        else:
+            raise ValueError(f"unknown canonical CLI command: {cmd}")
+    if python_mode:
+        return ["python3", str(script), *rest]
     return [str(script), *rest]
 
 
@@ -537,6 +631,8 @@ def cli_env(extra_env: Optional[dict[str, str]] = None) -> dict[str, str]:
     """Return an environment with CLAUDE_PLUGIN_ROOT wired for canonical entrypoints."""
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(REPO_ROOT) if not existing_pythonpath else f"{REPO_ROOT}:{existing_pythonpath}"
     if extra_env:
         env.update(extra_env)
     return env

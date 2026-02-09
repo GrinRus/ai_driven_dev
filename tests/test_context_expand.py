@@ -107,7 +107,7 @@ class ContextExpandTests(unittest.TestCase):
             self.assertIn("## Loop Allowed Paths", writemap_md)
             self.assertIn(f"docs/tasklist/{ticket}.md", writemap_md)
 
-    def test_context_expand_wrapper_uses_active_stage_by_default(self) -> None:
+    def test_context_expand_runtime_uses_active_stage_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-expand-wrapper-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-CTX-WRAPPER"
@@ -117,10 +117,9 @@ class ContextExpandTests(unittest.TestCase):
             write_tasklist_ready(root, ticket)
             self._prepare_preflight(root, ticket, scope_key, work_item_key, stage="review")
 
-            wrapper = REPO_ROOT / "skills" / "aidd-core" / "scripts" / "context-expand.sh"
             result = subprocess.run(
-                [
-                    str(wrapper),
+                cli_cmd(
+                    "context-expand",
                     "--ticket",
                     ticket,
                     "--scope-key",
@@ -134,7 +133,7 @@ class ContextExpandTests(unittest.TestCase):
                     "--reason",
                     "Ensure wrapper uses active stage",
                     "--no-regenerate-pack",
-                ],
+                ),
                 cwd=root,
                 env=cli_env(),
                 text=True,

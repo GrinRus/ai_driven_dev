@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from aidd_runtime import active_state as _active_state
+from aidd_runtime import stage_lexicon
 from aidd_runtime.feature_ids import FeatureIdentifiers, read_active_state, resolve_identifiers
 from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
@@ -63,7 +64,7 @@ def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tu
         raise FileNotFoundError(f"workspace directory {workspace_root} does not exist")
     raise FileNotFoundError(
         f"workflow not found at {project_root}. Run '/feature-dev-aidd:aidd-init' or "
-        f"'${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/scripts/init.sh' from the workspace root "
+        f"'python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/runtime/init.py' from the workspace root "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
@@ -75,7 +76,7 @@ def require_workflow_root(raw_target: Path | None = None) -> tuple[Path, Path]:
     raise FileNotFoundError(
         f"workflow files not found at {project_root}/docs; "
         f"bootstrap via '/feature-dev-aidd:aidd-init' or "
-        f"'${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/scripts/init.sh' from the workspace root "
+        f"'python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/runtime/init.py' from the workspace root "
         f"(templates install into ./{DEFAULT_PROJECT_SUBDIR})."
     )
 
@@ -199,7 +200,7 @@ def read_active_last_review_report_id(target: Path) -> str:
 
 def read_active_stage(target: Path) -> str:
     state = read_active_state(target)
-    return (state.stage or "").strip().lower()
+    return stage_lexicon.resolve_stage_name(state.stage or "")
 
 
 def read_active_ticket(target: Path) -> str:

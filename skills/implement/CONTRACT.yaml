@@ -4,9 +4,9 @@
   "skill_id": "implement",
   "stage": "implement",
   "entrypoints": [
-    "skills/implement/scripts/preflight.sh",
-    "skills/implement/scripts/run.sh",
-    "skills/implement/scripts/postflight.sh"
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/implement/runtime/implement_run.py",
+    "skills/aidd-docio/runtime/actions_apply.py"
   ],
   "reads": {
     "required": [

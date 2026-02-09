@@ -3,8 +3,8 @@ name: researcher
 description: Run research pipeline and produce researcher report artifacts.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
 lang: ru
-prompt_version: 1.2.30
-source_version: 1.2.30
+prompt_version: 1.2.31
+source_version: 1.2.31
 allowed-tools:
   - Read
   - Edit
@@ -12,17 +12,10 @@ allowed-tools:
   - Glob
   - "Bash(rg:*)"
   - "Bash(sed:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-stage.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-links-build.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py:*)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true
@@ -34,15 +27,25 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
 1. Set active feature and stage `research`.
-2. Run `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket $1 --auto` (apply optional paths/keywords/note).
-3. Build/update the rolling context pack.
-4. Run subagent `feature-dev-aidd:researcher` (fork). First action: read the rolling context pack.
-5. If RLM is pending or packs are missing, run the `rlm-*` pipeline and `reports-pack.sh` until `rlm_status=ready`; otherwise return BLOCKED.
-6. Optionally append handoff tasks via `tasks-derive.sh --source research --append`.
-7. Return the output contract.
+2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+3. Re-run the same entrypoint with optional overrides (`--paths`, `--keywords`, `--note`) when targeted refresh is needed.
+4. Build/update the rolling context pack.
+5. Run subagent `feature-dev-aidd:researcher` (fork). First action: read the rolling context pack.
+6. If RLM is pending or pack is missing, return BLOCKED with explicit handoff to shared RLM owner (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`). Do not execute shared RLM API from this stage command.
+7. Optionally append handoff tasks via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
+8. Return the output contract.
+
+## Command contracts
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`
+- When to run: always as canonical researcher pipeline entrypoint.
+- Inputs: `--ticket <ticket>` with optional path/keyword/note overrides.
+- Outputs: research artifacts, stage status, and RLM readiness/handoff markers (`rlm_status`, `rlm_pack_status`).
+- Failure mode: non-zero exit when required inputs/artifacts are missing or context/pack generation fails.
+- Next action: fix missing inputs/paths, rerun this entrypoint, and if RLM remains pending hand off to `aidd-rlm` owner runtime.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
 
 ## Additional resources
-- Research template source: [templates/research.template.md](templates/research.template.md) (seeded to `aidd/docs/research/template.md` by init).
+- Research template source: [templates/research.template.md](templates/research.template.md) (when: drafting or reviewing `aidd/docs/research/<ticket>.md`; why: keep artifact shape aligned with canonical workspace template).
+- Shared RLM owner skill: [../aidd-rlm/SKILL.md](../aidd-rlm/SKILL.md) (when: `rlm_status` is not `ready` or RLM pack is missing; why: run canonical shared RLM API outside stage-local orchestration).

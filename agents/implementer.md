@@ -7,7 +7,7 @@ source_version: 1.1.38
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(xargs:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(pytest:*), Bash(python:*), Bash(go:*), Bash(mvn:*), Bash(make:*), Bash(./gradlew:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*)
 skills:
   - feature-dev-aidd:aidd-core
-  - feature-dev-aidd:aidd-rlm
+  - feature-dev-aidd:aidd-policy
   - feature-dev-aidd:aidd-loop
 model: inherit
 permissionMode: default

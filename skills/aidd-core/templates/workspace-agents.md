@@ -15,7 +15,7 @@
 - Loop discipline — см. `skills/aidd-loop`.
 - Stage‑локальные entrypoints: `skills/<stage>/scripts/*` (canonical shell wrappers).
 - Stage‑локальный Python runtime: `skills/<stage>/runtime/*` (когда логика не shared).
-- Shared entrypoints: canonical путь `skills/aidd-core/scripts/*` и `skills/aidd-loop/scripts/*`.
+- Shared entrypoints: canonical путь `skills/aidd-core/runtime/*.py` и `skills/aidd-loop/runtime/*.py`.
 - Python runtime (`skills/*/runtime/*`) и shell entrypoints (`skills/*/scripts/*`) каноничны для выполнения.
 - `tools/` содержит только import stubs и repo-only tooling.
 - Wrapper‑вывод: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишите в `aidd/reports/**`.
@@ -23,7 +23,7 @@
 
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.
-- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 
 ## Ответы пользователя
 Ответы давайте в рамках той же команды (без смены стадии). Если ответы приходят в чате, попросите блок:

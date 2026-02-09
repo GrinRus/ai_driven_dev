@@ -2,7 +2,7 @@
 
 ## Wave 96 — SKILL-first migration program (consolidated)
 
-_Статус: новый, приоритет 0. Цель — перевести runtime на SKILL-first модель: stage/shared entrypoints и Python runtime живут рядом со SKILL (`skills/*/scripts`, `skills/*/runtime`)._
+_Статус: завершен, приоритет 0. Цель — перевести runtime на SKILL-first модель: stage/shared entrypoints и Python runtime живут рядом со SKILL (`skills/*/scripts`, `skills/*/runtime`)._
 
 _Доп. вводные (breaking target): в рамках доработки Wave 96 допускается поломка обратной совместимости ради полного вывода shell runtime из `tools/*.sh`._
 
@@ -358,7 +358,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6A — Skill contract hardening
 
-- [ ] **W96-58 (P0) Enforce stage command ownership: every user-invocable skill has canonical `scripts/run.sh`** `skills/*/SKILL.md`, `skills/*/scripts/run.sh`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W96-58 (P0) Enforce stage command ownership: every user-invocable skill has canonical `scripts/run.sh`** `skills/*/SKILL.md`, `skills/*/scripts/run.sh`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - ввести контракт ownership: user-invocable stage skill обязан иметь локальный command entrypoint `skills/<stage>/scripts/run.sh`;
   - обновить skills без `run.sh` и синхронизировать их `allowed-tools`/Steps;
   - добавить lint guard на отсутствие canonical run-wrapper.
@@ -368,7 +368,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-59 (P1) Allowed-tools ownership contract for stage skills (own scripts + shared skills only)** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W96-59 (P1) Allowed-tools ownership contract for stage skills (own scripts + shared skills only)** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - запретить refs на чужие stage-local wrappers, кроме canonical shared skills (`aidd-core`, `aidd-loop`, `aidd-rlm`, новые shared skills после split);
   - проверить, что stage skill вызывает собственные wrappers для stage-specific операций;
   - добавить whitelist/owner-map в lint.
@@ -378,10 +378,11 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-60 (P1) SKILL compactness + supporting-files policy** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `AGENTS.md`:
+- [x] **W96-60 (P1) SKILL compactness + supporting-files policy** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `AGENTS.md`:
   - закрепить policy: `SKILL.md` компактный (target <= 500 lines), детальные инструкции выносятся в supporting files;
   - нормализовать секции `Additional resources` (когда и зачем загружать references/templates);
   - добавить lint warning/error thresholds для oversized skills.
+  - status note: закрыто в рамках Wave 97 (`W97-10`, `W97-11`) как superseding contract.
   **AC:** oversized skills покрыты policy и lint guards; supporting-files navigation явная.
   **Deps:** W96-58
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
@@ -390,7 +391,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6B — Close zero-owner stage skills
 
-- [ ] **W96-61 (P0) `spec-interview` self-owned command wrapper + stage runtime module** `skills/spec-interview/scripts/run.sh`, `skills/spec-interview/runtime/spec_interview.py`, `skills/spec-interview/SKILL.md`, `tests/test_cli_subcommands.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W96-61 (P0) `spec-interview` self-owned command wrapper + stage runtime module** `skills/spec-interview/scripts/run.sh`, `skills/spec-interview/runtime/spec_interview.py`, `skills/spec-interview/SKILL.md`, `tests/test_cli_subcommands.py`, `tests/repo_tools/smoke-workflow.sh`:
   - добавить canonical `run.sh` для `spec-interview`;
   - вынести stage-specific orchestration в `runtime/spec_interview.py`;
   - обновить command contract/steps в `SKILL.md`.
@@ -400,7 +401,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-62 (P0) `tasks-new` self-owned command wrapper + stage runtime module** `skills/tasks-new/scripts/run.sh`, `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W96-62 (P0) `tasks-new` self-owned command wrapper + stage runtime module** `skills/tasks-new/scripts/run.sh`, `skills/tasks-new/runtime/tasks_new.py`, `skills/tasks-new/SKILL.md`, `tests/test_tasklist_check.py`, `tests/repo_tools/smoke-workflow.sh`:
   - добавить canonical `run.sh` для `tasks-new`;
   - вынести stage-specific orchestration/normalize в `runtime/tasks_new.py`;
   - синхронизировать steps/allowed-tools с новым ownership.
@@ -410,7 +411,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-63 (P1) Stage-owner completeness guard for user commands** `tests/repo_tools/skill-scripts-guard.py`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W96-63 (P1) Stage-owner completeness guard for user commands** `tests/repo_tools/skill-scripts-guard.py`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - добавить repo guard на “нулевых владельцев” (user-invocable skill без local scripts/runtime owner);
   - валидировать согласованность `agent`/`context`/`run.sh` presence;
   - добавить понятный report по owner gaps.
@@ -422,7 +423,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6C — Decompose `aidd-core` into bounded shared skills
 
-- [ ] **W96-64 (P0) Create `aidd-policy` shared skill (contract/prompt policy)** `skills/aidd-policy/SKILL.md`, `skills/aidd-policy/references/*`, `agents/*.md`, `.claude-plugin/plugin.json`:
+- [x] **W96-64 (P0) Create `aidd-policy` shared skill (contract/prompt policy)** `skills/aidd-policy/SKILL.md`, `skills/aidd-policy/references/*`, `agents/*.md`, `.claude-plugin/plugin.json`:
   - вынести output contract/question format/read-policy/wrapper-safety из `aidd-core`;
   - подключить `aidd-policy` в preload у subagents;
   - оставить `aidd-core` как runtime-ориентированный слой без policy-monolith.
@@ -432,7 +433,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-65 (P0) Create `aidd-docio` shared skill and relocate DocIO wrappers/runtime** `skills/aidd-docio/SKILL.md`, `skills/aidd-docio/scripts/*.sh`, `skills/aidd-docio/runtime/*.py`, `skills/aidd-core/scripts/md-*.sh`, `skills/aidd-core/runtime/{md_*,actions_*,context_*}.py`:
+- [x] **W96-65 (P0) Create `aidd-docio` shared skill and relocate DocIO runtime ownership** `skills/aidd-docio/SKILL.md`, `skills/aidd-docio/runtime/*.py`, `skills/aidd-core/runtime/{md_*,actions_*,context_*}.py`:
   - перенести `md-slice`, `md-patch`, `actions-*`, `context-*` в `aidd-docio`;
   - обновить все consumers (skills/hooks/tests/docs) на новые canonical paths;
   - оставить минимально необходимые compatibility redirects на migration window (если нужно).
@@ -442,7 +443,7 @@ Current checkpoint (2026-02-08):
   **Effort:** L
   **Risk:** High
 
-- [ ] **W96-66 (P0) Create `aidd-flow-state` shared skill and relocate flow/state wrappers/runtime** `skills/aidd-flow-state/SKILL.md`, `skills/aidd-flow-state/scripts/*.sh`, `skills/aidd-flow-state/runtime/*.py`, `skills/aidd-core/scripts/{set-active-*,progress,tasklist-*,stage-result,status-summary,prd-check,tasks-derive}.sh`:
+- [x] **W96-66 (P0) Create `aidd-flow-state` shared skill and relocate flow/state runtime ownership** `skills/aidd-flow-state/SKILL.md`, `skills/aidd-flow-state/runtime/*.py`, `skills/aidd-core/runtime/{set_active_*,progress*,tasklist_check,tasks_derive,stage_result,status_summary,prd_check}.py`:
   - вынести flow-state инструменты в отдельный shared skill;
   - синхронизировать все stage skill refs на новый canonical owner;
   - добавить owner-map validation для flow-state API.
@@ -452,7 +453,7 @@ Current checkpoint (2026-02-08):
   **Effort:** L
   **Risk:** High
 
-- [ ] **W96-67 (P1) Create `aidd-observability` shared skill and relocate observability wrappers/runtime** `skills/aidd-observability/SKILL.md`, `skills/aidd-observability/scripts/*.sh`, `skills/aidd-observability/runtime/*.py`, `skills/aidd-core/scripts/{doctor,tools-inventory,tests-log,dag-export,identifiers}.sh`:
+- [x] **W96-67 (P1) Create `aidd-observability` shared skill and relocate observability runtime ownership** `skills/aidd-observability/SKILL.md`, `skills/aidd-observability/runtime/*.py`, `skills/aidd-core/runtime/{doctor,tools_inventory,tests_log,dag_export,identifiers}.py`:
   - вынести observability/reporting utilities из `aidd-core`;
   - обновить CI/docs/inventory consumers;
   - закрепить observability API contract в tests.
@@ -462,7 +463,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-68 (P1) Convert `aidd-core` into thin aggregator/navigation skill** `skills/aidd-core/SKILL.md`, `.claude-plugin/plugin.json`, `AGENTS.md`, `README.md`, `README.en.md`:
+- [x] **W96-68 (P1) Convert `aidd-core` into thin aggregator/navigation skill** `skills/aidd-core/SKILL.md`, `.claude-plugin/plugin.json`, `AGENTS.md`, `README.md`, `README.en.md`:
   - оставить в `aidd-core` только shared runtime navigation + cross-skill links;
   - убрать из `aidd-core` перегруженные policy/procedure блоки после split;
   - обновить plugin/docs чтобы отражать новую shared-skill topology.
@@ -474,17 +475,17 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6D — Normalize RLM ownership
 
-- [ ] **W96-69 (P0) Move canonical RLM wrappers to `skills/aidd-rlm/scripts/*`** `skills/aidd-rlm/SKILL.md`, `skills/aidd-rlm/scripts/*.sh`, `skills/researcher/scripts/rlm-*.sh`, `agents/*.md`, `tests/test_rlm_wrappers.py`:
-  - перенести shared RLM command surface в `aidd-rlm` (canonical);
-  - обновить `aidd-rlm` preload docs/allowed-tools на собственные wrappers;
-  - оставить `researcher` stage wrappers только для stage orchestration.
+- [x] **W96-69 (P0) Move canonical RLM entrypoints to `skills/aidd-rlm/runtime/*`** `skills/aidd-rlm/SKILL.md`, `skills/aidd-rlm/runtime/*.py`, `skills/researcher/SKILL.md`, `agents/*.md`, `tests/test_rlm_wrappers.py`:
+  - перенести shared RLM command surface в `aidd-rlm` (canonical Python runtime);
+  - обновить `aidd-rlm` preload docs/allowed-tools на собственные runtime entrypoints;
+  - оставить `researcher` stage ownership только для stage orchestration (`research.py`).
   **AC:** shared RLM API owned by `aidd-rlm`, а не stage-local `researcher`.
   **Deps:** W96-64
   **Regression/tests:** `python3 -m pytest -q tests/test_rlm_wrappers.py tests/test_research_rlm_e2e.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-70 (P1) Researcher stage boundary cleanup after RLM ownership move** `skills/researcher/SKILL.md`, `skills/researcher/scripts/research.sh`, `skills/researcher/runtime/*.py`, `agents/researcher.md`:
+- [x] **W96-70 (P1) Researcher stage boundary cleanup after RLM ownership move** `skills/researcher/SKILL.md`, `skills/researcher/runtime/research.py`, `skills/researcher/runtime/*.py`, `agents/researcher.md`:
   - зафиксировать, что `researcher` владеет stage pipeline orchestration, но не shared RLM API;
   - убрать скрытые cross-owner зависимости в steps/allowed-tools;
   - обновить stage docs/tests под новый ownership.
@@ -496,7 +497,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6E — Runtime module decomposition
 
-- [ ] **W96-71 (P1) Decompose `tasklist_check.py` into bounded modules** `skills/aidd-core/runtime/tasklist_check.py`, `skills/aidd-core/runtime/tasklist_*`, `tests/test_tasklist_check.py`:
+- [x] **W96-71 (P1) Decompose `tasklist_check.py` into bounded modules** `skills/aidd-flow-state/runtime/tasklist_check.py`, `skills/aidd-flow-state/runtime/tasklist_*`, `tests/test_tasklist_check.py`:
   - разрезать модуль по domain units (parsing, validation, reporting, normalization);
   - сохранить CLI/output compatibility;
   - уменьшить когнитивную и тестовую связанность.
@@ -506,7 +507,7 @@ Current checkpoint (2026-02-08):
   **Effort:** L
   **Risk:** High
 
-- [ ] **W96-72 (P1) Decompose `loop_step.py` into orchestration + policy + result handlers** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_*`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`:
+- [x] **W96-72 (P1) Decompose `loop_step.py` into orchestration + policy + result handlers** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_*`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`:
   - вынести decision policy, preflight integration, result processing в отдельные модули;
   - снизить coupling с gate/workflow runtime;
   - сохранить deterministic behavior loop-step.
@@ -516,7 +517,7 @@ Current checkpoint (2026-02-08):
   **Effort:** L
   **Risk:** High
 
-- [ ] **W96-73 (P1) Decompose `researcher_context.py` into read-budget/context-pack components** `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-core/runtime/researcher_context_*`, `tests/test_researcher_context.py`:
+- [x] **W96-73 (P1) Decompose `researcher_context.py` into read-budget/context-pack components** `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-core/runtime/researcher_context_*`, `tests/test_researcher_context.py`:
   - выделить selection/ranking/pack-shaping logic в отдельные units;
   - улучшить testability для read-budget поведения;
   - сохранить output compatibility для context artifacts.
@@ -526,7 +527,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-74 (P1) Decompose `reports_pack.py` for deterministic pack assembly** `skills/researcher/runtime/reports_pack.py`, `skills/researcher/runtime/reports_pack_*`, `tests/test_reports_pack.py`:
+- [x] **W96-74 (P1) Decompose `reports_pack.py` for deterministic pack assembly** `skills/aidd-rlm/runtime/reports_pack.py`, `skills/aidd-rlm/runtime/reports_pack_*`, `tests/test_reports_pack.py`:
   - выделить normalization/budget trim/serialization в отдельные модули;
   - зафиксировать deterministic behavior (stable ids/order/truncation);
   - снизить blast radius изменений в research pack pipeline.
@@ -536,7 +537,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-75 (P2) Runtime module size/composition guard** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/runtime-module-guard.py`, `AGENTS.md`:
+- [x] **W96-75 (P2) Runtime module size/composition guard** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/runtime-module-guard.py`, `AGENTS.md`:
   - добавить repo guard для крупных runtime-модулей (warning -> error rollout);
   - задать target thresholds (например, >600 lines = warning, >900 = error);
   - документировать исключения/waivers.
@@ -548,7 +549,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6F — Agent preload matrix v2
 
-- [ ] **W96-76 (P1) Roll out preload matrix v2 by role** `agents/*.md`, `skills/aidd-policy/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `skills/aidd-loop/SKILL.md`:
+- [x] **W96-76 (P1) Roll out preload matrix v2 by role** `agents/*.md`, `skills/aidd-policy/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `skills/aidd-loop/SKILL.md`:
   - `aidd-policy` preload для всех subagents;
   - `aidd-rlm` preload только для analyst/planner/plan-reviewer/prd-reviewer/researcher/reviewer/spec-interview-writer/tasklist-refiner/validator;
   - `aidd-loop` preload только для implementer/reviewer/qa.
@@ -558,7 +559,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-77 (P1) Lint enforcement for preload matrix v2** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `AGENTS.md`:
+- [x] **W96-77 (P1) Lint enforcement for preload matrix v2** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `AGENTS.md`:
   - добавить lint-rule на role-based preload matrix;
   - запретить accidental preload drift;
   - добавить explicit waivers list для exceptional agents (если нужны).
@@ -570,7 +571,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6G — Template ownership finalization
 
-- [ ] **W96-78 (P1) Final template ownership lock: skill-local templates as canonical source** `skills/*/templates/*`, `skills/aidd-init/runtime/init.py`, `templates/aidd/**`, `AGENTS.md`, `README.md`, `README.en.md`:
+- [x] **W96-78 (P1) Final template ownership lock: skill-local templates as canonical source** `skills/*/templates/*`, `skills/aidd-init/runtime/init.py`, `templates/aidd/**`, `AGENTS.md`, `README.md`, `README.en.md`:
   - оставить `templates/aidd` как bootstrap config + placeholders only;
   - stage content templates держать только в `skills/*/templates/*`;
   - закрепить init copy logic и docs SoT under skill ownership.
@@ -582,7 +583,7 @@ Current checkpoint (2026-02-08):
 
 #### Phase 6H — Improvement-plan backfill (without scope loss)
 
-- [ ] **W96-79 (P0) Prompt-lint baseline rehabilitation (backfill B-002)** `tests/repo_tools/lint-prompts.py`, `docs/skill-language.md`, `aidd/reports/migrations/commands_to_skills_frontmatter.json`:
+- [x] **W96-79 (P0) Prompt-lint baseline rehabilitation (backfill B-002)** `tests/repo_tools/lint-prompts.py`, `docs/skill-language.md`, `aidd/reports/migrations/commands_to_skills_frontmatter.json`:
   - восстановить canonical policy/baseline paths для prompt-lint;
   - добавить/обновить baseline entries для всех stage skills;
   - устранить текущие `missing policy/baseline` ошибки.
@@ -592,7 +593,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-80 (P0) Single stage enum + alias map across runtime (backfill B-003)** `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`, `hooks/context_gc/pretooluse_guard.py`, `skills/aidd-core/templates/stage-lexicon.md`:
+- [x] **W96-80 (P0) Single stage enum + alias map across runtime (backfill B-003)** `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`, `hooks/context_gc/pretooluse_guard.py`, `skills/aidd-core/templates/stage-lexicon.md`:
   - централизовать stage enum/alias map и переиспользовать в setter/validators/guards;
   - устранить расхождения stage семантики в runtime;
   - синхронизировать с stage-lexicon template.
@@ -602,7 +603,7 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-81 (P0) Canonical `spec-interview` stage assignment (backfill B-004)** `skills/spec-interview/SKILL.md`, `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`:
+- [x] **W96-81 (P0) Canonical `spec-interview` stage assignment (backfill B-004)** `skills/spec-interview/SKILL.md`, `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`:
   - убрать drift между `spec`/`spec-interview` в command-stage assignment;
   - оставить только canonical semantics + явный alias (если нужен);
   - покрыть stage assignment тестами.
@@ -612,7 +613,7 @@ Current checkpoint (2026-02-08):
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W96-82 (P1) Remove unsupported `release` stage placeholders (backfill B-005)** `skills/tasks-new/templates/tasklist.template.md`, `skills/aidd-core/templates/stage-lexicon.md`:
+- [x] **W96-82 (P1) Remove unsupported `release` stage placeholders (backfill B-005)** `skills/tasks-new/templates/tasklist.template.md`, `skills/aidd-core/templates/stage-lexicon.md`:
   - удалить placeholder stages, которых нет в runtime lexicon;
   - выровнять tasklist template с каноничным stage набором;
   - добавить guard на появление unsupported stages в template.
@@ -622,17 +623,17 @@ Current checkpoint (2026-02-08):
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W96-83 (P1) PRD gate path cleanup and single authority (backfill B-006)** `hooks/hooks.json`, `hooks/gate-prd-review.sh`, `skills/aidd-core/runtime/gate_workflow.py`:
+- [x] **W96-83 (P1) PRD gate path cleanup and single authority (backfill B-006)** `hooks/hooks.json`, `hooks/gate-prd-review.sh`, `skills/aidd-core/runtime/gate_workflow.py`:
   - выбрать и закрепить единый путь PRD gating (hook vs internal gate-workflow path);
   - убрать двусмысленность/двойной gate execution;
   - обновить tests/docs под выбранный контракт.
   **AC:** в hook inventory нет неиспользуемых PRD-gate скриптов и дублирующего поведения.
   **Deps:** W96-80
-  **Regression/tests:** `python3 -m pytest -q tests/test_gate_prd_review.py tests/test_gate_workflow.py`.
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_prd_review.py tests/test_gate_workflow.py tests/test_wave95_policy_guards.py`.
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W96-84 (P2) CI/security expansion and required-check parity (backfill B-012)** `.github/workflows/ci.yml`, `.github/workflows/*.yml`, `AGENTS.md`, `README.md`, `README.en.md`:
+- [x] **W96-84 (P2) CI/security expansion and required-check parity (backfill B-012)** `.github/workflows/ci.yml`, `.github/workflows/*.yml`, `AGENTS.md`, `README.md`, `README.en.md`:
   - добавить минимум 2 security controls (secret scan/SAST/SBOM) в CI;
   - сделать parity между documented release checks и enforced CI checks;
   - ввести staged rollout (non-blocking -> required).
@@ -642,57 +643,209 @@ Current checkpoint (2026-02-08):
   **Effort:** M
   **Risk:** Medium
 
-## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
+## Wave 97 — Python-only runtime canon (no `run.sh` / no shell wrappers)
 
-_Статус: новый, приоритет 1. Обратная совместимость не требуется — удалить старую логику и тесты._
+_Статус: завершен, приоритет 0. Цель — убрать shell-прокладки (`skills/*/scripts/*.sh`) из runtime API и перейти на прямые Python entrypoints с единым контрактом логов/outputs._
 
-- [ ] **W90-1** `tools/research_hints.py` (или `tools/prd_sections.py`), `templates/aidd/docs/prd/template.md`, `commands/idea-new.md`, `commands/researcher.md`:
+_Важное: этот wave **supersedes shell-wrapper assumptions** из Wave 96 (включая обязательность `scripts/run.sh`). Исторические задачи Wave 96 не удаляются, но для дальнейшего развития считаются legacy path._
+
+### Phase 7A — Canon + compatibility strategy
+
+- [x] **W97-0 (P0) ADR: Python-only runtime contract + deprecation policy for shell wrappers** `AGENTS.md`, `README.md`, `README.en.md`, `CHANGELOG.md`, `backlog.md`:
+  - зафиксировать новый канон: user/shared runtime entrypoints = `python3 <skills/*/runtime/*.py>`;
+  - описать, где shell ещё допустим (например, системные bootstrap hooks) и где запрещён;
+  - зафиксировать deprecation window + rollback criteria.
+  **AC:** docs/ADR однозначно определяют Python-only runtime API и судьбу `scripts/*.sh`.
+  **Deps:** -
+  **Regression/tests:** docs consistency + `tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W97-1 (P0) Runtime API inventory v3: map shell entrypoints -> python owners** `skills/aidd-core/runtime/tools_inventory.py`, `aidd/reports/tools/*.json`, `tests/test_tools_inventory.py`:
+  - собрать полную таблицу shell wrappers и соответствующих Python modules;
+  - классифицировать: `legacy_shell_wrapper`, `python_entrypoint`, `hook_shell_only`;
+  - подготовить migration order (stage/shared/hooks).
+  **AC:** есть machine-readable mapping всех `.sh` runtime entrypoints к python-owner.
+  **Deps:** W97-0
+  **Regression/tests:** `python3 -m pytest -q tests/test_tools_inventory.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 7B — Python entrypoints migration
+
+- [x] **W97-2 (P0) Create shared Python launcher contract (replace `wrapper_lib.sh`)** `skills/aidd-core/runtime/runtime.py`, `skills/aidd-core/runtime/launcher.py`, `tests/test_runtime_launcher.py`:
+  - вынести в Python общий контракт: context resolve, log path, output budget, deterministic exit codes;
+  - обеспечить parity с текущим wrapper behavior (`stdout/stderr` limits, report-to-log);
+  - добавить API для stage/shared entrypoints.
+  **AC:** новый launcher покрывает весь контракт wrapper_lib без shell dependency.
+  **Deps:** W97-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_runtime_launcher.py tests/test_error_output.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W97-3 (P0) Stage user commands: migrate from `scripts/run.sh` to python entrypoints** `skills/*/runtime/*.py`, `skills/*/SKILL.md`, `tests/test_cli_subcommands.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - для всех user-invocable stage skills зафиксировать canonical Python command surface;
+  - удалить runtime-dependency на `skills/<stage>/scripts/run.sh` в `SKILL.md`;
+  - сохранить stage-specific behavior (`spec-interview`, `tasks-new`, implement/review/qa orchestration).
+  **AC:** user-invocable skills работают через Python entrypoints без `run.sh`.
+  **Deps:** W97-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_cli_subcommands.py`, `bash tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W97-4 (P0) Shared core/loop command migration to python-only API** `skills/aidd-core/runtime/*.py`, `skills/aidd-loop/runtime/*.py`, `README*.md`, `tests/test_loop_*.py`:
+  - заменить shell runtime API (`skills/aidd-core/scripts/*.sh`, `skills/aidd-loop/scripts/*.sh`) на python canonical commands;
+  - обновить все consumers (skills, hooks, tests, docs);
+  - удалить dual-path hints, где shell считался primary.
+  **AC:** shared runtime вызывается напрямую через Python entrypoints.
+  **Deps:** W97-2, W97-3
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py tests/test_gate_workflow.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W97-5 (P1) Hook runtime decoupling from shell wrappers** `hooks/*.sh`, `hooks/**/*.py`, `hooks/hooks.json`, `tests/test_wave95_policy_guards.py`:
+  - перевести hook orchestration на python entrypoints (или thin shell only where platform-required);
+  - убрать зависимости hooks на `skills/*/scripts/*.sh`;
+  - сохранить deterministic blocking semantics.
+  **AC:** hooks не зависят от stage/shared shell wrappers.
+  **Deps:** W97-4
+  **Regression/tests:** `python3 -m pytest -q tests/test_wave95_policy_guards.py tests/test_gate_workflow.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 7C — Lint/guards/canary enforcement
+
+- [x] **W97-6 (P0) Prompt-lint contract update: forbid shell-wrapper canon for skills** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать правило “mandatory `scripts/run.sh`”;
+  - добавить правило: stage skills указывают python runtime entrypoint в `allowed-tools`/steps;
+  - запретить новые runtime refs на `skills/*/scripts/*.sh` (кроме allowlist на migration window).
+  **AC:** lint защищает Python-only канон, shell-wrapper drifts блокируются.
+  **Deps:** W97-3
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W97-7 (P0) Repo guard update: no runtime shell wrappers in skills** `tests/repo_tools/skill-scripts-guard.py`, `tests/repo_tools/runtime-path-regression.sh`, `tests/repo_tools/ci-lint.sh`:
+  - поменять guard policy: runtime canonical = python modules, не `scripts/*.sh`;
+  - добавить explicit allowlist only для non-runtime utility shell scripts (если останутся);
+  - обеспечить CI fail-fast на новый shell runtime drift.
+  **AC:** CI блокирует появление новых shell wrappers как runtime API.
+  **Deps:** W97-6
+  **Regression/tests:** `bash tests/repo_tools/ci-lint.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W97-8 (P1) Remove shell wrapper layer and cleanup artifacts** `skills/*/scripts/*.sh`, `skills/aidd-reference/wrapper_lib.sh`, `tests/repo_tools/entrypoints-bundle.txt`, `README*.md`:
+  - удалить obsolete shell wrappers после прохождения migration gates;
+  - удалить wrapper_lib и связанные references;
+  - обновить entrypoints inventory/bundle под python-only layout.
+  **AC:** runtime shell wrappers удалены из skills; bundle/docs соответствуют python-only.
+  **Deps:** W97-4, W97-7
+  **Regression/tests:** `python3 tests/repo_tools/entrypoints_bundle.py --root .`, `bash tests/repo_tools/ci-lint.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 7D — SKILL best-practice contract (Claude Code + other coding agents)
+
+- [x] **W97-9 (P0) Cross-agent SKILL authoring guide (Claude Code/Codex/Cursor/Copilot)** `docs/agent-skill-best-practices.md`, `AGENTS.md`, `README*.md`:
+  - собрать unified best practices из официальных источников (Claude Code memories/subagents/commands, Codex AGENTS.md, Cursor Rules, Copilot custom instructions);
+  - зафиксировать общий принцип: concise + focused + scoped + explicit command contracts;
+  - описать, что переносится в supporting files vs что остаётся в `SKILL.md`.
+  **AC:** есть согласованный guide с actionable policy для repo.
+  **Deps:** W97-0
+  **Regression/tests:** docs review + `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+- [x] **W97-10 (P0) SKILL detail level policy: script contract cards, not implementation retell** `AGENTS.md`, `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - ввести policy для описания скриптов в SKILL:
+    - when to run;
+    - input flags/required context;
+    - outputs/artifacts;
+    - failure modes + next action;
+  - запретить line-by-line пересказ реализации;
+  - добавить lint checks на наличие contract-level описания для critical commands.
+  **AC:** SKILL описывает “interface contract” каждого critical script, без дублирования кода.
+  **Deps:** W97-9
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Low
+
+- [x] **W97-11 (P1) SKILL compactness and progressive disclosure hardening** `skills/*/SKILL.md`, `skills/*/references/*`, `tests/repo_tools/lint-prompts.py`:
+  - зафиксировать target size/structure (compact SKILL + references for deep details);
+  - нормализовать `Additional resources`: когда читать файл и зачем;
+  - добавить warnings/errors для oversized and unscoped skill docs.
+  **AC:** skill docs соответствуют progressive-disclosure policy и не раздувают context.
+  **Deps:** W97-10
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+### Phase 7E — Final verification
+
+- [x] **W97-12 (P0) End-to-end python-only verification matrix** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/python-only-regression.sh`, `.github/workflows/ci.yml`:
+  - добавить отдельный regression suite для python-only runtime command surface;
+  - убедиться, что smoke/ci не опираются на shell wrappers;
+  - обновить required checks policy под новый канон.
+  **AC:** full CI/smoke проходят без runtime shell wrappers; regression matrix green.
+  **Deps:** W97-8, W97-11
+  **Regression/tests:** `bash tests/repo_tools/ci-lint.sh`, `bash tests/repo_tools/smoke-workflow.sh`, `bash tests/repo_tools/python-only-regression.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+## Wave 90 — Research RLM-only (python-only flow, без legacy context artifacts)
+
+_Статус: в работе (W90-1/W90-2 закрыты), приоритет 1. Канон: runtime entrypoints только `skills/*/runtime/*.py`, без `tools/*`, без `*-context*` и legacy `*-targets.json`._
+
+- [x] **W90-1** `skills/aidd-core/runtime/research_hints.py`, `skills/researcher/runtime/research.py`, `skills/idea-new/templates/prd.template.md`, `tests/test_research_hints.py`, `tests/test_research_command.py`:
   - добавить парсер `AIDD:RESEARCH_HINTS` (Paths/Keywords/Notes) с нормализацией (split `:`/`,`/whitespace, trim, dedupe);
   - сделать hints обязательными для research (минимум `paths` или `keywords`);
   - обновить PRD template/commands: явно требовать заполнения `AIDD:RESEARCH_HINTS` на этапе analyst.
   **AC:** есть единый парсер hints; research не стартует при пустых hints; PRD template содержит строгий формат.
   **Deps:** -
 
-- [ ] **W90-2** `tools/rlm_targets.py`, `tools/rlm_manifest.py`, `tools/rlm_links_build.py`, `tools/rlm_nodes_build.py`:
+- [x] **W90-2** `skills/aidd-core/runtime/rlm_targets.py`, `skills/aidd-core/runtime/rlm_manifest.py`, `skills/aidd-rlm/runtime/rlm_links_build.py`, `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `tests/test_rlm_targets.py`, `tests/test_research_rlm_e2e.py`:
   - RLM targets строятся напрямую из `AIDD:RESEARCH_HINTS` (paths/keywords/notes), без `*-targets.json`;
   - удалить `_load_research_targets` и любые зависимости от `reports/research/*-targets.json`;
   - `targets_mode=explicit` при наличии paths.
   **AC:** `aidd/reports/research/<ticket>-rlm-targets.json` генерируется только из PRD hints; `*-targets.json` нигде не читается.
   **Deps:** W90-1
 
-- [ ] **W90-3** `tools/research.py`, `tools/research.sh`, `tools/researcher-context.sh`, `tools/researcher_context.py`, `tools/reports_pack.py`:
+- [ ] **W90-3** `skills/researcher/runtime/research.py`, `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/aidd-core/runtime/research_hints.py`:
   - убрать сбор `*-context.json`/`*-context.pack.json` и `*-targets.json`;
-  - удалить/заменить `ResearcherContextBuilder` и связанные CLI (`researcher-context`);
-  - `research.sh` запускает только RLM pipeline (targets → manifest → worklist) + materialize `docs/research/<ticket>.md`;
-  - удалить `reports.research_pack_budget` логику в `tools/reports_pack.py`.
-  **AC:** research не создаёт `*-context*` и `*-targets.json`; остаются только RLM артефакты и `docs/research/<ticket>.md`.
+  - удалить/заменить `ResearcherContextBuilder` и связанный CLI-surface (`researcher_context.py`) на RLM-only orchestration;
+  - canonical research entrypoint `skills/researcher/runtime/research.py` запускает только RLM pipeline (targets → manifest → worklist) + materialize `docs/research/<ticket>.md`;
+  - удалить `reports.research_pack_budget` логику в `skills/aidd-rlm/runtime/reports_pack.py`.
+  **AC:** research runtime не создаёт `*-context*` и legacy `*-targets.json`; остаются только RLM артефакты (`*-rlm-*`) и `docs/research/<ticket>.md`.
   **Deps:** W90-1, W90-2
 
-- [ ] **W90-4** `tools/research_guard.py`, `tools/gate_workflow.py`, `tools/tasks_derive.py`, `tools/index_sync.py`, `tools/status.py`:
-  - валидировать research только по RLM артефактам (targets/manifest/worklist/nodes/links/pack);
-  - handoff‑derive для research берёт данные только из `*-rlm.pack.json`;
-  - удалить ссылки на `*-context.json`/`*-targets.json` из gate/index/status.
-  **AC:** гейты и handoff работают без `*-context*`; warnings/blocked основаны на RLM readiness.
+- [ ] **W90-4** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
+  - валидировать readiness research только по RLM артефактам (`*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`, `*-rlm.pack.json`);
+  - handoff‑derive для research берёт данные только из `*-rlm.pack.json` (без fallback на context);
+  - удалить ссылки на `*-context.json` и legacy `*-targets.json` из gate/index/status/task derive.
+  **AC:** гейты/status/handoff работают без `*-context*`; warnings/blocked основаны на RLM readiness policy.
   **Deps:** W90-2, W90-3
 
-- [ ] **W90-5** `tools/rlm_finalize.py`, `tools/rlm_nodes_build.py`, `tools/reports_pack.py`:
+- [ ] **W90-5** `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/reports_pack.py`:
   - убрать `--update-context` и любые обновления `context.json`;
-  - `rlm_finalize` оперирует только `nodes/links` и пишет `*-rlm.pack.json`.
-  **AC:** `rlm_finalize` работает без `context.json`; pack строится из nodes/links.
+  - `rlm_finalize` оперирует только `nodes/links` и пишет `*-rlm.pack.json` + `rlm_status` без записи в context artifacts;
+  - убедиться, что finalize/pack pipeline не имеет implicit dependency на `researcher_context`.
+  **AC:** `rlm_finalize` работает без `context.json`; pack детерминированно строится из nodes/links.
   **Deps:** W90-3
 
-- [ ] **W90-6** `agents/researcher.md`, `commands/researcher.md`, `templates/aidd/docs/anchors/research.md`, `templates/aidd/docs/anchors/rlm.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/config/conventions.json`:
-  - удалить упоминания `*-context.json`/`*-context.pack.json`/`*-targets.json`;
-  - зафиксировать RLM‑only policy и зависимость от `AIDD:RESEARCH_HINTS`;
+- [ ] **W90-6** `agents/researcher.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `templates/aidd/config/conventions.json`:
+  - удалить упоминания `*-context.json`/`*-context.pack.json`/legacy `*-targets.json` в docs/prompts/skills;
+  - зафиксировать RLM‑only policy и обязательность `AIDD:RESEARCH_HINTS` для research stage;
+  - обновить command contracts в `researcher`/`aidd-rlm` под python-only runtime flow;
   - удалить `reports.research_pack_budget` из `config/conventions.json`.
   **AC:** документация и канон описывают только RLM артефакты; нет ссылок на context/targets.
   **Deps:** W90-1, W90-3
 
 - [ ] **W90-7** `tests/*`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh` (если нужно), `tests/helpers.py`:
-  - удалить/переписать тесты, опирающиеся на `*-context.json`/`*-targets.json`;
-  - добавить тесты для парсера `AIDD:RESEARCH_HINTS` и RLM targets из PRD;
-  - обновить smoke‑workflow под RLM‑only.
-  **AC:** тесты проходят в режиме RLM‑only; отсутствуют упоминания `*-context*` в тестах.
+  - удалить/переписать тесты, опирающиеся на `*-context.json`/legacy `*-targets.json`;
+  - расширить покрытие для `AIDD:RESEARCH_HINTS` parser + RLM targets из PRD;
+  - обновить smoke/ci regression под RLM-only research flow (без context artifacts).
+  **AC:** тесты/смоук проходят в режиме RLM-only; отсутствуют runtime-упоминания `*-context*` и legacy `*-targets.json`.
   **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import ensure_project_root, write_active_feature, write_json, write_tasklist_ready
+from tests.helpers import ensure_project_root, write_active_feature, write_tasklist_ready
 
 from aidd_runtime import rlm_links_build, rlm_manifest, rlm_nodes_build, rlm_slice, rlm_targets, reports_pack, tasks_derive
 from aidd_runtime.rlm_config import load_rlm_settings
@@ -23,10 +23,19 @@ class RlmPipelineE2ETests(unittest.TestCase):
             (src_dir / "a.py").write_text("from b import Foo\nFoo()\n", encoding="utf-8")
             (src_dir / "b.py").write_text("class Foo:\n    pass\n", encoding="utf-8")
 
-            write_json(
-                project_root,
-                f"reports/research/{ticket}-targets.json",
-                {"paths": ["src"], "paths_discovered": [], "keywords": [], "docs": []},
+            prd_path = project_root / "docs" / "prd" / f"{ticket}.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: Foo",
+                        "- Notes: e2e",
+                    ]
+                ),
+                encoding="utf-8",
             )
             settings = load_rlm_settings(project_root)
             targets_payload = rlm_targets.build_targets(project_root, ticket, settings=settings)

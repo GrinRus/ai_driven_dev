@@ -45,11 +45,11 @@ class ResearchCheckSummary:
 
 
 def _research_cmd_hint(ticket: str) -> str:
-    return f"${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/research.sh --ticket {ticket} --auto"
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py --ticket {ticket} --auto"
 
 
 def _rlm_links_cmd_hint(ticket: str) -> str:
-    return f"${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/rlm-links-build.sh --ticket {ticket}"
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket {ticket}"
 
 
 def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
@@ -416,12 +416,12 @@ def _validate_rlm_evidence(
         if settings.rlm_require_nodes and not nodes_ok:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if settings.rlm_require_nodes and (manifest_total or 0) > 0 and nodes_total == 0:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но nodes.jsonl пустой. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
+                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if links_warn:
             message = (
@@ -440,7 +440,7 @@ def _validate_rlm_evidence(
         if settings.rlm_require_pack and not pack_ok:
             raise ResearchValidationError(
                 "BLOCK: rlm_status=ready, но rlm pack отсутствует. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/reports_pack.py` для RLM pack."
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/reports_pack.py` для RLM pack."
             )
         return
 
@@ -637,7 +637,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.exit(
             1,
             f"BLOCK: expected aidd/docs at {root / 'docs'}. "
-            f"Run '/feature-dev-aidd:aidd-init' or '${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/scripts/init.sh' from the workspace root.",
+            f"Run '/feature-dev-aidd:aidd-init' or 'python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/runtime/init.py' from the workspace root.",
         )
     settings = load_settings(root)
     try:

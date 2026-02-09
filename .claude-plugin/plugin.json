@@ -23,6 +23,10 @@
   ],
   "skills": [
     "./skills/aidd-core/SKILL.md",
+    "./skills/aidd-docio/SKILL.md",
+    "./skills/aidd-flow-state/SKILL.md",
+    "./skills/aidd-observability/SKILL.md",
+    "./skills/aidd-policy/SKILL.md",
     "./skills/aidd-rlm/SKILL.md",
     "./skills/aidd-loop/SKILL.md",
     "./skills/aidd-init/SKILL.md",

@@ -6,6 +6,9 @@ name: CI
     branches: [main]
   pull_request:
 
+env:
+  AIDD_SECURITY_ENFORCE: ${{ vars.AIDD_SECURITY_ENFORCE || '0' }}
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -35,7 +38,8 @@ jobs:
           echo "QA_WORKSPACE=${QA_WORKSPACE}" >> "${GITHUB_ENV}"
           cd "${QA_WORKSPACE}"
           CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}" \
-            "${GITHUB_WORKSPACE}/skills/aidd-init/scripts/init.sh"
+            PYTHONPATH="${GITHUB_WORKSPACE}" \
+            python3 "${GITHUB_WORKSPACE}/skills/aidd-init/runtime/init.py"
 
       - name: Run QA gate
         run: |
@@ -91,3 +95,56 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+  security-secret-scan:
+    name: security-secret-scan
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Security rollout notice
+        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+        run: |
+          echo "security-secret-scan is advisory"
+          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"
+
+  security-sast:
+    name: security-sast
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+
+      - name: Security rollout notice
+        if: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+        run: |
+          echo "security-sast is advisory"
+          echo "set AIDD_SECURITY_ENFORCE=1 to make it required"

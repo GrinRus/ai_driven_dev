@@ -19,14 +19,14 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-08._
+_Last sync with `README.md`: 2026-02-09._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
 
 Key features:
 - Slash commands and agents for the idea → research → plan → review-spec → spec-interview (optional) → tasklist → implement → review → qa flow.
-- Skill-first prompts: canonical runtime/output policy lives in `skills/aidd-core` and `skills/aidd-loop` (EN); stage entrypoints are defined by skills.
+- Skill-first prompts: shared topology is split across `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, and `skills/aidd-rlm` (EN); stage entrypoints are defined by stage skills.
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -37,14 +37,21 @@ Key features:
 - Branch and commit conventions via `aidd/config/conventions.json`.
 
 ## SKILL-first runtime path policy
-- Stage-specific entrypoints: canonical path `skills/<stage>/scripts/*`.
-- Shared entrypoints: target canonical path `skills/aidd-core/scripts/*` (phased migration).
-- Canonical Python runtime modules live in `skills/*/runtime/*`; shell entrypoints live in `skills/*/scripts/*` and `hooks/*`.
+- Stage/shared runtime entrypoints (canonical): `python3 skills/*/runtime/*.py` (Python-only canon as of February 9, 2026).
+- Runtime wrappers in `skills/*/scripts/*.sh` are removed.
+- Hooks may keep shell entrypoints as platform glue (`hooks/*`).
 - `tools/*` is used only for import stubs and repo-only tooling.
-- Canonical runtime API lives in `skills/*/scripts/*` and hooks. `tools/*.sh` are retired.
-- Starting with `v1.0.0`, integrations must call canonical entrypoints from `skills/*/scripts/*` and `hooks/*` only.
-- Every redirect wrapper must emit a warning and `exec` the canonical path to preserve exit codes.
+- Canonical runtime API lives in `skills/*/runtime/*.py`; `tools/*.sh` are retired.
+- Starting February 9, 2026, new integrations must call Python entrypoints (`skills/*/runtime/*.py`) with `PYTHONPATH=${CLAUDE_PLUGIN_ROOT}`.
+- Rollback criteria: if cutover breaks `tests/repo_tools/ci-lint.sh` or `tests/repo_tools/smoke-workflow.sh`, temporary wrapper fallback is allowed for the impacted entrypoint with a mandatory follow-up task.
 - Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
+
+## SKILL authoring contract
+- Cross-agent canon: `docs/agent-skill-best-practices.md`.
+- Language/lint policy: `docs/skill-language.md` + `tests/repo_tools/lint-prompts.py`.
+- User-invocable stage skills must include a `## Command contracts` section (interface-only cards: `When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`).
+- Do not retell implementation details in `SKILL.md`; move deep guidance to supporting files.
+- `## Additional resources` must implement progressive disclosure with explicit `when:` + `why:` on each resource entry.
 
 ## Get Started
 
@@ -70,7 +77,7 @@ Key features:
 For CI or manual use:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py
 ```
 
 ### 3. Run a feature in Claude Code
@@ -94,43 +101,53 @@ Notes:
 ### Workspace updates
 - `/feature-dev-aidd:aidd-init` without `--force` adds new artifacts and preserves existing files.
 - Use `--force` or manual template sync when you need updates.
+- Source of truth: stage content templates live in `skills/*/templates/*`; `templates/aidd/**` keeps bootstrap config/placeholders only.
 - Root `AGENTS.md` is the repo dev guide; the user workflow guide is `aidd/AGENTS.md` (copied from `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Scripts and Checks
 
+> The commands below are canonical Python runtime API entrypoints.
+
 | Command | Description |
 | --- | --- |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh` | Create `./aidd` from templates (no overwrite) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh` | Diagnose environment, paths, and `aidd/` presence |
-| `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Generate research context |
-| `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` |
-| `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-pack.sh --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Generate review report |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Update reviewer marker for test policy |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
-| `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Ticket status summary |
-| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Refresh ticket index |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py` | Create `./aidd` from templates (no overwrite) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` | Diagnose environment, paths, and `aidd/` presence |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket>` | Generate research context |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Verify Research status `reviewed` |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source <stage> --ticket <ticket>` | Confirm tasklist progress |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py --ticket <ticket> --findings-file <path> --status warn` | Generate review report |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py --ticket <ticket>` | Generate review pack (thin feedback) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py --ticket <ticket> --status required\|optional` | Update reviewer marker for test policy |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py --ticket <ticket>` | Validate diff against loop-pack allowed paths |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket>` | Single loop step (implement↔review) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py --ticket <ticket>` | Validate tasklist contract |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py --ticket <ticket> [--refresh]` | Ticket status summary |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/status_summary.py --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py --ticket <ticket>` | Refresh ticket index |
 | `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
 `tests/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
 
-`review` runtime commands are canonical at `skills/review/scripts/*`.
+`review` runtime commands are canonical at `skills/review/runtime/*`.
+
+CI required-check parity:
+- Required: `lint-and-test`, `smoke-workflow`, `dependency-review`.
+- Security rollout: `security-secret-scan` and `security-sast` are advisory while `AIDD_SECURITY_ENFORCE!=1`; they become required when `AIDD_SECURITY_ENFORCE=1`.
 
 ### Shared Ownership Map
-- `skills/aidd-core/scripts/*` — shared core entrypoints.
-- `skills/aidd-loop/scripts/*` — shared loop entrypoints.
-- `skills/<stage>/scripts/*` — stage-local entrypoints (single owner per stage).
-- `tools/*.sh` are removed from runtime API; use canonical wrappers under `skills/*/scripts/*`.
+- `skills/aidd-core/runtime/*` — shared core runtime API (canonical).
+- `skills/aidd-docio/runtime/*` — shared DocIO runtime API (`md_*`, `actions_*`, `context_*`).
+- `skills/aidd-flow-state/runtime/*` — shared flow/state runtime API (`set-active-*`, `progress*`, `tasklist*`, `stage_result`, `status_summary`, `prd_check`, `tasks_derive`).
+- `skills/aidd-observability/runtime/*` — shared observability runtime API (`doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
+- `skills/aidd-loop/runtime/*` — shared loop runtime API (canonical).
+- `skills/<stage>/runtime/*` — stage-local runtime API (single owner per stage).
+- `tools/*.sh` are removed from runtime API.
 
 ## Slash Commands
 
@@ -158,7 +175,7 @@ Empty context troubleshooting:
 
 RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
-- Slice tool: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+- Slice tool: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
 - `*-context.pack.json` budget: `config/conventions.json` → `reports.research_pack_budget` (defaults: `max_chars=2000`, `max_lines=120`).
 
 ## Loop mode (implement↔review)
@@ -172,15 +189,15 @@ Key artifacts:
 
 Commands:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
-- Bash loop: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` (fresh sessions).
-- One-shot: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5`.
-- Scope guard: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>`.
-- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
-  `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --stream`.
+- Loop CLI: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket>` (fresh sessions).
+- One-shot: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --max-iterations 5`.
+- Scope guard: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py --ticket <ticket>`.
+- Stream (optional): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket> --stream=text|tools|raw`,
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --stream`.
 
 Example from the project root:
 ```bash
-CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/skills/aidd-loop/scripts/loop-run.sh" --ticket ABC-123 --max-iterations 5
+CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" python3 "$CLAUDE_PLUGIN_ROOT/skills/aidd-loop/runtime/loop_run.py" --ticket ABC-123 --max-iterations 5
 ```
 
 Note:
@@ -212,12 +229,12 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - The plugin lives at the repo root (`agents/`, `skills/`, `hooks/`, `tools/`).
 - Workspace artifacts are created in `./aidd` after `/feature-dev-aidd:aidd-init`.
 - If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
-- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh`.
+- For a quick environment check, run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 
 ## Documentation
-- Canonical response and pack-first rules: `aidd/AGENTS.md` + `skills/aidd-core/SKILL.md`.
+- Canonical response and pack-first rules: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
 - User guide (runtime): `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
-- Skill-first canon: `skills/aidd-core` and `skills/aidd-loop` (EN).
+- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, and `skills/aidd-rlm` (EN).
 - Russian version: `README.md`.
 
 ## Examples

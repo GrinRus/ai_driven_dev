@@ -4,8 +4,9 @@
 
 ### Breaking Changes
 - Wave 96 shell-runtime cutover: `tools/*.sh` entrypoints are removed from public runtime API.
-- Canonical runtime shell entrypoints now live under `skills/*/scripts/*` (and `hooks/*` for hook APIs).
-- `tools/*.py` remains as shared Python runtime library; wrappers call it through canonical skill scripts.
+- Wave 97 Python-only runtime canon: canonical runtime API is now `python3 skills/*/runtime/*.py`.
+- `skills/*/scripts/*.sh` moved to transition-only compatibility layer (deprecation window through 2026-03-31).
+- `tools/*.py` remains as shared Python runtime library; new integrations must target Python entrypoints.
 
 ### New Features
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.

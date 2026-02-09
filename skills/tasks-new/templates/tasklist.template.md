@@ -24,7 +24,7 @@ Reports:
 ## AIDD:CONTEXT_PACK
 Updated: <YYYY-MM-DD>
 Ticket: <ABC-123>
-Stage: <idea|research|plan|review-spec|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|release>
+Stage: <idea|research|plan|review-spec|review-plan|review-prd|spec-interview|tasklist|implement|review|qa|status>
 Status: PENDING
 
 ### TL;DR

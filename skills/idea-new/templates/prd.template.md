@@ -27,6 +27,8 @@ Default: `<Что принять по умолчанию>`
 - Answer 2: <ответ>
 
 ## AIDD:RESEARCH_HINTS
+> Обязательный блок для `/feature-dev-aidd:researcher`: укажите минимум `Paths` или `Keywords`.
+> Если оба поля пустые, research команда вернёт `BLOCK`.
 - **Paths**: `<path1:path2>` (например, `src/app:src/shared`)
 - **Keywords**: `<kw1,kw2>` (например, `payment,checkout`)
 - **Notes**: `<что искать/проверить>`
@@ -115,7 +117,7 @@ Default: `<Что принять по умолчанию>`
 
 ## 8. План и этапы
 - **Майлстоуны**: `<MVP, Beta, GA>`
-- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source implement --ticket ABC-123`)
+- **Автоматизация и проверки**: `<Команды/хуки, которые должен запускать агент>` (например, `<test-runner> <args>`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source implement --ticket ABC-123`)
 - **Системные интеграции**: `<Сервисы, API, очереди, от которых зависит фича>`
 
 ## 9. Риски и стратегии

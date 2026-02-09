@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Guard canonical shell entrypoints and fallback python-shebang allowlist."""
+"""Guard hook shell entrypoints and enforce no skill shell wrappers."""
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CANONICAL_GLOB = "skills/*/scripts/*.sh"
+SKILL_SCRIPTS_GLOB = "skills/*/scripts/*.sh"
 RUNTIME_GLOBS = ("tools/*.sh", "hooks/*.sh")
 ALLOWLIST_PATH = ROOT / "tests" / "repo_tools" / "python-shebang-allowlist.txt"
 
@@ -34,10 +33,6 @@ def _shebang(path: Path) -> str:
     return first
 
 
-def _canonical_scripts() -> list[Path]:
-    return sorted(ROOT.glob(CANONICAL_GLOB))
-
-
 def _python_shebang_runtime() -> list[str]:
     hits: list[str] = []
     for pattern in RUNTIME_GLOBS:
@@ -46,34 +41,13 @@ def _python_shebang_runtime() -> list[str]:
                 hits.append(path.relative_to(ROOT).as_posix())
     return sorted(hits)
 
-
-def _check_bash_syntax(path: Path) -> str | None:
-    proc = subprocess.run(
-        ["bash", "-n", str(path)],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode == 0:
-        return None
-    details = proc.stderr.strip() or proc.stdout.strip() or "syntax error"
-    return f"{path.relative_to(ROOT).as_posix()}: bash -n failed: {details}"
-
-
 def main() -> int:
     errors: list[str] = []
 
-    canonical = _canonical_scripts()
-    if not canonical:
-        errors.append("no canonical scripts found under skills/*/scripts/*.sh")
-    for script in canonical:
+    skill_scripts = sorted(ROOT.glob(SKILL_SCRIPTS_GLOB))
+    for script in skill_scripts:
         rel = script.relative_to(ROOT).as_posix()
-        if _shebang(script) != "#!/usr/bin/env bash":
-            errors.append(f"{rel}: canonical script must use '#!/usr/bin/env bash'")
-        syntax_error = _check_bash_syntax(script)
-        if syntax_error:
-            errors.append(syntax_error)
+        errors.append(f"{rel}: skill shell wrapper is forbidden (python-only canon)")
 
     allowed = _read_allowlist(ALLOWLIST_PATH)
     current = _python_shebang_runtime()

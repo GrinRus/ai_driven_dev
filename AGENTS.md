@@ -4,24 +4,24 @@
 User‑гайд для workspace находится в `skills/aidd-core/templates/workspace-agents.md` (копируется в `aidd/AGENTS.md` при init).
 
 ## Репозиторий и структура
-- Runtime (плагин): `agents/`, `skills/`, `hooks/`, `tools/`, `.claude-plugin/`.
-- Workspace‑шаблоны: `templates/aidd/` (копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
+- Runtime (плагин): `agents/`, `skills/`, `hooks/`, `.claude-plugin/`.
+- Workspace bootstrap‑шаблоны: `templates/aidd/` (config/placeholders only; копируются в `./aidd` через `/feature-dev-aidd:aidd-init`).
 - Тесты: `tests/`.
 - Repo tools: `tests/repo_tools/`.
-- Stage‑локальные shell wrappers: `skills/<stage>/scripts/` (canonical entrypoints).
-- Stage‑локальный Python runtime (если не shared): `skills/<stage>/runtime/`.
-- Canonical Python runtime живёт в `skills/*/runtime/*`; runtime shell entrypoints — в `skills/*/scripts/*` и `hooks/*`.
-- `tools/*.py` используется для import stubs и repo-only tooling.
+- Stage runtime entrypoints (canonical): `skills/<stage>/runtime/*.py` (Python-only canon с 2026-02-09).
+- Canonical Python runtime живёт в `skills/*/runtime/*`; shell entrypoints допустимы только для hooks/platform glue.
+- `tools/*.py` используется только для repo-only tooling/import stubs (если каталог присутствует).
 - Backlog: `backlog.md` (корень).
 - User‑артефакты: `aidd/**` (docs/reports/config/.cache).
 - Derived‑артефакты: `aidd/docs/index/`, `aidd/reports/events/`, `aidd/.cache/`.
 - Примеры: демо‑проекты и helper‑скрипты не поставляются — держите их вне плагина и документируйте в workspace.
 
 ## Источник истины (dev vs user)
-- `templates/aidd/**` — источник истины для workspace‑шаблонов; правим шаблоны, а не сгенерированный `aidd/**`.
+- Stage content templates (`prd/plan/research/tasklist/spec/loop/context-pack`) — источник истины в `skills/*/templates/*`.
+- `templates/aidd/**` — bootstrap source только для config/placeholders/infra-директорий; не хранит stage content templates.
 - `aidd/**` появляется в workspace после `/feature-dev-aidd:aidd-init` и не хранится в repo (кроме шаблонов).
 - `AGENTS.md` (корень) — dev‑гайд для репозитория; `skills/aidd-core/templates/workspace-agents.md` — user‑гайд для проектов.
-- При изменении поведения: обновите `templates/aidd/**`, `AGENTS.md`, затем проверьте bootstrap (`/feature-dev-aidd:aidd-init`) и smoke.
+- При изменении stage content: обновите `skills/*/templates/*` + `skills/aidd-init/runtime/init.py` seed map; `templates/aidd/**` меняйте только для bootstrap config/placeholders.
 - Workspace‑конфиги: `aidd/config/{gates.json,conventions.json,context_gc.json,allowed-deps.txt}` (источник — `templates/aidd/config/`).
 - Hook wiring: `hooks/hooks.json` — обновляйте при добавлении/удалении хуков.
 - Permissions/cadence: `.claude/settings.json` в корне workspace (без `aidd/.claude`).
@@ -33,12 +33,33 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - CWD хуков не гарантирован; корень проекта вычисляется из payload (cwd/workspace), без опоры на plugin root.
 - Wrapper output policy: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишем в `aidd/reports/**` с кратким summary в stdout.
 
+## Python-only canon (Wave 97)
+- Canonical runtime API: `python3 skills/*/runtime/*.py` (с `PYTHONPATH=$CLAUDE_PLUGIN_ROOT` when needed).
+- Runtime wrappers в `skills/*/scripts/*.sh` удалены; новые runtime-ссылки на них запрещены.
+- Rollback criteria: если migration ломает `tests/repo_tools/ci-lint.sh` или `tests/repo_tools/smoke-workflow.sh` в mainline, допускается временный возврат на wrapper-path для затронутого entrypoint с обязательным follow-up task.
+
+## SKILL authoring policy (cross-agent)
+- Source of truth: `docs/agent-skill-best-practices.md` + `docs/skill-language.md`.
+- Policy target: compact `SKILL.md` + progressive disclosure via supporting files.
+- Для user-invocable stage skills обязателен раздел `## Command contracts` с карточками critical commands (интерфейс, а не пересказ кода):
+  - `When to run`
+  - `Inputs`
+  - `Outputs`
+  - `Failure mode`
+  - `Next action`
+- `## Additional resources` должен объяснять навигацию к supporting files:
+  - `when:` когда открывать ресурс;
+  - `why:` какое решение/действие он разблокирует.
+- Детали реализации (`line-by-line`, внутренние ветвления, кодовые walkthrough) выносятся в `references/*`, `templates/*` или runtime-docstrings, но не дублируются в `SKILL.md`.
+
 ## Быстрые проверки (repo‑only)
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
 - CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
+- Runtime module guard: `tests/repo_tools/runtime-module-guard.py` (`>600` lines = WARN, `>900` = ERROR), waivers — `tests/repo_tools/runtime-module-guard-waivers.txt`.
+- Required-check parity: `lint-and-test`, `smoke-workflow`, `dependency-review`; security checks `security-secret-scan` и `security-sast` идут staged rollout (advisory пока `AIDD_SECURITY_ENFORCE!=1`, required при `AIDD_SECURITY_ENFORCE=1`).
 - Дополнительно (если нужно): `python3 -m pytest -q tests`.
-- Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh`.
+- Диагностика окружения: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
 
 ## Минимальные зависимости
@@ -46,32 +67,35 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 - Для `tests/repo_tools/ci-lint.sh`: `shellcheck`, `markdownlint`, `yamllint` (иначе warn/skip).
 
 ## Локальный запуск entrypoints
-- Stage entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD skills/<stage>/scripts/<command>.sh ...`
-- Runtime entrypoints: `CLAUDE_PLUGIN_ROOT=$PWD skills/<skill>/scripts/<command>.sh ...`
-  - Deferred-core freeze (wave-1): `init.sh`, `research.sh`, `tasks-derive.sh`, `actions-apply.sh`, `context-expand.sh`.
+- Stage/shared runtime entrypoints (canonical): `CLAUDE_PLUGIN_ROOT=$PWD PYTHONPATH=$PWD python3 skills/<skill>/runtime/<command>.py ...`
+- Deferred-core freeze (wave-1) сохраняется как compatibility surface до завершения cutover.
 - Хуки: `CLAUDE_PLUGIN_ROOT=$PWD hooks/<hook>.sh ...`
 
 ## Shared Ownership Map
-- `skills/aidd-core/scripts/*`: shared core entrypoints (`set-active-*`, `progress`, `stage-result`, `status-summary`, `tasklist-*`, `prd-check`, `diff-boundary-check`, `md-*`, `rlm-slice`, `doctor`, `dag-export`, `identifiers`, `plan/prd-review-gate`, `researcher-context`, `skill-contract-validate`, `tests-log`, `tools-inventory`, `actions/context validators`).
-- `skills/aidd-loop/scripts/*`: shared loop orchestration entrypoints (`loop-step`, `loop-run`, `loop-pack`, `preflight-*`, `output-contract`).
-- `skills/<stage>/scripts/*`: stage-local entrypoints owned by one stage (`idea-new`, `plan-new`, `review-spec`, `researcher`, `implement`, `review`, `qa`, `status`, `aidd-init`).
-- `tools/*.sh` отсутствуют в runtime API; используйте canonical wrappers в `skills/*/scripts/*`.
+- `skills/aidd-core/runtime/*`: shared core runtime API (canonical).
+- `skills/aidd-docio/runtime/*`: shared DocIO runtime API (`md_*`, `actions_*`, `context_*`).
+- `skills/aidd-flow-state/runtime/*`: shared flow/state runtime API (`set-active-*`, `progress*`, `tasklist*`, `stage_result`, `status_summary`, `prd_check`, `tasks_derive`).
+- `skills/aidd-observability/runtime/*`: shared observability runtime API (`doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
+- `skills/aidd-policy/SKILL.md` + `skills/aidd-policy/references/*`: shared policy contract (output/question/read/safety).
+- `skills/aidd-loop/runtime/*`: shared loop orchestration runtime API (canonical).
+- `skills/<stage>/runtime/*`: stage-local runtime API owned by one stage.
+- `tools/*.sh` отсутствуют в runtime API.
 
 ## Как добавлять entrypoints (skill-first)
-1. Stage runtime entrypoint: `skills/<stage>/scripts/<command>.sh` (строгий bash: `#!/usr/bin/env bash`, `set -euo pipefail`).
-2. Shared shell entrypoints: canonical путь `skills/aidd-core/scripts/*` и `skills/aidd-loop/scripts/*`.
-3. Python‑логика: canonical runtime размещается в `skills/<skill>/runtime/*` (shared + stage-specific).
-4. Не вводите новые `tools/*.sh`: stage/shared wrappers размещайте только в `skills/*/scripts/*`.
-5. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`. Архив historical команд хранится в каталоге командной документации.
+1. Stage runtime entrypoint: `skills/<stage>/runtime/<command>.py` (canonical Python path).
+2. Shared runtime entrypoints: `skills/aidd-core/runtime/*`, `skills/aidd-docio/runtime/*`, `skills/aidd-flow-state/runtime/*`, `skills/aidd-observability/runtime/*` и `skills/aidd-loop/runtime/*`.
+3. Shell wrapper допускается только для hooks/platform-required glue.
+4. Не вводите новые `tools/*.sh` и не добавляйте runtime wrappers в `skills/*/scripts/*`.
+5. Документация/помпты: обновите `skills/<stage>/SKILL.md` и/или `agents/*.md`, включая `## Command contracts` и `## Additional resources` (with `when/why`). Архив historical команд хранится в каталоге командной документации.
 6. Хуки: если entrypoint участвует в workflow, добавьте вызов в `hooks/hooks.json`.
-7. Шаблоны: если нужны новые workspace‑файлы — обновите `templates/aidd/**`, затем проверьте `/feature-dev-aidd:aidd-init`.
+7. Шаблоны: stage content размещайте в `skills/*/templates/*`; `templates/aidd/**` используйте только для bootstrap config/placeholders, затем проверьте `/feature-dev-aidd:aidd-init`.
 8. Тесты: unit в `tests/`, repo tooling/CI helpers — в `tests/repo_tools/`.
 9. Prompt‑версии: после правок в `skills/`/`agents/` обновите `prompt_version` и прогоните `tests/repo_tools/prompt-version` + `tests/repo_tools/lint-prompts.py`.
 10. Метаданные: при user‑facing изменениях обновите `CHANGELOG.md` и версии в `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` (если требуется).
 
 Контракт исполнения:
-- Subagents (`agents/*.md`) не вызывают wrapper scripts напрямую (`skills/*/scripts/*.sh`).
-- Wrapper orchestration принадлежит только command-skills и hooks.
+- Subagents (`agents/*.md`) не вызывают shell wrappers напрямую.
+- Runtime orchestration должна ссылаться на Python entrypoints (`skills/*/runtime/*.py`).
 
 ## Workflow (кратко)
 Публичные стадии: `idea → research → plan → review-spec → tasklist → implement → review → qa`.
@@ -80,7 +104,7 @@ Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN
 
 Ключевые команды:
 - Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.
-- Research: `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
+- Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
 - Тасклист: `/feature-dev-aidd:tasks-new <ticket>`.
@@ -88,12 +112,12 @@ Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN
 - Ревью: `/feature-dev-aidd:review <ticket>`.
 - QA: `/feature-dev-aidd:qa <ticket>` → отчёт `aidd/reports/qa/<ticket>.json`.
 
-Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh`, тесты), затем задаём вопросы пользователю.
+Agent‑first правило: сначала читаем артефакты (`aidd/docs/**`, `aidd/reports/**`), запускаем разрешённые команды (`rg`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py`, тесты), затем задаём вопросы пользователю.
 
 ## RLM в Research
 - Evidence: `aidd/reports/research/<ticket>-rlm.pack.json` и `rlm-slice` pack.
 - Pipeline: `rlm-targets.json` → `rlm-manifest.json` → `rlm.worklist.pack.json` → агент пишет `rlm.nodes.jsonl` + `rlm.links.jsonl` → `*-rlm.pack.json`.
-- On-demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- On-demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 - Troubleshooting пустого контекста:
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
   - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
@@ -101,7 +125,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
-- Slice on demand: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket <ticket> --query "<token>"`.
+- Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 - Use raw `rg` only for spot-checks.
 - JSONL‑streams (`*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`) читаются фрагментами, не целиком.
 
@@ -125,6 +149,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Semver: `MAJOR.MINOR.PATCH`.
 - `source_version` всегда равен `prompt_version` для RU.
 - Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
+- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|spec-interview-writer|tasklist-refiner|validator`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
 - Инструменты:
   - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>` (agents + historical commands)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
@@ -169,7 +194,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Smoke/pytest используют текущий git checkout.
 
 ## Prompt templates
-Канон runtime/prompting: `skills/aidd-core/templates/workspace-agents.md` + `skills/aidd-core/SKILL.md` (обновляйте при изменении поведения).
+Канон runtime/prompting: `skills/aidd-core/templates/workspace-agents.md` + shared-skill topology (`skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`).
 
 ### Agent template
 ```md
@@ -192,7 +217,7 @@ model: inherit
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
-- Укажите разрешённые CLI-команды (`<test-runner> …`, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
+- Укажите разрешённые CLI-команды (`<test-runner> …`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py …`, `rg …`) и как агент должен логировать вывод/пути. Опишите, как реагировать на автозапуск `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh` и когда использовать ручные команды.
 
 ## Пошаговый план
 1. Распишите действия агента (чтение артефактов, запуск `rg`/`<test-runner>`, обновление файлов, обращение к другим агентам).
@@ -239,7 +264,7 @@ model: inherit
 - Уточните ограничения (например, только после `/feature-dev-aidd:review-spec` или при статусе READY).
 
 ## Автоматические хуки и переменные
-- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh`, `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
+- Перечислите хуки/гейты и команды, запускаемые во время выполнения (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`, `${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh`, `<test-runner> <args>`, `rg`).
 - Опишите переменные окружения (`SKIP_AUTO_TESTS`, `FORMAT_ONLY`, `TEST_SCOPE`) и требования к логам/ссылкам на вывод команд.
 
 ## Что редактируется
@@ -248,8 +273,20 @@ model: inherit
 
 ## Пошаговый план
 1. Распишите последовательность действий команды (вызов саб-агентов, запуск скриптов, обновление артефактов).
-2. Добавьте проверки готовности (например, `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source ...`).
+2. Добавьте проверки готовности (например, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source ...`).
 3. При необходимости предусмотрите ветки для ручных вмешательств.
+
+## Контракты команд
+- Для каждого critical command добавьте карточку интерфейса (без пересказа реализации):
+  ```md
+  ### `<command>`
+  - When to run: ...
+  - Inputs: ...
+  - Outputs: ...
+  - Failure mode: ...
+  - Next action: ...
+  ```
+- Для deep details используйте supporting files и укажите в `Additional resources`, когда и зачем их читать.
 
 ## Fail-fast и вопросы
 - Опишите ситуации, когда команда должна остановиться (нет PRD, отсутствует approved статус, не найден список задач).
@@ -266,6 +303,6 @@ model: inherit
 - Зафиксируйте требования к финальному сообщению: `Checkbox updated: ...`, затем `Status: ...`, `Artifacts updated: ...`, `Next actions: ...`.
 
 ## Примеры CLI
-- Приведите пример вызова команды/скрипта (например, `/feature-dev-aidd:implement ABC-123` или `!bash -lc '${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh --source qa --ticket ABC-123'`).
+- Приведите пример вызова команды/скрипта (например, `/feature-dev-aidd:implement ABC-123` или `!bash -lc 'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source qa --ticket ABC-123'`).
 - Добавьте подсказки по аргументам и типовым ошибкам.
 ```

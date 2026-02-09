@@ -4,9 +4,9 @@
   "skill_id": "review",
   "stage": "review",
   "entrypoints": [
-    "skills/review/scripts/preflight.sh",
-    "skills/review/scripts/run.sh",
-    "skills/review/scripts/postflight.sh"
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/review/runtime/review_run.py",
+    "skills/aidd-docio/runtime/actions_apply.py"
   ],
   "reads": {
     "required": [

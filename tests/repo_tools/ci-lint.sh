@@ -206,9 +206,37 @@ run_runtime_path_regression() {
     warn "tests/repo_tools/runtime-path-regression.sh missing; skipping"
     return
   fi
-  log "running runtime path regression checks"
+  log "running runtime path regression checks (python-only canon)"
   if ! bash tests/repo_tools/runtime-path-regression.sh; then
     err "runtime path regression checks failed"
+    STATUS=1
+  fi
+}
+
+run_runtime_module_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping runtime module guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/runtime-module-guard.py" ]]; then
+    warn "tests/repo_tools/runtime-module-guard.py missing; skipping"
+    return
+  fi
+  log "running runtime module guard"
+  if ! python3 tests/repo_tools/runtime-module-guard.py; then
+    err "runtime module guard failed"
+    STATUS=1
+  fi
+}
+
+run_python_only_regression() {
+  if [[ ! -f "tests/repo_tools/python-only-regression.sh" ]]; then
+    warn "tests/repo_tools/python-only-regression.sh missing; skipping"
+    return
+  fi
+  log "running python-only regression checks"
+  if ! bash tests/repo_tools/python-only-regression.sh; then
+    err "python-only regression checks failed"
     STATUS=1
   fi
 }
@@ -308,7 +336,7 @@ run_markdownlint() {
   local FILTERED=()
   for file in "${MD_FILES[@]}"; do
     case "$file" in
-      */backlog.md|*/CHANGELOG.md)
+      */backlog.md|*/CHANGELOG.md|*/aidd_audit_report.md|*/aidd_improvement_plan.md)
         continue
         ;;
     esac
@@ -449,6 +477,8 @@ run_skill_scripts_guard
 run_bash_runtime_guard
 run_schema_guards
 run_runtime_path_regression
+run_runtime_module_guard
+run_python_only_regression
 run_marketplace_ref_guard
 run_repo_linters
 

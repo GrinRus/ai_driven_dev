@@ -17,39 +17,145 @@ run_cli() {
   local cmd="$1"
   shift
   local entrypoint=""
+  local mode="exec"
   case "$cmd" in
     init)
-      entrypoint="$PLUGIN_ROOT/skills/aidd-init/scripts/init.sh"
+      entrypoint="$PLUGIN_ROOT/skills/aidd-init/runtime/init.py"
+      mode="python"
       ;;
     loop-pack|loop-step|loop-run|preflight-prepare|preflight-result-validate|output-contract)
-      entrypoint="$PLUGIN_ROOT/skills/aidd-loop/scripts/${cmd}.sh"
+      local loop_runtime=""
+      case "$cmd" in
+        loop-pack) loop_runtime="loop_pack.py" ;;
+        loop-step) loop_runtime="loop_step.py" ;;
+        loop-run) loop_runtime="loop_run.py" ;;
+        preflight-prepare) loop_runtime="preflight_prepare.py" ;;
+        preflight-result-validate) loop_runtime="preflight_result_validate.py" ;;
+        output-contract) loop_runtime="output_contract.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-loop/runtime/${loop_runtime}"
+      mode="python"
       ;;
     analyst-check)
-      entrypoint="$PLUGIN_ROOT/skills/idea-new/scripts/${cmd}.sh"
+      entrypoint="$PLUGIN_ROOT/skills/idea-new/runtime/analyst_check.py"
+      mode="python"
       ;;
     research-check)
-      entrypoint="$PLUGIN_ROOT/skills/plan-new/scripts/${cmd}.sh"
+      entrypoint="$PLUGIN_ROOT/skills/plan-new/runtime/research_check.py"
+      mode="python"
       ;;
     prd-review)
-      entrypoint="$PLUGIN_ROOT/skills/review-spec/scripts/${cmd}.sh"
+      entrypoint="$PLUGIN_ROOT/skills/review-spec/runtime/prd_review_cli.py"
+      mode="python"
       ;;
-    research|reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
-      entrypoint="$PLUGIN_ROOT/skills/researcher/scripts/${cmd}.sh"
+    spec-interview)
+      entrypoint="$PLUGIN_ROOT/skills/spec-interview/runtime/spec_interview.py"
+      mode="python"
+      ;;
+    tasks-new)
+      entrypoint="$PLUGIN_ROOT/skills/tasks-new/runtime/tasks_new.py"
+      mode="python"
+      ;;
+    research)
+      entrypoint="$PLUGIN_ROOT/skills/researcher/runtime/research.py"
+      mode="python"
+      ;;
+    reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
+      local rlm_runtime=""
+      case "$cmd" in
+        reports-pack) rlm_runtime="reports_pack.py" ;;
+        rlm-nodes-build) rlm_runtime="rlm_nodes_build.py" ;;
+        rlm-links-build) rlm_runtime="rlm_links_build.py" ;;
+        rlm-jsonl-compact) rlm_runtime="rlm_jsonl_compact.py" ;;
+        rlm-finalize) rlm_runtime="rlm_finalize.py" ;;
+        rlm-verify) rlm_runtime="rlm_verify.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-rlm/runtime/${rlm_runtime}"
+      mode="python"
       ;;
     review-pack|review-report|reviewer-tests|context-pack)
-      entrypoint="$PLUGIN_ROOT/skills/review/scripts/${cmd}.sh"
+      local review_runtime=""
+      case "$cmd" in
+        review-pack) review_runtime="review_pack.py" ;;
+        review-report) review_runtime="review_report.py" ;;
+        reviewer-tests) review_runtime="reviewer_tests.py" ;;
+        context-pack) review_runtime="context_pack.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/review/runtime/${review_runtime}"
+      mode="python"
       ;;
     qa)
-      entrypoint="$PLUGIN_ROOT/skills/qa/scripts/qa.sh"
+      entrypoint="$PLUGIN_ROOT/skills/qa/runtime/qa.py"
+      mode="python"
       ;;
     status|index-sync)
-      entrypoint="$PLUGIN_ROOT/skills/status/scripts/${cmd}.sh"
+      local status_runtime=""
+      case "$cmd" in
+        status) status_runtime="status.py" ;;
+        index-sync) status_runtime="index_sync.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/status/runtime/${status_runtime}"
+      mode="python"
       ;;
     *)
-      entrypoint="$PLUGIN_ROOT/skills/aidd-core/scripts/${cmd}.sh"
+      local docio_runtime=""
+      local flow_state_runtime=""
+      local observability_runtime=""
+      local rlm_runtime=""
+      local core_runtime=""
+      case "$cmd" in
+        actions-apply) docio_runtime="actions_apply.py" ;;
+        actions-validate) docio_runtime="actions_validate.py" ;;
+        context-expand) docio_runtime="context_expand.py" ;;
+        context-map-validate) docio_runtime="context_map_validate.py" ;;
+        dag-export) observability_runtime="dag_export.py" ;;
+        diff-boundary-check) core_runtime="diff_boundary_check.py" ;;
+        doctor) observability_runtime="doctor.py" ;;
+        identifiers) observability_runtime="identifiers.py" ;;
+        md-patch) docio_runtime="md_patch.py" ;;
+        md-slice) docio_runtime="md_slice.py" ;;
+        plan-review-gate) core_runtime="plan_review_gate.py" ;;
+        prd-check) flow_state_runtime="prd_check.py" ;;
+        prd-review-gate) core_runtime="prd_review_gate.py" ;;
+        progress) flow_state_runtime="progress_cli.py" ;;
+        researcher-context) core_runtime="researcher_context.py" ;;
+        rlm-slice) rlm_runtime="rlm_slice.py" ;;
+        set-active-feature) flow_state_runtime="set_active_feature.py" ;;
+        set-active-stage) flow_state_runtime="set_active_stage.py" ;;
+        skill-contract-validate) core_runtime="skill_contract_validate.py" ;;
+        stage-result) flow_state_runtime="stage_result.py" ;;
+        status-summary) flow_state_runtime="status_summary.py" ;;
+        tasklist-check|tasklist-normalize) flow_state_runtime="tasklist_check.py" ;;
+        tasks-derive) flow_state_runtime="tasks_derive.py" ;;
+        tests-log) observability_runtime="tests_log.py" ;;
+        tools-inventory) observability_runtime="tools_inventory.py" ;;
+      esac
+      if [[ -n "$docio_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-docio/runtime/${docio_runtime}"
+        mode="python"
+      elif [[ -n "$flow_state_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-flow-state/runtime/${flow_state_runtime}"
+        mode="python"
+      elif [[ -n "$observability_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-observability/runtime/${observability_runtime}"
+        mode="python"
+      elif [[ -n "$rlm_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-rlm/runtime/${rlm_runtime}"
+        mode="python"
+      elif [[ -n "$core_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-core/runtime/${core_runtime}"
+        mode="python"
+      else
+        echo "[smoke] unsupported command in run_cli(): $cmd" >&2
+        return 2
+      fi
       ;;
   esac
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
+  if [[ "$mode" == "python" ]]; then
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 "$entrypoint" "$@"
+  else
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
+  fi
 }
 
 run_hook() {
@@ -230,7 +336,7 @@ run_cli set-active-feature "$TICKET" >/dev/null
 }
 
 log "run research targets-only"
-run_cli research --ticket "$TICKET" --targets-only >/dev/null
+run_cli research --ticket "$TICKET" --targets-only --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
 [[ -f "$WORKDIR/reports/research/${TICKET}-targets.json" ]] || {
   echo "[smoke] research did not create targets" >&2
   exit 1
@@ -271,7 +377,7 @@ PY
 
 log "run researcher stage (collect research context)"
 pushd "$WORKDIR" >/dev/null
-run_cli research --ticket "$TICKET" --auto >/dev/null
+run_cli research --ticket "$TICKET" --auto --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
 python3 - "$TICKET" <<'PY'
 import json
 import sys
@@ -550,6 +656,10 @@ run_cli prd-review-gate --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" 
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
+
+log "run stage-owned spec-interview/tasks-new python entrypoints"
+run_cli spec-interview --ticket "$TICKET" >/dev/null
+run_cli tasks-new --ticket "$TICKET" >/dev/null
 
 log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then

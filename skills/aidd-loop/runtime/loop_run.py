@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import time
+import sys
 import datetime as dt
 from pathlib import Path
 from typing import Dict, List
@@ -121,7 +122,14 @@ def run_loop_step(
     select_qa_handoff: bool,
     stream_mode: str | None,
 ) -> subprocess.CompletedProcess[str]:
-    cmd = [str(plugin_root / "skills" / "aidd-loop" / "scripts" / "loop-step.sh"), "--ticket", ticket, "--format", "json"]
+    cmd = [
+        sys.executable,
+        str(plugin_root / "skills" / "aidd-loop" / "runtime" / "loop_step.py"),
+        "--ticket",
+        ticket,
+        "--format",
+        "json",
+    ]
     if runner:
         cmd.extend(["--runner", runner])
     if from_qa:
@@ -134,6 +142,7 @@ def run_loop_step(
         cmd.extend(["--stream", stream_mode])
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+    env["PYTHONPATH"] = str(plugin_root) if not env.get("PYTHONPATH") else f"{plugin_root}:{env['PYTHONPATH']}"
     if stream_mode:
         return subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=None, cwd=workspace_root, env=env)
     return subprocess.run(cmd, text=True, capture_output=True, cwd=workspace_root, env=env)

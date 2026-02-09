@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import sys
 from pathlib import Path
 from typing import List
+
+_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import runtime
 from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR
@@ -21,6 +28,19 @@ SKILL_TEMPLATE_SEEDS: tuple[tuple[str, str], ...] = (
     ("skills/aidd-loop/templates/loop-pack.template.md", "docs/loops/template.loop-pack.md"),
     ("skills/aidd-core/templates/context-pack.template.md", "reports/context/template.context-pack.md"),
 )
+_SEED_TARGETS = {target for _, target in SKILL_TEMPLATE_SEEDS}
+_SEED_DIRECTORIES = {str(Path(target).parent.as_posix()) for target in _SEED_TARGETS}
+
+
+def _is_placeholder_only_target(rel: Path) -> bool:
+    rel_text = rel.as_posix()
+    if rel_text in _SEED_TARGETS:
+        return True
+    for directory in _SEED_DIRECTORIES:
+        prefix = f"{directory}/"
+        if rel_text.startswith(prefix):
+            return True
+    return False
 
 
 def _copy_tree(src: Path, dest: Path, *, force: bool) -> list[Path]:
@@ -32,6 +52,8 @@ def _copy_tree(src: Path, dest: Path, *, force: bool) -> list[Path]:
             target.mkdir(parents=True, exist_ok=True)
             continue
         if target.exists() and not force:
+            continue
+        if _is_placeholder_only_target(rel) and path.name != ".gitkeep":
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)

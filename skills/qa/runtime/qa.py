@@ -11,6 +11,11 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
+
 from aidd_runtime import qa_agent as _qa_agent
 from aidd_runtime import runtime
 from aidd_runtime import tasklist_parser

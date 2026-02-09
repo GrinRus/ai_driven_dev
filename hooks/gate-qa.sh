@@ -136,7 +136,7 @@ def _handoff_check(root: Path, tasklist_path: Path, ticket: str, mode: str) -> s
         f"reports/qa/{ticket}".lower(),
     ]
     if not any(marker in scan_text for marker in markers):
-        hint = f"${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-core/scripts/tasks-derive.sh --source qa --append --ticket {ticket}"
+        hint = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-flow-state/runtime/tasks_derive.py --source qa --append --ticket {ticket}"
         return f"{mode.upper()}: handoff-задачи QA не найдены в tasklist. Запустите `{hint}`."
     return ""
 
@@ -183,7 +183,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh' from the workspace root to bootstrap ./aidd.".format(
+            "'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )
@@ -252,9 +252,9 @@ def main(argv: Iterable[str] | None = None) -> int:
                 _log_stdout("WARN: qa.requires содержит gate-tests, но tests_required=disabled.")
 
     qa_command = _norm_list(qa_cfg.get("command", []))
-    canonical_qa = str(plugin_root / "skills" / "qa" / "scripts" / "qa.sh")
+    canonical_qa_script = str(plugin_root / "skills" / "qa" / "runtime" / "qa.py")
     if not qa_command:
-        qa_command = [canonical_qa]
+        qa_command = [sys.executable, canonical_qa_script]
     override = os.environ.get("CLAUDE_QA_COMMAND")
     if override:
         qa_command = shlex.split(override)
@@ -373,7 +373,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             if ticket:
                 _log_stdout("handoff: формируем задачи из отчёта QA")
                 handoff_cmd = [
-                    str(plugin_root / "skills" / "aidd-core" / "scripts" / "tasks-derive.sh"),
+                    sys.executable,
+                    str(plugin_root / "skills" / "aidd-flow-state" / "runtime" / "tasks_derive.py"),
                     "--source",
                     "qa",
                     "--append",

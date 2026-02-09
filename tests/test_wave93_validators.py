@@ -129,6 +129,8 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
     def test_review_spec_stage_is_allowed_for_runtime_and_context_maps(self) -> None:
         self.assertIn("review-spec", set_active_stage.VALID_STAGES)
         self.assertIn("review-spec", context_map_validate.VALID_STAGES)
+        self.assertIn("status", set_active_stage.VALID_STAGES)
+        self.assertIn("tasks", context_map_validate.VALID_STAGES)
 
     def test_skill_contracts_validate(self) -> None:
         for stage in ("implement", "review", "qa"):

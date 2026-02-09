@@ -345,7 +345,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
         if reviewer_cfg.get("warn_on_missing", True):
             message = (
                 "WARN: reviewer маркер не найден ({}). Используйте "
-                "`${{CLAUDE_PLUGIN_ROOT}}/skills/review/scripts/reviewer-tests.sh --status required` при необходимости.".format(
+                "`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/review/runtime/reviewer_tests.py --status required` при необходимости.".format(
                     marker_path
                 )
             )
@@ -359,7 +359,9 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     except Exception:
         return (
             "WARN: повреждён маркер reviewer ({}). Пересоздайте его командой "
-            "`${{CLAUDE_PLUGIN_ROOT}}/skills/review/scripts/reviewer-tests.sh --status required`.".format(marker_path)
+            "`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/review/runtime/reviewer_tests.py --status required`.".format(
+                marker_path
+            )
         )
 
     value = str(data.get(field, "")).strip().lower()
@@ -534,7 +536,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
         items = ", ".join(f"{name}: {marker}" for name, marker in missing)
         return (
             f"BLOCK: handoff-задачи не добавлены в tasklist ({items}). "
-            f"Запустите `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-core/scripts/tasks-derive.sh --source <qa|research|review> --append --ticket {ticket}`."
+            f"Запустите `python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-flow-state/runtime/tasks_derive.py --source <qa|research|review> --append --ticket {ticket}`."
         )
     return ""
 
@@ -554,7 +556,7 @@ def main() -> int:
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/scripts/init.sh' from the workspace root to bootstrap ./aidd.".format(
+            "'python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-init/runtime/init.py' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )

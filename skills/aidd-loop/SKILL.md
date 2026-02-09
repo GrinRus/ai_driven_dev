@@ -17,13 +17,17 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 6. Tests: follow loop pack or reviewer policy; do not invent new test requirements.
 7. No large logs/diffs in chat; link to `aidd/reports/**`.
 
-## Canonical shared wrappers
-- `skills/aidd-loop/scripts/loop-pack.sh`
-- `skills/aidd-loop/scripts/loop-step.sh`
-- `skills/aidd-loop/scripts/loop-run.sh`
-- `skills/aidd-loop/scripts/preflight-prepare.sh`
-- `skills/aidd-loop/scripts/preflight-result-validate.sh`
-- `skills/aidd-loop/scripts/output-contract.sh`
+## Preload matrix v2
+- Roles: `implementer`, `reviewer`, `qa`.
+- This skill must not be preloaded for other subagents.
+
+## Canonical shared Python entrypoints
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_result_validate.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/output_contract.py`
 
 ## Additional resources
 - For wrapper paths and fallback details, see [reference.md](reference.md).

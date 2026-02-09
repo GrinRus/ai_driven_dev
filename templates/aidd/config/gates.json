@@ -188,7 +188,8 @@
       "gate-tests"
     ],
     "command": [
-      "${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh"
+      "python3",
+      "${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py"
     ],
     "debounce_minutes": 10,
     "timeout": 600,

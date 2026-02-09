@@ -7,6 +7,7 @@ source_version: 1.1.12
 tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-policy
   - feature-dev-aidd:aidd-rlm
 model: inherit
 permissionMode: default

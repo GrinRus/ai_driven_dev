@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
 SCRIPT_GLOB = "skills/*/scripts/*.sh"
-REQUIRED_FLAGS = ["--ticket", "--scope-key", "--work-item-key", "--stage", "--actions"]
 SIZE_LIMIT = 200_000  # bytes
+STAGE_PYTHON_ENTRYPOINTS = {
+    "aidd-init": "skills/aidd-init/runtime/init.py",
+    "idea-new": "skills/idea-new/runtime/analyst_check.py",
+    "researcher": "skills/researcher/runtime/research.py",
+    "plan-new": "skills/plan-new/runtime/research_check.py",
+    "review-spec": "skills/review-spec/runtime/prd_review_cli.py",
+    "spec-interview": "skills/spec-interview/runtime/spec_interview.py",
+    "tasks-new": "skills/tasks-new/runtime/tasks_new.py",
+    "implement": "skills/implement/runtime/implement_run.py",
+    "review": "skills/review/runtime/review_run.py",
+    "qa": "skills/qa/runtime/qa_run.py",
+    "status": "skills/status/runtime/status.py",
+}
 
 
 def _read_text(path: Path) -> str:
@@ -30,50 +42,38 @@ def _is_binary(path: Path) -> bool:
 def main() -> int:
     errors: list[str] = []
 
-    wrapper_contract = ROOT / "skills" / "aidd-reference" / "wrapper_contract.md"
-    if not wrapper_contract.exists():
-        errors.append("missing skills/aidd-reference/wrapper_contract.md")
-
     scripts = sorted(ROOT.glob(SCRIPT_GLOB))
-    if not scripts:
-        errors.append("no stage scripts found in skills/*/scripts")
-
     for script in scripts:
         rel = script.relative_to(ROOT).as_posix()
-        text = _read_text(script)
-        lines = text.splitlines()
-        if not lines or lines[0].strip() != "#!/usr/bin/env bash":
-            errors.append(f"{rel}: missing '#!/usr/bin/env bash'")
-        if "set -euo pipefail" not in text:
-            errors.append(f"{rel}: missing 'set -euo pipefail'")
-        if not os.access(script, os.X_OK):
-            errors.append(f"{rel}: not executable")
-        if "aidd_run_guarded" not in text:
-            errors.append(f"{rel}: missing aidd_run_guarded output guard")
-        if "aidd_log_path" not in text:
-            errors.append(f"{rel}: missing aidd_log_path usage")
+        errors.append(f"{rel}: legacy skill shell wrapper is forbidden (python-only canon)")
 
-        if script.name in {"preflight.sh", "run.sh", "postflight.sh"}:
-            for flag in REQUIRED_FLAGS:
-                if flag not in text:
-                    errors.append(f"{rel}: missing flag {flag}")
-            if "actions_path=" not in text:
-                errors.append(f"{rel}: missing actions_path output")
-        if script.name == "postflight.sh" and "AIDD_APPLY_LOG" not in text:
-            errors.append(f"{rel}: missing AIDD_APPLY_LOG usage")
-
-        stage = script.parents[1].name
-        references = []
-        skill_md = ROOT / "skills" / stage / "SKILL.md"
-        details_md = ROOT / "skills" / stage / "DETAILS.md"
-        for path in (skill_md, details_md):
-            if path.exists():
-                references.append(_read_text(path))
-        if references:
-            if script.name not in "\n".join(references):
-                errors.append(f"{rel}: not referenced in skills/{stage}/SKILL.md or DETAILS.md")
-        else:
-            errors.append(f"{rel}: missing SKILL.md for stage {stage}")
+    for skill_md in sorted((ROOT / "skills").glob("*/SKILL.md")):
+        text = _read_text(skill_md)
+        if not text:
+            continue
+        if not re.search(r"^user-invocable:\s*true\s*$", text, flags=re.MULTILINE):
+            continue
+        skill_dir = skill_md.parent
+        stage = skill_dir.name
+        runtime_rel = STAGE_PYTHON_ENTRYPOINTS.get(stage)
+        if runtime_rel:
+            runtime_entry = ROOT / runtime_rel
+            if not runtime_entry.exists():
+                errors.append(f"{runtime_rel}: missing canonical python entrypoint for user-invocable skill `{stage}`")
+            runtime_ref = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/{runtime_rel}"
+            if runtime_ref not in text:
+                errors.append(
+                    f"{skill_md.relative_to(ROOT).as_posix()}: must reference canonical python entrypoint `{runtime_ref}`"
+                )
+        if "/scripts/" in text:
+            errors.append(
+                f"{skill_md.relative_to(ROOT).as_posix()}: legacy shell wrapper references are forbidden"
+            )
+        if re.search(r"^context:\s*fork\s*$", text, flags=re.MULTILINE):
+            if not re.search(r"^agent:\s*[A-Za-z0-9_.-]+\s*$", text, flags=re.MULTILINE):
+                errors.append(
+                    f"{skill_md.relative_to(ROOT).as_posix()}: context: fork requires explicit `agent` owner"
+                )
 
     for path in (ROOT / "skills").rglob("*"):
         if not path.is_file():

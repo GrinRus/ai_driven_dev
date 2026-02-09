@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from aidd_runtime import runtime
+from aidd_runtime import research_hints
 from aidd_runtime.rlm_config import (
     base_label,
     detect_lang,
@@ -26,11 +27,14 @@ from aidd_runtime.rlm_config import (
 SCHEMA = "aidd.rlm_targets.v1"
 
 
-def _load_research_targets(target: Path, ticket: str) -> Dict:
-    path = target / "reports" / "research" / f"{ticket}-targets.json"
-    if not path.exists():
-        raise FileNotFoundError(f"missing research targets: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+def _load_hints(target: Path, ticket: str) -> tuple[research_hints.ResearchHints, Optional[str]]:
+    prd_path = target / "docs" / "prd" / f"{ticket}.prd.md"
+    hints = research_hints.load_research_hints(target, ticket)
+    if prd_path.exists():
+        source = f"{runtime.rel_path(prd_path, target)}#AIDD:RESEARCH_HINTS"
+    else:
+        source = None
+    return hints, source
 
 
 def _resolve_roots(target: Path, paths: Sequence[str], *, base_root: Path) -> List[Path]:
@@ -311,15 +315,19 @@ def build_targets(
     paths_override: Optional[Sequence[str]] = None,
     base_root: Optional[Path] = None,
 ) -> Dict[str, object]:
-    research_targets = _load_research_targets(target, ticket)
+    hints, config_source = _load_hints(target, ticket)
     if paths_override:
         paths = _normalize_prefixes(paths_override)
     else:
-        paths = [str(item) for item in research_targets.get("paths") or [] if str(item).strip()]
-    paths_discovered = [
-        str(item) for item in research_targets.get("paths_discovered") or [] if str(item).strip()
-    ]
-    keywords = [str(item) for item in research_targets.get("keywords") or [] if str(item).strip()]
+        paths = _normalize_prefixes(hints.paths)
+    paths_discovered: List[str] = []
+    keywords = [str(item).strip().lower() for item in hints.keywords if str(item).strip()]
+    notes = [str(item).strip() for item in hints.notes if str(item).strip()]
+    if not (paths or keywords):
+        raise ValueError(
+            "AIDD:RESEARCH_HINTS must define Paths or Keywords "
+            f"in docs/prd/{ticket}.prd.md (or pass --paths)."
+        )
 
     mode_override = str(targets_mode).strip().lower() if targets_mode else ""
     if mode_override and mode_override not in {"auto", "explicit"}:
@@ -327,7 +335,7 @@ def build_targets(
     targets_mode = mode_override or str(settings.get("targets_mode") or "auto").strip().lower()
     if targets_mode not in {"auto", "explicit"}:
         targets_mode = "auto"
-    if paths_override:
+    if paths:
         targets_mode = "explicit"
 
     plan_path = target / "docs" / "plan" / f"{ticket}.md"
@@ -373,19 +381,23 @@ def build_targets(
     if max_files and len(files) > max_files:
         files = files[:max_files]
 
+    feature_context = runtime.resolve_feature_context(target, ticket=ticket, slug_hint=None)
+    slug_hint = (feature_context.slug_hint or "").strip() or None
+
     return {
         "schema": SCHEMA,
         "ticket": ticket,
-        "slug": research_targets.get("slug") or ticket,
-        "slug_hint": research_targets.get("slug_hint"),
+        "slug": slug_hint or ticket,
+        "slug_hint": slug_hint,
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "config_source": research_targets.get("config_source"),
+        "config_source": config_source,
         "targets_mode": targets_mode,
         "paths_base": base_label(target, base_root),
         "paths": paths,
         "paths_discovered": paths_discovered,
         "files_touched": files_touched,
         "keywords": keywords,
+        "notes": notes,
         "keyword_hits": sorted(hit_files),
         "files": files,
         "stats": {

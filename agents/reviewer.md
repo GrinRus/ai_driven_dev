@@ -7,6 +7,7 @@ source_version: 1.0.33
 tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-policy
   - feature-dev-aidd:aidd-rlm
   - feature-dev-aidd:aidd-loop
 model: inherit

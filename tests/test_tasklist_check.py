@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+import re
 from pathlib import Path
 
 from tests.helpers import REPO_ROOT
@@ -10,7 +11,7 @@ if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
 from tests import helpers
-from aidd_runtime import tasklist_check
+from aidd_runtime import stage_lexicon, tasklist_check
 
 
 def write_plan(root: Path, ticket: str, iteration_ids: list[str] | None = None) -> None:
@@ -257,6 +258,17 @@ class TasklistCheckTests(unittest.TestCase):
             root = Path(tmpdir)
             result = tasklist_check.check_tasklist_text(root, "ABC-123", template_text)
             self.assertIn(result.status, {"ok", "warn"}, result.message)
+
+    def test_tasklist_template_stage_placeholder_uses_supported_stages(self) -> None:
+        template_path = REPO_ROOT / "skills" / "tasks-new" / "templates" / "tasklist.template.md"
+        template_text = template_path.read_text(encoding="utf-8")
+        match = re.search(r"^Stage:\s*<([^>]+)>", template_text, flags=re.MULTILINE)
+        self.assertIsNotNone(match, "Stage placeholder is missing in tasklist template")
+        stage_tokens = {item.strip() for item in match.group(1).split("|") if item.strip()}
+        supported = set(stage_lexicon.supported_stage_values(include_aliases=True))
+        unsupported = sorted(stage_tokens - supported)
+        self.assertEqual(unsupported, [], f"unsupported stages in template: {unsupported}")
+        self.assertNotIn("release", stage_tokens)
 
 
 if __name__ == "__main__":

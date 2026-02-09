@@ -8,11 +8,16 @@ if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
 
 from aidd_runtime import context_pack
 from aidd_runtime import identifiers
+from aidd_runtime import implement_run
 from aidd_runtime import plan_review_gate
 from aidd_runtime import prd_review
 from aidd_runtime import prd_review_gate
+from aidd_runtime import qa_run
 from aidd_runtime import researcher_context
+from aidd_runtime import review_run
+from aidd_runtime import spec_interview
 from aidd_runtime import tasklist_check
+from aidd_runtime import tasks_new
 from aidd_runtime import tests_log
 
 
@@ -22,6 +27,11 @@ def test_cli_parses_new_subcommands():
     prd_review_gate.parse_args(["--ticket", "DEMO-1"])
     tasklist_check.parse_args(["--ticket", "DEMO-1"])
     researcher_context._build_parser().parse_args([])
+    spec_interview.parse_args(["--ticket", "DEMO-1"])
+    tasks_new.parse_args(["--ticket", "DEMO-1"])
+    implement_run.parse_args(["--ticket", "DEMO-1"])
+    review_run.parse_args(["--ticket", "DEMO-1"])
+    qa_run.parse_args(["--ticket", "DEMO-1"])
     identifiers.parse_args(["--json"])
     context_pack.parse_args(["--agent", "implementer"])
     tests_log.parse_args(["--status", "pass"])

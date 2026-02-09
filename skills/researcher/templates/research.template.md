@@ -3,7 +3,7 @@
 Status: pending
 Last reviewed: {{date}}
 Commands:
-  Research scan: ${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}
+  Research scan: python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}
   Search: rg "{{ticket|feature}}" {{modules}}
 Artifacts:
   PRD: aidd/docs/prd/{{ticket}}.prd.md
@@ -48,7 +48,7 @@ Artifacts:
 - Pack bytes: {{rlm_pack_bytes}}
 - Pack updated_at: {{rlm_pack_updated_at}}
 - Warnings: {{rlm_warnings}} (e.g., rlm_links_empty_warn)
-- Slice: ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh --ticket {{ticket}} --query "<token>"
+- Slice: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 
 ## AIDD:TEST_HOOKS

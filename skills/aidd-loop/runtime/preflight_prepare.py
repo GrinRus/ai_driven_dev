@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -217,7 +218,8 @@ def _run_loop_pack(target: Path, *, ticket: str, stage: str, work_item_key: str)
         loop_stage = "implement"
     plugin_root = runtime.require_plugin_root()
     cmd = [
-        str(plugin_root / "skills" / "aidd-loop" / "scripts" / "loop-pack.sh"),
+        sys.executable,
+        str(plugin_root / "skills" / "aidd-loop" / "runtime" / "loop_pack.py"),
         "--ticket",
         ticket,
         "--stage",
@@ -227,7 +229,10 @@ def _run_loop_pack(target: Path, *, ticket: str, stage: str, work_item_key: str)
         "--format",
         "json",
     ]
-    proc = subprocess.run(cmd, cwd=target, text=True, capture_output=True)
+    env = os.environ.copy()
+    env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+    env["PYTHONPATH"] = str(plugin_root) if not env.get("PYTHONPATH") else f"{plugin_root}:{env['PYTHONPATH']}"
+    proc = subprocess.run(cmd, cwd=target, text=True, capture_output=True, env=env)
     raw = (proc.stdout or "").strip()
     payload: Dict[str, Any] = {}
     if raw:

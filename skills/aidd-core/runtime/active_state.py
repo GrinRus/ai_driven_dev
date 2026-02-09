@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Tuple
 
+from aidd_runtime import stage_lexicon
+
 _WORK_ITEM_KEY_RE = re.compile(r"^(iteration_id|id)=[A-Za-z0-9_.:-]+$")
 _ITERATION_WORK_ITEM_KEY_RE = re.compile(r"^iteration_id=[A-Za-z0-9_.:-]+$")
 _SLUG_HINT_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
@@ -11,7 +13,7 @@ _LOOP_STAGES = {"implement", "review"}
 
 
 def normalize_stage_name(stage: str | None) -> str:
-    return str(stage or "").strip().lower()
+    return stage_lexicon.resolve_stage_name(stage)
 
 
 def is_valid_work_item_key(value: str | None) -> bool:

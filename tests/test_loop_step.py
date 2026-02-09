@@ -609,119 +609,44 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:implement DEMO-QA4", log_path.read_text(encoding="utf-8"))
 
-    def test_loop_step_wires_stage_wrappers(self) -> None:
+    def test_loop_step_wires_stage_runtime_chain(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            fake_plugin = Path(tmpdir) / "plugin"
-            (fake_plugin / "skills" / "aidd-core").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "skills" / "implement" / "scripts").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "tools").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "skills" / "aidd-core" / "SKILL.md").write_text("name: aidd-core\n", encoding="utf-8")
-            (fake_plugin / "skills" / "implement" / "SKILL.md").write_text("name: implement\n", encoding="utf-8")
-
-            preflight_script = fake_plugin / "skills" / "implement" / "scripts" / "preflight.sh"
-            run_script = fake_plugin / "skills" / "implement" / "scripts" / "run.sh"
-            postflight_script = fake_plugin / "skills" / "implement" / "scripts" / "postflight.sh"
-            preflight_script.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-ticket=""; scope=""; stage=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --ticket) ticket="$2"; shift 2 ;;
-    --scope-key) scope="$2"; shift 2 ;;
-    --stage) stage="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-mkdir -p "aidd/reports/actions/$ticket/$scope" "aidd/reports/context/$ticket" "aidd/reports/loops/$ticket/$scope" "aidd/reports/logs/$stage/$ticket/$scope"
-echo '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}' > "aidd/reports/actions/$ticket/$scope/implement.actions.template.json"
-echo '{"schema":"aidd.context_map.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","allowed_paths":["src/**"],"forbidden_paths":[]}' > "aidd/reports/context/$ticket/$scope.readmap.json"
-echo '# readmap' > "aidd/reports/context/$ticket/$scope.readmap.md"
-echo '{"schema":"aidd.context_map.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","allowed_paths":["src/**"],"forbidden_paths":[]}' > "aidd/reports/context/$ticket/$scope.writemap.json"
-echo '# writemap' > "aidd/reports/context/$ticket/$scope.writemap.md"
-echo '{"schema":"aidd.stage_result.preflight.v1","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","stage":"implement","status":"ok","generated_at":"2024-01-01T00:00:00Z"}' > "aidd/reports/loops/$ticket/$scope/stage.preflight.result.json"
-echo "ok" > "aidd/reports/logs/$stage/$ticket/$scope/wrapper.preflight.log"
-echo "log_path=aidd/reports/logs/$stage/$ticket/$scope/wrapper.preflight.log"
-echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
-""",
-                encoding="utf-8",
-            )
-            run_script.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-ticket=""; scope=""; stage=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --ticket) ticket="$2"; shift 2 ;;
-    --scope-key) scope="$2"; shift 2 ;;
-    --stage) stage="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-mkdir -p "aidd/reports/actions/$ticket/$scope" "aidd/reports/logs/$stage/$ticket/$scope"
-echo '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I1","allowed_action_types":[],"actions":[]}' > "aidd/reports/actions/$ticket/$scope/implement.actions.json"
-echo "ok" > "aidd/reports/logs/$stage/$ticket/$scope/wrapper.run.log"
-echo "log_path=aidd/reports/logs/$stage/$ticket/$scope/wrapper.run.log"
-echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
-""",
-                encoding="utf-8",
-            )
-            postflight_script.write_text(
-                """#!/usr/bin/env bash
-set -euo pipefail
-ticket=""; scope=""; stage=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --ticket) ticket="$2"; shift 2 ;;
-    --scope-key) scope="$2"; shift 2 ;;
-    --stage) stage="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-mkdir -p "aidd/reports/actions/$ticket/$scope" "aidd/reports/logs/$stage/$ticket/$scope"
-echo '{}' > "aidd/reports/actions/$ticket/$scope/implement.apply.jsonl"
-echo "ok" > "aidd/reports/logs/$stage/$ticket/$scope/wrapper.postflight.log"
-echo "log_path=aidd/reports/logs/$stage/$ticket/$scope/wrapper.postflight.log"
-echo "apply_log=aidd/reports/actions/$ticket/$scope/implement.apply.jsonl"
-echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
-""",
-                encoding="utf-8",
-            )
-            for script in (preflight_script, run_script, postflight_script):
-                script.chmod(0o755)
-
+            ticket = "DEMO-WRAP"
+            scope_key = "iteration_id_I1"
             write_active_state(root, work_item="iteration_id=I1")
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
             implement_result = {
                 "schema": "aidd.stage_result.v1",
-                "ticket": "DEMO-WRAP",
+                "ticket": ticket,
                 "stage": "implement",
-                "scope_key": "iteration_id_I1",
+                "scope_key": scope_key,
                 "result": "continue",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-WRAP/iteration_id_I1/stage.implement.result.json",
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
                 json.dumps(implement_result),
             )
             log_path = root / "runner.log"
             result = self.run_loop_step(
                 root,
-                "DEMO-WRAP",
+                ticket,
                 log_path,
-                {"AIDD_STAGE_WRAPPERS_ROOT": str(fake_plugin), "AIDD_FORCE_STAGE_WRAPPERS": "1", "AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
                 "--format",
                 "json",
             )
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertTrue(payload.get("actions_log_path"))
-            self.assertTrue((root / "reports" / "actions" / "DEMO-WRAP" / "iteration_id_I1" / "implement.actions.template.json").exists())
-            self.assertTrue((root / "reports" / "actions" / "DEMO-WRAP" / "iteration_id_I1" / "implement.actions.json").exists())
-            self.assertTrue((root / "reports" / "context" / "DEMO-WRAP" / "iteration_id_I1.readmap.json").exists())
-            self.assertTrue((root / "reports" / "context" / "DEMO-WRAP" / "iteration_id_I1.writemap.json").exists())
-            self.assertTrue((root / "reports" / "loops" / "DEMO-WRAP" / "iteration_id_I1" / "stage.preflight.result.json").exists())
+            self.assertTrue((root / "reports" / "actions" / ticket / scope_key / "implement.actions.template.json").exists())
+            self.assertTrue((root / "reports" / "actions" / ticket / scope_key / "implement.actions.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
+            self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
+            self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
             self.assertTrue(payload.get("wrapper_logs"))
 
     def test_loop_step_blocks_invalid_loop_work_item_key(self) -> None:
@@ -787,35 +712,9 @@ echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
     def test_loop_step_realigns_actions_log_scope_on_mismatch(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            fake_plugin = Path(tmpdir) / "plugin"
-            (fake_plugin / "skills" / "aidd-core").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "skills" / "implement" / "scripts").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "tools").mkdir(parents=True, exist_ok=True)
-            (fake_plugin / "skills" / "aidd-core" / "SKILL.md").write_text("name: aidd-core\n", encoding="utf-8")
-            (fake_plugin / "skills" / "implement" / "SKILL.md").write_text("name: implement\n", encoding="utf-8")
-
-            for kind in ("preflight", "run", "postflight"):
-                script = fake_plugin / "skills" / "implement" / "scripts" / f"{kind}.sh"
-                script.write_text(
-                    """#!/usr/bin/env bash
-set -euo pipefail
-ticket=""; scope=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --ticket) ticket="$2"; shift 2 ;;
-    --scope-key) scope="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-mkdir -p "aidd/reports/actions/$ticket/$scope"
-echo '{"schema_version":"aidd.actions.v1","stage":"implement","ticket":"'"$ticket"'","scope_key":"'"$scope"'","work_item_key":"iteration_id=I2","allowed_action_types":[],"actions":[]}' > "aidd/reports/actions/$ticket/$scope/implement.actions.json"
-echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
-""",
-                    encoding="utf-8",
-                )
-                script.chmod(0o755)
-
             write_active_state(root, work_item="iteration_id=I2")
+            write_tasklist_ready(root, "DEMO-ACTIONS-MISMATCH")
+            write_file(root, "docs/prd/DEMO-ACTIONS-MISMATCH.prd.md", "Status: READY\n")
             implement_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-ACTIONS-MISMATCH",
@@ -839,7 +738,7 @@ echo "actions_path=aidd/reports/actions/$ticket/$scope/implement.actions.json"
                 root,
                 "DEMO-ACTIONS-MISMATCH",
                 log_path,
-                {"AIDD_STAGE_WRAPPERS_ROOT": str(fake_plugin), "AIDD_FORCE_STAGE_WRAPPERS": "1"},
+                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
                 "--format",
                 "json",
             )

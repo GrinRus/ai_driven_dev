@@ -30,6 +30,6 @@ check_absent "Graph Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/skills" \
 
 check_present "Evidence read policy" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
 check_present "AIDD:READ_LOG" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
-check_present "rlm-slice.sh" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
+check_present "rlm_slice.py" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
 
 exit $STATUS

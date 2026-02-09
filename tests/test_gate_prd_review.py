@@ -1,10 +1,16 @@
+import io
+import os
+from contextlib import redirect_stdout
+from pathlib import Path
 from textwrap import dedent
 
-from .helpers import ensure_gates_config, run_hook, write_active_feature, write_file, write_json
+from aidd_runtime import prd_review_gate
 
-SRC_PAYLOAD = '{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
-PRD_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
-DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/plan/demo-checkout.md"}}'
+from .helpers import ensure_gates_config, ensure_project_root, write_active_feature, write_file, write_json
+
+SRC_PATH = "src/main/kotlin/App.kt"
+PRD_PATH = "docs/prd/demo-checkout.prd.md"
+DOC_PATH = "docs/plan/demo-checkout.md"
 
 
 def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") -> str:
@@ -26,7 +32,8 @@ def make_prd(status: str, action_items: str = "", dialog_status: str = "READY") 
     return body
 
 
-def setup_base(tmp_path) -> None:
+def setup_base(tmp_path: Path) -> None:
+    ensure_project_root(tmp_path)
     write_active_feature(tmp_path, "demo-checkout")
     ensure_gates_config(
         tmp_path,
@@ -45,29 +52,46 @@ def setup_base(tmp_path) -> None:
     )
 
 
+def run_prd_gate(tmp_path: Path, file_path: str, *, skip_on_prd_edit: bool = True) -> tuple[int, str]:
+    project_root = ensure_project_root(tmp_path)
+    args = ["--ticket", "demo-checkout", "--file-path", file_path]
+    if skip_on_prd_edit:
+        args.append("--skip-on-prd-edit")
+    parsed = prd_review_gate.parse_args(args)
+    out = io.StringIO()
+    prev_cwd = Path.cwd()
+    try:
+        os.chdir(project_root)
+        with redirect_stdout(out):
+            status = prd_review_gate.run_gate(parsed)
+    finally:
+        os.chdir(prev_cwd)
+    return status, out.getvalue()
+
+
 def test_blocks_when_section_missing(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", "# PRD")
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "PRD Review" in (result.stdout + result.stderr)
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "PRD Review" in output
 
 
 def test_skips_for_non_code_paths(tmp_path):
     setup_base(tmp_path)
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", DOC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    status, output = run_prd_gate(tmp_path, DOC_PATH)
+    assert status == 0, output
 
 
 def test_blocks_when_status_pending(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "не READY" in (result.stdout + result.stderr)
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "не READY" in output
 
 
 def test_blocks_when_dialog_status_draft(tmp_path):
@@ -78,9 +102,9 @@ def test_blocks_when_dialog_status_draft(tmp_path):
         make_prd("READY", dialog_status="draft"),
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "draft" in (result.stdout + result.stderr).lower()
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "draft" in output.lower()
 
 
 def test_blocks_when_action_items_open(tmp_path):
@@ -91,9 +115,9 @@ def test_blocks_when_action_items_open(tmp_path):
         make_prd("READY", "- [ ] sync metrics"),
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "action items" in (result.stdout + result.stderr)
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "action items" in output
 
 
 def test_allows_when_review_approved(tmp_path):
@@ -105,8 +129,8 @@ def test_allows_when_review_approved(tmp_path):
         {"ticket": "demo-checkout", "status": "ready", "findings": []},
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 0, output
 
 
 def test_allows_when_pack_report_present(tmp_path):
@@ -125,25 +149,25 @@ def test_allows_when_pack_report_present(tmp_path):
         },
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 0, output
 
 
 def test_skips_for_direct_prd_edit(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("PENDING"))
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", PRD_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    status, output = run_prd_gate(tmp_path, PRD_PATH)
+    assert status == 0, output
 
 
 def test_blocks_when_report_missing(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "отчёт" in (result.stdout + result.stderr)
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "отчёт" in output
 
 
 def test_blocks_on_blocking_severity(tmp_path):
@@ -159,9 +183,9 @@ def test_blocks_on_blocking_severity(tmp_path):
         },
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "critical" in (result.stdout + result.stderr).lower()
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "critical" in output.lower()
 
 
 def test_blocks_on_report_status_mismatch(tmp_path):
@@ -173,9 +197,9 @@ def test_blocks_on_report_status_mismatch(tmp_path):
         {"ticket": "demo-checkout", "status": "pending", "findings": []},
     )
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 2
-    assert "не совпадает" in (result.stdout + result.stderr)
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 1
+    assert "не совпадает" in output
 
 
 def test_allows_when_report_missing_but_allowed(tmp_path):
@@ -190,5 +214,5 @@ def test_allows_when_report_missing_but_allowed(tmp_path):
     )
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))
 
-    result = run_hook(tmp_path, "gate-prd-review.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 0, output

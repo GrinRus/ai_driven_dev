@@ -691,27 +691,9 @@ class ResearcherContextBuilder:
         return path_infos, doc_infos, search_roots
 
     def write_targets(self, scope: Scope) -> Path:
-        self._resolve_search_roots(scope)
-        report_dir = self.root / _REPORT_DIR
-        report_dir.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "ticket": scope.ticket,
-            "slug": scope.slug_hint or scope.ticket,
-            "slug_hint": scope.slug_hint,
-            "generated_at": _utc_timestamp(),
-            "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
-            "tags": scope.tags,
-            "paths": scope.paths,
-            "paths_discovered": scope.paths_discovered,
-            "invalid_paths": scope.invalid_paths,
-            "docs": scope.docs,
-            "keywords": scope.keywords,
-            "keywords_raw": scope.keywords_raw,
-            "non_negotiables": scope.non_negotiables,
-        }
-        target_path = report_dir / f"{scope.ticket}-targets.json"
-        target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        return target_path
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.write_targets(self, scope)
 
     def write_rlm_targets(
         self,
@@ -739,41 +721,14 @@ class ResearcherContextBuilder:
         return target_path
 
     def collect_context(self, scope: Scope, *, limit: int = _MAX_MATCHES) -> Dict[str, Any]:
-        path_infos, doc_infos, search_roots = self._resolve_search_roots(scope)
-        matches = self._scan_matches(search_roots, scope.keywords, limit=limit)
-        code_index: List[Dict[str, Any]] = []
-        reuse_candidates: List[Dict[str, Any]] = []
-        profile = self._build_project_profile(scope, matches)
+        from aidd_runtime import researcher_context_pack as _pack
 
-        return {
-            "ticket": scope.ticket,
-            "slug": scope.slug_hint or scope.ticket,
-            "slug_hint": scope.slug_hint,
-            "generated_at": _utc_timestamp(),
-            "config_source": os.path.relpath(self.config_path, self.root) if self.config_path.exists() else None,
-            "tags": scope.tags,
-            "keywords": scope.keywords,
-            "keywords_raw": scope.keywords_raw,
-            "paths": path_infos,
-            "paths_discovered": scope.paths_discovered,
-            "invalid_paths": scope.invalid_paths,
-            "docs": doc_infos,
-            "matches": matches,
-            "code_index": code_index,
-            "reuse_candidates": reuse_candidates,
-            "profile": profile,
-            "manual_notes": scope.manual_notes,
-            "non_negotiables": scope.non_negotiables,
-        }
+        return _pack.collect_context(self, scope, limit=limit)
 
     def write_context(self, scope: Scope, context: Dict[str, Any], *, output: Optional[Path] = None) -> Path:
-        report_dir = self.root / _REPORT_DIR
-        report_dir.mkdir(parents=True, exist_ok=True)
-        target_path = output or (report_dir / f"{scope.ticket}-context.json")
-        target_path = _normalize_output_path(self.root, target_path)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(json.dumps(context, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        return target_path
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.write_context(self, scope, context, output=output)
 
     def _describe_path(self, rel: str) -> Tuple[Dict[str, Any], Optional[Path]]:
         raw_path = Path(rel)
@@ -863,208 +818,39 @@ class ResearcherContextBuilder:
         return samples
 
     def _build_project_profile(self, scope: Scope, matches: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-        tests_detected, tests_evidence, suggested_test_tasks = self._detect_tests()
-        profile = {
-            "is_new_project": len(matches) == 0,
-            "src_layers": self._detect_src_layers(),
-            "tests_detected": tests_detected,
-            "tests_evidence": tests_evidence,
-            "suggested_test_tasks": suggested_test_tasks,
-            "config_detected": self._detect_configs(),
-            "logging_artifacts": self._detect_logging_artifacts(),
-            "recommendations": [],
-        }
-        profile["recommendations"] = self._baseline_recommendations(profile, scope)
-        return profile
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.build_project_profile(self, scope, matches)
 
     def _detect_src_layers(self, limit: int = 8) -> List[str]:
-        candidates = [self._paths_base / "src"]
-        if self._paths_base != self.root:
-            candidates.append(self.root / "src")
-        src_dir = next((candidate for candidate in candidates if candidate.exists()), None)
-        if not src_dir:
-            return []
-        layers: List[str] = []
-        for child in sorted(src_dir.iterdir()):
-            if not child.is_dir():
-                continue
-            layers.append(self._rel_to_base(child))
-            if len(layers) >= limit:
-                break
-        return layers
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.detect_src_layers(self, limit=limit)
 
     def _detect_tests(self) -> Tuple[bool, List[str], List[str]]:
-        evidence: List[str] = []
-        suggested_tasks: List[str] = []
-        patterns = [
-            "**/src/test",
-            "**/src/tests",
-            "**/test",
-            "**/tests",
-            "**/spec",
-            "**/specs",
-            "**/__tests__",
-        ]
-        roots = [self._paths_base]
-        if self._paths_base != self.root:
-            roots.append(self.root)
-        for root in roots:
-            if not root.exists():
-                continue
-            for pattern in patterns:
-                try:
-                    iterator = root.glob(pattern)
-                except OSError:
-                    continue
-                for candidate in iterator:
-                    if not candidate.exists():
-                        continue
-                    if self._is_excluded_test_path(candidate):
-                        continue
-                    evidence.append(self._rel_to_base(candidate))
-                    if len(evidence) >= 12:
-                        break
-                if len(evidence) >= 12:
-                    break
-            if len(evidence) >= 12:
-                break
+        from aidd_runtime import researcher_context_pack as _pack
 
-        try:
-            from aidd_runtime.test_settings_defaults import detect_build_tools
-
-            build_tools = detect_build_tools(self._paths_base if self._paths_base.exists() else self.root)
-        except Exception:
-            build_tools = set()
-        if "gradle" in build_tools:
-            suggested_tasks.append("./gradlew test")
-        if "npm" in build_tools:
-            suggested_tasks.append("npm test")
-        if "python" in build_tools:
-            suggested_tasks.append("pytest")
-        if "go" in build_tools:
-            suggested_tasks.append("go test ./...")
-        if "rust" in build_tools:
-            suggested_tasks.append("cargo test")
-        if "dotnet" in build_tools:
-            suggested_tasks.append("dotnet test")
-
-        return bool(evidence), _unique(evidence), _unique(suggested_tasks)
+        return _pack.detect_tests(self)
 
     def _is_excluded_test_path(self, path: Path) -> bool:
-        excluded_roots = {
-            "docs",
-            "reports",
-            ".cache",
-            ".git",
-            "aidd",
-            "node_modules",
-            ".venv",
-            "venv",
-            "vendor",
-            "dist",
-            "build",
-            "out",
-            "target",
-        }
-        for base in (self._paths_base, self.root):
-            try:
-                rel = path.relative_to(base)
-                parts = rel.parts
-                if not parts:
-                    return False
-                if any(part in excluded_roots for part in parts):
-                    return True
-                return False
-            except ValueError:
-                continue
-        return False
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.is_excluded_test_path(self, path)
 
     def _detect_configs(self) -> bool:
-        candidates = [
-            self._paths_base / "config",
-            self._paths_base / "configs",
-            self._paths_base / "settings",
-            self._paths_base / "src" / "main" / "resources",
-        ]
-        if self._paths_base != self.root:
-            candidates.extend(
-                [
-                    self.root / "config",
-                    self.root / "configs",
-                    self.root / "settings",
-                    self.root / "src" / "main" / "resources",
-                ]
-            )
-        for candidate in candidates:
-            if candidate.exists():
-                return True
-        return False
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.detect_configs(self)
 
     def _detect_logging_artifacts(self, limit: int = 5) -> List[str]:
-        tokens = ("logback", "logging", "logger", "log4j")
-        candidates: List[str] = []
-        search_roots = [
-            self._paths_base / "config",
-            self._paths_base / "configs",
-            self._paths_base / "src",
-        ]
-        if self._paths_base != self.root:
-            search_roots.extend(
-                [
-                    self.root / "config",
-                    self.root / "configs",
-                    self.root / "src",
-                ]
-            )
-        for root in search_roots:
-            if not root.exists():
-                continue
-            try:
-                iterator = root.rglob("*")
-            except OSError:
-                continue
-            for path in iterator:
-                if len(candidates) >= limit:
-                    break
-                if not path.is_file():
-                    continue
-                lowered = path.name.lower()
-                if any(token in lowered for token in tokens):
-                    candidates.append(self._rel_to_base(path))
-            if len(candidates) >= limit:
-                break
-        return candidates
+        from aidd_runtime import researcher_context_pack as _pack
+
+        return _pack.detect_logging_artifacts(self, limit=limit)
 
     def _baseline_recommendations(self, profile: Dict[str, Any], scope: Scope) -> List[str]:
-        recommendations: List[str] = []
-        defaults = self._settings.get("defaults", {})
-        default_paths = [item for item in defaults.get("paths", []) if isinstance(item, str) and item.strip()]
-        default_docs = [item for item in defaults.get("docs", []) if isinstance(item, str) and item.strip()]
-        default_keywords = [item for item in defaults.get("keywords", []) if isinstance(item, str) and item.strip()]
+        from aidd_runtime import researcher_context_pack as _pack
 
-        if profile["is_new_project"] and default_paths:
-            recommendations.append(
-                "Создайте базовые директории для разработки: " + ", ".join(default_paths)
-            )
-        if profile["is_new_project"] and default_docs:
-            recommendations.append(
-                "Подготовьте документацию по умолчанию: " + ", ".join(default_docs)
-            )
-        if profile["is_new_project"] and default_keywords:
-            recommendations.append(
-                "Добавьте ключевые термины в код/доки: " + ", ".join(default_keywords[:5])
-            )
-        if not profile["tests_detected"]:
-            recommendations.append("Добавьте tests/ или src/test для smoke-покрытия.")
-        if not profile["config_detected"]:
-            recommendations.append("Создайте config/ или settings/ с базовыми конфигурациями.")
-        if not profile["logging_artifacts"]:
-            recommendations.append("Настройте логирование (logback/logging.yaml) для наблюдаемости.")
-
-        if scope.manual_notes:
-            recommendations.append("Проверьте ручные заметки исследователя и перенесите их в отчёт.")
-
-        return _unique(recommendations)
+        return _pack.baseline_recommendations(self, profile, scope)
 
     def _resolve_tags(self, ticket: str, slug_hint: Optional[str]) -> List[str]:
         settings = self._settings
@@ -1141,67 +927,14 @@ class ResearcherContextBuilder:
         *,
         limit: int = _MAX_MATCHES,
     ) -> List[Dict[str, Any]]:
-        matches: List[Dict[str, Any]] = []
-        seen: set[Tuple[str, str, int]] = set()
-        tokens = [kw.strip().lower() for kw in keywords if kw]
-        if not tokens:
-            return matches
+        from aidd_runtime import researcher_context_read as _read
 
-        for root in roots:
-            if root.is_dir():
-                iterator = self._iter_files(root)
-            else:
-                iterator = iter([root])
-            for file_path in iterator:
-                rel = self._rel_to_base(file_path)
-                try:
-                    data = file_path.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
-                    continue
-                if len(data.encode("utf-8")) > _MAX_FILE_BYTES:
-                    continue
-                lowered = data.lower()
-                lines = data.splitlines()
-                for token in tokens:
-                    idx = lowered.find(token)
-                    if idx == -1:
-                        continue
-                    line_num = lowered[:idx].count("\n")
-                    snippet = "\n".join(lines[max(0, line_num - 1) : min(len(lines), line_num + 2)])
-                    key = (rel, token, line_num)
-                    if key in seen:
-                        continue
-                    matches.append(
-                        {
-                            "token": token,
-                            "file": rel,
-                            "line": line_num + 1,
-                            "snippet": snippet,
-                        }
-                    )
-                    seen.add(key)
-                    if len(matches) >= limit:
-                        return matches
-        return matches
+        return _read.scan_matches(self, roots, keywords, limit=limit)
 
     def _iter_files(self, root: Path) -> Iterator[Path]:
-        try:
-            base_root = root
-            if self._is_ignored_root(base_root):
-                return
-            for base, dirs, files in os.walk(root):
-                dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
-                if self._is_ignored_path(Path(base), base=base_root):
-                    dirs[:] = []
-                    continue
-                for name in files:
-                    path = Path(base) / name
-                    if self._is_ignored_path(path, base=base_root):
-                        continue
-                    if path.suffix.lower() in _ALLOWED_SUFFIXES:
-                        yield path
-        except OSError:
-            return
+        from aidd_runtime import researcher_context_read as _read
+
+        yield from _read.iter_files(self, root)
 
     def collect_deep_context(
         self,
@@ -1213,115 +946,39 @@ class ResearcherContextBuilder:
         reuse_only: bool = False,
         limit: int = _MAX_MATCHES,
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        allowed_langs = {lang.lower() for lang in (languages or _DEFAULT_LANGS)}
-        code_index = self._collect_code_index(roots, allowed_langs)
-        reuse_candidates = self._score_reuse_candidates(code_index, keywords, limit=limit)
-        if reuse_only:
-            return [], reuse_candidates
-        return code_index, reuse_candidates
+        from aidd_runtime import researcher_context_read as _read
+
+        return _read.collect_deep_context(
+            self,
+            scope,
+            roots=roots,
+            keywords=keywords,
+            languages=languages,
+            reuse_only=reuse_only,
+            limit=limit,
+        )
 
     def _collect_code_index(self, roots: Sequence[Path], allowed_langs: set[str]) -> List[Dict[str, Any]]:
-        index: List[Dict[str, Any]] = []
-        for root in roots:
-            iterator: Iterable[Path]
-            if root.is_dir():
-                iterator = self._iter_code_files(root, allowed_langs)
-            else:
-                iterator = [root]
-            for path in iterator:
-                lang = _language_for_path(path)
-                if not lang or lang not in allowed_langs:
-                    continue
-                summary = self._summarise_code_file(path, lang)
-                if summary:
-                    index.append(summary)
-        return index
+        from aidd_runtime import researcher_context_read as _read
+
+        return _read.collect_code_index(self, roots, allowed_langs)
 
     def _iter_code_files(self, root: Path, allowed_langs: set[str]) -> Iterator[Path]:
-        try:
-            base_root = root
-            if self._is_ignored_root(base_root):
-                return
-            for base, dirs, files in os.walk(root):
-                dirs[:] = [name for name in dirs if name.lower() not in self._ignore_dirs]
-                if self._is_ignored_path(Path(base), base=base_root):
-                    dirs[:] = []
-                    continue
-                for name in files:
-                    path = Path(base) / name
-                    if self._is_ignored_path(path, base=base_root):
-                        continue
-                    lang = _language_for_path(path)
-                    if not lang or lang not in allowed_langs:
-                        continue
-                    yield path
-        except OSError:
-            return
+        from aidd_runtime import researcher_context_read as _read
+
+        yield from _read.iter_code_files(self, root, allowed_langs)
 
     def _summarise_code_file(self, path: Path, lang: str) -> Optional[Dict[str, Any]]:
-        try:
-            data = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            return None
-        if len(data.encode("utf-8")) > _MAX_FILE_BYTES:
-            return None
+        from aidd_runtime import researcher_context_read as _read
 
-        imports: List[str] = []
-        symbols: List[Dict[str, Any]] = []
-        if lang == "py":
-            imports, symbols = _extract_python_summary(data)
-        else:
-            imports, symbols = _extract_generic_summary(data, lang)
-
-        has_tests = _is_test_path(path)
-        rel_path = self._rel_to_base(path)
-        return {
-            "path": rel_path,
-            "language": lang,
-            "imports": imports,
-            "symbols": symbols,
-            "has_tests": has_tests,
-        }
+        return _read.summarise_code_file(self, path, lang)
 
     def _score_reuse_candidates(
         self, code_index: Sequence[Dict[str, Any]], keywords: Sequence[str], *, limit: int = _MAX_MATCHES
     ) -> List[Dict[str, Any]]:
-        tokens = [kw.strip().lower() for kw in keywords if kw]
-        if not tokens:
-            tokens = []
-        candidates: List[Dict[str, Any]] = []
-        for entry in code_index:
-            path = entry.get("path", "")
-            language = entry.get("language", "")
-            has_tests = bool(entry.get("has_tests"))
-            symbols = entry.get("symbols") or []
-            imports = entry.get("imports") or []
-            symbol_tokens = [s.get("name", "") for s in symbols]
-            score = 0
-            lower_path = path.lower()
-            for token in tokens:
-                if token in lower_path:
-                    score += 2
-                if any(token in (sym or "").lower() for sym in symbol_tokens):
-                    score += 3
-                if any(token in (imp or "").lower() for imp in imports):
-                    score += 1
-            if has_tests:
-                score += 1
-            if score == 0 and tokens:
-                continue
-            candidates.append(
-                {
-                    "path": path,
-                    "language": language,
-                    "score": score,
-                    "has_tests": has_tests,
-                    "top_symbols": symbol_tokens[:3],
-                    "imports": imports[:5],
-                }
-            )
-        candidates.sort(key=lambda item: item.get("score", 0), reverse=True)
-        return candidates[:limit]
+        from aidd_runtime import researcher_context_read as _read
+
+        return _read.score_reuse_candidates(self, code_index, keywords, limit=limit)
 
 
 def _parse_paths(value: Optional[str]) -> List[str]:

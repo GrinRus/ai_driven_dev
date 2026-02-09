@@ -242,7 +242,7 @@ def _emit_research_hint(root: Path, file_path: str, ticket: str, slug_hint: str)
     label = ticket if not slug_hint or slug_hint == ticket else f"{ticket} (slug hint: {slug_hint})"
     _log_stdout(
         "WARN: {} не входит в список Researcher targets → обновите "
-        "${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/scripts/research.sh для {} "
+        "python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/researcher/runtime/research.py для {} "
         "или настройте paths.".format(file_path, label)
     )
 
@@ -311,7 +311,9 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     except Exception:
         return (
             "WARN: reviewer маркер повреждён ({}). Пересоздайте его командой "
-            "`${{CLAUDE_PLUGIN_ROOT}}/skills/review/scripts/reviewer-tests.sh --status required`.".format(marker_path)
+            "`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/review/runtime/reviewer_tests.py --status required`.".format(
+                marker_path
+            )
         )
 
     value = str(data.get(field, "")).strip().lower()
@@ -336,7 +338,7 @@ def main() -> int:
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh' from the workspace root to bootstrap ./aidd.".format(
+            "'python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )

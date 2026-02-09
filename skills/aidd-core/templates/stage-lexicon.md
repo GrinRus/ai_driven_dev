@@ -18,6 +18,10 @@
 - `review-plan`
 - `review-prd`
 
+## Legacy aliases (normalized to canonical stages)
+- `spec` -> `spec-interview`
+- `tasks`/`task` -> `tasklist`
+
 ## Mapping rules
 - `review-spec` — umbrella stage:
   - сначала `review-plan`
@@ -40,5 +44,5 @@
 
 ## Path policy
 - Stage-specific entrypoints: `skills/<stage>/scripts/*` (canonical).
-- Shared entrypoints: target canonical `skills/aidd-core/scripts/*`.
+- Shared entrypoints: target canonical `skills/aidd-core/runtime/*.py`.
 - `tools/*.sh` допускаются только как redirect wrappers на время migration window.

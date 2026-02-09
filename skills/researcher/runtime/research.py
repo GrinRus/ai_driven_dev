@@ -9,7 +9,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+_PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
+
 from aidd_runtime import runtime
+from aidd_runtime import research_hints as prd_hints
 from aidd_runtime.researcher_context import (
     ResearcherContextBuilder,
     _parse_keywords as _research_parse_keywords,
@@ -123,6 +129,10 @@ def _pack_extension() -> str:
     return ".pack.json"
 
 
+def _rlm_finalize_handoff_cmd(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Collect scope and context for the Researcher agent.",
@@ -233,6 +243,7 @@ def run(args: argparse.Namespace) -> int:
     prd_path = target / "docs" / "prd" / f"{ticket}.prd.md"
     prd_text = prd_path.read_text(encoding="utf-8") if prd_path.exists() else ""
     prd_overrides = _extract_prd_overrides(prd_text)
+    hints = prd_hints.parse_research_hints(prd_text)
     overrides_block = "\n".join(_render_overrides_block(prd_overrides))
 
     def _sync_index(reason: str) -> None:
@@ -253,14 +264,22 @@ def run(args: argparse.Namespace) -> int:
     scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
     extra_paths = _research_parse_paths(args.paths)
     rlm_paths = _research_parse_paths(getattr(args, "rlm_paths", None))
+    merged_paths = prd_hints.merge_unique(hints.paths, extra_paths)
+    merged_keywords = prd_hints.merge_unique(hints.keywords, _research_parse_keywords(args.keywords))
+    merged_notes = prd_hints.merge_unique(hints.notes, _research_parse_notes(getattr(args, "notes", None), target))
+    if not (merged_paths or merged_keywords or rlm_paths):
+        raise RuntimeError(
+            "BLOCK: AIDD:RESEARCH_HINTS must define Paths or Keywords "
+            f"in docs/prd/{ticket}.prd.md (or pass --paths/--keywords/--rlm-paths)."
+        )
     if rlm_paths and not extra_paths:
         scope = builder.sync_scope_paths(scope, rlm_paths)
         print("[aidd] INFO: research paths synced to --rlm-paths scope.", file=sys.stderr)
     scope = builder.extend_scope(
         scope,
-        extra_paths=extra_paths,
-        extra_keywords=_research_parse_keywords(args.keywords),
-        extra_notes=_research_parse_notes(getattr(args, "notes", None), target),
+        extra_paths=merged_paths,
+        extra_keywords=merged_keywords,
+        extra_notes=merged_notes,
     )
     _, _, search_roots = builder.describe_targets(scope)
     path_roots = builder.resolve_path_roots(scope)
@@ -436,6 +455,12 @@ def run(args: argparse.Namespace) -> int:
         )
     if rlm_warnings:
         collected_context["rlm_warnings"] = rlm_warnings
+    if rlm_status != "ready":
+        print(
+            "[aidd] INFO: shared RLM API owner is `aidd-rlm`; "
+            f"handoff command: `{_rlm_finalize_handoff_cmd(ticket)}`.",
+            file=sys.stderr,
+        )
     match_count = len(collected_context["matches"])
     if match_count == 0:
         print(

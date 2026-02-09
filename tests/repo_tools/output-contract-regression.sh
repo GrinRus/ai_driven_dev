@@ -17,14 +17,14 @@ require_rg() {
   fi
 }
 
-core_skill="${ROOT_DIR}/skills/aidd-core/SKILL.md"
-require_rg "Status:" "$core_skill"
-require_rg "Work item key:" "$core_skill"
-require_rg "Artifacts updated:" "$core_skill"
-require_rg "Tests:" "$core_skill"
-require_rg "Blockers/Handoff:" "$core_skill"
-require_rg "Next actions:" "$core_skill"
-require_rg "AIDD:READ_LOG:" "$core_skill"
-require_rg "AIDD:ACTIONS_LOG:" "$core_skill"
+policy_skill="${ROOT_DIR}/skills/aidd-policy/SKILL.md"
+require_rg "Status:" "$policy_skill"
+require_rg "Work item key:" "$policy_skill"
+require_rg "Artifacts updated:" "$policy_skill"
+require_rg "Tests:" "$policy_skill"
+require_rg "Blockers/Handoff:" "$policy_skill"
+require_rg "Next actions:" "$policy_skill"
+require_rg "AIDD:READ_LOG:" "$policy_skill"
+require_rg "AIDD:ACTIONS_LOG:" "$policy_skill"
 
 exit "$STATUS"

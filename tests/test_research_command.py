@@ -39,6 +39,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "research",
                     "--ticket",
                     "TEST-123",
+                    "--keywords",
+                    "test",
                     "--limit",
                     "1",
                 ),
@@ -51,6 +53,38 @@ class ResearchCommandTest(unittest.TestCase):
 
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
+
+    def test_research_command_blocks_without_research_hints(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "HINTS-0",
+                    "--auto",
+                    "--limit",
+                    "1",
+                ]
+            )
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with self.assertRaises(RuntimeError) as exc:
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
+            self.assertIn("AIDD:RESEARCH_HINTS", str(exc.exception))
 
     def test_research_command_uses_workspace_root_with_deep_code(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-ws-") as tmpdir:
@@ -79,6 +113,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "WORK-1",
                     "--auto",
                     "--deep-code",
+                    "--keywords",
+                    "workspace",
                     "--limit",
                     "5",
                 ]
@@ -180,6 +216,8 @@ class ResearchCommandTest(unittest.TestCase):
                 [
                     "--ticket",
                     "backend-demo",
+                    "--keywords",
+                    "backend",
                     "--limit",
                     "1",
                 ]
@@ -275,6 +313,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "research",
                     "--ticket",
                     "OVR-1",
+                    "--keywords",
+                    "overrides",
                     "--limit",
                     "1",
                 ),
@@ -316,6 +356,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "PY-1",
                     "--auto",
+                    "--keywords",
+                    "py",
                     "--limit",
                     "5",
                 ]
@@ -363,6 +405,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "ZERO-1",
                     "--auto",
+                    "--keywords",
+                    "zero",
                     "--limit",
                     "5",
                 ]

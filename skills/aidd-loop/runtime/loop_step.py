@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -89,59 +90,38 @@ def resolve_stage_scope(root: Path, ticket: str, stage: str) -> Tuple[str, str]:
 
 
 def stage_result_path(root: Path, ticket: str, scope_key: str, stage: str) -> Path:
-    return root / "reports" / "loops" / ticket / scope_key / f"stage.{stage}.result.json"
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.stage_result_path(root, ticket, scope_key, stage)
 
 
 def _parse_stage_result(path: Path, stage: str) -> Tuple[Dict[str, object] | None, str]:
-    if not path.exists():
-        return None, "missing"
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None, "invalid-json"
-    if str(payload.get("schema") or "") != "aidd.stage_result.v1":
-        return None, "invalid-schema"
-    if str(payload.get("stage") or "").strip().lower() != stage:
-        return None, "wrong-stage"
-    result = str(payload.get("result") or "").strip().lower()
-    if result not in {"blocked", "continue", "done"}:
-        return None, "invalid-result"
-    work_item_key = str(payload.get("work_item_key") or "").strip()
-    if work_item_key and not runtime.is_valid_work_item_key(work_item_key):
-        return None, "invalid-work-item"
-    return payload, ""
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result._parse_stage_result(path, stage)
 
 
 def _collect_stage_result_candidates(root: Path, ticket: str, stage: str) -> List[Path]:
-    base = root / "reports" / "loops" / ticket
-    if not base.exists():
-        return []
-    return sorted(
-        base.rglob(f"stage.{stage}.result.json"),
-        key=lambda candidate: candidate.stat().st_mtime if candidate.exists() else 0.0,
-        reverse=True,
-    )
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result._collect_stage_result_candidates(root, ticket, stage)
 
 
 def _in_window(path: Path, *, started_at: float | None, finished_at: float | None, tolerance_seconds: float = 5.0) -> bool:
-    if started_at is None or finished_at is None:
-        return True
-    if not path.exists():
-        return False
-    mtime = path.stat().st_mtime
-    return (started_at - tolerance_seconds) <= mtime <= (finished_at + tolerance_seconds)
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result._in_window(
+        path,
+        started_at=started_at,
+        finished_at=finished_at,
+        tolerance_seconds=tolerance_seconds,
+    )
 
 
 def _stage_result_diagnostics(candidates: List[Tuple[Path, str]]) -> str:
-    if not candidates:
-        return "candidates=none"
-    parts: List[str] = []
-    for path, status in candidates[:5]:
-        timestamp = "n/a"
-        if path.exists():
-            timestamp = dt.datetime.fromtimestamp(path.stat().st_mtime, tz=dt.timezone.utc).isoformat()
-        parts.append(f"{path.as_posix()}:{status}@{timestamp}")
-    return "candidates=" + ", ".join(parts)
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result._stage_result_diagnostics(candidates)
 
 
 def load_stage_result(
@@ -153,256 +133,118 @@ def load_stage_result(
     started_at: float | None = None,
     finished_at: float | None = None,
 ) -> Tuple[Dict[str, object] | None, Path, str, str, str, str]:
-    preferred_path = stage_result_path(root, ticket, scope_key, stage)
-    preferred_payload, preferred_error = _parse_stage_result(preferred_path, stage)
-    if preferred_payload is not None:
-        return preferred_payload, preferred_path, "", "", "", ""
+    from aidd_runtime import loop_step_stage_result as _stage_result
 
-    validated: List[Tuple[Path, Dict[str, object]]] = []
-    diagnostics: List[Tuple[Path, str]] = [(preferred_path, preferred_error)]
-    for candidate in _collect_stage_result_candidates(root, ticket, stage):
-        if candidate == preferred_path:
-            continue
-        payload, status = _parse_stage_result(candidate, stage)
-        diagnostics.append((candidate, status))
-        if payload is None:
-            continue
-        validated.append((candidate, payload))
-
-    fresh = [
-        (path, payload)
-        for path, payload in validated
-        if _in_window(path, started_at=started_at, finished_at=finished_at)
-    ]
-    selected_pool = fresh or validated
-    if not selected_pool:
-        return (
-            None,
-            preferred_path,
-            "stage_result_missing_or_invalid",
-            "",
-            "",
-            _stage_result_diagnostics(diagnostics),
-        )
-
-    selected_path, selected_payload = selected_pool[0]
-    selected_scope = str(selected_payload.get("scope_key") or "").strip() or selected_path.parent.name
-    mismatch_from = scope_key or ""
-    mismatch_to = ""
-    if scope_key and selected_scope and selected_scope != scope_key:
-        mismatch_to = selected_scope
-    return selected_payload, selected_path, "", mismatch_from, mismatch_to, _stage_result_diagnostics(diagnostics)
+    return _stage_result.load_stage_result(
+        root,
+        ticket,
+        scope_key,
+        stage,
+        started_at=started_at,
+        finished_at=finished_at,
+    )
 
 
 def normalize_stage_result(result: str, reason_code: str) -> str:
-    if reason_code in HARD_BLOCK_REASON_CODES:
-        return "blocked"
-    if result == "blocked" and reason_code in WARN_REASON_CODES:
-        return "continue"
-    return result
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.normalize_stage_result(result, reason_code)
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
-    try:
-        proc = subprocess.run(
-            [command, "--help"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-    except OSError:
-        return False
-    if proc.returncode != 0:
-        return False
-    return flag in (proc.stdout or "")
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.runner_supports_flag(command, flag)
 
 
 def _strip_flag_with_value(tokens: List[str], flag: str) -> Tuple[List[str], bool]:
-    cleaned: List[str] = []
-    stripped = False
-    skip_next = False
-    for token in tokens:
-        if skip_next:
-            skip_next = False
-            stripped = True
-            continue
-        if token == flag:
-            skip_next = True
-            stripped = True
-            continue
-        if token.startswith(flag + "="):
-            stripped = True
-            continue
-        cleaned.append(token)
-    return cleaned, stripped
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._strip_flag_with_value(tokens, flag)
 
 
 def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str], List[str]]:
-    notices: List[str] = []
-    updated, stripped_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
-    updated, stripped_add = _strip_flag_with_value(updated, "--add-dir")
-    if stripped_plugin or stripped_add:
-        notices.append("runner plugin flags replaced with CLAUDE_PLUGIN_ROOT")
-    updated.extend(["--plugin-dir", str(plugin_root), "--add-dir", str(plugin_root)])
-    return updated, notices
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.inject_plugin_flags(tokens, plugin_root)
 
 
 def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str, str]:
-    if not plugin_root.exists():
-        return False, f"plugin root not found: {plugin_root}", "plugin_root_missing"
-    skill_path = plugin_root / "skills" / stage / "SKILL.md"
-    if skill_path.exists():
-        return True, "", ""
-    command_path = plugin_root / "commands" / f"{stage}.md"
-    if command_path.exists():
-        return True, "", ""
-    return False, f"command not found: /feature-dev-aidd:{stage}", "command_unavailable"
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.validate_command_available(plugin_root, stage)
 
 
 def resolve_stream_mode(raw: Optional[str]) -> str:
-    if raw is None:
-        raw = os.environ.get("AIDD_AGENT_STREAM_MODE", "")
-    value = str(raw or "").strip().lower()
-    if not value:
-        return ""
-    return STREAM_MODE_ALIASES.get(value, "text")
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.resolve_stream_mode(raw)
 
 
 def review_pack_v2_required(root: Path) -> bool:
-    config = runtime.load_gates_config(root)
-    if not isinstance(config, dict):
-        return False
-    raw = config.get("review_pack_v2_required")
-    if raw is None:
-        return False
-    if isinstance(raw, str):
-        return raw.strip().lower() in {"1", "true", "yes", "block", "strict"}
-    return bool(raw)
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.review_pack_v2_required(root)
 
 
 def _parse_bool(value: str | None) -> bool | None:
-    if value is None:
-        return None
-    raw = value.strip().lower()
-    if raw in {"true", "yes", "1"}:
-        return True
-    if raw in {"false", "no", "0"}:
-        return False
-    return None
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._parse_bool(value)
 
 
 def _normalize_scope(value: str) -> str:
-    cleaned = value.strip().strip(")").strip()
-    return cleaned
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._normalize_scope(value)
 
 
 def _is_valid_work_item_key(value: str) -> bool:
-    return runtime.is_valid_work_item_key(value)
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._is_valid_work_item_key(value)
 
 
 def _extract_work_item_key(lines: List[str]) -> str:
-    scope = ""
-    for line in lines:
-        match = SCOPE_RE.search(line)
-        if match:
-            scope = _normalize_scope(match.group(1))
-            if scope:
-                break
-    if not scope:
-        return ""
-    return scope if _is_valid_work_item_key(scope) else ""
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._extract_work_item_key(lines)
 
 
 def _extract_blocking_flag(lines: List[str]) -> bool | None:
-    for line in lines:
-        match = BLOCKING_PAREN_RE.search(line)
-        if match:
-            return _parse_bool(match.group(1))
-        match = BLOCKING_LINE_RE.search(line)
-        if match:
-            return _parse_bool(match.group(1))
-    return None
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._extract_blocking_flag(lines)
 
 
 def _extract_item_id(lines: List[str]) -> str:
-    for line in lines:
-        match = ITEM_ID_RE.search(line)
-        if match:
-            return match.group(1).strip()
-    return ""
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._extract_item_id(lines)
 
 
 def _extract_checkbox_state(line: str) -> str:
-    match = CHECKBOX_RE.match(line)
-    if not match:
-        return ""
-    return match.group("state").strip().lower()
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._extract_checkbox_state(line)
 
 
 def _parse_qa_handoff_candidates(lines: List[str]) -> List[Tuple[str, str]]:
-    candidates: List[Tuple[str, str]] = []
-    in_handoff = False
-    current: List[str] = []
+    from aidd_runtime import loop_step_policy as _policy
 
-    def flush(block: List[str]) -> None:
-        if not block:
-            return
-        state = _extract_checkbox_state(block[0])
-        if state in {"x"}:
-            return
-        blocking = _extract_blocking_flag(block)
-        if blocking is not True:
-            return
-        work_item_key = _extract_work_item_key(block)
-        if not work_item_key:
-            return
-        item_id = _extract_item_id(block)
-        label = item_id or work_item_key
-        candidates.append((work_item_key, label))
-
-    for raw in lines:
-        stripped = raw.strip()
-        if stripped == HANDOFF_QA_START:
-            in_handoff = True
-            current = []
-            continue
-        if stripped == HANDOFF_QA_END:
-            flush(current)
-            current = []
-            in_handoff = False
-            continue
-        if not in_handoff:
-            continue
-        if CHECKBOX_RE.match(raw):
-            flush(current)
-            current = [raw]
-            continue
-        if current:
-            current.append(raw)
-    flush(current)
-    return candidates
+    return _policy._parse_qa_handoff_candidates(lines)
 
 
 def _auto_repair_enabled(root: Path) -> bool:
-    config = runtime.load_gates_config(root)
-    if not isinstance(config, dict):
-        return False
-    loop_cfg = config.get("loop")
-    if not isinstance(loop_cfg, dict):
-        loop_cfg = {}
-    raw = loop_cfg.get("auto_repair_from_qa")
-    if isinstance(raw, str):
-        return raw.strip().lower() in {"1", "true", "yes"}
-    return bool(raw)
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._auto_repair_enabled(root)
 
 
 def _resolve_qa_repair_mode(requested: str | None, root: Path) -> Tuple[str, bool]:
-    if requested:
-        return requested, True
-    if _auto_repair_enabled(root):
-        return "auto", False
-    return "", False
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._resolve_qa_repair_mode(requested, root)
 
 
 def _select_qa_repair_work_item(
@@ -412,26 +254,14 @@ def _select_qa_repair_work_item(
     select_handoff: bool,
     mode: str,
 ) -> Tuple[str, str, str, List[str]]:
-    if explicit:
-        if not _is_valid_work_item_key(explicit):
-            return "", "qa_repair_invalid_work_item", "work_item_key must start with iteration_id= or id=", []
-        return explicit, "", "", []
-    use_auto = select_handoff or mode == "auto"
-    if not use_auto:
-        return "", "qa_repair_missing_work_item", "work_item_key required for qa repair", []
-    candidates = _parse_qa_handoff_candidates(tasklist_lines)
-    if not candidates:
-        return "", "qa_repair_no_handoff", "no blocking QA handoff candidates", []
-    if len(candidates) > 1:
-        labels = [label for _, label in candidates]
-        return (
-            "",
-            "qa_repair_multiple_handoffs",
-            "multiple blocking QA handoff candidates",
-            labels,
-        )
-    work_item_key, label = candidates[0]
-    return work_item_key, "", "", [label]
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy._select_qa_repair_work_item(
+        tasklist_lines=tasklist_lines,
+        explicit=explicit,
+        select_handoff=select_handoff,
+        mode=mode,
+    )
 
 
 def _maybe_append_qa_repair_event(
@@ -442,43 +272,27 @@ def _maybe_append_qa_repair_event(
     work_item_key: str,
     mode: str,
 ) -> None:
-    from aidd_runtime.reports import events as _events
+    from aidd_runtime import loop_step_policy as _policy
 
-    path = _events.events_path(root, ticket)
-    if not path.exists():
-        return
-    _events.append_event(
+    _policy._maybe_append_qa_repair_event(
         root,
         ticket=ticket,
         slug_hint=slug_hint,
-        event_type="qa_repair_requested",
-        status="blocked",
-        details={"work_item_key": work_item_key, "mode": mode},
-        source="loop-step",
+        work_item_key=work_item_key,
+        mode=mode,
     )
 
 
 def parse_timestamp(value: str) -> dt.datetime | None:
-    if not value:
-        return None
-    raw = value.strip()
-    if raw.endswith("Z"):
-        raw = raw[:-1] + "+00:00"
-    try:
-        return dt.datetime.fromisoformat(raw)
-    except ValueError:
-        return None
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.parse_timestamp(value)
 
 
 def resolve_review_report_path(root: Path, ticket: str, slug_hint: str, scope_key: str) -> Path:
-    template = runtime.review_report_template(root)
-    rel_text = (
-        str(template)
-        .replace("{ticket}", ticket)
-        .replace("{slug}", slug_hint or ticket)
-        .replace("{scope_key}", scope_key)
-    )
-    return runtime.resolve_path_for_target(Path(rel_text), root)
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.resolve_review_report_path(root, ticket, slug_hint, scope_key)
 
 
 def _maybe_regen_review_pack(
@@ -488,29 +302,14 @@ def _maybe_regen_review_pack(
     slug_hint: str,
     scope_key: str,
 ) -> Tuple[bool, str]:
-    report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
-    if not report_path.exists():
-        return False, "review report missing"
-    loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
-    if not loop_pack_path.exists():
-        return False, "loop pack missing"
-    try:
-        from aidd_runtime import review_pack as review_pack_module
+    from aidd_runtime import loop_step_stage_result as _stage_result
 
-        args = ["--ticket", ticket]
-        if slug_hint:
-            args.extend(["--slug-hint", slug_hint])
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            review_pack_module.main(args)
-    except Exception as exc:
-        return False, f"review pack regen failed: {exc}"
-    pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-    if not pack_path.exists():
-        return False, "review pack missing"
-    return True, ""
+    return _stage_result._maybe_regen_review_pack(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
 
 
 def validate_review_pack(
@@ -520,162 +319,109 @@ def validate_review_pack(
     slug_hint: str,
     scope_key: str,
 ) -> Tuple[bool, str, str]:
-    pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-    if not pack_path.exists():
-        ok, regen_message = _maybe_regen_review_pack(
-            root,
-            ticket=ticket,
-            slug_hint=slug_hint,
-            scope_key=scope_key,
-        )
-        if ok:
-            pack_path = root / "reports" / "loops" / ticket / scope_key / "review.latest.pack.md"
-        else:
-            reason = regen_message or "review pack missing"
-            missing_reasons = {
-                "review report missing",
-                "loop pack missing",
-                "review pack missing",
-            }
-            code = "review_pack_missing" if reason in missing_reasons else "review_pack_regen_failed"
-            return False, reason, code
-    lines = pack_path.read_text(encoding="utf-8").splitlines()
-    front = parse_front_matter(lines)
-    schema = str(front.get("schema") or "").strip()
-    if schema not in {"aidd.review_pack.v1", "aidd.review_pack.v2"}:
-        return False, "review pack schema invalid", "review_pack_invalid_schema"
-    if schema == "aidd.review_pack.v1" and review_pack_v2_required(root):
-        return False, "review pack v2 required", "review_pack_v2_required"
-    if schema == "aidd.review_pack.v1":
-        rel_path = runtime.rel_path(pack_path, root)
-        print(f"[loop-step] WARN: review pack v1 in use ({rel_path})", file=sys.stderr)
-    verdict = str(front.get("verdict") or "").strip().upper()
-    if verdict == "REVISE":
-        fix_plan_path = root / "reports" / "loops" / ticket / scope_key / "review.fix_plan.json"
-        if not fix_plan_path.exists():
-            return False, "review fix plan missing", "review_fix_plan_missing"
-    report_path = resolve_review_report_path(root, ticket, slug_hint, scope_key)
-    if report_path.exists():
-        try:
-            report = json.loads(report_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            report = {}
-        pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
-        report_updated = parse_timestamp(str(report.get("updated_at") or report.get("generated_at") or ""))
-        if pack_updated and report_updated and pack_updated < report_updated:
-            ok, regen_message = _maybe_regen_review_pack(
-                root,
-                ticket=ticket,
-                slug_hint=slug_hint,
-                scope_key=scope_key,
-            )
-            if not ok:
-                return False, regen_message or "review pack stale", "review_pack_stale"
-            try:
-                refreshed = pack_path.read_text(encoding="utf-8").splitlines()
-                front = parse_front_matter(refreshed)
-            except OSError:
-                front = front
-            pack_updated = parse_timestamp(str(front.get("updated_at") or ""))
-            if pack_updated and report_updated and pack_updated < report_updated:
-                return False, "review pack stale", "review_pack_stale"
-    return True, "", ""
+    from aidd_runtime import loop_step_stage_result as _stage_result
+
+    return _stage_result.validate_review_pack(
+        root,
+        ticket=ticket,
+        slug_hint=slug_hint,
+        scope_key=scope_key,
+    )
 
 
 def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str], str, str]:
-    raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude"
-    tokens = shlex.split(raw) if raw.strip() else ["claude"]
-    notices: List[str] = []
-    if "-p" in tokens:
-        tokens = [token for token in tokens if token != "-p"]
-        notices.append("runner flag -p dropped; loop-step adds -p with slash command")
-    if "--no-session-persistence" in tokens:
-        if not runner_supports_flag(tokens[0], "--no-session-persistence"):
-            tokens = [token for token in tokens if token != "--no-session-persistence"]
-            notices.append("runner flag --no-session-persistence unsupported; dropped")
-    tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
-    notices.extend(flag_notices)
-    return tokens, raw, "; ".join(notices)
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.resolve_runner(args_runner, plugin_root)
 
 
 def is_skill_first(plugin_root: Path) -> bool:
-    core = plugin_root / "skills" / "aidd-core" / "SKILL.md"
-    if not core.exists():
-        return False
-    for stage in ("implement", "review", "qa"):
-        if (plugin_root / "skills" / stage / "SKILL.md").exists():
-            return True
-    return False
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.is_skill_first(plugin_root)
 
 
 def resolve_wrapper_plugin_root(plugin_root: Path) -> Path:
-    for env_name in ("AIDD_STAGE_WRAPPERS_ROOT", "AIDD_WRAPPER_PLUGIN_ROOT"):
-        raw = os.environ.get(env_name, "").strip()
-        if not raw:
-            continue
-        candidate = Path(raw).expanduser().resolve()
-        if (candidate / "skills").exists():
-            return candidate
-        print(
-            f"[loop-step] WARN: {env_name}={candidate} has no skills/; using {plugin_root}",
-            file=sys.stderr,
-        )
-    return plugin_root
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.resolve_wrapper_plugin_root(plugin_root)
 
 
 def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
-    if stage not in {"implement", "review", "qa"}:
-        return False
-    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1":
-        return False
-    if not is_skill_first(plugin_root):
-        return False
-    # Wrapper chain is part of the SKILL_FIRST runtime contract and must not depend on
-    # the underlying runner implementation.
-    return True
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.should_run_wrappers(stage, runner_raw, plugin_root)
 
 
 def resolve_hooks_mode() -> str:
-    raw = (os.environ.get("AIDD_HOOKS_MODE") or "").strip().lower()
-    return "strict" if raw == "strict" else "fast"
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.resolve_hooks_mode()
 
 
 def evaluate_wrapper_skip_policy(stage: str, plugin_root: Path) -> Tuple[str, str, str]:
-    if stage not in {"implement", "review", "qa"}:
-        return "", "", ""
-    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() != "1":
-        return "", "", ""
-    if not is_skill_first(plugin_root):
-        return "", "", ""
-    message = "stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1"
-    hooks_mode = resolve_hooks_mode()
-    if hooks_mode == "strict" or stage in {"review", "qa"}:
-        return "blocked", message, WRAPPER_SKIP_BLOCK_REASON_CODE
-    return "warn", message, WRAPPER_SKIP_WARN_REASON_CODE
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.evaluate_wrapper_skip_policy(stage, plugin_root)
 
 
 def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:
-    if str(status).strip().lower() != "warn":
-        return "", ""
-    hooks_mode = resolve_hooks_mode()
-    if hooks_mode == "strict":
-        return "blocked", OUTPUT_CONTRACT_WARN_REASON_CODE
-    return "warn", OUTPUT_CONTRACT_WARN_REASON_CODE
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.evaluate_output_contract_policy(status)
 
 
 def _parse_wrapper_output(stdout: str) -> Dict[str, str]:
-    payload: Dict[str, str] = {}
-    for raw in stdout.splitlines():
-        line = raw.strip()
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key or not value:
-            continue
-        payload[key] = value
-    return payload
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._parse_wrapper_output(stdout)
+
+
+def _runtime_env(plugin_root: Path) -> Dict[str, str]:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._runtime_env(plugin_root)
+
+
+def _stage_wrapper_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._stage_wrapper_log_path(target, stage, ticket, scope_key, kind)
+
+
+def _append_stage_wrapper_log(log_path: Path, command: List[str], stdout: str, stderr: str) -> None:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    _wrappers._append_stage_wrapper_log(log_path, command, stdout, stderr)
+
+
+def _run_runtime_command(
+    *,
+    command: List[str],
+    cwd: Path,
+    env: Dict[str, str],
+    log_path: Path,
+) -> Tuple[int, str, str]:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._run_runtime_command(
+        command=command,
+        cwd=cwd,
+        env=env,
+        log_path=log_path,
+    )
+
+
+def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) -> Dict[str, Path]:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers._resolve_stage_paths(target, ticket, scope_key, stage)
+
+
+def _copy_optional_preflight_fallback(paths: Dict[str, Path]) -> None:
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    _wrappers._copy_optional_preflight_fallback(paths)
 
 
 def run_stage_wrapper(
@@ -691,45 +437,26 @@ def run_stage_wrapper(
     result: str = "",
     verdict: str = "",
 ) -> Tuple[bool, Dict[str, str], str]:
-    script = plugin_root / "skills" / stage / "scripts" / f"{kind}.sh"
-    if not script.exists():
-        return False, {}, f"wrapper script missing: {script}"
-    cmd = [
-        str(script),
-        "--ticket",
-        ticket,
-        "--scope-key",
-        scope_key,
-        "--work-item-key",
-        work_item_key,
-        "--stage",
-        stage,
-    ]
-    if actions_path:
-        cmd.extend(["--actions", actions_path])
-    if kind == "postflight" and result:
-        cmd.extend(["--result", result])
-    if kind == "postflight" and verdict:
-        cmd.extend(["--verdict", verdict])
-    proc = subprocess.run(
-        cmd,
-        cwd=workspace_root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.run_stage_wrapper(
+        plugin_root=plugin_root,
+        workspace_root=workspace_root,
+        stage=stage,
+        kind=kind,
+        ticket=ticket,
+        scope_key=scope_key,
+        work_item_key=work_item_key,
+        actions_path=actions_path,
+        result=result,
+        verdict=verdict,
     )
-    parsed = _parse_wrapper_output(proc.stdout or "")
-    if proc.returncode != 0:
-        stderr = (proc.stderr or "").strip()
-        stdout = (proc.stdout or "").strip()
-        details = stderr or stdout or f"exit={proc.returncode}"
-        return False, parsed, f"{kind} wrapper failed: {details}"
-    return True, parsed, ""
 
 
 def _canonical_actions_log_rel(ticket: str, scope_key: str, stage: str) -> str:
-    return f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json"
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.canonical_actions_log_rel(ticket, scope_key, stage)
 
 
 def _align_actions_log_scope(
@@ -741,22 +468,16 @@ def _align_actions_log_scope(
     mismatch_to: str,
     target: Path,
 ) -> str:
-    if not mismatch_to or stage not in {"implement", "review", "qa"}:
-        return actions_log_rel
-    canonical_rel = _canonical_actions_log_rel(ticket, mismatch_to, stage)
-    if actions_log_rel and f"/{mismatch_to}/" in actions_log_rel:
-        return actions_log_rel
-    canonical_path = runtime.resolve_path_for_target(Path(canonical_rel), target)
-    if canonical_path.exists():
-        return runtime.rel_path(canonical_path, target)
-    if not actions_log_rel:
-        return canonical_rel
-    current_path = runtime.resolve_path_for_target(Path(actions_log_rel), target)
-    if current_path.exists():
-        return runtime.rel_path(current_path, target)
-    if mismatch_from and f"/{mismatch_from}/" in actions_log_rel:
-        return actions_log_rel
-    return actions_log_rel
+    from aidd_runtime import loop_step_policy as _policy
+
+    return _policy.align_actions_log_scope(
+        actions_log_rel=actions_log_rel,
+        ticket=ticket,
+        stage=stage,
+        mismatch_from=mismatch_from,
+        mismatch_to=mismatch_to,
+        target=target,
+    )
 
 
 def _validate_stage_wrapper_contract(
@@ -767,85 +488,27 @@ def _validate_stage_wrapper_contract(
     stage: str,
     actions_log_rel: str,
 ) -> Tuple[bool, str, str]:
-    if stage not in {"implement", "review", "qa"}:
-        return True, "", ""
-    actions_dir = target / "reports" / "actions" / ticket / scope_key
-    context_dir = target / "reports" / "context" / ticket
-    loops_dir = target / "reports" / "loops" / ticket / scope_key
-    logs_dir = target / "reports" / "logs" / stage / ticket / scope_key
+    from aidd_runtime import loop_step_wrappers as _wrappers
 
-    required_paths = {
-        "actions_template": actions_dir / f"{stage}.actions.template.json",
-        "actions_payload": actions_dir / f"{stage}.actions.json",
-        "readmap_json": context_dir / f"{scope_key}.readmap.json",
-        "readmap_md": context_dir / f"{scope_key}.readmap.md",
-        "writemap_json": context_dir / f"{scope_key}.writemap.json",
-        "writemap_md": context_dir / f"{scope_key}.writemap.md",
-        "preflight_result": loops_dir / "stage.preflight.result.json",
-    }
-    missing: List[str] = []
-    for path in required_paths.values():
-        if not path.exists():
-            missing.append(runtime.rel_path(path, target))
-
-    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
-    if not wrapper_logs:
-        missing.append(runtime.rel_path(logs_dir / "wrapper.*.log", target))
-
-    actions_log_value = (actions_log_rel or "").strip()
-    if not actions_log_value:
-        missing.append("AIDD:ACTIONS_LOG")
-    else:
-        actions_log_path = runtime.resolve_path_for_target(Path(actions_log_value), target)
-        if not actions_log_path.exists():
-            missing.append(runtime.rel_path(actions_log_path, target))
-
-    if not missing:
-        return True, "", ""
-    reason_code = "actions_missing" if any("actions" in item.lower() for item in missing) else "preflight_missing"
-    message = "missing stage wrapper artifacts: " + ", ".join(missing)
-    return False, message, reason_code
+    return _wrappers.validate_stage_wrapper_contract(
+        target=target,
+        ticket=ticket,
+        scope_key=scope_key,
+        stage=stage,
+        actions_log_rel=actions_log_rel,
+    )
 
 
 def build_command(stage: str, ticket: str) -> List[str]:
-    command = f"/feature-dev-aidd:{stage} {ticket}"
-    return ["-p", command]
+    from aidd_runtime import loop_step_wrappers as _wrappers
 
-
-class MultiWriter:
-    def __init__(self, *streams: Optional[TextIO]) -> None:
-        self._streams: List[TextIO] = [stream for stream in streams if stream is not None]
-
-    def write(self, data: str) -> None:
-        for stream in self._streams:
-            stream.write(data)
-
-    def flush(self) -> None:
-        for stream in self._streams:
-            stream.flush()
-
-
-def _drain_stream(pipe: Optional[TextIO], writer: MultiWriter, raw_log: TextIO) -> None:
-    if pipe is None:
-        return
-    for line in pipe:
-        raw_log.write(line)
-        writer.write(line)
-        raw_log.flush()
-        writer.flush()
+    return _wrappers.build_command(stage, ticket)
 
 
 def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("w", encoding="utf-8") as handle:
-        result = subprocess.run(
-            command,
-            cwd=cwd,
-            text=True,
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-        )
-    return result.returncode
+    from aidd_runtime import loop_step_wrappers as _wrappers
+
+    return _wrappers.run_command(command, cwd, log_path)
 
 
 def run_stream_command(
@@ -859,58 +522,18 @@ def run_stream_command(
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
 ) -> int:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-    stream_log_path.parent.mkdir(parents=True, exist_ok=True)
+    from aidd_runtime import loop_step_wrappers as _wrappers
 
-    with (
-        log_path.open("w", encoding="utf-8") as raw_log,
-        stream_jsonl_path.open("w", encoding="utf-8") as stream_jsonl,
-        stream_log_path.open("w", encoding="utf-8") as stream_log,
-    ):
-        writer = MultiWriter(stream_log, output_stream)
-        if header_lines:
-            for line in header_lines:
-                writer.write(line + "\n")
-            writer.flush()
-        if stream_mode == "raw":
-            writer.write("[stream] WARN: raw mode enabled; JSON events will be printed.\n")
-            writer.flush()
-        proc = subprocess.Popen(
-            command,
-            cwd=cwd,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1,
-        )
-        drain_thread = threading.Thread(
-            target=_drain_stream,
-            args=(proc.stderr, writer, raw_log),
-            daemon=True,
-        )
-        drain_thread.start()
-        for line in proc.stdout or []:
-            raw_log.write(line)
-            stream_jsonl.write(line)
-            raw_log.flush()
-            stream_jsonl.flush()
-            if stream_mode == "raw":
-                writer.write(line)
-                writer.flush()
-                continue
-            claude_stream_render.render_line(
-                line,
-                writer=writer,
-                mode="text+tools" if stream_mode == "tools" else "text-only",
-                strict=False,
-                warn_stream=writer,
-            )
-        if proc.stdout:
-            proc.stdout.close()
-        returncode = proc.wait()
-        drain_thread.join(timeout=1)
-        return returncode
+    return _wrappers.run_stream_command(
+        command=command,
+        cwd=cwd,
+        log_path=log_path,
+        stream_mode=stream_mode,
+        stream_jsonl_path=stream_jsonl_path,
+        stream_log_path=stream_log_path,
+        output_stream=output_stream,
+        header_lines=header_lines,
+    )
 
 
 def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
@@ -1541,6 +1164,31 @@ def main(argv: list[str] | None = None) -> int:
     )
     preliminary_result = str(payload.get("result") or "").strip().lower() if payload else "continue"
     preliminary_verdict = str(payload.get("verdict") or "").strip().upper() if payload else ""
+    if mismatch_to:
+        if not scope_key_mismatch_warn:
+            scope_key_mismatch_warn = "1"
+            scope_key_mismatch_from = mismatch_from
+            scope_key_mismatch_to = mismatch_to
+            print(
+                f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
+                file=sys.stderr,
+            )
+        next_scope_key = mismatch_to
+        aligned_actions_log_rel = _align_actions_log_scope(
+            actions_log_rel=actions_log_rel,
+            ticket=ticket,
+            stage=next_stage,
+            mismatch_from=mismatch_from,
+            mismatch_to=mismatch_to,
+            target=target,
+        )
+        if aligned_actions_log_rel != actions_log_rel:
+            print(
+                "[loop-step] WARN: actions_log_scope_realigned "
+                f"from={actions_log_rel or 'n/a'} to={aligned_actions_log_rel}",
+                file=sys.stderr,
+            )
+            actions_log_rel = aligned_actions_log_rel
 
     if wrapper_enabled:
         ok_wrapper, post_payload, wrapper_error = run_stage_wrapper(
@@ -1549,7 +1197,7 @@ def main(argv: list[str] | None = None) -> int:
             stage=next_stage,
             kind="postflight",
             ticket=ticket,
-            scope_key=wrapper_scope_key,
+            scope_key=next_scope_key or wrapper_scope_key,
             work_item_key=wrapper_work_item_key,
             actions_path=actions_log_rel,
             result=preliminary_result or "continue",
@@ -1591,9 +1239,14 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if mismatch_to:
-        scope_key_mismatch_warn = "1"
-        scope_key_mismatch_from = mismatch_from
-        scope_key_mismatch_to = mismatch_to
+        if not scope_key_mismatch_warn:
+            scope_key_mismatch_warn = "1"
+            scope_key_mismatch_from = mismatch_from
+            scope_key_mismatch_to = mismatch_to
+            print(
+                f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
+                file=sys.stderr,
+            )
         next_scope_key = mismatch_to
         aligned_actions_log_rel = _align_actions_log_scope(
             actions_log_rel=actions_log_rel,
@@ -1610,10 +1263,6 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             actions_log_rel = aligned_actions_log_rel
-        print(
-            f"[loop-step] WARN: scope_key_mismatch_warn from={mismatch_from} to={mismatch_to}",
-            file=sys.stderr,
-        )
 
     if error:
         return emit_result(
