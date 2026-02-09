@@ -859,10 +859,11 @@ _Статус: план, приоритет 0. Цель — довести resea
 - **R98-M1b:** в `skills/researcher/SKILL.md` ровно один orchestration-вызов `Run subagent`.
   **Check:** `test "$(rg -n "Run subagent" skills/researcher/SKILL.md | wc -l | tr -d ' ')" = "1"`.
 - **R98-M1c:** в `skills/researcher/SKILL.md` нет fork-формулировок/двойной делегации в steps.
-  **Check:** `rg -n "forked context|\\(fork\\)|Delegate to subagent" skills/researcher/SKILL.md`.
+  **Check:** `test -z "$(rg -n "forked context|\\(fork\\)|Delegate to subagent" skills/researcher/SKILL.md)"`.
 - **R98-M2:** runtime/hints не читают и не записывают legacy `*-context.json`/`*-targets.json` вне compat-fixtures.
-  **Check:** `rg -n "reports/research/.+-context\\.json|reports/research/.+-targets\\.json" skills hooks tools templates docs tests dev`.
-  **Write-check:** `rg -n "write_text\\(.+context\\.json|json\\.dump\\(.+context\\.json|open\\(.+context\\.json" skills hooks tools`.
+  **Check (runtime/docs surfaces):** `rg -n "reports/research/[^/]+-context\\.json|reports/research/[^/]+-targets\\.json" skills hooks tools templates docs dev | rg -v "rlm-targets\\.json"`.
+  **Check (tests outside compat-fixtures):** `rg -n "reports/research/[^/]+-context\\.json|reports/research/[^/]+-targets\\.json" tests | rg -v "rlm-targets\\.json" | rg -v "fixtures|compat"`.
+  **Write-check:** `rg -n "context\\.json|targets\\.json" skills hooks tools | rg -v "rlm-targets\\.json"`.
 - **R98-M3:** legacy permission pattern `Bash(...:*)` удалён из canonical prompts/docs/baselines/templates/plugin metadata.
   **Check:** `rg -n "Bash\\([^)]*:\\*\\)" skills agents docs templates tests dev .claude-plugin`.
 - **R98-M4:** research regression suites green в RLM-only режиме.
@@ -907,6 +908,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   - обновить baseline/migration artifacts под новый grammar;
   - зафиксировать rollback note на случай drift в downstream forks.
   **AC:** `Bash(...:*)` блокируется как policy violation на уровне CI.
+  **Precondition:** перед включением fail-fast `rg -n "Bash\\([^)]*:\\*\\)" skills agents` должен вернуть `0` строк; иначе enforcement переносится в следующую волну.
   **Deps:** W98-2b, W98-10
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`.
   **Effort:** M
@@ -954,7 +956,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   - удалить legacy `reports.research_pack_budget` path и связанные fallback-настройки;
   - закрепить pipeline: `rlm-targets -> rlm-manifest -> rlm.worklist.pack -> nodes/links -> rlm.pack`.
   **AC:** RLM runtime не мутирует `*-context.json`; source of truth только RLM artifacts.
-  **Deps:** W98-1
+  **Deps:** W98-1, W98-6b
   **Regression/tests:** `python3 -m pytest -q tests/test_rlm_nodes_build.py tests/test_rlm_links_build.py tests/test_reports_pack.py tests/test_research_rlm_e2e.py`.
   **Effort:** L
   **Risk:** High
@@ -964,7 +966,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   - описать deterministic handoff для отсутствующих RLM artifacts (`rerun research`, explicit command hints);
   - синхронизировать policy с gate behavior и user-facing troubleshooting.
   **AC:** есть единая documented стратегия перехода для старых workspace-артефактов; behavior гейтов соответствует documentation.
-  **Deps:** W98-6
+  **Deps:** W98-1
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, targeted gate tests.
   **Effort:** M
   **Risk:** Medium
@@ -1036,8 +1038,8 @@ _Статус: план, приоритет 0. Цель — довести resea
 ### Wave 98 Critical Path
 
 1. `W98-1` -> `W98-2a` -> `W98-3` -> `W98-4`
-2. `W98-6` + `W98-6b` -> `W98-7` -> `W98-8`
-3. `W98-10` -> `W98-11` -> `W98-2b` -> `W98-2c` -> `W98-12`
+2. `W98-6b` -> `W98-6` -> `W98-7` -> `W98-8`
+3. `W98-2b` -> `W98-10` -> `W98-11` -> `W98-2c` -> `W98-12`
 4. `W98-5` — carry-over task вне критического пути research wave.
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
