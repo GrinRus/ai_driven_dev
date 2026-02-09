@@ -130,12 +130,10 @@ class RlmNodesBuildTests(unittest.TestCase):
             ticket = "RLM-REFRESH"
             write_active_feature(project_root, ticket)
 
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            context_path.parent.mkdir(parents=True, exist_ok=True)
-            context_path.write_text(
-                json.dumps({"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}),
-                encoding="utf-8",
-            )
+            legacy_state_path = project_root / "reports" / "research" / f"{ticket}-legacy-state.json"
+            legacy_state_path.parent.mkdir(parents=True, exist_ok=True)
+            original_state = {"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}
+            legacy_state_path.write_text(json.dumps(original_state), encoding="utf-8")
 
             manifest_path = project_root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
             manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,9 +176,8 @@ class RlmNodesBuildTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertNotIn("rlm_status", payload)
-            self.assertNotIn("rlm_worklist_path", payload)
+            payload = json.loads(legacy_state_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload, original_state)
             worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             self.assertTrue(worklist_path.exists())
 
@@ -190,13 +187,6 @@ class RlmNodesBuildTests(unittest.TestCase):
             project_root = ensure_project_root(workspace)
             ticket = "RLM-REFRESH-SCOPE"
             write_active_feature(project_root, ticket)
-
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            context_path.parent.mkdir(parents=True, exist_ok=True)
-            context_path.write_text(
-                json.dumps({"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}),
-                encoding="utf-8",
-            )
 
             manifest_path = project_root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
             manifest_path.parent.mkdir(parents=True, exist_ok=True)

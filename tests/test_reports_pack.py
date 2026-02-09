@@ -24,7 +24,7 @@ class ReportsPackTests(unittest.TestCase):
     def test_research_context_pack_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            context_path = tmp_path / "reports" / "research" / "demo-context.json"
+            context_path = tmp_path / "reports" / "research" / "demo-source.json"
             payload = {
                 "ticket": "DEMO-1",
                 "slug": "demo-1",
@@ -68,7 +68,7 @@ class ReportsPackTests(unittest.TestCase):
             "generated_at": "2024-01-08T00:00:00Z",
             "matches": matches,
         }
-        pack = reports_pack.build_research_context_pack(payload, source_path="aidd/reports/research/demo-4-context.json")
+        pack = reports_pack.build_research_context_pack(payload, source_path="aidd/reports/research/demo-4-source.json")
         match_rows = pack["matches"]["rows"]
         self.assertEqual(len(match_rows), reports_pack.RESEARCH_LIMITS["matches"])
         self.assertLessEqual(len(match_rows[0][4]), reports_pack.RESEARCH_LIMITS["match_snippet_chars"])
@@ -76,7 +76,7 @@ class ReportsPackTests(unittest.TestCase):
     def test_pack_extension_is_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            context_path = tmp_path / "reports" / "research" / "demo-context.json"
+            context_path = tmp_path / "reports" / "research" / "demo-source.json"
             payload = {"ticket": "DEMO-2", "slug": "demo-2", "generated_at": "2024-01-02T00:00:00Z"}
             _write_context(context_path, payload)
 
@@ -128,7 +128,7 @@ class ReportsPackTests(unittest.TestCase):
     def test_research_pack_budget_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            context_path = tmp_path / "reports" / "research" / "tiny-context.json"
+            context_path = tmp_path / "reports" / "research" / "tiny-source.json"
             payload = {"ticket": "DEMO-3", "slug": "demo-3", "generated_at": "2024-01-03T00:00:00Z"}
             _write_context(context_path, payload)
 
@@ -146,7 +146,7 @@ class ReportsPackTests(unittest.TestCase):
     def test_research_pack_auto_trim_meets_budget(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            context_path = tmp_path / "reports" / "research" / "trim-context.json"
+            context_path = tmp_path / "reports" / "research" / "trim-source.json"
             matches = [
                 {"token": "match", "file": f"src/{idx}.py", "line": idx + 1, "snippet": "x" * 400}
                 for idx in range(50)
@@ -184,7 +184,7 @@ class ReportsPackTests(unittest.TestCase):
     def test_budget_enforcement_raises(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            context_path = tmp_path / "reports" / "research" / "huge-context.json"
+            context_path = tmp_path / "reports" / "research" / "huge-source.json"
             payload = {
                 "ticket": "X" * 2000,
                 "slug": "huge",

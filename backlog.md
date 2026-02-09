@@ -796,6 +796,7 @@ _Важное: этот wave **supersedes shell-wrapper assumptions** из Wave 
 ## Wave 90 — Research RLM-only (python-only flow, без legacy context artifacts)
 
 _Статус: завершено, приоритет 1. Канон: runtime entrypoints только `skills/*/runtime/*.py`, без `tools/*`, без `*-context*` и legacy `*-targets.json`._
+_Пере-проверка: 2026-02-09 — подтверждено после фиксов (`hooks/gate-tests.sh` переведён на `*-rlm-targets.json`, legacy test-paths вычищены)._
 
 - [x] **W90-1** `skills/aidd-core/runtime/research_hints.py`, `skills/researcher/runtime/research.py`, `skills/idea-new/templates/prd.template.md`, `tests/test_research_hints.py`, `tests/test_research_command.py`:
   - добавить парсер `AIDD:RESEARCH_HINTS` (Paths/Keywords/Notes) с нормализацией (split `:`/`,`/whitespace, trim, dedupe);

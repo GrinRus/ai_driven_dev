@@ -94,6 +94,27 @@ def test_warns_when_reviewer_requests_tests(tmp_path):
     assert "reviewer запросил обязательный запуск тестов" in (result.stdout or "")
 
 
+def test_warns_when_source_outside_rlm_targets(tmp_path):
+    ensure_gates_config(tmp_path, {"tests_required": "soft"})
+    write_active_feature(tmp_path, "demo")
+    write_active_stage(tmp_path, "review")
+    write_json(
+        tmp_path,
+        "reports/research/demo-rlm-targets.json",
+        {
+            "ticket": "demo",
+            "paths": ["src/main/kotlin/payments"],
+            "keywords": ["checkout"],
+        },
+    )
+    write_file(tmp_path, "src/main/kotlin/service/RuleEngine.kt", "class RuleEngine")
+    write_file(tmp_path, "src/test/kotlin/service/RuleEngineTest.kt", "class RuleEngineTest")
+
+    result = run_hook(tmp_path, "gate-tests.sh", SRC_PAYLOAD)
+    assert result.returncode == 0, result.stderr
+    assert "не входит в список Researcher targets" in (result.stdout or "")
+
+
 def test_gate_tests_requires_plugin_root(tmp_path):
     ensure_gates_config(tmp_path, {"tests_required": "hard"})
     project_root = tmp_path / "aidd"

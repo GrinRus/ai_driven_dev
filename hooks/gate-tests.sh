@@ -217,7 +217,7 @@ def _emit_research_hint(root: Path, file_path: str, ticket: str, slug_hint: str)
     if not research.get("enabled", True):
         return
 
-    targets_path = root / "reports" / "research" / f"{ticket}-targets.json"
+    targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
     try:
         targets = json.loads(targets_path.read_text(encoding="utf-8"))
     except Exception:
