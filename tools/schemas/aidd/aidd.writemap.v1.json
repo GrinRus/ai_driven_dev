@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.writemap.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.writemap.v1",
+  "title": "AIDD Write Map v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "ticket",
+    "stage",
+    "scope_key",
+    "work_item_key",
+    "generated_at",
+    "allowed_paths",
+    "loop_allowed_paths",
+    "docops_only_paths",
+    "always_allow"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.writemap.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "work_item_key": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_contract": {
+      "type": "string"
+    },
+    "allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "loop_allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "docops_only_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "always_allow": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "write_blocks": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}

@@ -576,6 +576,9 @@ def collect_changed_files(base: Path) -> List[str]:
     )
     if proc.returncode == 0:
         files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only", "HEAD"]))
+    else:
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--name-only"]))
+        files.update(git_lines(["git", "-C", str(git_root), "diff", "--cached", "--name-only"]))
 
     # untracked
     files.update(git_lines(["git", "-C", str(git_root), "ls-files", "--others", "--exclude-standard"]))
@@ -773,11 +776,14 @@ def service_only(files: List[str], *, aidd_root: bool) -> bool:
     return all(is_service_file(path, aidd_root=aidd_root) for path in files)
 
 
-def docs_only(files: List[str], *, aidd_root: bool) -> bool:
+def docs_only(files: List[str], *, aidd_root: bool, ignored_paths: Iterable[str] | None = None) -> bool:
     if not files:
         return False
+    ignored = {normalize_service_path(path) for path in (ignored_paths or [])}
     for path in files:
         normalized = normalize_service_path(path)
+        if normalized in ignored:
+            continue
         if aidd_root:
             if not normalized.startswith(DOCS_PREFIX):
                 return False
@@ -945,6 +951,7 @@ def main() -> int:
     profile_file = policy_env.get("AIDD_TEST_PROFILE")
     profile_default_env = os.environ.get("AIDD_TEST_PROFILE_DEFAULT")
     explicit_profile_raw = (profile_env or profile_file or "").strip()
+    explicit_profile_requested = bool(explicit_profile_raw)
     profile_source = "default"
     if profile_env:
         profile_raw = profile_env
@@ -1013,15 +1020,27 @@ def main() -> int:
     if stage_policy:
         policy_active = True
         if stage_policy == "none":
-            if test_profile != "none":
-                log(f"Stage policy ({stage_value}) запрещает тесты — используем profile=none.")
-            test_profile = "none"
-            profile_source = "stage-policy"
-            if manual_scope_requested:
-                log("Stage policy запрещает тесты — manual scope сброшен.")
-            manual_scope_requested = False
-            test_tasks = []
-            test_filters = []
+            if policy_force:
+                log(f"AIDD_TEST_FORCE=1 overrides stage policy ({stage_value})=none.")
+            else:
+                if test_profile != "none":
+                    log(f"Stage policy ({stage_value}) запрещает тесты — используем profile=none.")
+                test_profile = "none"
+                profile_source = "stage-policy"
+                if manual_scope_requested:
+                    log("Stage policy запрещает тесты — manual scope сброшен.")
+                manual_scope_requested = False
+                test_tasks = []
+                test_filters = []
+        elif explicit_profile_requested:
+            if stage_policy == "targeted" and test_profile == "fast":
+                log(f"Stage policy ({stage_value}) → profile=targeted (fast upgraded).")
+                test_profile = "targeted"
+                profile_source = "stage-policy"
+            else:
+                log(
+                    f"Stage policy ({stage_value}) оставляет явный профиль {test_profile} (source: {profile_source})."
+                )
         elif stage_policy == "targeted":
             if test_profile != "targeted":
                 log(f"Stage policy ({stage_value}) → profile=targeted.")
@@ -1077,6 +1096,11 @@ def main() -> int:
         code_exact = normalize_code_files([code_files_raw])
 
     changed_files = [path for path in collect_changed_files(workspace_root) if not is_cache_artifact(path)]
+    docs_only_ignored: set[str] = set()
+    try:
+        docs_only_ignored.add(normalize_service_path(settings_path.resolve().relative_to(workspace_root.resolve()).as_posix()))
+    except Exception:
+        pass
     identifiers = resolve_identifiers(project_root)
     active_ticket = identifiers.resolved_ticket or ""
     slug_hint = identifiers.slug_hint
@@ -1159,7 +1183,7 @@ def main() -> int:
     if cadence == "checkpoint":
         log(f"Test cadence: checkpoint (triggers: {', '.join(checkpoint_triggers)})")
         if checkpoint_active:
-            log(f"Checkpoint trigger detected ({checkpoint_reason}).")
+            log(f"checkpoint trigger активен ({checkpoint_reason}).")
     elif cadence == "manual":
         log("Test cadence: manual (cadence=manual)")
 
@@ -1298,7 +1322,7 @@ def main() -> int:
         except Exception:
             return
 
-    if docs_only(changed_files, aidd_root=aidd_root):
+    if docs_only(changed_files, aidd_root=aidd_root, ignored_paths=docs_only_ignored) and not active_ticket:
         log("Изменения только в docs — форматирование/тесты пропущены.")
         record_event("skipped", "docs-only")
         record_tests_log(

@@ -1,0 +1,89 @@
+---
+{
+  "schema": "aidd.skill_contract.v1",
+  "skill_id": "review",
+  "stage": "review",
+  "entrypoints": [
+    "skills/review/scripts/preflight.sh",
+    "skills/review/scripts/run.sh",
+    "skills/review/scripts/postflight.sh"
+  ],
+  "reads": {
+    "required": [
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:WORK_ITEM",
+      "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:TESTS"
+    ],
+    "optional": [
+      "aidd/reports/loops/{ticket}/{scope_key}/review.latest.pack.md",
+      "aidd/reports/context/{ticket}.pack.md#AIDD:CONTEXT_PACK",
+      "aidd/docs/tasklist/{ticket}.md@handoff:qa"
+    ]
+  },
+  "writes": {
+    "files": [
+      "aidd/reports/actions/{ticket}/{scope_key}/review.actions.template.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/review.actions.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/review.apply.jsonl",
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
+      "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+      "aidd/reports/logs/review/{ticket}/{scope_key}/"
+    ],
+    "patterns": [
+      "aidd/reports/actions/{ticket}/{scope_key}/**",
+      "aidd/reports/logs/review/{ticket}/{scope_key}/**",
+      "aidd/reports/reviewer/{ticket}/{scope_key}*.json"
+    ],
+    "blocks": [
+      "aidd/docs/tasklist/{ticket}.md#AIDD:ITERATIONS_FULL",
+      "aidd/docs/tasklist/{ticket}.md#AIDD:HANDOFF_INBOX",
+      "aidd/docs/tasklist/{ticket}.md#AIDD:PROGRESS_LOG",
+      "aidd/reports/context/{ticket}.pack.md#AIDD:READ_LOG"
+    ],
+    "via": {
+      "docops_only": [
+        "aidd/docs/tasklist/{ticket}.md",
+        "aidd/reports/context/{ticket}.pack.md"
+      ]
+    }
+  },
+  "outputs": [
+    "aidd/reports/actions/{ticket}/{scope_key}/review.actions.json",
+    "aidd/reports/actions/{ticket}/{scope_key}/review.apply.jsonl",
+    "aidd/reports/reviewer/{ticket}/{scope_key}.json"
+  ],
+  "gates": {
+    "before": [
+      "set-active-feature",
+      "set-active-stage",
+      "loop-pack",
+      "preflight"
+    ],
+    "after": [
+      "actions-validate",
+      "actions-apply",
+      "diff-boundary-check",
+      "progress",
+      "stage-result",
+      "status-summary"
+    ]
+  },
+  "context_budget": {
+    "max_read_items": 4,
+    "prefer_slice": true,
+    "max_context_chars": 12000
+  },
+  "actions": {
+    "schema": "aidd.actions.v1",
+    "required": true,
+    "allowed_types": [
+      "tasklist_ops.set_iteration_done",
+      "tasklist_ops.append_progress_log",
+      "tasklist_ops.next3_recompute",
+      "context_pack_ops.context_pack_update"
+    ]
+  }
+}

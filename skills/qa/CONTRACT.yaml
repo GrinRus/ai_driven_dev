@@ -1,0 +1,87 @@
+---
+{
+  "schema": "aidd.skill_contract.v1",
+  "skill_id": "qa",
+  "stage": "qa",
+  "entrypoints": [
+    "skills/qa/scripts/preflight.sh",
+    "skills/qa/scripts/run.sh",
+    "skills/qa/scripts/postflight.sh"
+  ],
+  "reads": {
+    "required": [
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:WORK_ITEM",
+      "aidd/reports/context/{ticket}.pack.md#AIDD:CONTEXT_PACK"
+    ],
+    "optional": [
+      "aidd/reports/qa/{ticket}.json",
+      "aidd/reports/loops/{ticket}/{scope_key}/review.latest.pack.md",
+      "aidd/docs/tasklist/{ticket}.md@handoff:qa"
+    ]
+  },
+  "writes": {
+    "files": [
+      "aidd/reports/actions/{ticket}/{scope_key}/qa.actions.template.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/qa.actions.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/qa.apply.jsonl",
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
+      "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
+      "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+      "aidd/reports/logs/qa/{ticket}/{scope_key}/"
+    ],
+    "patterns": [
+      "aidd/reports/actions/{ticket}/{scope_key}/**",
+      "aidd/reports/logs/qa/{ticket}/{scope_key}/**",
+      "aidd/reports/qa/{ticket}.json"
+    ],
+    "blocks": [
+      "aidd/docs/tasklist/{ticket}.md#AIDD:HANDOFF_INBOX",
+      "aidd/docs/tasklist/{ticket}.md#AIDD:PROGRESS_LOG",
+      "aidd/reports/context/{ticket}.pack.md#AIDD:READ_LOG"
+    ],
+    "via": {
+      "docops_only": [
+        "aidd/docs/tasklist/{ticket}.md",
+        "aidd/reports/context/{ticket}.pack.md"
+      ]
+    }
+  },
+  "outputs": [
+    "aidd/reports/actions/{ticket}/{scope_key}/qa.actions.json",
+    "aidd/reports/actions/{ticket}/{scope_key}/qa.apply.jsonl",
+    "aidd/reports/qa/{ticket}.json"
+  ],
+  "gates": {
+    "before": [
+      "set-active-feature",
+      "set-active-stage",
+      "loop-pack",
+      "preflight"
+    ],
+    "after": [
+      "actions-validate",
+      "actions-apply",
+      "progress",
+      "stage-result",
+      "status-summary"
+    ]
+  },
+  "context_budget": {
+    "max_read_items": 4,
+    "prefer_slice": true,
+    "max_context_chars": 12000
+  },
+  "actions": {
+    "schema": "aidd.actions.v1",
+    "required": true,
+    "allowed_types": [
+      "tasklist_ops.set_iteration_done",
+      "tasklist_ops.append_progress_log",
+      "tasklist_ops.next3_recompute",
+      "context_pack_ops.context_pack_update"
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aidd.readmap.v1",
+  "schema": "aidd.schema.v1",
+  "schema_version": "aidd.readmap.v1",
+  "title": "AIDD Read Map v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "ticket",
+    "stage",
+    "scope_key",
+    "work_item_key",
+    "generated_at",
+    "entries",
+    "allowed_paths",
+    "loop_allowed_paths"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aidd.readmap.v1"
+    },
+    "ticket": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "scope_key": {
+      "type": "string"
+    },
+    "work_item_key": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_contract": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array"
+    },
+    "allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "loop_allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}
