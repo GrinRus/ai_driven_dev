@@ -781,7 +781,7 @@ def main() -> int:
     errors.extend(validate_template_artifacts(root))
 
     skills_expected = sorted(
-        f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
+        f"./skills/{path.parent.name}" for path in (root / "skills").glob("*/SKILL.md")
     )
     agents_expected = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
     errors.extend(validate_plugin_manifest(root, skills_expected, agents_expected))

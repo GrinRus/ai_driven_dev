@@ -272,7 +272,7 @@ class PromptLintTests(unittest.TestCase):
 
     def write_plugin_manifest(self, root: Path) -> None:
         skills = sorted(
-            f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
+            f"./skills/{path.parent.name}" for path in (root / "skills").glob("*/SKILL.md")
         )
         agents = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
         manifest = {

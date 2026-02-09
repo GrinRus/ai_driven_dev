@@ -53,6 +53,13 @@ def _normalize_path(path: str) -> str:
     return path
 
 
+def _resolve_skill_path(root: Path, rel: str) -> tuple[Path, str]:
+    candidate = root / rel
+    if candidate.is_dir():
+        return candidate / "SKILL.md", (Path(rel) / "SKILL.md").as_posix()
+    return candidate, rel
+
+
 def build_bundle(root: Path) -> Dict[str, object]:
     manifest_path = root / ".claude-plugin" / "plugin.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -63,11 +70,11 @@ def build_bundle(root: Path) -> Dict[str, object]:
     skills: List[Dict[str, str]] = []
     for entry in sorted(skills_raw):
         rel = _normalize_path(entry)
-        path = root / rel
+        path, display_rel = _resolve_skill_path(root, rel)
         fm = load_frontmatter(path)
         skills.append(
             {
-                "path": rel,
+                "path": display_rel,
                 "name": str(fm.get("name", "")),
                 "lang": str(fm.get("lang", "")),
                 "prompt_version": str(fm.get("prompt_version", "")),
