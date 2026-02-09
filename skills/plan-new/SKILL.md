@@ -33,3 +33,6 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- Plan template source: [templates/plan.template.md](templates/plan.template.md) (seeded to `aidd/docs/plan/template.md` by init).

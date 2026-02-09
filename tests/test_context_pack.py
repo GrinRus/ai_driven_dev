@@ -10,9 +10,9 @@ class ContextPackTests(unittest.TestCase):
     def test_context_pack_template_writes_rolling_pack(self) -> None:
         with tempfile.TemporaryDirectory(prefix="context-pack-template-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            template_text = (
-                REPO_ROOT / "templates" / "aidd" / "reports" / "context" / "template.context-pack.md"
-            ).read_text(encoding="utf-8")
+            template_text = (REPO_ROOT / "skills" / "aidd-core" / "templates" / "context-pack.template.md").read_text(
+                encoding="utf-8"
+            )
             write_file(root, "reports/context/template.context-pack.md", template_text)
             write_file(
                 root,

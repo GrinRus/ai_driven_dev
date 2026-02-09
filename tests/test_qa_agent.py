@@ -49,7 +49,7 @@ class QaAgentTests(unittest.TestCase):
         if env:
             run_env.update(env)
         return subprocess.run(
-            [str(REPO_ROOT / "tools" / "qa.sh"), *argv],
+            cli_cmd("qa", *argv),
             cwd=self.project_root,
             text=True,
             capture_output=True,

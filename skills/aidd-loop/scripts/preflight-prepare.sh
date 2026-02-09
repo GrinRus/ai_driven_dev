@@ -10,4 +10,4 @@ fi
 source "${CLAUDE_PLUGIN_ROOT}/skills/aidd-reference/wrapper_lib.sh"
 
 # Contract note: aidd_run_python_module uses aidd_log_path + aidd_run_guarded internally.
-aidd_run_python_module "loop" "preflight-prepare" "tools/preflight_prepare.py" "$@"
+aidd_run_python_module "loop" "preflight-prepare" "skills/aidd-loop/runtime/preflight_prepare.py" "$@"

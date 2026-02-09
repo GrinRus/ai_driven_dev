@@ -35,3 +35,6 @@ Follow `feature-dev-aidd:aidd-core`.
 ## Notes
 - Use the aidd-core question format.
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- PRD template source: [templates/prd.template.md](templates/prd.template.md) (seeded to `aidd/docs/prd/template.md` by init).

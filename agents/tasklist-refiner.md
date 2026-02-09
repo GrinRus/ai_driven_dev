@@ -4,7 +4,7 @@ description: Синтез подробного tasklist из plan/PRD/spec бе�
 lang: ru
 prompt_version: 1.1.19
 source_version: 1.1.19
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(cat:*)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-rlm

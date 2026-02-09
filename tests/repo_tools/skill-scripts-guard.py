@@ -78,7 +78,11 @@ def main() -> int:
     for path in (ROOT / "skills").rglob("*"):
         if not path.is_file():
             continue
+        if "__pycache__" in path.parts:
+            continue
         rel = path.relative_to(ROOT).as_posix()
+        if path.suffix in {".pyc", ".pyo"}:
+            continue
         if _is_binary(path):
             errors.append(f"{rel}: binary file detected in skills")
             continue

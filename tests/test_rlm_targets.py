@@ -4,7 +4,7 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature, write_json
 
-from tools import rlm_targets
+from aidd_runtime import rlm_targets
 
 
 class RlmTargetsTests(unittest.TestCase):

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature, write_json, write_tasklist_ready
 
-from tools import rlm_links_build, rlm_manifest, rlm_nodes_build, rlm_slice, rlm_targets, reports_pack, tasks_derive
-from tools.rlm_config import load_rlm_settings
+from aidd_runtime import rlm_links_build, rlm_manifest, rlm_nodes_build, rlm_slice, rlm_targets, reports_pack, tasks_derive
+from aidd_runtime.rlm_config import load_rlm_settings
 
 
 class RlmPipelineE2ETests(unittest.TestCase):

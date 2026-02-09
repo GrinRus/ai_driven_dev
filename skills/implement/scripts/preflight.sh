@@ -54,9 +54,9 @@ main() {
   mkdir -p "$(dirname "$AIDD_ACTIONS_TEMPLATE")"
 
   {
-    "${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh" "$AIDD_TICKET"
-    "${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh" "$AIDD_STAGE"
-    "${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh" --ticket "$AIDD_TICKET"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh" "$AIDD_TICKET"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-stage.sh" "$AIDD_STAGE"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/prd-check.sh" --ticket "$AIDD_TICKET"
   } >>"$LOG_PATH" 2>&1
 
   local preflight_out
@@ -84,7 +84,7 @@ main() {
     "${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/preflight-result-validate.sh" --result "$AIDD_PREFLIGHT_RESULT"
   } >>"$LOG_PATH" 2>&1
 
-  aidd_write_legacy_preflight_artifacts
+  aidd_write_fallback_preflight_artifacts
 
   echo "log_path=aidd/${LOG_PATH#"${AIDD_ROOT}"/}"
   echo "template_path=aidd/${AIDD_ACTIONS_TEMPLATE#"${AIDD_ROOT}"/}"

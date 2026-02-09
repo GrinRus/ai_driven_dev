@@ -136,7 +136,7 @@ def _handoff_check(root: Path, tasklist_path: Path, ticket: str, mode: str) -> s
         f"reports/qa/{ticket}".lower(),
     ]
     if not any(marker in scan_text for marker in markers):
-        hint = f"${{CLAUDE_PLUGIN_ROOT}}/tools/tasks-derive.sh --source qa --append --ticket {ticket}"
+        hint = f"${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-core/scripts/tasks-derive.sh --source qa --append --ticket {ticket}"
         return f"{mode.upper()}: handoff-задачи QA не найдены в tasklist. Запустите `{hint}`."
     return ""
 
@@ -183,7 +183,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     if not (root / "docs").is_dir():
         _log_stderr(
             "BLOCK: aidd/docs not found at {}. Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh' from the workspace root to bootstrap ./aidd.".format(
+            "'${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh' from the workspace root to bootstrap ./aidd.".format(
                 root / "docs"
             )
         )
@@ -264,13 +264,6 @@ def main(argv: Iterable[str] | None = None) -> int:
         for part in qa_command
         if part
     ]
-    if cmd and cmd[0].endswith("/tools/qa.sh"):
-        _log_stdout(
-            "WARN: используется legacy QA shim `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh` "
-            "(DEPRECATED). Canonical path: "
-            "`${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh`."
-        )
-
     qa_block = [item.lower() for item in _norm_list(qa_cfg.get("block_on", ("blocker", "critical")))]
     qa_warn = [item.lower() for item in _norm_list(qa_cfg.get("warn_on", ("major", "minor")))]
     if not qa_block:
@@ -380,7 +373,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             if ticket:
                 _log_stdout("handoff: формируем задачи из отчёта QA")
                 handoff_cmd = [
-                    str(plugin_root / "tools" / "tasks-derive.sh"),
+                    str(plugin_root / "skills" / "aidd-core" / "scripts" / "tasks-derive.sh"),
                     "--source",
                     "qa",
                     "--append",

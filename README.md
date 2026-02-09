@@ -32,9 +32,11 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ## SKILL-first runtime path policy
 - Stage-specific entrypoints: canonical путь `skills/<stage>/scripts/*`.
 - Shared entrypoints: целевой canonical путь `skills/aidd-core/scripts/*` (поэтапная миграция).
-- `tools/*` в migration window используются как orchestrator/deferred-core API или compatibility shims.
-- Deferred-core API (wave-1 freeze): `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`.
-- Любой shim обязан печатать deprecation warning и `exec`-делегировать на canonical path с сохранением exit code.
+- Python runtime modules канонично живут в `skills/*/runtime/*`; shell entrypoints — в `skills/*/scripts/*` и `hooks/*`.
+- `tools/*` используется только для import stubs и repo-only tooling.
+- Canonical runtime API lives in `skills/*/scripts/*` and hooks. `tools/*.sh` are retired.
+- Начиная с `v1.0.0`, любые интеграции должны вызывать только canonical entrypoints из `skills/*/scripts/*` и `hooks/*`.
+- Любой redirect-wrapper обязан печатать warning и `exec`-делегировать на canonical path с сохранением exit code.
 - Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
 
 ## Быстрый старт
@@ -79,37 +81,43 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ### Обновление workspace
 - `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
 - Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
-- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `templates/aidd/AGENTS.md`).
+- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Скрипты и проверки
 
 | Команда | Назначение |
 | --- | --- |
-| `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Создать `./aidd` из шаблонов (без перезаписи) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |
-| `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Сгенерировать research-контекст (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh` | Создать `./aidd` из шаблонов (без перезаписи) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |
+| `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Сгенерировать research-контекст |
+| `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` |
+| `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-pack.sh --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Сформировать review report |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Обновить reviewer marker для тестовой политики |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
-| `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
+| `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/status.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
+| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Обновить индекс тикета (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Обновить индекс тикета |
 | `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
 `tests/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
 
-`tools/review-report.sh`, `tools/review-pack.sh`, `tools/reviewer-tests.sh` остаются как deprecated shim (compatibility-only) и выводят предупреждение.
+`review` runtime commands are canonical at `skills/review/scripts/*`.
+
+### Shared Ownership Map
+- `skills/aidd-core/scripts/*` — shared core entrypoints.
+- `skills/aidd-loop/scripts/*` — shared loop entrypoints.
+- `skills/<stage>/scripts/*` — stage-local entrypoints (single owner per stage).
+- `tools/*.sh` удалены из runtime API; используйте canonical wrappers в `skills/*/scripts/*`.
 
 ## Слэш-команды
 
@@ -152,15 +160,15 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 
 Команды:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
-- Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
-- One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
+- Bash loop: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` (fresh sessions).
+- One-shot: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Scope guard: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>`.
-- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
-   `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
+- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
+   `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --stream`.
 
 Пример запуска из корня проекта:
 ```bash
-CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.sh" --ticket ABC-123 --max-iterations 5
+CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/skills/aidd-loop/scripts/loop-run.sh" --ticket ABC-123 --max-iterations 5
 ```
 
 Примечание:
@@ -192,10 +200,10 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 - Плагин живёт в корне репозитория (директории `agents/`, `skills/`, `hooks/`, `tools/`).
 - Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
-- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
+- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh`.
 
 ## Документация
-- Канон ответа и pack-first: `aidd/docs/prompting/conventions.md`.
+- Канон ответа и pack-first: `aidd/AGENTS.md` + `skills/aidd-core/SKILL.md`.
 - Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
 - Skill-first канон: `skills/aidd-core` и `skills/aidd-loop` (EN).
 - Английская версия: `README.en.md`.

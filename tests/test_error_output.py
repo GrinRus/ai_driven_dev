@@ -6,7 +6,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-import tools
+import aidd_runtime as tools
 
 
 def test_excepthook_suppresses_traceback(monkeypatch, capsys):

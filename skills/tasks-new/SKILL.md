@@ -37,3 +37,6 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- Tasklist template source: [templates/tasklist.template.md](templates/tasklist.template.md) (seeded to `aidd/docs/tasklist/template.md` by init).

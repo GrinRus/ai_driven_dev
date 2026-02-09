@@ -117,7 +117,7 @@ class ContextExpandTests(unittest.TestCase):
             write_tasklist_ready(root, ticket)
             self._prepare_preflight(root, ticket, scope_key, work_item_key, stage="review")
 
-            wrapper = REPO_ROOT / "skills" / "aidd-core" / "scripts" / "context_expand.sh"
+            wrapper = REPO_ROOT / "skills" / "aidd-core" / "scripts" / "context-expand.sh"
             result = subprocess.run(
                 [
                     str(wrapper),

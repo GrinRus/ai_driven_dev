@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard canonical shell entrypoints and legacy python-shebang allowlist."""
+"""Guard canonical shell entrypoints and fallback python-shebang allowlist."""
 
 from __future__ import annotations
 
@@ -83,7 +83,7 @@ def main() -> int:
     for rel in unexpected:
         errors.append(
             f"{rel}: python-shebang .sh is not allowlisted "
-            f"(move to bash shim/canonical bash script or update allowlist)"
+            f"(move to canonical bash script or update allowlist)"
         )
     for rel in stale:
         errors.append(

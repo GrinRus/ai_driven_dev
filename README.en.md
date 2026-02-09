@@ -39,9 +39,11 @@ Key features:
 ## SKILL-first runtime path policy
 - Stage-specific entrypoints: canonical path `skills/<stage>/scripts/*`.
 - Shared entrypoints: target canonical path `skills/aidd-core/scripts/*` (phased migration).
-- During the migration window, `tools/*` is limited to orchestrator/deferred-core APIs or compatibility shims.
-- Deferred-core API (wave-1 freeze): `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`.
-- Every shim must emit a deprecation warning and `exec` the canonical path to preserve exit codes.
+- Canonical Python runtime modules live in `skills/*/runtime/*`; shell entrypoints live in `skills/*/scripts/*` and `hooks/*`.
+- `tools/*` is used only for import stubs and repo-only tooling.
+- Canonical runtime API lives in `skills/*/scripts/*` and hooks. `tools/*.sh` are retired.
+- Starting with `v1.0.0`, integrations must call canonical entrypoints from `skills/*/scripts/*` and `hooks/*` only.
+- Every redirect wrapper must emit a warning and `exec` the canonical path to preserve exit codes.
 - Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
 
 ## Get Started
@@ -68,7 +70,7 @@ Key features:
 For CI or manual use:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/tools/init.sh
+${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh
 ```
 
 ### 3. Run a feature in Claude Code
@@ -92,37 +94,43 @@ Notes:
 ### Workspace updates
 - `/feature-dev-aidd:aidd-init` without `--force` adds new artifacts and preserves existing files.
 - Use `--force` or manual template sync when you need updates.
-- Root `AGENTS.md` is the repo dev guide; the user workflow guide is `aidd/AGENTS.md` (copied from `templates/aidd/AGENTS.md`).
+- Root `AGENTS.md` is the repo dev guide; the user workflow guide is `aidd/AGENTS.md` (copied from `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Scripts and Checks
 
 | Command | Description |
 | --- | --- |
-| `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Create `./aidd` from templates (no overwrite) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Diagnose environment, paths, and `aidd/` presence |
-| `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Generate research context (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh`) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh` | Create `./aidd` from templates (no overwrite) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh` | Diagnose environment, paths, and `aidd/` presence |
+| `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh --ticket <ticket>` | Generate research context |
+| `${CLAUDE_PLUGIN_ROOT}/skills/plan-new/scripts/research-check.sh --ticket <ticket>` | Verify Research status `reviewed` |
+| `${CLAUDE_PLUGIN_ROOT}/skills/idea-new/scripts/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-pack.sh --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Generate review report |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
 | `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Update reviewer marker for test policy |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
-| `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
+| `${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Run QA report + gate |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasklist-check.sh --ticket <ticket>` | Validate tasklist contract |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Ticket status summary (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/status.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Append handoff tasks |
+| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/status.sh --ticket <ticket> [--refresh]` | Ticket status summary |
 | `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Final status from stage_result (single source) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Refresh ticket index (legacy shim: `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh`) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/status/scripts/index-sync.sh --ticket <ticket>` | Refresh ticket index |
 | `tests/repo_tools/ci-lint.sh` | CI linters + unit tests (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
 `tests/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
 
-`tools/review-report.sh`, `tools/review-pack.sh`, and `tools/reviewer-tests.sh` remain deprecated compatibility shims and emit warnings.
+`review` runtime commands are canonical at `skills/review/scripts/*`.
+
+### Shared Ownership Map
+- `skills/aidd-core/scripts/*` — shared core entrypoints.
+- `skills/aidd-loop/scripts/*` — shared loop entrypoints.
+- `skills/<stage>/scripts/*` — stage-local entrypoints (single owner per stage).
+- `tools/*.sh` are removed from runtime API; use canonical wrappers under `skills/*/scripts/*`.
 
 ## Slash Commands
 
@@ -164,15 +172,15 @@ Key artifacts:
 
 Commands:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
-- Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
-- One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
+- Bash loop: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket>` (fresh sessions).
+- One-shot: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --max-iterations 5`.
 - Scope guard: `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh --ticket <ticket>`.
-- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
-  `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
+- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
+  `${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/scripts/loop-run.sh --ticket <ticket> --stream`.
 
 Example from the project root:
 ```bash
-CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.sh" --ticket ABC-123 --max-iterations 5
+CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/skills/aidd-loop/scripts/loop-run.sh" --ticket ABC-123 --max-iterations 5
 ```
 
 Note:
@@ -204,10 +212,10 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 - The plugin lives at the repo root (`agents/`, `skills/`, `hooks/`, `tools/`).
 - Workspace artifacts are created in `./aidd` after `/feature-dev-aidd:aidd-init`.
 - If commands or hooks cannot find the workspace, run `/feature-dev-aidd:aidd-init` or set `CLAUDE_PLUGIN_ROOT`.
-- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
+- For a quick environment check, run `${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/doctor.sh`.
 
 ## Documentation
-- Canonical response and pack-first rules: `aidd/docs/prompting/conventions.md`.
+- Canonical response and pack-first rules: `aidd/AGENTS.md` + `skills/aidd-core/SKILL.md`.
 - User guide (runtime): `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
 - Skill-first canon: `skills/aidd-core` and `skills/aidd-loop` (EN).
 - Russian version: `README.md`.

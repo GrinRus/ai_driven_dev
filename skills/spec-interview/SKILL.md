@@ -33,3 +33,6 @@ Follow `feature-dev-aidd:aidd-core`.
 ## Notes
 - Use the aidd-core question format.
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- Spec template source: [templates/spec.template.yaml](templates/spec.template.yaml) (seeded to `aidd/docs/spec/template.spec.yaml` by init).

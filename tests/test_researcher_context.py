@@ -11,9 +11,9 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools.researcher_context import ResearcherContextBuilder
+from aidd_runtime.researcher_context import ResearcherContextBuilder
 
-from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
+from .helpers import cli_cmd, cli_env, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -24,7 +24,9 @@ class ResearcherContextTests(unittest.TestCase):
         (self.root / "config").mkdir(parents=True, exist_ok=True)
         (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)
-        template_src = (TEMPLATES_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
+        template_src = (REPO_ROOT / "skills" / "idea-new" / "templates" / "prd.template.md").read_text(
+            encoding="utf-8"
+        )
         write_file(self.root, "docs/prd/template.md", template_src)
         (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 

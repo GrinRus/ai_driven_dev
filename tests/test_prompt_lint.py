@@ -48,14 +48,16 @@ AGENT_NAMES = [
 ]
 
 CRITICAL_TEMPLATE_FILES = [
-    "AGENTS.md",
-    "docs/prompting/conventions.md",
-    "reports/context/template.context-pack.md",
-    "docs/loops/template.loop-pack.md",
-    "docs/prd/template.md",
-    "docs/plan/template.md",
-    "docs/research/template.md",
-    "docs/tasklist/template.md",
+    "skills/aidd-core/templates/workspace-agents.md",
+    "skills/aidd-core/templates/stage-lexicon.md",
+    "skills/aidd-core/templates/index.schema.json",
+    "skills/aidd-core/templates/context-pack.template.md",
+    "skills/aidd-loop/templates/loop-pack.template.md",
+    "skills/idea-new/templates/prd.template.md",
+    "skills/plan-new/templates/plan.template.md",
+    "skills/researcher/templates/research.template.md",
+    "skills/spec-interview/templates/spec.template.yaml",
+    "skills/tasks-new/templates/tasklist.template.md",
 ]
 
 
@@ -306,15 +308,14 @@ class PromptLintTests(unittest.TestCase):
         plugin_manifest.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
 
     def write_docs(self, root: Path) -> None:
-        templates_root = root / "templates" / "aidd"
         for rel_path in CRITICAL_TEMPLATE_FILES:
-            target = templates_root / rel_path
+            target = root / rel_path
             target.parent.mkdir(parents=True, exist_ok=True)
             if rel_path.endswith("conventions.md"):
                 content = "# Conventions\n\n## Evidence read policy (pack-first, rolling)\n"
-            elif rel_path.endswith("template.context-pack.md"):
+            elif rel_path.endswith("context-pack.template.md"):
                 content = "# Context Pack Template\n"
-            elif rel_path.endswith("template.loop-pack.md"):
+            elif rel_path.endswith("loop-pack.template.md"):
                 content = "# Loop Pack Template\n"
             elif rel_path.endswith("AGENTS.md"):
                 content = "# AGENTS\n"
@@ -322,7 +323,7 @@ class PromptLintTests(unittest.TestCase):
                 content = "# Template\n"
             target.write_text(content, encoding="utf-8")
 
-        index_schema_path = templates_root / "docs" / "index" / "schema.json"
+        index_schema_path = root / "skills" / "aidd-core" / "templates" / "index.schema.json"
         index_schema_path.parent.mkdir(parents=True, exist_ok=True)
         index_schema_path.write_text(
             json.dumps(
@@ -500,7 +501,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("missing preload skill", result.stderr)
 
-    def test_agent_stage_local_tool_shim_ref_fails(self) -> None:
+    def test_agent_stage_local_tool_redirect_ref_fails(self) -> None:
         bad_agent = (
             dedent(
                 """
@@ -545,6 +546,65 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("agent tools must use", result.stderr)
+
+    def test_agent_wrapper_tool_ref_fails(self) -> None:
+        bad_agent = (
+            dedent(
+                """
+                ---
+                name: researcher
+                description: bad
+                lang: ru
+                prompt_version: 1.0.0
+                source_version: 1.0.0
+                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)
+                skills:
+                  - feature-dev-aidd:aidd-core
+                  - feature-dev-aidd:aidd-rlm
+                model: inherit
+                permissionMode: inherit
+                ---
+
+                ## Контекст
+                Output follows aidd-core skill.
+
+                ## Входные артефакты
+                - item
+
+                ## Автоматизация
+                Text.
+
+                ## Пошаговый план
+                1. step
+
+                ## Fail-fast и вопросы
+                Text.
+
+                ## Формат ответа
+                Output follows aidd-core skill.
+                """
+            ).strip()
+            + "\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"researcher": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not call stage/shared wrappers directly", result.stderr)
+
+    def test_stage_skill_tools_allowed_tools_ref_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "  - Read",
+            "  - Read\n  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)\"",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage skills must not use tools/* in allowed-tools", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

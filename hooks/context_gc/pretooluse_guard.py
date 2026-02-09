@@ -20,7 +20,7 @@ from hooks.hooklib import (
     resolve_hooks_mode,
     resolve_project_dir,
 )
-from tools.diff_boundary_check import extract_boundaries, matches_pattern, parse_front_matter
+from aidd_runtime.diff_boundary_check import extract_boundaries, matches_pattern, parse_front_matter
 
 
 def _resolve_log_dir(project_dir: Path, aidd_root: Optional[Path], rel_log_dir: str) -> Path:
@@ -448,7 +448,7 @@ def _enforce_rw_policy(
                     reason="Loop stage writes to DocOps-only paths must go through actions.",
                     system_message=(
                         "Loop stage policy: direct Edit/Write to DocOps-only paths is forbidden. "
-                        "Use actions + DocOps (`tools/actions-apply.sh`)."
+                        "Use actions + DocOps (`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/actions-apply.sh`)."
                     ),
                 )
         return None
@@ -469,7 +469,8 @@ def _enforce_rw_policy(
                 strict_mode,
                 reason="Read is outside readmap/allowed_paths.",
                 system_message=(
-                    "Read is outside readmap/allowed_paths. Use `tools/context-expand.sh --path <path> "
+                    "Read is outside readmap/allowed_paths. Use "
+                    "`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/context-expand.sh --path <path> "
                     "--reason-code <code> --reason <text>` to request progressive disclosure."
                 ),
             )
@@ -481,7 +482,7 @@ def _enforce_rw_policy(
                 reason="Loop stage writes to DocOps-only paths must go through actions.",
                 system_message=(
                     "Loop stage policy: direct Edit/Write to DocOps-only paths is forbidden. "
-                    "Use actions + DocOps (`tools/actions-apply.sh`)."
+                    "Use actions + DocOps (`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/actions-apply.sh`)."
                 ),
             )
 
@@ -501,7 +502,8 @@ def _enforce_rw_policy(
                     strict_mode,
                     reason="Write is outside writemap.",
                     system_message=(
-                        "Write is outside writemap. Use `tools/context-expand.sh --expand-write --path <path> "
+                        "Write is outside writemap. Use "
+                        "`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/context-expand.sh --expand-write --path <path> "
                         "--reason-code <code> --reason <text>` to expand boundaries."
                     ),
                 )
@@ -514,7 +516,9 @@ def _enforce_rw_policy(
                     reason="Write is outside planning-stage writemap.",
                     system_message=(
                         "Planning-stage write is outside writemap/contract. "
-                        "Expand with `tools/context-expand.sh --expand-write ...` or update stage contract."
+                        "Expand with "
+                        "`${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/context-expand.sh --expand-write ...` "
+                        "or update stage contract."
                     ),
                 )
 

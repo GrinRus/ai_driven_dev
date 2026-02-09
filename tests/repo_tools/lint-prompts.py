@@ -24,7 +24,7 @@ CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 
 MAX_SKILL_LINES = 300
 PRELOADED_SIZE_LIMIT_BYTES = 64 * 1024
-ALLOWED_SUPPORT_DIRS = {"scripts", "runtime", "examples", "assets"}
+ALLOWED_SUPPORT_DIRS = {"scripts", "runtime", "examples", "assets", "templates"}
 
 STAGE_SKILLS = [
     "aidd-init",
@@ -84,7 +84,7 @@ OUTPUT_CONTRACT_FIELDS = {
     ]
 }
 
-INDEX_SCHEMA_PATH = Path("docs/index/schema.json")
+INDEX_SCHEMA_PATH = Path("skills/aidd-core/templates/index.schema.json")
 INDEX_REQUIRED_FIELDS = [
     "schema",
     "ticket",
@@ -102,7 +102,7 @@ INDEX_REQUIRED_FIELDS = [
 
 POLICY_DOC = Path("docs/skill-language.md")
 BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
-BASELINE_JSON_LEGACY = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_FALLBACK = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
 
 
 @dataclass
@@ -398,10 +398,14 @@ def validate_agent_tool_policy(info: PromptFile) -> List[str]:
     errors: List[str] = []
     tools = _normalize_tool_list(info.front_matter.get("tools"))
     for entry in tools:
-        for legacy_path, canonical_path in FORBIDDEN_AGENT_STAGE_TOOL_MAP.items():
-            if legacy_path in entry:
+        if "${CLAUDE_PLUGIN_ROOT}/skills/" in entry and "/scripts/" in entry:
+            errors.append(
+                f"{info.path}: agents must not call stage/shared wrappers directly ({entry})"
+            )
+        for fallback_path, canonical_path in FORBIDDEN_AGENT_STAGE_TOOL_MAP.items():
+            if fallback_path in entry:
                 errors.append(
-                    f"{info.path}: agent tools must use `{canonical_path}` instead of legacy shim `{legacy_path}`"
+                    f"{info.path}: agent tools must use `{canonical_path}` instead of fallback wrapper `{fallback_path}`"
                 )
     has_rlm_tooling = any(
         "rlm-" in entry or "reports-pack.sh" in entry or "rlm-slice.sh" in entry
@@ -510,7 +514,7 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
     baseline = None
     baseline_candidates = [
         root / BASELINE_JSON_PRIMARY,
-        root / BASELINE_JSON_LEGACY,
+        root / BASELINE_JSON_FALLBACK,
     ]
     baseline_path = next((path for path in baseline_candidates if path.exists()), baseline_candidates[0])
     if baseline_path.exists():
@@ -653,6 +657,14 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
             if row:
                 baseline_fm = row.get("frontmatter", {})
                 skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+                forbidden_stage_tools = [
+                    item for item in skill_tools if "${CLAUDE_PLUGIN_ROOT}/tools/" in item
+                ]
+                if forbidden_stage_tools:
+                    errors.append(
+                        f"{info.path}: stage skills must not use tools/* in allowed-tools "
+                        f"({forbidden_stage_tools})"
+                    )
                 baseline_tools = list(baseline_fm.get("allowed-tools") or [])
                 if skill_tools != baseline_tools:
                     errors.append(f"{info.path}: allowed-tools does not match baseline")
@@ -670,7 +682,10 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         if not path.exists():
             errors.append(f"{path}: missing stage skill")
 
-    # support files depth <= 1 (root-level files allowed; subdirs limited)
+    # support files policy:
+    # - root-level supporting docs are allowed;
+    # - examples/assets stay one level deep;
+    # - runtime/scripts may contain nested executable resources.
     for skill_dir in sorted(skills_root.iterdir()):
         if not skill_dir.is_dir():
             continue
@@ -682,6 +697,8 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
             rel = file.relative_to(skill_dir)
             parts = rel.parts
             if len(parts) == 1:
+                continue
+            if parts[0] in {"runtime", "scripts"}:
                 continue
             if len(parts) == 2 and parts[0] in ALLOWED_SUPPORT_DIRS:
                 continue
@@ -701,7 +718,15 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         if not skill_dir.exists():
             errors.append(f"{skill_dir}: missing preloaded skill directory")
             continue
-        total = sum(p.stat().st_size for p in skill_dir.rglob("*") if p.is_file())
+        total = 0
+        for p in skill_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(skill_dir)
+            if rel.parts and rel.parts[0] in {"runtime", "scripts"}:
+                # Executable/runtime files are not preloaded into prompt context.
+                continue
+            total += p.stat().st_size
         if total > PRELOADED_SIZE_LIMIT_BYTES:
             errors.append(
                 f"{skill_dir}: preloaded skill size {total} exceeds limit {PRELOADED_SIZE_LIMIT_BYTES} bytes"
@@ -710,7 +735,7 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
     return errors
 
 
-def validate_commands_deprecated(root: Path) -> List[str]:
+def validate_commands_relocated(root: Path) -> List[str]:
     commands_dir = root / "commands"
     if not commands_dir.exists():
         return []
@@ -722,23 +747,21 @@ def validate_commands_deprecated(root: Path) -> List[str]:
 
 
 def validate_template_artifacts(root: Path) -> List[str]:
-    template_root = root / "templates" / "aidd"
     errors: List[str] = []
     critical = [
-        "AGENTS.md",
-        "docs/prompting/conventions.md",
-        "reports/context/template.context-pack.md",
-        "docs/loops/template.loop-pack.md",
-        "docs/prd/template.md",
-        "docs/plan/template.md",
-        "docs/research/template.md",
-        "docs/tasklist/template.md",
+        "skills/aidd-core/templates/workspace-agents.md",
+        "skills/aidd-core/templates/stage-lexicon.md",
+        "skills/aidd-core/templates/index.schema.json",
+        "skills/aidd-core/templates/context-pack.template.md",
+        "skills/aidd-loop/templates/loop-pack.template.md",
+        "skills/idea-new/templates/prd.template.md",
+        "skills/plan-new/templates/plan.template.md",
+        "skills/researcher/templates/research.template.md",
+        "skills/spec-interview/templates/spec.template.yaml",
+        "skills/tasks-new/templates/tasklist.template.md",
     ]
     for rel in critical:
-        rel_path = rel
-        if rel_path.startswith("aidd/"):
-            rel_path = rel_path[len("aidd/") :]
-        target = template_root / rel_path
+        target = root / rel
         if not target.exists():
             errors.append(f"{target}: missing critical template artifact")
     return errors
@@ -801,8 +824,11 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
 
 def validate_index_schema(root: Path) -> List[str]:
     errors: List[str] = []
-    aidd_root = _resolve_aidd_root(root)
-    schema_path = aidd_root / INDEX_SCHEMA_PATH
+    schema_path = root / INDEX_SCHEMA_PATH
+    if not schema_path.exists():
+        # Backward-compatible fallback for the previous source-of-truth layout.
+        previous_aidd_root = _resolve_aidd_root(root)
+        schema_path = previous_aidd_root / "docs" / "index" / "schema.json"
     if not schema_path.exists():
         errors.append(f"{schema_path}: missing index schema")
         return errors
@@ -844,7 +870,7 @@ def main() -> int:
     agent_ids = {info.front_matter.get("name", info.stem) for info in agent_files.values()}
 
     errors.extend(lint_skills(root, {str(x) for x in agent_ids if x}))
-    errors.extend(validate_commands_deprecated(root))
+    errors.extend(validate_commands_relocated(root))
     errors.extend(validate_template_artifacts(root))
 
     skills_expected = sorted(

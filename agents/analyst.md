@@ -4,7 +4,7 @@ description: Сбор исходной идеи → анализ контекс�
 lang: ru
 prompt_version: 1.3.16
 source_version: 1.3.16
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)
+tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-rlm

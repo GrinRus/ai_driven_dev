@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import REPO_ROOT
-from tools import (
+from aidd_runtime import (
     aidd_schemas,
     actions_validate,
     context_map_validate,

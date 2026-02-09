@@ -10,7 +10,6 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-jsonl-compact.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh:*)"
 model: inherit
 user-invocable: false
 ---
@@ -29,9 +28,9 @@ user-invocable: false
   - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-finalize.sh`
   - `${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh`
 
-## Fallback compatibility
-- Legacy `${CLAUDE_PLUGIN_ROOT}/tools/rlm-*.sh` and `${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh` remain compatibility shims.
-- If a shim is used, expect a `DEPRECATED` warning and prefer canonical skill paths in new prompts.
+## Fallback paths
+- RLM redirect wrappers remain fallback paths during the migration window.
+- If a redirect wrapper is used, prefer canonical skill paths in new prompts.
 
 ## Evidence policy
 - Read pack-first: `aidd/reports/research/<ticket>-rlm.pack.json`.

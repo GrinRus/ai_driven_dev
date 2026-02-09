@@ -15,7 +15,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-feature.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/set-active-stage.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/rlm-slice.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-nodes-build.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/rlm-verify.sh:*)"
@@ -43,3 +43,6 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- Research template source: [templates/research.template.md](templates/research.template.md) (seeded to `aidd/docs/research/template.md` by init).

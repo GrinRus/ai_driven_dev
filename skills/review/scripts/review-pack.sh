@@ -33,19 +33,7 @@ aidd_resolve_context "$TICKET" "$SCOPE_KEY" "$WORK_ITEM_KEY" "$STAGE" "review"
 LOG_PATH="$(aidd_log_path "$AIDD_ROOT" "$AIDD_STAGE" "$AIDD_TICKET" "$AIDD_SCOPE_KEY" "review-pack")"
 
 run_tool() {
-  python3 - <<'PY' "${FORWARD_ARGS[@]}"
-import os
-import sys
-from pathlib import Path
-
-plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).expanduser().resolve()
-if str(plugin_root) not in sys.path:
-    sys.path.insert(0, str(plugin_root))
-
-from tools import review_pack as tools_module
-
-raise SystemExit(tools_module.main(sys.argv[1:]))
-PY
+  aidd_run_python_module "review" "review-pack" "skills/review/runtime/review_pack.py" "${FORWARD_ARGS[@]}"
 }
 
 aidd_run_guarded "$LOG_PATH" run_tool

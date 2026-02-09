@@ -31,7 +31,7 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 - Planning stages (idea/research/plan/tasks/spec): direct Edit/Write is allowed for creation or major edits. Structured sections (progress/iterations/next3) are DocOps-managed; leave untouched unless explicitly instructed.
 
 ## Progressive disclosure
-- Use `skills/aidd-core/scripts/context_expand.sh` to expand `readmap/writemap` with explicit `reason_code` + `reason`.
+- Use `skills/aidd-core/scripts/context-expand.sh` to expand `readmap/writemap` with explicit `reason_code` + `reason`.
 - Write-boundary expansion requires explicit `--expand-write` and must leave an audit trace under `aidd/reports/actions/<ticket>/<scope_key>/context-expand.audit.jsonl`.
 
 ## Canonical shared wrappers
@@ -43,12 +43,24 @@ Include `Checkbox updated: ...` when the stage or agent expects it.
 - `skills/aidd-core/scripts/status-summary.sh`
 - `skills/aidd-core/scripts/tasklist-check.sh`
 - `skills/aidd-core/scripts/tasklist-normalize.sh`
+- `skills/aidd-core/scripts/tasks-derive.sh`
 - `skills/aidd-core/scripts/prd-check.sh`
 - `skills/aidd-core/scripts/diff-boundary-check.sh`
 - `skills/aidd-core/scripts/md-slice.sh`
 - `skills/aidd-core/scripts/md-patch.sh`
 - `skills/aidd-core/scripts/actions-validate.sh`
+- `skills/aidd-core/scripts/actions-apply.sh`
 - `skills/aidd-core/scripts/context-map-validate.sh`
+- `skills/aidd-core/scripts/context-expand.sh`
+- `skills/aidd-core/scripts/dag-export.sh`
+- `skills/aidd-core/scripts/doctor.sh`
+- `skills/aidd-core/scripts/identifiers.sh`
+- `skills/aidd-core/scripts/plan-review-gate.sh`
+- `skills/aidd-core/scripts/prd-review-gate.sh`
+- `skills/aidd-core/scripts/researcher-context.sh`
+- `skills/aidd-core/scripts/skill-contract-validate.sh`
+- `skills/aidd-core/scripts/tests-log.sh`
+- `skills/aidd-core/scripts/tools-inventory.sh`
 
 ## Actions log
 - Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.
@@ -74,3 +86,6 @@ Default: ...
 
 ## Subagent guard
 Subagents must never edit `aidd/docs/.active.json`. If it happens or is required, stop and return BLOCKED with the offending path.
+
+## Additional resources
+- Context pack template source: [templates/context-pack.template.md](templates/context-pack.template.md) (seeded to `aidd/reports/context/template.context-pack.md` by init).

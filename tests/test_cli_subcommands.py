@@ -6,14 +6,14 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import context_pack
-from tools import identifiers
-from tools import plan_review_gate
-from tools import prd_review
-from tools import prd_review_gate
-from tools import researcher_context
-from tools import tasklist_check
-from tools import tests_log
+from aidd_runtime import context_pack
+from aidd_runtime import identifiers
+from aidd_runtime import plan_review_gate
+from aidd_runtime import prd_review
+from aidd_runtime import prd_review_gate
+from aidd_runtime import researcher_context
+from aidd_runtime import tasklist_check
+from aidd_runtime import tests_log
 
 
 def test_cli_parses_new_subcommands():

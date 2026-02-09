@@ -9,13 +9,13 @@ from tests.helpers import REPO_ROOT
 class RlmWrapperTests(unittest.TestCase):
     def test_wrappers_help_smoke(self) -> None:
         wrappers = [
-            REPO_ROOT / "tools" / "rlm-slice.sh",
-            REPO_ROOT / "tools" / "rlm-nodes-build.sh",
-            REPO_ROOT / "tools" / "rlm-verify.sh",
-            REPO_ROOT / "tools" / "rlm-links-build.sh",
-            REPO_ROOT / "tools" / "rlm-jsonl-compact.sh",
-            REPO_ROOT / "tools" / "rlm-finalize.sh",
-            REPO_ROOT / "tools" / "reports-pack.sh",
+            REPO_ROOT / "skills" / "aidd-core" / "scripts" / "rlm-slice.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "rlm-nodes-build.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "rlm-verify.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "rlm-links-build.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "rlm-jsonl-compact.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "rlm-finalize.sh",
+            REPO_ROOT / "skills" / "researcher" / "scripts" / "reports-pack.sh",
         ]
         for wrapper in wrappers:
             with self.subTest(wrapper=wrapper.name):

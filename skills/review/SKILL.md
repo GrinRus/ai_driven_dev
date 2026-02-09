@@ -21,7 +21,7 @@ allowed-tools:
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/tasks-derive.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/stage-result.sh:*)"
   - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh:*)"
@@ -48,4 +48,4 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 ## Notes
 - Review stage runs targeted tests per policy.
 - Use the existing rolling context pack; do not regenerate it in loop mode (DocOps updates only).
-- Legacy shim only: `context-pack.sh` exists for compatibility; do not use it in loop stage.
+- Redirect wrapper only: `context-pack.sh` is kept as a fallback path; do not use it in loop stage.

@@ -10,4 +10,4 @@ fi
 source "${CLAUDE_PLUGIN_ROOT}/skills/aidd-reference/wrapper_lib.sh"
 
 # Contract note: aidd_run_python_module uses aidd_log_path + aidd_run_guarded internally.
-aidd_run_python_module "core" "set-active-stage" "tools/set_active_stage.py" "$@"
+aidd_run_python_module "core" "set-active-stage" "skills/aidd-core/runtime/set_active_stage.py" "$@"

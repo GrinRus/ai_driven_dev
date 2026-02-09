@@ -18,11 +18,35 @@ run_cli() {
   shift
   local entrypoint=""
   case "$cmd" in
-    review-pack|review-report|reviewer-tests)
+    init)
+      entrypoint="$PLUGIN_ROOT/skills/aidd-init/scripts/init.sh"
+      ;;
+    loop-pack|loop-step|loop-run|preflight-prepare|preflight-result-validate|output-contract)
+      entrypoint="$PLUGIN_ROOT/skills/aidd-loop/scripts/${cmd}.sh"
+      ;;
+    analyst-check)
+      entrypoint="$PLUGIN_ROOT/skills/idea-new/scripts/${cmd}.sh"
+      ;;
+    research-check)
+      entrypoint="$PLUGIN_ROOT/skills/plan-new/scripts/${cmd}.sh"
+      ;;
+    prd-review)
+      entrypoint="$PLUGIN_ROOT/skills/review-spec/scripts/${cmd}.sh"
+      ;;
+    research|reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
+      entrypoint="$PLUGIN_ROOT/skills/researcher/scripts/${cmd}.sh"
+      ;;
+    review-pack|review-report|reviewer-tests|context-pack)
       entrypoint="$PLUGIN_ROOT/skills/review/scripts/${cmd}.sh"
       ;;
+    qa)
+      entrypoint="$PLUGIN_ROOT/skills/qa/scripts/qa.sh"
+      ;;
+    status|index-sync)
+      entrypoint="$PLUGIN_ROOT/skills/status/scripts/${cmd}.sh"
+      ;;
     *)
-      entrypoint="$PLUGIN_ROOT/tools/${cmd}.sh"
+      entrypoint="$PLUGIN_ROOT/skills/aidd-core/scripts/${cmd}.sh"
       ;;
   esac
   env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
@@ -277,7 +301,7 @@ nodes_path.parent.mkdir(parents=True, exist_ok=True)
 plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).resolve()
 if plugin_root and str(plugin_root) not in sys.path:
     sys.path.insert(0, str(plugin_root))
-from tools.rlm_config import (
+from aidd_runtime.rlm_config import (
     file_id_for_path,
     load_rlm_settings,
     paths_base_for,
@@ -864,9 +888,9 @@ replacements = {
     "- [ ] Прогнаны unit/integration/e2e": "- [x] Прогнаны unit/integration/e2e",
     "- [ ] Проведено ручное тестирование или UAT": "- [x] Проведено ручное тестирование или UAT",
 }
-for old, new in replacements.items():
-    if old in text:
-        text = text.replace(old, new, 1)
+for previous, updated in replacements.items():
+    if previous in text:
+        text = text.replace(previous, updated, 1)
 path.write_text(text, encoding="utf-8")
 PY
 

@@ -59,12 +59,12 @@ run_prompt_sync_guard() {
     warn "python3 not found; skipping prompt/template sync guard"
     return
   fi
-  if [[ ! -f "tools/prompt_template_sync.py" ]]; then
-    warn "tools/prompt_template_sync.py missing; skipping"
+  if [[ ! -f "tests/repo_tools/prompt_template_sync.py" ]]; then
+    warn "tests/repo_tools/prompt_template_sync.py missing; skipping"
     return
   fi
   log "running prompt/template sync guard (root: ${ROOT_DIR})"
-  local cmd=(python3 tools/prompt_template_sync.py --root "${ROOT_DIR}")
+  local cmd=(python3 tests/repo_tools/prompt_template_sync.py --root "${ROOT_DIR}")
   if [[ -n "${AIDD_PAYLOAD_ROOT:-}" ]]; then
     cmd+=(--payload-root "${AIDD_PAYLOAD_ROOT}")
   fi
@@ -80,18 +80,18 @@ run_entrypoints_bundle_guard() {
     warn "python3 not found; skipping entrypoints bundle guard"
     return
   fi
-  if [[ ! -f "tools/entrypoints_bundle.py" ]]; then
-    warn "tools/entrypoints_bundle.py missing; skipping"
+  if [[ ! -f "tests/repo_tools/entrypoints_bundle.py" ]]; then
+    warn "tests/repo_tools/entrypoints_bundle.py missing; skipping"
     return
   fi
   log "running entrypoints bundle guard"
-  if ! python3 tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
+  if ! python3 tests/repo_tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
     err "entrypoints bundle generation failed"
     STATUS=1
     return
   fi
-  if ! git diff --exit-code -- "${ROOT_DIR}/tools/entrypoints-bundle.txt" >/dev/null; then
-    err "entrypoints-bundle.txt out of date; rerun tools/entrypoints_bundle.py"
+  if ! git diff --exit-code -- "${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt" >/dev/null; then
+    err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
     STATUS=1
   fi
 }
@@ -201,14 +201,14 @@ run_schema_guards() {
   fi
 }
 
-run_shim_regression() {
-  if [[ ! -f "tests/repo_tools/shim-regression.sh" ]]; then
-    warn "tests/repo_tools/shim-regression.sh missing; skipping"
+run_runtime_path_regression() {
+  if [[ ! -f "tests/repo_tools/runtime-path-regression.sh" ]]; then
+    warn "tests/repo_tools/runtime-path-regression.sh missing; skipping"
     return
   fi
-  log "running shim regression checks"
-  if ! bash tests/repo_tools/shim-regression.sh; then
-    err "shim regression checks failed"
+  log "running runtime path regression checks"
+  if ! bash tests/repo_tools/runtime-path-regression.sh; then
+    err "runtime path regression checks failed"
     STATUS=1
   fi
 }
@@ -448,7 +448,7 @@ run_tool_result_id_check
 run_skill_scripts_guard
 run_bash_runtime_guard
 run_schema_guards
-run_shim_regression
+run_runtime_path_regression
 run_marketplace_ref_guard
 run_repo_linters
 

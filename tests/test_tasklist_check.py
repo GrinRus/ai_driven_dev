@@ -10,7 +10,7 @@ if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
 from tests import helpers
-from tools import tasklist_check
+from aidd_runtime import tasklist_check
 
 
 def write_plan(root: Path, ticket: str, iteration_ids: list[str] | None = None) -> None:
@@ -251,7 +251,7 @@ class TasklistCheckTests(unittest.TestCase):
             )
 
     def test_tasklist_template_is_valid(self) -> None:
-        template_path = REPO_ROOT / "templates" / "aidd" / "docs" / "tasklist" / "template.md"
+        template_path = REPO_ROOT / "skills" / "tasks-new" / "templates" / "tasklist.template.md"
         template_text = template_path.read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

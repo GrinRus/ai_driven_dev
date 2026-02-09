@@ -126,7 +126,7 @@ DEFAULT_GATES_CONFIG: Dict[str, Any] = {
         "enabled": True,
         "branches": ["feature/*", "release/*", "hotfix/*"],
         "skip_branches": ["docs/*"],
-        "command": ["${CLAUDE_PLUGIN_ROOT}/tools/qa.sh"],
+        "command": ["${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/qa.sh"],
         "debounce_minutes": 10,
         "report": "aidd/reports/qa/{ticket}.json",
         "allow_missing_report": False,
@@ -453,7 +453,7 @@ def ensure_project_root(root: pathlib.Path) -> pathlib.Path:
 
 
 def bootstrap_workspace(root: pathlib.Path, *extra_args: str) -> None:
-    """Run tools/init.sh to bootstrap workspace into root."""
+    """Run canonical init wrapper to bootstrap workspace into root."""
     ensure_project_root(root)
     subprocess.run(
         cli_cmd("init", *extra_args),
@@ -495,19 +495,46 @@ def git_config_user(path: pathlib.Path) -> None:
 
 
 def cli_cmd(*args: str) -> list[str]:
-    """Build a command that invokes the tools entrypoint directly."""
+    """Build a command that invokes the canonical skill entrypoint."""
     if not args:
         return []
     cmd = args[0]
     rest = list(args[1:])
     if cmd == "context-gc":
         raise ValueError("context-gc entrypoints unavailable; use hooks/context-gc-*.sh")
-    script = REPO_ROOT / "tools" / f"{cmd}.sh"
+    if cmd == "init":
+        script = REPO_ROOT / "skills" / "aidd-init" / "scripts" / "init.sh"
+    elif cmd in {"loop-pack", "loop-step", "loop-run", "preflight-prepare", "preflight-result-validate", "output-contract"}:
+        script = REPO_ROOT / "skills" / "aidd-loop" / "scripts" / f"{cmd}.sh"
+    elif cmd in {"analyst-check"}:
+        script = REPO_ROOT / "skills" / "idea-new" / "scripts" / f"{cmd}.sh"
+    elif cmd in {"research-check"}:
+        script = REPO_ROOT / "skills" / "plan-new" / "scripts" / f"{cmd}.sh"
+    elif cmd in {"prd-review"}:
+        script = REPO_ROOT / "skills" / "review-spec" / "scripts" / f"{cmd}.sh"
+    elif cmd in {
+        "research",
+        "reports-pack",
+        "rlm-nodes-build",
+        "rlm-links-build",
+        "rlm-jsonl-compact",
+        "rlm-finalize",
+        "rlm-verify",
+    }:
+        script = REPO_ROOT / "skills" / "researcher" / "scripts" / f"{cmd}.sh"
+    elif cmd in {"review-pack", "review-report", "reviewer-tests", "context-pack"}:
+        script = REPO_ROOT / "skills" / "review" / "scripts" / f"{cmd}.sh"
+    elif cmd in {"qa"}:
+        script = REPO_ROOT / "skills" / "qa" / "scripts" / "qa.sh"
+    elif cmd in {"status", "index-sync"}:
+        script = REPO_ROOT / "skills" / "status" / "scripts" / f"{cmd}.sh"
+    else:
+        script = REPO_ROOT / "skills" / "aidd-core" / "scripts" / f"{cmd}.sh"
     return [str(script), *rest]
 
 
 def cli_env(extra_env: Optional[dict[str, str]] = None) -> dict[str, str]:
-    """Return an environment with CLAUDE_PLUGIN_ROOT wired for tools entrypoints."""
+    """Return an environment with CLAUDE_PLUGIN_ROOT wired for canonical entrypoints."""
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
     if extra_env:

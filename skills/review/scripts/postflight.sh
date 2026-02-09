@@ -63,16 +63,16 @@ main() {
   fi
 
   {
-    "${CLAUDE_PLUGIN_ROOT}/tools/actions-apply.sh" \
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/actions-apply.sh" \
       --actions "$AIDD_ACTIONS_PATH" \
       --apply-log "$AIDD_APPLY_LOG"
 
-    "${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh" --ticket "$AIDD_TICKET"
-    "${CLAUDE_PLUGIN_ROOT}/tools/progress.sh" --ticket "$AIDD_TICKET" --source review
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/diff-boundary-check.sh" --ticket "$AIDD_TICKET"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/progress.sh" --ticket "$AIDD_TICKET" --source review
 
     local stage_result
     stage_result="${RESULT:-continue}"
-    local stage_result_cmd=("${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh" --ticket "$AIDD_TICKET" --stage "$AIDD_STAGE" --result "$stage_result" --scope-key "$AIDD_SCOPE_KEY")
+    local stage_result_cmd=("${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/stage-result.sh" --ticket "$AIDD_TICKET" --stage "$AIDD_STAGE" --result "$stage_result" --scope-key "$AIDD_SCOPE_KEY")
     if [[ -n "$AIDD_WORK_ITEM_KEY" ]]; then
       stage_result_cmd+=(--work-item-key "$AIDD_WORK_ITEM_KEY")
     fi
@@ -81,7 +81,7 @@ main() {
     fi
     "${stage_result_cmd[@]}"
 
-    "${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh" --ticket "$AIDD_TICKET" --stage "$AIDD_STAGE" --scope-key "$AIDD_SCOPE_KEY"
+    "${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/scripts/status-summary.sh" --ticket "$AIDD_TICKET" --stage "$AIDD_STAGE" --scope-key "$AIDD_SCOPE_KEY"
   } >>"$LOG_PATH" 2>&1
 
   echo "log_path=aidd/${LOG_PATH#"${AIDD_ROOT}"/}"

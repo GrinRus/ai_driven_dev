@@ -41,7 +41,7 @@ def _log_stderr(message: str) -> None:
 def main() -> int:
     _bootstrap()
     from hooks import hooklib
-    from tools import prd_review_gate
+    from aidd_runtime import prd_review_gate
 
     ctx = hooklib.read_hook_context()
     root, used_workspace = hooklib.resolve_project_root(ctx)
@@ -52,7 +52,7 @@ def main() -> int:
         _log_stderr(
             f"BLOCK: aidd/docs not found at {root / 'docs'}. "
             "Run '/feature-dev-aidd:aidd-init' or "
-            "'${CLAUDE_PLUGIN_ROOT}/tools/init.sh' from the workspace root to bootstrap ./aidd."
+            "'${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/scripts/init.sh' from the workspace root to bootstrap ./aidd."
         )
         return 2
 

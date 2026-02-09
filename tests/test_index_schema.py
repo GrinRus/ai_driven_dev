@@ -11,7 +11,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import index_sync
+from aidd_runtime import index_sync
 
 from .helpers import ensure_project_root, write_active_feature, write_active_stage, write_file
 

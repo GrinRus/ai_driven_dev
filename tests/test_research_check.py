@@ -11,7 +11,7 @@ from tests.helpers import REPO_ROOT
 
 sys.path.append(str(REPO_ROOT))
 
-from tools import research_check  # noqa: E402
+from aidd_runtime import research_check  # noqa: E402
 
 from .helpers import (
     ensure_gates_config,

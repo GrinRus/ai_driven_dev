@@ -9,12 +9,12 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
-from tests.helpers import REPO_ROOT
+from tests.helpers import REPO_ROOT, cli_cmd
 SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import prd_review as prd_review_agent  # noqa: E402
+from aidd_runtime import prd_review as prd_review_agent  # noqa: E402
 
 
 class PRDReviewAgentTests(unittest.TestCase):
@@ -113,7 +113,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
         subprocess.run(
             [
-                str(REPO_ROOT / "tools" / "prd-review.sh"),
+                *cli_cmd("prd-review"),
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -153,7 +153,7 @@ class PRDReviewAgentTests(unittest.TestCase):
         env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
         subprocess.run(
             [
-                str(REPO_ROOT / "tools" / "prd-review.sh"),
+                *cli_cmd("prd-review"),
                 "--ticket",
                 "demo-feature",
                 "--slug",
@@ -192,7 +192,7 @@ class PRDReviewAgentTests(unittest.TestCase):
 
         result = subprocess.run(
             [
-                str(REPO_ROOT / "tools" / "prd-review.sh"),
+                *cli_cmd("prd-review"),
                 "--ticket",
                 "demo-feature",
                 "--prd",

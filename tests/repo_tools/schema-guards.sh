@@ -29,17 +29,17 @@ require_contains "$map_versions" "aidd.readmap.v1" "context-map validator"
 require_contains "$map_versions" "aidd.writemap.v1" "context-map validator"
 
 log "checking preflight-result validator supported versions"
-preflight_versions="$(tools/preflight-result-validate.sh --print-supported-versions 2>/dev/null || true)"
+preflight_versions="$(skills/aidd-loop/scripts/preflight-result-validate.sh --print-supported-versions 2>/dev/null || true)"
 require_contains "$preflight_versions" "aidd.stage_result.preflight.v1" "preflight-result validator"
 
 log "validating skill contracts"
-if ! python3 tools/skill-contract-validate.sh --all --quiet; then
+if ! skills/aidd-core/scripts/skill-contract-validate.sh --all --quiet; then
   err "skill contracts validation failed"
 fi
 
 log "checking canonical schema registry"
 if ! python3 - <<'PY'
-from tools import aidd_schemas
+from aidd_runtime import aidd_schemas
 
 required = {
     "aidd.actions.v0",

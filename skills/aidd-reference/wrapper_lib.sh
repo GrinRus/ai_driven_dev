@@ -38,7 +38,7 @@ plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).expanduser().resolv
 if str(plugin_root) not in sys.path:
     sys.path.insert(0, str(plugin_root))
 
-from tools import runtime
+from aidd_runtime import runtime
 
 raw_ticket = sys.argv[1] or None
 raw_scope = sys.argv[2] or None
@@ -88,11 +88,11 @@ aidd_actions_paths() {
   export AIDD_WRITEMAP_JSON="${context_base}/${scope_key}.writemap.json"
   export AIDD_WRITEMAP_MD="${context_base}/${scope_key}.writemap.md"
   export AIDD_PREFLIGHT_RESULT="${loops_base}/stage.preflight.result.json"
-  export AIDD_READMAP_JSON_LEGACY="${actions_base}/readmap.json"
-  export AIDD_READMAP_MD_LEGACY="${actions_base}/readmap.md"
-  export AIDD_WRITEMAP_JSON_LEGACY="${actions_base}/writemap.json"
-  export AIDD_WRITEMAP_MD_LEGACY="${actions_base}/writemap.md"
-  export AIDD_PREFLIGHT_RESULT_LEGACY="${actions_base}/stage.preflight.result.json"
+  export AIDD_READMAP_JSON_FALLBACK="${actions_base}/readmap.json"
+  export AIDD_READMAP_MD_FALLBACK="${actions_base}/readmap.md"
+  export AIDD_WRITEMAP_JSON_FALLBACK="${actions_base}/writemap.json"
+  export AIDD_WRITEMAP_MD_FALLBACK="${actions_base}/writemap.md"
+  export AIDD_PREFLIGHT_RESULT_FALLBACK="${actions_base}/stage.preflight.result.json"
 }
 
 
@@ -108,7 +108,7 @@ plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).expanduser().resolv
 if str(plugin_root) not in sys.path:
     sys.path.insert(0, str(plugin_root))
 
-from tools import runtime
+from aidd_runtime import runtime
 
 cwd = Path.cwd()
 try:
@@ -142,20 +142,20 @@ aidd_run_python_module() {
 }
 
 
-aidd_write_legacy_preflight_artifacts() {
-  if [[ "${AIDD_WRITE_LEGACY_PREFLIGHT:-0}" != "1" ]]; then
+aidd_write_fallback_preflight_artifacts() {
+  if [[ "${AIDD_WRITE_FALLBACK_PREFLIGHT:-0}" != "1" ]]; then
     return 0
   fi
   mkdir -p \
-    "$(dirname "$AIDD_READMAP_JSON_LEGACY")" \
-    "$(dirname "$AIDD_WRITEMAP_JSON_LEGACY")" \
-    "$(dirname "$AIDD_PREFLIGHT_RESULT_LEGACY")"
-  cp "$AIDD_READMAP_JSON" "$AIDD_READMAP_JSON_LEGACY"
-  cp "$AIDD_READMAP_MD" "$AIDD_READMAP_MD_LEGACY"
-  cp "$AIDD_WRITEMAP_JSON" "$AIDD_WRITEMAP_JSON_LEGACY"
-  cp "$AIDD_WRITEMAP_MD" "$AIDD_WRITEMAP_MD_LEGACY"
-  cp "$AIDD_PREFLIGHT_RESULT" "$AIDD_PREFLIGHT_RESULT_LEGACY"
-  printf '[aidd] WARN: legacy preflight artifacts emitted (AIDD_WRITE_LEGACY_PREFLIGHT=1)\n' >&2
+    "$(dirname "$AIDD_READMAP_JSON_FALLBACK")" \
+    "$(dirname "$AIDD_WRITEMAP_JSON_FALLBACK")" \
+    "$(dirname "$AIDD_PREFLIGHT_RESULT_FALLBACK")"
+  cp "$AIDD_READMAP_JSON" "$AIDD_READMAP_JSON_FALLBACK"
+  cp "$AIDD_READMAP_MD" "$AIDD_READMAP_MD_FALLBACK"
+  cp "$AIDD_WRITEMAP_JSON" "$AIDD_WRITEMAP_JSON_FALLBACK"
+  cp "$AIDD_WRITEMAP_MD" "$AIDD_WRITEMAP_MD_FALLBACK"
+  cp "$AIDD_PREFLIGHT_RESULT" "$AIDD_PREFLIGHT_RESULT_FALLBACK"
+  printf '[aidd] WARN: fallback preflight artifacts emitted (AIDD_WRITE_FALLBACK_PREFLIGHT=1)\n' >&2
 }
 
 

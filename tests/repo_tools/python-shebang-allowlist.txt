@@ -1,6 +1,6 @@
-# Legacy runtime wrappers that still use python shebang in *.sh.
+# Runtime wrappers that still use python shebang in *.sh.
 # Canonical skills/*/scripts/*.sh must stay pure bash; this allowlist is for
-# hook/tool compatibility entrypoints during migration.
+# hook path entrypoints.
 
 hooks/context-gc-precompact.sh
 hooks/context-gc-pretooluse.sh
@@ -13,18 +13,3 @@ hooks/gate-qa.sh
 hooks/gate-tests.sh
 hooks/gate-workflow.sh
 hooks/lint-deps.sh
-tools/actions-apply.sh
-tools/context-expand.sh
-tools/dag-export.sh
-tools/doctor.sh
-tools/identifiers.sh
-tools/init.sh
-tools/loop-run.sh
-tools/loop-step.sh
-tools/plan-review-gate.sh
-tools/prd-review-gate.sh
-tools/researcher-context.sh
-tools/skill-contract-validate.sh
-tools/tasks-derive.sh
-tools/tests-log.sh
-tools/tools-inventory.sh

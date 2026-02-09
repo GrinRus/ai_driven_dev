@@ -26,10 +26,10 @@ check_absent() {
 }
 
 check_absent "Graph Read Policy" "${ROOT_DIR}/agents" "${ROOT_DIR}/skills" \
-  "${ROOT_DIR}/templates/aidd/AGENTS.md" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
+  "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
 
-check_present "Evidence read policy" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
-check_present "AIDD:READ_LOG" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
-check_present "rlm-slice.sh" "${ROOT_DIR}/templates/aidd/docs/prompting/conventions.md"
+check_present "Evidence read policy" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
+check_present "AIDD:READ_LOG" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
+check_present "rlm-slice.sh" "${ROOT_DIR}/skills/aidd-core/templates/workspace-agents.md"
 
 exit $STATUS

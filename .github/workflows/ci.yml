@@ -35,7 +35,7 @@ jobs:
           echo "QA_WORKSPACE=${QA_WORKSPACE}" >> "${GITHUB_ENV}"
           cd "${QA_WORKSPACE}"
           CLAUDE_PLUGIN_ROOT="${GITHUB_WORKSPACE}" \
-            "${GITHUB_WORKSPACE}/tools/init.sh"
+            "${GITHUB_WORKSPACE}/skills/aidd-init/scripts/init.sh"
 
       - name: Run QA gate
         run: |

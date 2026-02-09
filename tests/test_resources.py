@@ -10,8 +10,8 @@ SRC_ROOT = PROJECT_ROOT
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import runtime  # noqa: E402
-from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
+from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root  # noqa: E402
 
 
 class ResourcesTests(unittest.TestCase):

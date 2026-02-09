@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import loop_step as loop_step_module
+from aidd_runtime import loop_step as loop_step_module
 from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json, write_tasklist_ready
 
 
@@ -105,6 +105,45 @@ class LoopStepTests(unittest.TestCase):
             self.assertIn("AIDD_SKIP_STAGE_WRAPPERS=1", str(payload.get("reason") or ""))
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_on_output_contract_warn_in_strict_mode(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-strict-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-WRAP-STRICT"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": scope_key,
+                "work_item_key": work_item_key,
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {"AIDD_SKIP_STAGE_WRAPPERS": "0", "AIDD_HOOKS_MODE": "strict"},
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "output_contract_warn")
+            self.assertEqual(payload.get("output_contract_status"), "warn")
+            self.assertTrue(payload.get("output_contract_path"))
 
     def test_loop_step_runner_with_wrappers_produces_required_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-wrap-") as tmpdir:

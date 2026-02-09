@@ -19,9 +19,12 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 
 ## Canonical shared wrappers
 - `skills/aidd-loop/scripts/loop-pack.sh`
+- `skills/aidd-loop/scripts/loop-step.sh`
+- `skills/aidd-loop/scripts/loop-run.sh`
 - `skills/aidd-loop/scripts/preflight-prepare.sh`
 - `skills/aidd-loop/scripts/preflight-result-validate.sh`
 - `skills/aidd-loop/scripts/output-contract.sh`
 
 ## Additional resources
-- For wrapper paths and shim-compat details, see [reference.md](reference.md).
+- For wrapper paths and fallback details, see [reference.md](reference.md).
+- Loop pack template source: [templates/loop-pack.template.md](templates/loop-pack.template.md) (seeded to `aidd/docs/loops/template.loop-pack.md` by init).
