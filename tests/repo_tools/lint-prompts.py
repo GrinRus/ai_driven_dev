@@ -497,7 +497,6 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
                 ensure_keys(
                     info,
                     [
-                        "name",
                         "description",
                         "lang",
                         "model",
@@ -534,7 +533,6 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
                 ensure_keys(
                     info,
                     [
-                        "name",
                         "description",
                         "argument-hint",
                         "lang",

@@ -1,5 +1,4 @@
 ---
-name: review
 description: Review changes, produce feedback, and derive tasks.
 argument-hint: $1 [note...]
 lang: ru

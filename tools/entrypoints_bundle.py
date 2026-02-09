@@ -71,11 +71,12 @@ def build_bundle(root: Path) -> Dict[str, object]:
     for entry in sorted(skills_raw):
         rel = _normalize_path(entry)
         path, display_rel = _resolve_skill_path(root, rel)
+        inferred_name = Path(display_rel).parent.name
         fm = load_frontmatter(path)
         skills.append(
             {
                 "path": display_rel,
-                "name": str(fm.get("name", "")),
+                "name": str(fm.get("name", "")) or inferred_name,
                 "lang": str(fm.get("lang", "")),
                 "prompt_version": str(fm.get("prompt_version", "")),
                 "source_version": str(fm.get("source_version", "")),

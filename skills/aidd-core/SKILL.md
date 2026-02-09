@@ -1,5 +1,4 @@
 ---
-name: aidd-core
 description: Core runtime policy for AIDD skills (pack-first, output contract, DocOps).
 lang: en
 model: inherit
