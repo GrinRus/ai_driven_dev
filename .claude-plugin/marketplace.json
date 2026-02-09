@@ -9,10 +9,10 @@
       "source": {
         "source": "github",
         "repo": "GrinRus/ai_driven_dev",
-        "ref": "main"
+        "ref": "codex/wave95-audit-closure"
       },
       "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
-      "version": "0.2.0",
+      "version": "0.1.1",
       "strict": true
     }
   ]
