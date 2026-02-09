@@ -462,9 +462,7 @@ class PromptLintTests(unittest.TestCase):
         policy_path.write_text("Skills are EN-only.\n", encoding="utf-8")
 
     def write_plugin_manifest(self, root: Path) -> None:
-        skills = sorted(
-            f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
-        )
+        skills = sorted(f"./skills/{path.parent.name}" for path in (root / "skills").glob("*/SKILL.md"))
         agents = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
         manifest = {
             "name": "test-plugin",

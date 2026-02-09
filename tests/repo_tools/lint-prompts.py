@@ -962,12 +962,13 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
                 normalized.append(value)
         return sorted(set(normalized))
 
-    def _validate_list(key: str, expected: List[str]) -> None:
+    def _validate_list(key: str, expected: List[str]) -> List[str]:
+        resolved_entries: List[str] = []
         raw = payload.get(key)
         entries = _normalize_entries(raw)
         if raw is None:
             errors.append(f"{manifest_path}: `{key}` is missing")
-            return
+            return resolved_entries
         if entries:
             missing = [item for item in expected if item not in entries]
             extra = [item for item in entries if item not in expected]
@@ -981,10 +982,46 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
             if ".." in Path(entry).parts:
                 errors.append(f"{manifest_path}: `{key}` path must not contain .. ({entry})")
             rel = entry[2:] if entry.startswith("./") else entry
-            if rel and not (root / rel).exists():
+            path = root / rel if rel else root
+            if rel and not path.exists():
                 errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
+                continue
+            resolved_entries.append(entry)
+        return resolved_entries
 
-    _validate_list("skills", skills_expected)
+    def _normalize_rel(path: Path) -> str:
+        return f"./{path.as_posix()}"
+
+    skill_roots = _validate_list("skills", sorted({f"./skills/{Path(path).parent.name}" for path in skills_expected}))
+    resolved_skills: List[str] = []
+    for entry in skill_roots:
+        rel = entry[2:] if entry.startswith("./") else entry
+        path = root / rel
+        if path.is_file():
+            errors.append(f"{manifest_path}: `skills` entries must reference directories, not files ({entry})")
+            continue
+        if not path.is_dir():
+            errors.append(f"{manifest_path}: `skills` entry must be a directory ({entry})")
+            continue
+        direct_skill = path / "SKILL.md"
+        if direct_skill.is_file():
+            resolved_skills.append(_normalize_rel(Path(rel) / "SKILL.md"))
+            continue
+        discovered = sorted(path.rglob("SKILL.md"))
+        if not discovered:
+            errors.append(f"{manifest_path}: `skills` directory has no SKILL.md ({entry})")
+            continue
+        resolved_skills.extend(_normalize_rel(skill.relative_to(root)) for skill in discovered)
+
+    expected_skills = sorted(set(skills_expected))
+    resolved_skills = sorted(set(resolved_skills))
+    missing_skills = [item for item in expected_skills if item not in resolved_skills]
+    extra_skills = [item for item in resolved_skills if item not in expected_skills]
+    if missing_skills:
+        errors.append(f"{manifest_path}: skills missing resolved entries {missing_skills}")
+    if extra_skills:
+        errors.append(f"{manifest_path}: skills has extra resolved entries {extra_skills}")
+
     _validate_list("agents", agents_expected)
 
     return errors

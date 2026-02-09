@@ -1,6 +1,6 @@
 ---
 name: idea-new
-description: Kick off a feature: set ticket/slug, build PRD draft, ask questions.
+description: "Kick off a feature: set ticket/slug, build PRD draft, ask questions."
 argument-hint: $1 [slug=<slug-hint>] [note...]
 lang: ru
 prompt_version: 1.3.17

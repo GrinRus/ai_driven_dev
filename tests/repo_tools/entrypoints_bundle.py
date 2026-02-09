@@ -53,17 +53,43 @@ def _normalize_path(path: str) -> str:
     return path
 
 
+def _resolve_skill_files(root: Path, entries: List[str]) -> List[Path]:
+    resolved: List[Path] = []
+    for entry in sorted(entries):
+        rel = _normalize_path(entry)
+        path = root / rel
+        if path.is_file():
+            if path.name == "SKILL.md":
+                resolved.append(path)
+            continue
+        if not path.is_dir():
+            continue
+        direct = path / "SKILL.md"
+        if direct.is_file():
+            resolved.append(direct)
+            continue
+        resolved.extend(sorted(path.rglob("SKILL.md")))
+    dedup: Dict[str, Path] = {}
+    for item in resolved:
+        rel = item.relative_to(root).as_posix()
+        dedup.setdefault(rel, item)
+    return [dedup[key] for key in sorted(dedup)]
+
+
 def build_bundle(root: Path) -> Dict[str, object]:
     manifest_path = root / ".claude-plugin" / "plugin.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     skills_raw = payload.get("skills") or []
     agents_raw = payload.get("agents") or []
+    if isinstance(skills_raw, str):
+        skills_raw = [skills_raw]
+    if isinstance(agents_raw, str):
+        agents_raw = [agents_raw]
 
     skills: List[Dict[str, str]] = []
-    for entry in sorted(skills_raw):
-        rel = _normalize_path(entry)
-        path = root / rel
+    for path in _resolve_skill_files(root, list(skills_raw)):
+        rel = path.relative_to(root).as_posix()
         fm = load_frontmatter(path)
         skills.append(
             {

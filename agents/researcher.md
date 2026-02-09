@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски.
+description: "Исследует кодовую базу перед внедрением фичи: точки интеграции, reuse, риски."
 lang: ru
 prompt_version: 1.2.30
 source_version: 1.2.30

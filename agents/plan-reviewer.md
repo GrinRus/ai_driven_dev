@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review.
+description: "Ревью плана реализации: исполняемость, риски и тестовая стратегия перед PRD review."
 lang: ru
 prompt_version: 1.0.19
 source_version: 1.0.19
