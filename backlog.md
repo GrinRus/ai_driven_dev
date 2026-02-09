@@ -363,6 +363,7 @@ Current checkpoint (2026-02-08):
   - обновить skills без `run.sh` и синхронизировать их `allowed-tools`/Steps;
   - добавить lint guard на отсутствие canonical run-wrapper.
   **AC:** 100% user-invocable skills имеют собственный `scripts/run.sh` и проходят lint contract.
+  **Deps:** -
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** Medium
@@ -372,6 +373,7 @@ Current checkpoint (2026-02-08):
   - проверить, что stage skill вызывает собственные wrappers для stage-specific операций;
   - добавить whitelist/owner-map в lint.
   **AC:** stage skills используют только own scripts + approved shared scripts.
+  **Deps:** W96-58
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** Medium
@@ -381,6 +383,7 @@ Current checkpoint (2026-02-08):
   - нормализовать секции `Additional resources` (когда и зачем загружать references/templates);
   - добавить lint warning/error thresholds для oversized skills.
   **AC:** oversized skills покрыты policy и lint guards; supporting-files navigation явная.
+  **Deps:** W96-58
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
   **Effort:** S
   **Risk:** Low
@@ -392,6 +395,7 @@ Current checkpoint (2026-02-08):
   - вынести stage-specific orchestration в `runtime/spec_interview.py`;
   - обновить command contract/steps в `SKILL.md`.
   **AC:** `spec-interview` полностью self-owned (command wrapper + runtime) без косвенной зависимости на чужие stage wrappers.
+  **Deps:** W96-58, W96-59
   **Regression/tests:** `python3 -m pytest -q tests/test_cli_subcommands.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** M
   **Risk:** Medium
@@ -401,6 +405,7 @@ Current checkpoint (2026-02-08):
   - вынести stage-specific orchestration/normalize в `runtime/tasks_new.py`;
   - синхронизировать steps/allowed-tools с новым ownership.
   **AC:** `tasks-new` полностью self-owned (command wrapper + runtime) и проходит stage checks.
+  **Deps:** W96-58, W96-59
   **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** M
   **Risk:** Medium
@@ -410,6 +415,7 @@ Current checkpoint (2026-02-08):
   - валидировать согласованность `agent`/`context`/`run.sh` presence;
   - добавить понятный report по owner gaps.
   **AC:** owner gaps ловятся guard-ами до merge.
+  **Deps:** W96-58, W96-59, W96-61, W96-62
   **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** S
   **Risk:** Low
@@ -421,6 +427,7 @@ Current checkpoint (2026-02-08):
   - подключить `aidd-policy` в preload у subagents;
   - оставить `aidd-core` как runtime-ориентированный слой без policy-monolith.
   **AC:** policy guidance живёт в dedicated shared skill и переиспользуется агентами.
+  **Deps:** W96-60
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** Medium
@@ -430,6 +437,7 @@ Current checkpoint (2026-02-08):
   - обновить все consumers (skills/hooks/tests/docs) на новые canonical paths;
   - оставить минимально необходимые compatibility redirects на migration window (если нужно).
   **AC:** DocIO surface полностью принадлежит `aidd-docio`, без дубли ownership в `aidd-core`.
+  **Deps:** W96-59
   **Regression/tests:** `python3 -m pytest -q tests/test_md_slice.py tests/test_context_expand.py tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** L
   **Risk:** High
@@ -439,6 +447,7 @@ Current checkpoint (2026-02-08):
   - синхронизировать все stage skill refs на новый canonical owner;
   - добавить owner-map validation для flow-state API.
   **AC:** flow-state API полностью принадлежит `aidd-flow-state`.
+  **Deps:** W96-59
   **Regression/tests:** `python3 -m pytest -q tests/test_progress.py tests/test_tasklist_check.py tests/test_gate_workflow*.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** L
   **Risk:** High
@@ -448,6 +457,7 @@ Current checkpoint (2026-02-08):
   - обновить CI/docs/inventory consumers;
   - закрепить observability API contract в tests.
   **AC:** observability API имеет отдельного owner и независимый lifecycle.
+  **Deps:** W96-59
   **Regression/tests:** `python3 -m pytest -q tests/test_tools_inventory.py tests/test_tests_log.py tests/test_error_output.py`, `tests/repo_tools/ci-lint.sh`.
   **Effort:** M
   **Risk:** Medium
@@ -457,6 +467,7 @@ Current checkpoint (2026-02-08):
   - убрать из `aidd-core` перегруженные policy/procedure блоки после split;
   - обновить plugin/docs чтобы отражать новую shared-skill topology.
   **AC:** `aidd-core` не является monolith SoT, а выступает в роли aggregator.
+  **Deps:** W96-64, W96-65, W96-66, W96-67
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `tests/repo_tools/ci-lint.sh`.
   **Effort:** S
   **Risk:** Medium
@@ -468,6 +479,7 @@ Current checkpoint (2026-02-08):
   - обновить `aidd-rlm` preload docs/allowed-tools на собственные wrappers;
   - оставить `researcher` stage wrappers только для stage orchestration.
   **AC:** shared RLM API owned by `aidd-rlm`, а не stage-local `researcher`.
+  **Deps:** W96-64
   **Regression/tests:** `python3 -m pytest -q tests/test_rlm_wrappers.py tests/test_research_rlm_e2e.py`, `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** M
   **Risk:** Medium
@@ -477,6 +489,7 @@ Current checkpoint (2026-02-08):
   - убрать скрытые cross-owner зависимости в steps/allowed-tools;
   - обновить stage docs/tests под новый ownership.
   **AC:** responsibilities `aidd-rlm` vs `researcher` чётко разделены и проверяемы.
+  **Deps:** W96-69
   **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_rlm_e2e.py`, `tests/repo_tools/ci-lint.sh`.
   **Effort:** M
   **Risk:** Medium
@@ -488,6 +501,7 @@ Current checkpoint (2026-02-08):
   - сохранить CLI/output compatibility;
   - уменьшить когнитивную и тестовую связанность.
   **AC:** largest module decomposition completed; responsibilities isolated per module.
+  **Deps:** W96-63
   **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_cli_subcommands.py`.
   **Effort:** L
   **Risk:** High
@@ -497,6 +511,7 @@ Current checkpoint (2026-02-08):
   - снизить coupling с gate/workflow runtime;
   - сохранить deterministic behavior loop-step.
   **AC:** `loop_step` module split завершён без regressions по loop semantics.
+  **Deps:** W96-63
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_semantics.py tests/test_gate_workflow_preflight_contract.py`.
   **Effort:** L
   **Risk:** High
@@ -506,6 +521,7 @@ Current checkpoint (2026-02-08):
   - улучшить testability для read-budget поведения;
   - сохранить output compatibility для context artifacts.
   **AC:** context builder split на bounded components с сохранением контракта output.
+  **Deps:** W96-63
   **Regression/tests:** `python3 -m pytest -q tests/test_researcher_context.py tests/test_reports_pack.py`.
   **Effort:** M
   **Risk:** Medium
@@ -515,6 +531,7 @@ Current checkpoint (2026-02-08):
   - зафиксировать deterministic behavior (stable ids/order/truncation);
   - снизить blast radius изменений в research pack pipeline.
   **AC:** pack assembly модульно разложен, deterministic guarantees покрыты тестами.
+  **Deps:** W96-69, W96-70
   **Regression/tests:** `python3 -m pytest -q tests/test_reports_pack.py tests/test_research_rlm_e2e.py`.
   **Effort:** M
   **Risk:** Medium
@@ -524,6 +541,7 @@ Current checkpoint (2026-02-08):
   - задать target thresholds (например, >600 lines = warning, >900 = error);
   - документировать исключения/waivers.
   **AC:** новые runtime monoliths блокируются/сигнализируются автоматически.
+  **Deps:** W96-71, W96-72, W96-73, W96-74
   **Regression/tests:** `tests/repo_tools/ci-lint.sh`.
   **Effort:** S
   **Risk:** Low
@@ -535,6 +553,7 @@ Current checkpoint (2026-02-08):
   - `aidd-rlm` preload только для analyst/planner/plan-reviewer/prd-reviewer/researcher/reviewer/spec-interview-writer/tasklist-refiner/validator;
   - `aidd-loop` preload только для implementer/reviewer/qa.
   **AC:** preload mapping минимизирует лишний контекст и совпадает с role responsibilities.
+  **Deps:** W96-64, W96-69
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** Medium
@@ -544,6 +563,7 @@ Current checkpoint (2026-02-08):
   - запретить accidental preload drift;
   - добавить explicit waivers list для exceptional agents (если нужны).
   **AC:** preload matrix закреплён в lint и защищён от drift.
+  **Deps:** W96-76
   **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py`, `python3 tests/repo_tools/lint-prompts.py --root .`.
   **Effort:** S
   **Risk:** Low
@@ -555,7 +575,70 @@ Current checkpoint (2026-02-08):
   - stage content templates держать только в `skills/*/templates/*`;
   - закрепить init copy logic и docs SoT under skill ownership.
   **AC:** stage template SoT полностью skill-local, workspace templates не содержат дублей content templates.
+  **Deps:** W96-65, W96-66, W96-68
   **Regression/tests:** `tests/repo_tools/smoke-workflow.sh`, `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+#### Phase 6H — Improvement-plan backfill (without scope loss)
+
+- [ ] **W96-79 (P0) Prompt-lint baseline rehabilitation (backfill B-002)** `tests/repo_tools/lint-prompts.py`, `docs/skill-language.md`, `aidd/reports/migrations/commands_to_skills_frontmatter.json`:
+  - восстановить canonical policy/baseline paths для prompt-lint;
+  - добавить/обновить baseline entries для всех stage skills;
+  - устранить текущие `missing policy/baseline` ошибки.
+  **AC:** prompt-lint не падает на missing policy/baseline/stage entries.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `tests/repo_tools/ci-lint.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-80 (P0) Single stage enum + alias map across runtime (backfill B-003)** `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`, `hooks/context_gc/pretooluse_guard.py`, `skills/aidd-core/templates/stage-lexicon.md`:
+  - централизовать stage enum/alias map и переиспользовать в setter/validators/guards;
+  - устранить расхождения stage семантики в runtime;
+  - синхронизировать с stage-lexicon template.
+  **AC:** setter/validators/guards принимают одинаковую stage семантику.
+  **Deps:** W96-79
+  **Regression/tests:** `python3 -m pytest -q tests/test_set_active_stage.py tests/test_wave93_validators.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-81 (P0) Canonical `spec-interview` stage assignment (backfill B-004)** `skills/spec-interview/SKILL.md`, `skills/aidd-core/runtime/set_active_stage.py`, `skills/aidd-core/runtime/context_map_validate.py`:
+  - убрать drift между `spec`/`spec-interview` в command-stage assignment;
+  - оставить только canonical semantics + явный alias (если нужен);
+  - покрыть stage assignment тестами.
+  **AC:** spec-interview stage consistently resolves to canonical stage.
+  **Deps:** W96-80
+  **Regression/tests:** `python3 -m pytest -q tests/test_set_active_stage.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-82 (P1) Remove unsupported `release` stage placeholders (backfill B-005)** `skills/tasks-new/templates/tasklist.template.md`, `skills/aidd-core/templates/stage-lexicon.md`:
+  - удалить placeholder stages, которых нет в runtime lexicon;
+  - выровнять tasklist template с каноничным stage набором;
+  - добавить guard на появление unsupported stages в template.
+  **AC:** tasklist template содержит только supported stages/aliases.
+  **Deps:** W96-80
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-83 (P1) PRD gate path cleanup and single authority (backfill B-006)** `hooks/hooks.json`, `hooks/gate-prd-review.sh`, `skills/aidd-core/runtime/gate_workflow.py`:
+  - выбрать и закрепить единый путь PRD gating (hook vs internal gate-workflow path);
+  - убрать двусмысленность/двойной gate execution;
+  - обновить tests/docs под выбранный контракт.
+  **AC:** в hook inventory нет неиспользуемых PRD-gate скриптов и дублирующего поведения.
+  **Deps:** W96-80
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_prd_review.py tests/test_gate_workflow.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-84 (P2) CI/security expansion and required-check parity (backfill B-012)** `.github/workflows/ci.yml`, `.github/workflows/*.yml`, `AGENTS.md`, `README.md`, `README.en.md`:
+  - добавить минимум 2 security controls (secret scan/SAST/SBOM) в CI;
+  - сделать parity между documented release checks и enforced CI checks;
+  - ввести staged rollout (non-blocking -> required).
+  **AC:** security checks запускаются на PR и дают стабильный actionable signal.
+  **Deps:** W96-79
+  **Regression/tests:** GitHub Actions runs + `tests/repo_tools/ci-lint.sh`.
   **Effort:** M
   **Risk:** Medium
 
