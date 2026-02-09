@@ -119,13 +119,13 @@ def _reviewer_requirements(
     ticket: str,
     slug_hint: Optional[str],
     scope_key: str,
-) -> Tuple[bool, bool, str]:
+) -> Tuple[bool, bool, bool, str]:
     config = runtime.load_gates_config(target)
     reviewer_cfg = config.get("reviewer") if isinstance(config, dict) else None
     if not isinstance(reviewer_cfg, dict):
         reviewer_cfg = {}
     if reviewer_cfg.get("enabled") is False:
-        return False, False, ""
+        return False, False, False, ""
     marker_template = str(
         reviewer_cfg.get("tests_marker")
         or DEFAULT_REVIEWER_MARKER
@@ -138,11 +138,11 @@ def _reviewer_requirements(
         scope_key=scope_key,
     )
     if not marker_path.exists():
-        return False, False, ""
+        return False, False, False, ""
     try:
         payload = json.loads(marker_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return False, False, runtime.rel_path(marker_path, target)
+        return False, False, False, runtime.rel_path(marker_path, target)
     field_name = str(
         reviewer_cfg.get("tests_field")
         or "tests"
@@ -152,9 +152,16 @@ def _reviewer_requirements(
     if not isinstance(required_values, list):
         required_values = [required_values]
     required_values = [str(value).strip().lower() for value in required_values if str(value).strip()]
+    optional_values = reviewer_cfg.get("optional_values") or ["optional", "skipped", "not-required"]
+    if not isinstance(optional_values, list):
+        optional_values = [optional_values]
+    optional_values = [str(value).strip().lower() for value in optional_values if str(value).strip()]
+    optional_overrides = set(optional_values + ["not-required", "not_required", "none"])
     if marker_value and marker_value in required_values:
-        return True, True, runtime.rel_path(marker_path, target)
-    return False, False, runtime.rel_path(marker_path, target)
+        return True, True, False, runtime.rel_path(marker_path, target)
+    if marker_value and marker_value in optional_overrides:
+        return False, False, True, runtime.rel_path(marker_path, target)
+    return False, False, False, runtime.rel_path(marker_path, target)
 
 
 def _tests_policy(
@@ -179,12 +186,14 @@ def _tests_policy(
     elif stage_policy == "targeted":
         require = True
 
-    reviewer_required, reviewer_block, marker_source = _reviewer_requirements(
+    reviewer_required, reviewer_block, reviewer_not_required, marker_source = _reviewer_requirements(
         target,
         ticket=ticket,
         slug_hint=slug_hint,
         scope_key=scope_key,
     )
+    if reviewer_not_required:
+        return False, False, marker_source
     if reviewer_required:
         require = True
         block = reviewer_block or block

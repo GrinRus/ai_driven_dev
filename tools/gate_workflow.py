@@ -85,6 +85,109 @@ def _next3_has_real_items(tasklist_path: Path) -> bool:
     return False
 
 
+def _is_skill_first(plugin_root: Path) -> bool:
+    if not (plugin_root / "skills" / "aidd-core" / "SKILL.md").exists():
+        return False
+    for stage in ("implement", "review", "qa"):
+        if (plugin_root / "skills" / stage / "SKILL.md").exists():
+            return True
+    return False
+
+
+def _active_mode(root: Path) -> str:
+    mode_path = root / "docs" / ".active_mode"
+    if not mode_path.exists():
+        return ""
+    try:
+        return mode_path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
+
+
+def _loop_scope_key(root: Path, ticket: str, stage: str) -> str:
+    from tools import runtime as _runtime
+
+    if stage == "qa":
+        return _runtime.resolve_scope_key("", ticket)
+    work_item_key = _runtime.read_active_work_item(root)
+    return _runtime.resolve_scope_key(work_item_key, ticket)
+
+
+def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) -> tuple[bool, str]:
+    from tools import runtime as _runtime
+
+    if stage not in {"implement", "review", "qa"}:
+        return True, ""
+    if _active_mode(root) != "loop":
+        return True, ""
+    plugin_root_raw = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    if not plugin_root_raw:
+        return True, ""
+    plugin_root = Path(plugin_root_raw).expanduser().resolve()
+    if not _is_skill_first(plugin_root):
+        return True, ""
+
+    scope_key = _loop_scope_key(root, ticket, stage)
+    actions_dir = root / "reports" / "actions" / ticket / scope_key
+    context_dir = root / "reports" / "context" / ticket
+    loops_dir = root / "reports" / "loops" / ticket / scope_key
+
+    required = {
+        "actions_template": actions_dir / f"{stage}.actions.template.json",
+        "readmap_json": context_dir / f"{scope_key}.readmap.json",
+        "writemap_json": context_dir / f"{scope_key}.writemap.json",
+        "preflight_result": loops_dir / "stage.preflight.result.json",
+    }
+    compatibility = {
+        "readmap_json": actions_dir / "readmap.json",
+        "writemap_json": actions_dir / "writemap.json",
+        "preflight_result": actions_dir / "stage.preflight.result.json",
+    }
+
+    missing: list[str] = []
+    for key, path in required.items():
+        if path.exists():
+            continue
+        legacy = compatibility.get(key)
+        if legacy and legacy.exists():
+            continue
+        missing.append(_runtime.rel_path(path, root))
+
+    if missing:
+        return False, f"BLOCK: missing preflight artifacts ({', '.join(missing)}) (reason_code=preflight_missing)"
+
+    warnings: list[str] = []
+    actions_path = actions_dir / f"{stage}.actions.json"
+    if not actions_path.exists():
+        msg = (
+            f"missing actions payload ({_runtime.rel_path(actions_path, root)}) "
+            "(reason_code=actions_missing)"
+        )
+        if hooks_mode == "strict":
+            return False, f"BLOCK: {msg}"
+        warnings.append(f"WARN: {msg}")
+
+    contract_path = loops_dir / "output.contract.json"
+    if contract_path.exists():
+        try:
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        except Exception:
+            contract = {}
+        actions_log = str(contract.get("actions_log") or "").strip()
+        if not actions_log:
+            msg = (
+                f"missing AIDD:ACTIONS_LOG marker in output contract ({_runtime.rel_path(contract_path, root)}) "
+                "(reason_code=actions_log_missing)"
+            )
+            if hooks_mode == "strict":
+                return False, f"BLOCK: {msg}"
+            warnings.append(f"WARN: {msg}")
+
+    if warnings:
+        return True, "\n".join(warnings)
+    return True, ""
+
+
 def _run_plan_review_gate(root: Path, ticket: str, file_path: str, branch: str) -> tuple[int, str]:
     from tools import plan_review_gate
 
@@ -438,6 +541,14 @@ def main() -> int:
                 )
                 return 2
             return 0
+
+    if has_src_changes and active_stage in {"implement", "review", "qa"}:
+        ok_preflight, preflight_message = _loop_preflight_guard(root, ticket, active_stage, hooks_mode)
+        if not ok_preflight:
+            _log_stderr(preflight_message)
+            return 2
+        if preflight_message:
+            _log_stdout(preflight_message)
 
     tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
     if not tasklist_path.exists():

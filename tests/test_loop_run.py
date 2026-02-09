@@ -152,6 +152,67 @@ class LoopRunTests(unittest.TestCase):
             workspace_root = root.parent
             self.assertTrue((workspace_root / str(stream_jsonl)).exists(), "stream jsonl file should exist")
 
+    def test_loop_run_logs_scope_mismatch_warning(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-MISMATCH", stage="implement", work_item="iteration_id=I2")
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.review.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-MISMATCH",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I4",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:01Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                "reports/loops/DEMO-MISMATCH/iteration_id_I4/review.latest.pack.md",
+                "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:01Z\n---\n",
+            )
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-MISMATCH",
+                    "--max-iterations",
+                    "1",
+                    "--runner",
+                    f"bash {runner}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("scope_key_mismatch_warn=1", loop_log)
+
 
 if __name__ == "__main__":
     unittest.main()

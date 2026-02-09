@@ -736,7 +736,7 @@ _Статус: выполнено. Цель — формализовать чт�
 
 _Статус: новый, приоритет 0. Цель — закрыть дефекты runtime, выявленные e2e/audit: slug pollution, scope mismatch в loop-run, отсутствующие W92/W93 runtime-артефакты, marker/gate policy mismatch и QA cwd._
 
-- [ ] **W94-1 (P0)** `.active.json.work_item`: стабилизировать контракт iteration-key
+- [x] **W94-1 (P0)** `.active.json.work_item`: стабилизировать контракт iteration-key
   - проверить все writer-пути активного состояния: `tools/runtime.py`, `tools/review_report.py`, `tools/reviewer_tests.py`, `tools/loop_step.py`, `tools/set_active_stage.py`, `tools/set_active_feature.py`;
   - для loop-стадий (`implement|review`) хранить в `aidd/docs/.active.json.work_item` только `iteration_id=<I#>` (или `null`), не `id=review:*`;
   - если нужен report id, хранить отдельно (`last_review_report_id`) без влияния на loop scope resolution.
@@ -749,7 +749,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - integration: инъекция `id=review:*` в `.active.json` + проверка поведения `loop-step` (normalize/explicit block с `invalid_work_item_key`).
   **Deps:** -
 
-- [ ] **W94-2 (P0)** loop-run/loop-step: scope из `stage_result` как source-of-truth
+- [x] **W94-2 (P0)** loop-run/loop-step: scope из `stage_result` как source-of-truth
   - обновить `tools/loop_run.py`, `tools/loop_step.py`:
     - после stage-команды брать фактический `stage.<stage>.result.json` из `aidd/reports/loops/<ticket>/**` по `updated_at`/mtime в окне запуска;
     - при mismatch (`chosen_scope_key != stage_result.scope_key`) писать `scope_key_mismatch_warn` и продолжать по canonical scope из `stage_result`;
@@ -761,7 +761,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - integration fixture: mismatch (`chosen_scope_key` ≠ фактический `stage_result.scope_key`) -> recovery path.
   **Deps:** W94-1
 
-- [ ] **W94-3 (P0)** W92/W93 runtime wiring: обязательный preflight/readmap/writemap/actions
+- [x] **W94-3 (P0)** W92/W93 runtime wiring: обязательный preflight/readmap/writemap/actions
   - включить детерминированную оркестрацию wrapper-цепочки для loop stages (`implement|review|qa`) в `tools/loop_step.py`:
     - `skills/<stage>/scripts/preflight.sh` -> stage command -> `skills/<stage>/scripts/run.sh` -> `skills/<stage>/scripts/postflight.sh`;
   - в `tools/gate_workflow.py` добавить enforcement для `SKILL_FIRST`:
@@ -781,7 +781,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - smoke: минимум один loop step в `SKILL_FIRST` с проверкой preflight/docops артефактов.
   **Deps:** W94-2
 
-- [ ] **W94-4 (P1)** reviewer marker semantics: `tests=not-required` отключает `no_tests_soft`
+- [x] **W94-4 (P1)** reviewer marker semantics: `tests=not-required` отключает `no_tests_soft`
   - в resolver (review stage / gate-workflow) закрепить:
     - marker `tests: not-required` => requirement `none`;
     - `tests_log: skipped` считается валидным evidence;
@@ -794,7 +794,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - integration: marker `not-required` + skipped tests log -> review stage stays non-degraded.
   **Deps:** W94-3
 
-- [ ] **W94-5 (P1)** QA runner cwd resolution для multi-module Gradle
+- [x] **W94-5 (P1)** QA runner cwd resolution для multi-module Gradle
   - обновить `tools/qa.py` (или runner внутри qa flow):
     - для `backend/gradlew` и `backend-mcp/gradlew` запускать тесты с `cwd=<module_dir>` или `cd <module> && ./gradlew ...`;
     - логировать `cwd` в QA report для каждого test command;
@@ -807,7 +807,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - smoke: fixture без root-gradlew и с module-gradlew.
   **Deps:** -
 
-- [ ] **W94-6 (P1)** write-safety: runtime-артефакты только в workspace
+- [x] **W94-6 (P1)** write-safety: runtime-артефакты только в workspace
   - централизовать root resolve для всех write-paths (workspace-first, plugin-root read-only);
   - fail-fast, если write-path уходит вне workspace root;
   - проверить инструменты на запись ticket-артефактов в plugin repo.
@@ -818,7 +818,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - integration: запуск tools с `cwd=plugin_dir` и `--root=<workspace>` пишет только в workspace.
   **Deps:** W94-3
 
-- [ ] **W94-7 (P2)** language policy drift: синхронизировать SoT и frontmatter
+- [x] **W94-7 (P2)** language policy drift: синхронизировать SoT и frontmatter
   - выбрать одно решение:
     - A) обновить `docs/skill-language.md` (временное разрешение `lang: ru` для stage skills),
     - B) перевести stage skills на `lang: en` и обновить frontmatter;
@@ -828,7 +828,7 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   - entrypoints/prompt metadata соответствуют выбранному SoT.
   **Deps:** -
 
-- [ ] **W94-Order (рекомендованный порядок)** `backlog.md`
+- [x] **W94-Order (рекомендованный порядок)** `backlog.md`
   - P0: `W94-1` -> `W94-2` -> `W94-3`
   - P1: `W94-5` -> `W94-4` -> `W94-6`
   - P2: `W94-7`

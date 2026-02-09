@@ -10,12 +10,12 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from tools import active_state as _active_state
 from tools.feature_ids import FeatureIdentifiers, read_active_state, resolve_identifiers
 from tools.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root as resolve_workspace_root
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
-_WORK_ITEM_KEY_RE = re.compile(r"^(iteration_id|id)=[A-Za-z0-9_.:-]+$")
 
 
 try:
@@ -33,9 +33,27 @@ def require_plugin_root() -> Path:
     return plugin_root
 
 
+def _plugin_workspace_guard(workspace_root: Path) -> None:
+    if os.environ.get("AIDD_ALLOW_PLUGIN_WORKSPACE", "").strip() == "1":
+        return
+    raw = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("AIDD_PLUGIN_DIR")
+    if not raw:
+        return
+    plugin_root = Path(raw).expanduser().resolve()
+    if workspace_root != plugin_root:
+        return
+    if not (plugin_root / ".claude-plugin").exists():
+        return
+    raise RuntimeError(
+        "refusing to use plugin repository as workspace root for runtime artifacts; "
+        "run commands from the project workspace root."
+    )
+
+
 def resolve_roots(raw_target: Path | None = None, *, create: bool = False) -> tuple[Path, Path]:
     target = (raw_target or Path.cwd()).resolve()
     workspace_root, project_root = resolve_workspace_root(target, DEFAULT_PROJECT_SUBDIR)
+    _plugin_workspace_guard(workspace_root)
     if project_root.exists():
         return workspace_root, project_root
     if create:
@@ -154,10 +172,11 @@ def sanitize_scope_key(value: str) -> str:
 
 
 def is_valid_work_item_key(value: str | None) -> bool:
-    raw = str(value or "").strip()
-    if not raw:
-        return False
-    return bool(_WORK_ITEM_KEY_RE.match(raw))
+    return _active_state.is_valid_work_item_key(value)
+
+
+def is_iteration_work_item_key(value: str | None) -> bool:
+    return _active_state.is_iteration_work_item_key(value)
 
 
 def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: str = "ticket") -> str:
@@ -171,6 +190,11 @@ def resolve_scope_key(work_item_key: Optional[str], ticket: str, *, fallback: st
 def read_active_work_item(target: Path) -> str:
     state = read_active_state(target)
     return (state.work_item or "").strip()
+
+
+def read_active_last_review_report_id(target: Path) -> str:
+    state = read_active_state(target)
+    return (state.last_review_report_id or "").strip()
 
 
 def read_active_stage(target: Path) -> str:
