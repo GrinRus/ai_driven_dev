@@ -156,6 +156,34 @@ run_tool_result_id_check() {
     STATUS=1
   fi
 }
+
+run_skill_scripts_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping skill scripts guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/skill-scripts-guard.py" ]]; then
+    warn "tests/repo_tools/skill-scripts-guard.py missing; skipping"
+    return
+  fi
+  log "running skill scripts guard"
+  if ! python3 tests/repo_tools/skill-scripts-guard.py; then
+    err "skill scripts guard failed"
+    STATUS=1
+  fi
+}
+
+run_shim_regression() {
+  if [[ ! -f "tests/repo_tools/shim-regression.sh" ]]; then
+    warn "tests/repo_tools/shim-regression.sh missing; skipping"
+    return
+  fi
+  log "running shim regression checks"
+  if ! bash tests/repo_tools/shim-regression.sh; then
+    err "shim regression checks failed"
+    STATUS=1
+  fi
+}
 run_shellcheck() {
   local root="$1"
   if ! command -v shellcheck >/dev/null 2>&1; then
@@ -339,6 +367,8 @@ run_loop_regression
 run_output_contract_regression
 run_claude_stream_renderer
 run_tool_result_id_check
+run_skill_scripts_guard
+run_shim_regression
 run_repo_linters
 
 run_python_tests

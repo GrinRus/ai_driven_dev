@@ -3,12 +3,15 @@ name: qa
 description: Run QA checks and produce the QA report.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.30
-source_version: 1.0.30
+prompt_version: 1.0.31
+source_version: 1.0.31
 allowed-tools:
   - Read
   - Edit
   - Glob
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/preflight.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/run.sh:*)"
+  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/postflight.sh:*)"
   - "Bash(rg:*)"
   - "Bash(npm:*)"
   - "Bash(pnpm:*)"
@@ -41,8 +44,8 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 ## Steps
 1. Preflight reference: `skills/qa/scripts/preflight.sh`. Ensure active feature/stage and required artifacts.
 2. Run QA via `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh` and derive tasks if needed.
-3. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` from template and validate schema before postflight.
-4. Postflight reference: `skills/qa/scripts/postflight.sh`. Run progress check, stage-result, status-summary.
+3. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` from template and validate schema via `skills/qa/scripts/run.sh`.
+4. Postflight reference: `skills/qa/scripts/postflight.sh`. Apply actions via DocOps, then run progress check, stage-result, status-summary.
 
 ## Notes
 - QA stage runs full tests per policy.

@@ -11,6 +11,8 @@
 - Все артефакты находятся в `aidd/**` (paths от root).
 - Pack‑first/read‑budget, output‑контракт, question format, DocOps и subagent‑guard — см. `skills/aidd-core`.
 - Loop discipline — см. `skills/aidd-loop`.
+- Stage‑локальные скрипты живут в `skills/<stage>/scripts/`; shared tooling остаётся в `tools/`.
+- Wrapper‑вывод: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишите в `aidd/reports/**`.
 
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.

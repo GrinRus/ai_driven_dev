@@ -187,6 +187,9 @@
           "Edit",
           "Write",
           "Glob",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/preflight.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/run.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/implement/scripts/postflight.sh:*)",
           "Bash(rg:*)",
           "Bash(sed:*)",
           "Bash(cat:*)",
@@ -219,8 +222,8 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.39",
-        "source_version": "1.1.39",
+        "prompt_version": "1.1.40",
+        "source_version": "1.1.40",
         "lang": "ru",
         "argument-hint": "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
       }
@@ -234,18 +237,20 @@
           "Read",
           "Edit",
           "Glob",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/preflight.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/run.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/postflight.sh:*)",
           "Bash(rg:*)",
           "Bash(sed:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-report.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/reviewer-tests.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/progress.sh:*)",
-          "Bash(${CLAUDE_PLUGIN_ROOT}/tools/context-pack.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/stage-result.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh:*)",
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh:*)",
@@ -253,8 +258,8 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.33",
-        "source_version": "1.0.33",
+        "prompt_version": "1.0.35",
+        "source_version": "1.0.35",
         "lang": "ru",
         "argument-hint": "$1 [note...]"
       }
@@ -268,6 +273,9 @@
           "Read",
           "Edit",
           "Glob",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/preflight.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/run.sh:*)",
+          "Bash(${CLAUDE_PLUGIN_ROOT}/skills/qa/scripts/postflight.sh:*)",
           "Bash(rg:*)",
           "Bash(npm:*)",
           "Bash(pnpm:*)",
@@ -290,8 +298,8 @@
           "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.30",
-        "source_version": "1.0.30",
+        "prompt_version": "1.0.31",
+        "source_version": "1.0.31",
         "lang": "ru",
         "argument-hint": "$1 [note...]"
       }
