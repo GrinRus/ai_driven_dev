@@ -25,6 +25,7 @@
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
 - Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, legacy command docs moved to `docs/legacy/commands`, and CI now guards skills/entrypoints parity.
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
 - Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.

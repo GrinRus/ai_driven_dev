@@ -2,11 +2,12 @@
 
 ## Wave 96 — Runtime stabilization after W94 (E2E parity)
 
-_Статус: новый, приоритет 0. Цель — закрыть блокеры TST-001 и вернуть детерминированный e2e-contract для idea/loop/qa._
+_Статус: в работе, приоритет 0. Цель — закрыть блокеры TST-001 и вернуть детерминированный e2e-contract для idea/loop/qa._
+_SoT: этот раздел является единственным источником текущего статуса Wave 96; архивные срезы ниже не используются как текущий статус._
 
 ### P0 — Fast path к зелёному e2e
 
-- [ ] **W96-0 (P0) Repro harness + e2e contract checks** `tests/test_e2e_contract_minimal.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W96-0 (P0) Repro harness + e2e contract checks** `tests/test_e2e_contract_minimal.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
   - добавить/расширить минимальный integration contract-check: temp workspace, минимальный прогон стадий и проверка обязательных артефактов;
   - зафиксировать инварианты `.active.json` и базовый набор stage wrapper outputs в одном тестовом месте;
   - обеспечить воспроизведение slug pollution и missing preflight artifacts без ручного e2e.
@@ -15,7 +16,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-1 (P0) Slug hygiene: `slug_hint` только токен** `tools/active_state.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_active_state.py`, `tests/test_feature_ids_root.py`:
+- [x] **W96-1 (P0) Slug hygiene: `slug_hint` только токен** `tools/active_state.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_active_state.py`, `tests/test_feature_ids_root.py`:
   - развести `slug_hint` (стабильный токен) и feature label/note/answers (отдельное поле или только PRD/plan/tasklist);
   - обновить writer active-state для `idea-new`: валидный slug пишется как есть, note никогда не конкатенируется в `slug_hint`;
   - добавить валидацию slug токена (`^[a-z0-9][a-z0-9-]{0,80}$`) и правило: невалидный второй аргумент трактуется как note.
@@ -24,7 +25,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** M
   **Risk:** High
 
-- [ ] **W96-2 (P0, blocker) SKILL_FIRST wrappers: preflight/readmap/writemap/actions/logs always-on** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `tools/output_contract.py`, `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W96-2 (P0, blocker) SKILL_FIRST wrappers: preflight/readmap/writemap/actions/logs always-on** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `tools/output_contract.py`, `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`:
   - выровнять единый stage wrapper orchestration для `implement|review|qa` (preflight -> stage core -> run/postflight) в ручном и loop путях;
   - гарантировать минимальные артефакты даже при “нулевых действиях”: `actions.template/actions`, `readmap/writemap`, `stage.preflight.result`, `wrapper.*.log`;
   - усилить enforcement в gate-workflow (SKILL_FIRST): отсутствие обязательных артефактов и `AIDD:ACTIONS_LOG` не проходит как success;
@@ -36,7 +37,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
 
 ### P1 — Семантика loop/qa и инварианты
 
-- [ ] **W96-3 (P1) `user_approval_required` contract + loop-run diagnostics** `tools/loop_run.py`, `tools/loop_step.py`, `tools/runtime.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+- [x] **W96-3 (P1) `user_approval_required` contract + loop-run diagnostics** `tools/loop_run.py`, `tools/loop_step.py`, `tools/runtime.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
   - унифицировать семантику reason-code: если нужен approval, стадия возвращает `blocked`, а loop-run останавливается на текущей стадии;
   - убрать сценарий “continue на implement -> blocked на review” для одного и того же work item;
   - расширить диагностику blocked: обязательные `reason_code`, `reason`, ссылка на stage result и wrapper/cli logs.
@@ -45,7 +46,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W96-4 (P1) iteration_id format policy (`M#` и `I#`)** `tools/feature_ids.py`, `tools/active_state.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_feature_ids_root.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+- [x] **W96-4 (P1) iteration_id format policy (`M#` и `I#`)** `tools/feature_ids.py`, `tools/active_state.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_feature_ids_root.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
   - быстрый путь: принять оба формата `iteration_id=(I|M)\\d+` в валидаторах/invariants;
   - синхронизировать проверки loop/stage/tests и устранить лишние WARN из-за расхождения ожиданий;
   - документировать выбранную политику формата в backlog/release notes при необходимости.
@@ -54,7 +55,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W96-5 (P1) QA exit-code policy aligned with report status** `tools/qa.py`, `tools/qa.sh`, `hooks/gate-qa.sh`, `tools/runtime.py`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`:
+- [x] **W96-5 (P1) QA exit-code policy aligned with report status** `tools/qa.py`, `tools/qa.sh`, `hooks/gate-qa.sh`, `tools/runtime.py`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`:
   - синхронизировать exit-code команды QA со статусом отчёта;
   - policy: `BLOCKED -> exit 2`, `READY|WARN -> exit 0`, и одинаковая семантика в stdout/stage_result/report;
   - исключить “exit 0 при BLOCKED report” в CI automation path.
@@ -74,7 +75,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** M
   **Risk:** High
 
-- [ ] **W96-7 (P0) Gate preflight enforcement без зависимости от src-changes** `tools/gate_workflow.py`, `tools/loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`:
+- [x] **W96-7 (P0) Gate preflight enforcement без зависимости от src-changes** `tools/gate_workflow.py`, `tools/loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`:
   - убрать условие, при котором проверка preflight contract срабатывает только при `has_src_changes`;
   - для SKILL_FIRST stage-success требовать обязательный preflight/docops минимум независимо от diff типа (code/doc/none);
   - сохранить осмысленную диагностику `reason_code` при BLOCK.
@@ -83,7 +84,7 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   **Effort:** M
   **Risk:** High
 
-- [ ] **W96-8 (P1) Scope-key consistency между wrapper chain и stage_result** `tools/loop_step.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_loop_step.py`, `tests/test_feature_ids_root.py`:
+- [x] **W96-8 (P1) Scope-key consistency между wrapper chain и stage_result** `tools/loop_step.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_loop_step.py`, `tests/test_feature_ids_root.py`:
   - устранить дрейф scope key (например, wrapper logs под `I1`, а iteration summary сообщает `I2`);
   - закрепить единый источник scope key для preflight/run/postflight и финального stage_result;
   - добавить trace в loop logs: `scope_key_before`, `scope_key_after`, `scope_key_effective`.
@@ -116,6 +117,44 @@ _Статус: новый, приоритет 0. Цель — закрыть б�
   - сохранить backward-compatible формулировки для legacy mode.
   **AC:** аудит-скрипт не выдаёт ложных blocker-findings на корректное поведение Wave 96.
   **Regression/tests:** smoke/audit fixture проверяет новые контракты и не падает на ожидаемых WARN-сценариях.
+  **Effort:** S
+  **Risk:** Low
+
+### Wave 96 follow-up — code-level remediation backlog (post-audit)
+
+- [x] **W96-12 (P0) QA slash-command exit propagation parity** `tools/qa.py`, `tools/qa.sh`, `skills/qa/SKILL.md`, `agents/qa.md`, `hooks/gate-qa.sh`, `tests/test_qa_exit_code.py`, `tests/test_gate_qa.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - устранить расхождение между tool-path и slash-command path: `/feature-dev-aidd:qa` обязан возвращать тот же exit-code policy, что и `tools/qa.sh`;
+  - закрепить семантику: `QA report BLOCKED -> exit 2`, `READY|WARN -> exit 0` независимо от способа запуска;
+  - добавить smoke-check, который валидирует process exit и report status в одном сценарии.
+  **AC:** невозможно получить `exit 0` при `aidd/reports/qa/<ticket>.json.status=BLOCKED` в runtime пути команды.
+  **Regression/tests:** unit + integration для process exit в tool/slash путях; обновлённый smoke на tri-source consistency.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W96-13 (P1) loop-step early-block diagnostics completeness** `tools/loop_step.py`, `tools/loop_run.py`, `tools/stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - для раннего blocked (short-circuit до запуска runner) заполнять минимальный диагностический набор: `reason`, `reason_code`, `scope_key`, `stage_result_path`, `cli_log_path`, а также стабильные значения `runner/runner_effective`;
+  - исключить “немой blocked” с пустыми `log_path/runner/wrapper_logs` в loop-step payload и `loop.run.log`;
+  - добавить fallback reason-code, если stage_result существует, но причина не заполнена.
+  **AC:** каждый blocked payload из `loop-step` и `loop-run` содержит достаточную диагностику для root-cause без повторного ручного triage.
+  **Regression/tests:** отдельная фикстура раннего blocked-path проверяет заполненность обязательных полей.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W96-14 (P1) Skill contract path canonicalization (actions vs context artifacts)** `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tools/preflight_prepare.py`, `tools/skill_contract_validate.py`, `tests/test_stage_preflight_wrappers.py`, `tests/test_wave93_validators.py`:
+  - синхронизировать `CONTRACT.yaml` с фактическими путями runtime (readmap/writemap/preflight в canonical location);
+  - убрать дрейф между декларативным контрактом skill и тем, что реально создают wrapper scripts;
+  - обновить валидаторы/тесты, чтобы контракт проверял актуальную структуру артефактов.
+  **AC:** skill contract и runtime output совпадают; contract-validation не даёт ложных FAIL/WARN на корректном прогоне.
+  **Regression/tests:** preflight wrapper tests + validator tests на canonical paths.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W96-15 (P2) Wave 96 SoT cleanup in backlog/docs** `backlog.md`, `CHANGELOG.md`, `tests/repo_tools/smoke-workflow.sh`:
+  - убрать конфликт статусов Wave 96 (“новый” vs “завершено”) и оставить один источник истины по текущему состоянию задач;
+  - разделить historical summary и active plan, чтобы аудит/команда не читали противоречивые секции;
+  - зафиксировать правило ведения статусов wave в release discipline.
+  **AC:** в backlog нет конкурирующих статусов одной волны; текущий прогресс читается однозначно.
+  **Regression/tests:** smoke/линт проверяет отсутствие дублирующихся активных wave-блоков с конфликтующим статусом.
   **Effort:** S
   **Risk:** Low
 
@@ -1095,9 +1134,9 @@ _Статус: новый, приоритет 0. Цель — закрыть д�
   **AC:** порядок отражён в release/work plan как fast path для green e2e.
   **Deps:** W94-1, W94-2, W94-3, W94-5
 
-## Wave 96 — Runtime stabilization after W94 (E2E parity)
+## Wave 96 Archive — completed tranche W96-1..W96-5
 
-_Статус: завершено, приоритет 0. Цель — закрыть e2e TST-001 gaps: slug hygiene, wrapper artifacts contract, deterministic loop stop on user approval, iteration format compatibility, QA exit-code parity._
+_Статус: архивный срез (не SoT), приоритет 0. Это исторический summary закрытой части W96-1..W96-5._
 
 - [x] **W96-1 (P0)** Slug hygiene: `slug_hint` хранит только slug token
   - исправить запись active state (`slug_hint`) так, чтобы note/answers не загрязняли токен;
