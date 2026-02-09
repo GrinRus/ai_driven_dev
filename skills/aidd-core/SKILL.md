@@ -17,7 +17,7 @@ user-invocable: false
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/plan_review_gate.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review_gate.py`
-- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/researcher_context.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/rlm_targets.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/skill_contract_validate.py`
 
 ## Ownership guard

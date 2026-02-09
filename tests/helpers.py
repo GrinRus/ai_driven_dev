@@ -600,7 +600,6 @@ def cli_cmd(*args: str) -> list[str]:
             "diff-boundary-check": "diff_boundary_check.py",
             "plan-review-gate": "plan_review_gate.py",
             "prd-review-gate": "prd_review_gate.py",
-            "researcher-context": "researcher_context.py",
             "skill-contract-validate": "skill_contract_validate.py",
         }
         if cmd in docio_runtime_map:

@@ -65,12 +65,6 @@
       "Перед выпуском релиза обновите conventions.md вручную, чтобы зафиксировать актуальные правила."
     ]
   },
-  "reports": {
-    "research_pack_budget": {
-      "max_chars": 2000,
-      "max_lines": 120
-    }
-  },
   "rlm": {
     "max_files": 500,
     "max_links": 2000,

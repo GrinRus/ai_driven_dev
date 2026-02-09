@@ -82,8 +82,6 @@ def _rel_path(root: Path, path: Path) -> str:
 def _collect_reports(root: Path, ticket: str) -> List[str]:
     reports = []
     candidates = [
-        root / "reports" / "research" / f"{ticket}-context.json",
-        root / "reports" / "research" / f"{ticket}-targets.json",
         root / "reports" / "research" / f"{ticket}-rlm-targets.json",
         root / "reports" / "research" / f"{ticket}-rlm-manifest.json",
         root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl",
@@ -91,7 +89,6 @@ def _collect_reports(root: Path, ticket: str) -> List[str]:
         root / "reports" / "prd" / f"{ticket}.json",
         root / "reports" / "qa" / f"{ticket}.json",
     ]
-    candidates.append(root / "reports" / "research" / f"{ticket}-context.pack.json")
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.pack.json")
     candidates.append(root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json")
     candidates.append(root / "reports" / "prd" / f"{ticket}.pack.json")

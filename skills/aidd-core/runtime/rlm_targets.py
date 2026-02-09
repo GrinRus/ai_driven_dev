@@ -313,6 +313,8 @@ def build_targets(
     settings: Dict,
     targets_mode: Optional[str] = None,
     paths_override: Optional[Sequence[str]] = None,
+    keywords_override: Optional[Sequence[str]] = None,
+    notes_override: Optional[Sequence[str]] = None,
     base_root: Optional[Path] = None,
 ) -> Dict[str, object]:
     hints, config_source = _load_hints(target, ticket)
@@ -323,6 +325,18 @@ def build_targets(
     paths_discovered: List[str] = []
     keywords = [str(item).strip().lower() for item in hints.keywords if str(item).strip()]
     notes = [str(item).strip() for item in hints.notes if str(item).strip()]
+    if keywords_override:
+        for item in keywords_override:
+            token = str(item).strip().lower()
+            if token:
+                keywords.append(token)
+    if notes_override:
+        for item in notes_override:
+            note = str(item).strip()
+            if note:
+                notes.append(note)
+    keywords = list(dict.fromkeys(keywords))
+    notes = list(dict.fromkeys(notes))
     if not (paths or keywords):
         raise ValueError(
             "AIDD:RESEARCH_HINTS must define Paths or Keywords "

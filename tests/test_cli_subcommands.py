@@ -13,7 +13,7 @@ from aidd_runtime import plan_review_gate
 from aidd_runtime import prd_review
 from aidd_runtime import prd_review_gate
 from aidd_runtime import qa_run
-from aidd_runtime import researcher_context
+from aidd_runtime import rlm_targets
 from aidd_runtime import review_run
 from aidd_runtime import spec_interview
 from aidd_runtime import tasklist_check
@@ -26,7 +26,7 @@ def test_cli_parses_new_subcommands():
     plan_review_gate.parse_args(["--ticket", "DEMO-1"])
     prd_review_gate.parse_args(["--ticket", "DEMO-1"])
     tasklist_check.parse_args(["--ticket", "DEMO-1"])
-    researcher_context._build_parser().parse_args([])
+    rlm_targets.parse_args(["--ticket", "DEMO-1"])
     spec_interview.parse_args(["--ticket", "DEMO-1"])
     tasks_new.parse_args(["--ticket", "DEMO-1"])
     implement_run.parse_args(["--ticket", "DEMO-1"])

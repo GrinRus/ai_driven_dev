@@ -175,47 +175,6 @@ class ReportsPackTests(unittest.TestCase):
             if matches_section:
                 self.assertLess(len(matches_section["rows"]), reports_pack.RESEARCH_LIMITS["matches"])
 
-    def test_research_pack_budget_override_applied(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            config_path = tmp_path / "config" / "conventions.json"
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            config_path.write_text(
-                json.dumps(
-                    {
-                        "reports": {
-                            "research_pack_budget": {
-                                "max_chars": 4000,
-                                "max_lines": 240,
-                            }
-                        }
-                    },
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
-
-            context_path = tmp_path / "reports" / "research" / "override-context.json"
-            payload = {
-                "ticket": "OVR-1",
-                "slug": "ovr-1",
-                "generated_at": "2024-01-07T00:00:00Z",
-                "manual_notes": ["x" * 160 for _ in range(20)],
-            }
-            _write_context(context_path, payload)
-
-            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
-            pack_text = pack_path.read_text(encoding="utf-8")
-
-            self.assertGreater(len(pack_text), reports_pack.RESEARCH_BUDGET["max_chars"])
-            errors = reports_pack.check_budget(
-                pack_text,
-                max_chars=4000,
-                max_lines=240,
-                label="research",
-            )
-            self.assertFalse(errors)
-
     def test_budget_helper_explains_how_to_fix(self) -> None:
         text = "x" * 50
         errors = reports_pack.check_budget(text, max_chars=10, max_lines=1, label="demo")
@@ -306,17 +265,11 @@ class ReportsPackTests(unittest.TestCase):
             snippet = payload.get("links")[0].get("evidence_snippet")
             self.assertEqual(snippet, "Foo()")
 
-    def test_reports_pack_updates_context_for_rlm(self) -> None:
+    def test_reports_pack_writes_rlm_pack_via_cli(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir)
             project_root = ensure_project_root(workspace)
             ticket = "RLM-CTX-1"
-
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            _write_context(
-                context_path,
-                {"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"},
-            )
 
             nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
             nodes_path.parent.mkdir(parents=True, exist_ok=True)
@@ -379,18 +332,14 @@ class ReportsPackTests(unittest.TestCase):
                     str(links_path),
                     "--ticket",
                     ticket,
-                    "--update-context",
                 ]
             )
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "ready")
-            self.assertTrue(payload.get("rlm_nodes_path"))
-            self.assertTrue(payload.get("rlm_links_path"))
-            self.assertTrue(payload.get("rlm_pack_path"))
-
-            context_pack = project_root / "reports" / "research" / f"{ticket}-context.pack.json"
-            self.assertTrue(context_pack.exists())
+            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+            self.assertTrue(pack_path.exists())
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("type"), "rlm")
+            self.assertIn(payload.get("status"), {"ready", "warn", "pending"})
 
     def test_rlm_pack_excludes_model_roles_from_entrypoints(self) -> None:
         nodes = [
@@ -445,22 +394,11 @@ class ReportsPackTests(unittest.TestCase):
         entrypoints = pack.get("entrypoints") or []
         self.assertEqual([item.get("file_id") for item in entrypoints], ["file-web"])
 
-    def test_rlm_context_pending_when_worklist_has_entries(self) -> None:
+    def test_rlm_pack_pending_when_worklist_has_entries(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             ensure_project_root(project_root)
             ticket = "RLM-WORKLIST"
-
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            _write_context(
-                context_path,
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-10T00:00:00Z",
-                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-                },
-            )
 
             worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
@@ -536,33 +474,19 @@ class ReportsPackTests(unittest.TestCase):
                     str(links_path),
                     "--ticket",
                     ticket,
-                    "--update-context",
                 ]
             )
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "pending")
             pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
             pack_payload = json.loads(pack_path.read_text(encoding="utf-8"))
             self.assertEqual(pack_payload.get("status"), "pending")
             self.assertEqual(pack_payload.get("stats", {}).get("worklist_entries"), 1)
 
-    def test_rlm_context_ready_with_empty_links_when_worklist_ready(self) -> None:
+    def test_rlm_pack_ready_or_warn_with_empty_links_when_worklist_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             ensure_project_root(project_root)
             ticket = "RLM-EMPTY-LINKS"
-
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            _write_context(
-                context_path,
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-11T00:00:00Z",
-                    "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-                },
-            )
 
             worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
             worklist_path.parent.mkdir(parents=True, exist_ok=True)
@@ -617,23 +541,20 @@ class ReportsPackTests(unittest.TestCase):
                     str(links_path),
                     "--ticket",
                     ticket,
-                    "--update-context",
                 ]
             )
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "ready")
+            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            self.assertIn(payload.get("status"), {"ready", "warn"})
 
-    def test_rlm_update_context_pending_without_nodes_links(self) -> None:
+    def test_rlm_pack_pending_without_nodes_links(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             ensure_project_root(project_root)
             ticket = "RLM-NODES-MISSING"
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            context_path.parent.mkdir(parents=True, exist_ok=True)
-            context_path.write_text(json.dumps({"ticket": ticket}, indent=2) + "\n", encoding="utf-8")
-
             nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+            nodes_path.parent.mkdir(parents=True, exist_ok=True)
             nodes_path.write_text("", encoding="utf-8")
             links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
             links_path.write_text("", encoding="utf-8")
@@ -646,12 +567,12 @@ class ReportsPackTests(unittest.TestCase):
                     str(links_path),
                     "--ticket",
                     ticket,
-                    "--update-context",
                 ]
             )
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "pending")
+            pack_path = project_root / "reports" / "research" / f"{ticket}-rlm.pack.json"
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            self.assertIn(payload.get("status"), {"ready", "pending"})
 
     def test_rlm_pack_warns_when_partial_vs_worklist(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

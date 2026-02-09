@@ -436,7 +436,7 @@ def _handoff_block(root: Path, ticket: str, slug_hint: str, branch: str, tasklis
     if qa_path:
         reports.append(("qa", qa_path, marker_for(qa_path)))
 
-    research_path = resolve_report(root / "reports" / "research" / f"{ticket}-context.json")
+    research_path = resolve_report(root / "reports" / "research" / f"{ticket}-rlm.pack.json")
     if research_path and research_requires_handoff(research_path):
         reports.append(("research", research_path, marker_for(research_path)))
 

@@ -1,35 +1,41 @@
 from __future__ import annotations
 
 import argparse
+import re
+import sys
 from pathlib import Path
 from typing import Optional
 
 from aidd_runtime import runtime
 from aidd_runtime.feature_ids import read_active_state, write_active_state, read_identifiers, resolve_aidd_root, write_identifiers
-from aidd_runtime.researcher_context import (
-    ResearcherContextBuilder,
-    _parse_keywords as _research_parse_keywords,
-    _parse_paths as _research_parse_paths,
-)
+from aidd_runtime import rlm_targets
+from aidd_runtime.rlm_config import load_rlm_settings
+
+
+def _parse_paths(value: Optional[str]) -> list[str]:
+    if not value:
+        return []
+    return [chunk.strip() for chunk in re.split(r"[,:]", value) if chunk.strip()]
+
+
+def _parse_keywords(value: Optional[str]) -> list[str]:
+    if not value:
+        return []
+    return [chunk.strip().lower() for chunk in re.split(r"[,\s]+", value) if chunk.strip()]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Persist the active feature ticket and refresh Researcher targets.",
-    )
+    parser = argparse.ArgumentParser(description="Persist the active feature ticket.")
     parser.add_argument("ticket", help="Feature ticket identifier to persist.")
     parser.add_argument(
         "--paths",
-        help="Optional colon-separated list of extra paths for Researcher scope.",
+        help="Optional explicit paths for best-effort rlm-targets refresh.",
     )
     parser.add_argument(
         "--keywords",
-        help="Optional comma-separated keywords to seed Researcher search.",
+        help="Optional keywords for best-effort rlm-targets refresh.",
     )
-    parser.add_argument(
-        "--config",
-        help="Path to conventions JSON with researcher section (defaults to config/conventions.json).",
-    )
+    parser.add_argument("--config", help=argparse.SUPPRESS)
     parser.add_argument(
         "--slug-note",
         dest="slug_note",
@@ -65,24 +71,22 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"active feature: {args.ticket}")
 
-    config_path: Optional[Path] = None
-    if args.config:
-        config_path = Path(args.config)
-        if not config_path.is_absolute():
-            config_path = (root / config_path).resolve()
-        else:
-            config_path = config_path.resolve()
-
-    builder = ResearcherContextBuilder(root, config_path=config_path)
-    scope = builder.build_scope(args.ticket, slug_hint=resolved_slug_hint)
-    scope = builder.extend_scope(
-        scope,
-        extra_paths=_research_parse_paths(args.paths),
-        extra_keywords=_research_parse_keywords(args.keywords),
-    )
-    targets_path = builder.write_targets(scope)
-    rel_targets = targets_path.relative_to(root).as_posix()
-    print(f"[researcher] targets saved to {rel_targets} ({len(scope.paths)} paths, {len(scope.docs)} docs)")
+    try:
+        settings = load_rlm_settings(root)
+        payload = rlm_targets.build_targets(
+            root,
+            args.ticket,
+            settings=settings,
+            paths_override=_parse_paths(args.paths) or None,
+            keywords_override=_parse_keywords(args.keywords) or None,
+        )
+        targets_path = root / "reports" / "research" / f"{args.ticket}-rlm-targets.json"
+        targets_path.parent.mkdir(parents=True, exist_ok=True)
+        targets_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        rel_targets = targets_path.relative_to(root).as_posix()
+        print(f"[researcher] rlm targets saved to {rel_targets}.")
+    except Exception as exc:
+        print(f"[researcher] WARN: skipped rlm targets refresh ({exc})", file=sys.stderr)
 
     index_ticket = identifiers.resolved_ticket or args.ticket
     index_slug = resolved_slug_hint or index_ticket

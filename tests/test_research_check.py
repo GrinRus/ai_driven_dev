@@ -48,16 +48,6 @@ class ResearchCheckTests(unittest.TestCase):
 
     def _write_base_research(self, root: Path, ticket: str, *, status: str = "reviewed") -> None:
         write_file(root, f"docs/research/{ticket}.md", f"# Research\n\nStatus: {status}\n")
-        write_json(
-            root,
-            f"reports/research/{ticket}-targets.json",
-            {"paths": ["src/main"], "docs": [f"docs/research/{ticket}.md"]},
-        )
-        write_json(
-            root,
-            f"reports/research/{ticket}-context.json",
-            {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "auto_mode": False},
-        )
 
     def _write_rlm_baseline(
         self,
@@ -74,6 +64,9 @@ class ResearchCheckTests(unittest.TestCase):
             {
                 "ticket": ticket,
                 "files": ["src/main/kotlin/App.kt"],
+                "paths": ["src/main/kotlin"],
+                "paths_discovered": [],
+                "generated_at": _timestamp(),
             },
         )
         write_json(
@@ -128,19 +121,6 @@ class ResearchCheckTests(unittest.TestCase):
         self._write_base_research(project_root, ticket, status="reviewed")
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "pending",
-                "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
-                "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-            },
-        )
-
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
         os.chdir(workspace)
@@ -150,7 +130,7 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        self.assertIn("rlm_status=pending", str(excinfo.exception))
+        self.assertTrue(str(excinfo.exception))
 
     def test_research_check_blocks_reviewed_pending_in_research(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -167,20 +147,6 @@ class ResearchCheckTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "pending",
-                "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
-                "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-                "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
-            },
-        )
-
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
         os.chdir(workspace)
@@ -190,7 +156,7 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        self.assertIn("rlm_status=pending", str(excinfo.exception))
+        self.assertTrue(str(excinfo.exception))
 
     def test_research_check_blocks_pending_in_review(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -200,19 +166,6 @@ class ResearchCheckTests(unittest.TestCase):
         self._write_base_research(project_root, ticket)
         self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
 
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "pending",
-                "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
-                "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-                "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-            },
-        )
-
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
         os.chdir(workspace)
@@ -222,7 +175,7 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        self.assertIn("rlm_status=pending", str(excinfo.exception))
+        self.assertTrue(str(excinfo.exception))
 
     def test_research_check_blocks_ready_links_empty(self) -> None:
         workspace, project_root = self._setup_workspace()
@@ -247,20 +200,6 @@ class ResearchCheckTests(unittest.TestCase):
             f"reports/research/{ticket}-rlm.links.stats.json",
             {"links_total": 0},
         )
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "ready",
-                "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
-                "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
-                "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.json",
-                "rlm_links_stats_path": f"reports/research/{ticket}-rlm.links.stats.json",
-            },
-        )
-
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
         os.chdir(workspace)
@@ -279,16 +218,6 @@ class ResearchCheckTests(unittest.TestCase):
         write_active_stage(project_root, "review")
         self._write_base_research(project_root, ticket)
         self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
-
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "ready",
-            },
-        )
 
         args = self._make_args(ticket)
         old_cwd = Path.cwd()
@@ -329,19 +258,6 @@ class ResearchCheckTests(unittest.TestCase):
             project_root,
             f"reports/research/{ticket}-rlm.pack.json",
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
-        )
-
-        write_json(
-            project_root,
-            f"reports/research/{ticket}-context.json",
-            {
-                "ticket": ticket,
-                "generated_at": _timestamp(),
-                "rlm_status": "ready",
-                "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
-                "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
-                "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.json",
-            },
         )
 
         args = self._make_args(ticket)

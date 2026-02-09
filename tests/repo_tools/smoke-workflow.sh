@@ -118,7 +118,6 @@ run_cli() {
         prd-check) flow_state_runtime="prd_check.py" ;;
         prd-review-gate) core_runtime="prd_review_gate.py" ;;
         progress) flow_state_runtime="progress_cli.py" ;;
-        researcher-context) core_runtime="researcher_context.py" ;;
         rlm-slice) rlm_runtime="rlm_slice.py" ;;
         set-active-feature) flow_state_runtime="set_active_feature.py" ;;
         set-active-stage) flow_state_runtime="set_active_stage.py" ;;
@@ -337,8 +336,8 @@ run_cli set-active-feature "$TICKET" >/dev/null
 
 log "run research targets-only"
 run_cli research --ticket "$TICKET" --targets-only --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
-[[ -f "$WORKDIR/reports/research/${TICKET}-targets.json" ]] || {
-  echo "[smoke] research did not create targets" >&2
+[[ -f "$WORKDIR/reports/research/${TICKET}-rlm-targets.json" ]] || {
+  echo "[smoke] research did not create rlm-targets" >&2
   exit 1
 }
 
@@ -375,24 +374,23 @@ if not research_path.exists():
     research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
 PY
 
-log "run researcher stage (collect research context)"
+log "run researcher stage (generate RLM artifacts)"
 pushd "$WORKDIR" >/dev/null
 run_cli research --ticket "$TICKET" --auto --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
 python3 - "$TICKET" <<'PY'
-import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
-context_path = Path("reports/research") / f"{ticket}-context.json"
-payload = json.loads(context_path.read_text(encoding="utf-8"))
-required = ["rlm_targets_path", "rlm_manifest_path", "rlm_worklist_path", "rlm_status"]
-missing = [key for key in required if not payload.get(key)]
+base = Path("reports/research")
+required = [
+    base / f"{ticket}-rlm-targets.json",
+    base / f"{ticket}-rlm-manifest.json",
+    base / f"{ticket}-rlm.worklist.pack.json",
+]
+missing = [str(path) for path in required if not path.exists()]
 if missing:
-    raise SystemExit(f"[smoke] missing RLM context fields: {missing}")
-worklist_path = Path(payload["rlm_worklist_path"])
-if not worklist_path.exists():
-    raise SystemExit("[smoke] missing rlm worklist pack")
+    raise SystemExit(f"[smoke] missing RLM artifacts: {missing}")
 PY
 log "seed minimal RLM nodes"
 python3 - "$TICKET" <<'PY'
@@ -473,7 +471,6 @@ log "finalize RLM evidence"
 run_cli rlm-finalize --ticket "$TICKET" >/dev/null
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
-import json
 import sys
 
 ticket = sys.argv[1]
@@ -485,21 +482,6 @@ if "Status: reviewed" not in text:
 if "Baseline" not in text:
     text += "\nBaseline: автоматическая генерация\n"
 path.write_text(text, encoding="utf-8")
-context_path = Path("reports/research") / f"{ticket}-context.json"
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
-if context_path.exists():
-    data = json.loads(context_path.read_text(encoding="utf-8"))
-    data.setdefault("status", "reviewed")
-    data["status"] = "reviewed"
-    data.setdefault("docs", [f"docs/research/{ticket}.md"])
-    context_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-if targets_path.exists():
-    data = json.loads(targets_path.read_text(encoding="utf-8"))
-    docs = data.get("docs") or []
-    if f"docs/research/{ticket}.md" not in docs:
-        docs.append(f"docs/research/{ticket}.md")
-    data["docs"] = docs
-    targets_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 PY
 
 log "research-check must pass"

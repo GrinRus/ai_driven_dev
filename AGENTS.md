@@ -120,7 +120,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 - On-demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
 - Troubleshooting пустого контекста:
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-  - Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
   - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
 
 ## Evidence Read Policy (RLM-first)
@@ -157,8 +156,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 ## Reports format (MVP)
 - Naming:
   - Context pack (rolling): `aidd/reports/context/<ticket>.pack.md`
-  - Research context: `aidd/reports/research/<ticket>-context.json` + `aidd/reports/research/<ticket>-context.pack.json`
-  - Research targets: `aidd/reports/research/<ticket>-targets.json`
   - RLM targets: `aidd/reports/research/<ticket>-rlm-targets.json`
   - RLM manifest: `aidd/reports/research/<ticket>-rlm-manifest.json`
   - RLM nodes/links: `aidd/reports/research/<ticket>-rlm.nodes.jsonl`, `*-rlm.links.jsonl`
@@ -172,7 +169,6 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Determinism: стабильная сериализация, stable‑truncation, стабильные `id`.
 - Columnar формат: `cols` + `rows`.
 - Budgets (пример):
-  - research context pack: total <= 1200 chars, matches<=20, reuse<=8
   - RLM pack: total <= 12000 chars, entrypoints<=20, hotspots<=20
   - QA pack: findings<=20, tests_executed<=10
   - PRD pack: findings<=20, action_items<=10

@@ -123,7 +123,7 @@ class RlmNodesBuildTests(unittest.TestCase):
             self.assertEqual(stats.get("entries_trimmed"), 1)
             self.assertEqual(stats.get("trim_reason"), "max_entries")
 
-    def test_refresh_worklist_updates_context_status(self) -> None:
+    def test_refresh_worklist_writes_pack_without_context_mutation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rlm-worklist-refresh-") as tmpdir:
             workspace = Path(tmpdir)
             project_root = ensure_project_root(workspace)
@@ -179,8 +179,10 @@ class RlmNodesBuildTests(unittest.TestCase):
                 os.chdir(old_cwd)
 
             payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "ready")
-            self.assertTrue(payload.get("rlm_worklist_path"))
+            self.assertNotIn("rlm_status", payload)
+            self.assertNotIn("rlm_worklist_path", payload)
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
+            self.assertTrue(worklist_path.exists())
 
     def test_refresh_worklist_preserves_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rlm-worklist-refresh-scope-") as tmpdir:

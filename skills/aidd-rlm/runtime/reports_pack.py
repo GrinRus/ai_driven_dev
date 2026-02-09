@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from aidd_runtime import runtime
-from aidd_runtime.rlm_config import file_id_for_path, load_conventions, load_rlm_settings
+from aidd_runtime.rlm_config import file_id_for_path, load_rlm_settings
 
 SCHEMA = "aidd.report.pack.v1"
 PACK_VERSION = "v1"
@@ -611,35 +611,6 @@ def _env_limits() -> Dict[str, Dict[str, int]]:
     return _ENV_LIMITS_CACHE
 
 
-def _resolve_reports_root(root: Optional[Path], path: Path) -> Optional[Path]:
-    if root:
-        return root
-    for parent in (path, *path.parents):
-        if (parent / "config" / "conventions.json").exists():
-            return parent
-    return None
-
-
-def _load_research_pack_budget(root: Optional[Path], path: Path) -> Dict[str, int]:
-    resolved = _resolve_reports_root(root, path)
-    if not resolved:
-        return {}
-    cfg = load_conventions(resolved)
-    reports_cfg = cfg.get("reports") if isinstance(cfg.get("reports"), dict) else {}
-    budget = reports_cfg.get("research_pack_budget") if isinstance(reports_cfg.get("research_pack_budget"), dict) else {}
-    parsed: Dict[str, int] = {}
-    for key in ("max_chars", "max_lines"):
-        if key not in budget:
-            continue
-        try:
-            value = int(budget[key])
-        except (TypeError, ValueError):
-            continue
-        if value > 0:
-            parsed[key] = value
-    return parsed
-
-
 def _pack_tests_executed(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
     from aidd_runtime import reports_pack_assemble as _assemble
 
@@ -842,78 +813,6 @@ def write_rlm_pack(
     return _write_pack_text(text, pack_path)
 
 
-def _update_rlm_context(
-    context_path: Path,
-    *,
-    root: Path,
-    nodes_path: Path,
-    links_path: Path,
-    pack_path: Path,
-) -> Path:
-    payload = json.loads(context_path.read_text(encoding="utf-8"))
-    ticket = str(payload.get("ticket") or "").strip()
-    link_warnings: List[str] = []
-    links_total = None
-    links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
-    if links_stats_path.exists():
-        payload["rlm_links_stats_path"] = runtime.rel_path(links_stats_path, root)
-        try:
-            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
-        except Exception:
-            stats_payload = None
-        if isinstance(stats_payload, dict):
-            link_warnings = _rlm_link_warnings(stats_payload)
-            try:
-                links_total = int(stats_payload.get("links_total") or 0)
-            except (TypeError, ValueError):
-                links_total = None
-    worklist_status, worklist_entries, worklist_path = _load_rlm_worklist_summary(
-        root,
-        ticket,
-        context=payload,
-    )
-    if worklist_path and worklist_path.exists():
-        payload["rlm_worklist_path"] = runtime.rel_path(worklist_path, root)
-    nodes_ready = nodes_path.exists()
-    links_ready = links_path.exists()
-    nodes_has_data = nodes_ready and nodes_path.stat().st_size > 0
-    links_has_data = links_ready and links_path.stat().st_size > 0
-    links_empty = False
-    if links_total is not None:
-        links_empty = links_total == 0
-    else:
-        links_empty = not links_has_data
-    if worklist_status is not None:
-        if worklist_status == "ready" and worklist_entries == 0 and nodes_ready and links_ready:
-            rlm_status = "ready"
-        else:
-            rlm_status = "pending"
-    else:
-        rlm_status = "ready" if nodes_has_data and links_has_data else "pending"
-    gates_cfg = runtime.load_gates_config(root)
-    rlm_cfg = gates_cfg.get("rlm") if isinstance(gates_cfg, dict) else {}
-    require_links = bool(rlm_cfg.get("require_links")) if isinstance(rlm_cfg, dict) else False
-    if require_links and links_empty:
-        rlm_status = "warn"
-        if "rlm_links_empty_warn" not in link_warnings:
-            link_warnings.append("rlm_links_empty_warn")
-    if link_warnings:
-        existing = payload.get("rlm_warnings")
-        merged = list(existing) if isinstance(existing, list) else []
-        for warning in link_warnings:
-            if warning not in merged:
-                merged.append(warning)
-        payload["rlm_warnings"] = merged
-    payload["rlm_status"] = rlm_status
-    payload["rlm_nodes_path"] = runtime.rel_path(nodes_path, root)
-    payload["rlm_links_path"] = runtime.rel_path(links_path, root)
-    payload["rlm_pack_path"] = runtime.rel_path(pack_path, root)
-    tmp_path = context_path.with_suffix(context_path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    tmp_path.replace(context_path)
-    return context_path
-
-
 def _pack_path_for(json_path: Path) -> Path:
     ext = _pack_extension()
     if json_path.name.endswith(ext):
@@ -949,9 +848,8 @@ def write_research_context_pack(
     pack = build_research_context_pack(payload, source_path=source_path, limits=limits)
     pack_path = (output or _pack_path_for(path)).resolve()
 
-    budget_override = _load_research_pack_budget(root, path)
-    max_chars = int(budget_override.get("max_chars") or RESEARCH_BUDGET["max_chars"])
-    max_lines = int(budget_override.get("max_lines") or RESEARCH_BUDGET["max_lines"])
+    max_chars = int(RESEARCH_BUDGET["max_chars"])
+    max_lines = int(RESEARCH_BUDGET["max_lines"])
     text, trimmed, errors = _auto_trim_research_pack(
         pack,
         max_chars=max_chars,
@@ -1042,69 +940,33 @@ def write_prd_pack(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate pack sidecar for research context JSON.")
-    parser.add_argument("path", nargs="?", help="Path to aidd/reports/research/<ticket>-context.json")
+    parser = argparse.ArgumentParser(description="Generate RLM pack from nodes/links JSONL.")
     parser.add_argument(
         "--output",
-        help="Optional output path (default: *.pack.json).",
+        help="Optional output path (default: <ticket>-rlm.pack.json).",
     )
     parser.add_argument("--rlm-nodes", help="Path to <ticket>-rlm.nodes.jsonl to build RLM pack.")
     parser.add_argument("--rlm-links", help="Path to <ticket>-rlm.links.jsonl to build RLM pack.")
     parser.add_argument("--ticket", help="Ticket identifier to label RLM pack (optional).")
     parser.add_argument("--slug-hint", help="Slug hint for RLM pack (optional).")
-    parser.add_argument(
-        "--update-context",
-        action="store_true",
-        help="Update research context.json and regenerate context pack when building RLM pack.",
-    )
     args = parser.parse_args(argv)
 
-    if args.rlm_nodes or args.rlm_links:
-        if not args.rlm_nodes or not args.rlm_links:
-            raise SystemExit("--rlm-nodes and --rlm-links must be provided together.")
-        nodes_path = Path(args.rlm_nodes)
-        links_path = Path(args.rlm_links)
-        output = Path(args.output) if args.output else None
-        ticket = args.ticket
-        if not ticket and "-rlm.nodes.jsonl" in nodes_path.name:
-            ticket = nodes_path.name.replace("-rlm.nodes.jsonl", "")
-        pack_path = write_rlm_pack(
-            nodes_path,
-            links_path,
-            output=output,
-            ticket=ticket,
-            slug_hint=args.slug_hint,
-        )
-        if args.update_context:
-            root = nodes_path.resolve().parents[2]
-            if not ticket:
-                raise SystemExit("ticket is required to update context.json.")
-            context_path = root / "reports" / "research" / f"{ticket}-context.json"
-            if not context_path.exists():
-                raise SystemExit(f"research context not found: {context_path}")
-            _update_rlm_context(
-                context_path,
-                root=root,
-                nodes_path=nodes_path,
-                links_path=links_path,
-                pack_path=pack_path,
-            )
-            write_research_context_pack(context_path, root=root)
-            rel_context = runtime.rel_path(context_path, root)
-            try:
-                payload = json.loads(context_path.read_text(encoding="utf-8"))
-            except Exception:
-                payload = {}
-            status = str(payload.get("rlm_status") or "ready").strip().lower()
-            print(f"[aidd] updated rlm_status={status} in {rel_context}.", file=sys.stderr)
-        print(pack_path.as_posix())
-        return 0
+    if not args.rlm_nodes or not args.rlm_links:
+        raise SystemExit("--rlm-nodes and --rlm-links must be provided together.")
 
-    if not args.path:
-        raise SystemExit("context.json path is required unless using --rlm-nodes/--rlm-links.")
-    json_path = Path(args.path)
+    nodes_path = Path(args.rlm_nodes)
+    links_path = Path(args.rlm_links)
     output = Path(args.output) if args.output else None
-    pack_path = write_research_context_pack(json_path, output=output)
+    ticket = args.ticket
+    if not ticket and "-rlm.nodes.jsonl" in nodes_path.name:
+        ticket = nodes_path.name.replace("-rlm.nodes.jsonl", "")
+    pack_path = write_rlm_pack(
+        nodes_path,
+        links_path,
+        output=output,
+        ticket=ticket,
+        slug_hint=args.slug_hint,
+    )
     print(pack_path.as_posix())
     return 0
 

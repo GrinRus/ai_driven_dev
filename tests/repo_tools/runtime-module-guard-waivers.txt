@@ -1,7 +1,6 @@
 # runtime module waivers for line-count > error threshold
 # format: <workspace-relative path>|<reason>
 skills/aidd-loop/runtime/loop_step.py|W96-72 decomposition completed; follow-up split still pending
-skills/aidd-core/runtime/researcher_context.py|W96-73 decomposition completed; additional split tracked in future wave
 skills/aidd-flow-state/runtime/tasklist_check.py|W96-71 decomposition completed; residual compatibility surface retained
 skills/aidd-flow-state/runtime/tasks_derive.py|legacy workflow surface retained; split deferred
 skills/aidd-loop/runtime/loop_pack.py|loop pack orchestration retained for compatibility; split deferred

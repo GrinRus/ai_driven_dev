@@ -795,7 +795,7 @@ _Важное: этот wave **supersedes shell-wrapper assumptions** из Wave 
 
 ## Wave 90 — Research RLM-only (python-only flow, без legacy context artifacts)
 
-_Статус: в работе (W90-1/W90-2 закрыты), приоритет 1. Канон: runtime entrypoints только `skills/*/runtime/*.py`, без `tools/*`, без `*-context*` и legacy `*-targets.json`._
+_Статус: завершено, приоритет 1. Канон: runtime entrypoints только `skills/*/runtime/*.py`, без `tools/*`, без `*-context*` и legacy `*-targets.json`._
 
 - [x] **W90-1** `skills/aidd-core/runtime/research_hints.py`, `skills/researcher/runtime/research.py`, `skills/idea-new/templates/prd.template.md`, `tests/test_research_hints.py`, `tests/test_research_command.py`:
   - добавить парсер `AIDD:RESEARCH_HINTS` (Paths/Keywords/Notes) с нормализацией (split `:`/`,`/whitespace, trim, dedupe);
@@ -811,7 +811,7 @@ _Статус: в работе (W90-1/W90-2 закрыты), приоритет 
   **AC:** `aidd/reports/research/<ticket>-rlm-targets.json` генерируется только из PRD hints; `*-targets.json` нигде не читается.
   **Deps:** W90-1
 
-- [ ] **W90-3** `skills/researcher/runtime/research.py`, `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/aidd-core/runtime/research_hints.py`:
+- [x] **W90-3** `skills/researcher/runtime/research.py`, `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/aidd-core/runtime/research_hints.py`:
   - убрать сбор `*-context.json`/`*-context.pack.json` и `*-targets.json`;
   - удалить/заменить `ResearcherContextBuilder` и связанный CLI-surface (`researcher_context.py`) на RLM-only orchestration;
   - canonical research entrypoint `skills/researcher/runtime/research.py` запускает только RLM pipeline (targets → manifest → worklist) + materialize `docs/research/<ticket>.md`;
@@ -819,21 +819,21 @@ _Статус: в работе (W90-1/W90-2 закрыты), приоритет 
   **AC:** research runtime не создаёт `*-context*` и legacy `*-targets.json`; остаются только RLM артефакты (`*-rlm-*`) и `docs/research/<ticket>.md`.
   **Deps:** W90-1, W90-2
 
-- [ ] **W90-4** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
+- [x] **W90-4** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
   - валидировать readiness research только по RLM артефактам (`*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`, `*-rlm.pack.json`);
   - handoff‑derive для research берёт данные только из `*-rlm.pack.json` (без fallback на context);
   - удалить ссылки на `*-context.json` и legacy `*-targets.json` из gate/index/status/task derive.
   **AC:** гейты/status/handoff работают без `*-context*`; warnings/blocked основаны на RLM readiness policy.
   **Deps:** W90-2, W90-3
 
-- [ ] **W90-5** `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/reports_pack.py`:
+- [x] **W90-5** `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/reports_pack.py`:
   - убрать `--update-context` и любые обновления `context.json`;
   - `rlm_finalize` оперирует только `nodes/links` и пишет `*-rlm.pack.json` + `rlm_status` без записи в context artifacts;
   - убедиться, что finalize/pack pipeline не имеет implicit dependency на `researcher_context`.
   **AC:** `rlm_finalize` работает без `context.json`; pack детерминированно строится из nodes/links.
   **Deps:** W90-3
 
-- [ ] **W90-6** `agents/researcher.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `templates/aidd/config/conventions.json`:
+- [x] **W90-6** `agents/researcher.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `AGENTS.md`, `skills/aidd-core/templates/workspace-agents.md`, `README.md`, `README.en.md`, `templates/aidd/config/conventions.json`:
   - удалить упоминания `*-context.json`/`*-context.pack.json`/legacy `*-targets.json` в docs/prompts/skills;
   - зафиксировать RLM‑only policy и обязательность `AIDD:RESEARCH_HINTS` для research stage;
   - обновить command contracts в `researcher`/`aidd-rlm` под python-only runtime flow;
@@ -841,12 +841,204 @@ _Статус: в работе (W90-1/W90-2 закрыты), приоритет 
   **AC:** документация и канон описывают только RLM артефакты; нет ссылок на context/targets.
   **Deps:** W90-1, W90-3
 
-- [ ] **W90-7** `tests/*`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh` (если нужно), `tests/helpers.py`:
+- [x] **W90-7** `tests/*`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh` (если нужно), `tests/helpers.py`:
   - удалить/переписать тесты, опирающиеся на `*-context.json`/legacy `*-targets.json`;
   - расширить покрытие для `AIDD:RESEARCH_HINTS` parser + RLM targets из PRD;
   - обновить smoke/ci regression под RLM-only research flow (без context artifacts).
   **AC:** тесты/смоук проходят в режиме RLM-only; отсутствуют runtime-упоминания `*-context*` и legacy `*-targets.json`.
   **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
+
+## Wave 98 — Research flow v2 (subagents-first + RLM-only consistency)
+
+_Статус: план, приоритет 0. Цель — довести research до целевой модели “stage skill = orchestration, subagent = content”, убрать legacy зависимости на `*-context*`/`*-targets.json` и синхронизировать prompts/gates/tests._
+
+### Success Metrics (tracked per checkpoint)
+
+- **R98-M1a:** в `skills/researcher/SKILL.md` отсутствуют `context: fork` и `agent:` (target `0`).
+  **Check:** `rg -n "^\\s*context:\\s*fork|^\\s*agent:" skills/researcher/SKILL.md`.
+- **R98-M1b:** в `skills/researcher/SKILL.md` ровно один orchestration-вызов `Run subagent`.
+  **Check:** `test "$(rg -n "Run subagent" skills/researcher/SKILL.md | wc -l | tr -d ' ')" = "1"`.
+- **R98-M1c:** в `skills/researcher/SKILL.md` нет fork-формулировок/двойной делегации в steps.
+  **Check:** `rg -n "forked context|\\(fork\\)|Delegate to subagent" skills/researcher/SKILL.md`.
+- **R98-M2:** runtime/hints не читают и не записывают legacy `*-context.json`/`*-targets.json` вне compat-fixtures.
+  **Check:** `rg -n "reports/research/.+-context\\.json|reports/research/.+-targets\\.json" skills hooks tools templates docs tests dev`.
+  **Write-check:** `rg -n "write_text\\(.+context\\.json|json\\.dump\\(.+context\\.json|open\\(.+context\\.json" skills hooks tools`.
+- **R98-M3:** legacy permission pattern `Bash(...:*)` удалён из canonical prompts/docs/baselines/templates/plugin metadata.
+  **Check:** `rg -n "Bash\\([^)]*:\\*\\)" skills agents docs templates tests dev .claude-plugin`.
+- **R98-M4:** research regression suites green в RLM-only режиме.
+  **Check:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_researcher.py tests/test_gate_workflow.py tests/test_tasks_derive.py` + `tests/repo_tools/smoke-workflow.sh`.
+- **R98-M4b:** CI path реально исполняет pytest (нет drift к пустым test runs).
+  **Check:** `rg -n "python3 -m pytest|pytest -q" .github/workflows tests/repo_tools/ci-lint.sh`.
+
+### Phase 98A — Contract inventory + migration scaffolding
+
+- [ ] **W98-1 (P0) Research migration inventory and drift map (repo vs target flow)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `tools/*.py`, `AGENTS.md`, `backlog.md`:
+  - собрать фактическую матрицу `stage skill -> subagent -> artifacts -> gates` для research;
+  - покрыть оба execution-пространства: `skills/**/runtime` и `tools/` (если присутствует compat/runtime codepath);
+  - зафиксировать drift: `context: fork`, `Bash(...:*)`, legacy `*-context*`/`*-targets.json` зависимости, несовпадения docs/tests/runtime;
+  - определить execution order и rollout-границы (breaking/non-breaking) для Wave 98.
+  **AC:** есть единая migration-map для research с привязкой к конкретным файлам/проверкам.
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W98-2a (P0) Permission grammar compatibility scaffold (dual-accept, warn-old)** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `docs/skill-language.md`:
+  - временно поддержать оба формата (`Bash(cmd:*)` и `Bash(cmd *)`) в lint;
+  - добавить warning на legacy `:*` для canonical prompts;
+  - зафиксировать cutover-план (warn -> error) в policy docs.
+  **AC:** migration не блокируется, но legacy-pattern получает детерминированный warning.
+  **Deps:** W98-1
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W98-2b (P0) Permission grammar migration for research scope** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-rlm/SKILL.md`, `skills/researcher/templates/research.template.md`, `docs/skill-language.md`:
+  - перевести research-related prompts/docs на `Bash(cmd *)`;
+  - синхронизировать examples/hints в research и shared RLM surface;
+  - исключить новый legacy drift в пределах research scope.
+  **AC:** research scope не содержит `Bash(...:*)`.
+  **Deps:** W98-2a
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W98-2c (P1) Repo-wide permission grammar enforcement (`Bash(...:*)` -> error)** `skills/*/SKILL.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`, `dev/reports/migrations/commands_to_skills_frontmatter.json`:
+  - завершить cutover: `Bash(...:*)` становится fail-fast ошибкой в lint/CI;
+  - обновить baseline/migration artifacts под новый grammar;
+  - зафиксировать rollback note на случай drift в downstream forks.
+  **AC:** `Bash(...:*)` блокируется как policy violation на уровне CI.
+  **Deps:** W98-2b, W98-10
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 98B — Research orchestrator/subagent contract
+
+- [ ] **W98-3 (P0) Refactor `researcher` stage skill into pure orchestrator (no `context: fork`)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать `context: fork`/`agent:` из `skills/researcher/SKILL.md`;
+  - оставить в stage skill только orchestration: preflight/state, запуск `research.py`, явный `Run subagent`, post-validation/handoff;
+  - исключить двойную делегацию и зафиксировать явный next-step contract.
+  **AC:** `researcher` работает как orchestration-stage без скрытого fork-сабагента; `Run subagent` присутствует ровно один раз; state sync (`set_active_feature/set_active_stage`) выполняется до subagent; next-step contract явно возвращает следующий stage command.
+  **Deps:** W98-1, W98-2a
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W98-4 (P1) Add stage reference preload for researcher (`aidd-stage-research`)** `skills/aidd-stage-research/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - создать reference-only skill с stage-specific research contract (read policy, handoff policy, evidence policy);
+  - frontmatter policy для reference skill: `user-invocable: false`, explicit `description`, без `disable-model-invocation: true` (omit/false);
+  - подключить preload в `agents/researcher.md` (и роли-потребители при необходимости) без skills inheritance в stage-skills;
+  - зафиксировать policy, что stage-specific knowledge приходит в subagent через `skills:`.
+  **AC:** subagent researcher получает stage guidance через explicit preload, без implicit inheritance.
+  **Deps:** W98-3
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 98Bx — Carry-over (out of research core scope)
+
+- [ ] **W98-5 (P2) Carry-over: rollout orchestrator/no-fork contract to non-research stages** `skills/idea-new/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - применить тот же паттерн к stage skills с текущим `context: fork`;
+  - унифицировать структуру: Inputs -> Preflight -> Run subagent -> Postflight -> Output;
+  - убрать special-case `FORK_STAGES` policy из lint в пользу общего orchestration contract после закрытия research wave.
+  **AC:** non-research stage skills не завязаны на `context: fork`; subagent вызовы остаются явными и детерминированными.
+  **Deps:** W98-12
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** L
+  **Risk:** High
+
+### Phase 98C — RLM-only runtime and gate consistency
+
+- [ ] **W98-6 (P0) Complete RLM-only runtime: remove context-side effects from shared RLM API** `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/researcher/runtime/research.py`, `templates/aidd/config/conventions.json`:
+  - убрать `context.json` update semantics (`--update-context`, implicit status writes);
+  - удалить legacy `reports.research_pack_budget` path и связанные fallback-настройки;
+  - закрепить pipeline: `rlm-targets -> rlm-manifest -> rlm.worklist.pack -> nodes/links -> rlm.pack`.
+  **AC:** RLM runtime не мутирует `*-context.json`; source of truth только RLM artifacts.
+  **Deps:** W98-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_rlm_nodes_build.py tests/test_rlm_links_build.py tests/test_reports_pack.py tests/test_research_rlm_e2e.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W98-6b (P0) Migration policy for existing workspaces (legacy -> RLM-only)** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/SKILL.md`, `skills/aidd-core/runtime/research_guard.py`:
+  - зафиксировать policy для historical workspace state: regenerate vs soft-read window vs hard-break;
+  - описать deterministic handoff для отсутствующих RLM artifacts (`rerun research`, explicit command hints);
+  - синхронизировать policy с gate behavior и user-facing troubleshooting.
+  **AC:** есть единая documented стратегия перехода для старых workspace-артефактов; behavior гейтов соответствует documentation.
+  **Deps:** W98-6
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, targeted gate tests.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W98-7 (P0) Rewrite research gate to consume only RLM artifacts** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/research_check.py`, `skills/researcher/SKILL.md`:
+  - исключить hard dependency на `reports/research/<ticket>-context.json` и legacy `<ticket>-targets.json`;
+  - базировать readiness на `*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`, `*-rlm.pack.json`;
+  - синхронизировать BLOCK/WARN semantics и handoff hints с новым контрактом.
+  **AC:** research gate проходит/блокирует без обращения к context artifacts; для missing RLM artifacts выдаёт deterministic reason_code по минимальному обязательному набору (targets/manifest/worklist/nodes/links/pack).
+  **Deps:** W98-6, W98-6b
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_gate_researcher.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W98-8 (P0) Downstream consumers cleanup (`gate_workflow` / `tasks_derive` / `status`)** `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
+  - перевести default research report path на `*-rlm.pack.json` и pack-first reading;
+  - удалить fallback/marker refs на `*-context.json` и legacy `*-targets.json`;
+  - обновить hints/summary/index outputs и handoff-source labels под RLM-only artifact names;
+  - синхронизировать index/status/checks outputs с RLM-only research policy.
+  **AC:** workflow/status/handoff работают с RLM pack без legacy контекста.
+  **Deps:** W98-7
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_workflow.py tests/test_tasks_derive.py tests/test_status.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W98-9 (P1) Retire legacy researcher context modules and dead compat paths** `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-core/runtime/researcher_context_pack.py`, `tests/repo_tools/runtime-module-guard.py`:
+  - убрать runtime usage of legacy context builders (или переместить в explicit deprecated-only layer);
+  - вычистить stale imports/call-sites и неиспользуемые CLI switches;
+  - зафиксировать ownership cleanup для research runtime surface.
+  **AC:** research runtime surface не зависит от `ResearcherContextBuilder` и context-pack builders.
+  **Deps:** W98-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_researcher_context.py`, `tests/repo_tools/ci-lint.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 98D — Docs/templates/tests alignment + final enforcement
+
+- [ ] **W98-10 (P0) Docs and templates alignment with RLM-only + subagents-first flow** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/templates/research.template.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `docs/skill-language.md`:
+  - удалить упоминания `*-context.json`/legacy `*-targets.json` из canonical docs/templates;
+  - описать research stage как orchestration + explicit subagent handoff;
+  - обновить примеры команд/permission patterns под `Bash(cmd *)`.
+  **AC:** docs/prompts/templates не противоречат RLM-only и orchestration contract.
+  **Deps:** W98-3, W98-7, W98-8
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, docs consistency checks.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W98-11 (P0) Rewrite research regression suite for new contract** `tests/test_research_command.py`, `tests/test_research_check.py`, `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`, `tests/test_tasks_derive.py`, `tests/test_reports_pack.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - заменить ожидания по `*-context.json`/legacy `*-targets.json` на RLM-only artifacts;
+  - покрыть кейсы `rlm_status=pending|warn|ready`, links-empty semantics и explicit handoff;
+  - добавить negative guard test: runtime не должен читать legacy `*-context.json`/`*-targets.json` при наличии валидных RLM artifacts;
+  - обновить smoke assertions и fixture builders под новый artifact-set.
+  **AC:** целевой research regression suite зелёный в RLM-only режиме; есть отдельный тест, доказывающий отказ от чтения legacy research artifacts.
+  **Deps:** W98-6, W98-7, W98-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_researcher.py tests/test_gate_workflow.py tests/test_tasks_derive.py`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W98-12 (P0) Final CI enforcement + backlog consolidation (close/supersede W90 research leftovers)** `tests/repo_tools/lint-prompts.py`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `backlog.md`:
+  - включить строгие guard-ы: запрет `Bash(...:*)`, запрет runtime refs на research legacy artifacts;
+  - зафиксировать и выполнить close/supersede strategy для W90-3..W90-7 после миграции Wave 98;
+  - обновить quality gates и release checklist по новому research contract.
+  **AC:** CI блокирует возврат legacy-паттернов; backlog не содержит дублирующих открытых research-монолит задач.
+  **Deps:** W98-2c, W98-11
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 98 Critical Path
+
+1. `W98-1` -> `W98-2a` -> `W98-3` -> `W98-4`
+2. `W98-6` + `W98-6b` -> `W98-7` -> `W98-8`
+3. `W98-10` -> `W98-11` -> `W98-2b` -> `W98-2c` -> `W98-12`
+4. `W98-5` — carry-over task вне критического пути research wave.
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 

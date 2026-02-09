@@ -76,7 +76,6 @@ def main(argv: List[str] | None = None) -> int:
         str(links_path),
         "--ticket",
         ticket,
-        "--update-context",
     ]
     reports_pack.main(pack_args)
     return 0

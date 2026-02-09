@@ -14,6 +14,7 @@ from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root
 from aidd_runtime.rlm_config import detect_lang
 
+
 class ResearchValidationError(RuntimeError):
     """Raised when researcher validation fails."""
 
@@ -219,10 +220,16 @@ def _detect_langs_from_paths(root: Path, paths: Iterable[str], required_langs: I
     return found
 
 
-def _resolve_rlm_path(root: Path, context: dict, key: str, fallback: Path) -> Path:
-    raw = context.get(key)
-    resolved = _resolve_report_path(root, raw) if isinstance(raw, str) and raw else None
-    return resolved or fallback
+def _parse_iso_datetime(value: object) -> Optional[dt.datetime]:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        if text.endswith("Z"):
+            return dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 def _count_rlm_nodes(path: Path) -> int:
@@ -250,6 +257,20 @@ def _count_rlm_nodes(path: Path) -> int:
     return count
 
 
+def _count_jsonl_rows(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    count += 1
+    except OSError:
+        return 0
+    return count
+
+
 def _load_rlm_links_stats(path: Path) -> Optional[dict]:
     if not path.exists():
         return None
@@ -262,31 +283,23 @@ def _load_rlm_links_stats(path: Path) -> Optional[dict]:
 
 def _should_require_rlm(
     root: Path,
-    ticket: str,
     *,
     settings: ResearchSettings,
-    rlm_targets_path: Path,
-    research_targets_path: Path,
+    rlm_targets: dict,
 ) -> bool:
     if not settings.rlm_enabled:
         return False
     required_langs = settings.rlm_required_for_langs or []
     if not required_langs:
         return True
-    try:
-        targets = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
-    except Exception:
-        targets = {}
-    files = targets.get("files") or []
+
+    files = rlm_targets.get("files") or []
     detected = _detect_langs_from_files([str(item) for item in files], required_langs)
     if detected:
         return True
-    try:
-        fallback_targets = json.loads(research_targets_path.read_text(encoding="utf-8"))
-    except Exception:
-        fallback_targets = {}
-    paths = fallback_targets.get("paths") or []
-    paths_discovered = fallback_targets.get("paths_discovered") or []
+
+    paths = rlm_targets.get("paths") or []
+    paths_discovered = rlm_targets.get("paths_discovered") or []
     if not paths and not paths_discovered:
         paths = ["src"]
     detected = _detect_langs_from_paths(root, list(paths) + list(paths_discovered), required_langs)
@@ -298,106 +311,58 @@ def _validate_rlm_evidence(
     ticket: str,
     *,
     settings: ResearchSettings,
-    context_path: Path,
-    targets_path: Path,
     doc_status: Optional[str] = None,
 ) -> None:
-    try:
-        context = json.loads(context_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        raise ResearchValidationError(
-            f"BLOCK: отсутствует {context_path}; выполните "
-            f"{_research_cmd_hint(ticket)}."
-        )
-    except json.JSONDecodeError:
-        raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
-
-    rlm_targets_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_targets_path",
-        root / "reports" / "research" / f"{ticket}-rlm-targets.json",
+    rlm_targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
+    rlm_manifest_path = root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
+    rlm_worklist_path = _find_pack_variant(root, f"{ticket}-rlm.worklist") or (
+        root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
     )
-    if not _should_require_rlm(
-        root,
-        ticket,
-        settings=settings,
-        rlm_targets_path=rlm_targets_path,
-        research_targets_path=targets_path,
-    ):
+    rlm_nodes_path = root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    rlm_links_path = root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    rlm_pack_path = _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.json")
+    rlm_links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+
+    missing_core: list[str] = []
+    if not rlm_targets_path.exists():
+        missing_core.append("rlm-targets.json")
+    if not rlm_manifest_path.exists():
+        missing_core.append("rlm-manifest.json")
+    if not rlm_worklist_path.exists():
+        missing_core.append("rlm.worklist.pack")
+    if missing_core:
+        missing_label = ", ".join(missing_core)
+        raise ResearchValidationError(
+            f"BLOCK: отсутствуют базовые RLM артефакты ({missing_label}). "
+            f"Пересоберите research или запустите `{_research_cmd_hint(ticket)}`."
+        )
+
+    try:
+        rlm_targets = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
+    except Exception:
+        rlm_targets = {}
+
+    if not _should_require_rlm(root, settings=settings, rlm_targets=rlm_targets if isinstance(rlm_targets, dict) else {}):
         return
 
-    rlm_manifest_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_manifest_path",
-        root / "reports" / "research" / f"{ticket}-rlm-manifest.json",
-    )
-    rlm_worklist_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_worklist_path",
-        _find_pack_variant(root, f"{ticket}-rlm.worklist")
-        or (root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"),
-    )
-    rlm_nodes_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_nodes_path",
-        root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl",
-    )
-    rlm_links_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_links_path",
-        root / "reports" / "research" / f"{ticket}-rlm.links.jsonl",
-    )
-    rlm_pack_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_pack_path",
-        _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.json"),
-    )
-    rlm_links_stats_path = _resolve_rlm_path(
-        root,
-        context,
-        "rlm_links_stats_path",
-        root / "reports" / "research" / f"{ticket}-rlm.links.stats.json",
-    )
-
-    rlm_status = str(context.get("rlm_status") or "pending").strip().lower()
     worklist_status = None
     worklist_entries = None
-    if rlm_worklist_path.exists():
-        payload = _load_pack_payload(rlm_worklist_path)
-        if isinstance(payload, dict):
-            worklist_status = str(payload.get("status") or "").strip().lower() or None
-            entries = payload.get("entries")
-            if isinstance(entries, list):
-                worklist_entries = len(entries)
-    if worklist_status == "ready" and worklist_entries == 0:
-        rlm_status = "ready"
-    elif worklist_status:
-        rlm_status = "pending"
+    worklist_payload = _load_pack_payload(rlm_worklist_path)
+    if isinstance(worklist_payload, dict):
+        worklist_status = str(worklist_payload.get("status") or "").strip().lower() or None
+        entries = worklist_payload.get("entries")
+        if isinstance(entries, list):
+            worklist_entries = len(entries)
+
     stage = _load_stage(root)
     normalized_status = (doc_status or "").strip().lower()
     ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
 
-    manifest_total = None
-    if rlm_manifest_path.exists():
-        try:
-            manifest_payload = json.loads(rlm_manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            manifest_payload = None
-        if isinstance(manifest_payload, dict):
-            files = manifest_payload.get("files")
-            if isinstance(files, list):
-                manifest_total = len(files)
+    nodes_exists = rlm_nodes_path.exists()
+    nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_exists else 0
 
-    nodes_ok = rlm_nodes_path.exists()
-    links_ok = rlm_links_path.exists() and rlm_links_path.stat().st_size > 0
-    pack_ok = rlm_pack_path.exists()
-    nodes_total = _count_rlm_nodes(rlm_nodes_path) if nodes_ok else 0
+    links_exists = rlm_links_path.exists()
+    links_rows = _count_jsonl_rows(rlm_links_path) if links_exists else 0
     links_total: Optional[int] = None
     links_stats = _load_rlm_links_stats(rlm_links_stats_path)
     if isinstance(links_stats, dict):
@@ -405,83 +370,65 @@ def _validate_rlm_evidence(
             links_total = int(links_stats.get("links_total") or 0)
         except (TypeError, ValueError):
             links_total = None
-    links_empty = False
-    if links_total is not None:
-        links_empty = links_total == 0
-    else:
-        links_empty = not links_ok
+    links_empty = (links_total == 0) if links_total is not None else (links_rows == 0)
+
+    pack_exists = rlm_pack_path.exists()
+    pack_payload = _load_pack_payload(rlm_pack_path) if pack_exists else None
+
+    rlm_status = None
+    if isinstance(pack_payload, dict):
+        raw_status = str(pack_payload.get("rlm_status") or pack_payload.get("status") or "").strip().lower()
+        if raw_status in {"ready", "pending", "warn", "warning"}:
+            rlm_status = "warn" if raw_status == "warning" else raw_status
+    if worklist_status is not None:
+        if worklist_status == "ready" and (worklist_entries or 0) == 0 and nodes_total > 0 and not links_empty:
+            rlm_status = "ready"
+        elif rlm_status != "warn":
+            rlm_status = "pending"
+    if not rlm_status:
+        if nodes_total > 0 and not links_empty and pack_exists:
+            rlm_status = "ready"
+        elif links_empty and (nodes_total > 0 or pack_exists):
+            rlm_status = "warn"
+        else:
+            rlm_status = "pending"
+
     links_warn = settings.rlm_require_links and links_empty
 
-    if rlm_status == "ready":
-        if settings.rlm_require_nodes and not nodes_ok:
+    if ready_required:
+        if settings.rlm_require_nodes and (not nodes_exists or nodes_total == 0):
             raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но nodes.jsonl отсутствует. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
-            )
-        if settings.rlm_require_nodes and (manifest_total or 0) > 0 and nodes_total == 0:
-            raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но nodes.jsonl пустой. "
-                f"Hint: выполните agent-flow по worklist или `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
+                "BLOCK: для текущей стадии нужны RLM nodes (rlm.nodes.jsonl), но они отсутствуют или пусты. "
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
             )
         if links_warn:
-            message = (
-                "rlm links empty (reason_code=rlm_links_empty_warn)"
-                if links_total == 0
-                else "rlm links missing (reason_code=rlm_links_empty_warn)"
-            )
-            if ready_required:
-                raise ResearchValidationError(f"BLOCK: {message}.")
-            print(
-                f"[aidd] WARN: {message}. "
-                f"Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.",
-                file=sys.stderr,
-            )
-            return
-        if settings.rlm_require_pack and not pack_ok:
+            message = "rlm links empty (reason_code=rlm_links_empty_warn)"
+            raise ResearchValidationError(f"BLOCK: {message}. Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.")
+        if settings.rlm_require_pack and not pack_exists:
             raise ResearchValidationError(
-                "BLOCK: rlm_status=ready, но rlm pack отсутствует. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/reports_pack.py` для RLM pack."
+                "BLOCK: для текущей стадии нужен RLM pack, но он отсутствует. "
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}`."
+            )
+        if rlm_status != "ready":
+            raise ResearchValidationError(
+                "BLOCK: rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии."
             )
         return
 
-    if rlm_status in {"warn", "warning"}:
-        message = "rlm links empty (reason_code=rlm_links_empty_warn)"
-        if ready_required:
-            raise ResearchValidationError(f"BLOCK: {message}.")
+    if rlm_status == "warn":
         print(
-            f"[aidd] WARN: {message}. "
+            "[aidd] WARN: rlm links empty (reason_code=rlm_links_empty_warn). "
             f"Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.",
             file=sys.stderr,
         )
         return
 
-    if ready_required:
-        if links_warn and pack_ok:
-            raise ResearchValidationError("BLOCK: rlm links empty (reason_code=rlm_links_empty_warn).")
-        raise ResearchValidationError(
-            "BLOCK: rlm_status=pending — требуется rlm_status=ready "
-            "с nodes/links/pack для текущей стадии."
-        )
-
-    missing = []
-    if not rlm_targets_path.exists():
-        missing.append("rlm-targets.json")
-    if not rlm_manifest_path.exists():
-        missing.append("rlm-manifest.json")
-    if not rlm_worklist_path.exists():
-        missing.append("rlm.worklist.pack")
-    if missing:
-        missing_label = ", ".join(missing)
-        raise ResearchValidationError(
-            f"BLOCK: rlm_status=pending, но отсутствуют {missing_label}. "
-            f"Пересоберите research или запустите `{_research_cmd_hint(ticket)}`."
-        )
     if stage in {"research", "implement"}:
-        print(
-            f"[aidd] WARN: rlm_status=pending for stage={stage}; "
-            "nodes/links/pack ещё не собраны.",
-            file=sys.stderr,
-        )
+        if not nodes_exists or links_empty or not pack_exists:
+            print(
+                f"[aidd] WARN: rlm_status={rlm_status} for stage={stage}; nodes/links/pack ещё не полностью собраны.",
+                file=sys.stderr,
+            )
         if worklist_entries:
             threshold = max(1, int(worklist_entries * 0.5))
             if nodes_total < threshold:
@@ -505,8 +452,7 @@ def validate_research(
         return ResearchCheckSummary(status=None, skipped_reason="branch-skip")
 
     doc_path = root / "docs" / "research" / f"{ticket}.md"
-    context_path = root / "reports" / "research" / f"{ticket}-context.json"
-    targets_path = root / "reports" / "research" / f"{ticket}-targets.json"
+    rlm_targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
 
     if not doc_path.exists():
         if settings.allow_missing:
@@ -533,20 +479,9 @@ def validate_research(
             if status == "pending" and settings.allow_pending_baseline:
                 baseline_phrase = settings.baseline_phrase.strip().lower()
                 if baseline_phrase and baseline_phrase in doc_text_lower:
-                    try:
-                        context = json.loads(context_path.read_text(encoding="utf-8"))
-                    except FileNotFoundError:
-                        raise ResearchValidationError(
-                            f"BLOCK: отсутствует {context_path}; выполните "
-                            f"{_research_cmd_hint(ticket)}."
-                        )
-                    except json.JSONDecodeError:
-                        raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
-                    profile = context.get("profile") or {}
-                    if bool(profile.get("is_new_project")) and bool(context.get("auto_mode")):
-                        return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
+                    return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
                 raise ResearchValidationError(
-                    "BLOCK: статус Researcher `pending` допустим только для baseline (нужна отметка и auto_mode для нового проекта)."
+                    "BLOCK: статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)."
                 )
             raise ResearchValidationError(
                 f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт."
@@ -554,63 +489,47 @@ def validate_research(
 
     path_count: Optional[int] = None
     min_paths = settings.minimum_paths or 0
-    if min_paths > 0:
+    targets_payload: dict = {}
+    if min_paths > 0 or settings.freshness_days:
         try:
-            targets = json.loads(targets_path.read_text(encoding="utf-8"))
+            payload = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            raise ResearchValidationError(f"BLOCK: отсутствует {targets_path} с целевыми директориями Researcher.")
+            raise ResearchValidationError(
+                f"BLOCK: отсутствует {rlm_targets_path}; пересоберите research командой {_research_cmd_hint(ticket)}."
+            )
         except json.JSONDecodeError:
             raise ResearchValidationError(
-                f"BLOCK: повреждён файл {targets_path}; пересоберите его командой "
-                f"{_research_cmd_hint(ticket)}."
+                f"BLOCK: повреждён файл {rlm_targets_path}; пересоберите его командой {_research_cmd_hint(ticket)}."
             )
-        paths = targets.get("paths") or []
+        targets_payload = payload if isinstance(payload, dict) else {}
+
+    if min_paths > 0:
+        paths = targets_payload.get("paths") or []
         path_count = len(paths)
         if path_count < min_paths:
             raise ResearchValidationError(
-                f"BLOCK: Researcher targets содержат только {path_count} директорий (минимум {min_paths})."
+                f"BLOCK: RLM targets содержат только {path_count} директорий (минимум {min_paths})."
             )
 
     age_days: Optional[int] = None
     freshness_days = settings.freshness_days
     if freshness_days:
-        try:
-            context = json.loads(context_path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
+        generated_dt = _parse_iso_datetime(targets_payload.get("generated_at"))
+        if generated_dt is None:
             raise ResearchValidationError(
-                f"BLOCK: отсутствует {context_path}; выполните "
-                f"{_research_cmd_hint(ticket)}."
-            )
-        except json.JSONDecodeError:
-            raise ResearchValidationError(f"BLOCK: повреждён {context_path}; пересоздайте его.")
-        generated_raw = context.get("generated_at")
-        if not isinstance(generated_raw, str) or not generated_raw:
-            raise ResearchValidationError(
-                f"BLOCK: контекст Researcher ({context_path}) не содержит поля generated_at."
-            )
-        try:
-            if generated_raw.endswith("Z"):
-                generated_dt = dt.datetime.fromisoformat(generated_raw.replace("Z", "+00:00"))
-            else:
-                generated_dt = dt.datetime.fromisoformat(generated_raw)
-        except ValueError:
-            raise ResearchValidationError(
-                f"BLOCK: некорректная метка времени generated_at в {context_path}."
+                f"BLOCK: RLM targets ({rlm_targets_path}) не содержат корректное поле generated_at."
             )
         now = dt.datetime.now(dt.timezone.utc)
         age_days = (now - generated_dt.astimezone(dt.timezone.utc)).days
         if age_days > int(freshness_days):
             raise ResearchValidationError(
-                f"BLOCK: контекст Researcher превысил лимит свежести ({age_days} дней) → обновите "
-                f"{_research_cmd_hint(ticket)}."
+                f"BLOCK: RLM targets превысили лимит свежести ({age_days} дней) → обновите {_research_cmd_hint(ticket)}."
             )
 
     _validate_rlm_evidence(
         root,
         ticket,
         settings=settings,
-        context_path=context_path,
-        targets_path=targets_path,
         doc_status=status,
     )
 

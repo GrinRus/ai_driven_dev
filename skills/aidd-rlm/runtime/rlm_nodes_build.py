@@ -64,27 +64,6 @@ def _write_nodes(path: Path, nodes: Iterable[Dict[str, object]]) -> None:
     tmp_path.replace(path)
 
 
-def _update_context_status(
-    context_path: Path,
-    *,
-    project_root: Path,
-    worklist_path: Path,
-    worklist_status: str,
-    worklist_entries: int,
-) -> None:
-    if not context_path.exists():
-        return
-    payload = json.loads(context_path.read_text(encoding="utf-8"))
-    payload["rlm_worklist_path"] = runtime.rel_path(worklist_path, project_root)
-    if worklist_status == "ready" and worklist_entries == 0:
-        payload["rlm_status"] = "ready"
-    elif worklist_status:
-        payload["rlm_status"] = "pending"
-    tmp_path = context_path.with_suffix(context_path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp_path.replace(context_path)
-
-
 def _split_values(raw: object | Iterable[str] | None) -> List[str]:
     if raw is None:
         return []
@@ -557,7 +536,7 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--refresh-worklist",
         action="store_true",
-        help="Rewrite worklist pack and update context rlm_status/rlm_worklist_path if context exists.",
+        help="Rewrite worklist pack (preserves previous scope when no explicit scope is provided).",
     )
     return parser.parse_args(argv)
 
@@ -643,20 +622,6 @@ def main(argv: List[str] | None = None) -> int:
     output.write_text(json.dumps(pack, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     rel_output = runtime.rel_path(output, target)
     print(f"[aidd] rlm worklist saved to {rel_output}.")
-    if args.refresh_worklist:
-        context_path = target / "reports" / "research" / f"{ticket}-context.json"
-        worklist_entries = len(pack.get("entries") or [])
-        worklist_status = str(pack.get("status") or "").strip().lower()
-        _update_context_status(
-            context_path,
-            project_root=target,
-            worklist_path=output,
-            worklist_status=worklist_status,
-            worklist_entries=worklist_entries,
-        )
-        if context_path.exists():
-            rel_context = runtime.rel_path(context_path, target)
-            print(f"[aidd] updated rlm_status={worklist_status} in {rel_context}.")
     return 0
 
 

@@ -365,120 +365,6 @@ def _inflate_columnar(section: object) -> List[Dict]:
     return items
 
 
-def _derive_tasks_from_research_context(payload: Dict, report_label: str, *, reuse_limit: int = 5) -> List[List[str]]:
-    blocks: List[List[str]] = []
-    matches = payload.get("matches") or []
-    if isinstance(matches, dict):
-        matches = _inflate_columnar(matches)
-    has_context = bool(matches)
-    profile = payload.get("profile") if isinstance(payload, dict) else {}
-    recommendations = []
-    if isinstance(profile, dict):
-        recommendations = profile.get("recommendations") or []
-    if isinstance(recommendations, str):
-        recommendations = [recommendations]
-    if isinstance(recommendations, dict):
-        recommendations = _inflate_columnar(recommendations)
-    for item in recommendations:
-        if isinstance(item, dict):
-            text = str(item.get("title") or item.get("recommendation") or item.get("text") or "").strip()
-        else:
-            text = str(item).strip()
-        if not text:
-            continue
-        task_id = _canonical_task_id("research", _stable_task_id("research", text))
-        spec = TaskSpec(
-            source="research",
-            task_id=task_id,
-            title=f"Research: {text}",
-            scope="n/a",
-            dod=f"Research task reviewed ({report_label})",
-            priority="medium",
-            blocking=False,
-            status="open",
-            test_profile="none",
-            notes="",
-            report_label=report_label,
-        )
-        blocks.append(_task_block(spec))
-
-    manual_notes = payload.get("manual_notes") or []
-    if isinstance(manual_notes, str):
-        manual_notes = [manual_notes]
-    if isinstance(manual_notes, dict):
-        manual_notes = _inflate_columnar(manual_notes)
-    for item in manual_notes:
-        text = str(item.get("note") if isinstance(item, dict) else item).strip()
-        if not text:
-            continue
-        task_id = _canonical_task_id("research", _stable_task_id("research-note", text))
-        spec = TaskSpec(
-            source="research",
-            task_id=task_id,
-            title=f"Research note: {text}",
-            scope="n/a",
-            dod=f"Note captured ({report_label})",
-            priority="low",
-            blocking=False,
-            status="open",
-            test_profile="none",
-            notes="",
-            report_label=report_label,
-        )
-        blocks.append(_task_block(spec))
-    reuse_candidates = payload.get("reuse_candidates") or []
-    if isinstance(reuse_candidates, dict):
-        reuse_candidates = _inflate_columnar(reuse_candidates)
-    reuse_candidates = [item for item in reuse_candidates if isinstance(item, dict)]
-    if reuse_candidates:
-        reuse_candidates = sorted(
-            reuse_candidates,
-            key=lambda item: (item.get("score") or 0, item.get("path") or ""),
-            reverse=True,
-        )
-    reuse_candidates = reuse_candidates[:reuse_limit]
-
-    if reuse_candidates:
-        for item in reuse_candidates:
-            path = str(item.get("path") or "").strip()
-            if not path:
-                continue
-            score = item.get("score") or 0
-            task_id = _canonical_task_id("research", _stable_task_id("research-reuse", path))
-            score_label = f"score {score}" if score else "score n/a"
-            spec = TaskSpec(
-                source="research",
-                task_id=task_id,
-                title=f"Reuse candidate: {path}",
-                scope="n/a",
-                dod=f"Evaluate reuse candidate ({score_label})",
-                priority="low",
-                blocking=False,
-                status="open",
-                test_profile="none",
-                notes="",
-                report_label=report_label,
-            )
-            blocks.append(_task_block(spec))
-    if not blocks and (has_context or reuse_candidates):
-        task_id = _canonical_task_id("research", _stable_task_id("research", report_label, "review"))
-        spec = TaskSpec(
-            source="research",
-            task_id=task_id,
-            title="Research: review updated context",
-            scope="n/a",
-            dod=f"Context reviewed ({report_label})",
-            priority="medium",
-            blocking=False,
-            status="open",
-            test_profile="none",
-            notes="",
-            report_label=report_label,
-        )
-        blocks.append(_task_block(spec))
-    return blocks
-
-
 def _derive_tasks_from_rlm_pack(payload: Dict, report_label: str) -> List[List[str]]:
     blocks: List[List[str]] = []
     source = "research"
@@ -1047,7 +933,7 @@ def main(argv: list[str] | None = None) -> int:
     source = (args.source or "").strip().lower()
     default_report = {
         "qa": "aidd/reports/qa/{ticket}.json",
-        "research": "aidd/reports/research/{ticket}-context.json",
+        "research": "aidd/reports/research/{ticket}-rlm.pack.json",
     }.get(source)
     if source == "review":
         default_report = runtime.review_report_template(target)
@@ -1076,16 +962,8 @@ def main(argv: list[str] | None = None) -> int:
         label_path = report_paths.pack_path if source_kind == "pack" else report_paths.json_path
         return payload, runtime.rel_path(label_path, target)
 
-    rlm_pack_path = None
-    if source == "research":
-        candidate = target / "reports" / "research" / f"{ticket}-rlm.pack.json"
-        if candidate.exists():
-            rlm_pack_path = candidate
-
     is_pack_path = report_path.name.endswith(".pack.json")
-    if source == "research" and rlm_pack_path is not None:
-        payload, report_label = _load_with_pack(rlm_pack_path, prefer_pack_first=True)
-    elif source == "research" and (prefer_pack or is_pack_path or not report_path.exists()):
+    if source == "research":
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
     elif source == "qa" and (is_pack_path or not report_path.exists()):
         payload, report_label = _load_with_pack(report_path, prefer_pack_first=True)
@@ -1100,10 +978,7 @@ def main(argv: list[str] | None = None) -> int:
     elif source == "review":
         derived_blocks = _derive_tasks_from_findings("Review", payload, report_label)
     elif source == "research":
-        if rlm_pack_path is not None:
-            derived_blocks = _derive_tasks_from_rlm_pack(payload, report_label)
-        else:
-            derived_blocks = _derive_tasks_from_research_context(payload, report_label)
+        derived_blocks = _derive_tasks_from_rlm_pack(payload, report_label)
     else:
         derived_blocks = []
 

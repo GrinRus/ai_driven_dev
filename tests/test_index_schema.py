@@ -75,7 +75,7 @@ def test_index_sync_includes_pack_variants(tmp_path):
     )
     write_file(
         project_root,
-        "reports/research/DEMO-2-context.pack.json",
+        "reports/research/DEMO-2-rlm.pack.json",
         json.dumps({"status": "ok"}, indent=2),
     )
 
@@ -84,7 +84,7 @@ def test_index_sync_includes_pack_variants(tmp_path):
 
     reports = payload.get("reports") or []
     assert "aidd/reports/qa/DEMO-2.pack.json" in reports
-    assert "aidd/reports/research/DEMO-2-context.pack.json" in reports
+    assert "aidd/reports/research/DEMO-2-rlm.pack.json" in reports
     checks = payload.get("checks") or []
     qa_check = next((item for item in checks if item.get("name") == "qa"), None)
     assert qa_check is not None

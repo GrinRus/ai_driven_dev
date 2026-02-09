@@ -7,22 +7,16 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(_PLUGIN_ROOT))
 if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
-from aidd_runtime import runtime
 from aidd_runtime import research_hints as prd_hints
-from aidd_runtime.researcher_context import (
-    ResearcherContextBuilder,
-    _parse_keywords as _research_parse_keywords,
-    _parse_langs as _research_parse_langs,
-    _parse_notes as _research_parse_notes,
-    _parse_paths as _research_parse_paths,
-)
+from aidd_runtime import rlm_manifest, rlm_nodes_build, rlm_targets, runtime
+from aidd_runtime.rlm_config import load_rlm_settings
 
 
 def _ensure_research_doc(
@@ -116,13 +110,57 @@ def _sync_prd_overrides(
         research_path.write_text(updated, encoding="utf-8")
 
 
-def _validate_json_file(path: Path, label: str) -> None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        raise RuntimeError(f"{label} invalid JSON at {path}: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"{label} invalid JSON payload at {path}: expected object.")
+def _parse_paths(value: Optional[str]) -> list[str]:
+    if not value:
+        return []
+    items: list[str] = []
+    for chunk in re.split(r"[,:]", value):
+        cleaned = chunk.strip()
+        if cleaned:
+            items.append(cleaned)
+    return items
+
+
+def _parse_keywords(value: Optional[str]) -> list[str]:
+    if not value:
+        return []
+    items: list[str] = []
+    for chunk in re.split(r"[,\s]+", value):
+        token = chunk.strip().lower()
+        if token:
+            items.append(token)
+    return items
+
+
+def _parse_notes(values: Optional[Iterable[str]], root: Path) -> list[str]:
+    if not values:
+        return []
+    notes: list[str] = []
+    stdin_payload: Optional[str] = None
+    for raw in values:
+        value = (raw or "").strip()
+        if not value:
+            continue
+        if value == "-":
+            if stdin_payload is None:
+                stdin_payload = sys.stdin.read()
+            payload = (stdin_payload or "").strip()
+            if payload:
+                notes.append(payload)
+            continue
+        if value.startswith("@"):
+            note_path = Path(value[1:])
+            if not note_path.is_absolute():
+                note_path = (root / note_path).resolve()
+            try:
+                payload = note_path.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if payload:
+                notes.append(payload)
+            continue
+        notes.append(value)
+    return notes
 
 
 def _pack_extension() -> str:
@@ -133,9 +171,18 @@ def _rlm_finalize_handoff_cmd(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
 
 
+def _validate_json_file(path: Path, label: str) -> None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"{label} invalid JSON at {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{label} invalid JSON payload at {path}: expected object.")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Collect scope and context for the Researcher agent.",
+        description="Generate RLM-only research artifacts for the active ticket.",
     )
     parser.add_argument(
         "--ticket",
@@ -145,19 +192,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--slug-hint",
         dest="slug_hint",
-        help="Optional slug hint override used for templates and keywords (defaults to docs/.active.json).",
-    )
-    parser.add_argument(
-        "--config",
-        help="Path to conventions JSON containing the researcher section (defaults to config/conventions.json).",
+        help="Optional slug hint override used for templates (defaults to docs/.active.json).",
     )
     parser.add_argument(
         "--paths",
-        help="Colon-separated list of additional paths to scan (overrides defaults from conventions).",
+        help="Comma- or colon-separated list of explicit paths for RLM targets.",
     )
     parser.add_argument(
         "--rlm-paths",
-        help="Comma- or colon-separated list of explicit paths for RLM targets (overrides auto-discovery).",
+        help="Alias for --paths when forcing explicit RLM scope.",
     )
     parser.add_argument(
         "--targets-mode",
@@ -165,75 +208,49 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Override RLM targets_mode (auto|explicit).",
     )
     parser.add_argument(
-        "--paths-relative",
-        choices=("workspace", "aidd"),
-        help="Treat relative paths as workspace-rooted (default) or under aidd/.",
-    )
-    parser.add_argument(
         "--keywords",
-        help="Comma-separated list of extra keywords to search for.",
+        help="Comma/space-separated extra keywords merged into RLM targets.",
     )
     parser.add_argument(
         "--note",
         dest="notes",
         action="append",
-        help="Free-form note or @path to include in the context; use '-' to read stdin once.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=24,
-        help="Maximum number of code/document matches to capture (default: 24).",
-    )
-    parser.add_argument(
-        "--output",
-        help="Override output JSON path (default: aidd/reports/research/<ticket>-context.json).",
-    )
-    parser.add_argument(
-        "--pack-only",
-        action="store_true",
-        help="Remove JSON report after writing pack sidecar.",
+        help="Free-form note or @path merged into RLM targets notes; '-' reads stdin once.",
     )
     parser.add_argument(
         "--targets-only",
         action="store_true",
-        help="Only refresh targets JSON; skip content scan and context export.",
+        help="Only refresh RLM targets/manifest/worklist and skip doc materialization.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print context JSON to stdout without writing files (targets are still refreshed).",
-    )
-    parser.add_argument(
-        "--deep-code",
-        action="store_true",
-        help="Collect code symbols/imports/tests for reuse candidates.",
-    )
-    parser.add_argument(
-        "--reuse-only",
-        action="store_true",
-        help="Skip keyword matches and focus on reuse candidates in the output.",
-    )
-    parser.add_argument(
-        "--langs",
-        help="Comma-separated list of languages to scan for deep analysis (py,kt,kts,java).",
+        help="Print generated RLM targets payload without writing files.",
     )
     parser.add_argument(
         "--no-template",
         action="store_true",
-        help="Do not materialise docs/research/<ticket>.md from the template.",
+        help="Do not materialise docs/research/<ticket>.md from template.",
     )
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="Automation-friendly mode for /feature-dev-aidd:idea-new integrations (warn on empty matches).",
+        help="Automation-friendly mode for /feature-dev-aidd:researcher.",
     )
+    # Deprecated options preserved for compatibility with old command invocations.
+    parser.add_argument("--config", help=argparse.SUPPRESS)
+    parser.add_argument("--paths-relative", help=argparse.SUPPRESS)
+    parser.add_argument("--limit", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--output", help=argparse.SUPPRESS)
+    parser.add_argument("--pack-only", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--deep-code", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--reuse-only", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--langs", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
 
 def run(args: argparse.Namespace) -> int:
     _, target = runtime.require_workflow_root()
-
     ticket, feature_context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
@@ -246,165 +263,82 @@ def run(args: argparse.Namespace) -> int:
     hints = prd_hints.parse_research_hints(prd_text)
     overrides_block = "\n".join(_render_overrides_block(prd_overrides))
 
-    def _sync_index(reason: str) -> None:
-        runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason=reason)
-
-    config_path: Optional[Path] = None
-    if args.config:
-        config_path = Path(args.config)
-        if not config_path.is_absolute():
-            config_path = (target / config_path).resolve()
-        else:
-            config_path = config_path.resolve()
-    builder = ResearcherContextBuilder(
-        target,
-        config_path=config_path,
-        paths_relative=getattr(args, "paths_relative", None),
+    explicit_paths = prd_hints.merge_unique(
+        _parse_paths(getattr(args, "paths", None)),
+        _parse_paths(getattr(args, "rlm_paths", None)),
     )
-    scope = builder.build_scope(ticket, slug_hint=feature_context.slug_hint)
-    extra_paths = _research_parse_paths(args.paths)
-    rlm_paths = _research_parse_paths(getattr(args, "rlm_paths", None))
-    merged_paths = prd_hints.merge_unique(hints.paths, extra_paths)
-    merged_keywords = prd_hints.merge_unique(hints.keywords, _research_parse_keywords(args.keywords))
-    merged_notes = prd_hints.merge_unique(hints.notes, _research_parse_notes(getattr(args, "notes", None), target))
-    if not (merged_paths or merged_keywords or rlm_paths):
+    extra_keywords = prd_hints.merge_unique(_parse_keywords(getattr(args, "keywords", None)))
+    extra_notes = prd_hints.merge_unique(_parse_notes(getattr(args, "notes", None), target))
+
+    if not (hints.paths or hints.keywords or explicit_paths or extra_keywords):
         raise RuntimeError(
             "BLOCK: AIDD:RESEARCH_HINTS must define Paths or Keywords "
             f"in docs/prd/{ticket}.prd.md (or pass --paths/--keywords/--rlm-paths)."
         )
-    if rlm_paths and not extra_paths:
-        scope = builder.sync_scope_paths(scope, rlm_paths)
-        print("[aidd] INFO: research paths synced to --rlm-paths scope.", file=sys.stderr)
-    scope = builder.extend_scope(
-        scope,
-        extra_paths=merged_paths,
-        extra_keywords=merged_keywords,
-        extra_notes=merged_notes,
+
+    settings = load_rlm_settings(target)
+    targets_payload = rlm_targets.build_targets(
+        target,
+        ticket,
+        settings=settings,
+        targets_mode=args.targets_mode,
+        paths_override=explicit_paths or None,
+        keywords_override=extra_keywords or None,
+        notes_override=extra_notes or None,
     )
-    _, _, search_roots = builder.describe_targets(scope)
-    path_roots = builder.resolve_path_roots(scope)
-    if scope.invalid_paths and not scope.paths_discovered:
-        missing = ", ".join(scope.invalid_paths[:6])
-        suffix = "..." if len(scope.invalid_paths) > 6 else ""
-        print(
-            f"[aidd] WARN: missing research paths: {missing}{suffix} "
-            "(use --paths-relative workspace or update conventions)",
-            file=sys.stderr,
-        )
-
-    targets_path = builder.write_targets(scope)
-    rel_targets = targets_path.relative_to(target).as_posix()
-    base_root = builder.workspace_root if builder.paths_relative_mode == "workspace" else builder.root
-    base_label = f"{builder.paths_relative_mode}:{base_root}"
-    print(
-        f"[aidd] researcher targets saved to {rel_targets} "
-        f"({len(scope.paths)} paths, {len(scope.docs)} docs; base={base_label})."
-    )
-
-    rlm_targets_path = None
-    rlm_manifest_path = None
-    rlm_worklist_path = None
-    pack_ext = _pack_extension()
-    try:
-        rlm_targets_path = builder.write_rlm_targets(
-            ticket,
-            targets_mode=args.targets_mode,
-            rlm_paths=rlm_paths,
-        )
-        from aidd_runtime import rlm_manifest, rlm_nodes_build
-        from aidd_runtime.rlm_config import load_rlm_settings
-
-        rlm_settings = load_rlm_settings(target)
-        manifest_payload = rlm_manifest.build_manifest(
-            target,
-            ticket,
-            settings=rlm_settings,
-            targets_path=rlm_targets_path,
-        )
-        rlm_manifest_path = target / "reports" / "research" / f"{ticket}-rlm-manifest.json"
-        rlm_manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        rlm_manifest_path.write_text(
-            json.dumps(manifest_payload, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        worklist_pack = rlm_nodes_build.build_worklist_pack(
-            target,
-            ticket,
-            manifest_path=rlm_manifest_path,
-            nodes_path=target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl",
-        )
-        worklist_name = f"{ticket}-rlm.worklist{pack_ext}"
-        rlm_worklist_path = target / "reports" / "research" / worklist_name
-        rlm_worklist_path.parent.mkdir(parents=True, exist_ok=True)
-        rlm_worklist_path.write_text(
-            json.dumps(worklist_pack, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    except Exception as exc:
-        print(f"[aidd] WARN: failed to generate rlm targets/manifest/worklist: {exc}", file=sys.stderr)
-
-    if args.targets_only:
-        if not getattr(args, "dry_run", False):
-            _sync_index("research-targets")
+    if args.dry_run:
+        print(json.dumps(targets_payload, indent=2, ensure_ascii=False))
         return 0
 
-    languages = _research_parse_langs(getattr(args, "langs", None))
-    deep_code_enabled = bool(args.deep_code)
-    if args.auto:
-        auto_profile = "deep-scan" if deep_code_enabled else "fast-scan"
-        auto_reason = "explicit --deep-code" if deep_code_enabled else "no --deep-code"
-        print(f"[aidd] researcher auto profile: {auto_profile} ({auto_reason}).")
+    targets_path = target / "reports" / "research" / f"{ticket}-rlm-targets.json"
+    targets_path.parent.mkdir(parents=True, exist_ok=True)
+    targets_path.write_text(json.dumps(targets_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[aidd] rlm targets saved to {runtime.rel_path(targets_path, target)}.")
 
-    collected_context = builder.collect_context(scope, limit=args.limit)
-    if deep_code_enabled:
-        code_index, reuse_candidates = builder.collect_deep_context(
-            scope,
-            roots=search_roots,
-            keywords=scope.keywords,
-            languages=languages,
-            reuse_only=args.reuse_only,
-            limit=args.limit,
-        )
-        collected_context["code_index"] = code_index
-        collected_context["reuse_candidates"] = reuse_candidates
-        collected_context["deep_mode"] = True
-    else:
-        collected_context["deep_mode"] = False
+    manifest_payload = rlm_manifest.build_manifest(
+        target,
+        ticket,
+        settings=settings,
+        targets_path=targets_path,
+    )
+    manifest_path = target / "reports" / "research" / f"{ticket}-rlm-manifest.json"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[aidd] rlm manifest saved to {runtime.rel_path(manifest_path, target)}.")
 
-    collected_context["auto_mode"] = bool(getattr(args, "auto", False))
-    if rlm_targets_path:
-        collected_context["rlm_targets_path"] = os.path.relpath(rlm_targets_path, target)
-    if rlm_manifest_path:
-        collected_context["rlm_manifest_path"] = os.path.relpath(rlm_manifest_path, target)
-    if rlm_worklist_path:
-        collected_context["rlm_worklist_path"] = os.path.relpath(rlm_worklist_path, target)
     nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
-    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
-    rlm_pack_rel = f"reports/research/{ticket}-rlm{pack_ext}"
-    rlm_pack_path = target / rlm_pack_rel
-    if not args.dry_run:
-        if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
-            try:
-                from aidd_runtime import reports_pack as _reports_pack
+    worklist_pack = rlm_nodes_build.build_worklist_pack(
+        target,
+        ticket,
+        manifest_path=manifest_path,
+        nodes_path=nodes_path,
+    )
+    worklist_path = target / "reports" / "research" / f"{ticket}-rlm.worklist{_pack_extension()}"
+    worklist_path.write_text(
+        json.dumps(worklist_pack, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"[aidd] rlm worklist saved to {runtime.rel_path(worklist_path, target)}.")
 
-                rlm_pack_path = _reports_pack.write_rlm_pack(
-                    nodes_path,
-                    links_path,
-                    ticket=ticket,
-                    slug_hint=feature_context.slug_hint,
-                    root=target,
-                    limits=None,
-                )
-                try:
-                    _validate_json_file(rlm_pack_path, "rlm pack")
-                except RuntimeError as exc:
-                    print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-                    return 2
-                rel_rlm_pack = rlm_pack_path.relative_to(target).as_posix()
-                print(f"[aidd] rlm pack saved to {rel_rlm_pack}.")
-            except Exception as exc:
-                print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
-                return 2
+    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    rlm_pack_rel = f"reports/research/{ticket}-rlm{_pack_extension()}"
+    rlm_pack_path = target / rlm_pack_rel
+    if nodes_path.exists() and links_path.exists() and nodes_path.stat().st_size > 0 and links_path.stat().st_size > 0:
+        try:
+            from aidd_runtime import reports_pack as _reports_pack
+
+            rlm_pack_path = _reports_pack.write_rlm_pack(
+                nodes_path,
+                links_path,
+                ticket=ticket,
+                slug_hint=feature_context.slug_hint,
+                root=target,
+                limits=None,
+            )
+            _validate_json_file(rlm_pack_path, "rlm pack")
+            print(f"[aidd] rlm pack saved to {runtime.rel_path(rlm_pack_path, target)}.")
+        except Exception as exc:
+            print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
+            return 2
 
     links_ok = links_path.exists() and links_path.stat().st_size > 0
     pack_exists = rlm_pack_path.exists()
@@ -425,11 +359,7 @@ def run(args: argparse.Namespace) -> int:
                 links_total = int(stats_payload.get("links_total") or 0)
             except (TypeError, ValueError):
                 links_total = None
-    links_empty = False
-    if links_total is not None:
-        links_empty = links_total == 0
-    else:
-        links_empty = not links_ok
+    links_empty = links_total == 0 if links_total is not None else not links_ok
     if pack_exists:
         if require_links and links_empty:
             rlm_status = "warn"
@@ -438,98 +368,37 @@ def run(args: argparse.Namespace) -> int:
         else:
             rlm_status = "ready"
 
-    collected_context["rlm_nodes_path"] = nodes_path.relative_to(target).as_posix()
-    collected_context["rlm_links_path"] = links_path.relative_to(target).as_posix()
-    collected_context["rlm_pack_path"] = rlm_pack_rel
-    if links_stats_path.exists():
-        collected_context["rlm_links_stats_path"] = links_stats_path.relative_to(target).as_posix()
-    collected_context["rlm_status"] = rlm_status
-    collected_context["rlm_pack_status"] = "found" if pack_exists else "missing"
-    if pack_exists:
-        stat = rlm_pack_path.stat()
-        collected_context["rlm_pack_bytes"] = stat.st_size
-        collected_context["rlm_pack_updated_at"] = (
-            dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc)
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z")
-        )
-    if rlm_warnings:
-        collected_context["rlm_warnings"] = rlm_warnings
-    if rlm_status != "ready":
-        print(
-            "[aidd] INFO: shared RLM API owner is `aidd-rlm`; "
-            f"handoff command: `{_rlm_finalize_handoff_cmd(ticket)}`.",
-            file=sys.stderr,
-        )
-    match_count = len(collected_context["matches"])
-    if match_count == 0:
-        print(
-            f"[aidd] WARN: 0 matches for `{ticket}` → сузить paths/keywords.",
-            file=sys.stderr,
-        )
-        if (
-            builder.paths_relative_mode == "aidd"
-            and builder.workspace_root != builder.root
-            and any((builder.workspace_root / name).exists() for name in ("src", "services", "modules", "apps"))
-        ):
-            print(
-                "[aidd] hint: включите workspace-relative paths (--paths-relative workspace) "
-                "или добавьте ../paths — под aidd/ нет поддерживаемых файлов, но в workspace есть код.",
-                file=sys.stderr,
-            )
-    if args.dry_run:
-        print(json.dumps(collected_context, indent=2, ensure_ascii=False))
+    if args.targets_only:
+        runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research-targets")
         return 0
 
-    output = Path(args.output) if args.output else None
-    output_path = builder.write_context(scope, collected_context, output=output)
-    try:
-        _validate_json_file(output_path, "research context")
-    except RuntimeError as exc:
-        print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-        return 2
-    rel_output = output_path.relative_to(target).as_posix()
-    pack_path = None
-    try:
-        from aidd_runtime import reports_pack as _reports_pack
-
-        pack_path = _reports_pack.write_research_context_pack(output_path, root=target)
-        try:
-            _validate_json_file(pack_path, "research pack")
-        except RuntimeError as exc:
-            print(f"[aidd] ERROR: {exc}", file=sys.stderr)
-            return 2
-        try:
-            rel_pack = pack_path.relative_to(target).as_posix()
-        except ValueError:
-            rel_pack = pack_path.as_posix()
-        print(f"[aidd] research pack saved to {rel_pack}.")
-    except Exception as exc:
-        print(f"[aidd] ERROR: failed to generate research pack: {exc}", file=sys.stderr)
-        return 2
-    reuse_count = len(collected_context.get("reuse_candidates") or []) if deep_code_enabled else 0
-    message = f"[aidd] researcher context saved to {rel_output} ({match_count} matches; base={base_label}"
-    if deep_code_enabled:
-        message += f", {reuse_count} reuse candidates"
-    message += ")."
-    print(message)
-
     if not args.no_template:
-        template_overrides: dict[str, str] = {}
-        if overrides_block:
-            template_overrides["{{prd_overrides}}"] = overrides_block
-        if match_count == 0:
-            template_overrides["{{empty-context-note}}"] = "Контекст пуст: требуется baseline после автоматического запуска."
-            template_overrides["{{positive-patterns}}"] = "TBD — данные появятся после baseline."
-            template_overrides["{{negative-patterns}}"] = "TBD — сначала найдите артефакты."
-        if scope.manual_notes:
-            template_overrides["{{manual-note}}"] = "; ".join(scope.manual_notes[:3])
-
+        template_overrides = {
+            "{{prd_overrides}}": overrides_block,
+            "{{paths}}": ",".join(targets_payload.get("paths") or []) or "TBD",
+            "{{keywords}}": ",".join(targets_payload.get("keywords") or []) or "TBD",
+            "{{paths_discovered}}": ", ".join(targets_payload.get("paths_discovered") or []) or "none",
+            "{{invalid_paths}}": "none",
+            "{{rlm_status}}": rlm_status,
+            "{{rlm_pack_path}}": runtime.rel_path(rlm_pack_path, target) if pack_exists else rlm_pack_rel,
+            "{{rlm_pack_status}}": "found" if pack_exists else "missing",
+            "{{rlm_pack_bytes}}": str(rlm_pack_path.stat().st_size) if pack_exists else "0",
+            "{{rlm_pack_updated_at}}": (
+                dt.datetime.fromtimestamp(rlm_pack_path.stat().st_mtime, tz=dt.timezone.utc)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+                if pack_exists
+                else ""
+            ),
+            "{{rlm_warnings}}": ", ".join(rlm_warnings) if rlm_warnings else "none",
+            "{{rlm_nodes_path}}": runtime.rel_path(nodes_path, target),
+            "{{rlm_links_path}}": runtime.rel_path(links_path, target),
+        }
         doc_path, created = _ensure_research_doc(
             target,
             ticket,
             slug_hint=feature_context.slug_hint,
-            template_overrides=template_overrides or None,
+            template_overrides=template_overrides,
         )
         if not doc_path:
             print("[aidd] research summary template not found; skipping materialisation.")
@@ -542,6 +411,13 @@ def run(args: argparse.Namespace) -> int:
 
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 
+    if rlm_status != "ready":
+        print(
+            "[aidd] INFO: shared RLM API owner is `aidd-rlm`; "
+            f"handoff command: `{_rlm_finalize_handoff_cmd(ticket)}`.",
+            file=sys.stderr,
+        )
+
     try:
         from aidd_runtime.reports import events as _events
 
@@ -550,24 +426,18 @@ def run(args: argparse.Namespace) -> int:
             ticket=ticket,
             slug_hint=feature_context.slug_hint,
             event_type="research",
-            status="empty" if match_count == 0 else "ok",
+            status="ok" if rlm_status == "ready" else "pending",
             details={
-                "matches": match_count,
-                "reuse_candidates": reuse_count,
+                "rlm_status": rlm_status,
+                "worklist_entries": len(worklist_pack.get("entries") or []),
             },
-            report_path=Path(rel_output),
+            report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",
         )
     except Exception:
         pass
 
-    pack_only = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
-    if pack_only and pack_path and pack_path.exists():
-        try:
-            output_path.unlink()
-        except OSError:
-            pass
-    _sync_index("research")
+    runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research")
     return 0
 
 
