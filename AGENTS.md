@@ -103,7 +103,7 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 Loop policy: `OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED` → WARN + handoff, `FORBIDDEN` → BLOCKED.
 
 Ключевые команды:
-- Идея: `/feature-dev-aidd:idea-new <ticket> [slug-hint]` → PRD + `analyst`.
+- Идея: `/feature-dev-aidd:idea-new <ticket> [note...]` → PRD + `analyst` (`slug_hint` формируется внутри команды из note).
 - Research: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto` → `/feature-dev-aidd:researcher <ticket>` (RLM targets/manifest/worklist + pack).
 - План: `/feature-dev-aidd:plan-new <ticket>`.
 - Review‑spec (plan + PRD): `/feature-dev-aidd:review-spec <ticket>`.
@@ -218,7 +218,7 @@ model: inherit
 
 ## Входные артефакты
 - `aidd/docs/prd/<ticket>.prd.md` — пример обязательного входа. Укажите, какие файлы требуются и что делать, если их нет.
-- Перечислите остальные артефакты (plan, tasklist, отчёты, `aidd/reports/*.json`) и отметьте условия (READY/BLOCKED). Обязательно опишите, как агент ищет ссылки (например, `rg <ticket> aidd/docs/**`, поиск по ADR, использование slug-hint из `aidd/docs/.active.json`).
+- Перечислите остальные артефакты (plan, tasklist, отчёты, `aidd/reports/*.json`) и отметьте условия (READY/BLOCKED). Обязательно опишите, как агент ищет ссылки (например, `rg <ticket> aidd/docs/**`, поиск по ADR, использование slug из `aidd/docs/.active.json` — внутреннее поле `slug_hint`).
 
 ## Автоматизация
 - Перечислите гейты (`gate-*`), хуки и переменные (`SKIP_AUTO_TESTS`, `TEST_SCOPE`), которые агент обязан учитывать.
@@ -261,7 +261,7 @@ model: inherit
 Опишите назначение команды, связь с агентами и обязательные предварительные условия (активный ticket, готовые артефакты и т.д.). Уточните, что команда следует agent-first принципам: собирает данные из репозитория и запускает разрешённые CLI автоматически, а вопросы пользователю задаёт только при отсутствии информации.
 
 ## Входные артефакты
-- Перечислите файлы/репорты (`aidd/docs/prd/*.md`, `aidd/docs/research/*.md`, `aidd/reports/*.json`, slug-hint в `aidd/docs/.active.json`) и укажите, как команда находит их (например, `rg <ticket>`).
+- Перечислите файлы/репорты (`aidd/docs/prd/*.md`, `aidd/docs/research/*.md`, `aidd/reports/*.json`, slug в `aidd/docs/.active.json` — внутреннее поле `slug_hint`) и укажите, как команда находит их (например, `rg <ticket>`).
 - Отметьте, что делать при отсутствии входа (остановиться с BLOCKED, попросить запустить другую команду) и какие команды нужно выполнить, прежде чем просить пользователя о данных.
 
 ## Когда запускать

@@ -70,7 +70,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ### 3. Запустите фичу в Claude Code
 
 ```text
-/feature-dev-aidd:idea-new STORE-123 checkout-discounts
+/feature-dev-aidd:idea-new STORE-123 "Checkout: скидки, купоны, защита от double-charge"
 /feature-dev-aidd:researcher STORE-123
 /feature-dev-aidd:plan-new STORE-123
 /feature-dev-aidd:review-spec STORE-123
@@ -83,6 +83,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Примечания:
 - Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
+- `slug_hint` формируется автоматически внутри `/feature-dev-aidd:idea-new` из `note` (LLM summary → slug token); вручную передавать его не нужно.
 - Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы.
 
 ### Обновление workspace
@@ -141,7 +142,7 @@ CI required-check parity:
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
 | `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
-| `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
+| `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
 | `/feature-dev-aidd:review-spec` | Review plan + PRD | `<TICKET> [note...]` |

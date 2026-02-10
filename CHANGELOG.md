@@ -58,6 +58,7 @@
 - `tests/repo_tools/ci-lint.sh` запускает линтер промптов, dry-run `tests/repo_tools/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, `<test-runner> <args>`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
+- `idea-new` UX no longer requires user-provided `slug-hint`: command contract is now `<ticket> [note...]`, and internal `slug_hint` is generated from `idea_note` summary before `set_active_feature.py --slug-note`.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 

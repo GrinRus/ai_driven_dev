@@ -83,7 +83,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py
 ### 3. Run a feature in Claude Code
 
 ```text
-/feature-dev-aidd:idea-new STORE-123 checkout-discounts
+/feature-dev-aidd:idea-new STORE-123 "Checkout: discounts, coupons, double-charge protection"
 /feature-dev-aidd:researcher STORE-123
 /feature-dev-aidd:plan-new STORE-123
 /feature-dev-aidd:review-spec STORE-123
@@ -96,6 +96,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py
 
 Notes:
 - Questions can appear after `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec`, and `/feature-dev-aidd:spec-interview` (if you run it).
+- `slug_hint` is auto-generated inside `/feature-dev-aidd:idea-new` from `note` (LLM summary -> slug token); users should not pass it manually.
 - Answer in `AIDD:ANSWERS` (`Answer N` format) in response to the same command that asked the questions; keep `AIDD:OPEN_QUESTIONS` synced as `Q1/Q2/...` — when `AIDD:OPEN_QUESTIONS` is present, `analyst-check` blocks mismatches. In the plan, reference `PRD QN` instead of duplicating questions.
 
 ### Workspace updates
@@ -154,7 +155,7 @@ CI required-check parity:
 | Command | Purpose | Arguments |
 | --- | --- | --- |
 | `/feature-dev-aidd:aidd-init` | Initialize workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
-| `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [slug-hint] [note...]` |
+| `/feature-dev-aidd:idea-new` | Create PRD draft and questions | `<TICKET> [note...]` |
 | `/feature-dev-aidd:researcher` | Collect context and Researcher report | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | Plan + validation | `<TICKET> [note...]` |
 | `/feature-dev-aidd:review-spec` | Review plan + PRD | `<TICKET> [note...]` |

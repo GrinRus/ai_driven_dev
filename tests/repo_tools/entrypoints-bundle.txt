@@ -166,8 +166,8 @@
       "lang": "ru",
       "name": "idea-new",
       "path": "skills/idea-new/SKILL.md",
-      "prompt_version": "1.3.17",
-      "source_version": "1.3.17",
+      "prompt_version": "1.3.18",
+      "source_version": "1.3.18",
       "user_invocable": "true"
     },
     {
