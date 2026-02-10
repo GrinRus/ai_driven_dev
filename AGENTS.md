@@ -122,6 +122,15 @@ Agent‑first правило: сначала читаем артефакты (`a
   - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
   - Если `rlm_status=pending` — выполните agent‑flow по worklist и пересоберите pack.
 
+## Migration policy (legacy -> RLM-only)
+- Legacy pre-RLM research context/targets artifacts не используются в runtime/gates и могут считаться историческими.
+- Для старого workspace состояния пересоберите research canonical командой:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- Если после research `rlm_status=pending`, handoff на shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Гейты стадий `plan/review/qa` требуют минимальный набор RLM evidence:
+  `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+
 ## Evidence Read Policy (RLM-first)
 - Primary evidence: `aidd/reports/research/<ticket>-rlm.pack.json` (pack-first summary).
 - Slice on demand: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>"`.
@@ -148,7 +157,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Semver: `MAJOR.MINOR.PATCH`.
 - `source_version` всегда равен `prompt_version` для RU.
 - Skills/agents хранят версии в frontmatter; stage‑skills должны совпадать с baseline.
-- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|spec-interview-writer|tasklist-refiner|validator`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
+- Preload matrix v2 (lint-enforced): `aidd-policy` для всех agents, `aidd-rlm` только для `analyst|planner|plan-reviewer|prd-reviewer|researcher|reviewer|spec-interview-writer|tasklist-refiner|validator`, `aidd-stage-research` обязательно для `researcher`, `aidd-loop` только для `implementer|reviewer|qa`. Waivers — `AGENT_PRELOAD_WAIVERS` в `tests/repo_tools/lint-prompts.py`.
 - Инструменты:
   - `python3 tests/repo_tools/prompt-version bump --root <workflow-root> --prompts <name> --kind agent|command --lang ru --part <major|minor|patch>` (agents + historical commands)
   - `python3 tests/repo_tools/lint-prompts.py --root <workflow-root>`
@@ -190,7 +199,7 @@ Agent‑first правило: сначала читаем артефакты (`a
 - Smoke/pytest используют текущий git checkout.
 
 ## Prompt templates
-Канон runtime/prompting: `skills/aidd-core/templates/workspace-agents.md` + shared-skill topology (`skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`).
+Канон runtime/prompting: `skills/aidd-core/templates/workspace-agents.md` + shared-skill topology (`skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research`).
 
 ### Agent template
 ```md

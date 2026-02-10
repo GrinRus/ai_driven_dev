@@ -329,7 +329,7 @@ Current checkpoint (2026-02-08):
 
 - [x] **W96-43 (P0) Command-skill execution contract: agents do not call wrappers directly** `AGENTS.md`, `templates/aidd/AGENTS.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - закрепить контракт: wrappers (`skills/*/scripts/*`) вызываются только command-skills/hooks, не subagents;
-  - запретить в `agents/*.md` прямые `Bash(${CLAUDE_PLUGIN_ROOT}/skills/*/scripts/*.sh:*)` refs;
+  - запретить в `agents/*.md` прямые `Bash(${CLAUDE_PLUGIN_ROOT}/skills/*/scripts/*.sh *)` refs;
   - добавить lint-правило и migration notes для agent prompts.
   **AC:** агенты работают через артефакты и общий toolset; orchestration wrappers принадлежат command-skills/hooks.
   **Regression/tests:** prompt-lint unit/integration coverage for agent wrapper ban.
@@ -865,7 +865,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Check (runtime/docs surfaces):** `rg -n "reports/research/[^/]+-context\\.json|reports/research/[^/]+-targets\\.json" skills hooks tools templates docs dev | rg -v "rlm-targets\\.json"`.
   **Check (tests outside compat-fixtures):** `rg -n "reports/research/[^/]+-context\\.json|reports/research/[^/]+-targets\\.json" tests | rg -v "rlm-targets\\.json" | rg -v "fixtures|compat"`.
   **Write-check:** `rg -n "context\\.json|targets\\.json" skills hooks tools | rg -v "rlm-targets\\.json"`.
-- **R98-M3:** legacy permission pattern `Bash(...:*)` удалён из canonical prompts/docs/baselines/templates/plugin metadata.
+- **R98-M3:** legacy permission pattern (colon-wildcard form) удалён из canonical prompts/docs/baselines/templates/plugin metadata.
   **Check:** `rg -n "Bash\\([^)]*:\\*\\)" skills agents docs templates tests dev .claude-plugin`.
 - **R98-M4:** research regression suites green в RLM-only режиме.
   **Check:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py tests/test_gate_researcher.py tests/test_gate_workflow.py tests/test_tasks_derive.py` + `tests/repo_tools/smoke-workflow.sh`.
@@ -874,18 +874,31 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ### Phase 98A — Contract inventory + migration scaffolding
 
-- [ ] **W98-1 (P0) Research migration inventory and drift map (repo vs target flow)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `tools/*.py`, `AGENTS.md`, `backlog.md`:
+#### Inventory snapshot (2026-02-09)
+- Execution map:
+  - Stage command skill `skills/researcher/SKILL.md` -> stage runtime `skills/researcher/runtime/research.py` -> explicit subagent `agents/researcher.md`.
+  - Shared RLM owner surface `skills/aidd-rlm/runtime/*` is consumed via handoff, not directly from stage skill.
+  - Gate/readiness surfaces: `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`.
+- Drift fixed in this wave step:
+  - removed `context: fork` + `agent:` from `skills/researcher/SKILL.md`;
+  - migrated permission grammar to canonical `Bash(cmd *)` across skills/agents/docs/tests/baselines;
+  - added strict lint policy for legacy colon-wildcard grammar (`AIDD_BASH_LEGACY_POLICY`, default `error`).
+- Rollout boundaries:
+  - non-breaking: grammar parser dual-accept (`warn|allow` compatibility mode), new preload-only skill `aidd-stage-research`;
+  - breaking policy: default lint/CI rejects legacy colon-wildcard syntax.
+
+- [x] **W98-1 (P0) Research migration inventory and drift map (repo vs target flow)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `tools/*.py`, `AGENTS.md`, `backlog.md`:
   - собрать фактическую матрицу `stage skill -> subagent -> artifacts -> gates` для research;
   - покрыть оба execution-пространства: `skills/**/runtime` и `tools/` (если присутствует compat/runtime codepath);
-  - зафиксировать drift: `context: fork`, `Bash(...:*)`, legacy `*-context*`/`*-targets.json` зависимости, несовпадения docs/tests/runtime;
+  - зафиксировать drift: `context: fork`, legacy colon-wildcard permission grammar, legacy `*-context*`/`*-targets.json` зависимости, несовпадения docs/tests/runtime;
   - определить execution order и rollout-границы (breaking/non-breaking) для Wave 98.
   **AC:** есть единая migration-map для research с привязкой к конкретным файлам/проверкам.
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W98-2a (P0) Permission grammar compatibility scaffold (dual-accept, warn-old)** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `docs/skill-language.md`:
-  - временно поддержать оба формата (`Bash(cmd:*)` и `Bash(cmd *)`) в lint;
+- [x] **W98-2a (P0) Permission grammar compatibility scaffold (dual-accept, warn-old)** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `docs/skill-language.md`:
+  - временно поддержать оба формата (canonical wildcard и legacy colon-wildcard) в lint;
   - добавить warning на legacy `:*` для canonical prompts;
   - зафиксировать cutover-план (warn -> error) в policy docs.
   **AC:** migration не блокируется, но legacy-pattern получает детерминированный warning.
@@ -894,21 +907,21 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W98-2b (P0) Permission grammar migration for research scope** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-rlm/SKILL.md`, `skills/researcher/templates/research.template.md`, `docs/skill-language.md`:
+- [x] **W98-2b (P0) Permission grammar migration for research scope** `skills/researcher/SKILL.md`, `agents/researcher.md`, `skills/aidd-rlm/SKILL.md`, `skills/researcher/templates/research.template.md`, `docs/skill-language.md`:
   - перевести research-related prompts/docs на `Bash(cmd *)`;
   - синхронизировать examples/hints в research и shared RLM surface;
   - исключить новый legacy drift в пределах research scope.
-  **AC:** research scope не содержит `Bash(...:*)`.
+  **AC:** research scope не содержит legacy colon-wildcard grammar.
   **Deps:** W98-2a
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W98-2c (P1) Repo-wide permission grammar enforcement (`Bash(...:*)` -> error)** `skills/*/SKILL.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`, `dev/reports/migrations/commands_to_skills_frontmatter.json`:
-  - завершить cutover: `Bash(...:*)` становится fail-fast ошибкой в lint/CI;
+- [x] **W98-2c (P1) Repo-wide permission grammar enforcement (legacy colon-wildcard -> error)** `skills/*/SKILL.md`, `agents/*.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`, `dev/reports/migrations/commands_to_skills_frontmatter.json`:
+  - завершить cutover: legacy colon-wildcard grammar становится fail-fast ошибкой в lint/CI;
   - обновить baseline/migration artifacts под новый grammar;
   - зафиксировать rollback note на случай drift в downstream forks.
-  **AC:** `Bash(...:*)` блокируется как policy violation на уровне CI.
+  **AC:** legacy colon-wildcard grammar блокируется как policy violation на уровне CI.
   **Precondition:** перед включением fail-fast `rg -n "Bash\\([^)]*:\\*\\)" skills agents` должен вернуть `0` строк; иначе enforcement переносится в следующую волну.
   **Deps:** W98-2b, W98-10
   **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`, `tests/repo_tools/ci-lint.sh`.
@@ -917,7 +930,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ### Phase 98B — Research orchestrator/subagent contract
 
-- [ ] **W98-3 (P0) Refactor `researcher` stage skill into pure orchestrator (no `context: fork`)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W98-3 (P0) Refactor `researcher` stage skill into pure orchestrator (no `context: fork`)** `skills/researcher/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - убрать `context: fork`/`agent:` из `skills/researcher/SKILL.md`;
   - оставить в stage skill только orchestration: preflight/state, запуск `research.py`, явный `Run subagent`, post-validation/handoff;
   - исключить двойную делегацию и зафиксировать явный next-step contract.
@@ -927,7 +940,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W98-4 (P1) Add stage reference preload for researcher (`aidd-stage-research`)** `skills/aidd-stage-research/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W98-4 (P1) Add stage reference preload for researcher (`aidd-stage-research`)** `skills/aidd-stage-research/SKILL.md`, `agents/researcher.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - создать reference-only skill с stage-specific research contract (read policy, handoff policy, evidence policy);
   - frontmatter policy для reference skill: `user-invocable: false`, explicit `description`, без `disable-model-invocation: true` (omit/false);
   - подключить preload в `agents/researcher.md` (и роли-потребители при необходимости) без skills inheritance в stage-skills;
@@ -940,7 +953,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ### Phase 98Bx — Carry-over (out of research core scope)
 
-- [ ] **W98-5 (P2) Carry-over: rollout orchestrator/no-fork contract to non-research stages** `skills/idea-new/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W98-5 (P2) Carry-over: rollout orchestrator/no-fork contract to non-research stages** `skills/idea-new/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - применить тот же паттерн к stage skills с текущим `context: fork`;
   - унифицировать структуру: Inputs -> Preflight -> Run subagent -> Postflight -> Output;
   - убрать special-case `FORK_STAGES` policy из lint в пользу общего orchestration contract после закрытия research wave.
@@ -952,7 +965,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ### Phase 98C — RLM-only runtime and gate consistency
 
-- [ ] **W98-6 (P0) Complete RLM-only runtime: remove context-side effects from shared RLM API** `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/researcher/runtime/research.py`, `templates/aidd/config/conventions.json`:
+- [x] **W98-6 (P0) Complete RLM-only runtime: remove context-side effects from shared RLM API** `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/aidd-rlm/runtime/reports_pack.py`, `skills/researcher/runtime/research.py`, `templates/aidd/config/conventions.json`:
   - убрать `context.json` update semantics (`--update-context`, implicit status writes);
   - удалить legacy `reports.research_pack_budget` path и связанные fallback-настройки;
   - закрепить pipeline: `rlm-targets -> rlm-manifest -> rlm.worklist.pack -> nodes/links -> rlm.pack`.
@@ -962,7 +975,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** L
   **Risk:** High
 
-- [ ] **W98-6b (P0) Migration policy for existing workspaces (legacy -> RLM-only)** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/SKILL.md`, `skills/aidd-core/runtime/research_guard.py`:
+- [x] **W98-6b (P0) Migration policy for existing workspaces (legacy -> RLM-only)** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/SKILL.md`, `skills/aidd-core/runtime/research_guard.py`:
   - зафиксировать policy для historical workspace state: regenerate vs soft-read window vs hard-break;
   - описать deterministic handoff для отсутствующих RLM artifacts (`rerun research`, explicit command hints);
   - синхронизировать policy с gate behavior и user-facing troubleshooting.
@@ -972,7 +985,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W98-7 (P0) Rewrite research gate to consume only RLM artifacts** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/research_check.py`, `skills/researcher/SKILL.md`:
+- [x] **W98-7 (P0) Rewrite research gate to consume only RLM artifacts** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/research_check.py`, `skills/researcher/SKILL.md`:
   - исключить hard dependency на `reports/research/<ticket>-context.json` и legacy `<ticket>-targets.json`;
   - базировать readiness на `*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, `*-rlm.nodes.jsonl`, `*-rlm.links.jsonl`, `*-rlm.pack.json`;
   - синхронизировать BLOCK/WARN semantics и handoff hints с новым контрактом.
@@ -982,7 +995,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** High
 
-- [ ] **W98-8 (P0) Downstream consumers cleanup (`gate_workflow` / `tasks_derive` / `status`)** `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
+- [x] **W98-8 (P0) Downstream consumers cleanup (`gate_workflow` / `tasks_derive` / `status`)** `skills/aidd-core/runtime/gate_workflow.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `skills/status/runtime/index_sync.py`, `skills/status/runtime/status.py`:
   - перевести default research report path на `*-rlm.pack.json` и pack-first reading;
   - удалить fallback/marker refs на `*-context.json` и legacy `*-targets.json`;
   - обновить hints/summary/index outputs и handoff-source labels под RLM-only artifact names;
@@ -993,7 +1006,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** High
 
-- [ ] **W98-9 (P1) Retire legacy researcher context modules and dead compat paths** `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-core/runtime/researcher_context_pack.py`, `tests/repo_tools/runtime-module-guard.py`:
+- [x] **W98-9 (P1) Retire legacy researcher context modules and dead compat paths** `skills/aidd-core/runtime/researcher_context.py`, `skills/aidd-core/runtime/researcher_context_pack.py`, `tests/repo_tools/runtime-module-guard.py`:
   - убрать runtime usage of legacy context builders (или переместить в explicit deprecated-only layer);
   - вычистить stale imports/call-sites и неиспользуемые CLI switches;
   - зафиксировать ownership cleanup для research runtime surface.
@@ -1005,7 +1018,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ### Phase 98D — Docs/templates/tests alignment + final enforcement
 
-- [ ] **W98-10 (P0) Docs and templates alignment with RLM-only + subagents-first flow** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/templates/research.template.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `docs/skill-language.md`:
+- [x] **W98-10 (P0) Docs and templates alignment with RLM-only + subagents-first flow** `AGENTS.md`, `templates/aidd/AGENTS.md`, `README.md`, `README.en.md`, `skills/researcher/templates/research.template.md`, `skills/researcher/SKILL.md`, `skills/aidd-rlm/SKILL.md`, `docs/skill-language.md`:
   - удалить упоминания `*-context.json`/legacy `*-targets.json` из canonical docs/templates;
   - описать research stage как orchestration + explicit subagent handoff;
   - обновить примеры команд/permission patterns под `Bash(cmd *)`.
@@ -1015,7 +1028,7 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W98-11 (P0) Rewrite research regression suite for new contract** `tests/test_research_command.py`, `tests/test_research_check.py`, `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`, `tests/test_tasks_derive.py`, `tests/test_reports_pack.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W98-11 (P0) Rewrite research regression suite for new contract** `tests/test_research_command.py`, `tests/test_research_check.py`, `tests/test_gate_researcher.py`, `tests/test_gate_workflow.py`, `tests/test_tasks_derive.py`, `tests/test_reports_pack.py`, `tests/repo_tools/smoke-workflow.sh`:
   - заменить ожидания по `*-context.json`/legacy `*-targets.json` на RLM-only artifacts;
   - покрыть кейсы `rlm_status=pending|warn|ready`, links-empty semantics и explicit handoff;
   - добавить negative guard test: runtime не должен читать legacy `*-context.json`/`*-targets.json` при наличии валидных RLM artifacts;
@@ -1026,8 +1039,8 @@ _Статус: план, приоритет 0. Цель — довести resea
   **Effort:** L
   **Risk:** High
 
-- [ ] **W98-12 (P0) Final CI enforcement + backlog consolidation (close/supersede W90 research leftovers)** `tests/repo_tools/lint-prompts.py`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `backlog.md`:
-  - включить строгие guard-ы: запрет `Bash(...:*)`, запрет runtime refs на research legacy artifacts;
+- [x] **W98-12 (P0) Final CI enforcement + backlog consolidation (close/supersede W90 research leftovers)** `tests/repo_tools/lint-prompts.py`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `backlog.md`:
+  - включить строгие guard-ы: запрет legacy colon-wildcard grammar, запрет runtime refs на research legacy artifacts;
   - зафиксировать и выполнить close/supersede strategy для W90-3..W90-7 после миграции Wave 98;
   - обновить quality gates и release checklist по новому research contract.
   **AC:** CI блокирует возврат legacy-паттернов; backlog не содержит дублирующих открытых research-монолит задач.

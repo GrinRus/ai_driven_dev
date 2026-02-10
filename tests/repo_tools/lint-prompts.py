@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ HOOK_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/hooks/[A-Za-z0-9_.-]+\.sh")
 UNSCOPED_PLUGIN_PATH_RE = re.compile(r"(?<!\$\{CLAUDE_PLUGIN_ROOT\}/)(?:tools|hooks)/[A-Za-z0-9_.-]+\.sh")
 TOOL_CLAUDE_WORKFLOW_RE = re.compile(r"\bclaude-workflow\b", re.IGNORECASE)
 CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
+BASH_TOOL_RE = re.compile(r"^Bash\((.*)\)$")
 
 SOFT_SKILL_LINES = 220
 MAX_SKILL_LINES = 300
@@ -69,9 +71,29 @@ STAGE_PYTHON_ENTRYPOINTS = {
     "status": "skills/status/runtime/status.py",
 }
 
-FORK_STAGES = {"idea-new", "researcher", "tasks-new", "implement", "review", "qa"}
 LOOP_STAGES = {"implement", "review", "qa", "status"}
-PRELOADED_SKILLS = {"aidd-core", "aidd-docio", "aidd-flow-state", "aidd-observability", "aidd-loop", "aidd-rlm", "aidd-policy"}
+NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
+    "idea-new": 1,
+    "tasks-new": 1,
+    "implement": 1,
+    "review": 1,
+    "qa": 1,
+}
+NO_FORK_FORBIDDEN_PHRASES = (
+    "forked context",
+    "(fork)",
+    "delegate to subagent",
+)
+PRELOADED_SKILLS = {
+    "aidd-core",
+    "aidd-docio",
+    "aidd-flow-state",
+    "aidd-observability",
+    "aidd-loop",
+    "aidd-rlm",
+    "aidd-policy",
+    "aidd-stage-research",
+}
 SHARED_STAGE_SCRIPT_OWNERS = {
     "aidd-core",
     "aidd-loop",
@@ -84,6 +106,7 @@ SHARED_STAGE_SCRIPT_OWNERS = {
 AGENT_REQUIRED_SHARED_SKILLS = {"feature-dev-aidd:aidd-core", "feature-dev-aidd:aidd-policy"}
 AGENT_REQUIRED_LOOP_SKILLS = {"feature-dev-aidd:aidd-loop"}
 AGENT_REQUIRED_RLM_SKILL = "feature-dev-aidd:aidd-rlm"
+AGENT_REQUIRED_STAGE_RESEARCH_SKILL = "feature-dev-aidd:aidd-stage-research"
 AGENT_LOOP_PRELOAD_ROLES = {"implementer", "reviewer", "qa"}
 AGENT_RLM_PRELOAD_ROLES = {
     "analyst",
@@ -158,6 +181,8 @@ INDEX_REQUIRED_FIELDS = [
 POLICY_DOC = Path("docs/skill-language.md")
 BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
 BASELINE_JSON_FALLBACK = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+LEGACY_BASH_POLICY_ENV = "AIDD_BASH_LEGACY_POLICY"
+LEGACY_BASH_POLICIES = {"allow", "warn", "error"}
 
 
 @dataclass
@@ -344,6 +369,63 @@ def _normalize_tool_list(value: str | list[str] | None) -> List[str]:
     return cleaned
 
 
+def _parse_bash_tool(entry: str) -> tuple[str | None, str | None]:
+    if not entry.startswith("Bash("):
+        return None, None
+    match = BASH_TOOL_RE.match(entry.strip())
+    if not match:
+        return None, None
+    inner = match.group(1).strip()
+    if inner.endswith(":*"):
+        return inner[:-2].strip(), "legacy"
+    if inner.endswith(" *"):
+        return inner[:-2].strip(), "modern"
+    return inner.strip(), None
+
+
+def _legacy_bash_policy() -> str:
+    raw = os.getenv(LEGACY_BASH_POLICY_ENV, "error").strip().lower()
+    if raw in LEGACY_BASH_POLICIES:
+        return raw
+    return "error"
+
+
+def validate_bash_tool_grammar(info: PromptFile) -> tuple[List[str], List[str]]:
+    errors: List[str] = []
+    warnings: List[str] = []
+    key = "allowed-tools" if info.kind == "skill" else "tools" if info.kind == "agent" else ""
+    if not key:
+        return errors, warnings
+    policy = _legacy_bash_policy()
+    for entry in _normalize_tool_list(info.front_matter.get(key)):
+        if not entry.startswith("Bash("):
+            continue
+        command, style = _parse_bash_tool(entry)
+        if command is None:
+            errors.append(
+                f"{info.path}: invalid Bash tool syntax `{entry}`; expected `Bash(<command> *)`."
+            )
+            continue
+        if style is None:
+            errors.append(
+                f"{info.path}: invalid Bash wildcard syntax `{entry}`; "
+                "supported forms are `Bash(<command> *)` and transitional colon-wildcard syntax."
+            )
+            continue
+        if style == "legacy":
+            message = (
+                f"{info.path}: legacy Bash wildcard syntax is deprecated (`{entry}`); "
+                "use `Bash(<command> *)`."
+            )
+            if policy == "warn":
+                warnings.append(message)
+            elif policy == "error":
+                errors.append(
+                    message.replace("is deprecated", "is forbidden by policy")
+                )
+    return errors, warnings
+
+
 def validate_statuses(info: PromptFile) -> List[str]:
     errors: List[str] = []
     for match in STATUS_RE.finditer(info.body):
@@ -514,12 +596,13 @@ def _relative_prompt_path(info: PromptFile, root: Path) -> str:
         return info.path.as_posix()
 
 
-def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
+def lint_agents(root: Path) -> Tuple[List[str], List[str], Dict[str, PromptFile]]:
     errors: List[str] = []
+    warnings: List[str] = []
     agents: Dict[str, PromptFile] = {}
     agents_dir = root / "agents"
     if not agents_dir.exists():
-        return [f"{agents_dir}: agents directory is missing"], agents
+        return [f"{agents_dir}: agents directory is missing"], warnings, agents
 
     for path in sorted(agents_dir.glob("*.md")):
         info, load_errors = read_prompt(path, "agent", "ru")
@@ -553,6 +636,9 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
         errors.extend(validate_required_write_tools(info))
         errors.extend(validate_agent_skill_refs(info, root))
         errors.extend(validate_agent_tool_policy(info))
+        grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
+        errors.extend(grammar_errors)
+        warnings.extend(grammar_warnings)
 
         if "Output follows aidd-core skill" not in info.body:
             errors.append(f"{info.path}: missing anchor line 'Output follows aidd-core skill'")
@@ -578,6 +664,8 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
                 errors.append(f"{info.path}: missing role-based preload {AGENT_REQUIRED_RLM_SKILL}")
         elif AGENT_REQUIRED_RLM_SKILL in skills and AGENT_REQUIRED_RLM_SKILL not in waivers:
             errors.append(f"{info.path}: preload {AGENT_REQUIRED_RLM_SKILL} is forbidden for role `{info.stem}`")
+        if info.stem == "researcher" and AGENT_REQUIRED_STAGE_RESEARCH_SKILL not in skills:
+            errors.append(f"{info.path}: missing role-based preload {AGENT_REQUIRED_STAGE_RESEARCH_SKILL}")
 
         version = _as_string(info.front_matter.get("prompt_version"))
         if version and not PROMPT_VERSION_RE.match(version):
@@ -586,10 +674,10 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
         if source_version and not PROMPT_VERSION_RE.match(source_version):
             errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
 
-    return errors, agents
+    return errors, warnings, agents
 
 
-def lint_skills(root: Path, agent_ids: set[str]) -> Tuple[List[str], List[str]]:
+def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
     errors: List[str] = []
     warnings: List[str] = []
     skills_root = root / "skills"
@@ -638,6 +726,9 @@ def lint_skills(root: Path, agent_ids: set[str]) -> Tuple[List[str], List[str]]:
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
         errors.extend(validate_output_contract(info, root))
+        grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
+        errors.extend(grammar_errors)
+        warnings.extend(grammar_warnings)
 
         name = _as_string(info.front_matter.get("name"))
         if name and name != path.parent.name:
@@ -737,7 +828,7 @@ def lint_skills(root: Path, agent_ids: set[str]) -> Tuple[List[str], List[str]]:
             if not any(python_tool_ref in item for item in skill_tools if item.startswith("Bash(")):
                 errors.append(
                     f"{info.path}: allowed-tools must include canonical python entrypoint "
-                    f"`Bash({python_tool_ref}:*)`"
+                    f"`Bash({python_tool_ref} *)`"
                 )
 
             contracts = _extract_section(info.body, "Command contracts")
@@ -807,19 +898,48 @@ def lint_skills(root: Path, agent_ids: set[str]) -> Tuple[List[str], List[str]]:
                         f"{info.path}: researcher stage steps must not depend on shared RLM internals "
                         f"({forbidden_in_steps}); use explicit handoff to aidd-rlm owner skill"
                     )
+                subagent_mentions = len(re.findall(r"run subagent", info.body, flags=re.IGNORECASE))
+                if subagent_mentions != 1:
+                    errors.append(
+                        f"{info.path}: researcher stage must contain exactly one `Run subagent` step "
+                        f"(found {subagent_mentions})"
+                    )
+                body_lc = info.body.lower()
+                forbidden_phrases = [
+                    "forked context",
+                    "(fork)",
+                    "delegate to subagent",
+                ]
+                found_phrases = [phrase for phrase in forbidden_phrases if phrase in body_lc]
+                if found_phrases:
+                    errors.append(
+                        f"{info.path}: researcher stage contains forbidden fork/delegation phrases "
+                        f"{found_phrases}"
+                    )
 
-            if path.parent.name in FORK_STAGES:
-                if context != "fork":
-                    errors.append(f"{info.path}: fork stages must set context: fork")
-                if not agent:
-                    errors.append(f"{info.path}: fork stages must set agent")
-                elif agent not in agent_ids:
-                    errors.append(f"{info.path}: agent `{agent}` not found in agents/")
-            else:
-                if context == "fork":
-                    errors.append(f"{info.path}: context: fork is only allowed for {sorted(FORK_STAGES)}")
-                if agent:
-                    errors.append(f"{info.path}: agent field is only allowed for fork stages")
+            if context:
+                errors.append(
+                    f"{info.path}: stage skills must not set `context`; use explicit `Run subagent` orchestration."
+                )
+            if agent:
+                errors.append(
+                    f"{info.path}: stage skills must not set `agent`; use explicit `Run subagent` orchestration."
+                )
+
+            expected_subagents = NO_FORK_STAGE_SUBAGENT_COUNTS.get(path.parent.name)
+            if expected_subagents is not None:
+                subagent_mentions = len(re.findall(r"run subagent", info.body, flags=re.IGNORECASE))
+                if subagent_mentions != expected_subagents:
+                    errors.append(
+                        f"{info.path}: stage must contain exactly {expected_subagents} `Run subagent` step(s) "
+                        f"(found {subagent_mentions})"
+                    )
+                body_lc = info.body.lower()
+                forbidden_phrases = [phrase for phrase in NO_FORK_FORBIDDEN_PHRASES if phrase in body_lc]
+                if forbidden_phrases:
+                    errors.append(
+                        f"{info.path}: stage contains forbidden fork/delegation phrases {forbidden_phrases}"
+                    )
 
             # parity check against baseline
             row = baseline_rows.get(path.parent.name)
@@ -1071,11 +1191,12 @@ def main() -> int:
 
     errors: List[str] = []
     warnings: List[str] = []
-    agent_errors, agent_files = lint_agents(root)
+    agent_errors, agent_warnings, agent_files = lint_agents(root)
     errors.extend(agent_errors)
+    warnings.extend(agent_warnings)
     agent_ids = {info.front_matter.get("name", info.stem) for info in agent_files.values()}
 
-    skill_errors, skill_warnings = lint_skills(root, {str(x) for x in agent_ids if x})
+    skill_errors, skill_warnings = lint_skills(root)
     errors.extend(skill_errors)
     warnings.extend(skill_warnings)
     errors.extend(validate_commands_relocated(root))

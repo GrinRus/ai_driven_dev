@@ -26,7 +26,7 @@ AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a tea
 
 Key features:
 - Slash commands and agents for the idea → research → plan → review-spec → spec-interview (optional) → tasklist → implement → review → qa flow.
-- Skill-first prompts: shared topology is split across `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, and `skills/aidd-rlm` (EN); stage entrypoints are defined by stage skills.
+- Skill-first prompts: shared topology is split across `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, and `skills/aidd-stage-research` (EN); stage entrypoints are defined by stage skills.
 - Research is required before planning: `research-check` expects status `reviewed`.
 - PRD/Plan Review/QA gates and safe hooks (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -172,6 +172,15 @@ Empty context troubleshooting:
 - Narrow `--paths`/`--keywords` (point to real code, not only `aidd/`).
 - If `rlm_status=pending`, complete the agent worklist flow and rebuild the RLM pack.
 
+Migration policy (legacy -> RLM-only):
+- Legacy pre-RLM research context/targets artifacts are not used by runtime/gates.
+- For older workspace artifacts, regenerate research with:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- If `rlm_status=pending`, hand off to the shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Plan/review/qa readiness requires the minimal RLM set:
+  `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+
 RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice tool: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
@@ -233,7 +242,7 @@ macOS/Linux are supported. For Windows use WSL or Git Bash.
 ## Documentation
 - Canonical response and pack-first rules: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
 - User guide (runtime): `aidd/AGENTS.md`; repo dev guide: `AGENTS.md`.
-- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, and `skills/aidd-rlm` (EN).
+- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, and `skills/aidd-stage-research` (EN).
 - Russian version: `README.md`.
 
 ## Examples

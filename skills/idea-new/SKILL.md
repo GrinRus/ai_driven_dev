@@ -10,28 +10,26 @@ allowed-tools:
   - Edit
   - Write
   - Glob
-  - "Bash(rg:*)"
-  - "Bash(sed:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py:*)"
+  - "Bash(rg *)"
+  - "Bash(sed *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py *)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true
-context: fork
-agent: analyst
 ---
 
 Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
-1. Set active stage `idea` and active feature/slug with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`.
-2. Build the rolling context pack `aidd/reports/context/<ticket>.pack.md`.
-3. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>`.
-4. Run subagent `feature-dev-aidd:analyst` in forked context. First action: read the rolling context pack.
-5. If answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and update PRD status.
-6. Return questions (if any) and the next step `/feature-dev-aidd:researcher <ticket>`.
+1. Inputs: resolve `<ticket>/<slug>` and verify PRD/context artifacts are readable for idea stage.
+2. Preflight: set active stage `idea` and active feature/slug with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py`.
+3. Orchestration: build/update the rolling context pack `aidd/reports/context/<ticket>.pack.md` and run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>`.
+4. Run subagent `feature-dev-aidd:analyst`. First action: read the rolling context pack.
+5. Postflight: if answers already exist, rerun `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` and sync PRD readiness status.
+6. Output: return open questions (if any) and explicit next step `/feature-dev-aidd:researcher <ticket>`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py`

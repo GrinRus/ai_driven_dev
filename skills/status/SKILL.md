@@ -7,9 +7,9 @@ prompt_version: 1.0.6
 source_version: 1.0.6
 allowed-tools:
   - Read
-  - "Bash(rg:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py:*)"
+  - "Bash(rg *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py *)"
 model: inherit
 disable-model-invocation: false
 user-invocable: true

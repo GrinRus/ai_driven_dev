@@ -153,6 +153,15 @@
       "user_invocable": "false"
     },
     {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-stage-research",
+      "path": "skills/aidd-stage-research/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
       "disable_model_invocation": "true",
       "lang": "ru",
       "name": "idea-new",

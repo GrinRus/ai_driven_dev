@@ -19,7 +19,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Ключевые возможности:
 - Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
-- Skill-first промпты: shared topology разделена между `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm` (EN); stage entrypoints определяются stage skill-файлами.
+- Skill-first промпты: shared topology разделена между `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research` (EN); stage entrypoints определяются stage skill-файлами.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -160,6 +160,15 @@ Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
 - Если `rlm_status=pending`, выполните agent‑flow по worklist и пересоберите RLM pack.
 
+Migration policy (legacy -> RLM-only):
+- Legacy pre-RLM research context/targets artifacts не участвуют в runtime/gates.
+- Для старых workspace-артефактов пересоберите research:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- Если `rlm_status=pending`, выполните handoff на shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Для readiness в `plan/review/qa` нужен минимальный RLM набор:
+  `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
+
 RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
 - Slice-инструмент: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
@@ -221,7 +230,7 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" pyt
 ## Документация
 - Канон ответа и pack-first: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
 - Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
-- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm` (EN).
+- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research` (EN).
 - Английская версия: `README.en.md`.
 
 ## Примеры

@@ -4,7 +4,7 @@ description: Валидация исполняемости плана по PRD/R
 lang: ru
 prompt_version: 1.0.12
 source_version: 1.0.12
-tools: Read, Bash(rg:*), Bash(sed:*)
+tools: Read, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-policy

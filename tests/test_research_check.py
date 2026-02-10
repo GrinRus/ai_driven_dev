@@ -113,6 +113,24 @@ class ResearchCheckTests(unittest.TestCase):
 
         self.assertIn("нет отчёта Researcher", str(excinfo.exception))
 
+    def test_research_check_missing_targets_has_reason_code(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-missing-targets"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        self._write_base_research(project_root, ticket, status="reviewed")
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertIn("reason_code=rlm_targets_missing", str(excinfo.exception))
+
     def test_research_check_blocks_reviewed_pending_in_implement(self) -> None:
         workspace, project_root = self._setup_workspace()
         ticket = "demo-rlm"
@@ -259,6 +277,50 @@ class ResearchCheckTests(unittest.TestCase):
             f"reports/research/{ticket}-rlm.pack.json",
             {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
         )
+
+        args = self._make_args(ticket)
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+    def test_research_check_ignores_legacy_artifacts_when_rlm_ready(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-ready-legacy"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "review")
+        self._write_base_research(project_root, ticket)
+        self._write_rlm_baseline(project_root, ticket, status="ready", entries=[])
+
+        nodes_path = project_root / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+        links_path = project_root / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+        nodes_path.parent.mkdir(parents=True, exist_ok=True)
+        nodes_path.write_text(
+            '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+            encoding="utf-8",
+        )
+        links_path.write_text(
+            '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+            encoding="utf-8",
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.links.stats.json",
+            {"links_total": 1},
+        )
+        write_json(
+            project_root,
+            f"reports/research/{ticket}-rlm.pack.json",
+            {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "ready"},
+        )
+
+        # Legacy artifacts are intentionally malformed; gate must ignore them in RLM-only mode.
+        legacy_context_suffix = "-context.json"
+        legacy_targets_suffix = "-targets.json"
+        write_file(project_root, f"reports/research/{ticket}{legacy_context_suffix}", "{not-json")
+        write_file(project_root, f"reports/research/{ticket}{legacy_targets_suffix}", "{not-json")
 
         args = self._make_args(ticket)
         old_cwd = Path.cwd()

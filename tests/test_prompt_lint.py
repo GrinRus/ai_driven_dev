@@ -38,15 +38,6 @@ STAGE_RUNTIME_ENTRYPOINT = {
     "status": "skills/status/runtime/status.py",
 }
 
-FORK_STAGE_AGENT = {
-    "idea-new": "analyst",
-    "researcher": "researcher",
-    "tasks-new": "tasklist-refiner",
-    "implement": "implementer",
-    "review": "reviewer",
-    "qa": "qa",
-}
-
 AGENT_NAMES = [
     "analyst",
     "researcher",
@@ -60,6 +51,14 @@ AGENT_NAMES = [
     "reviewer",
     "qa",
 ]
+STAGE_SUBAGENT = {
+    "idea-new": "analyst",
+    "researcher": "researcher",
+    "tasks-new": "tasklist-refiner",
+    "implement": "implementer",
+    "review": "reviewer",
+    "qa": "qa",
+}
 RLM_PRELOAD_ROLES = {
     "analyst",
     "planner",
@@ -89,6 +88,7 @@ CRITICAL_TEMPLATE_FILES = [
 def build_agent(name: str) -> str:
     loop_skill = "" if name not in {"implementer", "reviewer", "qa"} else "\n  - feature-dev-aidd:aidd-loop"
     rlm_skill = "" if name not in RLM_PRELOAD_ROLES else "\n  - feature-dev-aidd:aidd-rlm"
+    stage_research_skill = "" if name != "researcher" else "\n  - feature-dev-aidd:aidd-stage-research"
     tools = "Read, Edit, Write"
     return (
         dedent(
@@ -102,7 +102,7 @@ def build_agent(name: str) -> str:
             tools: {tools}
             skills:
               - feature-dev-aidd:aidd-core
-              - feature-dev-aidd:aidd-policy{rlm_skill}{loop_skill}
+              - feature-dev-aidd:aidd-policy{rlm_skill}{stage_research_skill}{loop_skill}
             model: inherit
             permissionMode: inherit
             ---
@@ -135,10 +135,8 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     argument_hint = "<TICKET>"
     prompt_version = "1.0.0"
     source_version = "1.0.0"
-    runtime_tool = f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]}:*)"
+    runtime_tool = f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]} *)"
     disable_invocation = "false" if stage == "status" else "true"
-    context = "fork" if stage in FORK_STAGE_AGENT else ""
-    agent = FORK_STAGE_AGENT.get(stage, "")
     loop_ref = " and `feature-dev-aidd:aidd-loop`" if stage in {"implement", "review", "qa"} else ""
 
     lines = [
@@ -156,10 +154,6 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         f"disable-model-invocation: {disable_invocation}",
         "user-invocable: true",
     ]
-    if context:
-        lines.append(f"context: {context}")
-    if agent:
-        lines.append(f"agent: {agent}")
     lines.append("---")
     lines.append("")
     lines.append(f"Follow `feature-dev-aidd:aidd-core`{loop_ref}.")
@@ -171,12 +165,20 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
             "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`."
         )
         lines.append(
-            f"2. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+            "2. Read order after preflight: readmap -> loop pack -> review pack -> rolling context pack."
         )
         lines.append(
-            "3. Postflight reference: "
+            f"3. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+        )
+        lines.append(
+            f"4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+        )
+        lines.append(
+            "5. Postflight reference: "
             "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`."
         )
+    elif stage in STAGE_SUBAGENT:
+        lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
     else:
         lines.append("1. Do the work.")
     lines.append("")
@@ -368,9 +370,35 @@ def build_rlm_skill() -> str:
     )
 
 
+def build_stage_research_skill() -> str:
+    return (
+        dedent(
+            """
+            ---
+            name: aidd-stage-research
+            description: Stage-level research reference preload.
+            lang: en
+            model: inherit
+            user-invocable: false
+            ---
+
+            Follow `feature-dev-aidd:aidd-core`.
+            """
+        ).strip()
+        + "\n"
+    )
+
+
 class PromptLintTests(unittest.TestCase):
-    def run_lint(self, root: Path) -> subprocess.CompletedProcess[str]:
+    def run_lint(
+        self,
+        root: Path,
+        *,
+        env_override: Optional[Dict[str, str]] = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
+        if env_override:
+            env.update(env_override)
         return subprocess.run(
             [sys.executable, str(REPO_ROOT / "tests" / "repo_tools" / "lint-prompts.py"), "--root", str(root)],
             text=True,
@@ -403,6 +431,7 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-policy" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-rlm" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
+        (skills_root / "aidd-stage-research" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-core" / "SKILL.md").write_text(build_core_skill(), encoding="utf-8")
         (skills_root / "aidd-docio" / "SKILL.md").write_text(build_docio_skill(), encoding="utf-8")
         (skills_root / "aidd-flow-state" / "SKILL.md").write_text(build_flow_state_skill(), encoding="utf-8")
@@ -410,6 +439,9 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-policy" / "SKILL.md").write_text(build_policy_skill(), encoding="utf-8")
         (skills_root / "aidd-loop" / "SKILL.md").write_text(build_loop_skill(), encoding="utf-8")
         (skills_root / "aidd-rlm" / "SKILL.md").write_text(build_rlm_skill(), encoding="utf-8")
+        (skills_root / "aidd-stage-research" / "SKILL.md").write_text(
+            build_stage_research_skill(), encoding="utf-8"
+        )
 
         for stage in STAGE_SKILLS:
             skill_path = skills_root / stage / "SKILL.md"
@@ -433,10 +465,10 @@ class PromptLintTests(unittest.TestCase):
                     "stage": stage,
                     "command_path": f"commands/{stage}.md",
                     "skill_path": f"skills/{stage}/SKILL.md",
-                        "frontmatter": {
+                    "frontmatter": {
                         "allowed-tools": [
                             "Read",
-                            f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]}:*)",
+                            f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]} *)",
                         ],
                         "model": "inherit",
                         "prompt_version": "1.0.0",
@@ -724,7 +756,7 @@ class PromptLintTests(unittest.TestCase):
                 lang: ru
                 prompt_version: 1.0.0
                 source_version: 1.0.0
-                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh:*)
+                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh *)
                 skills:
                   - feature-dev-aidd:aidd-core
                   - feature-dev-aidd:aidd-policy
@@ -771,7 +803,7 @@ class PromptLintTests(unittest.TestCase):
                 lang: ru
                 prompt_version: 1.0.0
                 source_version: 1.0.0
-                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh:*)
+                tools: Read, Edit, Write, Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/reports-pack.sh *)
                 skills:
                   - feature-dev-aidd:aidd-core
                   - feature-dev-aidd:aidd-policy
@@ -811,7 +843,7 @@ class PromptLintTests(unittest.TestCase):
     def test_stage_skill_tools_allowed_tools_ref_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace(
             "  - Read",
-            "  - Read\n  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh:*)\"",
+            "  - Read\n  - \"Bash(${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh *)\"",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -832,7 +864,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_missing_python_allowed_tool_fails(self) -> None:
         bad_skill = build_stage_skill("idea-new").replace(
-            '\n  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py:*)"',
+            '\n  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py *)"',
             "",
             1,
         )
@@ -846,7 +878,7 @@ class PromptLintTests(unittest.TestCase):
     def test_stage_skill_foreign_wrapper_ref_fails(self) -> None:
         bad_skill = build_stage_skill("tasks-new").replace(
             "  - Read",
-            '  - Read\n  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh:*)"',
+            '  - Read\n  - "Bash(${CLAUDE_PLUGIN_ROOT}/skills/researcher/scripts/research.sh *)"',
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -861,7 +893,7 @@ class PromptLintTests(unittest.TestCase):
             "  - Read",
             (
                 "  - Read\n"
-                "  - \"Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py:*)\""
+                "  - \"Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py *)\""
             ),
             1,
         )
@@ -871,6 +903,61 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("researcher stage must not call shared RLM API directly", result.stderr)
+
+    def test_stage_skill_must_not_use_context_or_agent_frontmatter(self) -> None:
+        bad_skill = build_stage_skill("researcher").replace(
+            "user-invocable: true",
+            "user-invocable: true\ncontext: fork\nagent: researcher",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"researcher": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage skills must not set `context`", result.stderr)
+            self.assertIn("stage skills must not set `agent`", result.stderr)
+
+    def test_researcher_stage_requires_single_run_subagent_step(self) -> None:
+        bad_skill = build_stage_skill("researcher").replace(
+            "## Steps\n1. Run subagent `feature-dev-aidd:researcher` after stage orchestration.",
+            "## Steps\n1. Run subagent alpha.\n2. Run subagent beta.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"researcher": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must contain exactly one `Run subagent` step", result.stderr)
+
+    def test_legacy_bash_grammar_warns_in_warn_mode(self) -> None:
+        legacy_tail = ":" + "*"
+        bad_agent = build_agent("analyst").replace(
+            "tools: Read, Edit, Write",
+            f"tools: Read, Edit, Write, Bash(rg{legacy_tail})",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"analyst": bad_agent})
+            result = self.run_lint(root, env_override={"AIDD_BASH_LEGACY_POLICY": "warn"})
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("legacy Bash wildcard syntax is deprecated", result.stderr)
+
+    def test_legacy_bash_grammar_errors_in_error_mode(self) -> None:
+        legacy_tail = ":" + "*"
+        bad_agent = build_agent("analyst").replace(
+            "tools: Read, Edit, Write",
+            f"tools: Read, Edit, Write, Bash(rg{legacy_tail})",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"analyst": bad_agent})
+            result = self.run_lint(root, env_override={"AIDD_BASH_LEGACY_POLICY": "error"})
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("legacy Bash wildcard syntax is forbidden by policy", result.stderr)
 
 
 if __name__ == "__main__":  # pragma: no cover

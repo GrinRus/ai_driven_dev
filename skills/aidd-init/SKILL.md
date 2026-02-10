@@ -8,7 +8,7 @@ source_version: 0.1.6
 allowed-tools:
   - Read
   - Write
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py:*)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py *)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true

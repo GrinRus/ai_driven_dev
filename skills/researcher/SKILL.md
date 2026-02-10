@@ -10,17 +10,15 @@ allowed-tools:
   - Edit
   - Write
   - Glob
-  - "Bash(rg:*)"
-  - "Bash(sed:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py:*)"
+  - "Bash(rg *)"
+  - "Bash(sed *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true
-context: fork
-agent: researcher
 ---
 
 Follow `feature-dev-aidd:aidd-core`.
@@ -30,10 +28,10 @@ Follow `feature-dev-aidd:aidd-core`.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
 3. Re-run the same entrypoint with optional overrides (`--paths`, `--keywords`, `--note`) when targeted refresh is needed.
 4. Validate RLM outputs (`*-rlm-targets.json`, `*-rlm-manifest.json`, `*-rlm.worklist.pack.json`, optional `*-rlm.pack.json`).
-5. Run subagent `feature-dev-aidd:researcher` (fork). First action: read RLM pack/worklist.
+5. Run subagent `feature-dev-aidd:researcher`. First action: read RLM pack/worklist.
 6. If RLM is pending or pack is missing, return BLOCKED with explicit handoff to shared RLM owner (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`). Do not execute shared RLM API from this stage command.
 7. Optionally append handoff tasks via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source research --append`.
-8. Return the output contract.
+8. Return the output contract with explicit next step (`/feature-dev-aidd:plan-new <ticket>` when stage handoff is ready).
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py`
@@ -45,6 +43,13 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Migration policy
+- Legacy pre-RLM research context/targets artifacts are ignored by runtime/gates.
+- For old workspace state, rerun:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- If `rlm_status` remains `pending`, hand off to shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
 
 ## Additional resources
 - Research template source: [templates/research.template.md](templates/research.template.md) (when: drafting or reviewing `aidd/docs/research/<ticket>.md`; why: keep artifact shape aligned with canonical workspace template).

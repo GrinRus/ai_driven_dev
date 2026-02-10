@@ -617,7 +617,7 @@ def _pack_tests_executed(entries: Iterable[Any], limit: int) -> Dict[str, Any]:
     return _assemble.pack_tests_executed(entries, limit)
 
 
-def build_research_context_pack(
+def build_research_pack(
     payload: Dict[str, Any],
     *,
     source_path: Optional[str] = None,
@@ -625,7 +625,20 @@ def build_research_context_pack(
 ) -> Dict[str, Any]:
     from aidd_runtime import reports_pack_assemble as _assemble
 
-    return _assemble.build_research_context_pack(payload, source_path=source_path, limits=limits)
+    return _assemble.build_research_pack(payload, source_path=source_path, limits=limits)
+
+
+def build_research_context_pack(
+    payload: Dict[str, Any],
+    *,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    print(
+        "[aidd] WARN: build_research_context_pack is deprecated; use build_research_pack.",
+        file=sys.stderr,
+    )
+    return build_research_pack(payload, source_path=source_path, limits=limits)
 
 
 def build_qa_pack(
@@ -827,7 +840,7 @@ def _write_pack(payload: Dict[str, Any], pack_path: Path) -> Path:
     return _write_pack_text(text, pack_path)
 
 
-def write_research_context_pack(
+def write_research_pack(
     json_path: Path,
     *,
     output: Optional[Path] = None,
@@ -845,7 +858,7 @@ def write_research_context_pack(
     else:
         source_path = path.as_posix()
 
-    pack = build_research_context_pack(payload, source_path=source_path, limits=limits)
+    pack = build_research_pack(payload, source_path=source_path, limits=limits)
     pack_path = (output or _pack_path_for(path)).resolve()
 
     max_chars = int(RESEARCH_BUDGET["max_chars"])
@@ -863,6 +876,25 @@ def write_research_context_pack(
         if _enforce_budget():
             raise ValueError("; ".join(errors))
     return _write_pack_text(text, pack_path)
+
+
+def write_research_context_pack(
+    json_path: Path,
+    *,
+    output: Optional[Path] = None,
+    root: Optional[Path] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Path:
+    print(
+        "[aidd] WARN: write_research_context_pack is deprecated; use write_research_pack.",
+        file=sys.stderr,
+    )
+    return write_research_pack(
+        json_path,
+        output=output,
+        root=root,
+        limits=limits,
+    )
 
 
 def write_qa_pack(

@@ -4,11 +4,12 @@ description: "Исследует кодовую базу перед внедре
 lang: ru
 prompt_version: 1.2.30
 source_version: 1.2.30
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
+tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-policy
   - feature-dev-aidd:aidd-rlm
+  - feature-dev-aidd:aidd-stage-research
 model: inherit
 permissionMode: default
 ---

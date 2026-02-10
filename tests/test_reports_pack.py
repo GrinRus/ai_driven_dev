@@ -15,13 +15,13 @@ if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
 from aidd_runtime import reports_pack
 
 
-def _write_context(path: Path, payload: dict) -> None:
+def _write_research_source(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 class ReportsPackTests(unittest.TestCase):
-    def test_research_context_pack_is_deterministic(self) -> None:
+    def test_research_pack_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             context_path = tmp_path / "reports" / "research" / "demo-source.json"
@@ -38,9 +38,9 @@ class ReportsPackTests(unittest.TestCase):
                     "recommendations": ["Use baseline"],
                 },
             }
-            _write_context(context_path, payload)
+            _write_research_source(context_path, payload)
 
-            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
+            pack_path = reports_pack.write_research_pack(context_path, root=tmp_path)
             first = pack_path.read_text(encoding="utf-8")
             second = pack_path.read_text(encoding="utf-8")
             self.assertEqual(first, second)
@@ -57,7 +57,7 @@ class ReportsPackTests(unittest.TestCase):
             self.assertEqual(packed["kind"], "context")
             self.assertEqual(packed["ticket"], "DEMO-1")
 
-    def test_research_context_pack_truncates_matches(self) -> None:
+    def test_research_pack_truncates_matches(self) -> None:
         matches = [
             {"token": "checkout", "file": f"src/{idx}.kt", "line": idx + 1, "snippet": "x" * 300}
             for idx in range(25)
@@ -68,7 +68,7 @@ class ReportsPackTests(unittest.TestCase):
             "generated_at": "2024-01-08T00:00:00Z",
             "matches": matches,
         }
-        pack = reports_pack.build_research_context_pack(payload, source_path="aidd/reports/research/demo-4-source.json")
+        pack = reports_pack.build_research_pack(payload, source_path="aidd/reports/research/demo-4-source.json")
         match_rows = pack["matches"]["rows"]
         self.assertEqual(len(match_rows), reports_pack.RESEARCH_LIMITS["matches"])
         self.assertLessEqual(len(match_rows[0][4]), reports_pack.RESEARCH_LIMITS["match_snippet_chars"])
@@ -78,9 +78,9 @@ class ReportsPackTests(unittest.TestCase):
             tmp_path = Path(tmpdir)
             context_path = tmp_path / "reports" / "research" / "demo-source.json"
             payload = {"ticket": "DEMO-2", "slug": "demo-2", "generated_at": "2024-01-02T00:00:00Z"}
-            _write_context(context_path, payload)
+            _write_research_source(context_path, payload)
 
-            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
+            pack_path = reports_pack.write_research_pack(context_path, root=tmp_path)
 
             self.assertTrue(pack_path.name.endswith(".pack.json"))
             packed = json.loads(pack_path.read_text(encoding="utf-8"))
@@ -130,9 +130,9 @@ class ReportsPackTests(unittest.TestCase):
             tmp_path = Path(tmpdir)
             context_path = tmp_path / "reports" / "research" / "tiny-source.json"
             payload = {"ticket": "DEMO-3", "slug": "demo-3", "generated_at": "2024-01-03T00:00:00Z"}
-            _write_context(context_path, payload)
+            _write_research_source(context_path, payload)
 
-            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
+            pack_path = reports_pack.write_research_pack(context_path, root=tmp_path)
             pack_text = pack_path.read_text(encoding="utf-8")
 
             errors = reports_pack.check_budget(
@@ -157,9 +157,9 @@ class ReportsPackTests(unittest.TestCase):
                 "generated_at": "2024-01-07T00:00:00Z",
                 "matches": matches,
             }
-            _write_context(context_path, payload)
+            _write_research_source(context_path, payload)
 
-            pack_path = reports_pack.write_research_context_pack(context_path, root=tmp_path)
+            pack_path = reports_pack.write_research_pack(context_path, root=tmp_path)
             pack_text = pack_path.read_text(encoding="utf-8")
 
             errors = reports_pack.check_budget(
@@ -190,11 +190,11 @@ class ReportsPackTests(unittest.TestCase):
                 "slug": "huge",
                 "generated_at": "2024-01-06T00:00:00Z",
             }
-            _write_context(context_path, payload)
+            _write_research_source(context_path, payload)
 
             with patch.dict(os.environ, {"AIDD_PACK_ENFORCE_BUDGET": "1"}, clear=False):
                 with self.assertRaises(ValueError) as exc:
-                    reports_pack.write_research_context_pack(context_path, root=tmp_path)
+                    reports_pack.write_research_pack(context_path, root=tmp_path)
             self.assertIn("pack budget exceeded", str(exc.exception))
 
     def test_rlm_pack_extracts_snippet_from_workspace(self) -> None:

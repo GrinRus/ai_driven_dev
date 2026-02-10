@@ -10,32 +10,30 @@ allowed-tools:
   - Edit
   - Write
   - Glob
-  - "Bash(rg:*)"
-  - "Bash(sed:*)"
-  - "Bash(cat:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py:*)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py:*)"
+  - "Bash(rg *)"
+  - "Bash(sed *)"
+  - "Bash(cat *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py *)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true
-context: fork
-agent: tasklist-refiner
 ---
 
 Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
-1. Set active stage `tasklist` and active feature.
-2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py --ticket <ticket>` for stage-owned tasklist orchestration.
-3. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`.
-4. Build the rolling context pack.
-5. Run subagent `feature-dev-aidd:tasklist-refiner` (fork). First action: read the rolling context pack.
-6. Validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py`; update `aidd/docs/tasklist/<ticket>.md`.
-7. Return the output contract and next step `/feature-dev-aidd:implement <ticket>`.
+1. Inputs: resolve active feature and verify PRD/plan/spec artifacts needed for tasklist generation.
+2. Preflight: set active stage `tasklist` and active feature.
+3. Orchestration: run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py --ticket <ticket>`, then gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`.
+4. Build/update the rolling context pack.
+5. Run subagent `feature-dev-aidd:tasklist-refiner`. First action: read the rolling context pack.
+6. Postflight: validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py` and update `aidd/docs/tasklist/<ticket>.md` when needed.
+7. Output: return the output contract and explicit next step `/feature-dev-aidd:implement <ticket>`.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/tasks-new/runtime/tasks_new.py`

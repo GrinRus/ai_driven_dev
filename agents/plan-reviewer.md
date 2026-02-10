@@ -4,7 +4,7 @@ description: "Ревью плана реализации: исполняемос
 lang: ru
 prompt_version: 1.0.19
 source_version: 1.0.19
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*)
+tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-policy

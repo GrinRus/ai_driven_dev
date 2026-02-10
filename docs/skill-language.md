@@ -12,7 +12,10 @@ This document defines the canonical prompt-language and structure policy used by
 - `source_version` must match `prompt_version` for current workflow policy.
 - User-invocable stage skills must expose canonical Python runtime entrypoints:
   - `skills/<stage>/runtime/*.py`
-  - `allowed-tools` must include `Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/<stage>/runtime/<entrypoint>.py:*)`.
+  - `allowed-tools` must include `Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/<stage>/runtime/<entrypoint>.py *)`.
+- Bash wildcard grammar:
+  - canonical: `Bash(<command> *)`,
+  - legacy transitional: colon-wildcard form (default policy is `error`; temporary compatibility requires `AIDD_BASH_LEGACY_POLICY=warn|allow`).
 - Stage skills may reference wrappers/runtime only from:
   - their own stage path (`skills/<stage>/{runtime,scripts}/*`), and
   - approved shared skills (`aidd-core`, `aidd-loop`, `aidd-rlm`, `aidd-policy`, `aidd-docio`, `aidd-flow-state`, `aidd-observability`).

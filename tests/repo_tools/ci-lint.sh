@@ -32,7 +32,8 @@ run_prompt_lint() {
     return
   fi
   log "running prompt lint (root: ${PROMPT_ROOT})"
-  if ! python3 tests/repo_tools/lint-prompts.py --root "${PROMPT_ROOT}"; then
+  if ! AIDD_BASH_LEGACY_POLICY="${AIDD_BASH_LEGACY_POLICY:-error}" \
+    python3 tests/repo_tools/lint-prompts.py --root "${PROMPT_ROOT}"; then
     err "prompt lint failed"
     STATUS=1
   fi
@@ -209,6 +210,27 @@ run_runtime_path_regression() {
   log "running runtime path regression checks (python-only canon)"
   if ! bash tests/repo_tools/runtime-path-regression.sh; then
     err "runtime path regression checks failed"
+    STATUS=1
+  fi
+}
+
+run_research_legacy_artifact_guard() {
+  if ! command -v rg >/dev/null 2>&1; then
+    warn "rg not found; skipping research legacy artifact guard"
+    return
+  fi
+  log "running research legacy artifact guard"
+  local legacy_paths='reports/research/[^/]+-context\.json|reports/research/[^/]+-targets\.json'
+  if rg -n "${legacy_paths}" skills hooks templates docs dev | rg -v "rlm-targets\.json" >/dev/null; then
+    err "legacy research artifact refs found in runtime/docs surfaces"
+    STATUS=1
+  fi
+  if rg -n "${legacy_paths}" tests | rg -v "rlm-targets\.json" | rg -v "fixtures|compat" >/dev/null; then
+    err "legacy research artifact refs found in tests outside compat fixtures"
+    STATUS=1
+  fi
+  if rg -n "context\\.json|targets\\.json" skills hooks templates | rg -v "rlm-targets\\.json" >/dev/null; then
+    err "runtime write/read surfaces still reference legacy context/targets artifacts"
     STATUS=1
   fi
 }
@@ -477,6 +499,7 @@ run_skill_scripts_guard
 run_bash_runtime_guard
 run_schema_guards
 run_runtime_path_regression
+run_research_legacy_artifact_guard
 run_runtime_module_guard
 run_python_only_regression
 run_marketplace_ref_guard

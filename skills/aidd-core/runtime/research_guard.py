@@ -323,18 +323,23 @@ def _validate_rlm_evidence(
     rlm_pack_path = _find_pack_variant(root, f"{ticket}-rlm") or (root / "reports" / "research" / f"{ticket}-rlm.pack.json")
     rlm_links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
 
-    missing_core: list[str] = []
     if not rlm_targets_path.exists():
-        missing_core.append("rlm-targets.json")
-    if not rlm_manifest_path.exists():
-        missing_core.append("rlm-manifest.json")
-    if not rlm_worklist_path.exists():
-        missing_core.append("rlm.worklist.pack")
-    if missing_core:
-        missing_label = ", ".join(missing_core)
         raise ResearchValidationError(
-            f"BLOCK: отсутствуют базовые RLM артефакты ({missing_label}). "
-            f"Пересоберите research или запустите `{_research_cmd_hint(ticket)}`."
+            "BLOCK: отсутствует базовый RLM артефакт rlm-targets.json "
+            "(reason_code=rlm_targets_missing). "
+            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
+        )
+    if not rlm_manifest_path.exists():
+        raise ResearchValidationError(
+            "BLOCK: отсутствует базовый RLM артефакт rlm-manifest.json "
+            "(reason_code=rlm_manifest_missing). "
+            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
+        )
+    if not rlm_worklist_path.exists():
+        raise ResearchValidationError(
+            "BLOCK: отсутствует базовый RLM артефакт rlm.worklist.pack "
+            "(reason_code=rlm_worklist_missing). "
+            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
         )
 
     try:
@@ -399,7 +404,8 @@ def _validate_rlm_evidence(
         if settings.rlm_require_nodes and (not nodes_exists or nodes_total == 0):
             raise ResearchValidationError(
                 "BLOCK: для текущей стадии нужны RLM nodes (rlm.nodes.jsonl), но они отсутствуют или пусты. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}`."
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}` "
+                "(reason_code=rlm_nodes_missing)."
             )
         if links_warn:
             message = "rlm links empty (reason_code=rlm_links_empty_warn)"
@@ -407,11 +413,13 @@ def _validate_rlm_evidence(
         if settings.rlm_require_pack and not pack_exists:
             raise ResearchValidationError(
                 "BLOCK: для текущей стадии нужен RLM pack, но он отсутствует. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}`."
+                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}` "
+                "(reason_code=rlm_pack_missing)."
             )
         if rlm_status != "ready":
             raise ResearchValidationError(
-                "BLOCK: rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии."
+                "BLOCK: rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии "
+                "(reason_code=rlm_status_pending)."
             )
         return
 
@@ -495,11 +503,15 @@ def validate_research(
             payload = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             raise ResearchValidationError(
-                f"BLOCK: отсутствует {rlm_targets_path}; пересоберите research командой {_research_cmd_hint(ticket)}."
+                "BLOCK: отсутствует rlm-targets.json "
+                "(reason_code=rlm_targets_missing); "
+                f"пересоберите research командой {_research_cmd_hint(ticket)}."
             )
         except json.JSONDecodeError:
             raise ResearchValidationError(
-                f"BLOCK: повреждён файл {rlm_targets_path}; пересоберите его командой {_research_cmd_hint(ticket)}."
+                "BLOCK: повреждён rlm-targets.json "
+                "(reason_code=rlm_targets_invalid); "
+                f"пересоберите его командой {_research_cmd_hint(ticket)}."
             )
         targets_payload = payload if isinstance(payload, dict) else {}
 

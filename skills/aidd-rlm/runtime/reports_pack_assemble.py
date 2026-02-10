@@ -269,7 +269,7 @@ def load_rlm_worklist_summary(
     return worklist_status, worklist_entries, worklist_path
 
 
-def build_research_context_pack(
+def build_research_pack(
     payload: Dict[str, Any],
     *,
     source_path: Optional[str] = None,
@@ -334,6 +334,15 @@ def build_research_context_pack(
     }
 
     return packed
+
+
+def build_research_context_pack(
+    payload: Dict[str, Any],
+    *,
+    source_path: Optional[str] = None,
+    limits: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    return build_research_pack(payload, source_path=source_path, limits=limits)
 
 
 def build_qa_pack(
