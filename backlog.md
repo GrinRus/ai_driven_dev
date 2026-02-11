@@ -1,637 +1,305 @@
 # Product Backlog
 
-## Wave 96 — Runtime stabilization after W94 (E2E parity)
+## Wave 96 — SKILL-first migration program (consolidated)
 
-_Статус: в работе, приоритет 0. Цель — закрыть блокеры TST-001 и вернуть детерминированный e2e-contract для idea/loop/qa._
-_SoT: этот раздел является единственным источником текущего статуса Wave 96; архивные срезы ниже не используются как текущий статус._
+_Статус: новый, приоритет 0. Цель — перевести runtime на SKILL-first модель, объединить бывшие W96+W97 и закрыть carry-over риски без breaking change в wave-1._
 
-### P0 — Fast path к зелёному e2e
+### Baseline (code snapshot 2026-02-08)
 
-- [x] **W96-0 (P0) Repro harness + e2e contract checks** `tests/test_e2e_contract_minimal.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
-  - добавить/расширить минимальный integration contract-check: temp workspace, минимальный прогон стадий и проверка обязательных артефактов;
-  - зафиксировать инварианты `.active.json` и базовый набор stage wrapper outputs в одном тестовом месте;
-  - обеспечить воспроизведение slug pollution и missing preflight artifacts без ручного e2e.
-  **AC:** contract-check локально воспроизводит текущие проблемы и детерминированно показывает регрессию/фикс.
-  **Regression/tests:** новый `tests/test_e2e_contract_minimal.py` или эквивалентное расширение существующих integration тестов.
-  **Effort:** M
-  **Risk:** Medium
+- [ ] **W96-0 (P0) Baseline audit snapshot + migration board refresh** `backlog.md`, `tools/entrypoints-bundle.txt`, `tools/tools_inventory.py`, `tests/repo_tools/lint-prompts.py`:
+  - зафиксировать baseline факты в wave (для контроля прогресса миграции): `review-spec` как public stage, `review-plan/review-prd` как internal substage; 46 `tools/*.sh` с python shebang; массовые ссылки `skills/*/SKILL.md` и `agents/*.md` на `tools/*`;
+  - синхронизировать checklist миграции с фактическими consumers из inventory/rg (skill/agent/hook/test/docs);
+  - определить порядок миграции по stage (idea -> plan -> review-spec -> researcher -> qa -> status -> shared).
+  **AC:** backlog отражает единый SKILL-first план с актуальными зависимостями и без отдельного Wave 97.
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `AIDD_ALLOW_PLUGIN_WORKSPACE=1 CLAUDE_PLUGIN_ROOT=$PWD python3 tools/tools_inventory.py --repo-root . --output-json /tmp/aidd_tools_inventory.json --output-md /tmp/aidd_tools_inventory.md`.
+  **Effort:** S
+  **Risk:** Low
 
-- [x] **W96-1 (P0) Slug hygiene: `slug_hint` только токен** `tools/active_state.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_active_state.py`, `tests/test_feature_ids_root.py`:
-  - развести `slug_hint` (стабильный токен) и feature label/note/answers (отдельное поле или только PRD/plan/tasklist);
-  - обновить writer active-state для `idea-new`: валидный slug пишется как есть, note никогда не конкатенируется в `slug_hint`;
-  - добавить валидацию slug токена (`^[a-z0-9][a-z0-9-]{0,80}$`) и правило: невалидный второй аргумент трактуется как note.
-  **AC:** после `idea-new TST-001 tst-001-demo <note>` поле `aidd/docs/.active.json.slug_hint` равно `tst-001-demo`; повторный запуск с `AIDD:ANSWERS` не загрязняет slug.
-  **Regression/tests:** unit + integration кейс “slug + длинный note” сохраняет чистый `slug_hint`.
+### EPIC A — Contracts & stage lexicon
+
+- [ ] **W96-1 (P0) Stage lexicon contract (`review-spec` public, `review-plan/review-prd` internal)** `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/tasklist/template.md`, `tools/set_active_stage.py`, `tools/context_map_validate.py`, `README.md`, `README.en.md`:
+  - зафиксировать единый словарь стадий: `review-spec` как публичная команда/стадия; `review-plan` и `review-prd` как internal substage;
+  - описать alias/переходы и правила записи `active_stage`, чтобы не было drift между docs/templates/runtime;
+  - обновить tasklist/template/gates подсказки под новую терминологию.
+  **AC:** во всех SoT-документах и runtime-валидации единая stage-терминология без противоречий.
+  **Regression/tests:** `tests/test_set_active_stage.py` (или эквивалент), `tests/repo_tools/lint-prompts.py`, smoke `tests/repo_tools/smoke-workflow.sh`.
   **Effort:** M
   **Risk:** High
 
-- [x] **W96-2 (P0, blocker) SKILL_FIRST wrappers: preflight/readmap/writemap/actions/logs always-on** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `tools/output_contract.py`, `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`:
-  - выровнять единый stage wrapper orchestration для `implement|review|qa` (preflight -> stage core -> run/postflight) в ручном и loop путях;
-  - гарантировать минимальные артефакты даже при “нулевых действиях”: `actions.template/actions`, `readmap/writemap`, `stage.preflight.result`, `wrapper.*.log`;
-  - усилить enforcement в gate-workflow (SKILL_FIRST): отсутствие обязательных артефактов и `AIDD:ACTIONS_LOG` не проходит как success;
-  - зафиксировать workspace path resolution: записи только в `$PROJECT_DIR/aidd/**`, отсутствие root = явный BLOCKED.
-  **AC:** после seed `implement` и `review` обязательные артефакты созданы, output-contract содержит существующий `AIDD:ACTIONS_LOG`.
-  **Regression/tests:** unit + integration + smoke проверяют полный набор обязательных wrapper outputs.
+- [ ] **W96-2 (P0) SKILL-first architecture policy as repository contract** `AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `README.md`, `README.en.md`:
+  - закрепить policy: stage entrypoints живут в `skills/<stage>/scripts/*`; shared entrypoints — в `skills/aidd-core/scripts/*`; `tools/` = shared libs + orchestrator + compatibility shims;
+  - явно описать migration phases (canonical path + shim path + removal window);
+  - добавить требования к output diagnostics и ссылкам в docs/hook hints.
+  **AC:** policy документирована как SoT и совпадает с фактическими migration задачами.
+  **Regression/tests:** docs lint + `tests/repo_tools/lint-prompts.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W96-3 (P1) Script type normalization (`.sh`=bash, python entrypoints=`.py`)** `tools/*.sh`, `tools/*.py`, `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/skill-scripts-guard.py`:
+  - устранить практику python-shebang в `.sh` для новых canonical entrypoints;
+  - ввести guard, чтобы новые `.sh` в runtime были bash wrappers, а python logic жила в `.py`;
+  - добавить transitional exceptions list для legacy shims до конца миграции.
+  **AC:** новый runtime не добавляет python-shebang `.sh`; violations ловятся CI guard.
+  **Regression/tests:** shellcheck/static checks + guard test.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-4 (P1) Canonical stage wrapper template + python bootstrap policy** `skills/*/scripts/*.sh`, `skills/aidd-reference/wrapper_lib.sh`, `AGENTS.md`:
+  - унифицировать шаблон wrapper scripts (bash strict mode, guarded output, deterministic logs, CLI flags);
+  - зафиксировать вызов python-логики через стабильный bootstrap (`CLAUDE_PLUGIN_ROOT`, `PYTHONPATH`), без неявных относительных импортов;
+  - документировать обязательные поля stdout contract для preflight/run/postflight wrappers.
+  **AC:** новые wrappers создаются по одному шаблону и проходят script guards без ручных исключений.
+  **Regression/tests:** `python3 tests/repo_tools/skill-scripts-guard.py`, schema guards.
+  **Effort:** M
+  **Risk:** Medium
+
+### EPIC B — Stage-local shell entrypoint relocation
+
+- [ ] **W96-5 (P1) IDEA: move `analyst-check` to stage scripts + shim** `skills/idea-new/scripts/analyst-check.sh`, `skills/idea-new/SKILL.md`, `tools/analyst-check.sh`, `README.md`, `README.en.md`, `tests/repo_tools/shim-regression.sh`:
+  - добавить canonical `skills/idea-new/scripts/analyst-check.sh` и переключить stage refs;
+  - оставить `tools/analyst-check.sh` как warn-only compatibility shim;
+  - синхронизировать docs/tests на canonical path.
+  **AC:** `idea-new` использует stage-local script; legacy path остаётся совместимым через shim.
+  **Regression/tests:** shim-regression + stage smoke.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-6 (P1) PLAN: move `research-check` to stage scripts + shim** `skills/plan-new/scripts/research-check.sh`, `skills/plan-new/SKILL.md`, `tools/research-check.sh`, `README.md`, `README.en.md`, `tests/repo_tools/shim-regression.sh`:
+  - добавить canonical `skills/plan-new/scripts/research-check.sh`;
+  - перевести stage/docs refs и сохранить `tools/research-check.sh` как deprecated shim;
+  - зафиксировать deprecation notice policy.
+  **AC:** `plan-new` использует stage-local `research-check.sh`; legacy tool path работает как shim.
+  **Regression/tests:** shim-regression + lint-prompts.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-7 (P1) REVIEW-SPEC: move `prd-review` to stage scripts + shim** `skills/review-spec/scripts/prd-review.sh`, `skills/review-spec/SKILL.md`, `tools/prd-review.sh`, `tests/test_prd_review_agent.py`, `tests/repo_tools/shim-regression.sh`:
+  - добавить canonical `skills/review-spec/scripts/prd-review.sh`;
+  - оставить `tools/prd-review.sh` как compatibility shim;
+  - обновить skill/docs/tests references.
+  **AC:** review-spec stage вызывает только stage-local entrypoint; legacy path совместим.
+  **Regression/tests:** prd review unit/integration + shim regression.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W96-8 (P1) RESEARCHER: move stage entrypoints to `skills/researcher/scripts/*` + shims** `skills/researcher/scripts/research.sh`, `skills/researcher/scripts/reports-pack.sh`, `skills/researcher/scripts/rlm-*.sh`, `tools/research.sh`, `tools/reports-pack.sh`, `tools/rlm-*.sh`, `skills/researcher/SKILL.md`, `agents/researcher.md`:
+  - ввести canonical stage-local wrappers для research pipeline (`research`, `reports-pack`, `rlm-*`);
+  - сохранить `tools/*` как shim API для hooks/legacy CLI на deprecation window;
+  - обновить stage/agent/docs references на canonical path (dual path в migration phase).
+  **AC:** researcher stage работает через `skills/researcher/scripts/*`; legacy tool entrypoints не ломают hooks.
+  **Regression/tests:** `tests/test_research_rlm_e2e.py`, `tests/test_rlm_wrappers.py`, smoke + shim-regression.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-9 (P1) QA: canonical `skills/qa/scripts/qa.sh` + compatibility shim** `skills/qa/scripts/qa.sh`, `skills/qa/SKILL.md`, `tools/qa.sh`, `templates/aidd/config/gates.json`, `hooks/gate-qa.sh`, `tests/helpers.py`, `tests/test_qa_runner.py`:
+  - добавить stage-local `qa.sh` и переключить QA stage path;
+  - оставить `tools/qa.sh` совместимым shim для hooks/tests/legacy docs;
+  - выровнять path hints в gates/config/helpers.
+  **AC:** QA stage запускается через stage script; hook path остаётся совместимым.
+  **Regression/tests:** QA unit/integration + gate-qa + shim-regression.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-10 (P1) STATUS: move `status.sh` + `index-sync.sh` to stage scripts + shims** `skills/status/scripts/status.sh`, `skills/status/scripts/index-sync.sh`, `skills/status/SKILL.md`, `tools/status.sh`, `tools/index-sync.sh`, `README.md`, `README.en.md`, `tests/test_status.py`:
+  - добавить canonical stage-local status scripts;
+  - сохранить `tools/status.sh`/`tools/index-sync.sh` как deprecated shims;
+  - синхронизировать docs/examples/tests.
+  **AC:** status stage использует `skills/status/scripts/*`; legacy tool paths совместимы.
+  **Regression/tests:** status/index tests + smoke + shim-regression.
+  **Effort:** M
+  **Risk:** Low
+
+### EPIC C — Stage-local Python runtime relocation
+
+- [ ] **W96-11 (P1) Move stage-specific Python (idea/plan/review-spec) near skills** `skills/idea-new/runtime/analyst_check.py`, `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review.py`, `tools/analyst_check.py`, `tools/research_check.py`, `tools/prd_review.py`:
+  - перенести stage-only python modules рядом со stage skill;
+  - в `tools/*.py` оставить compatibility stubs на переходный период;
+  - обновить wrappers/import paths без breaking change.
+  **AC:** stage-specific python logic живёт в `skills/<stage>/runtime`; legacy imports через stubs остаются рабочими.
+  **Regression/tests:** unit tests для analyst/research/prd review + smoke.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-12 (P1) Move researcher Python runtime modules near stage** `skills/researcher/runtime/reports_pack.py`, `skills/researcher/runtime/rlm_*.py`, `tools/reports_pack.py`, `tools/rlm_*.py`, `tools/research.py`:
+  - перенести researcher-specific python runtime к stage skill;
+  - `tools/research.py` оставить shared/hook-facing, пока не завершён deferred-core phase;
+  - сохранить совместимые stubs в `tools/` до окончания migration window.
+  **AC:** researcher-specific runtime рядом со stage; shared APIs не ломаются.
+  **Regression/tests:** `tests/test_research_rlm_e2e.py`, `tests/test_rlm_*`, shim-regression.
   **Effort:** L
   **Risk:** High
 
-### P1 — Семантика loop/qa и инварианты
-
-- [x] **W96-3 (P1) `user_approval_required` contract + loop-run diagnostics** `tools/loop_run.py`, `tools/loop_step.py`, `tools/runtime.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
-  - унифицировать семантику reason-code: если нужен approval, стадия возвращает `blocked`, а loop-run останавливается на текущей стадии;
-  - убрать сценарий “continue на implement -> blocked на review” для одного и того же work item;
-  - расширить диагностику blocked: обязательные `reason_code`, `reason`, ссылка на stage result и wrapper/cli logs.
-  **AC:** при `user_approval_required` loop-run завершается детерминированно на корректной стадии с полным diagnostic output (без “немого” exit 20).
-  **Regression/tests:** integration fixture на approval-required + unit mapping reason-code -> status/exit.
-  **Effort:** M
-  **Risk:** Medium
-
-- [x] **W96-4 (P1) iteration_id format policy (`M#` и `I#`)** `tools/feature_ids.py`, `tools/active_state.py`, `tools/loop_step.py`, `tools/loop_run.py`, `tests/test_feature_ids_root.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
-  - быстрый путь: принять оба формата `iteration_id=(I|M)\\d+` в валидаторах/invariants;
-  - синхронизировать проверки loop/stage/tests и устранить лишние WARN из-за расхождения ожиданий;
-  - документировать выбранную политику формата в backlog/release notes при необходимости.
-  **AC:** `iteration_id=M1` и `iteration_id=I1` валидны в active state/loop/test contracts.
-  **Regression/tests:** unit валидатора + integration loop-step без деградации на `M1`.
-  **Effort:** S
-  **Risk:** Low
-
-- [x] **W96-5 (P1) QA exit-code policy aligned with report status** `tools/qa.py`, `tools/qa.sh`, `hooks/gate-qa.sh`, `tools/runtime.py`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`:
-  - синхронизировать exit-code команды QA со статусом отчёта;
-  - policy: `BLOCKED -> exit 2`, `READY|WARN -> exit 0`, и одинаковая семантика в stdout/stage_result/report;
-  - исключить “exit 0 при BLOCKED report” в CI automation path.
-  **AC:** QA возвращает не-zero при `BLOCKED`, а generated report/stage_result/stdout не противоречат друг другу.
-  **Regression/tests:** unit mapping report_status -> exit_code + integration fixture с blocker findings.
-  **Effort:** S
-  **Risk:** Medium
-
-### Wave 96 follow-up — re-audit gaps (TST-001 rerun)
-
-- [ ] **W96-6 (P0) Manual seed parity: wrappers обязательны не только в loop-step** `tools/runtime.py`, `tools/loop_step.py`, `tools/output_contract.py`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `tests/test_loop_step.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`:
-  - выровнять исполнение `implement/review` в ручном seed и loop-path: одинаковый wrapper chain и одинаковые артефакты;
-  - исключить сценарий “seed exit=0, но actions/readmap/writemap/preflight/logs отсутствуют”;
-  - закрепить в output contract обязательный `AIDD:ACTIONS_LOG` для seed run.
-  **AC:** ручные seed `implement` + `review` создают тот же обязательный набор wrapper-артефактов, что и loop-step.
-  **Regression/tests:** integration тест seed run проверяет наличие `stage.preflight.result.json`, readmap/writemap, actions.template/actions, wrapper logs.
-  **Effort:** M
-  **Risk:** High
-
-- [x] **W96-7 (P0) Gate preflight enforcement без зависимости от src-changes** `tools/gate_workflow.py`, `tools/loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`:
-  - убрать условие, при котором проверка preflight contract срабатывает только при `has_src_changes`;
-  - для SKILL_FIRST stage-success требовать обязательный preflight/docops минимум независимо от diff типа (code/doc/none);
-  - сохранить осмысленную диагностику `reason_code` при BLOCK.
-  **AC:** stage не может пройти success без обязательных preflight/docops артефактов даже при отсутствии src-изменений.
-  **Regression/tests:** unit + integration кейс “no src changes, stage success” должен блокироваться при отсутствии preflight contract.
-  **Effort:** M
-  **Risk:** High
-
-- [x] **W96-8 (P1) Scope-key consistency между wrapper chain и stage_result** `tools/loop_step.py`, `tools/feature_ids.py`, `tools/runtime.py`, `tests/test_loop_step.py`, `tests/test_feature_ids_root.py`:
-  - устранить дрейф scope key (например, wrapper logs под `I1`, а iteration summary сообщает `I2`);
-  - закрепить единый источник scope key для preflight/run/postflight и финального stage_result;
-  - добавить trace в loop logs: `scope_key_before`, `scope_key_after`, `scope_key_effective`.
-  **AC:** paths в wrapper logs, actions/context и `stage.<stage>.result.json` совпадают по одному `scope_key` на итерацию.
-  **Regression/tests:** integration fixture проверяет совпадение scope key в путях артефактов и summary loop-step.
-  **Effort:** M
-  **Risk:** Medium
-
-- [ ] **W96-9 (P1) BLOCKED diagnostics completeness: reason/reason_code/stage_result_path обязательны** `tools/loop_run.py`, `tools/loop_step.py`, `tools/stage_result.py`, `skills/review/scripts/postflight.sh`, `tests/test_loop_run.py`, `tests/test_stage_result.py`:
-  - запретить “немой blocked”: если `result=blocked`, то должны быть заполнены `reason_code` и человекочитаемый `reason`;
-  - добавить fallback mapping в loop-run при blocked без reason-code (например `blocked_without_reason`);
-  - в postflight wrappers пробрасывать исходные ошибки shell/permission в stage_result.
-  **AC:** любой blocked в loop-run имеет детерминированный `reason_code`, `reason` и ссылку на stage_result/wrapper log.
-  **Regression/tests:** фикстура blocked без reason приводит к стабильному fallback reason-code и информативному loop-run output.
-  **Effort:** M
-  **Risk:** High
-
-- [ ] **W96-10 (P1) QA tri-source consistency: report vs stage_result vs process exit** `tools/qa.py`, `tools/stage_result.py`, `hooks/gate-qa.sh`, `tests/test_qa_runner.py`, `tests/test_gate_qa.py`, `tests/test_stage_result.py`:
-  - устранить рассинхрон, когда QA report `WARN`, а `stage.qa.result` = `blocked/no_tests_hard`;
-  - определить единый SoT для QA финального статуса и маппинг в exit-code/loop semantics;
-  - добавить явные правила для `no_tests_hard`: когда это WARN, когда BLOCKED.
-  **AC:** QA report, stage_result и код процесса согласованы и не противоречат друг другу в одном прогоне.
-  **Regression/tests:** matrix тестов на `READY|WARN|BLOCKED|no_tests_hard` проверяет единый итоговый статус и код выхода.
-  **Effort:** M
-  **Risk:** Medium
-
-- [ ] **W96-11 (P2) Contract/docs alignment for audit tooling (work_item + QA/loop semantics)** `templates/aidd/AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/smoke-workflow.sh`:
-  - синхронизировать аудит-инварианты с runtime: допустимый формат `work_item` (`iteration_id=<ticket>-I<N>|M<N>`), QA exit `2` при BLOCKED, `user_approval_required` как корректный hard stop;
-  - обновить e2e-подсказки, чтобы валидное поведение не помечалось как ложный FAIL;
-  - сохранить backward-compatible формулировки для legacy mode.
-  **AC:** аудит-скрипт не выдаёт ложных blocker-findings на корректное поведение Wave 96.
-  **Regression/tests:** smoke/audit fixture проверяет новые контракты и не падает на ожидаемых WARN-сценариях.
-  **Effort:** S
-  **Risk:** Low
-
-### Wave 96 follow-up — code-level remediation backlog (post-audit)
-
-- [x] **W96-12 (P0) QA slash-command exit propagation parity** `tools/qa.py`, `tools/qa.sh`, `skills/qa/SKILL.md`, `agents/qa.md`, `hooks/gate-qa.sh`, `tests/test_qa_exit_code.py`, `tests/test_gate_qa.py`, `tests/repo_tools/smoke-workflow.sh`:
-  - устранить расхождение между tool-path и slash-command path: `/feature-dev-aidd:qa` обязан возвращать тот же exit-code policy, что и `tools/qa.sh`;
-  - закрепить семантику: `QA report BLOCKED -> exit 2`, `READY|WARN -> exit 0` независимо от способа запуска;
-  - добавить smoke-check, который валидирует process exit и report status в одном сценарии.
-  **AC:** невозможно получить `exit 0` при `aidd/reports/qa/<ticket>.json.status=BLOCKED` в runtime пути команды.
-  **Regression/tests:** unit + integration для process exit в tool/slash путях; обновлённый smoke на tri-source consistency.
-  **Effort:** M
-  **Risk:** High
-
-- [x] **W96-13 (P1) loop-step early-block diagnostics completeness** `tools/loop_step.py`, `tools/loop_run.py`, `tools/stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
-  - для раннего blocked (short-circuit до запуска runner) заполнять минимальный диагностический набор: `reason`, `reason_code`, `scope_key`, `stage_result_path`, `cli_log_path`, а также стабильные значения `runner/runner_effective`;
-  - исключить “немой blocked” с пустыми `log_path/runner/wrapper_logs` в loop-step payload и `loop.run.log`;
-  - добавить fallback reason-code, если stage_result существует, но причина не заполнена.
-  **AC:** каждый blocked payload из `loop-step` и `loop-run` содержит достаточную диагностику для root-cause без повторного ручного triage.
-  **Regression/tests:** отдельная фикстура раннего blocked-path проверяет заполненность обязательных полей.
-  **Effort:** M
-  **Risk:** Medium
-
-- [x] **W96-14 (P1) Skill contract path canonicalization (actions vs context artifacts)** `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tools/preflight_prepare.py`, `tools/skill_contract_validate.py`, `tests/test_stage_preflight_wrappers.py`, `tests/test_wave93_validators.py`:
-  - синхронизировать `CONTRACT.yaml` с фактическими путями runtime (readmap/writemap/preflight в canonical location);
-  - убрать дрейф между декларативным контрактом skill и тем, что реально создают wrapper scripts;
-  - обновить валидаторы/тесты, чтобы контракт проверял актуальную структуру артефактов.
-  **AC:** skill contract и runtime output совпадают; contract-validation не даёт ложных FAIL/WARN на корректном прогоне.
-  **Regression/tests:** preflight wrapper tests + validator tests на canonical paths.
-  **Effort:** S
-  **Risk:** Medium
-
-- [x] **W96-15 (P2) Wave 96 SoT cleanup in backlog/docs** `backlog.md`, `CHANGELOG.md`, `tests/repo_tools/smoke-workflow.sh`:
-  - убрать конфликт статусов Wave 96 (“новый” vs “завершено”) и оставить один источник истины по текущему состоянию задач;
-  - разделить historical summary и active plan, чтобы аудит/команда не читали противоречивые секции;
-  - зафиксировать правило ведения статусов wave в release discipline.
-  **AC:** в backlog нет конкурирующих статусов одной волны; текущий прогресс читается однозначно.
-  **Regression/tests:** smoke/линт проверяет отсутствие дублирующихся активных wave-блоков с конфликтующим статусом.
-  **Effort:** S
-  **Risk:** Low
-
-## Wave 95 — Audit closure F-01..F-13 + quick wins
-
-_Статус: новый, приоритет 0. Цель — закрыть весь аудит одним PR без breaking-change, с переходным warn-only режимом для legacy точек._
-
-### A) Runtime resilience hardening
-
-- [ ] **W95-A1** `tools/gate_workflow.py`, `tests/test_gate_workflow.py`:
-  - устранить аварийный except-path, где error-handler использует переменные из `try` (например runtime instance);
-  - добавить fail-safe обработку import/init ошибок с диагностикой в `stderr` и корректным exit code;
-  - quick win: гарантировать отсутствие secondary exception при падении bootstrap.
-  **AC:** при сбое import/init gate завершается контролируемо (без traceback в traceback), пишет понятную диагностику и возвращает ожидаемый код.
-  **Effort:** M
-  **Risk:** High
-  **Finding:** F-05
-
-- [ ] **W95-A2** `tools/loop_step.py`, `tests/repo_tools/lint-prompts.py`, `tests/*`:
-  - удалить unreachable legacy fallback ветку в loop-step hot path;
-  - синхронизировать связанные проверки lint/tests, чтобы проверялась только живая ветка исполнения;
-  - quick win: убрать лишний return, не меняя functional behavior.
-  **AC:** dead branch удалён; поведение loop-step совпадает с текущим success-path; связанные тесты/линтеры проходят.
-  **Effort:** S
-  **Risk:** Low
-  **Finding:** F-06
-
-### B) Tooling/CLI contract
-
-- [ ] **W95-B1** `tools/init.py`, `README.md`, `README.en.md`, `CHANGELOG.md`, `tests/*`:
-  - привести CLI контракт init к правде: реализовать `--dry-run`/`--enable-ci` или удалить их из CLI+docs;
-  - синхронизировать naming флагов `--detect-build-tools` vs `--detect-stack`;
-  - quick win: покрыть `--help`/dry-run регрессионным тестом.
-  **AC:** help, runtime-поведение и документация совпадают; несуществующих флагов нет; тест фиксирует контракт.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-07, F-13
-
-- [ ] **W95-B2** `tools/tools_inventory.py`, `tests/test_tools_inventory.py`, `AGENTS.md`, `skills/review/SKILL.md`:
-  - расширить inventory scan на skill-first источники (`skills/**`, `hooks/**`, `agents/**`, при необходимости `templates/aidd/**`);
-  - уменьшить false positive "unused/no consumers" для stage wrappers;
-  - quick win: добавить regression test для canonical skill wrapper consumer chain.
-  **AC:** canonical wrappers из `skills/<stage>/scripts` не попадают в ложный unused; тест предотвращает откат.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-04
-
-### C) CI policy alignment + security
-
-- [ ] **W95-C1** `.github/workflows/ci.yml`, `CONTRIBUTING.md`, `AGENTS.md`, `tests/repo_tools/smoke-workflow.sh`:
-  - добавить always-on job `smoke-workflow` с path-filter runtime изменений;
-  - при отсутствии runtime-изменений job делает skip с `exit 0`, при наличии запускает smoke;
-  - quick win: выровнять policy docs и CI enforcement.
-  **AC:** smoke-job всегда присутствует в CI checks; runtime changes обязательно прогоняют smoke; docs совпадают с фактом.
-  **Effort:** M
-  **Risk:** High
-  **Finding:** F-09
-
-- [ ] **W95-C2** `.github/workflows/ci.yml`, `tests/repo_tools/ci-lint.sh`, `tools/*`:
-  - добавить security dependency/CVE проверку в PR (dependency-review action, fail на high/critical где возможно);
-  - обеспечить graceful behavior для PR без lockfile/manifest;
-  - quick win: добавить guard, чтобы security check был информативным и не шумел на пустом dependency diff.
-  **AC:** security job запускается на PR и не ломает репо без manifests; high-risk dependency changes блокируют merge.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-10
-
-### D) Release discipline
-
-- [ ] **W95-D1** `.claude-plugin/marketplace.json`, `tests/repo_tools/ci-lint.sh`, `tests/*`, `CHANGELOG.md`:
-  - убрать feature-branch ref из marketplace metadata, закрепить stable ref (release tag или `main`);
-  - добавить CI/lint guard против feature refs (`codex/wave*`, `feature/*`);
-  - quick win: документировать выбранный stable policy для будущих релизов.
-  **AC:** marketplace ref указывает на stable target; lint/test падает на feature refs; policy отражён в changelog/backlog.
-  **Effort:** S
-  **Risk:** High
-  **Finding:** F-11
-
-### E) Legacy cleanup & deprecation convergence
-
-- [ ] **W95-E1** `skills/aidd-reference/wrapper_lib.sh`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tools/gate_workflow.py`, `tests/*`:
-  - консолидировать preflight contract в одном shared implementation;
-  - перевести stage preflight wrappers на единый источник;
-  - сократить legacy fallback в gate-workflow: canonical by default + explicit warn/flagged legacy path.
-  **AC:** implement/review/qa preflight генерируют согласованный контракт; gate-workflow использует canonical path по умолчанию; legacy fallback контролируемый и помечен warning.
+- [ ] **W96-13 (P1) Move review Python runtime modules near stage** `skills/review/runtime/context_pack.py`, `skills/review/runtime/review_pack.py`, `skills/review/runtime/review_report.py`, `skills/review/runtime/reviewer_tests.py`, `tools/context_pack.py`, `tools/review_pack.py`, `tools/review_report.py`, `tools/reviewer_tests.py`:
+  - перенести review runtime к `skills/review/runtime`;
+  - оставить `tools/*.py` как compat stubs до phase-2;
+  - обновить wrappers/tests/import matrix для обоих путей (canonical + shim).
+  **AC:** review runtime локализован рядом со stage; external compatibility сохранена.
+  **Regression/tests:** `tests/test_review_pack.py`, `tests/test_review_report.py`, `tests/test_reviewer_tests_cli.py`, loop/review smoke.
   **Effort:** L
-  **Risk:** Medium
-  **Finding:** F-01
-
-- [ ] **W95-E2** `tools/runtime.py`, `tools/reviewer_tests.py`, `hooks/format-and-test.sh`, `tests/*`:
-  - централизовать reviewer-marker migration в одной точке runtime;
-  - убрать дубли/side-effects в hooks и утилитах (оставить idempotent ensure call при необходимости);
-  - quick win: добавить тест на идемпотентность и single-source behavior.
-  **AC:** миграция marker вызывается в одном canonical месте и остаётся идемпотентной; хук больше не выполняет скрытую миграцию.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-02
-
-- [ ] **W95-E3** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README.md`, `README.en.md`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/shim-regression.sh`:
-  - вывести deprecated shims из hot path smoke/docs и закрепить canonical skill wrappers как основной путь;
-  - оставить shim-regression как совместимость (warn-only deprecation);
-  - quick win: smoke не зависит от deprecated shim entrypoints.
-  **AC:** основной smoke и docs используют только canonical wrappers; shim regression отдельно проверяет совместимость и deprecation warning.
-  **Effort:** M
-  **Risk:** Medium
-  **Finding:** F-03
-
-- [ ] **W95-E4 (Phase 2, breaking)** `tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`, `README*.md`, `CHANGELOG.md`:
-  - спланировать полное удаление deprecated shims после переходного периода;
-  - зафиксировать breaking-change окно и required migration notes для пользователей.
-  **AC:** в backlog есть отдельный план удаления shims с критериями готовности и датой/версией удаления.
-  **Effort:** S
   **Risk:** High
-  **Finding:** F-03
 
-### F) Repo hygiene + docs consistency
+- [ ] **W96-14 (P1) Expand lint/guards for `skills/<stage>/runtime/*` contract** `tests/repo_tools/lint-prompts.py`, `tests/repo_tools/skill-scripts-guard.py`, `tests/test_prompt_lint.py`, `AGENTS.md`:
+  - разрешить `runtime/` как валидный support dir для skills (с лимитами глубины/размера);
+  - добавить проверки на корректные bootstrap imports и отсутствие прямых writes вне workspace;
+  - сохранить strict валидацию `scripts/*.sh` (bash-only, guarded output).
+  **AC:** lint/guards валидно поддерживают stage runtime relocation и не дают ложных FAIL.
+  **Regression/tests:** prompt-lint + skill-scripts-guard unit coverage.
+  **Effort:** M
+  **Risk:** Medium
 
-- [ ] **W95-F1** `hooks/gate-api-contract.sh`, `hooks/hooks.json`, `hooks/gate-qa.sh`, `tests/*`, `docs/*`:
-  - закрыть placeholder ambiguity: либо полноценно подключить gate-api-contract, либо удалить placeholder и ссылки;
-  - выбрать безопасный вариант без ложных ожиданий в runtime;
-  - quick win: убрать "мертвый" hook path и привести hooks wiring к факту.
-  **AC:** в hooks wiring нет placeholder без поведения; выбранный путь покрыт smoke/тестом или документирован как удалённый.
+### EPIC D — Shared skill runtime, inheritance, and inventory
+
+- [ ] **W96-15 (P1) Shared shell entrypoints: canonical move to `skills/aidd-core/scripts/*` + shims** `skills/aidd-core/scripts/*.sh`, `tools/set-active-stage.sh`, `tools/set-active-feature.sh`, `tools/progress.sh`, `tools/stage-result.sh`, `tools/status-summary.sh`, `tools/tasklist-*.sh`, `tools/prd-check.sh`, `tools/diff-boundary-check.sh`:
+  - перенести multi-stage shell entrypoints в shared skill (`aidd-core`);
+  - оставить `tools/*.sh` compatibility shims на deprecation window;
+  - обновить references в stage skills/docs/hooks/tests.
+  **AC:** canonical shared entrypoints живут в `skills/aidd-core/scripts/*`; `tools/*` совместимы как shims.
+  **Regression/tests:** smoke + shim-regression + hook tests.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-16 (P1) Shared RLM preload skill for agents/stages** `skills/aidd-rlm/SKILL.md`, `agents/*.md`, `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tools/entrypoints-bundle.txt`, `dev/reports/migrations/commands_to_skills_frontmatter.json`:
+  - добавить preloaded shared skill `aidd-rlm` (user-invocable=false) как SoT для `rlm-slice/rlm-*`;
+  - подключить через frontmatter `skills:` в агентах и stage skills вместо копипасты tool lists;
+  - зафиксировать inheritance policy в lint/baseline.
+  **AC:** RLM toolset задаётся в одном shared skill; frontmatter drift отсутствует.
+  **Regression/tests:** prompt-lint + baseline parity + entrypoints bundle.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-17 (P1) Shared loop-runtime skill contract (`implement/review/qa`)** `skills/aidd-loop-runtime/SKILL.md`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - вынести общий loop runtime toolset в shared preload skill;
+  - подключить через `skills:` в stage frontmatter, сократить дубли `allowed-tools`;
+  - поддержать переходный режим (legacy full list + inherited contract) до завершения миграции.
+  **AC:** implement/review/qa используют единый shared loop-runtime contract.
+  **Regression/tests:** lint-prompts/baseline parity + loop smoke.
+  **Effort:** L
+  **Risk:** High
+
+- [ ] **W96-18 (P1) Stage skill inheritance lint contract (no false baseline mismatch)** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`, `tools/entrypoints_bundle.py`, `dev/reports/migrations/commands_to_skills_frontmatter.json`:
+  - обновить lint под inheritance shared skill toolsets;
+  - валидировать preload references (`skills:`) и запрещать broken/empty links;
+  - сохранить обратную совместимость на migration window.
+  **AC:** lint принимает shared inheritance и блокирует некорректные preload ссылки.
+  **Regression/tests:** prompt-lint unit tests + baseline migration tests.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-19 (P1) Tools inventory v2: canonical/shared/shim + consumers matrix** `tools/tools_inventory.py`, `tests/test_tools_inventory.py`, `tests/repo_tools/ci-lint.sh`, `README.md`, `README.en.md`, `AGENTS.md`:
+  - расширить inventory классификацией: `canonical_stage`, `shared_skill`, `shim`, `core_api_deferred`;
+  - добавить consumer types (`agent`, `skill`, `hook`, `test`, `shim`) и флаг canonical replacement;
+  - использовать отчёт как guard against false "unused" during migration.
+  **AC:** inventory корректно показывает canonical/shared/shim состояние и прогресс миграции.
+  **Regression/tests:** tools inventory unit tests + CI consistency guard.
+  **Effort:** M
+  **Risk:** Medium
+
+### EPIC E — Agents, hooks, and docs convergence
+
+- [ ] **W96-20 (P1) Agent playbook migration to shared skills + stage scripts** `agents/*.md`, `skills/aidd-core/SKILL.md`, `skills/aidd-loop/SKILL.md`, `tests/repo_tools/lint-prompts.py`:
+  - перевести агентные prompts на shared skills как SoT, убрать дубли long-form runtime procedures;
+  - запретить прямые ссылки в агентах на stage-local `tools/<stage>.sh` (кроме deferred core APIs);
+  - обновить prompt-lint guardrails для этого правила.
+  **AC:** агенты используют shared skills/stage scripts и не ходят напрямую в stage-local tools paths.
+  **Regression/tests:** prompt-lint + agent prompt regression checks.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-21 (P1) Hook/docs path normalization (canonical + shim guidance)** `hooks/context_gc/pretooluse_guard.py`, `hooks/gate-tests.sh`, `hooks/gate-qa.sh`, `tools/gate_workflow.py`, `README.md`, `README.en.md`, `docs/legacy/commands/*.md`, `templates/aidd/docs/prompting/conventions.md`:
+  - нормализовать подсказки: canonical path = `skills/<stage>/scripts/*`, legacy path = compatibility shim;
+  - добавить dual-path hints на deprecation window;
+  - убрать stale references на устаревшие entrypoints без контекста.
+  **AC:** hooks/docs последовательно показывают canonical путь и явно помечают shim.
+  **Regression/tests:** docs lint + hook tests + shim regression.
   **Effort:** S
   **Risk:** Low
-  **Finding:** F-08
 
-- [ ] **W95-F2** `.gitignore`, `aidd_test_flow_prompt_ralph_script.txt`, `docs/examples/**`, `tests/*`:
-  - проверить использование ad-hoc prompt script;
-  - если не используется — удалить из repo и добавить ignore policy; если нужен — переместить в examples с metadata header;
-  - quick win: предотвратить повторное попадание ad-hoc артефактов в tracking.
-  **AC:** ad-hoc файл либо удалён и игнорируется, либо перенесён и документирован; dangling references отсутствуют.
+- [ ] **W96-22 (P1) Templates/docs per-stage layout + stage lexicon document** `templates/aidd/docs/stages/**`, `templates/aidd/docs/shared/stage-lexicon.md`, `templates/aidd/docs/tasklist/template.md`, `templates/aidd/docs/prd/template.md`, `templates/aidd/docs/plan/template.md`, `templates/aidd/docs/research/template.md`:
+  - ввести per-stage структуру шаблонов (`intent/inputs/outputs/checklist`) + shared docs (`artifacts`, `naming`, `lexicon`);
+  - устранить конфликт `review-spec` vs `review-plan/review-prd` в templates;
+  - разделить reference docs и generated outputs policy.
+  **AC:** template structure stage-oriented, naming deterministic, lexicon documented.
+  **Regression/tests:** template guards + smoke bootstrap validation.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W96-23 (P1) Gates/config alignment to SKILL-first docs/runtime paths** `templates/aidd/config/gates.json`, `tools/gate_workflow.py`, `tools/research_guard.py`, `tools/status.py`, `tools/index_sync.py`, `tests/test_gate_workflow.py`, `tests/test_gate_qa.py`:
+  - синхронизировать gates и runtime path expectations под canonical stage/shared script paths;
+  - выровнять expected artifacts по стадиям согласно обновлённым templates/docs;
+  - добавить regression checks на path drift.
+  **AC:** gates и runtime policy совпадают с новой SKILL-first структурой.
+  **Regression/tests:** gate unit/integration matrix + smoke workflow.
+  **Effort:** M
+  **Risk:** High
+
+### EPIC F — Deferred core APIs + carry-over hardening (former W97 included)
+
+- [ ] **W96-24 (P0) Deferred-core API freeze (wave-1 no-relocate)** `tools/init.sh`, `tools/research.sh`, `tools/tasks-derive.sh`, `tools/actions-apply.sh`, `tools/context-expand.sh`, `tests/test_init_aidd.py`, `tests/test_research_rlm_e2e.py`, `tests/test_tasks_derive.py`, `tests/test_context_expand.py`:
+  - закрепить перечисленные entrypoints как stable public API для wave-1;
+  - добавить contract snapshot tests (flags, exit codes, hints, compatibility);
+  - запретить silent relocation без shim/migration notes.
+  **AC:** deferred-core APIs стабильны и защищены contract tests/CI guards.
+  **Regression/tests:** API-specific unit/integration + smoke.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W96-25 (P1) Do-not-migrate guardrails in lint/inventory/CI** `tests/repo_tools/lint-prompts.py`, `tools/tools_inventory.py`, `tests/test_tools_inventory.py`, `tests/repo_tools/ci-lint.sh`, `AGENTS.md`, `README.md`, `README.en.md`:
+  - пометить deferred APIs как `core_api=true`, `migration_deferred=true` в inventory;
+  - добавить CI/lint блокировки на перенос без shim/compat note;
+  - синхронизировать policy docs.
+  **AC:** accidental relocation deferred-core APIs блокируется автоматически.
+  **Regression/tests:** inventory/lint tests + CI scenario checks.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W96-26 (P2) Phase-2 blueprint: deferred-core and review-shim removal windows** `AGENTS.md`, `CHANGELOG.md`, `docs/legacy/commands/*.md`, `tests/repo_tools/shim-regression.sh`:
+  - описать phase-2 roadmap: target canonical path, rollout order, rollback plan, explicit removal windows;
+  - включить отдельный план удаления review compatibility shims (`tools/review-pack.sh`, `tools/review-report.sh`, `tools/reviewer-tests.sh`);
+  - определить release criteria для финального удаления shim paths.
+  **AC:** есть согласованный phase-2 план с датируемыми критериями и rollback steps.
+  **Regression/tests:** n/a (design artifact), smoke/ci остаются зелёными.
+  **Effort:** S
+  **Risk:** Medium
+  **Carry-over:** W95-E4
+
+- [ ] **W96-27 (P1) Cleanup tracked ad-hoc prompt artifact** `aidd_test_flow_prompt_ralph_script.txt`, `.gitignore`, `docs/examples/**`, `CHANGELOG.md`, `README.md`, `README.en.md`:
+  - удалить ad-hoc файл из tracking или формализовать в `docs/examples/**` с metadata header;
+  - синхронизировать `.gitignore`, docs и release notes;
+  - убрать dangling references.
+  **AC:** ad-hoc artifact больше не нарушает repo hygiene и docs consistency.
+  **Regression/tests:** repo hygiene checks + grep guard on stale references.
   **Effort:** S
   **Risk:** Low
-  **Finding:** F-12
+  **Carry-over:** W95-F2
 
-- [ ] **W95-F3** `CHANGELOG.md`, `README.md`, `README.en.md`, `tools/init.py`, `tests/*`:
-  - синхронизировать документацию с реальными флагами/поведением init (`--detect-build-tools` и совместимость aliases при необходимости);
-  - добавить минимальную проверку, что docs/help не расходятся по ключевым флагам;
-  - quick win: устранить пользовательскую путаницу в onboarding CLI.
-  **AC:** docs и CLI help используют единый флаговый контракт; regression test фиксирует соответствие.
-  **Effort:** S
-  **Risk:** Low
-  **Finding:** F-13
+- [ ] **W96-28 (P1) Output-contract from diagnostic to gate policy input** `tools/output_contract.py`, `tools/loop_step.py`, `tools/gate_workflow.py`, `tools/stage_result.py`, `tests/test_output_contract.py`, `tests/test_loop_step.py`, `tests/test_gate_workflow.py`:
+  - перевести `output.contract.json` из warn-only диагностики в policy input (WARN/BLOCK по профилю);
+  - пробрасывать reason-code в stage_result/loop payload для budget/read-order/status mismatch;
+  - добавить matrix tests для `read_log_too_long`, `full_doc_without_missing_fields`, `read_order_*`, `status_mismatch_stage_result`.
+  **AC:** output-contract детерминированно влияет на gate/loop решения.
+  **Regression/tests:** output contract + gate workflow matrix tests.
+  **Effort:** M
+  **Risk:** High
+  **Carry-over:** W89.5-8
 
-## Wave 89 — Doc consolidation + Flow simplification (pack-first, меньше чтений, без anchors)
+- [ ] **W96-29 (P1) Non-blocking recovery for `review_pack_stale` when regeneration succeeds** `tools/loop_step.py`, `tools/loop_run.py`, `tools/review_pack.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/test_loop_semantics.py`:
+  - убрать hard-block на `review_pack_stale` для recoverable сценариев после успешной регенерации pack;
+  - оставить BLOCK только для невосстановимых состояний (`review_pack_missing` после retry, invalid schema);
+  - добавить telemetry в loop logs (`stale_recovered` vs `stale_blocked`).
+  **AC:** stale-pack recoverable path не останавливает loop-run, reason-codes остаются различимыми.
+  **Regression/tests:** loop-step/loop-run semantics tests for stale recovery.
+  **Effort:** M
+  **Risk:** Medium
+  **Carry-over:** W89.5-9
 
-_Статус: новый, приоритет 1. Цель — убрать дубли документации, сократить чтения, упростить runtime, сделать pack‑first единственным режимом._
-
-- [x] **W89-1** `templates/aidd/docs/architecture/**`, `templates/aidd/docs/**`, `templates/aidd/reports/context/template.context-pack.md`, `commands/*.md`, `agents/*.md`, `README*.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `backlog.md`:
-  - полностью удалить архитектурные документы и все упоминания архитектурного профиля;
-  - удалить `templates/aidd/docs/architecture/**`;
-  - убрать `arch_profile` из context pack шаблонов и любых “Paths”/References;
-  - обновить команды/агенты/доки, где фигурировали архитектурные пути.
-  **AC:** нет упоминаний `architecture`/`arch_profile` в docs/templates/commands/agents/README/AGENTS; проверки tools/CI покрываются W89-27.
-  **Deps:** -
-
-- [x] **W89-2** `templates/aidd/docs/anchors/*`, `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/conventions.md`, `commands/*.md`, `agents/*.md`, `tests/*`:
-  - удалить anchors как обязательный источник чтения;
-  - перенести stage‑specific правила в `conventions.md` (разделы по стадиям);
-  - удалить директорию `templates/aidd/docs/anchors/`;
-  - удалить `templates/aidd/conventions.md` и любые ссылки на этот файл;
-  - обновить ссылки в командах/агентах/доках и тестах.
-  **AC:** anchors не требуются и не читаются; stage‑специфика живёт в `conventions.md`; ссылки на anchors удалены; нет ссылок на `templates/aidd/conventions.md`.
-  **Deps:** W89-1
-
-- [x] **W89-3** `templates/aidd/ast-grep/**`, `templates/aidd/docs/**`, `commands/*.md`, `agents/*.md`, `README*.md`, `AGENTS.md`:
-  - полностью удалить все упоминания `ast-grep` (доки, шаблоны, тесты, пайплайны);
-  - удалить `templates/aidd/ast-grep/**` и любые связанные примеры/fixtures;
-  - обновить любые ссылки/инструкции, где `ast-grep` фигурировал как источник evidence.
-  **AC:** нет упоминаний `ast-grep` в docs/templates/commands/agents/README/AGENTS; удаление из tools/tests покрывается W89-29.
-  **Deps:** -
-
-- [x] **W89-4** `backlog.md`:
-  - удалить закрытые/исторические волны из `backlog.md` (без архивирования);
-  - оставить только активные и актуальные задачи.
-  **AC:** в `backlog.md` нет закрытых волн; файл содержит только активные/актуальные волны.
-  **Deps:** W89-1, W89-2, W89-3
-
-- [x] **W89-5** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/**/README.md`:
-  - runtime‑документация не содержит README: удалить все `templates/aidd/docs/**/README.md`;
-  - все runtime‑правила держать в `AGENTS.md`/`templates/aidd/AGENTS.md` + `templates/aidd/docs/prompting/conventions.md`;
-  - root `README.md`/`README.en.md` остаются human‑доками без agent‑policy.
-  **AC:** в `templates/aidd/docs/**` нет README файлов; runtime‑правила есть только в `AGENTS.md` и `docs/prompting/conventions.md`.
-  **Deps:** W89-1, W89-2, W89-3
-
-- [x] **W89-6** `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `tests/repo_tools/*`:
-  - использовать только `AGENTS.md` как runtime‑guidance (без `CLAUDE.md`);
-  - удалить любые упоминания `CLAUDE.md` из команд/агентов/доков/тестов;
-  - `aidd-init` не создаёт и не обновляет `CLAUDE.md`.
-  **AC:** в репозитории нет упоминаний `CLAUDE.md`; runtime‑правила описаны только через `AGENTS.md`.
-  **Deps:** W89-1, W89-5
-
-- [x] **W89-7** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/docs/prompting/examples/*`, `commands/*.md`, `agents/*.md`:
-  - Добавить few-shot “канонические примеры” (минимум 3) и закрепить их как эталон:
-    1) implementer: `READY|WARN` + `Tests` + `AIDD:READ_LOG` + ссылки на `aidd/reports/**`
-    2) reviewer: `REVISE` + findings + **Fix Plan** (структурированный) + ссылки
-    3) qa: `WARN` (soft missing evidence) + handoff + traceability
-  - Требования к примерам:
-    - укладываются в budgets (TL;DR/Blockers/NEXT_3 и т.п.);
-    - не содержат логов/диффов/стектрейсов, только ссылки;
-    - используют обязательные поля output‑контракта (из W88-11).
-  - В `conventions.md` добавить ссылку “смотри examples/* как эталон”.
-  **AC:**
-  - Примеры добавлены и явно указаны как эталон в каноне.
-  - Команды/агенты ссылаются на эти примеры (минимум в conventions.md).
-  **Deps:** W89-2, W88-11
-
-- [x] **W89-8** `README.md`, `README.en.md`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `commands/*.md`, `agents/*.md`, `templates/aidd/docs/**`:
-  - финальный sweep ссылок после консолидации + добавления examples:
-    - проверить, что все упоминания конвенций/examples ведут в канон;
-    - убедиться, что нигде не осталось путей на удалённые файлы;
-    - обновить краткие описания/линки.
-  **AC:** в документации нет устаревших путей; все упоминания ведут на канонические файлы; examples интегрированы ссылками.
-  **Deps:** W89-1, W89-2, W89-3, W89-4, W89-5, W89-6, W89-7
-
-- [x] **W89-9** `commands/*.md`, `agents/*.md`, `templates/aidd/docs/prompting/conventions.md`:
-  - зафиксировать pack‑first как единственную политику чтения;
-  - ввести read‑budget (1–3 файла) и правило “полный документ только при missing fields в pack”;
-  - добавить обязательный `AIDD:READ_LOG` в pack и отразить его как обязательный в output‑контракте.
-  **AC:** команды/агенты следуют pack‑first; read‑budget описан и используется в examples; `AIDD:READ_LOG` обязателен.
-
-- [x] **W89-10** `tools/context_pack.py`, `tools/context-pack.sh`, `templates/aidd/reports/context/template.context-pack.md`, `commands/*.md`:
-  - перейти на единый rolling pack `aidd/reports/context/<ticket>.pack.md`;
-  - включить поля `stage`, `agent`, `read_next`, `artefact_links`;
-  - удалить поддержку stage‑packs.
-  **AC:** rolling pack — единственный формат; stage‑packs отсутствуют.
-
-- [x] **W89-11** `tools/set_active_feature.py`, `tools/set_active_stage.py`, `tools/feature_ids.py`, `tools/index_sync.py`, `tools/status.py`:
-  - заменить `.active_*` на `aidd/docs/.active.json`;
-  - удалить поддержку старых `.active_*`.
-  **AC:** только один файл активных маркеров; фолбэков нет.
-
-- [x] **W89-12** `tools/tasklist_check.py`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`:
-  - кешировать hash tasklist (`aidd/.cache/tasklist.hash`);
-  - `tasklist-check` вызывается только при изменении hash или смене стадии.
-  **AC:** tasklist‑check пропускается при неизменённом tasklist.
-
-- [x] **W89-13** `hooks/context_gc/*.py`, `hooks/context-gc-*.sh`, `templates/aidd/config/context_gc.json`:
-  - добавить режим `light` по умолчанию;
-  - `pretooluse` запускается только при изменении `aidd/**`;
-  - env `AIDD_CONTEXT_GC=full|light|off`.
-  **AC:** pretooluse GC не выполняется на каждом tool call.
-
-- [x] **W89-14** `hooks/*.sh`, `hooks/hooks.json`, `tools/gates.py`, `templates/aidd/config/gates.json`:
-  - добавить fast‑hooks (`AIDD_HOOKS_MODE=fast`);
-  - `lint-deps` в fast‑mode → no‑op;
-  - тестовая политика стадий (implement/review/qa) остается обязательной и определяется W89-19.
-  **AC:** fast‑mode сокращает стоп‑хуки, не ослабляя обязательную политику тестов по стадиям.
-
-- [x] **W89-15** `tools/gate_workflow.py`, `tools/stage_result.py`, `hooks/gate-workflow.sh`, `templates/aidd/config/gates.json`:
-  - добавить `fast_mode` gating:
-    - allow implement при PRD+Tasklist READY без review‑spec (WARN);
-    - diff boundary OUT_OF_SCOPE → WARN + auto‑extend, BLOCKED только FORBIDDEN.
-  **AC:** fast‑mode отражается через `reason_code=fast_mode_warn` и в status_summary.
-
-- [x] **W89-16** `tests/*`, `tests/repo_tools/*`:
-  - обновить тесты под rolling pack, `.active.json`, отсутствие anchors, pack‑first policy;
-  - добавить регресcии для fast hooks и light context GC.
-  **AC:** CI проходит; тесты не ссылаются на anchors; pack‑first/rolling‑pack покрыт.
-
-- [x] **W89-17** `templates/aidd/**`, `commands/*.md`, `agents/*.md`, `AGENTS.md`:
-  - удалить любые fallback/legacy/migration‑инструкции из runtime‑доков и промптов;
-  - не оставлять ветки “если старые артефакты существуют” — обратная совместимость не поддерживается.
-  **AC:** `rg -n "(fallback|legacy|migration|compat|обратн.*совмест)" templates/aidd commands agents AGENTS.md` не находит совпадений.
-
-- [x] **W89-18** `templates/aidd/**`, `commands/*.md`, `agents/*.md`, `AGENTS.md`, `README*.md`, `tests/*`, `tools/*`:
-  - вычистить неактуальные/депрекейтнутые упоминания, артефакты и логику (deprecated, obsolete, removed, legacy и т.п.);
-  - удалить ссылки на несуществующие команды/агенты/артефакты;
-  - удалить “мертвые” секции в шаблонах, которые больше не используются в текущем флоу.
-  **AC:** `rg -n "(deprecated|obsolete|removed|legacy|unused|мертв|устарев)" templates/aidd commands agents AGENTS.md README* tests tools` не находит совпадений; нет ссылок на несуществующие артефакты.
-
-- [x] **W89-19** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `hooks/gate-qa.sh`, `tools/gates.py`, `templates/aidd/config/gates.json`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `agents/*.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/*`:
-  - упростить политику тестов по стадиям:
-    - **implement:** тесты запрещены (no tests); format-only допускается;
-    - **review:** только compile + точечные тесты по только что изменённому коду (targeted);
-    - **qa:** полный тестовый прогон (full);
-  - если QA тесты падают — обязательный возврат в цикл `implement → review → implement` до зелёного QA, даже если падение не связано с текущими изменениями;
-  - обновить гейты/хуки, чтобы enforce логика стадий и запретить “лишние” тесты вне своей стадии.
-  **AC:** implement не запускает тесты; review запускает только compile/targeted; qa запускает full; падение qa всегда приводит к возврату в implement/review loop.
-
-- [x] **W89-20** `hooks/hooks.json`, `hooks/*.sh`, `hooks/hooklib.py`, `tools/gates.py`, `templates/aidd/config/gates.json`, `tests/*`:
-  - выполнить stage‑scoped запуск стоп‑хуков:
-    - `gate-qa` только при `stage=qa` (или изменении `aidd/reports/qa/<ticket>.json`);
-    - `gate-tests` только при `stage=review|qa` или при code‑changes;
-    - `lint-deps` только при изменении зависимостей (allowlist файлов).
-  **AC:** Stop/SubagentStop не запускает лишние гейты вне своей стадии; документы/metadata не триггерят gate‑tests/lint‑deps; тесты обновлены.
-  **Deps:** W89-14
-
-- [x] **W89-21** `tools/gates.py`, `hooks/hooklib.py`, `templates/aidd/config/gates.json`, `AGENTS.md`, `templates/aidd/AGENTS.md`, `templates/aidd/docs/prompting/conventions.md`, `tests/*`:
-  - сделать fast‑mode значением по умолчанию при отсутствии `AIDD_HOOKS_MODE`;
-  - strict‑mode активируется только явным `AIDD_HOOKS_MODE=strict`.
-  **AC:** поведение без env соответствует fast‑mode; strict включается только явно; тесты фиксируют дефолт.
-  **Deps:** W89-14
-
-- [x] **W89-22** `tools/diff_boundary_check.py`, `tools/prd_check.py`, `tools/prd-check.sh`, `tools/diff-boundary-check.sh`, `tests/*`:
-  - добавить кеш‑skip для повторных проверок:
-    - `aidd/.cache/diff-boundary.hash` (diff/allowed_paths);
-    - `aidd/.cache/prd-check.hash` (PRD status + ключевые секции);
-  - при совпадении hash — skip с явным логом `reason_code=cache_hit`.
-  **AC:** повторные прогоны при неизменённом входе пропускаются; лог фиксирует cache‑hit; тесты покрывают.
-  **Deps:** W89-9
-
-- [x] **W89-23** `hooks/format-and-test.sh`, `hooks/gate-tests.sh`, `tools/gates.py`, `templates/aidd/config/gates.json`, `tests/*`:
-  - docs‑only shortcut:
-    - если изменения только в `aidd/**`/docs → `format-and-test` не запускается (полный no‑op);
-    - при запуске `gate-tests` и `tests_required=soft` → `WARN` (не `BLOCKED`).
-  **AC:** doc‑итерации не запускают тесты; при `tests_required=soft` нет блокировок; тесты обновлены.
-  **Deps:** W89-19
-
-- [x] **W89-24** `README.md`, `README.en.md`:
-  - обновить root README под pack‑first/rolling‑pack и fast‑hooks;
-  - убрать ссылки на удалённые артефакты (anchors/architecture/ast-grep) после W89-1/2/3/5/8;
-  - уточнить краткий быстрый старт (идея → research → plan → review-spec → tasklist → implement → review → qa) с упоминанием fast‑mode.
-  **AC:** README не содержит устаревших ссылок; pack‑first/fast‑mode явно описаны; quick‑start соответствует текущему флоу.
-  **Deps:** W89-1, W89-2, W89-3, W89-5, W89-8, W89-9, W89-10, W89-14
-
-- [x] **W89-25** `aidd_test_flow_prompt_ralph_script.txt`:
-  - синхронизировать скрипт тестового прогона с pack‑first/rolling‑pack, fast‑hooks и новой политикой тестов;
-  - удалить упоминания anchors/architecture/ast‑grep/context/targets (после W89-1/2/3/10);
-  - обновить список must‑read до минимального канона (AGENTS + prompting conventions + loop pack template + tasklist).
-  **AC:** скрипт не ссылается на удалённые артефакты; отражает rolling‑pack и fast‑mode; тест‑политика соответствует W89-19.
-  **Deps:** W89-1, W89-2, W89-3, W89-9, W89-10, W89-14, W89-19
-
-- [x] **W89-26** `tools/*.py`, `hooks/*.sh`, `hooks/context_gc/*.py`, `tests/*`, `tests/repo_tools/*`:
-  - провести ревью Python‑скриптов (tools/hooks) на соответствие новому флоу;
-  - убрать дубли, неиспользуемые ветки и legacy‑поддержку;
-  - упростить кодовые пути, минимизировать IO/чтения, но сохранить требования качества (gates/tests/outputs).
-  **AC:** удалены неиспользуемые/legacy‑ветки; hot‑path упрощён; поведение гейтов/тестов/выходов не деградирует; регрессии обновлены.
-  **Deps:** W89-1, W89-2, W89-3, W89-9, W89-10, W89-11, W89-14, W89-18, W89-19
-
-- [x] **W89-27** `tools/arch_profile_validate.py`, `tools/arch-profile-validate.sh`, `tools/init.py`, `tools/loop_pack.py`, `tests/repo_tools/ci-lint.sh`, `tests/*`:
-  - убрать все упоминания `architecture/profile.md` и `arch_profile` из tools/CI;
-  - удалить валидатор arch_profile и любые вызовы в CI;
-  - удалить поле `arch_profile` из loop pack front‑matter.
-  **AC:** нет ссылок на `arch_profile` в tools/CI/loop pack; `rg -n "arch_profile|architecture/profile" tools tests` пусто; тесты обновлены.
-  **Deps:** W89-1
-
-- [x] **W89-28** `tools/context_pack.py`, `tools/context-pack.sh`, `hooks/context_gc/working_set_builder.py`, `tools/prompt_template_sync.py`, `tests/*`:
-  - убрать anchor‑экстракцию и зависимости от `docs/anchors/**`;
-  - перевести context pack на template‑only/rolling pack;
-  - working‑set builder читает только rolling pack + tasklist summary.
-  **AC:** anchors не читаются; context pack строится только по шаблону; working‑set не читает PRD/Plan/Research целиком; тесты обновлены.
-  **Deps:** W89-2, W89-10
-
-- [x] **W89-29** `tools/research.py`, `tools/reports_pack.py`, `tools/tasks_derive.py`, `tools/ast_grep_scan.py`, `tools/gate_workflow.py`, `tests/*`:
-  - полностью удалить поддержку ast‑grep (scan/pack/derive/guards);
-  - убрать связанные предупреждения и INSTALL_HINT;
-  - обновить research/gates/tests под RLM‑only.
-  **AC:** ast‑grep не упоминается в tools; research/gates работают без ast‑grep; тесты обновлены.
-  **Deps:** W89-3
-
-- [x] **W89-30** `tools/stage_result.py`, `tools/tasklist_check.py`, `tools/index_sync.py`, `hooks/context_gc/working_set_builder.py`, `tests/*`:
-  - адаптировать проверки/summary под rolling pack (`aidd/reports/context/<ticket>.pack.md`) и новые поля (`stage/agent/read_next/artefact_links`);
-  - убрать зависимости от stage‑packs (`<ticket>.<stage>.pack.md`).
-  **AC:** stage‑packs не используются; stage_result/tasklist_check/index_sync читают rolling pack; тесты обновлены.
-  **Deps:** W89-10
-
-- [x] **W89-31** `tools/runtime.py`, `tools/loop_pack.py`, `tools/loop_step.py`, `tools/diff_boundary_check.py`, `tools/review_pack.py`, `hooks/hooklib.py`, `tests/*`:
-  - перейти на единый `aidd/docs/.active.json` (ticket/slug/stage/work_item);
-  - удалить поддержку `.active_ticket/.active_feature/.active_stage/.active_work_item`;
-  - обновить оставшиеся чтения/записи активных маркеров в tools/hooks (кроме core‑writer из W89-11).
-  **AC:** активные маркеры хранятся только в `.active.json`; старые файлы не читаются/не пишутся; тесты обновлены.
-  **Deps:** W89-11
-
-- [x] **W89-32** `hooks/context_gc/*.py`, `tools/reports/loader.py`, `tools/reports_pack.py`, `tests/*`:
-  - минимизировать I/O в context GC и reports loader:
-    - не читать PRD/Research/Plan целиком;
-    - использовать rolling pack и краткие excerpts из tasklist.
-  **AC:** контекст‑GC читает <=2 файла (pack + tasklist); нет чтений полноразмерных документов; тесты обновлены.
-  **Deps:** W89-9, W89-10, W89-13
-
-- [x] **W89-33** `commands/*.md`, `agents/*.md`, `templates/aidd/**`:
-  - провести вычитку команд/агентов/шаблонов от legacy‑логики и устаревших веток;
-  - убрать любые “если есть старые артефакты/фолбэки/миграции” из инструкций;
-  - сократить шаги до pack‑first/read‑budget/rolling‑pack и актуальных гейтов.
-  **AC:** в commands/agents/templates отсутствуют legacy‑ветки; инструкции краткие и соответствуют новому канону; тесты/линтеры промптов проходят.
-  **Deps:** W89-9, W89-10, W89-17, W89-18
-
-## Wave 89.5 — AIDD Flow Audit fixes (Ralph loop compliance + QA/tests)
-
-_Статус: новый, приоритет 1. Закрывает выявленные проблемы аудита флоу/loop-паков и тест‑evidence._
-
-- [ ] **W89.5-1** `tools/research_guard.py`, `tools/research.py`, `tools/reports_pack.py`, `tests/*`:
-  - при `rlm.require_links=true` и `links_total=0` (или entries=0) — выставлять WARN (не reviewed/ready), reason_code `rlm_links_empty_warn`;
-  - в research отчёте фиксировать отсутствие links и ссылаться на `*-rlm.links.stats.json`/pack;
-  - гейт не должен считать research “ready” при пустых links.
-  **AC:** пустые links → WARN + reason_code; research не может быть READY; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — `*-rlm.links.jsonl` пуст, но research помечен reviewed.
-  **Риск:** downstream стадии идут без RLM links‑evidence.
-
-- [ ] **W89.5-2** `agents/reviewer.md`, `commands/review.md`, `hooks/review-report.sh`, `tools/review_report.py`, `tests/*`:
-  - унифицировать вывод findings: reviewer пишет JSON (AIDD:WRITE_JSON), `review-report.sh` читает через `--findings-file`;
-  - гарантировать генерацию `review.latest.pack.md` и review report per scope_key;
-  - при REVISE обязателен `review.fix_plan.json` + ссылка в `stage_result.evidence_links.fix_plan_json`;
-  - при ошибке записи report/pack → явный BLOCKED (reason_code `review_report_write_failed`).
-  - если `review_pack_v2_required=true`, любой v1 pack → BLOCKED (reason_code `review_pack_v2_required`);
-  - findings с severity=blocking должны иметь `blocking=true`, `blocking_findings_count` корректен;
-  - reviewer marker `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json` всегда создаётся (включая handoff scope_key вроде `id_review_F*`).
-  **AC:** report + pack всегда создаются; REVISE всегда пишет fix_plan + ссылку; blocking_findings_count корректен; reviewer marker всегда есть для всех scope_key; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — отсутствуют `review.latest.pack.md` и `reviewer/<scope_key>.json`; loop‑run blocked `review_pack_missing`.
-  **Риск:** loop‑runner не продвигается после review, автолооп останавливается.
-
-- [ ] **W89.5-3** `tools/review_report.py`, `tools/stage_result.py`, `tests/*`:
-  - если `tests_required=soft|hard` и tests skipped/no‑evidence → review verdict `REVISE`/`BLOCKED` соответственно;
-  - reason_code должен отражать no-tests (`no_tests_soft|no_tests_hard`);
-  - `stage_result.evidence_links.tests_log` обязателен и указывает на tests log.
-  - нормализовать `scope_key`/`work_item_key` (не допускать `id_` вместо `iteration_id_`) и писать stage_result в корректный путь;
-  - stage_result обязателен для review и должен быть найден loop-run (иначе BLOCKED).
-  - WARN‑причины (например `review_context_pack_placeholder_warn`) не должны выставлять `result=blocked`; статус = WARN/REVISE с `result=continue`.
-  - `Status` в выводе review должен совпадать со `stage_result.result` (или `status-summary.sh`).
-  **AC:** soft → REVISE, hard → BLOCKED; reason_code корректный; tests_log всегда в evidence_links; WARN не превращается в blocked; stage_result путь корректен; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — кейсы `no_tests_soft|no_tests_hard` в прогоне не воспроизведены.
-  **Риск:** возможен повтор рассинхрона `Status` vs `stage_result` при пропуске тестов в review.
-
-- [ ] **W89.5-4** `tools/qa.py`, `tools/tasklist_parse.py` (или эквивалент), `tests/*`:
-  - извлекать `AIDD:TEST_EXECUTION` из tasklist и использовать как набор QA‑команд (если profile != none);
-  - расширить skip‑детекцию (RU/EN фразы) и всегда писать tests_log (run|skipped + reason_code);
-  - при skipped tests_summary не может быть `pass` (должно быть warn/skip).
-  - stage_result для QA обязателен (scope_key=ticket) и reason_code совпадает с QA report (`qa_blocked|qa_warn`).
-  - stage.qa.result `evidence_links` должны ссылаться на QA‑логи/qa report, а не loop-step.
-  **AC:** QA использует тест‑команды из tasklist; skipped корректно распознаётся; tests_summary корректен; tests_log обязателен; stage_result обязателен; qa evidence links корректные; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** PARTIAL — QA берёт команды из tasklist, но tests_log vs stdout расходятся; CWD тестов = `.../aidd`.
-  **Риск:** ложные BLOCKED/FAIL в QA, несоответствие evidence.
-
-- [x] **W89.5-5** `tools/context_pack.py`, `tools/context-pack.sh`, `commands/implement.md`, `commands/review.md`, `commands/qa.md`, `tests/*`:
-  - добавить CLI‑поля `read_next/what_to_do/artefact_links` и заполнение вместо placeholder‑строк;
-  - команды implement/review/qa передают значения из артефактов;
-  - если заполнить нельзя — выставлять WARN (placeholder не допускается молча).
-  - удалять шаблонную строку типа “Fill stage/agent/read_next/artefact_links…” при генерации context pack (или WARN, если осталась).
-  **AC:** rolling pack без placeholder‑строк; при missing values — WARN; шаблонная строка не попадает в pack; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** PASS — placeholder‑строк в context pack не обнаружено, read_next/artefact_links заполнены.
-
-- [x] **W89.5-6** `tools/loop_pack.py`, `tools/diff_boundary_check.py`, `tests/*`:
-  - если Boundaries пусты — fallback к Expected paths (tasklist), затем allowed_paths (rolling pack);
-  - при авто‑расширении выставлять WARN (`auto_boundary_extend_warn`), не BLOCKED.
-  - OUT_OF_SCOPE|NO_BOUNDARIES_DEFINED → WARN + reason_code `out_of_scope_warn|no_boundaries_defined_warn`;
-  - FORBIDDEN → BLOCKED (reason_code `forbidden`).
-  - если commands_required явно требует изменения существующего файла — включать его в allowed_paths (или фиксировать WARN с auto‑expand).
-  **AC:** loop pack всегда содержит границы; авто‑расширение даёт WARN; commands_required не конфликтует с boundaries; reason_code маппится корректно; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** PASS — auto_boundary_extend_warn выставляется, allowed_paths заполнены.
-
-- [x] **W89.5-7** `tools/tasklist_check.py`, `tests/*`:
-  - добавить проверку консистентности: progress log отмечен done, а checkbox `[ ]` не установлен;
-  - выводить WARN с указанием work_item_key (без авто‑фикса).
-  - проверять `AIDD:NEXT_3`: не включает итерации с незакрытыми deps (иначе WARN с указанием deps).
-  **AC:** несоответствие лог/checkbox даёт WARN; NEXT_3 не содержит unmet deps или выдаёт WARN; не происходит авто‑изменений; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** PASS (по проверке кода/тестов); в e2e прогоне конфликтов не возникало.
-
-- [ ] **W89.5-8** `tools/output_contract.py` (новый) или `tools/runtime.py`, `tests/*`:
-  - валидация output‑контракта для implement/review/qa (Status/Work item/Tests/AIDD:READ_LOG/Next actions);
-  - WARN при неполных полях, с reason_code `output_contract_warn`.
-  - enforce read‑budget: AIDD:READ_LOG максимум 1–3 файла, без полного PRD/Plan/Tasklist при наличии excerpt;
-  - enforce read order: implement/review читают `loop pack → review pack (если есть) → rolling pack → excerpt`, qa — rolling pack первым;
-  - Status в выводе должен совпадать со `stage_result` (иначе WARN).
-  - фиксировать WARN, если `AIDD:READ_LOG` содержит >3 файлов или включает full PRD/Plan/Spec/Tasklist без причины missing fields.
-  - `AIDD:READ_LOG` должен содержать только packs/excerpts (код/полные файлы — только при явной причине missing fields).
-  **AC:** неполный вывод детектируется как WARN; read‑budget violations фиксируются; read‑order violations фиксируются; Status/`stage_result` совпадают; excessive/full‑read фиксируется; read_log только packs/excerpts; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** FAIL — AIDD:READ_LOG содержит >3 файлов и raw‑paths, без WARN.
-  **Риск:** нарушения pack‑first проходят незамеченными.
-
-- [ ] **W89.5-9** `tools/loop_run.py` (или эквивалент), `tools/set_active_feature.py`, `tests/*`:
-  - после SHIP и при открытых итерациях loop‑runner обязан выбрать следующий work_item, обновить `aidd/docs/.active.json` (work_item/stage) и продолжить implement;
-  - завершение loop допустимо только если открытых итераций нет.
-  - если выбран следующий work_item — обязателен запуск implement и запись `stage.implement.result.json`; отсутствие файла → BUG + BLOCKED с понятным reason_code и runner_cmd.
-  - `review_pack_stale` не должен блокировать loop-run: перегенерировать pack или повторить review с корректным evidence_links.
-  **AC:** loop‑runner корректно продвигает active markers после SHIP; loop завершается только при отсутствии итераций; stage_result создаётся для следующего work_item или выдаётся BLOCKED с reason_code; review_pack_stale не блокирует loop-run; tests обновлены.
-  **Deps:** -
-  **Статус (audit 2026-02-05):** НЕ ПОДТВЕРЖДЕНО — loop‑run блокируется раньше (review_pack_missing).
-  **Риск:** автоматический прогон не достигает SHIP/next work_item; stream jsonl пустой.
+- [ ] **W96-30 (P1) SKILL-first wrapper contract hardening in loop/gates** `tools/loop_step.py`, `tools/loop_run.py`, `tools/gate_workflow.py`, `skills/implement/scripts/preflight.sh`, `skills/review/scripts/preflight.sh`, `skills/qa/scripts/preflight.sh`, `tests/test_gate_workflow_preflight_contract.py`, `tests/test_loop_step.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - зафиксировать always-on wrapper contract для `implement|review|qa` в seed и loop-path (preflight/readmap/writemap/actions/logs);
+  - убрать false-success paths без обязательных артефактов и `AIDD:ACTIONS_LOG`;
+  - улучшить BLOCKED diagnostics (`reason`, `reason_code`, `stage_result_path`, wrapper logs).
+  **AC:** stage success невозможен без wrapper contract; diagnostics полные и детерминированные.
+  **Regression/tests:** gate/loop integration + smoke workflow.
+  **Effort:** M
+  **Risk:** High
 
 ## Wave 90 — Research RLM-only (без context/targets, только AIDD:RESEARCH_HINTS)
 
@@ -685,516 +353,6 @@ _Статус: новый, приоритет 1. Обратная совмест
   - обновить smoke‑workflow под RLM‑only.
   **AC:** тесты проходят в режиме RLM‑only; отсутствуют упоминания `*-context*` в тестах.
   **Deps:** W90-1, W90-2, W90-3, W90-4, W90-5
-
-## Wave 91 — Skill‑first prompts (канон в skills, короткие entrypoints)
-
-_Статус: новый, приоритет 1. Цель — вынести канон из команд/агентов в skills, сократить промпты и перевести stage entrypoints на skills._
-
-- [x] **W91-0 (добавить)** Language decision record
-  - зафиксировать в одном документе (например, `docs/skill-language.md` или `README.en.md`):
-    - `skills/aidd-core`, `skills/aidd-loop`, `skills/<stage>` пишутся на **EN**;
-    - user-facing README/шаблоны могут быть RU, без дублирования исполняемых алгоритмов.
-  **AC:** есть единый источник истины по языку; правило применяется в W91-1/W91-3.
-  **Deps:** —
-
-- [x] **W91-1** `skills/aidd-core/**`, `skills/aidd-loop/**`, `skills/aidd-reference/**` (опц.)
-  - создать `skills/aidd-core/SKILL.md`:
-    - pack-first/read-budget как политика по умолчанию;
-    - `AIDD:READ_LOG` как обязательный output;
-    - output‑контракт (Status/Work item key/Artifacts updated/Tests/Blockers/Next actions);
-    - DocOps policy (v1, stage‑scoped):
-      - loop‑stages (implement/review/qa/status): **запрет** прямого Edit/Write для `aidd/docs/tasklist/**` и `aidd/reports/context/**` (опц. `aidd/docs/.active.json`); LLM пишет только actions/intents;
-      - planning‑stages (idea/research/plan/tasks/spec): разрешён прямой Edit/Write для создания/крупных правок; структурные секции (progress/iterations/next3) — через DocOps или не трогать в planning;
-    - добавить обязательное поле ответа `AIDD:ACTIONS_LOG: <path>` (обязателен для loop‑stages, `n/a` допустим для planning‑stages);
-    - формат вопросов к пользователю;
-    - запрет на правку `aidd/docs/.active.json` саб‑агентами;
-  - создать `skills/aidd-loop/SKILL.md`:
-    - loop discipline, REVISE/out-of-scope, test policy;
-  - длинные справочники вынести в **non‑preloaded** `skills/aidd-reference/**` или docs;
-  - supporting files только 1 уровень глубины (SKILL → DETAILS/REFERENCE, без цепочек), допускаются подпапки `scripts/`, `examples/`, `assets/` (опц.);
-  - frontmatter:
-    - `name` (совпадает с именем skill);
-    - у preloaded skills `description` ≤ 1–2 строки;
-    - `user-invocable: false` для core/loop/reference;
-    - для core/loop **не** ставить `disable-model-invocation: true` (preload обеспечивает доступ).
-  **AC:**
-  - `skills/aidd-core` и `skills/aidd-loop` существуют;
-  - core/loop содержат DocOps policy + `AIDD:ACTIONS_LOG` в контракте;
-  - `SKILL.md` ≤ 250–300 строк;
-  - общий размер директории preloaded‑skill ограничен (например ≤ 60KB или ≤ 400 строк суммарно);
-  - supporting files не глубже 1 уровня;
-  - reference вынесен отдельно и не preload’ится.
-  **Deps:** —
-
-- [x] **W91-2** `agents/*.md`
-  - добавить preload skills:
-    - минимум `feature-dev-aidd:aidd-core`;
-    - для loop‑агентов ещё `feature-dev-aidd:aidd-loop` (только implement/review/qa);
-  - удалить дубли канона из агентов, оставить только роль/стадия‑специфику;
-  - оставить “якорь”: `Output follows aidd-core skill`.
-  **AC:**
-  - все агенты preload’ят core/loop по роли;
-  - повторяющиеся блоки удалены;
-  - добавлен smoke‑чек “skills реально подхватились” (через compiled‑prompt check или анализ frontmatter `skills:`).
-  **Deps:** W91-1
-
-- [x] **W91-7 (рекомендуется)** Language policy enforcement
-  - добавить мини‑checklist “как писать EN skills” (коротко, imperative, без воды);
-  - проверить, что core/loop/stage skills соответствуют EN‑политике из W91‑0.
-  **AC:** политика языка соблюдается и зафиксирована в docs/linters.
-  **Deps:** W91-0, W91-3
-
-- [x] **W91-3.0** Frontmatter parity baseline (commands → skills)
-  - сделать baseline‑отчёт (md+json), фиксирующий для каждого stage:
-    - `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`, `argument-hint`;
-    - связь “legacy command → stage skill”.
-  - хранить как артефакт (например, `dev/reports/migrations/commands_to_skills_frontmatter.{md,json}`).
-  **AC:** baseline существует и используется для паритетной проверки frontmatter.
-  **Deps:** W91-0
-
-- [x] **W91-3** `skills/<stage>/**`
-  - создать stage skills: `aidd-init`, `idea-new`, `researcher`, `plan-new`, `review-spec`, `spec-interview`, `tasks-new`, `implement`, `review`, `qa`, `status`;
-  - “исполняемый алгоритм” в `SKILL.md` (коротко), детали в `DETAILS.md`/`CHECKLIST.md`;
-  - frontmatter (минимальный стандарт):
-    - `name` (совпадает с именем stage);
-    - `description` 1–2 строки;
-    - `argument-hint`;
-    - `allowed-tools`, `model: inherit`, `prompt_version`, `source_version`, `lang` — паритет с legacy commands (skills = источник истины);
-    - `disable-model-invocation: true` для side-effects (init/idea/research/plan/review-spec/spec-interview/tasks/implement/review/qa);
-    - для `status` оставить `disable-model-invocation: false`;
-    - `context: fork` + `agent: <role>` только для single‑executor стадий: `idea-new`, `researcher`, `tasks-new`, `implement`, `review`, `qa`; оркестраторы остаются в main context;
-    - `user-invocable: true` для stage skills, `false` для core/loop/reference.
-  - implement/review/qa обязаны ссылаться на `scripts/preflight.sh` и `scripts/postflight.sh`; для остальных стадий — recommended по мере миграции.
-  - implement/review/qa обязаны содержать шаг “Fill actions.json”: заполнить `.../<stage>.actions.json` по шаблону и провалидировать schema перед postflight.
-  **AC:**
-  - каждый stage имеет `skills/<stage>/SKILL.md` ≤ 250–400 строк;
-  - side-effect skills помечены `disable-model-invocation: true`;
-  - `context: fork` выставлен для: `idea-new`, `researcher`, `tasks-new`, `implement`, `review`, `qa`;
-  - нет больших канон‑дублей в stage skills (только ссылки “следуем aidd-core/aidd-loop”).
-  **Deps:** W91-0, W91-1, W91-2, W91-3.0
-
-- [x] **W91-3.1** `commands/`, `docs/legacy/commands/`
-  - устранить источники дублей:
-    - `commands/` либо удалён/переименован, либо очищен от stage entrypoints;
-    - legacy команды (если нужны) перенести в `docs/legacy/commands/` (без автосканирования).
-  **AC:** каждый `/feature-dev-aidd:<stage>` определяется ровно один раз (skill‑first); CI/линт ловит дубли имён между skills и commands.
-  **Deps:** W91-3
-
-- [x] **W91-4** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
-  - проверить `plugin.json`: если skills лежат в стандартной директории `skills/`, не добавлять лишнего; иначе явно указать пути;
-  - обновить entrypoints так, чтобы источником правды были skills;
-  - обновить версию/CHANGELOG при user‑facing изменениях; marketplace.json — при публикации/релизе.
-  **AC:** plugin.json валиден; skills подхватываются; нет конфликтов/дублей; версии/CHANGELOG синхронизированы при релизе.
-  **Deps:** W91-3.1
-
-- [x] **W91-5** `tests/repo_tools/*`, `tools/prompt_template_sync.py`, `tests/test_gate_workflow.py`
-  - обновить lint/regression под `skills/**`;
-  - добавить guards:
-    - `SKILL.md ≤ N lines`;
-    - общий размер preloaded skill‑директории ≤ лимита;
-    - supporting files ≤ 1 уровень глубины (разрешены `scripts/`, `examples/`, `assets/`);
-    - `disable-model-invocation` корректен для side-effects; core/loop без `disable-model-invocation: true`;
-    - обязательные frontmatter поля, включая `name`, `allowed-tools`, `model`, `prompt_version`, `source_version`, `lang`.
-    - agent/skill parity guard:
-      - собрать `agent_ids` из `agents/*.md` (`name:` фронтматтера);
-      - если `context: fork` → `agent:` обязателен и входит в `agent_ids`;
-      - `context: fork` разрешён только для whitelist стадий (idea-new, researcher, tasks-new, implement, review, qa).
-  - добавить тест на отсутствие stage‑entrypoints в `commands/`.
-  - зафиксировать entrypoints‑bundle как derived‑артефакт:
-    - SoT: `.claude-plugin/plugin.json` + `skills/**/SKILL.md`;
-    - генератор: `tools/entrypoints_bundle.py`;
-    - `tools/entrypoints-bundle.txt` пересобирается и проверяется в CI (diff‑guard).
-  **AC:** `ci-lint.sh` проходит; guards работают; тест “нет stage commands” проходит.
-  **Deps:** W91-4
-
-- [x] **W91-6** `templates/aidd/docs/prompting/conventions.md`, `templates/aidd/AGENTS.md`, `README*.md`, `aidd_test_flow_prompt_ralph_script.txt`
-  - переписать доки в стиле “skill‑first”: вместо дублей — ссылки на `skills/aidd-core` и `skills/aidd-loop`;
-  - smoke‑workflow: bootstrap (`/feature-dev-aidd:aidd-init`) и минимальный loop (tasks → implement → review → qa).
-  **AC:** шаблоны/README отражают skill‑first; bootstrap + smoke проходят.
-  **Deps:** W91-5
-
-## Wave 92 — Skill‑local scripts + tool proximity
-
-_Статус: новый, приоритет 2. Цель — приблизить исполняемую логику к skills без поломки runtime, сделать wrapper‑интерфейс единым и переносить stage‑специфичные скрипты через shims._
-
-- [x] **W92-0 (добавить)** Wrapper contract (единый интерфейс)
-  - определить стандарт вызова для wrapper’ов:
-    - вход: `--ticket`, `--scope-key`, `--work-item-key`, `--stage` (или чтение из `.active.json`, но аргументы приоритетнее);
-    - вход: `--actions <path>` (actions/intents файл);
-    - canonical path для actions:
-      - template: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.template.json`
-      - actual: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.json`
-      - apply log: `aidd/reports/actions/<ticket>/<scope_key>/<stage>.apply.jsonl` (или `.log`)
-    - если `--actions` не задан → вычислить canonical path и вывести его в stdout (`actions_path=...`);
-    - логи: `aidd/reports/logs/<stage>/<ticket>/<scope_key>/...`;
-    - stderr: только важные summary/ошибки;
-    - exit code: строго 0/!=0.
-  - путь к assets: использовать `${CLAUDE_PLUGIN_ROOT}`; запрещены `../` вне корня плагина;
-  - артефакты/логи пишутся в workspace (`aidd/reports/**`), не в plugin root.
-  - прямые правки tasklist/context pack запрещены: только DocOps‑скрипты.
-  - добавить `templates/aidd/reports/actions/.gitkeep` (+ опц. README).
-  **AC:** есть короткий `skills/aidd-reference/wrapper_contract.md` (non-preloaded) + линтер это проверяет.
-  **Deps:** W91-1
-
-- [x] **W92-0.1 (добавить)** Actions format v0 (минимальный)
-  - определить минимальный формат `aidd.actions.v0`:
-    - `schema_version`, `stage`, `ticket`, `scope_key`, `work_item_key`, `actions: []`;
-    - базовые types для DocOps (`tasklist_ops.*`, `context_pack_update`).
-  - добавить лёгкий валидатор v0 в tools (без полной registry/readmap).
-  **AC:** actions v0 валиден; W92‑1 может создавать `actions.template` без зависимости от W93 schemas.
-  **Deps:** W91-1
-
-- [x] **W92-1** `skills/<stage>/scripts/*`
-  - инвентаризировать `tools/*.sh` и их вызовы (commands/agents/hooks/tests) → отчёт `aidd/reports/tools/tools-inventory.{md,json}` (script → consumers);
-  - добавить генератор отчёта (например, `tools/tools-inventory.py` + `.sh` wrapper);
-  - добавить `templates/aidd/reports/tools/.gitkeep` для каталога отчётов;
-  - для stage‑локальных шагов создать wrapper‑скрипты в `skills/<stage>/scripts/` (preflight/postflight/bundle);
-  - в `skills/<stage>/SKILL.md` ссылаться на wrapper’ы вместо длинных списков tool‑вызовов.
-  **AC:**
-  - у implement/review/qa есть wrapper’ы минимум: `preflight.sh`, `run.sh`, `postflight.sh`;
-  - SKILL.md короче и ссылается на scripts;
-  - preflight создаёт `.../<stage>.actions.template.json` (пустой, валидный по v0);
-  - run.sh/skill‑шаг заполняет `.../<stage>.actions.json` из template (или оставляет валидно пустым) и валидирует schema;
-  - postflight применяет actions через DocOps и обновляет документы;
-  - postflight пишет apply log `.../<stage>.apply.jsonl`;
-  - postflight идемпотентен (повторный запуск не дублирует записи/задачи);
-  - wrapper’ы пишут большие выводы в `aidd/reports/**`;
-  - wrapper’ы пишут лог в `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.<name>.<timestamp>.log` и печатают в stdout только путь+summary.
-  **Deps:** W91-3
-
-- [x] **W92-2** `tools/*.sh`
-  - определить переносимые скрипты по критериям:
-    - используется только одним stage;
-    - не вызывается из hooks/tests;
-    - не является shared tooling по смыслу (оставлять общие инструменты в `tools/`).
-  - перенесённым оставить shim в `tools/` (проксирование в новый путь) до полной миграции ссылок;
-  - shim‑контракт:
-    - `exec` 1:1;
-    - сохраняет exit‑code;
-    - deprecation‑notice в stderr;
-  - обновить ссылки в skills/agents на `${CLAUDE_PLUGIN_ROOT}/skills/<stage>/scripts/...`.
-  **AC:**
-  - переносимые tool‑скрипты имеют shims;
-  - нет разрыва совместимости;
-  - миграция ссылок идёт поэтапно (можно катить небольшими PR).
-  **Deps:** W92-1
-
-- [x] **W92-3** `tests/repo_tools/*`
-  - guards для `skills/<stage>/scripts/*`:
-    - `.sh` обязаны иметь `set -euo pipefail`;
-    - stdout ≤ 200 lines или ≤ 50KB; всё большее — только в `aidd/reports/**` с коротким tail;
-    - stderr ≤ 50 lines (summary/errors);
-    - каждый скрипт упомянут в `SKILL.md` или `DETAILS.md`;
-    - запрет тяжёлых бинарей/данных в `skills/**`;
-    - соответствие wrapper contract из W92-0.
-    - `#!/usr/bin/env bash` + executable bit для `.sh`.
-  **AC:** ci‑lint ловит нарушения; stage skills со scripts проходят guards.
-  **Deps:** W92-0, W92-1
-
-- [x] **W92-4** `hooks/hooks.json`, `tests/*`
-  - правило: hooks/CI используют только `tools/*` (или shims), не `skills/**`;
-  - проверить, что hooks/CI продолжают ссылаться на `tools/*` (или на shims) без изменения поведения;
-  - регрессия: hooks не обращаются напрямую к `skills/**`;
-  - регрессия shim‑совместимости (старый путь работает, новый тоже).
-  **AC:** hooks работают без изменений; регрессии подтверждают проксирование.
-  **Deps:** W92-2
-
-- [x] **W92-5** docs
-  - правило: “stage‑локальные скрипты живут в `skills/<stage>/scripts/`; shared tooling остаётся в `tools/`”;
-  - формат wrapper‑скриптов и правила вывода в `aidd/reports/**`.
-  **AC:** документация отражает структуру; нет конфликтов с W91.
-  **Deps:** W92-3
-
-- [x] **W92-6 (добавить)** DocOps toolkit v1 (механические операции)
-  - реализовать детерминированные операции над AIDD md‑доками (shared tooling в `tools/`):
-    - минимально для implement/review/qa: `tasklist_ops.set_iteration_done`, `tasklist_ops.append_progress_log`, `tasklist_ops.next3_recompute`;
-    - `context_pack_ops.context_pack_update`;
-    - расширения (handoff_add/frontmatter_set/md_patch) — позже отдельным шагом.
-  - wrappers `postflight.sh` используют DocOps вместо прямого Edit;
-  - операции валидируются (ошибка schema → stage BLOCKED).
-  **AC:** implement/review/qa postflight обновляет tasklist/context pack без LLM Edit; операции идемпотентны.
-  **Deps:** W92-1
-
-## Wave 93 — Context discipline 2.0: preflight stage + read/write contracts + progressive disclosure + DAG‑готовность
-
-_Статус: выполнено. Цель — формализовать чтение/запись и контекст, сделать preflight обязательным и подготовить систему к DAG/параллелизму._
-
-- [x] **W93-0 (добавить)** Schemas: readmap/contract/preflight result
-  - определить схемы:
-    - `aidd.skill_contract.v1.json` (или YAML schema);
-    - `aidd.readmap.v1.json`;
-    - `aidd.stage_result.preflight.v1.json` (или расширение текущего stage_result).
-    - `aidd.actions.v1.json`;
-    - `aidd.writemap.v1.json`.
-  - разместить схемы в `tools/schemas/aidd/` (канон); при необходимости создать каталог.
-  - legacy schemas (v0) тоже живут в `tools/schemas/aidd/` (например `aidd.actions.v0.schema.json`); валидатор сообщает supported versions.
-  - валидатор проверяет schema-version и required поля; CI падает на несовпадении.
-  **AC:** схемы существуют; валидатор гоняется в CI.
-  **Deps:** W91-3
-
-- [x] **W93-1** Skill Contract Registry (skill ↔ script ↔ reads/writes)
-  - ввести machine‑readable контракт для каждого stage skill:
-    - `skills/<stage>/CONTRACT.yaml` (или централизованный `aidd/config/skills.registry.yaml`);
-  - поля (минимум):
-    - `skill_id`, `stage`, `entrypoints` (wrapper scripts);
-    - `reads.required`, `reads.optional` (предпочтительно block‑address: `path.md#AIDD:SECTION`);
-    - `writes` (файлы/паттерны);
-    - `writes.blocks` (block‑addresses);
-    - `writes.via.docops_only: true|false`;
-    - `outputs` (артефакты стадий);
-    - `gates.before/after` (какие проверки обязательны);
-    - `context_budget` (max files/max bytes);
-    - `actions.schema: aidd.actions.v1`;
-    - `actions.required: true|false`.
-  - добавить валидатор `tools/skill_contract_validate.py` + CI‑guard.
-  **AC:**
-  - у implement/review/qa есть CONTRACT;
-  - валидатор гоняется в CI;
-  - contracts становятся источником правды для preflight + hooks.
-  **Deps:** W93-0, W91-3, W92-1
-
-- [x] **W93-2** Block addressing + “slice tool” (чтение строго по блокам)
-  - формализовать адресацию блоков:
-    - `path.md#AIDD:SECTION_NAME` (для `## AIDD:` заголовков);
-    - `path.md@handoff:<id>` (для marker‑блоков `<!-- handoff:* -->`);
-  - сделать утилиту `tools/md_slice.py` или `tools/md_slice.sh`:
-    - извлекает блок по адресу;
-    - пишет результат в `aidd/reports/context/slices/...`;
-    - возвращает короткий stdout (путь + краткий summary).
-  - добавить `tools/md_patch.py` (write‑by‑block) для DocOps.
-  - обновить `aidd-core` skill: “читать через slice tool, полный Read — только если slice недостаточен”.
-  **AC:**
-  - slice tool покрывает оба типа блоков;
-  - implement/review используют slice как default;
-  - есть тесты на корректность извлечения.
-  **Deps:** W91-1
-
-- [x] **W93-3** Mandatory preflight перед implement/review/qa
-  - расширить wrapper’ы `skills/implement/scripts/preflight.sh` (и аналогично review/qa), чтобы preflight:
-    1) генерил/обновлял `loop.pack.md` (+ `review.latest.pack.md` если есть);
-    2) генерил READ MAP: `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`:
-       - required reads (packs + ключевые блоки);
-       - optional reads;
-       - бюджет (max_files/max_bytes);
-       - “если не хватает — делай context-expand”;
-    3) генерил WRITE MAP: `aidd/reports/context/<ticket>/<scope_key>.writemap.{md,json}`;
-    4) генерил `.../<stage>.actions.template.json` (пустой, валидный, со списком допустимых action types);
-    5) генерил “working set” (опционально);
-    6) писал `stage.preflight.result.json` (отдельный stage_result).
-  - изменить stage skills implement/review/qa: первый шаг = запуск preflight wrapper.
-  **AC:**
-  - preflight всегда создаёт readmap;
-  - preflight всегда создаёт writemap + actions template;
-  - implement/review/qa начинают с readmap + pack, а не “сканируют репо”;
-  - preflight может упасть “раньше” с понятным BLOCKED.
-  **Deps:** W92-0, W92-1, W92-0.1, W93-0, W93-1, W93-2
-
-- [x] **W93-4** Progressive disclosure: controlled context expansion
-  - добавить механизм “расширить контекст” как явное действие:
-    - либо отдельный skill `/feature-dev-aidd:context-expand` (с `disable-model-invocation: true`);
-    - либо wrapper `skills/aidd-core/scripts/context_expand.sh`;
-  - поведение:
-    - принимает запрос: `path + reason_code + reason`;
-    - дописывает в readmap и/или writemap;
-    - по умолчанию расширяет только readmap; расширение writemap/boundaries — отдельный флаг/режим с audit trail;
-    - регенерит pack.
-  **AC:**
-  - любое расширение контекста оставляет след: reason_code + запись в отчёт;
-  - implement/review не делают “тихий full-read”, а требуют expansion step.
-  **Deps:** W93-3
-
-- [x] **W93-5** Hard/Soft enforcement через hooks (по AIDD_HOOKS_MODE)
-  - расширить guard, чтобы в implement/review/qa:
-    - в `fast` режиме: warn/ask при чтении вне readmap/allowed_paths;
-    - в `strict` режиме: deny чтение/правки вне readmap/allowed_paths.
-  - расширить enforcement на **запись**:
-    - `strict`: deny Edit/Write для `aidd/docs/tasklist/**` и `aidd/reports/context/**`, allow только `aidd/reports/actions/**` + DocOps;
-    - `fast`: warn + ссылка на DocOps/context-expand write.
-  - применение строгого enforcement только для loop‑стадий; planning‑стадии — allow по writemap (или отдельный режим).
-  - allowlist по стадиям:
-    - planning‑stages: PRD/Plan/Spec/Tasklist — allow по writemap/contract;
-    - loop‑stages: прямой Edit/Write tasklist/context pack запрещён (только DocOps/actions).
-  - источник истины: `readmap.json` + `writemap.json` + loop pack `allowed_paths`; `aidd/reports/**` и `aidd/reports/actions/**` всегда allow.
-  **AC:**
-  - в strict реально нельзя “случайно” читать левое;
-  - в fast есть заметный warning + ссылка на context-expand.
-  **Deps:** W92-6, W93-3, W93-4
-
-- [x] **W93-6 (опционально, но полезно)** DAG export для параллелизма и “нод”
-  - сделать `tools/dag_export.py`:
-    - строит DAG по work_item’ам/loop (узлы: preflight → implement → review → qa);
-    - в каждый узел кладёт `scope_key`, `allowed_paths`, `readmap`, `writemap`;
-    - эвристика конфликтов: пересечение `writemap.allowed_paths` (или loop pack `allowed_paths` до появления writemap) = “не параллелить”.
-  - сохранять `aidd/reports/dag/<ticket>.{json,md}`.
-  **AC:**
-  - есть машинный DAG для ticket;
-  - можно в будущем подключить оркестратор/параллельный раннер.
-  **Deps:** W93-1, W93-3
-
-## Wave 94 — Runtime stabilization & determinism after W91–W93
-
-_Статус: новый, приоритет 0. Цель — закрыть дефекты runtime, выявленные e2e/audit: slug pollution, scope mismatch в loop-run, отсутствующие W92/W93 runtime-артефакты, marker/gate policy mismatch и QA cwd._
-
-- [x] **W94-1 (P0)** `.active.json.work_item`: стабилизировать контракт iteration-key
-  - проверить все writer-пути активного состояния: `tools/runtime.py`, `tools/review_report.py`, `tools/reviewer_tests.py`, `tools/loop_step.py`, `tools/set_active_stage.py`, `tools/set_active_feature.py`;
-  - для loop-стадий (`implement|review`) хранить в `aidd/docs/.active.json.work_item` только `iteration_id=<I#>` (или `null`), не `id=review:*`;
-  - если нужен report id, хранить отдельно (`last_review_report_id`) без влияния на loop scope resolution.
-  **AC:**
-  - после `review` поле `work_item` остаётся `iteration_id=I<N>`;
-  - happy path не порождает `id_review_review-report-*` scope в loop-run;
-  - `find aidd/reports/tests/<ticket> -name "id_review_*"` пуст в happy path (или строго legacy-only, задокументировано).
-  **Regression/Tests:**
-  - unit: валидатор `work_item` (allowlist pattern);
-  - integration: инъекция `id=review:*` в `.active.json` + проверка поведения `loop-step` (normalize/explicit block с `invalid_work_item_key`).
-  **Deps:** -
-
-- [x] **W94-2 (P0)** loop-run/loop-step: scope из `stage_result` как source-of-truth
-  - обновить `tools/loop_run.py`, `tools/loop_step.py`:
-    - после stage-команды брать фактический `stage.<stage>.result.json` из `aidd/reports/loops/<ticket>/**` по `updated_at`/mtime в окне запуска;
-    - при mismatch (`chosen_scope_key != stage_result.scope_key`) писать `scope_key_mismatch_warn` и продолжать по canonical scope из `stage_result`;
-    - `tests_log` резолвить из `stage_result.evidence_links.tests_log` при наличии.
-  **AC:**
-  - при mismatch loop-run не падает в `stage_result_missing_or_invalid` без диагностики;
-  - в loop logs есть явный факт mismatch + canonical scope.
-  **Regression/Tests:**
-  - integration fixture: mismatch (`chosen_scope_key` ≠ фактический `stage_result.scope_key`) -> recovery path.
-  **Deps:** W94-1
-
-- [x] **W94-3 (P0)** W92/W93 runtime wiring: обязательный preflight/readmap/writemap/actions
-  - включить детерминированную оркестрацию wrapper-цепочки для loop stages (`implement|review|qa`) в `tools/loop_step.py`:
-    - `skills/<stage>/scripts/preflight.sh` -> stage command -> `skills/<stage>/scripts/run.sh` -> `skills/<stage>/scripts/postflight.sh`;
-  - в `tools/gate_workflow.py` добавить enforcement для `SKILL_FIRST`:
-    - block при отсутствии `stage.preflight.result.json`, readmap/writemap, `actions.template`;
-    - режимно (`fast|strict`) эскалировать отсутствие `actions.json`/`AIDD:ACTIONS_LOG`.
-  **AC:**
-  - после каждого loop stage создаются:
-    - `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.template.json`,
-    - `aidd/reports/actions/<ticket>/<scope_key>/<stage>.actions.json`,
-    - `aidd/reports/context/<ticket>/<scope_key>.readmap.{md,json}`,
-    - `aidd/reports/context/<ticket>/<scope_key>.writemap.{md,json}`,
-    - `aidd/reports/loops/<ticket>/<scope_key>/stage.preflight.result.json`,
-    - `aidd/reports/logs/<stage>/<ticket>/<scope_key>/wrapper.*.log`;
-  - output-contract для loop stages содержит `AIDD:ACTIONS_LOG`.
-  **Regression/Tests:**
-  - unit/integration на наличие обязательных артефактов;
-  - smoke: минимум один loop step в `SKILL_FIRST` с проверкой preflight/docops артефактов.
-  **Deps:** W94-2
-
-- [x] **W94-4 (P1)** reviewer marker semantics: `tests=not-required` отключает `no_tests_soft`
-  - в resolver (review stage / gate-workflow) закрепить:
-    - marker `tests: not-required` => requirement `none`;
-    - `tests_log: skipped` считается валидным evidence;
-    - reason-code `no_tests_soft` не должен выставляться.
-  **AC:**
-  - `stage.review.result.json` при marker `not-required` не содержит `reason_code=no_tests_soft`;
-  - loop-run не пишет `tests evidence required but not found` для этого режима.
-  **Regression/Tests:**
-  - unit: marker -> requirement mapping;
-  - integration: marker `not-required` + skipped tests log -> review stage stays non-degraded.
-  **Deps:** W94-3
-
-- [x] **W94-5 (P1)** QA runner cwd resolution для multi-module Gradle
-  - обновить `tools/qa.py` (или runner внутри qa flow):
-    - для `backend/gradlew` и `backend-mcp/gradlew` запускать тесты с `cwd=<module_dir>` или `cd <module> && ./gradlew ...`;
-    - логировать `cwd` в QA report для каждого test command;
-    - fallback: при отсутствии root `./gradlew` искать `**/gradlew` и выдавать явный `BLOCKED` с подсказкой.
-  **AC:**
-  - QA test logs не содержат `command not found: ./gradlew` в multi-module проекте;
-  - QA report отражает корректный cwd/command.
-  **Regression/Tests:**
-  - unit: resolver для `gradlew` в subdirs;
-  - smoke: fixture без root-gradlew и с module-gradlew.
-  **Deps:** -
-
-- [x] **W94-6 (P1)** write-safety: runtime-артефакты только в workspace
-  - централизовать root resolve для всех write-paths (workspace-first, plugin-root read-only);
-  - fail-fast, если write-path уходит вне workspace root;
-  - проверить инструменты на запись ticket-артефактов в plugin repo.
-  **AC:**
-  - `git status` в plugin repo чист после e2e/audit;
-  - попытка write вне workspace завершается понятной ошибкой.
-  **Regression/Tests:**
-  - integration: запуск tools с `cwd=plugin_dir` и `--root=<workspace>` пишет только в workspace.
-  **Deps:** W94-3
-
-- [x] **W94-7 (P2)** language policy drift: синхронизировать SoT и frontmatter
-  - выбрать одно решение:
-    - A) обновить `docs/skill-language.md` (временное разрешение `lang: ru` для stage skills),
-    - B) перевести stage skills на `lang: en` и обновить frontmatter;
-  - синхронизировать policy checks / bundle guards.
-  **AC:**
-  - lint/policy checks не создают ложный drift noise;
-  - entrypoints/prompt metadata соответствуют выбранному SoT.
-  **Deps:** -
-
-- [x] **W94-Order (рекомендованный порядок)** `backlog.md`
-  - P0: `W94-1` -> `W94-2` -> `W94-3`
-  - P1: `W94-5` -> `W94-4` -> `W94-6`
-  - P2: `W94-7`
-  **AC:** порядок отражён в release/work plan как fast path для green e2e.
-  **Deps:** W94-1, W94-2, W94-3, W94-5
-
-## Wave 96 Archive — completed tranche W96-1..W96-5
-
-_Статус: архивный срез (не SoT), приоритет 0. Это исторический summary закрытой части W96-1..W96-5._
-
-- [x] **W96-1 (P0)** Slug hygiene: `slug_hint` хранит только slug token
-  - исправить запись active state (`slug_hint`) так, чтобы note/answers не загрязняли токен;
-  - нормализация slug token по regex; при невалидном candidate сохранять прежний валидный slug_hint;
-  - не смешивать `slug_hint` с feature label/description.
-  **AC:**
-  - после `idea-new <ticket> <slug> <note...>`: `.active.json.slug_hint == <slug>`;
-  - повторные вызовы с `AIDD:ANSWERS` не перетирают валидный slug_hint длинным текстом.
-  **Regression/Tests:**
-  - unit tests в `tests/test_active_state.py` (token extraction/preservation).
-  **Deps:** -
-
-- [x] **W96-2 (P0, blocker)** SKILL_FIRST wrapper/preflight artifacts contract
-  - сделать wrapper-chain детерминированным для `implement|review|qa` в loop-step независимо от runner бинаря;
-  - enforce обязательные артефакты: preflight result, readmap/writemap (md+json), actions template/actions json, wrapper logs;
-  - проверять `AIDD:ACTIONS_LOG` как существующий файл (не только marker строка).
-  **AC:**
-  - после loop-stage в SKILL_FIRST создаётся обязательный набор preflight/docops/logs;
-  - отсутствие обязательных артефактов => BLOCK с диагностикой.
-  **Regression/Tests:**
-  - `tests/test_e2e_contract_minimal.py`
-  - `tests/test_gate_workflow_preflight_contract.py`
-  - `tests/test_loop_step.py` (контракт wrapper артефактов).
-  **Deps:** W96-1
-
-- [x] **W96-3 (P1)** `user_approval_required` semantics в loop-run
-  - reason_code `user_approval_required` трактуется как hard block на текущей стадии;
-  - loop-run останавливается детерминированно без перехода к следующей стадии;
-  - логирует stage/scope/reason_code + ссылки на stage_result/wrapper logs.
-  **AC:**
-  - нет сценария “continue на implement, blocked на следующем review” для того же approval gate;
-  - blocked причина явно диагностируема в loop logs/payload.
-  **Regression/Tests:**
-  - `tests/test_loop_run.py`
-  - `tests/test_loop_semantics.py`.
-  **Deps:** W96-2
-
-- [x] **W96-4 (P1)** iteration_id allowlist: `M#` и `I#`
-  - принять `iteration_id=M1` как валидный формат наравне с `I1`;
-  - убрать ложные WARN/invalid при scope resolution для legacy/current форматов.
-  **AC:**
-  - active work_item с `M#`/`I#` обрабатывается корректно без деградации loop-stage.
-  **Regression/Tests:**
-  - unit coverage в `tests/test_active_state.py`.
-  **Deps:** W96-1
-
-- [x] **W96-5 (P1)** QA exit-code policy
-  - выровнять policy: QA report `BLOCKED` => стабильный non-zero exit code (`2`);
-  - `READY|WARN` остаются `0`;
-  - smoke tooling принимает новую семантику QA и валидирует report.
-  **AC:**
-  - `qa` возвращает `2` для BLOCKED и печатает `BLOCK:` в stderr;
-  - pipeline/smoke корректно интерпретирует status по report.
-  **Regression/Tests:**
-  - `tests/test_qa_exit_code.py`
-  - `tests/test_qa_agent.py`
-  - `tests/repo_tools/smoke-workflow.sh`.
-  **Deps:** W96-2
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
