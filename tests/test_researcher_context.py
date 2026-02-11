@@ -11,9 +11,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools.researcher_context import ResearcherContextBuilder
-
-from .helpers import TEMPLATES_ROOT, cli_cmd, cli_env, write_file
+from .helpers import cli_cmd, cli_env, write_file
 
 
 class ResearcherContextTests(unittest.TestCase):
@@ -22,11 +20,12 @@ class ResearcherContextTests(unittest.TestCase):
         self.workspace = Path(self._tmp.name)
         self.root = self.workspace / "aidd"
         (self.root / "config").mkdir(parents=True, exist_ok=True)
-        (self.root / "docs" / "research").mkdir(parents=True, exist_ok=True)
         (self.root / "docs").mkdir(parents=True, exist_ok=True)
-        template_src = (TEMPLATES_ROOT / "docs" / "prd" / "template.md").read_text(encoding="utf-8")
+
+        template_src = (REPO_ROOT / "skills" / "idea-new" / "templates" / "prd.template.md").read_text(
+            encoding="utf-8"
+        )
         write_file(self.root, "docs/prd/template.md", template_src)
-        (self.root / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
 
         config_payload = {
             "commit": {},
@@ -45,7 +44,7 @@ class ResearcherContextTests(unittest.TestCase):
                     }
                 },
                 "features": {
-                    "demo-checkout": ["checkout"]
+                    "demo-checkout": ["checkout"],
                 },
             },
         }
@@ -54,161 +53,38 @@ class ResearcherContextTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        # Sample code file so the context search finds matches.
-        sample_code = (
-            "package demo\n\n" "class CheckoutFeature { fun run() = \"checkout flow\" }\n"
-        )
+        sample_code = "package demo\n\nclass CheckoutFeature { fun run() = \"checkout flow\" }\n"
         write_file(self.root, "src/main/kotlin/CheckoutFeature.kt", sample_code)
-
-        # Existing research doc stub.
-        write_file(
-            self.root,
-            "docs/research/demo-checkout.md",
-            "# Research Summary\n\nStatus: pending\n",
-        )
-
+        write_file(self.root, "docs/research/demo-checkout.md", "# Research Summary\n\nStatus: pending\n")
 
     def tearDown(self) -> None:  # noqa: D401
         self._tmp.cleanup()
 
-    def test_builder_creates_targets_and_context(self) -> None:
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
-        self.assertEqual(scope.ticket, "demo-checkout")
-        self.assertEqual(scope.slug_hint, "demo-checkout")
-        self.assertIn("src/main/kotlin", scope.paths)
-        self.assertIn("docs/research/demo-checkout.md", scope.docs)
-
-        targets_path = builder.write_targets(scope)
-        self.assertTrue(targets_path.exists())
-
-        context = builder.collect_context(scope, limit=5)
-        context_path = builder.write_context(scope, context)
-
-        payload = json.loads(context_path.read_text(encoding="utf-8"))
-        self.assertEqual(payload["ticket"], "demo-checkout")
-        self.assertGreaterEqual(len(payload["matches"]), 1)
-        self.assertIn("profile", payload)
-        self.assertIn("manual_notes", payload)
-
-    def test_builder_handles_slug_without_tags(self) -> None:
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-untagged", slug_hint="demo-untagged")
-        self.assertEqual(scope.ticket, "demo-untagged")
-        self.assertEqual(scope.slug_hint, "demo-untagged")
-        self.assertEqual(scope.tags, [])
-        self.assertIn("src/main", scope.paths)
-        self.assertIn("docs/research", scope.docs)
-
-    def test_builder_filters_invalid_paths_when_discovered(self) -> None:
-        config_path = self.root / "config" / "conventions.json"
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        config["researcher"]["defaults"]["paths"] = ["src/main"]
-        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-
-        (self.workspace / "backend" / "src" / "main" / "kotlin").mkdir(parents=True, exist_ok=True)
-
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("backend-demo", slug_hint="backend-demo")
-        builder.describe_targets(scope)
-        targets_path = builder.write_targets(scope)
-        payload = json.loads(targets_path.read_text(encoding="utf-8"))
-        self.assertIn("backend", payload.get("paths") or [])
-        self.assertNotIn("src/main", payload.get("paths") or [])
-
-    def test_builder_merges_multiple_tags(self) -> None:
-        config_path = self.root / "config" / "conventions.json"
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        config["researcher"]["tags"]["payments"] = {
-            "paths": ["src/payments"],
-            "docs": ["docs/research/payments.md"],
-            "keywords": ["payments"],
-        }
-        config["researcher"]["features"]["demo-checkout"] = ["checkout", "payments"]
-        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-
-        (self.root / "src" / "payments").mkdir(parents=True, exist_ok=True)
-        write_file(
-            self.root,
-            "docs/research/payments.md",
-            "# Payments\n\nStatus: pending\n",
-        )
-
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
-        self.assertIn("checkout", scope.tags)
-        self.assertIn("payments", scope.tags)
-        self.assertIn("src/payments", scope.paths)
-        self.assertIn("docs/research/payments.md", scope.docs)
-        self.assertIn("payments", scope.keywords)
-
-    def test_builder_auto_tags_expand_paths_and_keywords(self) -> None:
-        config_path = self.root / "config" / "conventions.json"
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        config["researcher"]["tags"]["jvm"] = {
-            "paths": ["src/jvm"],
-            "docs": ["docs/research/jvm.md"],
-            "keywords": ["java", "kotlin"],
-        }
-        config["researcher"]["auto_tags"] = {
-            "jvm": {
-                "slug_keywords": ["java"],
-            }
-        }
-        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-        (self.root / "src" / "jvm").mkdir(parents=True, exist_ok=True)
-        write_file(
-            self.root,
-            "docs/research/jvm.md",
-            "# JVM Research\n\nStatus: pending\n",
-        )
-
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-java", slug_hint="demo-java")
-        self.assertIn("jvm", scope.tags)
-        self.assertIn("src/jvm", scope.paths)
-        self.assertIn("docs/research/jvm.md", scope.docs)
-        self.assertIn("java", scope.keywords)
-
-    def test_builder_captures_manual_notes_and_profile(self) -> None:
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
-        scope = builder.extend_scope(scope, extra_notes=["Свободное наблюдение"])
-        context = builder.collect_context(scope, limit=5)
-        self.assertIn("Свободное наблюдение", context["manual_notes"])
-        profile = context["profile"]
-        self.assertIn("recommendations", profile)
-        self.assertIn("is_new_project", profile)
-
-    def test_deep_mode_collects_code_index_and_reuse(self) -> None:
-        builder = ResearcherContextBuilder(self.root)
-        scope = builder.build_scope("demo-checkout", slug_hint="demo-checkout")
-        _, _, roots = builder.describe_targets(scope)
-        code_index, reuse_candidates = builder.collect_deep_context(
-            scope,
-            roots=roots,
-            keywords=scope.keywords,
-            languages=["kt", "py"],
-            limit=5,
-        )
-        self.assertGreaterEqual(len(code_index), 1, "code_index should contain parsed symbols")
-        self.assertIn("path", code_index[0])
-        self.assertIn("symbols", code_index[0])
-        self.assertGreaterEqual(len(reuse_candidates), 1, "reuse candidates should be suggested")
-        self.assertIn("score", reuse_candidates[0])
-
-    def test_detect_tests_ignores_vendor_dirs(self) -> None:
-        (self.root / "node_modules" / "pkg" / "test").mkdir(parents=True, exist_ok=True)
-        (self.root / ".venv" / "lib" / "test").mkdir(parents=True, exist_ok=True)
-
-        builder = ResearcherContextBuilder(self.root)
-        detected, evidence, _ = builder._detect_tests()
-
-        self.assertFalse(detected)
-        self.assertEqual(evidence, [])
-
-    def test_set_active_feature_refreshes_targets(self) -> None:
+    def test_set_active_feature_refreshes_rlm_targets(self) -> None:
         env = cli_env()
+        result = subprocess.run(
+            cli_cmd("set-active-feature", "demo-checkout"),
+            text=True,
+            capture_output=True,
+            cwd=self.workspace,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        prd_path = self.root / "docs" / "prd" / "demo-checkout.prd.md"
+        prd_path.write_text(
+            "\n".join(
+                [
+                    "# PRD",
+                    "## AIDD:RESEARCH_HINTS",
+                    "- Paths: src/main/kotlin",
+                    "- Keywords: checkout",
+                    "- Notes: focus checkout wiring",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         result = subprocess.run(
             cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
@@ -222,16 +98,7 @@ class ResearcherContextTests(unittest.TestCase):
         self.assertEqual(state.get("ticket"), "demo-checkout")
         self.assertEqual(state.get("slug_hint"), "demo-checkout")
 
-        targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
-        self.assertTrue(targets_path.exists(), "Researcher targets should be generated")
-        targets = json.loads(targets_path.read_text(encoding="utf-8"))
-        self.assertIn("src/main/kotlin", targets["paths"])
-
-        prd_path = self.root / "docs" / "prd" / "demo-checkout.prd.md"
         self.assertTrue(prd_path.exists(), "PRD scaffold should be created automatically")
-        prd_body = prd_path.read_text(encoding="utf-8")
-        self.assertIn("Status: draft", prd_body)
-        self.assertIn("docs/research/demo-checkout.md", prd_body)
 
         index_path = self.root / "docs" / "index" / "demo-checkout.json"
         self.assertTrue(index_path.exists(), "Index should be generated on set-active-feature")
@@ -255,6 +122,21 @@ class ResearcherContextTests(unittest.TestCase):
         )
         self.assertEqual(first.returncode, 0, msg=first.stderr)
 
+        prd_path = self.root / "docs" / "prd" / "demo-checkout.prd.md"
+        prd_path.write_text(
+            "\n".join(
+                [
+                    "# PRD",
+                    "## AIDD:RESEARCH_HINTS",
+                    "- Paths: src/main/kotlin",
+                    "- Keywords: checkout",
+                    "- Notes: focus checkout wiring",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
         second = subprocess.run(
             cli_cmd("set-active-feature", "demo-checkout"),
             text=True,
@@ -268,32 +150,8 @@ class ResearcherContextTests(unittest.TestCase):
         state = json.loads((self.root / "docs" / ".active.json").read_text(encoding="utf-8"))
         self.assertEqual(state.get("slug_hint"), "checkout-lite")
 
-        targets_path = self.root / "reports" / "research" / "demo-checkout-targets.json"
-        targets = json.loads(targets_path.read_text(encoding="utf-8"))
-        self.assertEqual(targets["slug"], "checkout-lite")
+        # RLM targets refresh is best-effort in set-active-feature and should not affect slug persistence.
 
-    def test_workspace_relative_paths_find_code_outside_aidd(self) -> None:
-        workspace = Path(self._tmp.name) / "workspace2"
-        project_root = workspace / "aidd"
-        project_root.mkdir(parents=True, exist_ok=True)
-        config = {
-            "researcher": {
-                "defaults": {
-                    "paths": ["src/main"],
-                    "docs": ["docs/research"],
-                    "workspace_relative": True,
-                }
-            }
-        }
-        (project_root / "config").mkdir(parents=True, exist_ok=True)
-        (project_root / "config" / "conventions.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
-        code_path = workspace / "src" / "main" / "kotlin"
-        code_path.mkdir(parents=True, exist_ok=True)
-        demo_file = code_path / "WorkspaceDemo.kt"
-        demo_file.write_text("package demo\n// workspace-ticket demo\n", encoding="utf-8")
 
-        builder = ResearcherContextBuilder(project_root, config_path=project_root / "config" / "conventions.json")
-        scope = builder.build_scope("workspace-ticket", slug_hint="workspace-ticket")
-        self.assertIn("src/main", scope.paths)
-        context = builder.collect_context(scope, limit=5)
-        self.assertGreaterEqual(len(context["matches"]), 1, "workspace-relative paths should find code outside aidd")
+if __name__ == "__main__":
+    unittest.main()

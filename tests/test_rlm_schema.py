@@ -7,7 +7,7 @@ from tests.helpers import REPO_ROOT
 
 class RlmSchemaTests(unittest.TestCase):
     def _load_schema(self, name: str) -> dict:
-        path = REPO_ROOT / "tools" / "schemas" / name
+        path = REPO_ROOT / "skills" / "aidd-core" / "runtime" / "schemas" / name
         return json.loads(path.read_text(encoding="utf-8"))
 
     def test_node_schema_required_fields(self) -> None:

@@ -124,7 +124,7 @@ class MdSliceTests(unittest.TestCase):
                         "# Demo",
                         "",
                         "## AIDD:PROGRESS_LOG",
-                        "- old",
+                        "- stale",
                         "",
                         "## AIDD:NEXT_3",
                         "- [ ] I1",
@@ -152,7 +152,7 @@ class MdSliceTests(unittest.TestCase):
             self.assertIn("## AIDD:PROGRESS_LOG", content)
             self.assertIn("- new one", content)
             self.assertIn("- new two", content)
-            self.assertNotIn("- old", content)
+            self.assertNotIn("- stale", content)
 
 
 if __name__ == "__main__":

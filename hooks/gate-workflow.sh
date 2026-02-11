@@ -23,7 +23,7 @@ def _bootstrap() -> None:
 
 def main() -> int:
     _bootstrap()
-    from tools import gate_workflow as tools_module
+    from aidd_runtime import gate_workflow as tools_module
 
     return tools_module.main()
 

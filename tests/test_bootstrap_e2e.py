@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
-from .helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
+from .helpers import PROJECT_SUBDIR, REPO_ROOT, TEMPLATES_ROOT, cli_cmd, cli_env
 
 # Represent key artefacts that must match templates byte-for-byte after bootstrap.
 CRITICAL_FILES: Iterable[str] = (
@@ -11,15 +11,29 @@ CRITICAL_FILES: Iterable[str] = (
     "config/context_gc.json",
     "config/conventions.json",
     "config/gates.json",
+    "docs/index/schema.json",
     "docs/prd/template.md",
     "docs/plan/template.md",
     "docs/spec/template.spec.yaml",
     "docs/tasklist/template.md",
     "docs/research/template.md",
-    "docs/prompting/conventions.md",
+    "docs/shared/stage-lexicon.md",
     "docs/loops/template.loop-pack.md",
     "reports/context/template.context-pack.md",
 )
+
+TEMPLATE_SOURCE_OVERRIDES = {
+    "AGENTS.md": "skills/aidd-core/templates/workspace-agents.md",
+    "docs/index/schema.json": "skills/aidd-core/templates/index.schema.json",
+    "docs/shared/stage-lexicon.md": "skills/aidd-core/templates/stage-lexicon.md",
+    "docs/prd/template.md": "skills/idea-new/templates/prd.template.md",
+    "docs/plan/template.md": "skills/plan-new/templates/plan.template.md",
+    "docs/spec/template.spec.yaml": "skills/spec-interview/templates/spec.template.yaml",
+    "docs/tasklist/template.md": "skills/tasks-new/templates/tasklist.template.md",
+    "docs/research/template.md": "skills/researcher/templates/research.template.md",
+    "docs/loops/template.loop-pack.md": "skills/aidd-loop/templates/loop-pack.template.md",
+    "reports/context/template.context-pack.md": "skills/aidd-core/templates/context-pack.template.md",
+}
 
 PROJECT_DIRECTORIES = (
     "config",
@@ -50,6 +64,13 @@ def _hash_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _template_source_for(relative: str) -> Path:
+    override = TEMPLATE_SOURCE_OVERRIDES.get(relative)
+    if override:
+        return REPO_ROOT / override
+    return TEMPLATES_ROOT / relative
 
 
 def _read_hook_commands(settings_path: Path) -> list[str]:
@@ -95,7 +116,7 @@ def test_bootstrap_copies_payload_files_and_directories():
             assert (target / directory).is_dir(), f"{directory} must exist after bootstrap"
 
         for relative in CRITICAL_FILES:
-            payload_file = TEMPLATES_ROOT / relative
+            payload_file = _template_source_for(relative)
             project_file = project_root / relative
             assert payload_file.is_file(), f"template missing {relative}"
             assert project_file.is_file(), f"project missing {relative}"

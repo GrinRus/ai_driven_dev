@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import active_state
-from tools import feature_ids
+from aidd_runtime import active_state
+from aidd_runtime import feature_ids
 
 
 class ActiveStateTests(unittest.TestCase):

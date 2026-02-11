@@ -53,13 +53,14 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     write_tasklist_ready(tmp_path, ticket)
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-targets.json",
-        {"ticket": ticket, "paths": ["src"], "docs": ["docs"], "generated_at": _utc_now()},
-    )
-    write_json(
-        tmp_path,
         f"reports/research/{ticket}-rlm-targets.json",
-        {"ticket": ticket, "files": ["src/main/kotlin/App.kt"], "generated_at": _utc_now()},
+        {
+            "ticket": ticket,
+            "files": ["src/main/kotlin/App.kt"],
+            "paths": ["src/main/kotlin"],
+            "paths_discovered": [],
+            "generated_at": _utc_now(),
+        },
     )
     write_json(
         tmp_path,
@@ -85,29 +86,6 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     )
 
 
-def _write_context(
-    tmp_path: Path,
-    ticket: str,
-    *,
-    is_new: bool,
-    auto_mode: bool,
-) -> None:
-    write_json(
-        tmp_path,
-        f"reports/research/{ticket}-context.json",
-        {
-            "ticket": ticket,
-            "generated_at": _utc_now(),
-            "profile": {"is_new_project": is_new},
-            "auto_mode": auto_mode,
-            "rlm_status": "pending",
-            "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
-            "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-            "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-        },
-    )
-
-
 def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
     ticket = "demo-checkout"
     _setup_common_artifacts(tmp_path, ticket)
@@ -116,7 +94,6 @@ def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
         f"docs/research/{ticket}.md",
         "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
     )
-    _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
@@ -130,7 +107,6 @@ def test_researcher_allows_pending_baseline_without_extra_flags(tmp_path):
         f"docs/research/{ticket}.md",
         "# Research\n\nStatus: pending\n\nКонтекст пуст, требуется baseline\n",
     )
-    _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 0, result.stderr
@@ -144,7 +120,6 @@ def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
         f"docs/research/{ticket}.md",
         "# Research\n\nStatus: pending\n\n(no baseline note)\n",
     )
-    _write_context(tmp_path, ticket, is_new=True, auto_mode=True)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
@@ -156,7 +131,6 @@ def test_researcher_blocks_missing_report(tmp_path):
     ticket = "demo-checkout"
     _setup_common_artifacts(tmp_path, ticket)
     # Researcher report intentionally missing
-    _write_context(tmp_path, ticket, is_new=False, auto_mode=False)
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2

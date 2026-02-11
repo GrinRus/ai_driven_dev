@@ -7,8 +7,8 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools.io_utils import append_jsonl
-from tools.reports import tests_log
+from aidd_runtime.io_utils import append_jsonl
+from aidd_runtime.reports import tests_log
 
 
 class TestsLogLatestEntryTests(unittest.TestCase):

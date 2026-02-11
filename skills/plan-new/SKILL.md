@@ -2,20 +2,20 @@
 description: Draft the implementation plan from PRD and research.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.12
-source_version: 1.1.12
+prompt_version: 1.1.13
+source_version: 1.1.13
 allowed-tools:
   - Read
   - Edit
   - Write
   - Glob
-  - "Bash(rg:*)"
-  - "Bash(sed:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-stage.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/set-active-feature.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/prd-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh:*)"
-  - "Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)"
+  - "Bash(rg *)"
+  - "Bash(sed *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)"
+  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py *)"
 model: inherit
 disable-model-invocation: true
 user-invocable: true
@@ -25,10 +25,22 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
 1. Set active stage `plan` and active feature.
-2. Gate readiness with `prd-check.sh` and `research-check.sh`; block if either fails.
-3. Build the rolling context pack.
-4. Run subagents in order: `feature-dev-aidd:planner` then `feature-dev-aidd:validator`. Refresh the pack between them.
-5. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
+2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
+3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
+4. Build the rolling context pack.
+5. Run subagents in order: `feature-dev-aidd:planner` then `feature-dev-aidd:validator`. Refresh the pack between them.
+6. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
+
+## Command contracts
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`
+- When to run: before planning to enforce research-readiness gate.
+- Inputs: `--ticket <ticket>` and current PRD/research artifacts.
+- Outputs: deterministic readiness verdict for plan stage.
+- Failure mode: non-zero exit if research status/artifacts do not satisfy gate policy.
+- Next action: resolve research blockers and rerun the gate check.
 
 ## Notes
 - Planning stage: `AIDD:ACTIONS_LOG: n/a`.
+
+## Additional resources
+- Plan template source: [templates/plan.template.md](templates/plan.template.md) (when: generating or normalizing plan structure; why: ensure planner/validator outputs follow canonical sections).

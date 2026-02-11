@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from tests.helpers import ensure_project_root, write_active_feature
 
-from tools import rlm_finalize
+from aidd_runtime import rlm_finalize
 
 
 class RlmFinalizeTests(unittest.TestCase):

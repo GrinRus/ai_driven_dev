@@ -2,9 +2,36 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import ensure_project_root, write_active_feature, write_json
+from tests.helpers import ensure_project_root, write_active_feature
 
-from tools import rlm_targets
+from aidd_runtime import rlm_targets
+
+
+def _write_prd_hints(
+    project_root: Path,
+    ticket: str,
+    *,
+    paths: list[str] | None = None,
+    keywords: list[str] | None = None,
+    notes: str = "",
+) -> None:
+    prd_path = project_root / "docs" / "prd" / f"{ticket}.prd.md"
+    prd_path.parent.mkdir(parents=True, exist_ok=True)
+    path_value = ":".join(paths or [])
+    keyword_value = ",".join(keywords or [])
+    prd_path.write_text(
+        "\n".join(
+            [
+                "# PRD",
+                "",
+                "## AIDD:RESEARCH_HINTS",
+                f"- Paths: {path_value}",
+                f"- Keywords: {keyword_value}",
+                f"- Notes: {notes}",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
 
 class RlmTargetsTests(unittest.TestCase):
@@ -25,19 +52,7 @@ class RlmTargetsTests(unittest.TestCase):
                 "## AIDD:FILES_TOUCHED\n- src/app.py — demo\n",
                 encoding="utf-8",
             )
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": ["src"],
-                    "paths_discovered": [],
-                    "keywords": ["App"],
-                },
-            )
+            _write_prd_hints(project_root, ticket, paths=["src"], keywords=["App"])
 
             payload = rlm_targets.build_targets(project_root, ticket, settings={})
             files = payload.get("files") or []
@@ -62,19 +77,7 @@ class RlmTargetsTests(unittest.TestCase):
                 "export const App = () => null;\n",
                 encoding="utf-8",
             )
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": [],
-                    "paths_discovered": [],
-                    "keywords": [],
-                },
-            )
+            _write_prd_hints(project_root, ticket, keywords=["app"])
 
             payload = rlm_targets.build_targets(project_root, ticket, settings={})
             discovered = payload.get("paths_discovered") or []
@@ -97,19 +100,7 @@ class RlmTargetsTests(unittest.TestCase):
             )
             (workspace / "custom" / "src").mkdir(parents=True, exist_ok=True)
             (workspace / "custom" / "src" / "app.py").write_text("class Custom:\n    pass\n", encoding="utf-8")
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": ["custom/src"],
-                    "paths_discovered": ["backend/src/main"],
-                    "keywords": [],
-                },
-            )
+            _write_prd_hints(project_root, ticket, paths=["custom/src"])
 
             payload = rlm_targets.build_targets(project_root, ticket, settings={"targets_mode": "explicit"})
             self.assertEqual(payload.get("targets_mode"), "explicit")
@@ -132,19 +123,7 @@ class RlmTargetsTests(unittest.TestCase):
             )
             (workspace / "custom" / "src").mkdir(parents=True, exist_ok=True)
             (workspace / "custom" / "src" / "app.py").write_text("class Custom:\n    pass\n", encoding="utf-8")
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": ["custom/src"],
-                    "paths_discovered": ["backend/src/main"],
-                    "keywords": [],
-                },
-            )
+            _write_prd_hints(project_root, ticket, paths=["custom/src"])
 
             payload = rlm_targets.build_targets(
                 project_root,
@@ -179,19 +158,7 @@ class RlmTargetsTests(unittest.TestCase):
                 "## AIDD:FILES_TOUCHED\n- backend/src/main/java/App.java — demo\n",
                 encoding="utf-8",
             )
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": ["backend/src/main"],
-                    "paths_discovered": ["backend/src/main"],
-                    "keywords": [],
-                },
-            )
+            _write_prd_hints(project_root, ticket, paths=["backend/src/main"])
 
             payload = rlm_targets.build_targets(
                 project_root,
@@ -217,19 +184,7 @@ class RlmTargetsTests(unittest.TestCase):
             (workspace / "src" / "app.py").write_text("class App:\n    pass\n", encoding="utf-8")
             (workspace / "aidd" / "docs" / "prd").mkdir(parents=True, exist_ok=True)
             (workspace / "aidd" / "docs" / "plan").mkdir(parents=True, exist_ok=True)
-
-            write_json(
-                workspace,
-                f"reports/research/{ticket}-targets.json",
-                {
-                    "ticket": ticket,
-                    "slug": ticket,
-                    "generated_at": "2024-01-01T00:00:00Z",
-                    "paths": ["aidd/docs/prd", "src"],
-                    "paths_discovered": ["aidd/docs/plan"],
-                    "keywords": ["App"],
-                },
-            )
+            _write_prd_hints(project_root, ticket, paths=["aidd/docs/prd", "src"], keywords=["App"])
 
             settings = {
                 "exclude_path_prefixes": ["aidd/docs", "aidd/reports", "aidd/.cache"],

@@ -5,7 +5,7 @@ from tests.helpers import REPO_ROOT
 if str(REPO_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(REPO_ROOT))
 
-from tools import runtime  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
 
 
 def test_resolve_tool_result_id_prefers_id() -> None:

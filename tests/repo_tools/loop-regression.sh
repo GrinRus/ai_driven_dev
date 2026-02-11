@@ -20,26 +20,30 @@ cd "$ROOT_DIR"
 log "checking loop discipline markers in skills"
 for stage in implement review qa; do
   file="skills/${stage}/SKILL.md"
-  require_rg "preflight.sh" "$file"
-  require_rg "postflight.sh" "$file"
+  require_rg "preflight_prepare.py" "$file"
+  require_rg "actions_apply.py" "$file"
   require_rg "Fill actions.json" "$file"
   require_rg "aidd-loop" "$file"
   require_rg "aidd-core" "$file"
 done
 
 log "checking loop-pack schema and active work item"
-require_rg "aidd.loop_pack.v1" "tools/loop_pack.py"
-require_rg "active.json" "tools/loop_pack.py"
+require_rg "aidd.loop_pack.v1" "skills/aidd-loop/runtime/loop_pack.py"
+require_rg "active.json" "skills/aidd-loop/runtime/loop_pack.py"
 
 log "checking loop-step/loop-run presence and docs"
-if [[ ! -f "tools/loop-step.sh" ]]; then
-  err "tools/loop-step.sh missing"
+if [[ ! -f "skills/aidd-loop/runtime/loop_step.py" ]]; then
+  err "skills/aidd-loop/runtime/loop_step.py missing"
 fi
-if [[ ! -f "tools/loop-run.sh" ]]; then
-  err "tools/loop-run.sh missing"
+if [[ ! -f "skills/aidd-loop/runtime/loop_run.py" ]]; then
+  err "skills/aidd-loop/runtime/loop_run.py missing"
 fi
-require_rg "loop-step.sh" "README.md"
-require_rg "loop-run.sh" "README.md"
-require_rg "loop-step.sh" "README.en.md"
-require_rg "loop-run.sh" "README.en.md"
+require_rg "loop_step.py" "README.md"
+require_rg "loop_run.py" "README.md"
+require_rg "loop_step.py" "README.en.md"
+require_rg "loop_run.py" "README.en.md"
+require_rg "skills/aidd-loop/runtime/loop_step.py" "README.md"
+require_rg "skills/aidd-loop/runtime/loop_run.py" "README.md"
+require_rg "skills/aidd-loop/runtime/loop_step.py" "README.en.md"
+require_rg "skills/aidd-loop/runtime/loop_run.py" "README.en.md"
 exit "$STATUS"

@@ -36,8 +36,8 @@ VENDOR_DIR = HOOKS_DIR / "_vendor"
 if VENDOR_DIR.exists():
     sys.path.insert(0, str(VENDOR_DIR))
 
-from tools.feature_ids import FeatureIdentifiers, resolve_aidd_root, resolve_identifiers
-from tools.test_settings_defaults import (
+from aidd_runtime.feature_ids import FeatureIdentifiers, resolve_aidd_root, resolve_identifiers
+from aidd_runtime.test_settings_defaults import (
     DEFAULT_COMMON_PATTERNS,
     DEFAULT_CODE_EXTENSIONS,
     DEFAULT_CODE_FILES,
@@ -219,7 +219,7 @@ def reviewer_marker_path(
     scope_key: str | None = None,
 ) -> Path:
     try:
-        from tools import runtime as _runtime
+        from aidd_runtime import runtime as _runtime
 
         return _runtime.reviewer_marker_path(
             project_root,
@@ -800,8 +800,8 @@ def main() -> int:
         if not ticket:
             return
         try:
-            from tools import runtime as _runtime
-            from tools.reports import tests_log as _tests_log
+            from aidd_runtime import runtime as _runtime
+            from aidd_runtime.reports import tests_log as _tests_log
         except Exception:
             return
         stage_value = (stage or "implement").strip().lower() or "implement"
@@ -993,7 +993,7 @@ def main() -> int:
     stage_policy = ""
     stage_policy_source = ""
     try:
-        from tools import gates as _gates
+        from aidd_runtime import gates as _gates
 
         gates_config = _gates.load_gates_config(project_root)
         stage_policy = _gates.resolve_stage_tests_policy(gates_config, stage_value)
@@ -1268,8 +1268,8 @@ def main() -> int:
         if test_runner:
             details["runner"] = list(test_runner)
         try:
-            from tools import runtime as _runtime
-            from tools.reports import tests_log as _tests_log
+            from aidd_runtime import runtime as _runtime
+            from aidd_runtime.reports import tests_log as _tests_log
 
             stage_value = (stage or "implement").strip().lower()
             work_item_key = read_active_work_item(project_root)

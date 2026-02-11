@@ -132,32 +132,14 @@ def write_research_doc(
     )
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-targets.json",
-        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
-    )
-    write_json(
-        tmp_path,
-        f"reports/research/{ticket}-context.json",
-        {
-            "status": status,
-            "generated_at": generated_at,
-            "profile": {},
-            "manual_notes": [],
-            "matches": [],
-            "targets": {"paths": ["src/main/kotlin"]},
-            "rlm_status": rlm_status,
-            "rlm_targets_path": f"reports/research/{ticket}-rlm-targets.json",
-            "rlm_manifest_path": f"reports/research/{ticket}-rlm-manifest.json",
-            "rlm_worklist_path": f"reports/research/{ticket}-rlm.worklist.pack.json",
-            "rlm_nodes_path": f"reports/research/{ticket}-rlm.nodes.jsonl",
-            "rlm_links_path": f"reports/research/{ticket}-rlm.links.jsonl",
-            "rlm_pack_path": f"reports/research/{ticket}-rlm.pack.json",
-        },
-    )
-    write_json(
-        tmp_path,
         f"reports/research/{ticket}-rlm-targets.json",
-        {"ticket": ticket, "files": ["src/main/kotlin/App.kt"], "generated_at": generated_at},
+        {
+            "ticket": ticket,
+            "files": ["src/main/kotlin/App.kt"],
+            "paths": ["src/main/kotlin"],
+            "paths_discovered": [],
+            "generated_at": generated_at,
+        },
     )
     write_json(
         tmp_path,
@@ -404,22 +386,10 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     write_file(tmp_path, "docs/tasklist/demo-checkout.md", "- [ ] <ticket> placeholder\n")
     write_spec_ready(tmp_path, ticket)
     write_research_doc(tmp_path, status="pending")
-    write_json(
+    write_file(
         tmp_path,
-        f"reports/research/{ticket}-context.json",
-        {
-            "ticket": ticket,
-            "generated_at": _timestamp(),
-            "profile": {"is_new_project": True},
-            "auto_mode": True,
-            "matches": [],
-            "targets": {"paths": [], "docs": []},
-        },
-    )
-    write_json(
-        tmp_path,
-        f"reports/research/{ticket}-targets.json",
-        {"paths": [], "docs": [], "generated_at": _timestamp()},
+        f"docs/research/{ticket}.md",
+        "# Research\n\nStatus: pending\n\nКонтекст пуст: требуется baseline после автоматического запуска.\n",
     )
     # doc-only change: should allow pending baseline
     result = run_hook(tmp_path, "gate-workflow.sh", DOC_PAYLOAD)
@@ -451,23 +421,8 @@ def test_research_required_then_passes_after_report(tmp_path):
     result_block = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result_block.returncode == 2
 
-    # Add research report + context and expect pass
+    # Add research report and expect pass
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
-    write_json(
-        tmp_path,
-        f"reports/research/{ticket}-context.json",
-        {
-            "ticket": ticket,
-            "generated_at": _timestamp(),
-            "profile": {},
-            "auto_mode": False,
-        },
-    )
-    write_json(
-        tmp_path,
-        f"reports/research/{ticket}-targets.json",
-        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
-    )
     # add research handoff marker to tasklist to satisfy gate handoff check
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
@@ -485,21 +440,6 @@ def test_autodetects_aidd_root_with_ready_prd_and_research(tmp_path):
     write_tasklist_ready(project_root, ticket)
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_research_doc(project_root, ticket=ticket, status="reviewed")
-    write_json(
-        project_root,
-        f"reports/research/{ticket}-targets.json",
-        {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
-    )
-    write_json(
-        project_root,
-        f"reports/research/{ticket}-context.json",
-        {
-            "ticket": ticket,
-            "generated_at": _timestamp(),
-            "profile": {},
-            "auto_mode": False,
-        },
-    )
     append_handoff(
         project_root / f"docs/tasklist/{ticket}.md",
         handoff_block("research", f"research:{ticket}:handoff", "Research handoff"),
@@ -533,12 +473,12 @@ def test_prd_draft_blocks_even_with_reviewed_research(tmp_path):
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-targets.json",
+        f"reports/research/{ticket}-rlm-targets.json",
         {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
     )
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-context.json",
+        f"reports/research/{ticket}-rlm.pack.json",
         {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "status": "reviewed"},
     )
 
@@ -559,8 +499,12 @@ def test_idea_new_flow_creates_active_in_aidd_and_blocks_until_ready(tmp_path):
     write_plan_with_review(project_root, ticket)
     write_tasklist_ready(project_root, ticket)
     write_file(project_root, f"docs/research/{ticket}.md", "# Research\nStatus: pending\n")
-    write_json(project_root, f"reports/research/{ticket}-targets.json", {"paths": ["src/main/kotlin"], "docs": []})
-    write_json(project_root, f"reports/research/{ticket}-context.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
+    write_json(
+        project_root,
+        f"reports/research/{ticket}-rlm-targets.json",
+        {"ticket": ticket, "paths": ["src/main/kotlin"], "paths_discovered": [], "files": [], "generated_at": _timestamp()},
+    )
+    write_json(project_root, f"reports/research/{ticket}-rlm.pack.json", {"ticket": ticket, "generated_at": _timestamp(), "profile": {}})
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     # missing reviewed research -> should block
     result_block = run_hook(tmp_path, "gate-workflow.sh", IDEA_PAYLOAD)
@@ -644,18 +588,18 @@ def test_research_required_before_code_changes(tmp_path):
     )
     write_json(
         tmp_path,
-        "reports/research/demo-checkout-context.json",
+        "reports/research/demo-checkout-rlm.pack.json",
         {"ticket": ticket, "generated_at": _timestamp(), "profile": {}, "matches": [], "targets": {"paths": ["src"], "docs": ["docs"]}},
     )
     write_json(
         tmp_path,
-        "reports/research/demo-checkout-targets.json",
+        "reports/research/demo-checkout-rlm-targets.json",
         {"paths": ["src"], "docs": ["docs"], "generated_at": _timestamp()},
     )
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-rlm.pack.json) -->\n"
         + handoff_block("research", "research:demo-checkout:handoff", "Research handoff")
         + "<!-- handoff:research end -->\n",
     )
@@ -720,7 +664,7 @@ def test_tasks_with_slug_allow_changes(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, "demo-checkout")
     append_handoff(
         tasklist_path,
-        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-rlm.pack.json) -->\n"
         + handoff_block("research", "research:demo-checkout:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n",
     )
@@ -749,7 +693,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
         + handoff_block("research", f"research:{ticket}:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n",
     )
@@ -762,7 +706,7 @@ def test_review_handoff_blocks_without_tasklist_entry(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
         + handoff_block("research", f"research:{ticket}:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n"
         + f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}/{ticket}.json) -->\n"
@@ -795,7 +739,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
         + handoff_block("research", f"research:{ticket}:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n",
     )
@@ -808,7 +752,7 @@ def test_review_handoff_blocks_on_empty_report(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-context.json) -->\n"
+        f"<!-- handoff:research start (source: aidd/reports/research/{ticket}-rlm.pack.json) -->\n"
         + handoff_block("research", f"research:{ticket}:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n"
         + f"<!-- handoff:review start (source: aidd/reports/reviewer/{ticket}/{ticket}.json) -->\n"
@@ -957,7 +901,7 @@ def test_allows_pending_research_baseline(tmp_path):
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
     append_handoff(
         tasklist_path,
-        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+        "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-rlm.pack.json) -->\n"
         + handoff_block("research", "research:demo-checkout:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n",
     )
@@ -967,7 +911,7 @@ def test_allows_pending_research_baseline(tmp_path):
     write_file(tmp_path, f"docs/research/{ticket}.md", baseline_doc)
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-targets.json",
+        f"reports/research/{ticket}-rlm-targets.json",
         {
             "ticket": ticket,
             "paths": ["src/main/kotlin"],
@@ -977,7 +921,7 @@ def test_allows_pending_research_baseline(tmp_path):
     now = _timestamp()
     write_json(
         tmp_path,
-        f"reports/research/{ticket}-context.json",
+        f"reports/research/{ticket}-rlm.pack.json",
         {
             "ticket": ticket,
             "slug": ticket,
@@ -1045,7 +989,7 @@ def test_progress_blocks_without_checkbox(tmp_path):
         .replace("- [ ]", "- [x]", 1)
         .replace("Status: open", "Status: done", 1)
         + handoff_block("qa", f"qa:{slug}:smoke", "QA: prepare smoke scenarios")
-        + "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+        + "<!-- handoff:research start (source: aidd/reports/research/demo-checkout-rlm.pack.json) -->\n"
         + handoff_block("research", "research:demo-checkout:followup", "Research follow-up")
         + "<!-- handoff:research end -->\n",
     )
@@ -1112,12 +1056,12 @@ def test_hook_prefers_aidd_active_markers_over_root_docs(tmp_path):
     write_research_doc(project_root, ticket, status="reviewed")
     write_json(
         project_root,
-        f"reports/research/{ticket}-context.json",
+        f"reports/research/{ticket}-rlm.pack.json",
         {"status": "reviewed", "matches": [], "targets": {"paths": ["src/main/kotlin"], "docs": []}},
     )
     write_json(
         project_root,
-        f"reports/research/{ticket}-targets.json",
+        f"reports/research/{ticket}-rlm-targets.json",
         {"paths": ["src/main/kotlin"], "docs": [f"docs/research/{ticket}.md"]},
     )
     write_json(project_root, f"reports/prd/{ticket}.json", REVIEW_REPORT)
@@ -1153,7 +1097,7 @@ def test_hook_allows_with_duplicate_docs(tmp_path):
         tasklist_path,
         "- [ ] pending\n"
         "- [x] impl done\n"
-        "<!-- handoff:research start (source: aidd/reports/research/AIDD-456-context.json) -->\n"
+        "<!-- handoff:research start (source: aidd/reports/research/AIDD-456-rlm.pack.json) -->\n"
         "- [ ] Research follow-up\n"
         "<!-- handoff:research end -->\n",
     )
@@ -1192,7 +1136,8 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     write_research_doc(tmp_path, ticket, status="pending")
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    write_tasklist_ready(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
     write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="implement", scope_key=ticket)
     reviewer_marker = {
         "ticket": ticket,
@@ -1234,7 +1179,8 @@ def test_reviewer_required_warns_but_does_not_block_implement_stage(tmp_path):
     write_research_doc(tmp_path, ticket, status="pending")
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
-    write_tasklist_ready(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
     write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="implement", scope_key=ticket)
     reviewer_marker = {
         "ticket": ticket,

@@ -3,7 +3,14 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import REPO_ROOT
-from tools import aidd_schemas, actions_validate, context_map_validate, preflight_result_validate, skill_contract_validate
+from aidd_runtime import (
+    aidd_schemas,
+    actions_validate,
+    context_map_validate,
+    preflight_result_validate,
+    set_active_stage,
+    skill_contract_validate,
+)
 
 
 class Wave93SchemaAndValidatorTests(unittest.TestCase):
@@ -118,6 +125,12 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         broken["entries"] = "invalid"
         errors = context_map_validate.validate_context_map_data(broken)
         self.assertTrue(any("entries" in err for err in errors))
+
+    def test_review_spec_stage_is_allowed_for_runtime_and_context_maps(self) -> None:
+        self.assertIn("review-spec", set_active_stage.VALID_STAGES)
+        self.assertIn("review-spec", context_map_validate.VALID_STAGES)
+        self.assertIn("status", set_active_stage.VALID_STAGES)
+        self.assertIn("tasks", context_map_validate.VALID_STAGES)
 
     def test_skill_contracts_validate(self) -> None:
         canonical_files = {

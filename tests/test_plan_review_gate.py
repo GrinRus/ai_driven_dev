@@ -11,7 +11,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import plan_review_gate
+from aidd_runtime import plan_review_gate
 
 
 def write_plan(root: Path, ticket: str, review_body: str) -> Path:

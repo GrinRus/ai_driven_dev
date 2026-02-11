@@ -4,9 +4,11 @@ description: План реализации по PRD и research. Итераци�
 lang: ru
 prompt_version: 1.1.12
 source_version: 1.1.12
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-policy
+  - feature-dev-aidd:aidd-rlm
 model: inherit
 permissionMode: default
 ---

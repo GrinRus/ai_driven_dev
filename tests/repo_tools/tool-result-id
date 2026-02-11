@@ -13,7 +13,7 @@ if not root:
     raise SystemExit("ROOT_DIR missing")
 sys.path.insert(0, root)
 
-from tools import runtime  # noqa: E402
+from aidd_runtime import runtime  # noqa: E402
 
 key, warn = runtime.resolve_tool_result_id({"id": "tool-1", "request_id": "req-1"})
 assert key == "tool-1"

@@ -7,8 +7,8 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature
 
-from tools import rlm_nodes_build
-from tools import rlm_config
+from aidd_runtime import rlm_nodes_build
+from aidd_runtime import rlm_config
 
 
 class RlmNodesBuildTests(unittest.TestCase):
@@ -123,19 +123,17 @@ class RlmNodesBuildTests(unittest.TestCase):
             self.assertEqual(stats.get("entries_trimmed"), 1)
             self.assertEqual(stats.get("trim_reason"), "max_entries")
 
-    def test_refresh_worklist_updates_context_status(self) -> None:
+    def test_refresh_worklist_writes_pack_without_context_mutation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rlm-worklist-refresh-") as tmpdir:
             workspace = Path(tmpdir)
             project_root = ensure_project_root(workspace)
             ticket = "RLM-REFRESH"
             write_active_feature(project_root, ticket)
 
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            context_path.parent.mkdir(parents=True, exist_ok=True)
-            context_path.write_text(
-                json.dumps({"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}),
-                encoding="utf-8",
-            )
+            legacy_state_path = project_root / "reports" / "research" / f"{ticket}-legacy-state.json"
+            legacy_state_path.parent.mkdir(parents=True, exist_ok=True)
+            original_state = {"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}
+            legacy_state_path.write_text(json.dumps(original_state), encoding="utf-8")
 
             manifest_path = project_root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
             manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,9 +176,10 @@ class RlmNodesBuildTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("rlm_status"), "ready")
-            self.assertTrue(payload.get("rlm_worklist_path"))
+            payload = json.loads(legacy_state_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload, original_state)
+            worklist_path = project_root / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json"
+            self.assertTrue(worklist_path.exists())
 
     def test_refresh_worklist_preserves_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="rlm-worklist-refresh-scope-") as tmpdir:
@@ -188,13 +187,6 @@ class RlmNodesBuildTests(unittest.TestCase):
             project_root = ensure_project_root(workspace)
             ticket = "RLM-REFRESH-SCOPE"
             write_active_feature(project_root, ticket)
-
-            context_path = project_root / "reports" / "research" / f"{ticket}-context.json"
-            context_path.parent.mkdir(parents=True, exist_ok=True)
-            context_path.write_text(
-                json.dumps({"ticket": ticket, "slug": ticket, "generated_at": "2024-01-01T00:00:00Z"}),
-                encoding="utf-8",
-            )
 
             manifest_path = project_root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
             manifest_path.parent.mkdir(parents=True, exist_ok=True)

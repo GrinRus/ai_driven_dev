@@ -32,7 +32,8 @@ run_prompt_lint() {
     return
   fi
   log "running prompt lint (root: ${PROMPT_ROOT})"
-  if ! python3 tests/repo_tools/lint-prompts.py --root "${PROMPT_ROOT}"; then
+  if ! AIDD_BASH_LEGACY_POLICY="${AIDD_BASH_LEGACY_POLICY:-error}" \
+    python3 tests/repo_tools/lint-prompts.py --root "${PROMPT_ROOT}"; then
     err "prompt lint failed"
     STATUS=1
   fi
@@ -59,12 +60,12 @@ run_prompt_sync_guard() {
     warn "python3 not found; skipping prompt/template sync guard"
     return
   fi
-  if [[ ! -f "tools/prompt_template_sync.py" ]]; then
-    warn "tools/prompt_template_sync.py missing; skipping"
+  if [[ ! -f "tests/repo_tools/prompt_template_sync.py" ]]; then
+    warn "tests/repo_tools/prompt_template_sync.py missing; skipping"
     return
   fi
   log "running prompt/template sync guard (root: ${ROOT_DIR})"
-  local cmd=(python3 tools/prompt_template_sync.py --root "${ROOT_DIR}")
+  local cmd=(python3 tests/repo_tools/prompt_template_sync.py --root "${ROOT_DIR}")
   if [[ -n "${AIDD_PAYLOAD_ROOT:-}" ]]; then
     cmd+=(--payload-root "${AIDD_PAYLOAD_ROOT}")
   fi
@@ -80,18 +81,18 @@ run_entrypoints_bundle_guard() {
     warn "python3 not found; skipping entrypoints bundle guard"
     return
   fi
-  if [[ ! -f "tools/entrypoints_bundle.py" ]]; then
-    warn "tools/entrypoints_bundle.py missing; skipping"
+  if [[ ! -f "tests/repo_tools/entrypoints_bundle.py" ]]; then
+    warn "tests/repo_tools/entrypoints_bundle.py missing; skipping"
     return
   fi
   log "running entrypoints bundle guard"
-  if ! python3 tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
+  if ! python3 tests/repo_tools/entrypoints_bundle.py --root "${ROOT_DIR}"; then
     err "entrypoints bundle generation failed"
     STATUS=1
     return
   fi
-  if ! git diff --exit-code -- "${ROOT_DIR}/tools/entrypoints-bundle.txt" >/dev/null; then
-    err "entrypoints-bundle.txt out of date; rerun tools/entrypoints_bundle.py"
+  if ! git diff --exit-code -- "${ROOT_DIR}/tests/repo_tools/entrypoints-bundle.txt" >/dev/null; then
+    err "entrypoints-bundle.txt out of date; rerun tests/repo_tools/entrypoints_bundle.py"
     STATUS=1
   fi
 }
@@ -173,6 +174,22 @@ run_skill_scripts_guard() {
   fi
 }
 
+run_bash_runtime_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping bash runtime guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/bash-runtime-guard.py" ]]; then
+    warn "tests/repo_tools/bash-runtime-guard.py missing; skipping"
+    return
+  fi
+  log "running bash runtime guard"
+  if ! python3 tests/repo_tools/bash-runtime-guard.py; then
+    err "bash runtime guard failed"
+    STATUS=1
+  fi
+}
+
 run_schema_guards() {
   if [[ ! -f "tests/repo_tools/schema-guards.sh" ]]; then
     warn "tests/repo_tools/schema-guards.sh missing; skipping"
@@ -185,14 +202,63 @@ run_schema_guards() {
   fi
 }
 
-run_shim_regression() {
-  if [[ ! -f "tests/repo_tools/shim-regression.sh" ]]; then
-    warn "tests/repo_tools/shim-regression.sh missing; skipping"
+run_runtime_path_regression() {
+  if [[ ! -f "tests/repo_tools/runtime-path-regression.sh" ]]; then
+    warn "tests/repo_tools/runtime-path-regression.sh missing; skipping"
     return
   fi
-  log "running shim regression checks"
-  if ! bash tests/repo_tools/shim-regression.sh; then
-    err "shim regression checks failed"
+  log "running runtime path regression checks (python-only canon)"
+  if ! bash tests/repo_tools/runtime-path-regression.sh; then
+    err "runtime path regression checks failed"
+    STATUS=1
+  fi
+}
+
+run_research_legacy_artifact_guard() {
+  if ! command -v rg >/dev/null 2>&1; then
+    warn "rg not found; skipping research legacy artifact guard"
+    return
+  fi
+  log "running research legacy artifact guard"
+  local legacy_paths='reports/research/[^/]+-context\.json|reports/research/[^/]+-targets\.json'
+  if rg -n "${legacy_paths}" skills hooks templates docs dev | rg -v "rlm-targets\.json" >/dev/null; then
+    err "legacy research artifact refs found in runtime/docs surfaces"
+    STATUS=1
+  fi
+  if rg -n "${legacy_paths}" tests | rg -v "rlm-targets\.json" | rg -v "fixtures|compat" >/dev/null; then
+    err "legacy research artifact refs found in tests outside compat fixtures"
+    STATUS=1
+  fi
+  if rg -n "context\\.json|targets\\.json" skills hooks templates | rg -v "rlm-targets\\.json" >/dev/null; then
+    err "runtime write/read surfaces still reference legacy context/targets artifacts"
+    STATUS=1
+  fi
+}
+
+run_runtime_module_guard() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found; skipping runtime module guard"
+    return
+  fi
+  if [[ ! -f "tests/repo_tools/runtime-module-guard.py" ]]; then
+    warn "tests/repo_tools/runtime-module-guard.py missing; skipping"
+    return
+  fi
+  log "running runtime module guard"
+  if ! python3 tests/repo_tools/runtime-module-guard.py; then
+    err "runtime module guard failed"
+    STATUS=1
+  fi
+}
+
+run_python_only_regression() {
+  if [[ ! -f "tests/repo_tools/python-only-regression.sh" ]]; then
+    warn "tests/repo_tools/python-only-regression.sh missing; skipping"
+    return
+  fi
+  log "running python-only regression checks"
+  if ! bash tests/repo_tools/python-only-regression.sh; then
+    err "python-only regression checks failed"
     STATUS=1
   fi
 }
@@ -292,7 +358,7 @@ run_markdownlint() {
   local FILTERED=()
   for file in "${MD_FILES[@]}"; do
     case "$file" in
-      */backlog.md|*/CHANGELOG.md)
+      */backlog.md|*/CHANGELOG.md|*/aidd_audit_report.md|*/aidd_improvement_plan.md)
         continue
         ;;
     esac
@@ -406,9 +472,14 @@ run_python_tests() {
     log "tests/ directory not found; skipping python tests"
     return
   fi
-  log "running python unittest suite"
-  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m unittest discover -s tests -t .; then
-    err "python tests failed"
+  if ! python3 -m pytest --version >/dev/null 2>&1; then
+    err "pytest is required for repo checks (python3 -m pytest not available)"
+    STATUS=1
+    return
+  fi
+  log "running python pytest suite"
+  if ! AIDD_PACK_ENFORCE_BUDGET=1 python3 -m pytest -q tests; then
+    err "python pytest suite failed"
     STATUS=1
   fi
 }
@@ -425,8 +496,12 @@ run_output_contract_regression
 run_claude_stream_renderer
 run_tool_result_id_check
 run_skill_scripts_guard
+run_bash_runtime_guard
 run_schema_guards
-run_shim_regression
+run_runtime_path_regression
+run_research_legacy_artifact_guard
+run_runtime_module_guard
+run_python_only_regression
 run_marketplace_ref_guard
 run_repo_linters
 

@@ -26,10 +26,10 @@ class SettingsPolicyTest(unittest.TestCase):
         deny = perms.get("deny", [])
 
         self.assertIn("Read", allow, "Read must be allowed")
-        self.assertIn("Bash(git add:*)", ask, "git add should require explicit approval")
-        self.assertIn("Bash(git commit:*)", ask, "git commit should require explicit approval")
-        self.assertIn("Bash(git push:*)", ask, "git push should require explicit approval")
-        self.assertIn("Bash(curl:*)", deny, "curl should be denied by default")
+        self.assertIn("Bash(git add *)", ask, "git add should require explicit approval")
+        self.assertIn("Bash(git commit *)", ask, "git commit should require explicit approval")
+        self.assertIn("Bash(git push *)", ask, "git push should require explicit approval")
+        self.assertIn("Bash(curl *)", deny, "curl should be denied by default")
         self.assertIn("Write(./infra/prod/**)", deny, "production files must be protected")
 
     def test_hooks_delegated_to_plugin(self):

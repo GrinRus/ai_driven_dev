@@ -4,12 +4,12 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from tests.helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
+from tests.helpers import PROJECT_SUBDIR, REPO_ROOT, cli_cmd, cli_env
 
 
 class InitAiddTests(unittest.TestCase):
     def run_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
-        """Run tools/init.sh for the workspace root and return the completed process."""
+        """Run canonical init wrapper for the workspace root and return the completed process."""
         return subprocess.run(
             cli_cmd("init", *args),
             cwd=workdir,
@@ -36,12 +36,13 @@ class InitAiddTests(unittest.TestCase):
             "config/context_gc.json",
             "config/conventions.json",
             "config/gates.json",
+            "docs/index/schema.json",
             "docs/prd/template.md",
             "docs/plan/template.md",
             "docs/tasklist/template.md",
             "docs/research/template.md",
             "docs/spec/template.spec.yaml",
-            "docs/prompting/conventions.md",
+            "docs/shared/stage-lexicon.md",
             "docs/loops/template.loop-pack.md",
             "reports/prd/.gitkeep",
             "reports/loops/.gitkeep",
@@ -84,7 +85,9 @@ class InitAiddTests(unittest.TestCase):
         # run with force: file should be reset to template contents
         self.run_script(workdir, "--force")
         content = target.read_text(encoding="utf-8")
-        template_content = (TEMPLATES_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        template_content = (REPO_ROOT / "skills" / "aidd-core" / "templates" / "workspace-agents.md").read_text(
+            encoding="utf-8"
+        )
         self.assertEqual(content, template_content)
 
     def test_detect_build_tools_populates_settings(self):

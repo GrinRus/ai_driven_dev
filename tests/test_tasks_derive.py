@@ -156,7 +156,7 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
     project_root = ensure_project_root(tmp_path)
     write_active_feature(project_root, "demo-checkout")
     base = _base_tasklist() + (
-        "\n<!-- handoff:research start (source: aidd/reports/research/demo-checkout-context.json) -->\n"
+        "\n<!-- handoff:research start (source: aidd/reports/research/demo-checkout-rlm.pack.json) -->\n"
         "- [ ] Research: existing item (id: research:existing) (Priority: medium) (Blocking: false)\n"
         "  - source: research\n"
         "  - Status: open\n"
@@ -171,15 +171,19 @@ def test_tasks_derive_research_appends_existing_block(tmp_path):
         "<!-- handoff:research end -->\n"
     )
     write_file(project_root, "docs/tasklist/demo-checkout.md", base)
-    context = {
-        "profile": {"recommendations": ["Create baseline dirs"]},
-        "manual_notes": ["Check logging"],
-        "reuse_candidates": [{"path": "src/payments/Client.kt", "score": 3, "has_tests": True}],
+    pack_payload = {
+        "schema": "aidd.report.pack.v1",
+        "type": "rlm",
+        "kind": "pack",
+        "status": "pending",
+        "integration_points": [],
+        "test_hooks": [],
+        "risks": [],
     }
     write_file(
         project_root,
-        "reports/research/demo-checkout-context.json",
-        json.dumps(context, indent=2),
+        "reports/research/demo-checkout-rlm.pack.json",
+        json.dumps(pack_payload, indent=2),
     )
 
     result = subprocess.run(

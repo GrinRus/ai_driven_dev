@@ -4,9 +4,11 @@ description: Код-ревью по плану/PRD. Выявление риск�
 lang: ru
 prompt_version: 1.0.33
 source_version: 1.0.33
-tools: Read, Edit, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+tools: Read, Edit, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-policy
+  - feature-dev-aidd:aidd-rlm
   - feature-dev-aidd:aidd-loop
 model: inherit
 permissionMode: default
