@@ -1,5 +1,4 @@
 ---
-name: qa
 description: Run QA checks and produce the QA report.
 argument-hint: $1 [note...]
 lang: ru

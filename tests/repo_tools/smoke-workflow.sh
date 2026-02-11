@@ -173,6 +173,54 @@ log() {
   printf '[smoke] %s\n' "$*"
 }
 
+validate_wave_status_sot() {
+  python3 - "$PLUGIN_ROOT/backlog.md" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+backlog_path = Path(sys.argv[1])
+lines = backlog_path.read_text(encoding="utf-8").splitlines()
+wave_entries = {}
+
+for idx, raw in enumerate(lines):
+    match = re.match(r"^##\s+Wave\s+(\d+)\b(.*)$", raw.strip(), flags=re.IGNORECASE)
+    if not match:
+        continue
+    wave = match.group(1)
+    heading_tail = (match.group(2) or "").strip().lower()
+    status = ""
+    for look_ahead in lines[idx + 1 : idx + 12]:
+        probe = look_ahead.strip()
+        if probe.startswith("## "):
+            break
+        status_match = re.search(r"Статус:\s*([^,_]+)", probe, flags=re.IGNORECASE)
+        if status_match:
+            status = status_match.group(1).strip().lower()
+            break
+    archive = any(
+        marker in heading_tail for marker in ("archive", "архив", "historical", "history", "истор")
+    ) or any(marker in status for marker in ("archive", "архив", "не sot"))
+    wave_entries.setdefault(wave, []).append({"line": idx + 1, "status": status, "archive": archive})
+
+issues = []
+target_wave = "96"
+entries = wave_entries.get(target_wave, [])
+active_entries = [entry for entry in entries if not entry["archive"]]
+statuses = {entry["status"] for entry in active_entries if entry["status"]}
+if len(active_entries) > 1:
+    lines_set = ", ".join(str(entry["line"]) for entry in active_entries)
+    issues.append(f"wave {target_wave}: multiple active sections ({lines_set})")
+if len(statuses) > 1:
+    issues.append(f"wave {target_wave}: conflicting active statuses ({', '.join(sorted(statuses))})")
+
+if issues:
+    for issue in issues:
+        print(f"[smoke] backlog status policy violation: {issue}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
 seed_preflight_contract_artifacts() {
   local ticket="$1"
   local stage="$2"
@@ -297,6 +345,9 @@ for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
     if event == "UserPromptSubmit":
         assert_has("context-gc-userprompt.sh", event)
 PY
+
+log "validate backlog wave status source-of-truth policy"
+validate_wave_status_sot
 
 log "run context-gc hooks"
 run_hook context-gc-precompact.sh >/dev/null

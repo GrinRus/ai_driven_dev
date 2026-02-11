@@ -1,5 +1,4 @@
 ---
-name: review-spec
 description: Review plan + PRD and gate readiness for implementation.
 argument-hint: $1 [note...]
 lang: ru

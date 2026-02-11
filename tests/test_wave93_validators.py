@@ -74,8 +74,8 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             "status": "ok",
             "generated_at": "2024-01-01T00:00:00Z",
             "artifacts": {
-                "readmap_json": "aidd/reports/actions/DEMO/iteration_id_I1/readmap.json",
-                "writemap_json": "aidd/reports/actions/DEMO/iteration_id_I1/writemap.json",
+                "readmap_json": "aidd/reports/context/DEMO/iteration_id_I1.readmap.json",
+                "writemap_json": "aidd/reports/context/DEMO/iteration_id_I1.writemap.json",
             },
         }
         self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
@@ -133,11 +133,30 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         self.assertIn("tasks", context_map_validate.VALID_STAGES)
 
     def test_skill_contracts_validate(self) -> None:
+        canonical_files = {
+            "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+            "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+            "aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+            "aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+            "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
+        }
+        legacy_files = {
+            "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+            "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+            "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
+            "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
+            "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+        }
         for stage in ("implement", "review", "qa"):
             path = REPO_ROOT / "skills" / stage / "CONTRACT.yaml"
             payload = skill_contract_validate.load_contract(path)
             errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
             self.assertEqual(errors, [], f"contract {path} failed: {errors}")
+            required_reads = payload.get("reads", {}).get("required", [])
+            self.assertIn("aidd/reports/context/{ticket}/{scope_key}.readmap.md", required_reads)
+            writes_files = set(payload.get("writes", {}).get("files", []))
+            self.assertTrue(canonical_files.issubset(writes_files))
+            self.assertTrue(writes_files.isdisjoint(legacy_files))
 
     def test_actions_schema_files_are_json(self) -> None:
         for schema in ("aidd.actions.v0", "aidd.actions.v1"):

@@ -90,11 +90,12 @@ def build_bundle(root: Path) -> Dict[str, object]:
     skills: List[Dict[str, str]] = []
     for path in _resolve_skill_files(root, list(skills_raw)):
         rel = path.relative_to(root).as_posix()
+        inferred_name = Path(rel).parent.name
         fm = load_frontmatter(path)
         skills.append(
             {
                 "path": rel,
-                "name": str(fm.get("name", "")),
+                "name": str(fm.get("name", "")) or inferred_name,
                 "lang": str(fm.get("lang", "")),
                 "prompt_version": str(fm.get("prompt_version", "")),
                 "source_version": str(fm.get("source_version", "")),

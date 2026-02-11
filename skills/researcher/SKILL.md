@@ -1,5 +1,4 @@
 ---
-name: researcher
 description: Run research pipeline and produce researcher report artifacts.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
 lang: ru

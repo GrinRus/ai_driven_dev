@@ -275,10 +275,12 @@ def main(argv: List[str] | None = None) -> int:
             clear_active_mode(target)
             emit(args.format, payload)
             return ERROR_CODE
+        parse_error = ""
         try:
             step_payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             step_payload = {}
+            parse_error = str(exc)
         last_payload = step_payload
         reason = step_payload.get("reason") or ""
         reason_code = step_payload.get("reason_code") or ""
@@ -288,6 +290,8 @@ def main(argv: List[str] | None = None) -> int:
         mismatch_warn = step_payload.get("scope_key_mismatch_warn") or ""
         mismatch_from = step_payload.get("scope_key_mismatch_from") or ""
         mismatch_to = step_payload.get("scope_key_mismatch_to") or ""
+        step_command_log = step_payload.get("log_path") or ""
+        step_cli_log_path = step_payload.get("cli_log_path") or ""
         tests_log_path = step_payload.get("tests_log_path") or ""
         stage_diag = step_payload.get("stage_result_diagnostics") or ""
         stage_result_path = step_payload.get("stage_result_path") or ""
@@ -298,24 +302,47 @@ def main(argv: List[str] | None = None) -> int:
             else []
         )
         runner_effective = step_payload.get("runner_effective") or ""
+        if not str(runner_effective).strip():
+            runner_effective = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
         step_stream_log = step_payload.get("stream_log_path") or ""
         step_stream_jsonl = step_payload.get("stream_jsonl_path") or ""
         step_status = step_payload.get("status")
         step_exit_code = result.returncode
+        if step_exit_code == DONE_CODE:
+            step_status = "done"
+        elif step_exit_code == BLOCKED_CODE:
+            step_status = "blocked"
+        elif step_exit_code == CONTINUE_CODE and str(step_status).strip().lower() not in {"continue", "blocked", "done"}:
+            step_status = "continue"
         if step_exit_code == CONTINUE_CODE and str(reason_code).strip().lower() == "user_approval_required":
             step_exit_code = BLOCKED_CODE
             step_status = "blocked"
             if not reason:
                 reason = "user approval required"
         log_reason_code = repair_code or reason_code
+        if not str(log_reason_code).strip() and step_status == "blocked":
+            log_reason_code = "stage_result_blocked" if stage_result_path else "blocked_without_reason"
+        if parse_error and not str(log_reason_code).strip():
+            log_reason_code = "invalid_loop_step_payload"
+        if not str(reason).strip() and step_status == "blocked":
+            step_stage = str(step_payload.get("stage") or "").strip().lower()
+            if parse_error:
+                reason = f"loop-step returned invalid JSON payload: {parse_error}"
+            else:
+                reason = f"{step_stage or 'stage'} blocked"
         chosen_scope = repair_scope or scope_key
         if mismatch_to:
             chosen_scope = mismatch_to
+        if not stage_result_path and step_status == "blocked":
+            step_stage = str(step_payload.get("stage") or "").strip().lower()
+            fallback_scope = str(chosen_scope or runtime.resolve_scope_key("", ticket)).strip()
+            if step_stage:
+                stage_result_path = f"aidd/reports/loops/{ticket}/{fallback_scope}/stage.{step_stage}.result.json"
         if stream_mode and stream_log_path and step_stream_log:
-            step_log_path = runtime.resolve_path_for_target(Path(step_stream_log), target)
+            step_stream_log_path = runtime.resolve_path_for_target(Path(step_stream_log), target)
             append_stream_file(
                 stream_log_path,
-                step_log_path,
+                step_stream_log_path,
                 header=(
                     f"==> loop-step iteration={iteration} stage={step_payload.get('stage')} "
                     f"stream_log={step_stream_log}"
@@ -334,6 +361,8 @@ def main(argv: List[str] | None = None) -> int:
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
+                + (f" log_path={step_command_log}" if step_command_log else "")
+                + (f" step_cli_log_path={step_cli_log_path}" if step_cli_log_path else "")
                 + (f" tests_log_path={tests_log_path}" if tests_log_path else "")
                 + (f" stage_result_diagnostics={stage_diag}" if stage_diag else "")
                 + (f" stage_result_path={stage_result_path}" if stage_result_path else "")
@@ -418,6 +447,8 @@ def main(argv: List[str] | None = None) -> int:
                 "reason_code": log_reason_code,
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
+                "step_log_path": step_command_log,
+                "step_cli_log_path": step_cli_log_path,
                 "stage_result_path": stage_result_path,
                 "wrapper_logs": wrapper_logs,
                 "last_step": step_payload,

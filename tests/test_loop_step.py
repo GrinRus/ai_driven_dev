@@ -658,7 +658,17 @@ class LoopStepTests(unittest.TestCase):
             result = self.run_loop_step(root, "DEMO-BAD-WORK", log_path, None, "--format", "json")
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertTrue(payload.get("reason"))
             self.assertEqual(payload.get("reason_code"), "invalid_work_item_key")
+            self.assertTrue(payload.get("scope_key"))
+            self.assertTrue(payload.get("stage_result_path"))
+            self.assertTrue(payload.get("cli_log_path"))
+            self.assertTrue(payload.get("runner"))
+            self.assertTrue(payload.get("runner_effective"))
+            self.assertIn("runner.sh", str(payload.get("runner")))
+            self.assertIn("runner.sh", str(payload.get("runner_effective")))
+            self.assertTrue(payload.get("log_path"))
 
     def test_loop_step_recovers_scope_from_stage_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:

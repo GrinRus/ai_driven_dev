@@ -10,7 +10,7 @@
   ],
   "reads": {
     "required": [
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
       "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:WORK_ITEM",
       "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:TESTS"
     ],
@@ -25,16 +25,18 @@
       "aidd/reports/actions/{ticket}/{scope_key}/review.actions.template.json",
       "aidd/reports/actions/{ticket}/{scope_key}/review.actions.json",
       "aidd/reports/actions/{ticket}/{scope_key}/review.apply.jsonl",
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
-      "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
-      "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
-      "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+      "aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+      "aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
       "aidd/reports/logs/review/{ticket}/{scope_key}/"
     ],
     "patterns": [
       "aidd/reports/actions/{ticket}/{scope_key}/**",
       "aidd/reports/logs/review/{ticket}/{scope_key}/**",
+      "aidd/reports/context/{ticket}/{scope_key}.*",
+      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
       "aidd/reports/reviewer/{ticket}/{scope_key}*.json"
     ],
     "blocks": [
