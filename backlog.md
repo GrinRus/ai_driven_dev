@@ -1058,7 +1058,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ## Wave 99 — E2E audit fallout hardening (TST-001)
 
-_Статус: завершен. Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+_Статус: активен (re-open). Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
 
 - [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
   - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
@@ -1098,6 +1098,46 @@ _Статус: завершен. Приоритет 0. Цель — закрыт
   **Deps:** -
   **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
   **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-5 (P0) Preflight artifact path enforcement: block non-canonical write targets for scope-bound stages** `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/preflight_result_validate.py`, `tests/test_loop_step.py`:
+  - валидировать, что `--actions-template`, `--readmap-*`, `--writemap-*`, `--result` соответствуют canonical путям из `{ticket,scope_key,stage}`;
+  - блокировать preflight (`reason_code=artifact_path_mismatch`) при попытке писать в глобальные/нескоуповые пути (`aidd/reports/readmap.json`, `.../I1/...` вместо `.../iteration_id_I1/...`);
+  - добавить diagnostics: expected vs provided path для triage в audit logs.
+  **AC:** preflight не может завершиться `ok`, если артефакты направлены в non-canonical paths.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-6 (P0) Seed-stage canonical orchestration guard: enforce preflight->run->postflight chain for implement/review** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `tests/test_loop_step.py`:
+  - добавить hard guard на stage wrappers: seed run считается валидным только при наличии wrapper logs + `stage.<stage>.result.json` в canonical scope path;
+  - исключить частично-ручной preflight-only path как "успех" seed-итерации;
+  - синхронизировать stage SKILL contracts: canonical путь orchestration через wrapper chain.
+  **AC:** seed не может завершиться без `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json` и `stage.review.result.json`.
+  **Deps:** W99-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-7 (P1) Loop-step recovery from non-loop active stage (`tasklist`/`plan`/etc.) with preserved work-item context** `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - для `active.stage` вне `{implement,review,qa}` при валидном `work_item_key=iteration_id=*` выполнять controlled recovery в `implement` (WARN), а не immediate `unsupported_stage`;
+  - сохранить strict BLOCK для действительно невалидного/отсутствующего work item;
+  - фиксировать recovery reason в cli log/event payload.
+  **AC:** `loop_run` не падает в `blocked stage=tasklist` после seed при валидном iteration work item.
+  **Deps:** W99-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-8 (P1) QA command normalization for prefixed tasklist entries (`Backend:`/`Frontend:`)** `skills/qa/runtime/qa.py`, `skills/aidd-core/runtime/tasklist_parser.py`, `tests/test_qa_agent.py`:
+  - нормализовать prefixed commands из `AIDD:TEST_EXECUTION` перед exec (убрать label-prefix, сохранить команду и cwd semantics);
+  - не допускать `command not found: Backend:`/`Frontend:` в QA fallback path;
+  - сохранить совместимость с markdown/list/scalar форматами.
+  **AC:** QA корректно исполняет команды с human-readable префиксами и логирует нормализованный command.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** S
   **Risk:** Medium
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)

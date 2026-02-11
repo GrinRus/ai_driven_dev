@@ -261,6 +261,126 @@ class LoopRunTests(unittest.TestCase):
             loop_log = (root / "reports" / "loops" / "DEMO-MISMATCH" / "loop.run.log").read_text(encoding="utf-8")
             self.assertIn("scope_key_mismatch_warn=1", loop_log)
 
+    def test_loop_run_recovers_non_loop_stage_with_iteration_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TASKLIST-RECOVER"
+            write_active_state(root, ticket=ticket, stage="tasklist", work_item="iteration_id=I3")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I3/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I3",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    ticket,
+                    "--max-iterations",
+                    "1",
+                    "--runner",
+                    f"bash {runner}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("stage"), "implement")
+            self.assertEqual(last_step.get("repair_reason_code"), "non_loop_stage_recovered")
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("reason_code=non_loop_stage_recovered", loop_log)
+
+    def test_loop_run_from_qa_skips_work_item_autoselect_and_repairs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-QA-REPAIR"
+            write_active_state(root, ticket=ticket, stage="qa")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{ticket}/stage.qa.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "qa",
+                        "scope_key": ticket,
+                        "result": "blocked",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I2/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I2",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:01Z",
+                    }
+                ),
+            )
+            tasklist = """<!-- handoff:qa start -->
+- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I2)
+<!-- handoff:qa end -->
+"""
+            write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+
+            runner = FIXTURES / "runner.sh"
+            runner_log = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    ticket,
+                    "--max-iterations",
+                    "1",
+                    "--runner",
+                    f"bash {runner}",
+                    "--from-qa",
+                    "auto",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 11, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "max-iterations")
+            last_step = payload.get("last_step") or {}
+            self.assertEqual(last_step.get("stage"), "implement")
+            self.assertEqual(last_step.get("repair_reason_code"), "qa_repair")
+            self.assertNotEqual(last_step.get("reason_code"), "qa_repair_invalid_stage")
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("event=skip-auto-select-work-item", loop_log)
+            self.assertNotIn("event=auto-select-work-item", loop_log)
+
     def test_loop_run_stops_on_user_approval_required(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

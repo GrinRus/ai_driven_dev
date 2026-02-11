@@ -487,6 +487,8 @@ def _validate_stage_wrapper_contract(
     scope_key: str,
     stage: str,
     actions_log_rel: str,
+    wrapper_logs: List[str] | None = None,
+    stage_result_path: str = "",
 ) -> Tuple[bool, str, str]:
     from aidd_runtime import loop_step_wrappers as _wrappers
 
@@ -496,6 +498,8 @@ def _validate_stage_wrapper_contract(
         scope_key=scope_key,
         stage=stage,
         actions_log_rel=actions_log_rel,
+        wrapper_logs=wrapper_logs,
+        stage_result_path=stage_result_path,
     )
 
 
@@ -626,6 +630,72 @@ def main(argv: list[str] | None = None) -> int:
             reason_code,
             cli_log_path=cli_log_path,
         )
+
+    if stage and stage not in {"implement", "review", "qa"}:
+        active_work_item = runtime.read_active_work_item(target)
+        if not active_work_item:
+            reason = (
+                f"cannot recover from active stage '{stage}': active work item missing; "
+                "expected iteration_id=<id>."
+            )
+            reason_code = "invalid_work_item_key"
+            return emit_result(
+                args.format,
+                ticket,
+                stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                reason_code,
+                cli_log_path=cli_log_path,
+            )
+        if not runtime.is_valid_work_item_key(active_work_item):
+            reason = (
+                f"cannot recover from active stage '{stage}': invalid active work item key "
+                f"'{active_work_item}'; expected iteration_id=<id>."
+            )
+            reason_code = "invalid_work_item_key"
+            return emit_result(
+                args.format,
+                ticket,
+                stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                reason_code,
+                cli_log_path=cli_log_path,
+            )
+        if not runtime.is_iteration_work_item_key(active_work_item):
+            reason = (
+                f"cannot recover from active stage '{stage}': invalid active work item key "
+                f"'{active_work_item}'; expected iteration_id=<id>."
+            )
+            reason_code = "invalid_work_item_key"
+            return emit_result(
+                args.format,
+                ticket,
+                stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                reason_code,
+                cli_log_path=cli_log_path,
+            )
+        write_active_ticket(target, ticket)
+        write_active_work_item(target, active_work_item)
+        write_active_stage(target, "implement")
+        repair_reason_code = "non_loop_stage_recovered"
+        repair_scope_key = runtime.resolve_scope_key(active_work_item, ticket)
+        reason = f"active stage '{stage}' recovered to implement using work item {active_work_item}"
+        reason_code = repair_reason_code
+        print(
+            f"[loop-step] WARN: {reason} (reason_code={repair_reason_code})",
+            file=sys.stderr,
+        )
+        stage = ""
 
     if not stage:
         next_stage = "implement"
@@ -1311,6 +1381,8 @@ def main(argv: list[str] | None = None) -> int:
             scope_key=artifact_scope_key,
             stage=next_stage,
             actions_log_rel=actions_log_rel,
+            wrapper_logs=wrapper_logs,
+            stage_result_path=runtime.rel_path(result_path, target) if scope_key_mismatch_warn else "",
         )
         if not ok_contract:
             return emit_result(

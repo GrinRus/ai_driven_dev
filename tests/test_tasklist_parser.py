@@ -42,6 +42,20 @@ class TasklistParserTests(unittest.TestCase):
         )
         self.assertEqual(parsed["filters"], ["*test_one*", "*test_two*"])
 
+    def test_parse_test_execution_normalizes_prefixed_commands(self) -> None:
+        section = [
+            "- profile: targeted",
+            '- tasks: ["Backend: ./gradlew test --tests \'*Controller*\'", "Frontend: npm test -- --watch=false"]',
+            "- filters: []",
+        ]
+
+        parsed = tasklist_parser.parse_test_execution(section)
+
+        self.assertEqual(
+            parsed["tasks"],
+            ["./gradlew test --tests '*Controller*'", "npm test -- --watch=false"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,6 +30,20 @@ def _is_str(value: Any) -> bool:
     return isinstance(value, str)
 
 
+def _allowed_artifact_paths(*, ticket: str, scope_key: str, stage: str) -> dict[str, list[str]]:
+    actions_base = f"aidd/reports/actions/{ticket}/{scope_key}"
+    context_base = f"aidd/reports/context/{ticket}"
+    loops_base = f"aidd/reports/loops/{ticket}/{scope_key}"
+    return {
+        "actions_template": [f"{actions_base}/{stage}.actions.template.json"],
+        "readmap_json": [f"{context_base}/{scope_key}.readmap.json", f"{actions_base}/readmap.json"],
+        "readmap_md": [f"{context_base}/{scope_key}.readmap.md", f"{actions_base}/readmap.md"],
+        "writemap_json": [f"{context_base}/{scope_key}.writemap.json", f"{actions_base}/writemap.json"],
+        "writemap_md": [f"{context_base}/{scope_key}.writemap.md", f"{actions_base}/writemap.md"],
+        "loop_pack": [f"aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md"],
+    }
+
+
 def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
     errors: List[str] = []
     if not isinstance(payload, dict):
@@ -78,6 +92,32 @@ def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
         errors.append("field reason_code must be string")
     if reason is not None and not _is_str(reason):
         errors.append("field reason must be string")
+
+    artifacts = payload.get("artifacts")
+    if status == "ok" and isinstance(artifacts, dict):
+        required_artifacts = (
+            "actions_template",
+            "readmap_json",
+            "readmap_md",
+            "writemap_json",
+            "writemap_md",
+            "loop_pack",
+        )
+        for key in required_artifacts:
+            value = artifacts.get(key)
+            if not _is_str(value) or not str(value).strip():
+                errors.append(f"artifacts.{key} must be non-empty string for status=ok")
+
+        ticket = str(payload.get("ticket") or "").strip()
+        scope_key = str(payload.get("scope_key") or "").strip()
+        stage = str(payload.get("stage") or "").strip()
+        if ticket and scope_key and stage in VALID_STAGES:
+            allowed = _allowed_artifact_paths(ticket=ticket, scope_key=scope_key, stage=stage)
+            for key, allowed_values in allowed.items():
+                value = str(artifacts.get(key) or "").strip()
+                if value and value not in allowed_values:
+                    expected_text = " | ".join(allowed_values)
+                    errors.append(f"artifacts.{key} must be one of [{expected_text}], got '{value}'")
 
     return errors
 

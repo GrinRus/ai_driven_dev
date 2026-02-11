@@ -260,6 +260,46 @@ def _run_loop_pack(target: Path, *, ticket: str, stage: str, work_item_key: str)
     return payload
 
 
+def _allowed_artifact_paths(target: Path, context: Dict[str, str]) -> Dict[str, List[Path]]:
+    ticket = context["ticket"]
+    scope_key = context["scope_key"]
+    stage = context["stage"]
+    actions_dir = target / "reports" / "actions" / ticket / scope_key
+    context_dir = target / "reports" / "context" / ticket
+    loops_dir = target / "reports" / "loops" / ticket / scope_key
+    return {
+        "actions_template": [actions_dir / f"{stage}.actions.template.json"],
+        "readmap_json": [context_dir / f"{scope_key}.readmap.json", actions_dir / "readmap.json"],
+        "readmap_md": [context_dir / f"{scope_key}.readmap.md", actions_dir / "readmap.md"],
+        "writemap_json": [context_dir / f"{scope_key}.writemap.json", actions_dir / "writemap.json"],
+        "writemap_md": [context_dir / f"{scope_key}.writemap.md", actions_dir / "writemap.md"],
+        "result": [loops_dir / "stage.preflight.result.json", actions_dir / "stage.preflight.result.json"],
+    }
+
+
+def _validate_artifact_paths(
+    *,
+    target: Path,
+    provided: Dict[str, Path],
+    allowed: Dict[str, List[Path]],
+) -> None:
+    mismatches: List[str] = []
+    for key, allowed_paths in allowed.items():
+        provided_path = provided.get(key)
+        if provided_path is None:
+            continue
+        provided_resolved = provided_path.resolve()
+        allowed_resolved = [path.resolve() for path in allowed_paths]
+        if provided_resolved in allowed_resolved:
+            continue
+        expected_text = " | ".join(runtime.rel_path(path, target) for path in allowed_paths)
+        mismatches.append(
+            f"{key}: expected one of [{expected_text}] provided={runtime.rel_path(provided_path, target)}"
+        )
+    if mismatches:
+        raise PreflightBlocked("artifact_path_mismatch", "; ".join(mismatches))
+
+
 def _build_readmap(
     *,
     contract: Dict[str, Any],
@@ -442,12 +482,26 @@ def main(argv: List[str] | None = None) -> int:
         "contract_rel": runtime.rel_path(contract_path, target),
     }
 
+    provided_paths: Dict[str, Path] = {
+        "actions_template": actions_template_path,
+        "readmap_json": readmap_json_path,
+        "readmap_md": readmap_md_path,
+        "writemap_json": writemap_json_path,
+        "writemap_md": writemap_md_path,
+        "result": result_path,
+    }
+    allowed_paths = _allowed_artifact_paths(target, context)
+    allowed_result_paths = [path.resolve() for path in allowed_paths["result"]]
+    if provided_paths["result"].resolve() not in allowed_result_paths:
+        # Never emit blocked result into non-scope/global path.
+        result_path = allowed_paths["result"][0]
+
     artifacts: Dict[str, str] = {
-        "actions_template": runtime.rel_path(actions_template_path, target),
-        "readmap_json": runtime.rel_path(readmap_json_path, target),
-        "readmap_md": runtime.rel_path(readmap_md_path, target),
-        "writemap_json": runtime.rel_path(writemap_json_path, target),
-        "writemap_md": runtime.rel_path(writemap_md_path, target),
+        "actions_template": runtime.rel_path(provided_paths["actions_template"], target),
+        "readmap_json": runtime.rel_path(provided_paths["readmap_json"], target),
+        "readmap_md": runtime.rel_path(provided_paths["readmap_md"], target),
+        "writemap_json": runtime.rel_path(provided_paths["writemap_json"], target),
+        "writemap_md": runtime.rel_path(provided_paths["writemap_md"], target),
     }
 
     try:
@@ -477,6 +531,7 @@ def main(argv: List[str] | None = None) -> int:
                 "scope_key_mismatch",
                 f"loop-pack selected scope '{loop_scope}' but preflight scope is '{context['scope_key']}'",
             )
+        _validate_artifact_paths(target=target, provided=provided_paths, allowed=allowed_paths)
 
         loop_pack_rel = str(loop_payload.get("path") or "").strip()
         if not loop_pack_rel:

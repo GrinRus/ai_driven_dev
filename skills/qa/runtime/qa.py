@@ -146,7 +146,8 @@ def _has_tasklist_execution(data: dict) -> bool:
 def _commands_from_tasks(tasks: list[str]) -> list[list[str]]:
     commands: list[list[str]] = []
     for raw in tasks:
-        task = _strip_placeholder(str(raw))
+        normalized = tasklist_parser.normalize_test_execution_task(str(raw))
+        task = _strip_placeholder(normalized)
         if not task or task.lower() in {"none", "[]", "(none)", "n/a"}:
             continue
         try:

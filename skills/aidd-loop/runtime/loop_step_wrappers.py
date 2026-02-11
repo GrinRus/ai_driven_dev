@@ -451,6 +451,8 @@ def validate_stage_wrapper_contract(
     scope_key: str,
     stage: str,
     actions_log_rel: str,
+    wrapper_logs: List[str] | None = None,
+    stage_result_path: str = "",
 ) -> Tuple[bool, str, str]:
     if stage not in {"implement", "review", "qa"}:
         return True, "", ""
@@ -468,14 +470,49 @@ def validate_stage_wrapper_contract(
         "writemap_md": context_dir / f"{scope_key}.writemap.md",
         "preflight_result": loops_dir / "stage.preflight.result.json",
     }
+    stage_result_candidates: List[Path] = []
+    if stage in {"implement", "review"}:
+        stage_result_candidates.append(loops_dir / f"stage.{stage}.result.json")
+        stage_result_value = (stage_result_path or "").strip()
+        if stage_result_value:
+            stage_result_resolved = runtime.resolve_path_for_target(Path(stage_result_value), target)
+            if stage_result_resolved not in stage_result_candidates:
+                stage_result_candidates.append(stage_result_resolved)
     missing: List[str] = []
     for path in required_paths.values():
         if not path.exists():
             missing.append(runtime.rel_path(path, target))
 
-    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
-    if not wrapper_logs:
-        missing.append(runtime.rel_path(logs_dir / "wrapper.*.log", target))
+    if stage_result_candidates and not any(path.exists() for path in stage_result_candidates):
+        expected = " | ".join(runtime.rel_path(path, target) for path in stage_result_candidates)
+        missing.append(f"stage_result={expected}")
+
+    required_wrapper_kinds = ("preflight", "run", "postflight")
+    if wrapper_logs:
+        kind_to_paths: Dict[str, List[Path]] = {kind: [] for kind in required_wrapper_kinds}
+        for value in wrapper_logs:
+            rel = str(value or "").strip()
+            if not rel:
+                continue
+            path = runtime.resolve_path_for_target(Path(rel), target)
+            name = path.name
+            for kind in required_wrapper_kinds:
+                if f"wrapper.{kind}." in name:
+                    kind_to_paths[kind].append(path)
+                    break
+        for kind in required_wrapper_kinds:
+            paths = kind_to_paths.get(kind) or []
+            if not paths:
+                missing.append(runtime.rel_path(logs_dir / f"wrapper.{kind}.*.log", target))
+                continue
+            if not any(path.exists() for path in paths):
+                missing.append(" | ".join(runtime.rel_path(path, target) for path in paths))
+    else:
+        required_wrapper_logs = ("wrapper.preflight.*.log", "wrapper.run.*.log", "wrapper.postflight.*.log")
+        for pattern in required_wrapper_logs:
+            matches = sorted(logs_dir.glob(pattern)) if logs_dir.exists() else []
+            if not matches:
+                missing.append(runtime.rel_path(logs_dir / pattern, target))
 
     actions_log_value = (actions_log_rel or "").strip()
     if not actions_log_value:
@@ -487,7 +524,15 @@ def validate_stage_wrapper_contract(
 
     if not missing:
         return True, "", ""
-    reason_code = "actions_missing" if any("actions" in item.lower() for item in missing) else "preflight_missing"
+    lowered = [item.lower() for item in missing]
+    if any("stage_result=" in item or f"stage.{stage}.result.json" in item for item in lowered):
+        reason_code = "stage_result_missing"
+    elif any("wrapper.preflight" in item or "wrapper.run" in item or "wrapper.postflight" in item for item in lowered):
+        reason_code = "wrapper_chain_missing"
+    elif any("actions" in item for item in lowered):
+        reason_code = "actions_missing"
+    else:
+        reason_code = "preflight_missing"
     message = "missing stage wrapper artifacts: " + ", ".join(missing)
     return False, message, reason_code
 

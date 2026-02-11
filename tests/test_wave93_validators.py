@@ -74,8 +74,12 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             "status": "ok",
             "generated_at": "2024-01-01T00:00:00Z",
             "artifacts": {
-                "readmap_json": "aidd/reports/actions/DEMO/iteration_id_I1/readmap.json",
-                "writemap_json": "aidd/reports/actions/DEMO/iteration_id_I1/writemap.json",
+                "actions_template": "aidd/reports/actions/DEMO/iteration_id_I1/implement.actions.template.json",
+                "readmap_json": "aidd/reports/context/DEMO/iteration_id_I1.readmap.json",
+                "readmap_md": "aidd/reports/context/DEMO/iteration_id_I1.readmap.md",
+                "writemap_json": "aidd/reports/context/DEMO/iteration_id_I1.writemap.json",
+                "writemap_md": "aidd/reports/context/DEMO/iteration_id_I1.writemap.md",
+                "loop_pack": "aidd/reports/loops/DEMO/iteration_id_I1.loop.pack.md",
             },
         }
         self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
@@ -84,6 +88,12 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         broken["schema"] = "aidd.stage_result.preflight.vX"
         errors = preflight_result_validate.validate_preflight_result_data(broken)
         self.assertTrue(any("schema must be one of" in err for err in errors))
+
+        path_drift = dict(payload)
+        path_drift["artifacts"] = dict(payload["artifacts"])
+        path_drift["artifacts"]["readmap_json"] = "aidd/reports/readmap.json"
+        errors = preflight_result_validate.validate_preflight_result_data(path_drift)
+        self.assertTrue(any("artifacts.readmap_json must be one of" in err for err in errors))
 
     def test_context_map_validate_schema(self) -> None:
         readmap = {

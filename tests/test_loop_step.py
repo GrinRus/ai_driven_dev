@@ -660,6 +660,83 @@ class LoopStepTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("reason_code"), "invalid_work_item_key")
 
+    def test_loop_step_recovers_non_loop_stage_with_iteration_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STAGE-RECOVER"
+            write_active_state(root, ticket=ticket, stage="tasklist", work_item="iteration_id=I3")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I3/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I3",
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, ticket, log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("stage"), "implement")
+            self.assertEqual(payload.get("repair_reason_code"), "non_loop_stage_recovered")
+            self.assertEqual(payload.get("repair_scope_key"), "iteration_id_I3")
+            active_payload = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("stage"), "implement")
+
+    def test_loop_step_blocks_non_loop_stage_recovery_when_work_item_invalid(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-STAGE-BLOCK", stage="tasklist", work_item="id=review:seed")
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-STAGE-BLOCK", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "invalid_work_item_key")
+            self.assertIn("cannot recover from active stage", str(payload.get("reason") or ""))
+
+    def test_stage_wrapper_contract_requires_stage_result_and_wrapper_chain(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-contract-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-CONTRACT"
+            scope_key = "iteration_id_I1"
+            stage = "implement"
+            base_actions = root / "reports" / "actions" / ticket / scope_key
+            base_context = root / "reports" / "context" / ticket
+            base_loops = root / "reports" / "loops" / ticket / scope_key
+            base_logs = root / "reports" / "logs" / stage / ticket / scope_key
+
+            write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.template.json", "{}")
+            write_file(root, f"reports/actions/{ticket}/{scope_key}/{stage}.actions.json", "{}")
+            write_file(root, f"reports/context/{ticket}/{scope_key}.readmap.json", "{}")
+            write_file(root, f"reports/context/{ticket}/{scope_key}.readmap.md", "# readmap\n")
+            write_file(root, f"reports/context/{ticket}/{scope_key}.writemap.json", "{}")
+            write_file(root, f"reports/context/{ticket}/{scope_key}.writemap.md", "# writemap\n")
+            write_file(root, f"reports/loops/{ticket}/{scope_key}/stage.preflight.result.json", "{}")
+            write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.20240101T000000Z.log", "ok\n")
+
+            ok, message, code = loop_step_module._validate_stage_wrapper_contract(
+                target=root,
+                ticket=ticket,
+                scope_key=scope_key,
+                stage=stage,
+                actions_log_rel=f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json",
+            )
+            self.assertFalse(ok)
+            self.assertEqual(code, "stage_result_missing")
+            self.assertIn("stage.implement.result.json", message)
+            self.assertIn("wrapper.run", message)
+            self.assertIn("wrapper.postflight", message)
+            self.assertTrue(base_actions.exists())
+            self.assertTrue(base_context.exists())
+            self.assertTrue(base_loops.exists())
+            self.assertTrue(base_logs.exists())
+
     def test_loop_step_recovers_scope_from_stage_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

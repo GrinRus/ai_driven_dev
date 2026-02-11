@@ -56,7 +56,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 3. Read order after preflight: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 4. Run subagent `feature-dev-aidd:implementer`.
 5. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
-6. Postflight reference: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
+6. Postflight reference: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary. Canonical seed/loop chain is strict: `preflight -> implement_run -> actions_apply/postflight` and must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`.
 7. Output: return stage contract + updated artifacts with explicit handoff/next action.
 
 ## Command contracts
@@ -72,14 +72,14 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Inputs: `--ticket`, `--scope-key`, `--work-item-key`, `--stage implement`, artifact target paths.
 - Outputs: `readmap/writemap`, actions template, and `stage.preflight.result.json`.
 - Failure mode: boundary or prerequisite contract violation.
-- Next action: resolve boundary/precondition issues and rerun preflight.
+- Next action: resolve boundary/precondition issues and rerun preflight; do not run implement as standalone success without subsequent run+postflight chain.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step after actions validation.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions, progress/status artifacts, and apply logs.
 - Failure mode: DocOps apply failure, boundary guard failure, or status-summary failure.
-- Next action: inspect action/apply logs, fix root cause, rerun postflight.
+- Next action: inspect action/apply logs, fix root cause, rerun postflight and verify canonical stage result exists (`aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`).
 
 ## Notes
 - Implement stage does not run tests; format-only is allowed.

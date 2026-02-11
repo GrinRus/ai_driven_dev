@@ -266,6 +266,33 @@ class QaAgentTests(unittest.TestCase):
         self.assertIn("echo qa-inline-second", commands)
         self.assertTrue(all(not str(command).startswith("[") for command in commands))
 
+    def test_tasklist_prefixed_commands_are_normalized_before_exec(self):
+        ticket = "tasklist-prefixed-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["Backend: echo qa-prefixed-backend", "Frontend: echo qa-prefixed-frontend"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-prefixed-backend", commands)
+        self.assertIn("echo qa-prefixed-frontend", commands)
+        self.assertTrue(all("Backend:" not in str(command) for command in commands))
+        self.assertTrue(all("Frontend:" not in str(command) for command in commands))
+
     def test_tasklist_profile_none_skips_tests_and_writes_stage_result(self):
         ticket = "tasklist-none"
         write_active_feature(self.project_root, ticket)

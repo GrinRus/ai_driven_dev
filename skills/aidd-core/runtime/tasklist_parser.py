@@ -79,6 +79,8 @@ def extract_mapping_field(lines: List[str], field: str) -> Dict[str, str]:
 PATH_TOKEN_RE = re.compile(
     r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.*/-]+|\b[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b"
 )
+TASK_COMMAND_PREFIX_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 _/+-]{2,40}):\s*(?P<command>.+)$")
+COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+)(?:\s|$)")
 
 SECTION_HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
 
@@ -187,6 +189,24 @@ def _parse_inline_sequence(raw: str, *, split_pattern: str) -> List[str]:
     return values
 
 
+def normalize_test_execution_task(raw: str) -> str:
+    value = _strip_placeholder(raw)
+    if not value:
+        return ""
+    text = value.strip()
+    if text.startswith("`") and text.endswith("`"):
+        text = text[1:-1].strip()
+    match = TASK_COMMAND_PREFIX_RE.match(text)
+    if not match:
+        return text
+    command = match.group("command").strip()
+    if not command:
+        return text
+    if not COMMAND_LIKE_RE.match(command):
+        return text
+    return command
+
+
 def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     profile = (extract_scalar_field(lines, "profile") or "").strip()
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
@@ -200,6 +220,12 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
         tasks = tasks_list
     elif tasks_raw:
         tasks = _parse_inline_sequence(tasks_raw, split_pattern=r"\s*;\s*")
+    normalized_tasks: List[str] = []
+    for raw_task in tasks:
+        normalized = normalize_test_execution_task(str(raw_task))
+        if normalized:
+            normalized_tasks.append(normalized)
+    tasks = normalized_tasks
     filters: List[str] = []
     if filters_list:
         filters = filters_list

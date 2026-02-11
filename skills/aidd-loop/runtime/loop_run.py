@@ -261,7 +261,20 @@ def main(argv: List[str] | None = None) -> int:
 
     if not args.work_item_key:
         active_work_item = runtime.read_active_work_item(target)
-        if not runtime.is_valid_work_item_key(active_work_item):
+        if args.from_qa:
+            if not runtime.is_valid_work_item_key(active_work_item):
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=skip-auto-select-work-item ticket={ticket} "
+                        "reason=from_qa_requested active_work_item=missing_or_invalid"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    f"{utc_timestamp()} event=skip-auto-select-work-item reason=from_qa_requested",
+                )
+        elif not runtime.is_valid_work_item_key(active_work_item):
             selected_next, pending_count = select_next_work_item(target, ticket, active_work_item)
             if selected_next:
                 write_active_state(target, ticket=ticket, work_item=selected_next)
