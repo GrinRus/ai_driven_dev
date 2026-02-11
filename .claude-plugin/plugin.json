@@ -22,18 +22,18 @@
     "./agents/qa.md"
   ],
   "skills": [
-    "./skills/aidd-core/SKILL.md",
-    "./skills/aidd-loop/SKILL.md",
-    "./skills/aidd-init/SKILL.md",
-    "./skills/idea-new/SKILL.md",
-    "./skills/researcher/SKILL.md",
-    "./skills/plan-new/SKILL.md",
-    "./skills/review-spec/SKILL.md",
-    "./skills/spec-interview/SKILL.md",
-    "./skills/tasks-new/SKILL.md",
-    "./skills/implement/SKILL.md",
-    "./skills/review/SKILL.md",
-    "./skills/qa/SKILL.md",
-    "./skills/status/SKILL.md"
+    "./skills/aidd-core",
+    "./skills/aidd-loop",
+    "./skills/aidd-init",
+    "./skills/idea-new",
+    "./skills/researcher",
+    "./skills/plan-new",
+    "./skills/review-spec",
+    "./skills/spec-interview",
+    "./skills/tasks-new",
+    "./skills/implement",
+    "./skills/review",
+    "./skills/qa",
+    "./skills/status"
   ]
 }

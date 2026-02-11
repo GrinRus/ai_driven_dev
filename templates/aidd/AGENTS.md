@@ -13,6 +13,7 @@
 - Loop discipline — см. `skills/aidd-loop`.
 - Stage‑локальные скрипты живут в `skills/<stage>/scripts/`; shared tooling остаётся в `tools/`.
 - Wrapper‑вывод: stdout ≤ 200 lines или ≤ 50KB; stderr ≤ 50 lines; большие выводы пишите в `aidd/reports/**`.
+- `AIDD_SKIP_STAGE_WRAPPERS=1` — только для диагностики; в `strict` и на стадиях `review|qa` это блокирующий режим (`reason_code=wrappers_skipped_unsafe`).
 
 ## Evidence read policy (summary)
 - Primary evidence (research): `aidd/reports/research/<ticket>-rlm.pack.json`.

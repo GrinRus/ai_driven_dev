@@ -33,6 +33,7 @@ User‑гайд для workspace находится в `templates/aidd/AGENTS.md
 ## Быстрые проверки (repo‑only)
 - Полный линт + unit‑тесты: `tests/repo_tools/ci-lint.sh`.
 - E2E smoke: `tests/repo_tools/smoke-workflow.sh`.
+- CI policy: workflow `smoke-workflow` запускается всегда и выполняет auto-skip, если runtime-пути (`skills/hooks/tools/agents/templates/.claude-plugin`) не менялись.
 - Дополнительно (если нужно): `python3 -m unittest discover -s tests -t .`.
 - Диагностика окружения: `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
 - Bootstrap шаблонов (workspace): `/feature-dev-aidd:aidd-init`.
@@ -97,6 +98,7 @@ Agent‑first правило: сначала читаем артефакты (`a
   - `tasklist_progress`
 - Важные env:
   - `SKIP_AUTO_TESTS`, `SKIP_FORMAT`, `FORMAT_ONLY`, `TEST_SCOPE`, `STRICT_TESTS`
+  - `AIDD_SKIP_STAGE_WRAPPERS` — debug-only escape hatch; в `strict` и для стадий `review|qa` даёт BLOCK (`reason_code=wrappers_skipped_unsafe`), в `fast` на `implement` допускается только WARN.
 - `AIDD_TEST_PROFILE`, `AIDD_TEST_PROFILE_DEFAULT`, `AIDD_TEST_TASKS`, `AIDD_TEST_FILTERS`, `AIDD_TEST_FORCE`
 - `AIDD_TEST_LOG`, `AIDD_TEST_LOG_TAIL_LINES`, `AIDD_TEST_CHECKPOINT`
 - `AIDD_HOOKS_MODE` (`fast` по умолчанию, `strict` для полного набора стоп‑хуков)

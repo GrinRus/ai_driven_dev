@@ -5,6 +5,7 @@ from typing import Tuple
 
 _WORK_ITEM_KEY_RE = re.compile(r"^(iteration_id|id)=[A-Za-z0-9_.:-]+$")
 _ITERATION_WORK_ITEM_KEY_RE = re.compile(r"^iteration_id=[A-Za-z0-9_.:-]+$")
+_SLUG_HINT_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,80}$")
 
 _LOOP_STAGES = {"implement", "review"}
 
@@ -25,6 +26,26 @@ def is_iteration_work_item_key(value: str | None) -> bool:
     if not raw:
         return False
     return bool(_ITERATION_WORK_ITEM_KEY_RE.match(raw))
+
+
+def normalize_slug_hint_token(value: str | None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    token = raw.split()[0].strip().strip("\"'")
+    if not token:
+        return ""
+    lowered = token.lower()
+    for prefix in ("slug=", "slug:"):
+        if lowered.startswith(prefix):
+            token = token[len(prefix):]
+            break
+    token = token.strip().strip("\"'").strip(",;").lower()
+    if not token:
+        return ""
+    if not _SLUG_HINT_TOKEN_RE.match(token):
+        return ""
+    return token
 
 
 def normalize_work_item_for_stage(
@@ -61,4 +82,3 @@ def normalize_work_item_for_stage(
     if current and is_iteration_work_item_key(current):
         return current, report_id
     return "", report_id
-

@@ -10,8 +10,6 @@ from tests.helpers import PROJECT_SUBDIR, TEMPLATES_ROOT, cli_cmd, cli_env
 class InitAiddTests(unittest.TestCase):
     def run_script(self, workdir: Path, *args: str) -> subprocess.CompletedProcess:
         """Run tools/init.sh for the workspace root and return the completed process."""
-        project_root = workdir if workdir.name == PROJECT_SUBDIR else workdir / PROJECT_SUBDIR
-        project_root.mkdir(parents=True, exist_ok=True)
         return subprocess.run(
             cli_cmd("init", *args),
             cwd=workdir,
@@ -104,6 +102,48 @@ class InitAiddTests(unittest.TestCase):
         self.assertIn("**/package.json", tests_cfg["commonPatterns"])
         self.assertIn("codePaths", tests_cfg)
         self.assertIn("codeExtensions", tests_cfg)
+
+    def test_detect_stack_alias_maps_to_detect_build_tools(self):
+        workdir = self.make_tempdir()
+        (workdir / "package.json").write_text('{"name": "demo"}', encoding="utf-8")
+
+        result = self.run_script(workdir, "--detect-stack")
+        self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+
+        settings_path = workdir / ".claude" / "settings.json"
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+        tests_cfg = payload.get("automation", {}).get("tests", {})
+        self.assertIn("**/package.json", tests_cfg.get("commonPatterns", []))
+
+    def test_removed_init_flags_are_rejected(self):
+        workdir = self.make_tempdir()
+        for flag in ("--dry-run", "--enable-ci"):
+            with self.subTest(flag=flag):
+                result = subprocess.run(
+                    cli_cmd("init", flag),
+                    cwd=workdir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=cli_env(),
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unrecognized arguments", result.stderr)
+
+    def test_help_lists_supported_init_flags(self):
+        result = subprocess.run(
+            cli_cmd("init", "--help"),
+            cwd=self.make_tempdir(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=cli_env(),
+        )
+        self.assertIn("--detect-build-tools", result.stdout)
+        self.assertNotIn("--enable-ci", result.stdout)
+        self.assertNotIn("--dry-run", result.stdout)
+        self.assertNotIn("--detect-stack", result.stdout)
 
 if __name__ == "__main__":
     unittest.main()

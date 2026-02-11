@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-05._
+_Last sync with `README.md`: 2026-02-07._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -51,7 +51,7 @@ Key features:
 /feature-dev-aidd:aidd-init
 ```
 
-`/feature-dev-aidd:aidd-init` creates `.claude/settings.json` with default `automation.tests`. To refresh/detect stack-specific defaults, run:
+`/feature-dev-aidd:aidd-init` creates `./aidd` and `.claude/settings.json` with default `automation.tests`. To refresh/detect stack-specific defaults, run:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
@@ -97,7 +97,9 @@ Notes:
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Verify PRD `READY` and Q/A sync |
 | `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Confirm tasklist progress |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Generate loop pack for current work item |
-| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Generate review report |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Generate review pack (thin feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Update reviewer marker for test policy |
 | `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Validate diff against loop-pack allowed paths |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Single loop step (implement↔review) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Auto-loop until all open iterations are complete |
@@ -111,6 +113,8 @@ Notes:
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke for repo maintainers |
 
 `tests/repo_tools/` contains repo-only CI/lint utilities; it is not part of the plugin.
+
+`tools/review-report.sh`, `tools/review-pack.sh`, and `tools/reviewer-tests.sh` remain deprecated compatibility shims and emit warnings.
 
 ## Slash Commands
 

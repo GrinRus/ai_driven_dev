@@ -374,7 +374,7 @@ def reviewer_marker_path(
         raise ValueError(
             f"reviewer marker path {marker_path} escapes project root {target_root}"
         )
-    _maybe_migrate_reviewer_marker(marker_path)
+    ensure_reviewer_marker_migrated(marker_path)
     return marker_path
 
 
@@ -390,26 +390,27 @@ def _looks_like_review_report(payload: Dict[str, Any]) -> bool:
     return False
 
 
-def _maybe_migrate_reviewer_marker(marker_path: Path) -> None:
+def ensure_reviewer_marker_migrated(marker_path: Path) -> bool:
     if marker_path.exists():
-        return
+        return False
     if not marker_path.name.endswith(".tests.json"):
-        return
+        return False
     old_path = marker_path.with_name(marker_path.name.replace(".tests.json", ".json"))
     if not old_path.exists():
-        return
+        return False
     try:
         payload = json.loads(old_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return
+        return False
     if _looks_like_review_report(payload):
-        return
+        return False
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     try:
         old_path.unlink()
     except OSError:
-        return
+        return False
+    return True
 
 
 def resolve_tool_result_id(payload: Dict[str, Any], *, index: Optional[int] = None) -> tuple[str, str]:

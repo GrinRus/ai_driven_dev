@@ -16,5 +16,4 @@ dist/
 .DS_Store
 /.claude/
 /aidd
-aidd_test_flow_prompt_ralph_script.txt
-aidd_test_flow_prompt_ralph_script_legacy.txt
+aidd_test_flow_prompt_*.txt

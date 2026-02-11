@@ -1,5 +1,4 @@
 ---
-name: spec-interview
 description: Run spec interview and update spec.yaml from answers.
 argument-hint: $1 [note...]
 lang: ru

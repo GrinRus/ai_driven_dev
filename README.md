@@ -44,7 +44,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 /feature-dev-aidd:aidd-init
 ```
 
-`/feature-dev-aidd:aidd-init` создаёт `.claude/settings.json` с дефолтами `automation.tests`. Для обновления/детекта под стек используйте:
+`/feature-dev-aidd:aidd-init` создаёт `./aidd` и `.claude/settings.json` с дефолтами `automation.tests`. Для обновления/детекта под стек используйте:
 
 ```text
 /feature-dev-aidd:aidd-init --detect-build-tools
@@ -84,7 +84,9 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
 | `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
-| `${CLAUDE_PLUGIN_ROOT}/tools/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Сформировать review report |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
+| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Обновить reviewer marker для тестовой политики |
 | `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
 | `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
@@ -98,6 +100,8 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
 `tests/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
+
+`tools/review-report.sh`, `tools/review-pack.sh`, `tools/reviewer-tests.sh` остаются как deprecated shim (compatibility-only) и выводят предупреждение.
 
 ## Слэш-команды
 

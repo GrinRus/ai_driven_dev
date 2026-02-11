@@ -8,7 +8,7 @@ from tests.helpers import REPO_ROOT, cli_env, ensure_project_root, write_active_
 
 
 class StagePreflightWrapperTests(unittest.TestCase):
-    def _run_wrapper(self, stage: str) -> None:
+    def _run_wrapper(self, stage: str, *, write_legacy: bool = False) -> None:
         with tempfile.TemporaryDirectory(prefix=f"preflight-{stage}-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = f"DEMO-{stage.upper()}"
@@ -33,7 +33,7 @@ class StagePreflightWrapperTests(unittest.TestCase):
                     stage,
                 ],
                 cwd=root,
-                env=cli_env(),
+                env=cli_env({"AIDD_WRITE_LEGACY_PREFLIGHT": "1"} if write_legacy else None),
                 text=True,
                 capture_output=True,
             )
@@ -44,18 +44,45 @@ class StagePreflightWrapperTests(unittest.TestCase):
             self.assertIn("preflight_result=", stdout)
 
             base = root / "reports" / "actions" / ticket / scope_key
-            self.assertTrue((base / "readmap.json").exists())
-            self.assertTrue((base / "writemap.json").exists())
-            self.assertTrue((base / "stage.preflight.result.json").exists())
             self.assertTrue((base / f"{stage}.actions.template.json").exists())
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.readmap.json").exists())
             self.assertTrue((root / "reports" / "context" / ticket / f"{scope_key}.writemap.json").exists())
             self.assertTrue((root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json").exists())
+            if write_legacy:
+                self.assertTrue((base / "readmap.json").exists())
+                self.assertTrue((base / "writemap.json").exists())
+                self.assertTrue((base / "stage.preflight.result.json").exists())
+            else:
+                self.assertFalse((base / "readmap.json").exists())
+                self.assertFalse((base / "writemap.json").exists())
+                self.assertFalse((base / "stage.preflight.result.json").exists())
 
-            payload = json.loads((base / "stage.preflight.result.json").read_text(encoding="utf-8"))
+            canonical_result = root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json"
+            payload = json.loads(canonical_result.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("schema"), "aidd.stage_result.preflight.v1")
             self.assertEqual(payload.get("status"), "ok")
             self.assertEqual(payload.get("stage"), stage)
+            artifacts = payload.get("artifacts", {})
+            self.assertEqual(
+                artifacts.get("readmap_json"),
+                f"aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+            )
+            self.assertEqual(
+                artifacts.get("writemap_json"),
+                f"aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+            )
+            self.assertEqual(
+                artifacts.get("readmap_md"),
+                f"aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+            )
+            self.assertEqual(
+                artifacts.get("writemap_md"),
+                f"aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+            )
+            self.assertNotIn(
+                f"aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+                artifacts.values(),
+            )
 
     def test_implement_preflight_wrapper(self) -> None:
         self._run_wrapper("implement")
@@ -65,6 +92,9 @@ class StagePreflightWrapperTests(unittest.TestCase):
 
     def test_qa_preflight_wrapper(self) -> None:
         self._run_wrapper("qa")
+
+    def test_preflight_wrapper_can_emit_legacy_artifacts_when_enabled(self) -> None:
+        self._run_wrapper("review", write_legacy=True)
 
 
 if __name__ == "__main__":

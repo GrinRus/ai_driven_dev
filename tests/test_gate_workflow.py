@@ -243,6 +243,54 @@ def write_plan_with_review(tmp_path: pathlib.Path, ticket: str = "demo-checkout"
     )
 
 
+def write_loop_preflight_contract_artifacts(
+    tmp_path: pathlib.Path,
+    *,
+    ticket: str,
+    stage: str,
+    scope_key: str | None = None,
+) -> None:
+    resolved_scope = scope_key or ticket
+    write_file(
+        tmp_path,
+        f"reports/actions/{ticket}/{resolved_scope}/{stage}.actions.template.json",
+        '{"schema_version":"aidd.actions.v1","actions":[]}\n',
+    )
+    write_file(
+        tmp_path,
+        f"reports/actions/{ticket}/{resolved_scope}/{stage}.actions.json",
+        '{"schema_version":"aidd.actions.v1","actions":[]}\n',
+    )
+    write_file(
+        tmp_path,
+        f"reports/context/{ticket}/{resolved_scope}.readmap.json",
+        '{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}\n',
+    )
+    write_file(tmp_path, f"reports/context/{ticket}/{resolved_scope}.readmap.md", "# readmap\n")
+    write_file(
+        tmp_path,
+        f"reports/context/{ticket}/{resolved_scope}.writemap.json",
+        '{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}\n',
+    )
+    write_file(tmp_path, f"reports/context/{ticket}/{resolved_scope}.writemap.md", "# writemap\n")
+    write_file(
+        tmp_path,
+        f"reports/loops/{ticket}/{resolved_scope}/stage.preflight.result.json",
+        '{"schema":"aidd.stage_result.preflight.v1","status":"ok"}\n',
+    )
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.preflight.log", "ok\n")
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.run.log", "ok\n")
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.postflight.log", "ok\n")
+    write_json(
+        tmp_path,
+        f"reports/loops/{ticket}/{resolved_scope}/output.contract.json",
+        {
+            "status": "ok",
+            "actions_log": f"aidd/reports/actions/{ticket}/{resolved_scope}/{stage}.actions.json",
+        },
+    )
+
+
 def test_no_active_feature_allows_changes(tmp_path):
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -291,6 +339,7 @@ def test_tasklist_blocks_when_next3_missing_fields(tmp_path):
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
     text = tasklist_path.read_text(encoding="utf-8")
     text = text.replace("DoD: tasklist ready", "DoD:", 1)
     tasklist_path.write_text(text, encoding="utf-8")
@@ -312,6 +361,7 @@ def test_tasklist_blocks_when_test_execution_missing(tmp_path):
     write_plan_with_review(tmp_path, ticket)
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
     text = tasklist_path.read_text(encoding="utf-8")
     text = text.replace("- profile: none\n", "", 1)
     tasklist_path.write_text(text, encoding="utf-8")
@@ -336,6 +386,7 @@ def test_tasklist_blocks_when_plan_iteration_missing_in_tasklist(tmp_path):
         fh.write("- iteration_id: I4\n  - Goal: extra scope\n")
     write_research_doc(tmp_path, ticket=ticket, status="reviewed")
     tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="review", scope_key=ticket)
     append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
@@ -1142,6 +1193,7 @@ def test_reviewer_marker_with_slug_hint(tmp_path):
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_tasklist_ready(tmp_path, ticket)
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="implement", scope_key=ticket)
     reviewer_marker = {
         "ticket": ticket,
         "slug": slug_hint,
@@ -1183,6 +1235,7 @@ def test_reviewer_required_warns_but_does_not_block_implement_stage(tmp_path):
     write_plan_with_review(tmp_path, ticket)
     write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
     write_tasklist_ready(tmp_path, ticket)
+    write_loop_preflight_contract_artifacts(tmp_path, ticket=ticket, stage="implement", scope_key=ticket)
     reviewer_marker = {
         "ticket": ticket,
         "slug": slug_hint,

@@ -24,6 +24,21 @@ REQUIRED_TOP_LEVEL = (
     "context_budget",
     "actions",
 )
+CANONICAL_READMAP_MD = "aidd/reports/context/{ticket}/{scope_key}.readmap.md"
+CANONICAL_PREFLIGHT_FILES = (
+    "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+    "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+    "aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+    "aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+    "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
+)
+LEGACY_PREFLIGHT_FILES = (
+    "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+    "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+    "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
+    "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
+    "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+)
 
 
 class ValidationError(ValueError):
@@ -100,6 +115,44 @@ def _validate_read_items(value: Any, errors: List[str], *, field: str) -> None:
             errors.append(f"{prefix}ref must be non-empty string")
 
 
+def _strip_ref_selector(value: str) -> str:
+    raw = str(value or "").strip()
+    if "#AIDD:" in raw:
+        return raw.split("#", 1)[0].strip()
+    if "@handoff:" in raw:
+        return raw.split("@handoff:", 1)[0].strip()
+    return raw
+
+
+def _collect_ref_paths(items: Any) -> List[str]:
+    paths: List[str] = []
+    if not isinstance(items, list):
+        return paths
+    for item in items:
+        if isinstance(item, str):
+            path = _strip_ref_selector(item)
+        elif isinstance(item, dict):
+            path = _strip_ref_selector(str(item.get("ref") or ""))
+        else:
+            continue
+        if path:
+            paths.append(path)
+    return paths
+
+
+def _collect_string_set(items: Any) -> set[str]:
+    values: set[str] = set()
+    if not isinstance(items, list):
+        return values
+    for item in items:
+        if not isinstance(item, str):
+            continue
+        value = item.strip()
+        if value:
+            values.add(value)
+    return values
+
+
 def validate_contract_data(payload: dict[str, Any], *, contract_path: Path | None = None) -> List[str]:
     errors: List[str] = []
     if not isinstance(payload, dict):
@@ -171,6 +224,19 @@ def validate_contract_data(payload: dict[str, Any], *, contract_path: Path | Non
         allowed_types = actions.get("allowed_types")
         if allowed_types is not None:
             _validate_list_of_strings(allowed_types, errors, field="actions.allowed_types")
+
+    if isinstance(stage, str) and stage in {"implement", "review", "qa"}:
+        required_paths = set(_collect_ref_paths((reads or {}).get("required") if isinstance(reads, dict) else []))
+        if CANONICAL_READMAP_MD not in required_paths:
+            errors.append(f"reads.required must include canonical path: {CANONICAL_READMAP_MD}")
+
+        write_files = _collect_string_set((writes or {}).get("files") if isinstance(writes, dict) else [])
+        for expected in CANONICAL_PREFLIGHT_FILES:
+            if expected not in write_files:
+                errors.append(f"writes.files must include canonical preflight artifact: {expected}")
+        for legacy in LEGACY_PREFLIGHT_FILES:
+            if legacy in write_files:
+                errors.append(f"writes.files must not include legacy preflight artifact: {legacy}")
 
     return errors
 

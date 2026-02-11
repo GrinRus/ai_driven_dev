@@ -102,7 +102,7 @@ class LoopSemanticsTests(unittest.TestCase):
             before_tasklist = (root / f"docs/tasklist/{ticket}.md").read_text(encoding="utf-8")
             runner = RUNNER_FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
             result = subprocess.run(
                 cli_cmd(
                     "loop-step",

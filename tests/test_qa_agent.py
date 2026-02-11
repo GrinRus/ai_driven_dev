@@ -61,7 +61,7 @@ class QaAgentTests(unittest.TestCase):
 
         result = self.run_agent("--gate")
 
-        self.assertEqual(result.returncode, 1, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         self.assertIn("[qa-agent] BLOCKER", result.stderr)
         self.assertIn("FIXME", result.stderr)
 
@@ -82,7 +82,7 @@ class QaAgentTests(unittest.TestCase):
             str(report_path),
         )
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["status"], "BLOCKED")
         self.assertGreaterEqual(payload["counts"]["blocker"], 1)
@@ -184,7 +184,7 @@ class QaAgentTests(unittest.TestCase):
         )
         result = self.run_agent("--gate", "--emit-json", "--skip-tests")
 
-        self.assertEqual(result.returncode, 1, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "skipped")
         self.assertEqual(payload["status"], "BLOCKED")
@@ -214,7 +214,7 @@ class QaAgentTests(unittest.TestCase):
         )
         result = self.run_agent("--format", "json")
 
-        self.assertEqual(result.returncode, 1, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "fail")
         self.assertEqual(len(payload["tests_executed"]), 1)
@@ -234,7 +234,7 @@ class QaAgentTests(unittest.TestCase):
         )
         result = self.run_agent("--format", "json")
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "pass")
         self.assertTrue(payload["tests_executed"], "expected tests from tasklist to run")
@@ -247,7 +247,7 @@ class QaAgentTests(unittest.TestCase):
         write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
         result = self.run_agent("--format", "json")
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["tests_summary"], "skipped")
         stage_result = (
@@ -435,7 +435,7 @@ Updated: 2024-01-02
 
         result = self.run_agent("--format", "json", env={"QA_ALLOW_NO_TESTS": "1"})
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         checklist = [f for f in payload["findings"] if f.get("scope") == "checklist"]
         severities = {f.get("severity") for f in checklist}
@@ -453,7 +453,7 @@ Updated: 2024-01-02
 
         result = self.run_agent("--format", "json")
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(len(payload["findings"]), 1)
 

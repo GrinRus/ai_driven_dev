@@ -30,7 +30,6 @@ def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
     from tools.test_settings_defaults import detect_build_tools, test_settings_payload
 
     settings_path = workspace_root / ".claude" / "settings.json"
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
     data: dict = {}
     if settings_path.exists():
         try:
@@ -59,14 +58,20 @@ def _write_test_settings(workspace_root: Path, *, force: bool) -> None:
             updated = True
 
     if updated:
-        settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         tools_label = ", ".join(sorted(detected)) or "default"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"[aidd:init] updated .claude/settings.json (build tools: {tools_label})")
     else:
         print("[aidd:init] .claude/settings.json already contains automation.tests defaults")
 
 
-def _ensure_project_file(project_root: Path, templates_root: Path, rel_path: str, fallback: str) -> bool:
+def _ensure_project_file(
+    project_root: Path,
+    templates_root: Path,
+    rel_path: str,
+    fallback: str,
+) -> bool:
     target = project_root / rel_path
     if target.exists():
         return False
@@ -82,6 +87,7 @@ def _ensure_project_file(project_root: Path, templates_root: Path, rel_path: str
 def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     extra_args = extra_args or []
     workspace_root, project_root = runtime.resolve_roots(target, create=True)
+
     force = "--force" in extra_args
     detect_build_tools = "--detect-build-tools" in extra_args
     ignored = [arg for arg in extra_args if arg not in {"--force", "--detect-build-tools"}]
@@ -113,14 +119,11 @@ def run_init(target: Path, extra_args: List[str] | None = None) -> None:
     settings_path = workspace_root / ".claude" / "settings.json"
     if detect_build_tools or not settings_path.exists():
         _write_test_settings(workspace_root, force=force if detect_build_tools else False)
+
+
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate workflow scaffolding in the current workspace.",
-    )
-    parser.add_argument(
-        "--enable-ci",
-        action="store_true",
-        help="Add GitHub Actions workflow (manual trigger).",
     )
     parser.add_argument(
         "--force",
@@ -128,14 +131,15 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         help="Overwrite existing files.",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Log actions without modifying files.",
-    )
-    parser.add_argument(
         "--detect-build-tools",
         action="store_true",
         help="Populate .claude/settings.json with default automation.tests settings.",
+    )
+    parser.add_argument(
+        "--detect-stack",
+        dest="detect_build_tools",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     return parser.parse_args(argv)
 
@@ -143,12 +147,8 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
     script_args: list[str] = []
-    if args.enable_ci:
-        script_args.append("--enable-ci")
     if args.force:
         script_args.append("--force")
-    if args.dry_run:
-        script_args.append("--dry-run")
     if args.detect_build_tools:
         script_args.append("--detect-build-tools")
     run_init(Path.cwd().resolve(), script_args)

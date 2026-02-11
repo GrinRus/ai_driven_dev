@@ -94,16 +94,6 @@ def _is_skill_first(plugin_root: Path) -> bool:
     return False
 
 
-def _active_mode(root: Path) -> str:
-    mode_path = root / "docs" / ".active_mode"
-    if not mode_path.exists():
-        return ""
-    try:
-        return mode_path.read_text(encoding="utf-8").strip().lower()
-    except OSError:
-        return ""
-
-
 def _loop_scope_key(root: Path, ticket: str, stage: str) -> str:
     from tools import runtime as _runtime
 
@@ -113,12 +103,22 @@ def _loop_scope_key(root: Path, ticket: str, stage: str) -> str:
     return _runtime.resolve_scope_key(work_item_key, ticket)
 
 
+def _fallback_scope_key(root: Path, ticket: str) -> str:
+    raw_scope = ticket or ""
+    try:
+        state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+        if isinstance(state, dict):
+            raw_scope = str(state.get("work_item") or raw_scope)
+    except Exception:
+        pass
+    cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope)
+    return cleaned.strip("._-") or "ticket"
+
+
 def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) -> tuple[bool, str]:
     from tools import runtime as _runtime
 
     if stage not in {"implement", "review", "qa"}:
-        return True, ""
-    if _active_mode(root) != "loop":
         return True, ""
     plugin_root_raw = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
     if not plugin_root_raw:
@@ -126,46 +126,75 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
     plugin_root = Path(plugin_root_raw).expanduser().resolve()
     if not _is_skill_first(plugin_root):
         return True, ""
+    warnings: list[str] = []
+    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1":
+        unsafe_message = "stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1 (reason_code=wrappers_skipped_unsafe)"
+        if hooks_mode == "strict" or stage in {"review", "qa"}:
+            return False, f"BLOCK: {unsafe_message}"
+        warnings.append(
+            "WARN: stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1 "
+            "(reason_code=wrappers_skipped_warn)"
+        )
 
     scope_key = _loop_scope_key(root, ticket, stage)
     actions_dir = root / "reports" / "actions" / ticket / scope_key
     context_dir = root / "reports" / "context" / ticket
     loops_dir = root / "reports" / "loops" / ticket / scope_key
+    logs_dir = root / "reports" / "logs" / stage / ticket / scope_key
 
     required = {
         "actions_template": actions_dir / f"{stage}.actions.template.json",
+        "actions_payload": actions_dir / f"{stage}.actions.json",
         "readmap_json": context_dir / f"{scope_key}.readmap.json",
+        "readmap_md": context_dir / f"{scope_key}.readmap.md",
         "writemap_json": context_dir / f"{scope_key}.writemap.json",
+        "writemap_md": context_dir / f"{scope_key}.writemap.md",
         "preflight_result": loops_dir / "stage.preflight.result.json",
     }
     compatibility = {
         "readmap_json": actions_dir / "readmap.json",
+        "readmap_md": actions_dir / "readmap.md",
         "writemap_json": actions_dir / "writemap.json",
+        "writemap_md": actions_dir / "writemap.md",
         "preflight_result": actions_dir / "stage.preflight.result.json",
     }
+    allow_legacy_preflight = os.environ.get("AIDD_ALLOW_LEGACY_PREFLIGHT", "").strip() == "1"
 
     missing: list[str] = []
+    preflight_warnings: list[str] = []
     for key, path in required.items():
         if path.exists():
             continue
         legacy = compatibility.get(key)
-        if legacy and legacy.exists():
+        if (
+            key == "readmap_md"
+            and allow_legacy_preflight
+            and not (actions_dir / "readmap.md").exists()
+            and (actions_dir / "readmap.json").exists()
+        ):
+            legacy = actions_dir / "readmap.json"
+        if (
+            key == "writemap_md"
+            and allow_legacy_preflight
+            and not (actions_dir / "writemap.md").exists()
+            and (actions_dir / "writemap.json").exists()
+        ):
+            legacy = actions_dir / "writemap.json"
+        if legacy and legacy.exists() and allow_legacy_preflight:
+            preflight_warnings.append(
+                f"WARN: using legacy preflight artifact ({_runtime.rel_path(legacy, root)}) "
+                "(reason_code=preflight_legacy_path)"
+            )
             continue
         missing.append(_runtime.rel_path(path, root))
 
     if missing:
         return False, f"BLOCK: missing preflight artifacts ({', '.join(missing)}) (reason_code=preflight_missing)"
-
-    warnings: list[str] = []
-    actions_path = actions_dir / f"{stage}.actions.json"
-    if not actions_path.exists():
-        msg = (
-            f"missing actions payload ({_runtime.rel_path(actions_path, root)}) "
-            "(reason_code=actions_missing)"
-        )
-        if hooks_mode == "strict":
-            return False, f"BLOCK: {msg}"
-        warnings.append(f"WARN: {msg}")
+    warnings.extend(preflight_warnings)
+    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
+    if not wrapper_logs:
+        expected = _runtime.rel_path(logs_dir / "wrapper.*.log", root)
+        return False, f"BLOCK: missing wrapper logs ({expected}) (reason_code=preflight_missing)"
 
     contract_path = loops_dir / "output.contract.json"
     if contract_path.exists():
@@ -182,6 +211,16 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
             if hooks_mode == "strict":
                 return False, f"BLOCK: {msg}"
             warnings.append(f"WARN: {msg}")
+        else:
+            actions_log_path = _runtime.resolve_path_for_target(Path(actions_log), root)
+            if not actions_log_path.exists():
+                msg = (
+                    f"missing actions log path from output contract ({_runtime.rel_path(actions_log_path, root)}) "
+                    "(reason_code=actions_missing)"
+                )
+                if hooks_mode == "strict":
+                    return False, f"BLOCK: {msg}"
+                warnings.append(f"WARN: {msg}")
 
     if warnings:
         return True, "\n".join(warnings)
@@ -260,6 +299,7 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
     allowed_values = set(required_values + optional_values)
 
     slug_value = slug_hint.strip() or ticket
+    runtime_fallback = ""
     try:
         from tools import runtime as _runtime
 
@@ -272,9 +312,9 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
             slug_hint or None,
             scope_key=scope_key,
         )
-    except Exception:
-        raw_scope = _runtime.read_active_work_item(root) or ticket or ""
-        cleaned_scope = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_scope).strip("._-") or "ticket"
+    except Exception as exc:
+        runtime_fallback = f"WARN: reviewer runtime fallback ({exc.__class__.__name__})."
+        cleaned_scope = _fallback_scope_key(root, ticket)
         raw_path = (
             template.replace("{ticket}", ticket)
             .replace("{slug}", slug_value)
@@ -288,12 +328,15 @@ def _reviewer_notice(root: Path, ticket: str, slug_hint: str) -> str:
 
     if not marker_path.exists():
         if reviewer_cfg.get("warn_on_missing", True):
-            return (
+            message = (
                 "WARN: reviewer маркер не найден ({}). Используйте "
                 "`${{CLAUDE_PLUGIN_ROOT}}/tools/reviewer-tests.sh --status required` при необходимости.".format(
                     marker_path
                 )
             )
+            if runtime_fallback:
+                return f"{runtime_fallback} {message}"
+            return message
         return ""
 
     try:
@@ -542,7 +585,7 @@ def main() -> int:
                 return 2
             return 0
 
-    if has_src_changes and active_stage in {"implement", "review", "qa"}:
+    if active_stage in {"implement", "review", "qa"}:
         ok_preflight, preflight_message = _loop_preflight_guard(root, ticket, active_stage, hooks_mode)
         if not ok_preflight:
             _log_stderr(preflight_message)

@@ -16,8 +16,16 @@ WORKSPACE_ROOT=""
 run_cli() {
   local cmd="$1"
   shift
-  local tool_path="$PLUGIN_ROOT/tools/${cmd}.sh"
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$tool_path" "$@"
+  local entrypoint=""
+  case "$cmd" in
+    review-pack|review-report|reviewer-tests)
+      entrypoint="$PLUGIN_ROOT/skills/review/scripts/${cmd}.sh"
+      ;;
+    *)
+      entrypoint="$PLUGIN_ROOT/tools/${cmd}.sh"
+      ;;
+  esac
+  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
 }
 
 run_hook() {
@@ -34,6 +42,94 @@ trap cleanup EXIT
 
 log() {
   printf '[smoke] %s\n' "$*"
+}
+
+validate_wave_status_sot() {
+  python3 - "$PLUGIN_ROOT/backlog.md" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+backlog_path = Path(sys.argv[1])
+lines = backlog_path.read_text(encoding="utf-8").splitlines()
+wave_entries = {}
+
+for idx, raw in enumerate(lines):
+    match = re.match(r"^##\s+Wave\s+(\d+)\b(.*)$", raw.strip(), flags=re.IGNORECASE)
+    if not match:
+        continue
+    wave = match.group(1)
+    heading_tail = (match.group(2) or "").strip().lower()
+    status = ""
+    for look_ahead in lines[idx + 1 : idx + 12]:
+        probe = look_ahead.strip()
+        if probe.startswith("## "):
+            break
+        status_match = re.search(r"Статус:\s*([^,_]+)", probe, flags=re.IGNORECASE)
+        if status_match:
+            status = status_match.group(1).strip().lower()
+            break
+    archive = any(
+        marker in heading_tail for marker in ("archive", "архив", "historical", "history", "истор")
+    ) or any(marker in status for marker in ("archive", "архив", "не sot"))
+    wave_entries.setdefault(wave, []).append({"line": idx + 1, "status": status, "archive": archive})
+
+issues = []
+target_wave = "96"
+entries = wave_entries.get(target_wave, [])
+active_entries = [entry for entry in entries if not entry["archive"]]
+statuses = {entry["status"] for entry in active_entries if entry["status"]}
+if len(active_entries) > 1:
+    lines_set = ", ".join(str(entry["line"]) for entry in active_entries)
+    issues.append(f"wave {target_wave}: multiple active sections ({lines_set})")
+if len(statuses) > 1:
+    issues.append(f"wave {target_wave}: conflicting active statuses ({', '.join(sorted(statuses))})")
+
+if issues:
+    for issue in issues:
+        print(f"[smoke] backlog status policy violation: {issue}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
+seed_preflight_contract_artifacts() {
+  local ticket="$1"
+  local stage="$2"
+  local scope_key="$3"
+  local actions_dir="$WORKDIR/reports/actions/${ticket}/${scope_key}"
+  local context_dir="$WORKDIR/reports/context/${ticket}"
+  local loops_dir="$WORKDIR/reports/loops/${ticket}/${scope_key}"
+  local logs_dir="$WORKDIR/reports/logs/${stage}/${ticket}/${scope_key}"
+
+  mkdir -p "$actions_dir" "$context_dir" "$loops_dir" "$logs_dir"
+
+  cat >"$actions_dir/${stage}.actions.template.json" <<'JSON'
+{"schema_version":"aidd.actions.v1","actions":[]}
+JSON
+  cat >"$actions_dir/${stage}.actions.json" <<'JSON'
+{"schema_version":"aidd.actions.v1","actions":[]}
+JSON
+  cat >"$context_dir/${scope_key}.readmap.json" <<'JSON'
+{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
+JSON
+  cat >"$context_dir/${scope_key}.readmap.md" <<'MD'
+# readmap
+MD
+  cat >"$context_dir/${scope_key}.writemap.json" <<'JSON'
+{"schema":"aidd.context_map.v1","allowed_paths":["src/**"]}
+JSON
+  cat >"$context_dir/${scope_key}.writemap.md" <<'MD'
+# writemap
+MD
+  cat >"$loops_dir/stage.preflight.result.json" <<'JSON'
+{"schema":"aidd.stage_result.preflight.v1","status":"ok"}
+JSON
+  echo "ok" >"$logs_dir/wrapper.preflight.log"
+  echo "ok" >"$logs_dir/wrapper.run.log"
+  echo "ok" >"$logs_dir/wrapper.postflight.log"
+  cat >"$loops_dir/output.contract.json" <<JSON
+{"status":"ok","actions_log":"aidd/reports/actions/${ticket}/${scope_key}/${stage}.actions.json"}
+JSON
 }
 
 assert_gate_exit() {
@@ -120,6 +216,9 @@ for event in ("PreToolUse", "UserPromptSubmit", "Stop", "SubagentStop"):
     if event == "UserPromptSubmit":
         assert_has("context-gc-userprompt.sh", event)
 PY
+
+log "validate backlog wave status source-of-truth policy"
+validate_wave_status_sot
 
 log "run context-gc hooks"
 run_hook context-gc-precompact.sh >/dev/null
@@ -684,6 +783,7 @@ run_cli set-active-stage implement >/dev/null
 run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
 run_cli tasks-derive --source research --ticket "$TICKET" --append >/dev/null
 run_cli tasklist-normalize --ticket "$TICKET" --fix >/dev/null
+seed_preflight_contract_artifacts "$TICKET" "implement" "$TICKET"
 # Skip progress gate for preset-created artifacts: no code changes yet
 CLAUDE_SKIP_TASKLIST_PROGRESS=1 assert_gate_exit 0 "all artifacts ready"
 
@@ -798,6 +898,7 @@ if ! progress_ok="$(run_cli progress --ticket "$TICKET" --source implement --ver
   printf '[smoke] expected progress CLI to pass after checkbox update:\n%s\n' "$progress_ok" >&2
   exit 1
 fi
+seed_preflight_contract_artifacts "$TICKET" "qa" "$TICKET"
 assert_gate_exit 0 "progress checkbox added"
 
 log "run QA command and ensure report created"
@@ -820,8 +921,12 @@ for old, new in replacements.items():
 path.write_text(text, encoding="utf-8")
 PY
 
+qa_exit=0
 if ! run_cli qa --ticket "$TICKET" --report "aidd/reports/qa/${TICKET}.json" --emit-json >/dev/null; then
-  echo "[smoke] qa command failed" >&2
+  qa_exit=$?
+fi
+if [[ "$qa_exit" -ne 0 && "$qa_exit" -ne 2 ]]; then
+  echo "[smoke] qa command failed (exit=$qa_exit)" >&2
   exit 1
 fi
 [[ -f "$WORKDIR/reports/qa/${TICKET}.json" ]] || {

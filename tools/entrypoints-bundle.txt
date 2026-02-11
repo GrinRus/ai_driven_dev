@@ -155,19 +155,19 @@
     {
       "disable_model_invocation": "true",
       "lang": "ru",
-      "name": "review-spec",
-      "path": "skills/review-spec/SKILL.md",
-      "prompt_version": "1.0.19",
-      "source_version": "1.0.19",
+      "name": "review",
+      "path": "skills/review/SKILL.md",
+      "prompt_version": "1.0.35",
+      "source_version": "1.0.35",
       "user_invocable": "true"
     },
     {
       "disable_model_invocation": "true",
       "lang": "ru",
-      "name": "review",
-      "path": "skills/review/SKILL.md",
-      "prompt_version": "1.0.35",
-      "source_version": "1.0.35",
+      "name": "review-spec",
+      "path": "skills/review-spec/SKILL.md",
+      "prompt_version": "1.0.19",
+      "source_version": "1.0.19",
       "user_invocable": "true"
     },
     {

@@ -1,5 +1,4 @@
 ---
-name: status
 description: Summarize ticket status and key artifacts.
 argument-hint: [$1]
 lang: ru

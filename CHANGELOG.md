@@ -8,7 +8,7 @@
 - Dedupe cache `aidd/.cache/format-and-test.last.json` to avoid repeating test runs when diff/profile are unchanged.
 - Loop mode (Ralph): `loop-pack`, `review-pack`, `diff-boundary-check`, `loop-step`, `loop-run` with loop packs and loop discipline.
 - Architecture Profile templates (`aidd/docs/architecture/profile.md`).
-- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-stack`).
+- Stack detection for init (`/feature-dev-aidd:aidd-init --detect-build-tools`).
 - `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh` to validate research artefacts before planning.
 - PRD template section `## AIDD:RESEARCH_HINTS` for passing paths/keywords to `/feature-dev-aidd:researcher`.
 - New review-plan stage with `plan-reviewer`, `## Plan Review` in plans, and a `plan_review` gate.
@@ -25,6 +25,7 @@
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
 - Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, legacy command docs moved to `docs/legacy/commands`, and CI now guards skills/entrypoints parity.
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
 - Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.
@@ -55,6 +56,14 @@
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixes
+- `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
+- `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
+- Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; deprecated `tools/review-*.sh` shims remain compatibility-only with warnings.
+- Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
+- Preflight artifacts now use canonical loop/context paths by default; legacy artifact emission requires `AIDD_WRITE_LEGACY_PREFLIGHT=1`, and legacy read fallback in gate requires `AIDD_ALLOW_LEGACY_PREFLIGHT=1`.
+- CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
+- Marketplace metadata is pinned to stable `main`; `ci-lint` now blocks feature refs like `codex/wave*` and `feature/*`.
+- Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.
 - Updated `aidd` snapshot to match marketplace scripts and docs (removed stale `claude-workflow` references).
 - RLM bootstrap nodes option to unblock finalize when nodes are missing, plus clearer guard/linker hints.
 - Tasklist spec-required checks now cover API/DATA/E2E signals and tasklist runs `tasklist-check` post-refine.
