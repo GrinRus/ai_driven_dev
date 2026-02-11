@@ -30,6 +30,13 @@ def require_plugin_root() -> Path:
     if not raw:
         raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
     plugin_root = Path(raw).expanduser().resolve()
+    if plugin_root.name == "skills":
+        candidate_root = plugin_root.parent
+        if (candidate_root / ".claude-plugin").exists() and (candidate_root / "skills").resolve() == plugin_root:
+            raise RuntimeError(
+                "CLAUDE_PLUGIN_ROOT must point to plugin root, not to '<plugin>/skills'. "
+                f"Received: {plugin_root}. Expected: {candidate_root}."
+            )
     os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
     return plugin_root
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Dict, List, Optional, Tuple
 
@@ -156,6 +157,36 @@ def extract_section(lines: List[str], title: str) -> List[str]:
     return collected
 
 
+def _parse_inline_sequence(raw: str, *, split_pattern: str) -> List[str]:
+    text = raw.strip()
+    if not text:
+        return []
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, list):
+            values: List[str] = []
+            for item in payload:
+                value = _strip_placeholder(str(item))
+                if value:
+                    values.append(value)
+            return values
+        text = text[1:-1].strip()
+        if not text:
+            return []
+        parts = [part.strip().strip("'\"") for part in re.split(r"\s*,\s*", text) if part.strip()]
+    else:
+        parts = [part.strip() for part in re.split(split_pattern, text) if part.strip()]
+    values: List[str] = []
+    for part in parts:
+        value = _strip_placeholder(part)
+        if value:
+            values.append(value)
+    return values
+
+
 def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     profile = (extract_scalar_field(lines, "profile") or "").strip()
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
@@ -168,12 +199,12 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     if tasks_list:
         tasks = tasks_list
     elif tasks_raw:
-        tasks = [item.strip() for item in re.split(r"\s*;\s*", tasks_raw) if item.strip()]
+        tasks = _parse_inline_sequence(tasks_raw, split_pattern=r"\s*;\s*")
     filters: List[str] = []
     if filters_list:
         filters = filters_list
     elif filters_raw:
-        filters = [item.strip() for item in re.split(r"\s*,\s*", filters_raw) if item.strip()]
+        filters = _parse_inline_sequence(filters_raw, split_pattern=r"\s*,\s*")
     return {
         "profile": profile,
         "tasks": tasks,

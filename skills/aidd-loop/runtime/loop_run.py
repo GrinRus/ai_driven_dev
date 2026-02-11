@@ -238,6 +238,66 @@ def main(argv: List[str] | None = None) -> int:
         f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label}",
     )
 
+    if args.work_item_key and not runtime.is_valid_work_item_key(args.work_item_key):
+        clear_active_mode(target)
+        payload = {
+            "status": "blocked",
+            "iterations": 0,
+            "exit_code": BLOCKED_CODE,
+            "log_path": runtime.rel_path(log_path, target),
+            "cli_log_path": runtime.rel_path(cli_log_path, target),
+            "runner_label": runner_label,
+            "reason": "--work-item-key must use iteration_id=... or id=...",
+            "reason_code": "work_item_invalid_format",
+            "updated_at": utc_timestamp(),
+        }
+        append_log(
+            log_path,
+            f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_invalid_format",
+        )
+        append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_invalid_format")
+        emit(args.format, payload)
+        return BLOCKED_CODE
+
+    if not args.work_item_key:
+        active_work_item = runtime.read_active_work_item(target)
+        if not runtime.is_valid_work_item_key(active_work_item):
+            selected_next, pending_count = select_next_work_item(target, ticket, active_work_item)
+            if selected_next:
+                write_active_state(target, ticket=ticket, work_item=selected_next)
+                write_active_stage(target, "implement")
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=auto-select-work-item ticket={ticket} "
+                        f"selected={selected_next} pending_iterations_count={pending_count}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    f"{utc_timestamp()} event=auto-select-work-item selected={selected_next}",
+                )
+            else:
+                clear_active_mode(target)
+                payload = {
+                    "status": "blocked",
+                    "iterations": 0,
+                    "exit_code": BLOCKED_CODE,
+                    "log_path": runtime.rel_path(log_path, target),
+                    "cli_log_path": runtime.rel_path(cli_log_path, target),
+                    "runner_label": runner_label,
+                    "reason": "no active work item and no open iteration found in tasklist",
+                    "reason_code": "work_item_missing",
+                    "updated_at": utc_timestamp(),
+                }
+                append_log(
+                    log_path,
+                    f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_missing",
+                )
+                append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_missing")
+                emit(args.format, payload)
+                return BLOCKED_CODE
+
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
         result = run_loop_step(

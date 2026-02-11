@@ -1056,6 +1056,50 @@ _Статус: план, приоритет 0. Цель — довести resea
 3. `W98-2b` -> `W98-10` -> `W98-11` -> `W98-2c` -> `W98-12`
 4. `W98-5` — carry-over task вне критического пути research wave.
 
+## Wave 99 — E2E audit fallout hardening (TST-001)
+
+_Статус: завершен. Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+
+- [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
+  - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
+  - сохранить обратную совместимость для scalar/list форматов (`tasks: cmd1; cmd2`, markdown list);
+  - добавить regression tests на реальный кейс из аудита (`[./gradlew ...` должен исчезнуть).
+  **AC:** QA запускает каждую команду отдельно; `tests_executed.command` не содержит bracket-prefixed мусор.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-2 (P0) Fail-fast guard for malformed `CLAUDE_PLUGIN_ROOT` (`.../skills` instead of plugin root)** `skills/aidd-core/runtime/runtime.py`, `tests/test_runtime_write_safety.py`:
+  - добавить структурную валидацию plugin root и явную ошибку конфигурации для `CLAUDE_PLUGIN_ROOT=<plugin>/skills`;
+  - убрать downstream-симптом `contract_missing .../skills/skills/<stage>/CONTRACT.yaml` как primary signal;
+  - синхронизировать сообщение с ENV diagnostics/healthcheck policy.
+  **AC:** misconfigured plugin root детектируется сразу с понятным reason.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_runtime_write_safety.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-3 (P1) Report loader diagnostics for pack/json miss (`*-rlm.pack.json` vs `*-rlm.json`)** `skills/aidd-core/runtime/reports/loader.py`, `tests/test_reports_loader.py`:
+  - сделать детерминированную ошибку, если одновременно отсутствуют pack и json;
+  - включить в сообщение оба ожидаемых пути (pack + json) для быстрой triage;
+  - исключить misleading “only `*-rlm.json` missing” без контекста pack-first.
+  **AC:** ошибка загрузки отчёта сразу показывает полный missing-set.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_reports_loader.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [x] **W99-4 (P1) Loop preflight/scope hardening for work-item format drift** `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - добавить явный precheck для отсутствующего/невалидного `work_item_key` до запуска stage orchestration;
+  - улучшить diagnostics при `scope_key_mismatch` (что было ожидаемо, что выбрал loop-pack, как repair path);
+  - снизить долю ложных `stage_result_missing_or_invalid` при запуске без активного work item.
+  **AC:** loop path выдаёт actionable blocked reason до глубоких ретраев и без ambiguous scope drift.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._

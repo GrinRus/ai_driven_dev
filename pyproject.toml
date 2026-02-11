@@ -3,3 +3,10 @@ name = "aidd-runtime"
 version = "0.1.0"
 description = "Runtime helpers for the AI-driven development workflow plugin."
 requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["aidd_runtime"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

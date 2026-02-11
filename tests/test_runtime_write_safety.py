@@ -55,6 +55,17 @@ class RuntimeWriteSafetyTests(unittest.TestCase):
             self.assertEqual(workspace_root, workspace.resolve())
             self.assertEqual(project_root, (workspace / "aidd").resolve())
 
+    def test_rejects_plugin_root_pointing_to_skills_subdir(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-guard-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (plugin_root / "skills").mkdir(parents=True, exist_ok=True)
+
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root / "skills")
+
+            with self.assertRaisesRegex(RuntimeError, "must point to plugin root"):
+                runtime.require_plugin_root()
+
 
 if __name__ == "__main__":
     unittest.main()

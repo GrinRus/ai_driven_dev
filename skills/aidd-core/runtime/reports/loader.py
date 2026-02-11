@@ -40,12 +40,30 @@ def get_report_paths(root: Path, report_type: str, ticket: str, kind: str | None
     return ReportPaths(json_path=json_path, pack_path=pack_path)
 
 
+def _missing_report_error(json_path: Path, pack_path: Path) -> FileNotFoundError:
+    return FileNotFoundError(
+        "report not found: "
+        f"missing pack '{pack_path.as_posix()}' and json '{json_path.as_posix()}'"
+    )
+
+
 def load_report(json_path: Path, pack_path: Path, *, prefer_pack: bool = True) -> Tuple[Dict, str, Path]:
-    if prefer_pack and pack_path.exists():
+    if prefer_pack:
+        if pack_path.exists():
+            payload = json.loads(pack_path.read_text(encoding="utf-8"))
+            return payload, "pack", pack_path
+        if json_path.exists():
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            return payload, "json", json_path
+        raise _missing_report_error(json_path, pack_path)
+
+    if json_path.exists():
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        return payload, "json", json_path
+    if pack_path.exists():
         payload = json.loads(pack_path.read_text(encoding="utf-8"))
         return payload, "pack", pack_path
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    return payload, "json", json_path
+    raise _missing_report_error(json_path, pack_path)
 
 
 def load_report_for_path(path: Path, *, prefer_pack: bool = True) -> Tuple[Dict, str, ReportPaths]:

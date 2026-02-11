@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, tasklist_ready_text, write_active_state, write_file
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -64,6 +64,54 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
+
+    def test_loop_run_rejects_invalid_work_item_key_override(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-run",
+                    "--ticket",
+                    "DEMO-INVALID",
+                    "--work-item-key",
+                    "I1",
+                    "--max-iterations",
+                    "1",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "work_item_invalid_format")
+
+    def test_loop_run_auto_selects_open_work_item_when_active_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-AUTO"
+            write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
+
+            result = subprocess.run(
+                cli_cmd("loop-run", "--ticket", ticket, "--max-iterations", "1", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertNotEqual(payload.get("reason_code"), "work_item_missing")
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I1")
+
+            active_state = json.loads((root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_state.get("work_item"), "iteration_id=I1")
 
     def test_loop_run_max_iterations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
