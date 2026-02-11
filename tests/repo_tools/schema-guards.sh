@@ -17,29 +17,31 @@ require_contains() {
 }
 
 cd "$ROOT_DIR"
+export CLAUDE_PLUGIN_ROOT="$ROOT_DIR"
+export PYTHONPATH="$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
 log "checking actions validator supported versions"
-actions_versions="$(python3 tools/actions-validate.sh --print-supported-versions 2>/dev/null || true)"
+actions_versions="$(python3 skills/aidd-docio/runtime/actions_validate.py --print-supported-versions 2>/dev/null || true)"
 require_contains "$actions_versions" "aidd.actions.v0" "actions validator"
 require_contains "$actions_versions" "aidd.actions.v1" "actions validator"
 
 log "checking context-map validator supported versions"
-map_versions="$(python3 tools/context-map-validate.sh --print-supported-versions 2>/dev/null || true)"
+map_versions="$(python3 skills/aidd-docio/runtime/context_map_validate.py --print-supported-versions 2>/dev/null || true)"
 require_contains "$map_versions" "aidd.readmap.v1" "context-map validator"
 require_contains "$map_versions" "aidd.writemap.v1" "context-map validator"
 
 log "checking preflight-result validator supported versions"
-preflight_versions="$(python3 tools/preflight-result-validate.sh --print-supported-versions 2>/dev/null || true)"
+preflight_versions="$(python3 skills/aidd-loop/runtime/preflight_result_validate.py --print-supported-versions 2>/dev/null || true)"
 require_contains "$preflight_versions" "aidd.stage_result.preflight.v1" "preflight-result validator"
 
 log "validating skill contracts"
-if ! python3 tools/skill-contract-validate.sh --all --quiet; then
+if ! python3 skills/aidd-core/runtime/skill_contract_validate.py --all --quiet; then
   err "skill contracts validation failed"
 fi
 
 log "checking canonical schema registry"
 if ! python3 - <<'PY'
-from tools import aidd_schemas
+from aidd_runtime import aidd_schemas
 
 required = {
     "aidd.actions.v0",

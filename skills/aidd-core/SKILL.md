@@ -1,58 +1,32 @@
 ---
-description: Core runtime policy for AIDD skills (pack-first, output contract, DocOps).
+name: aidd-core
+description: Thin aggregator skill for shared runtime navigation and cross-skill ownership links.
 lang: en
 model: inherit
 user-invocable: false
 ---
 
-## Pack-first / read budget
-- Read packs and excerpts before full documents.
-- Slice-first rule: for markdown sources use block refs (`path#AIDD:SECTION`, `path@handoff:<id>`) via the `md-slice` wrapper before full Read.
-- Full-file Read is allowed only when the slice is insufficient; record the reason in `AIDD:READ_LOG`.
-- Prefer RLM packs and slices for research evidence.
-- Use the read budget: avoid large logs/diffs; link to `aidd/reports/**` instead.
+## Purpose
+- This skill is the thin runtime-oriented navigation layer.
+- Policy guidance (output contract, question format, read discipline, loop safety) lives in `feature-dev-aidd:aidd-policy`.
+- Domain owners are split into dedicated shared skills (`aidd-docio`, `aidd-flow-state`, `aidd-observability`, `aidd-loop`, `aidd-rlm`).
+- Agents may reference `feature-dev-aidd:aidd-core` as the topology entrypoint and navigation hub.
 
-## Output contract (required)
-- Status: ...
-- Work item key: ...
-- Artifacts updated: ...
-- Tests: ...
-- Blockers/Handoff: ...
-- Next actions: ...
-- AIDD:READ_LOG: ... (packs/excerpts only)
-- AIDD:ACTIONS_LOG: ... (loop stages) / n/a (planning)
+## Canonical shared Python entrypoints
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/plan_review_gate.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review_gate.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/rlm_targets.py`
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/skill_contract_validate.py`
 
-Include `Checkbox updated: ...` when the stage or agent expects it.
+## Ownership guard
+- `aidd-core` owns only aggregator-level shared runtime modules.
+- Policy/procedure text must be hosted in `feature-dev-aidd:aidd-policy`.
 
-## DocOps policy v1 (stage-scoped)
-- Loop stages (implement/review/qa/status): do not directly Edit/Write `aidd/docs/tasklist/**` or `aidd/reports/context/**`. Use actions/intents and DocOps automation only; do not manually edit or regenerate context packs. `aidd/docs/.active.json` is command-owned; subagents must not edit it.
-- Planning stages (idea/research/plan/tasks/spec): direct Edit/Write is allowed for creation or major edits. Structured sections (progress/iterations/next3) are DocOps-managed; leave untouched unless explicitly instructed.
-
-## Progressive disclosure
-- Use `skills/aidd-core/scripts/context_expand.sh` to expand `readmap/writemap` with explicit `reason_code` + `reason`.
-- Write-boundary expansion requires explicit `--expand-write` and must leave an audit trace under `aidd/reports/actions/<ticket>/<scope_key>/context-expand.audit.jsonl`.
-
-## Actions log
-- Loop stages MUST output `AIDD:ACTIONS_LOG: <path>` and keep the file updated.
-- Status is read-only: reference the most recent actions log without modifying it.
-- Planning stages may use `AIDD:ACTIONS_LOG: n/a`.
-
-## Wrapper safety
-- `AIDD_SKIP_STAGE_WRAPPERS=1` is debug-only and unsafe for normal loop execution.
-- Runtime policy:
-  - `strict` mode or stages `review|qa` => BLOCK (`reason_code=wrappers_skipped_unsafe`).
-  - `fast` mode on `implement` => WARN (`reason_code=wrappers_skipped_warn`) and continue only for diagnostics.
-- If wrappers are skipped, treat missing preflight/readmap/writemap/actions/log artifacts as contract violation.
-
-## Question format
-Use this exact format when you must ask the user:
-
-```
-Question N (Blocker|Clarification): ...
-Why: ...
-Options: A) ... B) ...
-Default: ...
-```
-
-## Subagent guard
-Subagents must never edit `aidd/docs/.active.json`. If it happens or is required, stop and return BLOCKED with the offending path.
+## Additional resources
+- Policy contract: [../aidd-policy/SKILL.md](../aidd-policy/SKILL.md) (when: output/read/question rules are needed; why: apply shared policy without duplicating stage docs).
+- DocIO runtime owner: [../aidd-docio/SKILL.md](../aidd-docio/SKILL.md) (when: actions/map/markdown tooling is needed; why: use canonical DocIO entrypoints from a dedicated shared skill).
+- Flow/state runtime owner: [../aidd-flow-state/SKILL.md](../aidd-flow-state/SKILL.md) (when: stage state/progress/tasklist lifecycle tools are needed; why: use dedicated flow-state entrypoints).
+- Observability runtime owner: [../aidd-observability/SKILL.md](../aidd-observability/SKILL.md) (when: diagnostics/inventory/log/report commands are needed; why: keep observability surface under a dedicated shared owner).
+- Context pack template source: [templates/context-pack.template.md](templates/context-pack.template.md) (when: context pack format is unclear; why: confirm canonical sections generated by init/runtime).

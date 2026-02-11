@@ -4,9 +4,9 @@
   "skill_id": "qa",
   "stage": "qa",
   "entrypoints": [
-    "skills/qa/scripts/preflight.sh",
-    "skills/qa/scripts/run.sh",
-    "skills/qa/scripts/postflight.sh"
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/qa/runtime/qa_run.py",
+    "skills/aidd-docio/runtime/actions_apply.py"
   ],
   "reads": {
     "required": [

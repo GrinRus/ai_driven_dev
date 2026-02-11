@@ -1,30 +1,28 @@
-import os
 import subprocess
-import sys
 import unittest
 from pathlib import Path
 
-from tests.helpers import REPO_ROOT
+from tests.helpers import REPO_ROOT, cli_env
 
 
 class RlmWrapperTests(unittest.TestCase):
-    def test_wrappers_help_smoke(self) -> None:
-        wrappers = [
-            REPO_ROOT / "tools" / "rlm-slice.sh",
-            REPO_ROOT / "tools" / "rlm-nodes-build.sh",
-            REPO_ROOT / "tools" / "rlm-verify.sh",
-            REPO_ROOT / "tools" / "rlm-links-build.sh",
-            REPO_ROOT / "tools" / "rlm-jsonl-compact.sh",
-            REPO_ROOT / "tools" / "rlm-finalize.sh",
-            REPO_ROOT / "tools" / "reports-pack.sh",
+    def test_runtime_entrypoints_help_smoke(self) -> None:
+        entrypoints = [
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_slice.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_nodes_build.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_verify.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_links_build.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_jsonl_compact.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "rlm_finalize.py",
+            REPO_ROOT / "skills" / "aidd-rlm" / "runtime" / "reports_pack.py",
         ]
-        for wrapper in wrappers:
-            with self.subTest(wrapper=wrapper.name):
-                self.assertTrue(wrapper.exists())
-                self.assertTrue(os.access(wrapper, os.X_OK))
+        for entrypoint in entrypoints:
+            with self.subTest(entrypoint=entrypoint.name):
+                self.assertTrue(entrypoint.exists())
                 proc = subprocess.run(
-                    [sys.executable, str(wrapper), "--help"],
+                    ["python3", str(entrypoint), "--help"],
                     cwd=REPO_ROOT,
+                    env=cli_env(),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,

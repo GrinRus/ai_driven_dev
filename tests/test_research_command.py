@@ -16,7 +16,7 @@ SRC_ROOT = REPO_ROOT
 if str(SRC_ROOT) not in sys.path:  # pragma: no cover - test bootstrap
     sys.path.insert(0, str(SRC_ROOT))
 
-from tools import research
+from aidd_runtime import research
 
 
 class ResearchCommandTest(unittest.TestCase):
@@ -39,6 +39,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "research",
                     "--ticket",
                     "TEST-123",
+                    "--keywords",
+                    "test",
                     "--limit",
                     "1",
                 ),
@@ -51,6 +53,38 @@ class ResearchCommandTest(unittest.TestCase):
 
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
+
+    def test_research_command_blocks_without_research_hints(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            args = research.parse_args(
+                [
+                    "--ticket",
+                    "HINTS-0",
+                    "--auto",
+                    "--limit",
+                    "1",
+                ]
+            )
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with self.assertRaises(RuntimeError) as exc:
+                    research.run(args)
+            finally:
+                os.chdir(old_cwd)
+            self.assertIn("AIDD:RESEARCH_HINTS", str(exc.exception))
 
     def test_research_command_uses_workspace_root_with_deep_code(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-ws-") as tmpdir:
@@ -79,6 +113,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "WORK-1",
                     "--auto",
                     "--deep-code",
+                    "--keywords",
+                    "workspace",
                     "--limit",
                     "5",
                 ]
@@ -95,17 +131,12 @@ class ResearchCommandTest(unittest.TestCase):
                 os.chdir(old_cwd)
 
             output = stdout.getvalue()
-            self.assertIn("base=workspace", output, "CLI should log workspace base when scanning from parent")
-
-            context_path = project_root / "reports" / "research" / "WORK-1-context.json"
-            self.assertTrue(context_path.exists(), "research context JSON should be generated")
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertGreaterEqual(len(payload.get("matches") or []), 1, "workspace code should be indexed")
-            self.assertTrue(payload.get("deep_mode"), "deep-code should enable deep mode")
-            self.assertTrue(
-                any(match.get("file", "").startswith("src/") for match in payload.get("matches") or []),
-                "matches should be reported relative to workspace root",
-            )
+            self.assertIn("rlm targets saved", output)
+            targets_path = project_root / "reports" / "research" / "WORK-1-rlm-targets.json"
+            self.assertTrue(targets_path.exists(), "RLM targets JSON should be generated")
+            payload = json.loads(targets_path.read_text(encoding="utf-8"))
+            files = [str(item) for item in payload.get("files") or []]
+            self.assertTrue(any(item.endswith("WorkspaceDemo.kt") for item in files))
 
     def test_research_command_syncs_rlm_paths_when_paths_missing(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-sync-") as tmpdir:
@@ -149,14 +180,14 @@ class ResearchCommandTest(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            context_path = project_root / "reports" / "research" / "SYNC-1-context.json"
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            paths = [item.get("path") for item in payload.get("paths") or []]
+            targets_path = project_root / "reports" / "research" / "SYNC-1-rlm-targets.json"
+            payload = json.loads(targets_path.read_text(encoding="utf-8"))
+            paths = [str(item) for item in payload.get("paths") or []]
             self.assertTrue(paths)
-            self.assertTrue(all(path.startswith("backend/src/main/java") for path in paths))
+            self.assertTrue(all(path.startswith("backend/src/main/java") for path in paths), paths)
             self.assertFalse(any("frontend" in path for path in paths))
-            self.assertNotIn("web", payload.get("tags") or [])
-            self.assertFalse(any("frontend" in kw for kw in payload.get("keywords") or []))
+            files = [str(item) for item in payload.get("files") or []]
+            self.assertFalse(any("frontend" in path for path in files))
 
     def test_research_command_suppresses_missing_paths_with_discovery(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-paths-") as tmpdir:
@@ -180,6 +211,8 @@ class ResearchCommandTest(unittest.TestCase):
                 [
                     "--ticket",
                     "backend-demo",
+                    "--keywords",
+                    "backend",
                     "--limit",
                     "1",
                 ]
@@ -196,7 +229,7 @@ class ResearchCommandTest(unittest.TestCase):
                 os.chdir(old_cwd)
 
             self.assertNotIn("missing research paths", stderr.getvalue())
-            targets_path = project_root / "reports" / "research" / "backend-demo-targets.json"
+            targets_path = project_root / "reports" / "research" / "backend-demo-rlm-targets.json"
             payload = json.loads(targets_path.read_text(encoding="utf-8"))
             self.assertNotIn("src/main", payload.get("paths") or [])
 
@@ -239,11 +272,13 @@ class ResearchCommandTest(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            context_path = project_root / "reports" / "research" / "FOO-7-context.json"
-            self.assertTrue(context_path.exists(), "research context JSON should be generated for parent paths")
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertTrue(any(p.get("path", "").startswith("foo") for p in payload.get("paths") or []))
-            self.assertGreaterEqual(len(payload.get("matches") or []), 1, "manual parent path should be scanned")
+            targets_path = project_root / "reports" / "research" / "FOO-7-rlm-targets.json"
+            self.assertTrue(targets_path.exists(), "RLM targets JSON should be generated for parent paths")
+            payload = json.loads(targets_path.read_text(encoding="utf-8"))
+            all_paths = [str(item) for item in (payload.get("paths") or []) + (payload.get("paths_discovered") or [])]
+            self.assertTrue(any("foo" in p for p in all_paths), all_paths)
+            files = [str(item) for item in payload.get("files") or []]
+            self.assertTrue(any(item.endswith("Extra.kt") for item in files), files)
 
     def test_research_command_syncs_prd_overrides(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-overrides-") as tmpdir:
@@ -275,6 +310,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "research",
                     "--ticket",
                     "OVR-1",
+                    "--keywords",
+                    "overrides",
                     "--limit",
                     "1",
                 ),
@@ -316,6 +353,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "PY-1",
                     "--auto",
+                    "--keywords",
+                    "py",
                     "--limit",
                     "5",
                 ]
@@ -330,11 +369,11 @@ class ResearchCommandTest(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            self.assertIn("auto profile: fast-scan", stdout.getvalue())
-
-            context_path = project_root / "reports" / "research" / "PY-1-context.json"
-            payload = json.loads(context_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload.get("deep_mode"), "non-JVM auto scan should remain fast")
+            self.assertIn("rlm worklist saved", stdout.getvalue())
+            worklist_path = project_root / "reports" / "research" / "PY-1-rlm.worklist.pack.json"
+            self.assertTrue(worklist_path.exists())
+            payload = json.loads(worklist_path.read_text(encoding="utf-8"))
+            self.assertIn(payload.get("status"), {"pending", "ready"})
 
     def test_research_command_warns_on_zero_matches(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-zero-") as tmpdir:
@@ -363,6 +402,8 @@ class ResearchCommandTest(unittest.TestCase):
                     "--ticket",
                     "ZERO-1",
                     "--auto",
+                    "--keywords",
+                    "zero",
                     "--limit",
                     "5",
                 ]
@@ -377,10 +418,9 @@ class ResearchCommandTest(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-            self.assertIn("0 matches", stderr.getvalue())
-            self.assertIn("сузить paths/keywords", stderr.getvalue())
-            context_path = project_root / "reports" / "research" / "ZERO-1-context.json"
-            self.assertTrue(context_path.exists())
+            self.assertIn("shared RLM API owner", stderr.getvalue())
+            targets_path = project_root / "reports" / "research" / "ZERO-1-rlm-targets.json"
+            self.assertTrue(targets_path.exists())
 
 
 

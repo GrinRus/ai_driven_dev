@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Breaking Changes
+- Wave 96 shell-runtime cutover: `tools/*.sh` entrypoints are removed from public runtime API.
+- Wave 97 Python-only runtime canon: canonical runtime API is now `python3 skills/*/runtime/*.py`.
+- `skills/*/scripts/*.sh` moved to transition-only compatibility layer (deprecation window through 2026-03-31).
+- `tools/*.py` remains as shared Python runtime library; new integrations must target Python entrypoints.
+
 ### New Features
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
 - Test profiles `fast/targeted/full/none` via `aidd/.cache/test-policy.env` and `AIDD_TEST_*` flags for `format-and-test.sh`.
@@ -26,7 +32,8 @@
 
 ### Improvements
 - Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
-- Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, legacy command docs moved to `docs/legacy/commands`, and CI now guards skills/entrypoints parity.
+- Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, fallback command docs moved to `docs/fallback/commands`, and CI now guards skills/entrypoints parity.
+- Added Phase-2 redirect-wrapper removal blueprint with rollback criteria (`docs/fallback/commands/redirect-wrapper-removal-plan.md`) including review redirect-wrapper transition windows.
 - Docs and prompts now use namespaced slash commands (`/feature-dev-aidd:*`) for marketplace installs.
 - Evidence Read Policy (RLM-first) and context precedence blocks aligned across prompts and anchors.
 - Prompt regression checks and architecture profile validation in repo CI.
@@ -44,23 +51,24 @@
 - Output contract standardized (`Checkbox updated` + `Status` + `Artifacts updated` + `Next actions`), search unified on `rg`.
 - Research/tasklist/QA templates updated with Context Pack, AIDD:NEXT_3, AIDD:HANDOFF_INBOX, and QA traceability to AIDD:ACCEPTANCE.
 - `gate-workflow` and smoke/tests updated to enforce review-plan before PRD review/tasklist.
-- Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; legacy `tasklist.md` больше не мигрируется автоматически.
-- `set-active-feature` больше не нормализует front-matter tasklist и не переносит legacy `tasklist.md`.
+- Tasklist артефакты перемещены в `aidd/docs/tasklist/<ticket>.md`: обновлены шаблоны, init/CLI команды, гейты, тесты и документация; fallback `tasklist.md` больше не мигрируется автоматически.
+- `set-active-feature` больше не нормализует front-matter tasklist и не переносит fallback `tasklist.md`.
 - Workflow, commands, и агентские инструкции переведены на ticket-first модель (`--ticket`, `aidd/docs/.active_ticket`, slug-hint как опциональный контекст); обновлены README, `AGENTS.md` и шаблоны tasklist.
 - `prd-review-gate`, smoke tests, и `analyst-check` теперь трактуют `Status: draft` как черновой PRD, блокируя коммиты до заполнения диалога и обновления статусов.
 - Hooks call `${CLAUDE_PLUGIN_ROOT}/hooks/*.sh` and runtime tools call `${CLAUDE_PLUGIN_ROOT}/tools/*.sh`; no `claude-workflow` dependency.
 - `tests/repo_tools/ci-lint.sh` запускает линтер промптов, dry-run `tests/repo_tools/prompt-version`, новые тесты (`tests/test_prompt_lint.py`, `tests/test_prompt_versioning.py`) и smoke/gate-workflow проверки.
 - Analyst/researcher/implementer prompts now require citing checked files and executed commands (`rg`, `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh`, `<test-runner> <args>`), while tasklist/research templates embed `Commands/Reports` blocks so downstream agents inherit reproducible context.
 - Prompt specs now standardize PRD/PRD Review statuses to `READY/BLOCKED/PENDING`, accept free-form notes after the ticket in every command, and align `allowed-tools` with subagent requirements.
+- `idea-new` UX no longer requires user-provided `slug-hint`: command contract is now `<ticket> [note...]`, and internal `slug_hint` is generated from `idea_note` summary before `set_active_feature.py --slug-note`.
 - Prompt linting validates duplicate front matter keys, disallowed statuses, HTML-escaped `<ticket>`, `Checkbox updated` placement hints, and tool parity across paired prompts.
 - Внутренний backlog (`backlog.md`) оставлен dev-only и исключён из marketplace-плагина; lint/check скрипты больше не ожидают каталог `doc/`.
 
 ### Fixes
 - `gate-workflow` hardened reviewer fallback path resolution: no secondary crashes when `tools.runtime` import fails.
 - `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
-- Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; deprecated `tools/review-*.sh` shims remain compatibility-only with warnings.
+- Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; phased-out `tools/review-*.sh` redirect-wrappers remain transition-only with warnings.
 - Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
-- Preflight artifacts now use canonical loop/context paths by default; legacy artifact emission requires `AIDD_WRITE_LEGACY_PREFLIGHT=1`, and legacy read fallback in gate requires `AIDD_ALLOW_LEGACY_PREFLIGHT=1`.
+- Preflight artifacts now use canonical loop/context paths by default; fallback artifact emission requires `AIDD_WRITE_FALLBACK_PREFLIGHT=1`, and fallback read fallback in gate requires `AIDD_ALLOW_FALLBACK_PREFLIGHT=1`.
 - CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
 - Marketplace metadata is pinned to stable `main`; `ci-lint` now blocks feature refs like `codex/wave*` and `feature/*`.
 - Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.

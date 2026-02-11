@@ -9,7 +9,7 @@ from tests.helpers import REPO_ROOT
 
 sys.path.append(str(REPO_ROOT))
 
-from tools import reviewer_tests  # noqa: E402
+from aidd_runtime import reviewer_tests  # noqa: E402
 
 from .helpers import ensure_project_root, write_active_feature
 
@@ -38,16 +38,16 @@ def test_reviewer_tests_command_updates_marker(tmp_path, monkeypatch):
     )
 
     marker = workspace / "aidd" / "reports" / "reviewer" / "demo" / "demo.tests.json"
-    legacy_flat = workspace / "aidd" / "reports" / "reviewer" / "demo.json"
-    legacy_scoped = workspace / "aidd" / "reports" / "reviewer" / "demo" / "demo.json"
+    fallback_flat = workspace / "aidd" / "reports" / "reviewer" / "demo.json"
+    fallback_scoped = workspace / "aidd" / "reports" / "reviewer" / "demo" / "demo.json"
     assert marker.exists(), "marker should be created for required tests"
     data = json.loads(marker.read_text(encoding="utf-8"))
     assert data["tests"] == "required"
     assert data["ticket"] == "demo"
     assert data["requested_by"] == "ci-tester"
     assert "updated_at" in data
-    assert not legacy_flat.exists()
-    assert not legacy_scoped.exists()
+    assert not fallback_flat.exists()
+    assert not fallback_scoped.exists()
 
     reviewer_tests.main(
         [

@@ -37,7 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for unittest environm
 
     pytest = _PytestStub()
 
-from tools.analyst_guard import (
+from aidd_runtime.analyst_guard import (
     AnalystValidationError,
     load_settings,
     validate_prd,

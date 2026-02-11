@@ -1,6 +1,6 @@
 {
   "name": "feature-dev-aidd",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "AI-driven development workflow: idea → research → plan → review-spec → (spec-interview) → tasks → implement → review → QA.",
   "author": {
     "name": "AI-Driven Dev"
@@ -23,6 +23,12 @@
   ],
   "skills": [
     "./skills/aidd-core",
+    "./skills/aidd-docio",
+    "./skills/aidd-flow-state",
+    "./skills/aidd-observability",
+    "./skills/aidd-policy",
+    "./skills/aidd-rlm",
+    "./skills/aidd-stage-research",
     "./skills/aidd-loop",
     "./skills/aidd-init",
     "./skills/idea-new",

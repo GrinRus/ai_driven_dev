@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tools import gate_workflow
+from aidd_runtime import gate_workflow
 
 
 class GateWorkflowRuntimeResilienceTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class GateWorkflowRuntimeResilienceTests(unittest.TestCase):
             real_import = builtins.__import__
 
             def broken_runtime_import(name, globals=None, locals=None, fromlist=(), level=0):
-                if name == "tools" and fromlist and "runtime" in fromlist:
+                if name == "aidd_runtime" and fromlist and "runtime" in fromlist:
                     raise ImportError("simulated runtime import failure")
                 return real_import(name, globals, locals, fromlist, level)
 

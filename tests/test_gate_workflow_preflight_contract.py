@@ -5,14 +5,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tools import gate_workflow
+from aidd_runtime import gate_workflow
 from tests.helpers import REPO_ROOT, ensure_project_root, run_hook, write_active_state, write_file
 
 DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 
 
 class GateWorkflowPreflightContractTests(unittest.TestCase):
-    def _prepare_legacy_root(self, tmpdir: str) -> tuple[Path, str, str]:
+    def _prepare_fallback_root(self, tmpdir: str) -> tuple[Path, str, str]:
         root = ensure_project_root(Path(tmpdir))
         ticket = "DEMO-PREFLIGHT"
         stage = "review"
@@ -32,9 +32,9 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
         write_file(root, f"reports/actions/{ticket}/{scope_key}/readmap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/writemap.json", "{}\n")
         write_file(root, f"reports/actions/{ticket}/{scope_key}/stage.preflight.result.json", "{}\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.legacy.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.run.legacy.log", "ok\n")
-        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.postflight.legacy.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.fallback.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.run.fallback.log", "ok\n")
+        write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.postflight.fallback.log", "ok\n")
         return root, ticket, scope_key
 
     def _prepare_base(
@@ -88,9 +88,9 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             + "\n",
         )
 
-    def test_legacy_preflight_artifacts_are_blocked_by_default(self) -> None:
+    def test_fallback_preflight_artifacts_are_blocked_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
-            root, ticket, _ = self._prepare_legacy_root(tmpdir)
+            root, ticket, _ = self._prepare_fallback_root(tmpdir)
             env = {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}
             with mock.patch.dict(os.environ, env, clear=False):
                 ok, message = gate_workflow._loop_preflight_guard(root, ticket, "review", "fast")
@@ -98,17 +98,17 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
             self.assertIn("preflight_missing", message)
             self.assertIn("reports/context", message)
 
-    def test_legacy_preflight_artifacts_allowed_with_explicit_env(self) -> None:
+    def test_fallback_preflight_artifacts_allowed_with_explicit_env(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
-            root, ticket, _ = self._prepare_legacy_root(tmpdir)
+            root, ticket, _ = self._prepare_fallback_root(tmpdir)
             env = {
                 "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
-                "AIDD_ALLOW_LEGACY_PREFLIGHT": "1",
+                "AIDD_ALLOW_FALLBACK_PREFLIGHT": "1",
             }
             with mock.patch.dict(os.environ, env, clear=False):
                 ok, message = gate_workflow._loop_preflight_guard(root, ticket, "review", "fast")
             self.assertTrue(ok)
-            self.assertIn("preflight_legacy_path", message)
+            self.assertIn("preflight_fallback_path", message)
 
     def test_loop_preflight_guard_accepts_complete_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
@@ -191,6 +191,74 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
             self.assertFalse(ok)
             self.assertIn("reason_code=actions_missing", message)
+
+    def test_loop_preflight_guard_blocks_on_output_contract_warn_in_strict(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PREFLIGHT"
+            stage = "implement"
+            scope_key = "iteration_id_M1"
+            work_item_key = "iteration_id=M1"
+            self._prepare_base(root, ticket=ticket, stage=stage, scope_key=scope_key, work_item_key=work_item_key)
+            self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/output.contract.json",
+                json.dumps(
+                    {
+                        "status": "warn",
+                        "warnings": ["read_log_missing"],
+                        "actions_log": f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json",
+                    }
+                )
+                + "\n",
+            )
+
+            env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            try:
+                ok, message = gate_workflow._loop_preflight_guard(root, ticket, stage, "strict")
+            finally:
+                if env_backup is None:
+                    os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+                else:
+                    os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
+            self.assertFalse(ok)
+            self.assertIn("reason_code=output_contract_warn", message)
+
+    def test_loop_preflight_guard_warns_on_output_contract_warn_in_fast(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PREFLIGHT"
+            stage = "implement"
+            scope_key = "iteration_id_M1"
+            work_item_key = "iteration_id=M1"
+            self._prepare_base(root, ticket=ticket, stage=stage, scope_key=scope_key, work_item_key=work_item_key)
+            self._write_required_artifacts(root, ticket=ticket, stage=stage, scope_key=scope_key)
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/output.contract.json",
+                json.dumps(
+                    {
+                        "status": "warn",
+                        "warnings": ["read_log_missing"],
+                        "actions_log": f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json",
+                    }
+                )
+                + "\n",
+            )
+
+            env_backup = os.environ.get("CLAUDE_PLUGIN_ROOT")
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+            try:
+                ok, message = gate_workflow._loop_preflight_guard(root, ticket, stage, "fast")
+            finally:
+                if env_backup is None:
+                    os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+                else:
+                    os.environ["CLAUDE_PLUGIN_ROOT"] = env_backup
+            self.assertTrue(ok)
+            self.assertIn("reason_code=output_contract_warn", message)
 
     def test_loop_preflight_guard_enforces_contract_without_loop_mode_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
@@ -275,22 +343,6 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = skip_backup
             self.assertTrue(ok)
             self.assertIn("reason_code=wrappers_skipped_warn", message)
-
-    def test_gate_workflow_blocks_missing_preflight_without_src_changes(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
-            root = ensure_project_root(Path(tmpdir))
-            ticket = "DEMO-PREFLIGHT"
-            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
-
-            result = run_hook(
-                root,
-                "gate-workflow.sh",
-                DOC_PAYLOAD,
-                extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1", "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)},
-            )
-            self.assertEqual(result.returncode, 2, msg=result.stderr)
-            combined = (result.stdout or "") + (result.stderr or "")
-            self.assertIn("preflight_missing", combined)
 
 
 if __name__ == "__main__":

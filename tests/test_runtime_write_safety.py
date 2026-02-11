@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import runtime
+from aidd_runtime import runtime
 
 
 class RuntimeWriteSafetyTests(unittest.TestCase):

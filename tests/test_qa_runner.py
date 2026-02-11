@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import ensure_project_root
-from tools import qa as qa_module
+from aidd_runtime import qa as qa_module
 
 
 class QaRunnerTests(unittest.TestCase):

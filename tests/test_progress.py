@@ -1,4 +1,4 @@
-from tools import progress
+from aidd_runtime import progress
 
 
 def test_normalize_progress_log_dedupes_and_archives():

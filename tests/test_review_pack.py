@@ -12,7 +12,7 @@ from tests.helpers import (
     write_active_state,
     write_file,
 )
-from tools import runtime
+from aidd_runtime import runtime
 
 
 class ReviewPackTests(unittest.TestCase):

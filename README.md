@@ -19,7 +19,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Ключевые возможности:
 - Слэш-команды и агенты для цепочки idea → research → plan → review-spec → spec-interview (опционально) → tasklist → implement → review → qa.
-- Skill-first промпты: канон выполнения/контракт вывода живут в `skills/aidd-core` и `skills/aidd-loop` (EN); stage entrypoints определяются skill-файлами.
+- Skill-first промпты: shared topology разделена между `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research` (EN); stage entrypoints определяются stage skill-файлами.
 - Research обязателен перед планированием: `research-check` требует статус `reviewed`.
 - Гейты PRD/Plan Review/QA и безопасные хуки (stage-aware).
 - Rolling context pack (pack-first): `aidd/reports/context/<ticket>.pack.md`.
@@ -28,6 +28,23 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - Loop mode implement↔review: loop pack/review pack, diff boundary guard, loop-step/loop-run.
 - Единый формат ответов `AIDD:ANSWERS` + Q-идентификаторы в `AIDD:OPEN_QUESTIONS` (план ссылается на `PRD QN` без дублирования).
 - Конвенции веток и коммитов через `aidd/config/conventions.json`.
+
+## SKILL-first runtime path policy
+- Stage/shared runtime entrypoints (canonical): `python3 skills/*/runtime/*.py` (Python-only canon с 2026-02-09).
+- Runtime wrappers в `skills/*/scripts/*.sh` удалены.
+- Hooks могут использовать shell entrypoints как platform glue (`hooks/*`).
+- `tools/*` используется только для import stubs и repo-only tooling.
+- Canonical runtime API lives in `skills/*/runtime/*.py`; `tools/*.sh` are retired.
+- Начиная с 2026-02-09, новые интеграции должны вызывать Python entrypoints (`skills/*/runtime/*.py`) с `PYTHONPATH=${CLAUDE_PLUGIN_ROOT}`.
+- Rollback criteria: если cutover ломает `tests/repo_tools/ci-lint.sh` или `tests/repo_tools/smoke-workflow.sh`, допускается временный wrapper fallback для конкретного entrypoint с обязательным follow-up task.
+- Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
+
+## SKILL authoring contract
+- Кросс-агентный канон: `docs/agent-skill-best-practices.md`.
+- Языковые/lint правила: `docs/skill-language.md` + `tests/repo_tools/lint-prompts.py`.
+- Для user-invocable stage skills обязателен раздел `## Command contracts` (interface-only карточки: `When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`).
+- Детали реализации не дублируются в `SKILL.md`; deep guidance уходит в supporting files.
+- `## Additional resources` описывает progressive disclosure через явные `when:` + `why:` для каждого ресурса.
 
 ## Быстрый старт
 
@@ -53,7 +70,7 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 ### 3. Запустите фичу в Claude Code
 
 ```text
-/feature-dev-aidd:idea-new STORE-123 checkout-discounts
+/feature-dev-aidd:idea-new STORE-123 "Checkout: скидки, купоны, защита от double-charge"
 /feature-dev-aidd:researcher STORE-123
 /feature-dev-aidd:plan-new STORE-123
 /feature-dev-aidd:review-spec STORE-123
@@ -66,49 +83,66 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 
 Примечания:
 - Вопросы могут появляться после `/feature-dev-aidd:idea-new`, `/feature-dev-aidd:review-spec` и `/feature-dev-aidd:spec-interview` (если запускаете).
+- `slug_hint` формируется автоматически внутри `/feature-dev-aidd:idea-new` из `note` (LLM summary → slug token); вручную передавать его не нужно.
 - Ответы давайте в `AIDD:ANSWERS` (формат `Answer N`), а фиксацию/синхронизацию должен выполнить тот же агент/команда, которые задали вопросы.
 
 ### Обновление workspace
 - `/feature-dev-aidd:aidd-init` без `--force` добавляет новые артефакты и не перезаписывает существующие.
 - Для обновления шаблонов используйте `--force` или перенесите изменения вручную.
-- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `templates/aidd/AGENTS.md`).
+- Source of truth: stage content templates находятся в `skills/*/templates/*`; `templates/aidd/**` хранит только bootstrap config/placeholders.
+- Root `AGENTS.md` — dev‑гайд репозитория; пользовательский канон процесса — `aidd/AGENTS.md` (копируется из `skills/aidd-core/templates/workspace-agents.md`).
 
 ## Скрипты и проверки
 
+> Ниже перечислены canonical Python-команды runtime API.
+
 | Команда | Назначение |
 | --- | --- |
-| `${CLAUDE_PLUGIN_ROOT}/tools/init.sh` | Создать `./aidd` из шаблонов (без перезаписи) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` | Диагностика окружения, путей и наличия `aidd/` |
-| `${CLAUDE_PLUGIN_ROOT}/tools/research.sh --ticket <ticket>` | Сгенерировать research-контекст |
-| `${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh --ticket <ticket>` | Проверить статус Research `reviewed` |
-| `${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
-| `${CLAUDE_PLUGIN_ROOT}/tools/progress.sh --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-pack.sh --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-report.sh --ticket <ticket> --findings-file <path> --status warn` | Сформировать review report |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/review-pack.sh --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
-| `${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/reviewer-tests.sh --ticket <ticket> --status required\|optional` | Обновить reviewer marker для тестовой политики |
-| `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` | Один шаг loop (implement↔review) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
-| `${CLAUDE_PLUGIN_ROOT}/tools/qa.sh --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasklist-check.sh --ticket <ticket>` | Проверить tasklist по канону |
-| `${CLAUDE_PLUGIN_ROOT}/tools/tasks-derive.sh --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
-| `${CLAUDE_PLUGIN_ROOT}/tools/status.sh --ticket <ticket> [--refresh]` | Краткий статус тикета (stage/артефакты/события) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/status-summary.sh --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
-| `${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh --ticket <ticket>` | Обновить индекс тикета `aidd/docs/index/<ticket>.json` |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py` | Создать `./aidd` из шаблонов (без перезаписи) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py` | Диагностика окружения, путей и наличия `aidd/` |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket>` | Сгенерировать RLM-only research артефакты |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>` | Проверить статус Research `reviewed` |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py --ticket <ticket>` | Проверить PRD `READY` и синхронизацию вопросов/ответов |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py --source <stage> --ticket <ticket>` | Подтвердить прогресс tasklist |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py --ticket <ticket> --stage implement\|review` | Сформировать loop pack для текущего work_item |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py --ticket <ticket> --findings-file <path> --status warn` | Сформировать review report |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py --ticket <ticket>` | Сформировать review pack (тонкий feedback) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py --ticket <ticket> --status required\|optional` | Обновить reviewer marker для тестовой политики |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py --ticket <ticket>` | Проверить diff против allowed_paths (loop-pack) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket>` | Один шаг loop (implement↔review) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --max-iterations 5` | Авто-loop до завершения всех открытых итераций |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py --ticket <ticket> --report aidd/reports/qa/<ticket>.json --gate` | Сформировать QA отчёт и гейт |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py --ticket <ticket>` | Проверить tasklist по канону |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py --source <qa\|research\|review> --append --ticket <ticket>` | Добавить handoff-задачи |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py --ticket <ticket> [--refresh]` | Краткий статус тикета |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/status_summary.py --ticket <ticket> --stage <implement\|review\|qa>` | Финальный статус из stage_result (single source) |
+| `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py --ticket <ticket>` | Обновить индекс тикета |
 | `tests/repo_tools/ci-lint.sh` | CI/линтеры и юнит-тесты (repo-only) |
 | `tests/repo_tools/smoke-workflow.sh` | E2E smoke для проверок в репозитории |
 
 `tests/repo_tools/` — repo-only утилиты для CI/линтинга; в плагин не входят.
 
-`tools/review-report.sh`, `tools/review-pack.sh`, `tools/reviewer-tests.sh` остаются как deprecated shim (compatibility-only) и выводят предупреждение.
+`review` runtime commands are canonical at `skills/review/runtime/*`.
+
+CI required-check parity:
+- Required: `lint-and-test`, `smoke-workflow`, `dependency-review`.
+- Security rollout: `security-secret-scan` + `security-sast` работают как advisory, пока `AIDD_SECURITY_ENFORCE!=1`; при `AIDD_SECURITY_ENFORCE=1` становятся required.
+
+### Shared Ownership Map
+- `skills/aidd-core/runtime/*` — shared core runtime API (canonical).
+- `skills/aidd-docio/runtime/*` — shared DocIO runtime API (`md_*`, `actions_*`, `context_*`).
+- `skills/aidd-flow-state/runtime/*` — shared flow/state runtime API (`set-active-*`, `progress*`, `tasklist*`, `stage_result`, `status_summary`, `prd_check`, `tasks_derive`).
+- `skills/aidd-observability/runtime/*` — shared observability runtime API (`doctor`, `tools_inventory`, `tests_log`, `dag_export`, `identifiers`).
+- `skills/aidd-loop/runtime/*` — shared loop runtime API (canonical).
+- `skills/<stage>/runtime/*` — stage-local runtime API (single owner per stage).
+- `tools/*.sh` удалены из runtime API.
 
 ## Слэш-команды
 
 | Команда | Назначение | Аргументы |
 | --- | --- | --- |
 | `/feature-dev-aidd:aidd-init` | Инициализировать workspace (`./aidd`) | `[--force] [--detect-build-tools]` |
-| `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [slug-hint] [note...]` |
+| `/feature-dev-aidd:idea-new` | Создать PRD draft и вопросы | `<TICKET> [note...]` |
 | `/feature-dev-aidd:researcher` | Собрать контекст и отчёт Researcher | `<TICKET> [note...] [--paths ... --keywords ... --note ...]` |
 | `/feature-dev-aidd:plan-new` | План + валидация | `<TICKET> [note...]` |
 | `/feature-dev-aidd:review-spec` | Review plan + PRD | `<TICKET> [note...]` |
@@ -125,13 +159,21 @@ RLM evidence используется как основной источник �
 
 Troubleshooting пустого контекста:
 - Уточните `--paths`/`--keywords` (указывайте реальный код, не только `aidd/`).
-- Проверьте `--paths-relative workspace`, если код лежит вне `aidd/`.
 - Если `rlm_status=pending`, выполните agent‑flow по worklist и пересоберите RLM pack.
+
+Migration policy (legacy -> RLM-only):
+- Legacy pre-RLM research context/targets artifacts не участвуют в runtime/gates.
+- Для старых workspace-артефактов пересоберите research:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket <ticket> --auto`.
+- Если `rlm_status=pending`, выполните handoff на shared owner:
+  `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
+- Для readiness в `plan/review/qa` нужен минимальный RLM набор:
+  `rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`, `rlm.nodes`, `rlm.links`, `rlm.pack`.
 
 RLM artifacts (pack-first):
 - Pack summary: `aidd/reports/research/<ticket>-rlm.pack.json`.
-- Slice-инструмент: `${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
-- Бюджет `*-context.pack.json`: `config/conventions.json` → `reports.research_pack_budget` (по умолчанию `max_chars=2000`, `max_lines=120`).
+- Slice-инструмент: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket <ticket> --query "<token>" [--paths path1,path2] [--lang kt,java]`.
+- Бюджет RLM pack: `config/conventions.json` → `rlm.pack_budget` (`max_chars`, `max_lines`, top-N limits).
 
 ## Loop mode (implement↔review)
 
@@ -144,15 +186,15 @@ Loop = 1 work_item → implement → review → (revise)* → ship.
 
 Команды:
 - Manual: `/feature-dev-aidd:implement <ticket>` → `/feature-dev-aidd:review <ticket>`.
-- Bash loop: `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket>` (fresh sessions).
-- One-shot: `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --max-iterations 5`.
-- Scope guard: `${CLAUDE_PLUGIN_ROOT}/tools/diff-boundary-check.sh --ticket <ticket>`.
-- Stream (optional): `${CLAUDE_PLUGIN_ROOT}/tools/loop-step.sh --ticket <ticket> --stream=text|tools|raw`,
-   `${CLAUDE_PLUGIN_ROOT}/tools/loop-run.sh --ticket <ticket> --stream`.
+- Loop CLI: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket>` (fresh sessions).
+- One-shot: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --max-iterations 5`.
+- Scope guard: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py --ticket <ticket>`.
+- Stream (optional): `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py --ticket <ticket> --stream=text|tools|raw`,
+   `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py --ticket <ticket> --stream`.
 
 Пример запуска из корня проекта:
 ```bash
-CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.sh" --ticket ABC-123 --max-iterations 5
+CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" PYTHONPATH="$CLAUDE_PLUGIN_ROOT" python3 "$CLAUDE_PLUGIN_ROOT/skills/aidd-loop/runtime/loop_run.py" --ticket ABC-123 --max-iterations 5
 ```
 
 Примечание:
@@ -184,12 +226,12 @@ CLAUDE_PLUGIN_ROOT="/path/to/ai_driven_dev" "$CLAUDE_PLUGIN_ROOT/tools/loop-run.
 - Плагин живёт в корне репозитория (директории `agents/`, `skills/`, `hooks/`, `tools/`).
 - Рабочие артефакты разворачиваются в `./aidd` после `/feature-dev-aidd:aidd-init`.
 - Если команды или хуки не находят workspace, запустите `/feature-dev-aidd:aidd-init` или укажите `CLAUDE_PLUGIN_ROOT`.
-- Для быстрой проверки окружения используйте `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh`.
+- Для быстрой проверки окружения используйте `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`.
 
 ## Документация
-- Канон ответа и pack-first: `aidd/docs/prompting/conventions.md`.
+- Канон ответа и pack-first: `aidd/AGENTS.md` + `skills/aidd-policy/SKILL.md`.
 - Пользовательский гайд (runtime): `aidd/AGENTS.md`; dev‑гайд репозитория: `AGENTS.md`.
-- Skill-first канон: `skills/aidd-core` и `skills/aidd-loop` (EN).
+- Skill-first topology: `skills/aidd-core`, `skills/aidd-policy`, `skills/aidd-docio`, `skills/aidd-flow-state`, `skills/aidd-observability`, `skills/aidd-loop`, `skills/aidd-rlm`, `skills/aidd-stage-research` (EN).
 - Английская версия: `README.en.md`.
 
 ## Примеры

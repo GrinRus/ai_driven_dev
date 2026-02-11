@@ -1,0 +1,255 @@
+{
+  "agents": [
+    {
+      "lang": "ru",
+      "name": "analyst",
+      "path": "agents/analyst.md",
+      "prompt_version": "1.3.16",
+      "source_version": "1.3.16"
+    },
+    {
+      "lang": "ru",
+      "name": "implementer",
+      "path": "agents/implementer.md",
+      "prompt_version": "1.1.38",
+      "source_version": "1.1.38"
+    },
+    {
+      "lang": "ru",
+      "name": "plan-reviewer",
+      "path": "agents/plan-reviewer.md",
+      "prompt_version": "1.0.19",
+      "source_version": "1.0.19"
+    },
+    {
+      "lang": "ru",
+      "name": "planner",
+      "path": "agents/planner.md",
+      "prompt_version": "1.1.12",
+      "source_version": "1.1.12"
+    },
+    {
+      "lang": "ru",
+      "name": "prd-reviewer",
+      "path": "agents/prd-reviewer.md",
+      "prompt_version": "1.0.19",
+      "source_version": "1.0.19"
+    },
+    {
+      "lang": "ru",
+      "name": "qa",
+      "path": "agents/qa.md",
+      "prompt_version": "1.0.28",
+      "source_version": "1.0.28"
+    },
+    {
+      "lang": "ru",
+      "name": "researcher",
+      "path": "agents/researcher.md",
+      "prompt_version": "1.2.30",
+      "source_version": "1.2.30"
+    },
+    {
+      "lang": "ru",
+      "name": "reviewer",
+      "path": "agents/reviewer.md",
+      "prompt_version": "1.0.33",
+      "source_version": "1.0.33"
+    },
+    {
+      "lang": "ru",
+      "name": "spec-interview-writer",
+      "path": "agents/spec-interview-writer.md",
+      "prompt_version": "1.0.11",
+      "source_version": "1.0.11"
+    },
+    {
+      "lang": "ru",
+      "name": "tasklist-refiner",
+      "path": "agents/tasklist-refiner.md",
+      "prompt_version": "1.1.19",
+      "source_version": "1.1.19"
+    },
+    {
+      "lang": "ru",
+      "name": "validator",
+      "path": "agents/validator.md",
+      "prompt_version": "1.0.12",
+      "source_version": "1.0.12"
+    }
+  ],
+  "schema": "aidd.entrypoints.bundle.v1",
+  "skills": [
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-core",
+      "path": "skills/aidd-core/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-docio",
+      "path": "skills/aidd-docio/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-flow-state",
+      "path": "skills/aidd-flow-state/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "aidd-init",
+      "path": "skills/aidd-init/SKILL.md",
+      "prompt_version": "0.1.6",
+      "source_version": "0.1.6",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-loop",
+      "path": "skills/aidd-loop/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-observability",
+      "path": "skills/aidd-observability/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-policy",
+      "path": "skills/aidd-policy/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-rlm",
+      "path": "skills/aidd-rlm/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "",
+      "lang": "en",
+      "name": "aidd-stage-research",
+      "path": "skills/aidd-stage-research/SKILL.md",
+      "prompt_version": "",
+      "source_version": "",
+      "user_invocable": "false"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "idea-new",
+      "path": "skills/idea-new/SKILL.md",
+      "prompt_version": "1.3.18",
+      "source_version": "1.3.18",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "implement",
+      "path": "skills/implement/SKILL.md",
+      "prompt_version": "1.1.40",
+      "source_version": "1.1.40",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "plan-new",
+      "path": "skills/plan-new/SKILL.md",
+      "prompt_version": "1.1.13",
+      "source_version": "1.1.13",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "qa",
+      "path": "skills/qa/SKILL.md",
+      "prompt_version": "1.0.31",
+      "source_version": "1.0.31",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "researcher",
+      "path": "skills/researcher/SKILL.md",
+      "prompt_version": "1.2.31",
+      "source_version": "1.2.31",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "review-spec",
+      "path": "skills/review-spec/SKILL.md",
+      "prompt_version": "1.0.20",
+      "source_version": "1.0.20",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "review",
+      "path": "skills/review/SKILL.md",
+      "prompt_version": "1.0.35",
+      "source_version": "1.0.35",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "spec-interview",
+      "path": "skills/spec-interview/SKILL.md",
+      "prompt_version": "1.0.12",
+      "source_version": "1.0.12",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "false",
+      "lang": "ru",
+      "name": "status",
+      "path": "skills/status/SKILL.md",
+      "prompt_version": "1.0.6",
+      "source_version": "1.0.6",
+      "user_invocable": "true"
+    },
+    {
+      "disable_model_invocation": "true",
+      "lang": "ru",
+      "name": "tasks-new",
+      "path": "skills/tasks-new/SKILL.md",
+      "prompt_version": "1.1.20",
+      "source_version": "1.1.20",
+      "user_invocable": "true"
+    }
+  ]
+}

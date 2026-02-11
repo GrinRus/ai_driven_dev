@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -21,10 +22,26 @@ HOOK_PATH_RE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/hooks/[A-Za-z0-9_.-]+\.sh")
 UNSCOPED_PLUGIN_PATH_RE = re.compile(r"(?<!\$\{CLAUDE_PLUGIN_ROOT\}/)(?:tools|hooks)/[A-Za-z0-9_.-]+\.sh")
 TOOL_CLAUDE_WORKFLOW_RE = re.compile(r"\bclaude-workflow\b", re.IGNORECASE)
 CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
+BASH_TOOL_RE = re.compile(r"^Bash\((.*)\)$")
 
+SOFT_SKILL_LINES = 220
 MAX_SKILL_LINES = 300
 PRELOADED_SIZE_LIMIT_BYTES = 64 * 1024
-ALLOWED_SUPPORT_DIRS = {"scripts", "examples", "assets"}
+ALLOWED_SUPPORT_DIRS = {"scripts", "runtime", "examples", "assets", "templates", "references"}
+REQUIRED_CONTRACT_FIELDS = [
+    "when to run:",
+    "inputs:",
+    "outputs:",
+    "failure mode:",
+    "next action:",
+]
+RESEARCHER_STAGE_FORBIDDEN_RLM_TOOLS = (
+    "rlm_nodes_build.py",
+    "rlm_verify.py",
+    "rlm_links_build.py",
+    "rlm_jsonl_compact.py",
+    "reports_pack.py",
+)
 
 STAGE_SKILLS = [
     "aidd-init",
@@ -40,9 +57,88 @@ STAGE_SKILLS = [
     "status",
 ]
 
-FORK_STAGES = {"idea-new", "researcher", "tasks-new", "implement", "review", "qa"}
+STAGE_PYTHON_ENTRYPOINTS = {
+    "aidd-init": "skills/aidd-init/runtime/init.py",
+    "idea-new": "skills/idea-new/runtime/analyst_check.py",
+    "researcher": "skills/researcher/runtime/research.py",
+    "plan-new": "skills/plan-new/runtime/research_check.py",
+    "review-spec": "skills/review-spec/runtime/prd_review_cli.py",
+    "spec-interview": "skills/spec-interview/runtime/spec_interview.py",
+    "tasks-new": "skills/tasks-new/runtime/tasks_new.py",
+    "implement": "skills/implement/runtime/implement_run.py",
+    "review": "skills/review/runtime/review_run.py",
+    "qa": "skills/qa/runtime/qa_run.py",
+    "status": "skills/status/runtime/status.py",
+}
+
 LOOP_STAGES = {"implement", "review", "qa", "status"}
-PRELOADED_SKILLS = {"aidd-core", "aidd-loop"}
+NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
+    "idea-new": 1,
+    "tasks-new": 1,
+    "implement": 1,
+    "review": 1,
+    "qa": 1,
+}
+NO_FORK_FORBIDDEN_PHRASES = (
+    "forked context",
+    "(fork)",
+    "delegate to subagent",
+)
+PRELOADED_SKILLS = {
+    "aidd-core",
+    "aidd-docio",
+    "aidd-flow-state",
+    "aidd-observability",
+    "aidd-loop",
+    "aidd-rlm",
+    "aidd-policy",
+    "aidd-stage-research",
+}
+SHARED_STAGE_SCRIPT_OWNERS = {
+    "aidd-core",
+    "aidd-loop",
+    "aidd-rlm",
+    "aidd-policy",
+    "aidd-docio",
+    "aidd-flow-state",
+    "aidd-observability",
+}
+AGENT_REQUIRED_SHARED_SKILLS = {"feature-dev-aidd:aidd-core", "feature-dev-aidd:aidd-policy"}
+AGENT_REQUIRED_LOOP_SKILLS = {"feature-dev-aidd:aidd-loop"}
+AGENT_REQUIRED_RLM_SKILL = "feature-dev-aidd:aidd-rlm"
+AGENT_REQUIRED_STAGE_RESEARCH_SKILL = "feature-dev-aidd:aidd-stage-research"
+AGENT_LOOP_PRELOAD_ROLES = {"implementer", "reviewer", "qa"}
+AGENT_RLM_PRELOAD_ROLES = {
+    "analyst",
+    "planner",
+    "plan-reviewer",
+    "prd-reviewer",
+    "researcher",
+    "reviewer",
+    "spec-interview-writer",
+    "tasklist-refiner",
+    "validator",
+}
+# role -> skill refs allowed outside matrix requirements.
+AGENT_PRELOAD_WAIVERS: Dict[str, set[str]] = {}
+SKILL_RUNTIME_TOOL_RE = re.compile(
+    r"(?:python3\s+)?\$\{CLAUDE_PLUGIN_ROOT\}/skills/([^/]+)/runtime/([A-Za-z0-9_.-]+\.py)"
+)
+
+FORBIDDEN_AGENT_STAGE_TOOL_MAP = {
+    "${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/research-check.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/prd-review.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/reports-pack.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/reports_pack.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-nodes-build.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-verify.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_verify.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-links-build.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-jsonl-compact.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_jsonl_compact.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/rlm-finalize.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/qa.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/status.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py",
+    "${CLAUDE_PLUGIN_ROOT}/tools/index-sync.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py",
+}
 
 AGENT_REQUIRED_SECTIONS = [
     "Контекст",
@@ -54,7 +150,7 @@ AGENT_REQUIRED_SECTIONS = [
 ]
 
 OUTPUT_CONTRACT_FIELDS = {
-    "skills/aidd-core/SKILL.md": [
+    "skills/aidd-policy/SKILL.md": [
         "Status:",
         "Work item key:",
         "Artifacts updated:",
@@ -66,7 +162,7 @@ OUTPUT_CONTRACT_FIELDS = {
     ]
 }
 
-INDEX_SCHEMA_PATH = Path("docs/index/schema.json")
+INDEX_SCHEMA_PATH = Path("skills/aidd-core/templates/index.schema.json")
 INDEX_REQUIRED_FIELDS = [
     "schema",
     "ticket",
@@ -84,7 +180,9 @@ INDEX_REQUIRED_FIELDS = [
 
 POLICY_DOC = Path("docs/skill-language.md")
 BASELINE_JSON_PRIMARY = Path("aidd/reports/migrations/commands_to_skills_frontmatter.json")
-BASELINE_JSON_LEGACY = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+BASELINE_JSON_FALLBACK = Path("dev/reports/migrations/commands_to_skills_frontmatter.json")
+LEGACY_BASH_POLICY_ENV = "AIDD_BASH_LEGACY_POLICY"
+LEGACY_BASH_POLICIES = {"allow", "warn", "error"}
 
 
 @dataclass
@@ -121,6 +219,25 @@ def _resolve_aidd_root(root: Path) -> Path:
     if candidate.is_dir():
         return candidate
     return root
+
+
+def _extract_section(body: str, title: str) -> str | None:
+    title_token = f"## {title}".lower()
+    lines = body.splitlines()
+    start = None
+    for idx, line in enumerate(lines):
+        if line.strip().lower() == title_token:
+            start = idx + 1
+            break
+    if start is None:
+        return None
+    section_lines: List[str] = []
+    for line in lines[start:]:
+        if line.strip().startswith("## "):
+            break
+        section_lines.append(line)
+    content = "\n".join(section_lines).strip()
+    return content or None
 
 
 def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile | None, List[str]]:
@@ -252,6 +369,63 @@ def _normalize_tool_list(value: str | list[str] | None) -> List[str]:
     return cleaned
 
 
+def _parse_bash_tool(entry: str) -> tuple[str | None, str | None]:
+    if not entry.startswith("Bash("):
+        return None, None
+    match = BASH_TOOL_RE.match(entry.strip())
+    if not match:
+        return None, None
+    inner = match.group(1).strip()
+    if inner.endswith(":*"):
+        return inner[:-2].strip(), "legacy"
+    if inner.endswith(" *"):
+        return inner[:-2].strip(), "modern"
+    return inner.strip(), None
+
+
+def _legacy_bash_policy() -> str:
+    raw = os.getenv(LEGACY_BASH_POLICY_ENV, "error").strip().lower()
+    if raw in LEGACY_BASH_POLICIES:
+        return raw
+    return "error"
+
+
+def validate_bash_tool_grammar(info: PromptFile) -> tuple[List[str], List[str]]:
+    errors: List[str] = []
+    warnings: List[str] = []
+    key = "allowed-tools" if info.kind == "skill" else "tools" if info.kind == "agent" else ""
+    if not key:
+        return errors, warnings
+    policy = _legacy_bash_policy()
+    for entry in _normalize_tool_list(info.front_matter.get(key)):
+        if not entry.startswith("Bash("):
+            continue
+        command, style = _parse_bash_tool(entry)
+        if command is None:
+            errors.append(
+                f"{info.path}: invalid Bash tool syntax `{entry}`; expected `Bash(<command> *)`."
+            )
+            continue
+        if style is None:
+            errors.append(
+                f"{info.path}: invalid Bash wildcard syntax `{entry}`; "
+                "supported forms are `Bash(<command> *)` and transitional colon-wildcard syntax."
+            )
+            continue
+        if style == "legacy":
+            message = (
+                f"{info.path}: legacy Bash wildcard syntax is deprecated (`{entry}`); "
+                "use `Bash(<command> *)`."
+            )
+            if policy == "warn":
+                warnings.append(message)
+            elif policy == "error":
+                errors.append(
+                    message.replace("is deprecated", "is forbidden by policy")
+                )
+    return errors, warnings
+
+
 def validate_statuses(info: PromptFile) -> List[str]:
     errors: List[str] = []
     for match in STATUS_RE.finditer(info.body):
@@ -355,6 +529,54 @@ def validate_required_write_tools(info: PromptFile) -> List[str]:
     return []
 
 
+def _skill_ref_to_name(raw: str) -> str:
+    value = raw.strip()
+    if ":" in value:
+        value = value.rsplit(":", 1)[-1]
+    return value.strip()
+
+
+def validate_agent_skill_refs(info: PromptFile, root: Path) -> List[str]:
+    errors: List[str] = []
+    skills = _normalize_tool_list(info.front_matter.get("skills"))
+    for skill_ref in skills:
+        skill_name = _skill_ref_to_name(skill_ref)
+        if not skill_name:
+            errors.append(f"{info.path}: invalid empty skill ref `{skill_ref}`")
+            continue
+        skill_path = root / "skills" / skill_name / "SKILL.md"
+        if not skill_path.exists():
+            errors.append(f"{info.path}: missing preload skill `{skill_ref}` -> {skill_path}")
+    return errors
+
+
+def validate_agent_tool_policy(info: PromptFile) -> List[str]:
+    errors: List[str] = []
+    tools = _normalize_tool_list(info.front_matter.get("tools"))
+    for entry in tools:
+        if "${CLAUDE_PLUGIN_ROOT}/skills/" in entry and "/scripts/" in entry:
+            errors.append(
+                f"{info.path}: agents must not call stage/shared wrappers directly ({entry})"
+            )
+        for fallback_path, canonical_path in FORBIDDEN_AGENT_STAGE_TOOL_MAP.items():
+            if fallback_path in entry:
+                errors.append(
+                    f"{info.path}: agent tools must use `{canonical_path}` instead of fallback wrapper `{fallback_path}`"
+                )
+    has_rlm_tooling = any(
+        "rlm_" in entry or "reports_pack.py" in entry or "rlm_slice.py" in entry
+        for entry in tools
+        if entry.startswith("Bash(")
+    )
+    if has_rlm_tooling:
+        skills = _normalize_tool_list(info.front_matter.get("skills"))
+        if AGENT_REQUIRED_RLM_SKILL not in skills:
+            errors.append(
+                f"{info.path}: RLM tools require preload skill `{AGENT_REQUIRED_RLM_SKILL}`"
+            )
+    return errors
+
+
 def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
     rel_path = _relative_prompt_path(info, root)
     required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
@@ -374,12 +596,13 @@ def _relative_prompt_path(info: PromptFile, root: Path) -> str:
         return info.path.as_posix()
 
 
-def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
+def lint_agents(root: Path) -> Tuple[List[str], List[str], Dict[str, PromptFile]]:
     errors: List[str] = []
+    warnings: List[str] = []
     agents: Dict[str, PromptFile] = {}
     agents_dir = root / "agents"
     if not agents_dir.exists():
-        return [f"{agents_dir}: agents directory is missing"], agents
+        return [f"{agents_dir}: agents directory is missing"], warnings, agents
 
     for path in sorted(agents_dir.glob("*.md")):
         info, load_errors = read_prompt(path, "agent", "ru")
@@ -411,15 +634,38 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
         errors.extend(validate_required_write_tools(info))
+        errors.extend(validate_agent_skill_refs(info, root))
+        errors.extend(validate_agent_tool_policy(info))
+        grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
+        errors.extend(grammar_errors)
+        warnings.extend(grammar_warnings)
 
         if "Output follows aidd-core skill" not in info.body:
             errors.append(f"{info.path}: missing anchor line 'Output follows aidd-core skill'")
 
         skills = _normalize_tool_list(info.front_matter.get("skills"))
-        if "feature-dev-aidd:aidd-core" not in skills:
-            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-core")
-        if info.stem in {"implementer", "reviewer", "qa"} and "feature-dev-aidd:aidd-loop" not in skills:
-            errors.append(f"{info.path}: missing skill preload feature-dev-aidd:aidd-loop")
+        for required in AGENT_REQUIRED_SHARED_SKILLS:
+            if required not in skills:
+                errors.append(f"{info.path}: missing skill preload {required}")
+        waivers = AGENT_PRELOAD_WAIVERS.get(info.stem, set())
+        loop_required = info.stem in AGENT_LOOP_PRELOAD_ROLES
+        if loop_required:
+            for required in AGENT_REQUIRED_LOOP_SKILLS:
+                if required not in skills:
+                    errors.append(f"{info.path}: missing role-based preload {required}")
+        else:
+            for required in AGENT_REQUIRED_LOOP_SKILLS:
+                if required in skills and required not in waivers:
+                    errors.append(f"{info.path}: preload {required} is forbidden for role `{info.stem}`")
+
+        rlm_required = info.stem in AGENT_RLM_PRELOAD_ROLES
+        if rlm_required:
+            if AGENT_REQUIRED_RLM_SKILL not in skills:
+                errors.append(f"{info.path}: missing role-based preload {AGENT_REQUIRED_RLM_SKILL}")
+        elif AGENT_REQUIRED_RLM_SKILL in skills and AGENT_REQUIRED_RLM_SKILL not in waivers:
+            errors.append(f"{info.path}: preload {AGENT_REQUIRED_RLM_SKILL} is forbidden for role `{info.stem}`")
+        if info.stem == "researcher" and AGENT_REQUIRED_STAGE_RESEARCH_SKILL not in skills:
+            errors.append(f"{info.path}: missing role-based preload {AGENT_REQUIRED_STAGE_RESEARCH_SKILL}")
 
         version = _as_string(info.front_matter.get("prompt_version"))
         if version and not PROMPT_VERSION_RE.match(version):
@@ -428,14 +674,15 @@ def lint_agents(root: Path) -> Tuple[List[str], Dict[str, PromptFile]]:
         if source_version and not PROMPT_VERSION_RE.match(source_version):
             errors.append(f"{info.path}: source_version `{source_version}` must match X.Y.Z")
 
-    return errors, agents
+    return errors, warnings, agents
 
 
-def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
+def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
     errors: List[str] = []
+    warnings: List[str] = []
     skills_root = root / "skills"
     if not skills_root.exists():
-        return [f"{skills_root}: skills directory is missing"]
+        return [f"{skills_root}: skills directory is missing"], warnings
 
     if not (root / POLICY_DOC).exists():
         errors.append(f"{root / POLICY_DOC}: missing skill language policy doc")
@@ -443,7 +690,7 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
     baseline = None
     baseline_candidates = [
         root / BASELINE_JSON_PRIMARY,
-        root / BASELINE_JSON_LEGACY,
+        root / BASELINE_JSON_FALLBACK,
     ]
     baseline_path = next((path for path in baseline_candidates if path.exists()), baseline_candidates[0])
     if baseline_path.exists():
@@ -466,9 +713,9 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
             continue
 
         if info.line_count > MAX_SKILL_LINES:
-            errors.append(
-                f"{info.path}: exceeds max skill length ({info.line_count} > {MAX_SKILL_LINES} lines)"
-            )
+            errors.append(f"{info.path}: exceeds max skill length ({info.line_count} > {MAX_SKILL_LINES} lines)")
+        elif info.line_count > SOFT_SKILL_LINES:
+            warnings.append(f"{info.path}: exceeds recommended skill length ({info.line_count} > {SOFT_SKILL_LINES} lines)")
 
         raw_text = path.read_text(encoding="utf-8")
         if CYRILLIC_RE.search(raw_text):
@@ -479,6 +726,9 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         errors.extend(validate_tool_mentions(info))
         errors.extend(validate_plugin_asset_mentions(info, root))
         errors.extend(validate_output_contract(info, root))
+        grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
+        errors.extend(grammar_errors)
+        warnings.extend(grammar_warnings)
 
         name = _as_string(info.front_matter.get("name"))
         if name and name != path.parent.name:
@@ -557,33 +807,150 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
 
             if path.parent.name in {"implement", "review", "qa"}:
                 body_lower = info.body.lower()
-                if "preflight.sh" not in body_lower:
-                    errors.append(f"{info.path}: missing preflight.sh reference")
-                if "postflight.sh" not in body_lower:
-                    errors.append(f"{info.path}: missing postflight.sh reference")
+                if "preflight_prepare.py" not in body_lower:
+                    errors.append(f"{info.path}: missing preflight_prepare.py reference")
+                if "actions_apply.py" not in body_lower:
+                    errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
 
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
-            if path.parent.name in FORK_STAGES:
-                if context != "fork":
-                    errors.append(f"{info.path}: fork stages must set context: fork")
-                if not agent:
-                    errors.append(f"{info.path}: fork stages must set agent")
-                elif agent not in agent_ids:
-                    errors.append(f"{info.path}: agent `{agent}` not found in agents/")
+            skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+
+            python_entrypoint_rel = STAGE_PYTHON_ENTRYPOINTS[path.parent.name]
+            python_entrypoint = root / python_entrypoint_rel
+            if not python_entrypoint.exists():
+                errors.append(f"{python_entrypoint}: missing canonical python entrypoint")
+            python_tool_ref = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/{python_entrypoint_rel}"
+            if not any(python_tool_ref in item for item in skill_tools if item.startswith("Bash(")):
+                errors.append(
+                    f"{info.path}: allowed-tools must include canonical python entrypoint "
+                    f"`Bash({python_tool_ref} *)`"
+                )
+
+            contracts = _extract_section(info.body, "Command contracts")
+            if not contracts:
+                errors.append(f"{info.path}: missing `## Command contracts` section")
             else:
-                if context == "fork":
-                    errors.append(f"{info.path}: context: fork is only allowed for {sorted(FORK_STAGES)}")
-                if agent:
-                    errors.append(f"{info.path}: agent field is only allowed for fork stages")
+                contracts_lc = contracts.lower()
+                for marker in REQUIRED_CONTRACT_FIELDS:
+                    if marker not in contracts_lc:
+                        errors.append(f"{info.path}: command contracts missing `{marker}`")
+                required_refs = [python_entrypoint_rel]
+                if path.parent.name in {"implement", "review", "qa"}:
+                    required_refs.extend(["preflight_prepare.py", "actions_apply.py"])
+                for ref in required_refs:
+                    if ref.lower() not in contracts_lc:
+                        errors.append(f"{info.path}: command contracts missing critical command reference `{ref}`")
+
+            additional = _extract_section(info.body, "Additional resources")
+            if not additional:
+                errors.append(f"{info.path}: missing `## Additional resources` section")
+            else:
+                bullets = [line.strip() for line in additional.splitlines() if line.strip().startswith("-")]
+                if not bullets:
+                    errors.append(f"{info.path}: Additional resources must contain at least one bullet item")
+                for bullet in bullets:
+                    bullet_lc = bullet.lower()
+                    if "when:" not in bullet_lc or "why:" not in bullet_lc:
+                        errors.append(
+                            f"{info.path}: Additional resources bullet must include `when:` and `why:` ({bullet})"
+                        )
+
+            for item in skill_tools:
+                if not item.startswith("Bash("):
+                    continue
+                if "${CLAUDE_PLUGIN_ROOT}/skills/" in item and "/scripts/" in item:
+                    errors.append(
+                        f"{info.path}: stage skill must not reference legacy shell wrappers in allowed-tools ({item})"
+                    )
+                    continue
+                runtime_match = SKILL_RUNTIME_TOOL_RE.search(item)
+                if runtime_match:
+                    owner = runtime_match.group(1)
+                    if owner != path.parent.name and owner not in SHARED_STAGE_SCRIPT_OWNERS:
+                        errors.append(
+                            f"{info.path}: stage skill references foreign python entrypoint `{owner}` "
+                            f"(allowed: own runtime + shared skills {sorted(SHARED_STAGE_SCRIPT_OWNERS)})"
+                        )
+
+            if path.parent.name == "researcher":
+                forbidden_rlm_refs = [
+                    item
+                    for item in skill_tools
+                    if "/skills/aidd-rlm/runtime/" in item
+                    and any(token in item for token in RESEARCHER_STAGE_FORBIDDEN_RLM_TOOLS)
+                ]
+                if forbidden_rlm_refs:
+                    errors.append(
+                        f"{info.path}: researcher stage must not call shared RLM API directly in allowed-tools "
+                        f"({forbidden_rlm_refs})"
+                    )
+                body_lc = info.body.lower()
+                forbidden_in_steps = [
+                    token for token in RESEARCHER_STAGE_FORBIDDEN_RLM_TOOLS if token in body_lc
+                ]
+                if forbidden_in_steps:
+                    errors.append(
+                        f"{info.path}: researcher stage steps must not depend on shared RLM internals "
+                        f"({forbidden_in_steps}); use explicit handoff to aidd-rlm owner skill"
+                    )
+                subagent_mentions = len(re.findall(r"run subagent", info.body, flags=re.IGNORECASE))
+                if subagent_mentions != 1:
+                    errors.append(
+                        f"{info.path}: researcher stage must contain exactly one `Run subagent` step "
+                        f"(found {subagent_mentions})"
+                    )
+                body_lc = info.body.lower()
+                forbidden_phrases = [
+                    "forked context",
+                    "(fork)",
+                    "delegate to subagent",
+                ]
+                found_phrases = [phrase for phrase in forbidden_phrases if phrase in body_lc]
+                if found_phrases:
+                    errors.append(
+                        f"{info.path}: researcher stage contains forbidden fork/delegation phrases "
+                        f"{found_phrases}"
+                    )
+
+            if context:
+                errors.append(
+                    f"{info.path}: stage skills must not set `context`; use explicit `Run subagent` orchestration."
+                )
+            if agent:
+                errors.append(
+                    f"{info.path}: stage skills must not set `agent`; use explicit `Run subagent` orchestration."
+                )
+
+            expected_subagents = NO_FORK_STAGE_SUBAGENT_COUNTS.get(path.parent.name)
+            if expected_subagents is not None:
+                subagent_mentions = len(re.findall(r"run subagent", info.body, flags=re.IGNORECASE))
+                if subagent_mentions != expected_subagents:
+                    errors.append(
+                        f"{info.path}: stage must contain exactly {expected_subagents} `Run subagent` step(s) "
+                        f"(found {subagent_mentions})"
+                    )
+                body_lc = info.body.lower()
+                forbidden_phrases = [phrase for phrase in NO_FORK_FORBIDDEN_PHRASES if phrase in body_lc]
+                if forbidden_phrases:
+                    errors.append(
+                        f"{info.path}: stage contains forbidden fork/delegation phrases {forbidden_phrases}"
+                    )
 
             # parity check against baseline
             row = baseline_rows.get(path.parent.name)
             if row:
                 baseline_fm = row.get("frontmatter", {})
-                skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+                forbidden_stage_tools = [
+                    item for item in skill_tools if "${CLAUDE_PLUGIN_ROOT}/tools/" in item
+                ]
+                if forbidden_stage_tools:
+                    errors.append(
+                        f"{info.path}: stage skills must not use tools/* in allowed-tools "
+                        f"({forbidden_stage_tools})"
+                    )
                 baseline_tools = list(baseline_fm.get("allowed-tools") or [])
                 if skill_tools != baseline_tools:
                     errors.append(f"{info.path}: allowed-tools does not match baseline")
@@ -601,7 +968,10 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         if not path.exists():
             errors.append(f"{path}: missing stage skill")
 
-    # support files depth <= 1 (root-level files allowed; subdirs limited)
+    # support files policy:
+    # - root-level supporting docs are allowed;
+    # - examples/assets stay one level deep;
+    # - runtime/scripts may contain nested executable resources.
     for skill_dir in sorted(skills_root.iterdir()):
         if not skill_dir.is_dir():
             continue
@@ -613,6 +983,8 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
             rel = file.relative_to(skill_dir)
             parts = rel.parts
             if len(parts) == 1:
+                continue
+            if parts[0] in {"runtime", "scripts"}:
                 continue
             if len(parts) == 2 and parts[0] in ALLOWED_SUPPORT_DIRS:
                 continue
@@ -632,16 +1004,24 @@ def lint_skills(root: Path, agent_ids: set[str]) -> List[str]:
         if not skill_dir.exists():
             errors.append(f"{skill_dir}: missing preloaded skill directory")
             continue
-        total = sum(p.stat().st_size for p in skill_dir.rglob("*") if p.is_file())
+        total = 0
+        for p in skill_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(skill_dir)
+            if rel.parts and rel.parts[0] in {"runtime", "scripts"}:
+                # Executable/runtime files are not preloaded into prompt context.
+                continue
+            total += p.stat().st_size
         if total > PRELOADED_SIZE_LIMIT_BYTES:
             errors.append(
                 f"{skill_dir}: preloaded skill size {total} exceeds limit {PRELOADED_SIZE_LIMIT_BYTES} bytes"
             )
 
-    return errors
+    return errors, warnings
 
 
-def validate_commands_deprecated(root: Path) -> List[str]:
+def validate_commands_relocated(root: Path) -> List[str]:
     commands_dir = root / "commands"
     if not commands_dir.exists():
         return []
@@ -653,23 +1033,21 @@ def validate_commands_deprecated(root: Path) -> List[str]:
 
 
 def validate_template_artifacts(root: Path) -> List[str]:
-    template_root = root / "templates" / "aidd"
     errors: List[str] = []
     critical = [
-        "AGENTS.md",
-        "docs/prompting/conventions.md",
-        "reports/context/template.context-pack.md",
-        "docs/loops/template.loop-pack.md",
-        "docs/prd/template.md",
-        "docs/plan/template.md",
-        "docs/research/template.md",
-        "docs/tasklist/template.md",
+        "skills/aidd-core/templates/workspace-agents.md",
+        "skills/aidd-core/templates/stage-lexicon.md",
+        "skills/aidd-core/templates/index.schema.json",
+        "skills/aidd-core/templates/context-pack.template.md",
+        "skills/aidd-loop/templates/loop-pack.template.md",
+        "skills/idea-new/templates/prd.template.md",
+        "skills/plan-new/templates/plan.template.md",
+        "skills/researcher/templates/research.template.md",
+        "skills/spec-interview/templates/spec.template.yaml",
+        "skills/tasks-new/templates/tasklist.template.md",
     ]
     for rel in critical:
-        rel_path = rel
-        if rel_path.startswith("aidd/"):
-            rel_path = rel_path[len("aidd/") :]
-        target = template_root / rel_path
+        target = root / rel
         if not target.exists():
             errors.append(f"{target}: missing critical template artifact")
     return errors
@@ -702,12 +1080,13 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
                 normalized.append(value)
         return sorted(set(normalized))
 
-    def _validate_list(key: str, expected: List[str]) -> None:
+    def _validate_list(key: str, expected: List[str]) -> List[str]:
+        resolved_entries: List[str] = []
         raw = payload.get(key)
         entries = _normalize_entries(raw)
         if raw is None:
             errors.append(f"{manifest_path}: `{key}` is missing")
-            return
+            return resolved_entries
         if entries:
             missing = [item for item in expected if item not in entries]
             extra = [item for item in entries if item not in expected]
@@ -721,10 +1100,46 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
             if ".." in Path(entry).parts:
                 errors.append(f"{manifest_path}: `{key}` path must not contain .. ({entry})")
             rel = entry[2:] if entry.startswith("./") else entry
-            if rel and not (root / rel).exists():
+            path = root / rel if rel else root
+            if rel and not path.exists():
                 errors.append(f"{manifest_path}: `{key}` path not found ({entry})")
+                continue
+            resolved_entries.append(entry)
+        return resolved_entries
 
-    _validate_list("skills", skills_expected)
+    def _normalize_rel(path: Path) -> str:
+        return f"./{path.as_posix()}"
+
+    skill_roots = _validate_list("skills", sorted({f"./skills/{Path(path).parent.name}" for path in skills_expected}))
+    resolved_skills: List[str] = []
+    for entry in skill_roots:
+        rel = entry[2:] if entry.startswith("./") else entry
+        path = root / rel
+        if path.is_file():
+            errors.append(f"{manifest_path}: `skills` entries must reference directories, not files ({entry})")
+            continue
+        if not path.is_dir():
+            errors.append(f"{manifest_path}: `skills` entry must be a directory ({entry})")
+            continue
+        direct_skill = path / "SKILL.md"
+        if direct_skill.is_file():
+            resolved_skills.append(_normalize_rel(Path(rel) / "SKILL.md"))
+            continue
+        discovered = sorted(path.rglob("SKILL.md"))
+        if not discovered:
+            errors.append(f"{manifest_path}: `skills` directory has no SKILL.md ({entry})")
+            continue
+        resolved_skills.extend(_normalize_rel(skill.relative_to(root)) for skill in discovered)
+
+    expected_skills = sorted(set(skills_expected))
+    resolved_skills = sorted(set(resolved_skills))
+    missing_skills = [item for item in expected_skills if item not in resolved_skills]
+    extra_skills = [item for item in resolved_skills if item not in expected_skills]
+    if missing_skills:
+        errors.append(f"{manifest_path}: skills missing resolved entries {missing_skills}")
+    if extra_skills:
+        errors.append(f"{manifest_path}: skills has extra resolved entries {extra_skills}")
+
     _validate_list("agents", agents_expected)
 
     return errors
@@ -732,8 +1147,11 @@ def validate_plugin_manifest(root: Path, skills_expected: List[str], agents_expe
 
 def validate_index_schema(root: Path) -> List[str]:
     errors: List[str] = []
-    aidd_root = _resolve_aidd_root(root)
-    schema_path = aidd_root / INDEX_SCHEMA_PATH
+    schema_path = root / INDEX_SCHEMA_PATH
+    if not schema_path.exists():
+        # Backward-compatible fallback for the previous source-of-truth layout.
+        previous_aidd_root = _resolve_aidd_root(root)
+        schema_path = previous_aidd_root / "docs" / "index" / "schema.json"
     if not schema_path.exists():
         errors.append(f"{schema_path}: missing index schema")
         return errors
@@ -770,20 +1188,27 @@ def main() -> int:
         return 1
 
     errors: List[str] = []
-    agent_errors, agent_files = lint_agents(root)
+    warnings: List[str] = []
+    agent_errors, agent_warnings, agent_files = lint_agents(root)
     errors.extend(agent_errors)
+    warnings.extend(agent_warnings)
     agent_ids = {info.front_matter.get("name", info.stem) for info in agent_files.values()}
 
-    errors.extend(lint_skills(root, {str(x) for x in agent_ids if x}))
-    errors.extend(validate_commands_deprecated(root))
+    skill_errors, skill_warnings = lint_skills(root)
+    errors.extend(skill_errors)
+    warnings.extend(skill_warnings)
+    errors.extend(validate_commands_relocated(root))
     errors.extend(validate_template_artifacts(root))
 
     skills_expected = sorted(
-        f"./skills/{path.parent.name}" for path in (root / "skills").glob("*/SKILL.md")
+        f"./skills/{path.parent.name}/SKILL.md" for path in (root / "skills").glob("*/SKILL.md")
     )
     agents_expected = sorted(f"./agents/{path.name}" for path in (root / "agents").glob("*.md"))
     errors.extend(validate_plugin_manifest(root, skills_expected, agents_expected))
     errors.extend(validate_index_schema(root))
+
+    for msg in warnings:
+        print(f"[prompt-lint][warn] {msg}", file=sys.stderr)
 
     if errors:
         for msg in errors:

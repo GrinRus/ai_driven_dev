@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 from tests.helpers import ensure_project_root, write_active_feature, write_json
 
-from tools import rlm_links_build, reports_pack
-from tools.rlm_config import file_id_for_path
+from aidd_runtime import rlm_links_build, reports_pack
+from aidd_runtime.rlm_config import file_id_for_path
 
 
 class RlmLinksBuildTests(unittest.TestCase):
@@ -557,7 +557,7 @@ class RlmLinksBuildTests(unittest.TestCase):
             old_cwd = Path.cwd()
             os.chdir(workspace)
             try:
-                with patch("tools.rlm_links_build._rg_batch_find_matches", return_value=({}, "timeout")):
+                with patch("aidd_runtime.rlm_links_build._rg_batch_find_matches", return_value=({}, "timeout")):
                     rlm_links_build.main(["--ticket", ticket])
             finally:
                 os.chdir(old_cwd)

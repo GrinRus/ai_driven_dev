@@ -52,6 +52,22 @@ class Wave95PolicyGuards(unittest.TestCase):
         ]
         self.assertFalse(any("gate-api-contract" in cmd for cmd in commands))
 
+    def test_prd_review_gate_is_single_authority(self) -> None:
+        legacy_hook = REPO_ROOT / "hooks" / "gate-prd-review.sh"
+        self.assertFalse(legacy_hook.exists(), "legacy PRD gate hook should be removed")
+
+        hooks_path = REPO_ROOT / "hooks" / "hooks.json"
+        hooks_payload = json.loads(hooks_path.read_text(encoding="utf-8"))
+        commands = [
+            hook.get("command", "")
+            for entries in hooks_payload.get("hooks", {}).values()
+            for entry in entries
+            for hook in entry.get("hooks", [])
+            if isinstance(hook, dict)
+        ]
+        self.assertFalse(any("gate-prd-review" in cmd for cmd in commands))
+        self.assertTrue(any("gate-workflow.sh" in cmd for cmd in commands))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,7 @@ from .helpers import REPO_ROOT
 
 def run_upgrade(root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(REPO_ROOT / "dev" / "repo_tools" / "upgrade_aidd_docs.py"), "--root", str(root)],
+        [sys.executable, str(REPO_ROOT / "tests" / "repo_tools" / "upgrade_aidd_docs.py"), "--root", str(root)],
         text=True,
         capture_output=True,
     )

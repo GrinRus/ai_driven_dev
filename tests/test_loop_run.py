@@ -8,8 +8,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+from aidd_runtime import loop_run as loop_run_module
 from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
-from tools import loop_run as loop_run_module
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -123,7 +123,7 @@ class LoopRunTests(unittest.TestCase):
             try:
                 os.chdir(root.parent)
                 with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
-                    with patch("tools.loop_run.run_loop_step", return_value=fake_result):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
                         with redirect_stdout(captured):
                             code = loop_run_module.main(
                                 ["--ticket", ticket, "--max-iterations", "1", "--format", "json"]

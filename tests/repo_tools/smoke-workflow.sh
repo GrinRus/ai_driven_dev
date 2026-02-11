@@ -17,15 +17,144 @@ run_cli() {
   local cmd="$1"
   shift
   local entrypoint=""
+  local mode="exec"
   case "$cmd" in
-    review-pack|review-report|reviewer-tests)
-      entrypoint="$PLUGIN_ROOT/skills/review/scripts/${cmd}.sh"
+    init)
+      entrypoint="$PLUGIN_ROOT/skills/aidd-init/runtime/init.py"
+      mode="python"
+      ;;
+    loop-pack|loop-step|loop-run|preflight-prepare|preflight-result-validate|output-contract)
+      local loop_runtime=""
+      case "$cmd" in
+        loop-pack) loop_runtime="loop_pack.py" ;;
+        loop-step) loop_runtime="loop_step.py" ;;
+        loop-run) loop_runtime="loop_run.py" ;;
+        preflight-prepare) loop_runtime="preflight_prepare.py" ;;
+        preflight-result-validate) loop_runtime="preflight_result_validate.py" ;;
+        output-contract) loop_runtime="output_contract.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-loop/runtime/${loop_runtime}"
+      mode="python"
+      ;;
+    analyst-check)
+      entrypoint="$PLUGIN_ROOT/skills/idea-new/runtime/analyst_check.py"
+      mode="python"
+      ;;
+    research-check)
+      entrypoint="$PLUGIN_ROOT/skills/plan-new/runtime/research_check.py"
+      mode="python"
+      ;;
+    prd-review)
+      entrypoint="$PLUGIN_ROOT/skills/review-spec/runtime/prd_review_cli.py"
+      mode="python"
+      ;;
+    spec-interview)
+      entrypoint="$PLUGIN_ROOT/skills/spec-interview/runtime/spec_interview.py"
+      mode="python"
+      ;;
+    tasks-new)
+      entrypoint="$PLUGIN_ROOT/skills/tasks-new/runtime/tasks_new.py"
+      mode="python"
+      ;;
+    research)
+      entrypoint="$PLUGIN_ROOT/skills/researcher/runtime/research.py"
+      mode="python"
+      ;;
+    reports-pack|rlm-nodes-build|rlm-links-build|rlm-jsonl-compact|rlm-finalize|rlm-verify)
+      local rlm_runtime=""
+      case "$cmd" in
+        reports-pack) rlm_runtime="reports_pack.py" ;;
+        rlm-nodes-build) rlm_runtime="rlm_nodes_build.py" ;;
+        rlm-links-build) rlm_runtime="rlm_links_build.py" ;;
+        rlm-jsonl-compact) rlm_runtime="rlm_jsonl_compact.py" ;;
+        rlm-finalize) rlm_runtime="rlm_finalize.py" ;;
+        rlm-verify) rlm_runtime="rlm_verify.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/aidd-rlm/runtime/${rlm_runtime}"
+      mode="python"
+      ;;
+    review-pack|review-report|reviewer-tests|context-pack)
+      local review_runtime=""
+      case "$cmd" in
+        review-pack) review_runtime="review_pack.py" ;;
+        review-report) review_runtime="review_report.py" ;;
+        reviewer-tests) review_runtime="reviewer_tests.py" ;;
+        context-pack) review_runtime="context_pack.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/review/runtime/${review_runtime}"
+      mode="python"
+      ;;
+    qa)
+      entrypoint="$PLUGIN_ROOT/skills/qa/runtime/qa.py"
+      mode="python"
+      ;;
+    status|index-sync)
+      local status_runtime=""
+      case "$cmd" in
+        status) status_runtime="status.py" ;;
+        index-sync) status_runtime="index_sync.py" ;;
+      esac
+      entrypoint="$PLUGIN_ROOT/skills/status/runtime/${status_runtime}"
+      mode="python"
       ;;
     *)
-      entrypoint="$PLUGIN_ROOT/tools/${cmd}.sh"
+      local docio_runtime=""
+      local flow_state_runtime=""
+      local observability_runtime=""
+      local rlm_runtime=""
+      local core_runtime=""
+      case "$cmd" in
+        actions-apply) docio_runtime="actions_apply.py" ;;
+        actions-validate) docio_runtime="actions_validate.py" ;;
+        context-expand) docio_runtime="context_expand.py" ;;
+        context-map-validate) docio_runtime="context_map_validate.py" ;;
+        dag-export) observability_runtime="dag_export.py" ;;
+        diff-boundary-check) core_runtime="diff_boundary_check.py" ;;
+        doctor) observability_runtime="doctor.py" ;;
+        identifiers) observability_runtime="identifiers.py" ;;
+        md-patch) docio_runtime="md_patch.py" ;;
+        md-slice) docio_runtime="md_slice.py" ;;
+        plan-review-gate) core_runtime="plan_review_gate.py" ;;
+        prd-check) flow_state_runtime="prd_check.py" ;;
+        prd-review-gate) core_runtime="prd_review_gate.py" ;;
+        progress) flow_state_runtime="progress_cli.py" ;;
+        rlm-slice) rlm_runtime="rlm_slice.py" ;;
+        set-active-feature) flow_state_runtime="set_active_feature.py" ;;
+        set-active-stage) flow_state_runtime="set_active_stage.py" ;;
+        skill-contract-validate) core_runtime="skill_contract_validate.py" ;;
+        stage-result) flow_state_runtime="stage_result.py" ;;
+        status-summary) flow_state_runtime="status_summary.py" ;;
+        tasklist-check|tasklist-normalize) flow_state_runtime="tasklist_check.py" ;;
+        tasks-derive) flow_state_runtime="tasks_derive.py" ;;
+        tests-log) observability_runtime="tests_log.py" ;;
+        tools-inventory) observability_runtime="tools_inventory.py" ;;
+      esac
+      if [[ -n "$docio_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-docio/runtime/${docio_runtime}"
+        mode="python"
+      elif [[ -n "$flow_state_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-flow-state/runtime/${flow_state_runtime}"
+        mode="python"
+      elif [[ -n "$observability_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-observability/runtime/${observability_runtime}"
+        mode="python"
+      elif [[ -n "$rlm_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-rlm/runtime/${rlm_runtime}"
+        mode="python"
+      elif [[ -n "$core_runtime" ]]; then
+        entrypoint="$PLUGIN_ROOT/skills/aidd-core/runtime/${core_runtime}"
+        mode="python"
+      else
+        echo "[smoke] unsupported command in run_cli(): $cmd" >&2
+        return 2
+      fi
       ;;
   esac
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
+  if [[ "$mode" == "python" ]]; then
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 "$entrypoint" "$@"
+  else
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$entrypoint" "$@"
+  fi
 }
 
 run_hook() {
@@ -257,9 +386,9 @@ run_cli set-active-feature "$TICKET" >/dev/null
 }
 
 log "run research targets-only"
-run_cli research --ticket "$TICKET" --targets-only >/dev/null
-[[ -f "$WORKDIR/reports/research/${TICKET}-targets.json" ]] || {
-  echo "[smoke] research did not create targets" >&2
+run_cli research --ticket "$TICKET" --targets-only --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
+[[ -f "$WORKDIR/reports/research/${TICKET}-rlm-targets.json" ]] || {
+  echo "[smoke] research did not create rlm-targets" >&2
   exit 1
 }
 
@@ -296,24 +425,23 @@ if not research_path.exists():
     research_path.write_text("# Research\n\nStatus: pending\n", encoding="utf-8")
 PY
 
-log "run researcher stage (collect research context)"
+log "run researcher stage (generate RLM artifacts)"
 pushd "$WORKDIR" >/dev/null
-run_cli research --ticket "$TICKET" --auto >/dev/null
+run_cli research --ticket "$TICKET" --auto --paths src/main --rlm-paths src/main --keywords checkout >/dev/null
 python3 - "$TICKET" <<'PY'
-import json
 import sys
 from pathlib import Path
 
 ticket = sys.argv[1]
-context_path = Path("reports/research") / f"{ticket}-context.json"
-payload = json.loads(context_path.read_text(encoding="utf-8"))
-required = ["rlm_targets_path", "rlm_manifest_path", "rlm_worklist_path", "rlm_status"]
-missing = [key for key in required if not payload.get(key)]
+base = Path("reports/research")
+required = [
+    base / f"{ticket}-rlm-targets.json",
+    base / f"{ticket}-rlm-manifest.json",
+    base / f"{ticket}-rlm.worklist.pack.json",
+]
+missing = [str(path) for path in required if not path.exists()]
 if missing:
-    raise SystemExit(f"[smoke] missing RLM context fields: {missing}")
-worklist_path = Path(payload["rlm_worklist_path"])
-if not worklist_path.exists():
-    raise SystemExit("[smoke] missing rlm worklist pack")
+    raise SystemExit(f"[smoke] missing RLM artifacts: {missing}")
 PY
 log "seed minimal RLM nodes"
 python3 - "$TICKET" <<'PY'
@@ -328,7 +456,7 @@ nodes_path.parent.mkdir(parents=True, exist_ok=True)
 plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", "")).resolve()
 if plugin_root and str(plugin_root) not in sys.path:
     sys.path.insert(0, str(plugin_root))
-from tools.rlm_config import (
+from aidd_runtime.rlm_config import (
     file_id_for_path,
     load_rlm_settings,
     paths_base_for,
@@ -394,7 +522,6 @@ log "finalize RLM evidence"
 run_cli rlm-finalize --ticket "$TICKET" >/dev/null
 python3 - "$TICKET" <<'PY'
 from pathlib import Path
-import json
 import sys
 
 ticket = sys.argv[1]
@@ -406,21 +533,6 @@ if "Status: reviewed" not in text:
 if "Baseline" not in text:
     text += "\nBaseline: автоматическая генерация\n"
 path.write_text(text, encoding="utf-8")
-context_path = Path("reports/research") / f"{ticket}-context.json"
-targets_path = Path("reports/research") / f"{ticket}-targets.json"
-if context_path.exists():
-    data = json.loads(context_path.read_text(encoding="utf-8"))
-    data.setdefault("status", "reviewed")
-    data["status"] = "reviewed"
-    data.setdefault("docs", [f"docs/research/{ticket}.md"])
-    context_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-if targets_path.exists():
-    data = json.loads(targets_path.read_text(encoding="utf-8"))
-    docs = data.get("docs") or []
-    if f"docs/research/{ticket}.md" not in docs:
-        docs.append(f"docs/research/{ticket}.md")
-    data["docs"] = docs
-    targets_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 PY
 
 log "research-check must pass"
@@ -577,6 +689,10 @@ run_cli prd-review-gate --ticket "$TICKET" --file-path "src/main/kotlin/App.kt" 
 
 log "expect block until tasks recorded"
 assert_gate_exit 2 "missing tasklist items"
+
+log "run stage-owned spec-interview/tasks-new python entrypoints"
+run_cli spec-interview --ticket "$TICKET" >/dev/null
+run_cli tasks-new --ticket "$TICKET" >/dev/null
 
 log "ensure tasklist template exists"
 if [[ ! -f "docs/tasklist/${TICKET}.md" ]]; then
@@ -915,9 +1031,9 @@ replacements = {
     "- [ ] Прогнаны unit/integration/e2e": "- [x] Прогнаны unit/integration/e2e",
     "- [ ] Проведено ручное тестирование или UAT": "- [x] Проведено ручное тестирование или UAT",
 }
-for old, new in replacements.items():
-    if old in text:
-        text = text.replace(old, new, 1)
+for previous, updated in replacements.items():
+    if previous in text:
+        text = text.replace(previous, updated, 1)
 path.write_text(text, encoding="utf-8")
 PY
 

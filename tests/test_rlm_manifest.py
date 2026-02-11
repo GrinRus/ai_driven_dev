@@ -4,8 +4,8 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature, write_json
 
-from tools import rlm_manifest
-from tools import rlm_config
+from aidd_runtime import rlm_manifest
+from aidd_runtime import rlm_config
 
 
 class RlmManifestTests(unittest.TestCase):

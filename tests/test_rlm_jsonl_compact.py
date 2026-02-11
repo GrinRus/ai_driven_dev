@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature
 
-from tools import rlm_jsonl_compact
+from aidd_runtime import rlm_jsonl_compact
 
 
 class RlmJsonlCompactTests(unittest.TestCase):

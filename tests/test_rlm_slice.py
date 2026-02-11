@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root, write_active_feature
 
-from tools import rlm_slice
+from aidd_runtime import rlm_slice
 
 
 class RlmSliceTests(unittest.TestCase):

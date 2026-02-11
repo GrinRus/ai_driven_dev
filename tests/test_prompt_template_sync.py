@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import prompt_template_sync
+from tests.repo_tools import prompt_template_sync
 
 
 class PromptTemplateSyncTests(unittest.TestCase):

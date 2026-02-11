@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Sequence
 
+from aidd_runtime import stage_lexicon
+
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": True,
@@ -345,13 +347,15 @@ def read_stage(path: Path = Path("docs/.active.json")) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
-    return text.lower() if text else None
+    if not text:
+        return None
+    return stage_lexicon.resolve_stage_name(text)
 
 
 def resolve_stage(path: Path = Path("docs/.active.json")) -> Optional[str]:
     override = os.environ.get("CLAUDE_ACTIVE_STAGE")
     if override:
-        return override.strip().lower()
+        return stage_lexicon.resolve_stage_name(override.strip())
     return read_stage(path)
 
 

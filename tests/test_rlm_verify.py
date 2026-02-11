@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.helpers import ensure_project_root
 
-from tools import rlm_verify
+from aidd_runtime import rlm_verify
 
 
 class RlmVerifyTests(unittest.TestCase):

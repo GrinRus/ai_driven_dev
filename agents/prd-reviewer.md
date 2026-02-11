@@ -4,9 +4,11 @@ description: Структурное ревью PRD после review-plan. Пр�
 lang: ru
 prompt_version: 1.0.19
 source_version: 1.0.19
-tools: Read, Edit, Write, Glob, Bash(rg:*), Bash(sed:*), Bash(${CLAUDE_PLUGIN_ROOT}/tools/rlm-slice.sh:*)
+tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
+  - feature-dev-aidd:aidd-policy
+  - feature-dev-aidd:aidd-rlm
 model: inherit
 permissionMode: default
 ---
