@@ -1,5 +1,4 @@
 ---
-name: implement
 description: Implement the next work item with loop discipline.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru

@@ -91,6 +91,61 @@ def test_allows_when_pack_present(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_blocks_when_report_status_blocked_even_if_command_succeeds(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": False,
+                "report": "aidd/reports/qa/{ticket}.json",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-blocked")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+    write_file(tmp_path, "reports/qa/qa-blocked.json", '{"status":"BLOCKED"}\n')
+
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
+
+    assert result.returncode == 2
+    assert "QA report status is BLOCKED" in (result.stderr or "")
+
+
+def test_warn_report_status_keeps_success_exit(tmp_path):
+    ensure_gates_config(
+        tmp_path,
+        {
+            "qa": {
+                "enabled": True,
+                "command": ["true"],
+                "allow_missing_report": False,
+                "report": "aidd/reports/qa/{ticket}.json",
+            }
+        },
+    )
+    write_active_feature(tmp_path, "qa-warn-status")
+    write_active_stage(tmp_path, "qa")
+    write_file(tmp_path, "src/main/App.kt", "class App")
+    write_file(tmp_path, "reports/qa/qa-warn-status.json", '{"status":"WARN"}\n')
+
+    result = run_hook(
+        tmp_path,
+        "gate-qa.sh",
+        SRC_PAYLOAD,
+        extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1"},
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_handoff_blocks_when_tasklist_missing(tmp_path):
     ensure_gates_config(
         tmp_path,

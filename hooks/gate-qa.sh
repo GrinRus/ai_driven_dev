@@ -80,6 +80,17 @@ def _load_qa_config(config_path: Path) -> dict:
     return qa
 
 
+def _load_report_status(report_path: Path) -> str:
+    if not report_path.exists():
+        return ""
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    status = str(payload.get("status") or "").strip().upper()
+    return status if status in {"READY", "WARN", "BLOCKED"} else ""
+
+
 def _norm_list(value: object) -> list[str]:
     if isinstance(value, str):
         return [value]
@@ -363,6 +374,15 @@ def main(argv: Iterable[str] | None = None) -> int:
                 if status == 0:
                     status = 1
         report_path = report_candidate
+
+        report_status = ""
+        report_full = root / report_path if report_path else None
+        if report_full and report_full.exists():
+            report_status = _load_report_status(report_full)
+            if report_status == "BLOCKED":
+                _log_stderr("BLOCK: QA report status is BLOCKED.")
+                if status == 0 and not dry_run:
+                    status = 2
 
         if status == 0 and not dry_run and stamp_path and os.environ.get("CLAUDE_SKIP_QA_DEBOUNCE") != "1":
             stamp_full = root / stamp_path

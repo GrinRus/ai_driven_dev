@@ -73,6 +73,27 @@ class StagePreflightWrapperTests(unittest.TestCase):
             self.assertEqual(payload.get("schema"), "aidd.stage_result.preflight.v1")
             self.assertEqual(payload.get("status"), "ok")
             self.assertEqual(payload.get("stage"), stage)
+            artifacts = payload.get("artifacts", {})
+            self.assertEqual(
+                artifacts.get("readmap_json"),
+                f"aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+            )
+            self.assertEqual(
+                artifacts.get("writemap_json"),
+                f"aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+            )
+            self.assertEqual(
+                artifacts.get("readmap_md"),
+                f"aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+            )
+            self.assertEqual(
+                artifacts.get("writemap_md"),
+                f"aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+            )
+            self.assertNotIn(
+                f"aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
+                artifacts.values(),
+            )
 
     def test_implement_preflight(self) -> None:
         self._run_preflight("implement")

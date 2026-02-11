@@ -590,6 +590,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    runner_hint = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
+    os.environ["AIDD_LOOP_RUNNER_HINT"] = runner_hint
     workspace_root, target = runtime.require_workflow_root()
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=None)
     ticket = (context.resolved_ticket or "").strip()
@@ -1586,22 +1588,54 @@ def emit_result(
     tests_log_path: str = "",
     wrapper_logs: List[str] | None = None,
 ) -> int:
+    status_value = status if status in {"blocked", "continue", "done"} else "blocked"
+    scope_value = str(scope_key or "").strip()
+    if not scope_value:
+        scope_value = runtime.resolve_scope_key("", ticket)
+
+    runner_value = str(runner or "").strip()
+    if not runner_value:
+        runner_value = (
+            os.environ.get("AIDD_LOOP_RUNNER_HINT")
+            or os.environ.get("AIDD_LOOP_RUNNER")
+            or "claude"
+        ).strip() or "claude"
+    runner_effective_value = str(runner_effective or "").strip() or runner_value
+
+    cli_log_value = str(cli_log_path) if cli_log_path else ""
     log_value = str(log_path) if log_path else ""
+    if not log_value and cli_log_value:
+        log_value = cli_log_value
+
+    stage_result_input = str(stage_result_path or "").strip()
+    stage_result_value = stage_result_input
+    if not stage_result_value and stage in {"implement", "review", "qa"}:
+        stage_result_value = f"aidd/reports/loops/{ticket}/{scope_value}/stage.{stage}.result.json"
+
+    reason_value = str(reason or "").strip()
+    reason_code_value = str(reason_code or "").strip().lower()
+    if status_value == "blocked":
+        if not reason_code_value:
+            reason_code_value = "stage_result_blocked" if stage_result_input else "blocked_without_reason"
+        if not reason_value:
+            reason_value = f"{stage} blocked" if stage else "blocked"
+
     payload = {
         "ticket": ticket,
         "stage": stage,
-        "status": status,
+        "status": status_value,
         "exit_code": code,
-        "scope_key": scope_key,
+        "scope_key": scope_value,
         "log_path": log_value,
-        "stage_result_path": stage_result_path,
-        "runner": runner,
-        "runner_effective": runner_effective,
+        "stage_result_path": stage_result_value,
+        "runner": runner_value,
+        "runner_effective": runner_effective_value,
         "runner_notice": runner_notice,
         "repair_reason_code": repair_reason_code,
         "repair_scope_key": repair_scope_key,
         "stream_log_path": stream_log_path,
         "stream_jsonl_path": stream_jsonl_path,
+        "cli_log_path": cli_log_value,
         "output_contract_path": output_contract_path,
         "output_contract_status": output_contract_status,
         "scope_key_mismatch_warn": scope_key_mismatch_warn,
@@ -1612,8 +1646,8 @@ def emit_result(
         "tests_log_path": tests_log_path,
         "wrapper_logs": wrapper_logs or [],
         "updated_at": utc_timestamp(),
-        "reason": reason,
-        "reason_code": reason_code,
+        "reason": reason_value,
+        "reason_code": reason_code_value,
     }
     if fmt:
         output = json.dumps(payload, ensure_ascii=False, indent=2) if fmt == "json" else "\n".join(dump_yaml(payload))

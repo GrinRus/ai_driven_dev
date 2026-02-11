@@ -1,5 +1,4 @@
 ---
-name: aidd-init
 description: Initialize AIDD workspace scaffolding in the current project.
 argument-hint: "[--force] [--detect-build-tools]"
 lang: ru

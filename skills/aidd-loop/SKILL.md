@@ -1,5 +1,4 @@
 ---
-name: aidd-loop
 description: Loop-mode discipline for implement/review/qa (packs, scope, no questions).
 lang: en
 model: inherit
