@@ -585,7 +585,7 @@ def main() -> int:
                 return 2
             return 0
 
-    if has_src_changes and active_stage in {"implement", "review", "qa"}:
+    if active_stage in {"implement", "review", "qa"}:
         ok_preflight, preflight_message = _loop_preflight_guard(root, ticket, active_stage, hooks_mode)
         if not ok_preflight:
             _log_stderr(preflight_message)

@@ -1,5 +1,4 @@
 ---
-name: tasks-new
 description: Create or refine tasklist based on plan/PRD/spec.
 argument-hint: $1 [note...]
 lang: ru

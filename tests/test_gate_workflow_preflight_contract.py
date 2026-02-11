@@ -6,7 +6,9 @@ from pathlib import Path
 from unittest import mock
 
 from tools import gate_workflow
-from tests.helpers import REPO_ROOT, ensure_project_root, write_active_state, write_file
+from tests.helpers import REPO_ROOT, ensure_project_root, run_hook, write_active_state, write_file
+
+DOC_PAYLOAD = '{"tool_input":{"file_path":"docs/prd/demo-checkout.prd.md"}}'
 
 
 class GateWorkflowPreflightContractTests(unittest.TestCase):
@@ -273,6 +275,22 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
                     os.environ["AIDD_SKIP_STAGE_WRAPPERS"] = skip_backup
             self.assertTrue(ok)
             self.assertIn("reason_code=wrappers_skipped_warn", message)
+
+    def test_gate_workflow_blocks_missing_preflight_without_src_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gate-preflight-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PREFLIGHT"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            result = run_hook(
+                root,
+                "gate-workflow.sh",
+                DOC_PAYLOAD,
+                extra_env={"CLAUDE_SKIP_TASKLIST_PROGRESS": "1", "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)},
+            )
+            self.assertEqual(result.returncode, 2, msg=result.stderr)
+            combined = (result.stdout or "") + (result.stderr or "")
+            self.assertIn("preflight_missing", combined)
 
 
 if __name__ == "__main__":

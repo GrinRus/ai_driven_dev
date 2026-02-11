@@ -13,11 +13,11 @@
 ПЕРЕМЕННЫЕ
 
 - PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge
-- PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev
+- PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev_new
 - CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR
 
 - TICKET=TST-001
-- SLUG_HINT=tst-001-demo   # slug-hint должен оставаться токеном, без note/answers
+- SLUG_HINT=
 
 - LOOP_MODE=loop-run|loop-step          # default: loop-run
 - LOOP_RUNNER=<optional>
@@ -186,8 +186,10 @@ run_claude () {
 - ls -la > "$AUDIT_DIR/02_ls_root.txt"
 - [ -d aidd ] && find aidd -maxdepth 3 -type f | sort > "$AUDIT_DIR/02_aidd_tree_pre.txt" || echo "aidd: missing" > "$AUDIT_DIR/02_aidd_tree_pre.txt"
 
-3) Problem statement
-- Сформулируй задачу для TST-001 (3–6 предложений + 2–4 AC) и сохрани в "$AUDIT_DIR/03_problem_statement.txt"
+3) Idea statement
+- Детально изучи проект $PROJECT_DIR
+- На основе данных из проект $PROJECT_DIR придумай задачу для тикета TST-001 (3–6 предложений + 2–4 AC, чтобы задача была среднего/большого размера и была осмысленна для проекта) и сохрани в "$AUDIT_DIR/03_idea_statement.txt"
+- export SLUG_HINT="..." дальше везде в качестве SLUG_HINT используй описание из "$AUDIT_DIR/03_idea_statement.txt"
 
 4) aidd-init (если workspace не готов)
 Workspace считается готовым, если существует:

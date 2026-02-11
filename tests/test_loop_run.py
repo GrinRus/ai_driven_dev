@@ -1,10 +1,15 @@
 import json
+import io
+import os
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
+from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, write_active_state, write_file
+from tools import loop_run as loop_run_module
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -64,6 +69,73 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
+
+    def test_loop_run_blocked_uses_reason_code_fallback_when_stage_result_present(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-FALLBACK", stage="implement", work_item="iteration_id=I7")
+            write_file(
+                root,
+                "reports/loops/DEMO-FALLBACK/iteration_id_I7/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": "DEMO-FALLBACK",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I7",
+                        "work_item_key": "iteration_id=I7",
+                        "result": "blocked",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            result = subprocess.run(
+                cli_cmd("loop-run", "--ticket", "DEMO-FALLBACK", "--max-iterations", "1", "--format", "json"),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env({"AIDD_SKIP_STAGE_WRAPPERS": "1"}),
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_blocked")
+            self.assertTrue(payload.get("stage_result_path"))
+            self.assertTrue(payload.get("step_log_path"))
+            loop_log = (root / "reports" / "loops" / "DEMO-FALLBACK" / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("reason_code=stage_result_blocked", loop_log)
+            self.assertIn("log_path=", loop_log)
+
+    def test_loop_run_blocked_when_loop_step_payload_is_invalid_json(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-BROKEN-JSON"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout="{broken-json",
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("tools.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                ["--ticket", ticket, "--max-iterations", "1", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "blocked_without_reason")
+            self.assertIn("invalid JSON payload", str(payload.get("reason") or ""))
 
     def test_loop_run_max_iterations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

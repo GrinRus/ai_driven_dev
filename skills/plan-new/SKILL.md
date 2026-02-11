@@ -1,5 +1,4 @@
 ---
-name: plan-new
 description: Draft the implementation plan from PRD and research.
 argument-hint: $1 [note...]
 lang: ru

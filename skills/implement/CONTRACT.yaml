@@ -10,7 +10,7 @@
   ],
   "reads": {
     "required": [
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
       "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:WORK_ITEM",
       "aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md#AIDD:BOUNDARIES"
     ],
@@ -25,16 +25,18 @@
       "aidd/reports/actions/{ticket}/{scope_key}/implement.actions.template.json",
       "aidd/reports/actions/{ticket}/{scope_key}/implement.actions.json",
       "aidd/reports/actions/{ticket}/{scope_key}/implement.apply.jsonl",
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
-      "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
-      "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
-      "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
-      "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
+      "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
+      "aidd/reports/context/{ticket}/{scope_key}.writemap.json",
+      "aidd/reports/context/{ticket}/{scope_key}.writemap.md",
+      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
       "aidd/reports/logs/implement/{ticket}/{scope_key}/"
     ],
     "patterns": [
       "aidd/reports/actions/{ticket}/{scope_key}/**",
-      "aidd/reports/logs/implement/{ticket}/{scope_key}/**"
+      "aidd/reports/logs/implement/{ticket}/{scope_key}/**",
+      "aidd/reports/context/{ticket}/{scope_key}.*",
+      "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json"
     ],
     "blocks": [
       "aidd/docs/tasklist/{ticket}.md#AIDD:ITERATIONS_FULL",
@@ -53,7 +55,7 @@
   "outputs": [
     "aidd/reports/actions/{ticket}/{scope_key}/implement.actions.json",
     "aidd/reports/actions/{ticket}/{scope_key}/implement.apply.jsonl",
-    "aidd/reports/loops/{ticket}/stage.implement.result.json"
+    "aidd/reports/loops/{ticket}/{scope_key}/stage.implement.result.json"
   ],
   "gates": {
     "before": [
