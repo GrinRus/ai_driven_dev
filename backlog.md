@@ -1162,7 +1162,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W99-11 (P1) Seed-stage orchestration prompt contract hardening (no manual stage.result writes)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`:
+- [x] **W99-11 (P1) Seed-stage orchestration prompt contract hardening (no manual stage.result writes)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`:
   - явно зафиксировать policy: запрещено писать `aidd/reports/loops/**/stage.*.result.json` вручную через `Write/cat`;
   - закрепить единственный допустимый путь через canonical postflight chain (`.../actions_apply.py` + `.../stage_result.py`);
   - добавить lint-check на обязательный текст policy в command contracts loop stages.
@@ -1184,7 +1184,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
 
 ### Wave 99C — E2E prompt and contract hardening (TST-001 follow-up)
 
-- [ ] **W99-13 (P0) Stage-skill contract hardening: wrappers-only path for implement/review/qa (no manual preflight command path in operator guidance)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W99-13 (P0) Stage-skill contract hardening: wrappers-only path for implement/review/qa (no manual preflight command path in operator guidance)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - убрать из user-facing command contracts guidance, который выглядит как manual stage execution через прямой вызов `preflight_prepare.py`/ручные stage-result шаги;
   - оставить только canonical orchestration path (slash stage command + wrapper chain), чтобы prompt не провоцировал non-canonical recovery;
   - усилить lint/test guard, чтобы возврат manual-path guidance в этих stage skills ловился автоматически.
@@ -1194,7 +1194,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-14 (P1) QA command hygiene: block single-entry shell chains in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_tasklist_check.py`:
+- [x] **W99-14 (P1) QA command hygiene: block single-entry shell chains in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_tasklist_check.py`:
   - детектировать `&&`, `||`, `;` внутри одного task-entry и маркировать как malformed test command chain;
   - не исполнять такую цепочку как одну команду, а возвращать явный diagnostics reason для triage;
   - сохранить совместимость с валидными list/scalar форматами, где команды разделены корректно.
@@ -1204,7 +1204,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W99-15 (P1) E2E prompt contract tests for retry triggers and seed invariants** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W99-15 (P1) E2E prompt contract tests for retry triggers and seed invariants** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - зафиксировать и тестировать правила: retry только по явному stage-return questions/BLOCK, запрет retry в шаге 6 seed, запрет manual preflight drift path;
   - добавить contract-test, который проверяет наличие обязательных guard-правил в full/smoke prompt templates;
   - включить проверку в repo tooling, чтобы изменения prompt не ломали e2e policy.
@@ -1246,7 +1246,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W99-19 (P1) Seed review stall fail-fast with scope-aware diagnostics** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+- [x] **W99-19 (P1) Seed review stall fail-fast with scope-aware diagnostics** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
   - добавить watchdog на no-progress seed-stage execution с переводом в deterministic blocked reason вместо бесконечного ожидания;
   - в blocked diagnostics выводить active stage/work item, выбранный scope candidate и последний валидный stage-result candidate;
   - синхронизировать timeout verdict с loop summary/event payload для triage без ручного `ps/tail`.
@@ -1258,7 +1258,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
 
 ### Wave 99E — Prompt/runtime convergence from TST-001 RCA
 
-- [ ] **W99-20 (P0) Research runtime must refresh existing `docs/research/<ticket>.md` (no stale template placeholders)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+- [x] **W99-20 (P0) Research runtime must refresh existing `docs/research/<ticket>.md` (no stale template placeholders)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`, `tests/test_research_check.py`:
   - для существующего `aidd/docs/research/<ticket>.md` обновлять обязательные секции (`AIDD:PRD_OVERRIDES`, `AIDD:RLM_EVIDENCE`, status-related header fields), а не только создавать файл при первом запуске;
   - удалять/перезаписывать template placeholders (`{{...}}`) в canonical блоках после любого успешного `research.py --auto`;
   - фиксировать детерминированный статус-договор: `reviewed` только при готовом RLM evidence; иначе `pending|warn` + явный handoff hint.
@@ -1268,7 +1268,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-21 (P0) Research->Plan handshake hardening: deterministic reason codes for blocked readiness** `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`:
+- [x] **W99-21 (P0) Research->Plan handshake hardening: deterministic reason codes for blocked readiness** `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`:
   - унифицировать reason codes для ключевых blocked-состояний (`research_template_stale`, `rlm_status_pending`, `rlm_pack_missing`, `baseline_missing`);
   - вернуть одношаговый canonical next action для каждого reason code (без неоднозначных/legacy подсказок);
   - исключить prompt-drift на `plan-new`: stage должен завершаться быстрым deterministic BLOCKED до длинной исследовательской ветки.
@@ -1278,7 +1278,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W99-22 (P0) `tasks-new` fail-fast on structural blockers (no deep drift when plan/spec/tasklist invalid)** `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_validate.py`, `tests/test_tasklist_check.py`, `tests/test_cli_subcommands.py`:
+- [x] **W99-22 (P0) `tasks-new` fail-fast on structural blockers (no deep drift when plan/spec/tasklist invalid)** `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_validate.py`, `tests/test_tasklist_check.py`, `tests/test_cli_subcommands.py`:
   - для stage `tasklist` поднимать severity до error на структурных блокерах (`plan not found`, invalid `PROGRESS_LOG`, invalid Priority/State placeholders в активных итерациях);
   - запускать `tasks_new.py` в strict-mode по умолчанию в slash-orchestration path;
   - при blocked возвращать короткий canonical remediation path (без subagent deep-dive на незакрытых prereqs).
@@ -1288,7 +1288,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-23 (P1) Canonical stage-command vocabulary guard (ban legacy aliases in stage skill guidance)** `skills/review-spec/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W99-23 (P1) Canonical stage-command vocabulary guard (ban legacy aliases in stage skill guidance)** `skills/review-spec/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - запретить в user-facing stage guidance устаревшие команды (`/feature-dev-aidd:planner`, `tasklist-refiner`, `implementer`, `reviewer`) там, где есть canonical stage commands;
   - закрепить canonical equivalents (`plan-new`, `tasks-new`, `implement`, `review`, `qa`) в contracts/next actions;
   - добавить lint-check на banned command vocabulary для stage skills.
@@ -1298,7 +1298,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** S
   **Risk:** Medium
 
-- [ ] **W99-24 (P1) Prompt-policy parity tests: audit prompt vs stage skills (manual preflight prohibition must match)** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W99-24 (P1) Prompt-policy parity tests: audit prompt vs stage skills (manual preflight prohibition must match)** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - формализовать проверку непротиворечивости: если audit policy запрещает manual preflight recovery, stage skills не должны продвигать manual preflight как default recovery path;
   - проверять parity правил retry/blocked classification для `Unknown skill`, `manual preflight drift`, seed-stage constraints;
   - включить parity-check в repo tooling regression suite.
@@ -1312,6 +1312,58 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
 
 1. `W99-20` -> `W99-21` -> `W99-22`
 2. `W99-13` -> `W99-23` -> `W99-24`
+
+### Wave 99F — Auto-loop liveness and permission-mode hardening (TST-001 RCA)
+
+- [x] **W99-25 (P0) Stream-aware liveness contract for loop-run/loop-step (main log + stream artifacts)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - зафиксировать liveness как composite-сигнал: `main log` + `stream_jsonl` (+ `stream.log` при наличии);
+  - исключить false `silent_stall`, когда `main log` статичен, но stream продолжает расти;
+  - добавить в loop payload/diagnostics явные поля роста (bytes/updated_at) для внешних probe-скриптов.
+  **AC:** stream-run не классифицируется как stall при активном `*.stream.jsonl`; диагностический payload содержит оба источника liveness.
+  **Deps:** W99-19
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-26 (P0) Nested runner permission propagation in Auto-loop (no approval deadlock in non-interactive runs)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - обеспечить deterministic propagation non-interactive режима для nested `claude` runner (`--dangerously-skip-permissions` policy-driven);
+  - для несоответствия режима возвращать явный `reason_code=loop_runner_permissions` до деградации в `stage_result_missing_or_invalid`;
+  - сохранить совместимость с custom runner через opt-in/opt-out env policy.
+  **AC:** Auto-loop не уходит в approval-denied цикл при корректной конфигурации; при некорректной — быстрый deterministic blocked с точным reason code.
+  **Deps:** W99-25
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-27 (P1) Stage-result legacy shape compatibility: support `schema_version` alias without relaxing canonical contract** `aidd_runtime/stage_result_contract.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/test_stage_result.py`:
+  - добавить контролируемый alias `schema_version -> schema` для legacy payload c `aidd.stage_result.v1`;
+  - сохранить strict-block для truly invalid schemas/results (v0/unknown/wrong-stage);
+  - улучшить diagnostics (`invalid-schema` vs `legacy-alias-used`) для корректного RCA.
+  **AC:** legacy payload c `schema_version=aidd.stage_result.v1` корректно нормализуется; реальные invalid schema продолжают блокироваться.
+  **Deps:** W99-9, W99-10
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_result.py tests/test_loop_step.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-28 (P1) Reason-code precedence for Auto-loop blocked outcomes (permission mismatch before stage-result fallout)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - при одновременном наборе симптомов (approval-denied + missing stage result) поднимать первопричину permission mismatch как primary reason code;
+  - сохранять secondary diagnostics в payload (`stage_result_diagnostics`) без смены root-cause;
+  - синхронизировать reason precedence между `loop_step` и `loop_run` summary/event logs.
+  **AC:** blocked verdict отражает root cause детерминированно; triage не уходит в ложный `stage_result_missing_or_invalid` как первичный сигнал.
+  **Deps:** W99-26, W99-27
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-29 (P1) Prompt/runtime parity tests for stream-liveness and stage-return-only signal extraction** `tests/repo_tools/test_e2e_prompt_contract.py`, `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`:
+  - добавить contract-тест на обязательные правила: stream-aware liveness, запрет false-stall при растущем stream, stage-return-only trigger extraction;
+  - валидировать, что prompt policy не трактует вложенные `WARN/Q*` из artifact excerpts как stage incident trigger;
+  - включить в CI path рядом с текущими prompt contract checks.
+  **AC:** изменения e2e prompt не ломают правила liveness/signal extraction; false-positive drift policy покрыта автоматизированно.
+  **Deps:** W99-15, W99-24, W99-25
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 

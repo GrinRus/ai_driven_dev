@@ -71,6 +71,24 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_fails_on_shell_chain_single_task_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3B"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- tasks: []\n",
+                '- tasks: ["echo smoke && echo next"]\n',
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("single-entry shell chain" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_when_next3_contains_checked_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

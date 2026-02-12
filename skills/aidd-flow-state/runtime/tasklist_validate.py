@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from aidd_runtime import tasklist_check as core
 from aidd_runtime import tasklist_normalize as normalize
+from aidd_runtime import tasklist_parser
 
 
 def check_tasklist_text(
@@ -63,6 +64,13 @@ def check_tasklist_text(
     for field in ("profile", "tasks", "filters", "when", "reason"):
         if not core.extract_field_value(test_execution, field):
             add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
+    parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
+    malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
+    if malformed_test_tasks:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION contains single-entry shell chain task (`&&`, `||`, `;`); split into separate tasks",
+        )
 
     iterations_section = section_map.get("AIDD:ITERATIONS_FULL")
     iter_items = core.parse_iteration_items(core.section_body(iterations_section[0])) if iterations_section else []

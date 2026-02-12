@@ -161,21 +161,25 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("## Steps")
     if stage in {"implement", "review", "qa"}:
         lines.append(
-            "1. Preflight reference: "
-            "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`."
+            f"1. Wrapper-only policy: use canonical slash stage command `/feature-dev-aidd:{stage} <ticket>`."
         )
         lines.append(
-            "2. Read order after preflight: readmap -> loop pack -> review pack -> rolling context pack."
+            "2. Manual `preflight_prepare.py` invocation is forbidden for operators; wrappers own preflight."
         )
         lines.append(
-            f"3. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it."
         )
         lines.append(
-            f"4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+            "4. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
         )
         lines.append(
-            "5. Postflight reference: "
-            "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`."
+            f"5. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+        )
+        lines.append(
+            f"6. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+        )
+        lines.append(
+            "7. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> stage_result.py."
         )
     elif stage in STAGE_SUBAGENT:
         lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
@@ -191,19 +195,19 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("- Next action: resolve input/gate issues and rerun the same entrypoint.")
     if stage in {"implement", "review", "qa"}:
         lines.append("")
-        lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`")
-        lines.append("- When to run: before subagent execution in loop stages.")
-        lines.append("- Inputs: ticket + scope/work-item context from loop artifacts.")
-        lines.append("- Outputs: `readmap/writemap`, actions template, preflight result report.")
-        lines.append("- Failure mode: boundary/missing-artifact validation error.")
-        lines.append("- Next action: fix stage inputs, rerun preflight, then continue.")
+        lines.append(f"### `/feature-dev-aidd:{stage} <ticket>`")
+        lines.append("- When to run: as the only operator entrypoint for loop stage execution.")
+        lines.append("- Inputs: ticket and active scope/work-item context.")
+        lines.append("- Outputs: wrapper-generated preflight/run/postflight artifacts and canonical stage result.")
+        lines.append("- Failure mode: deterministic BLOCKED/WARN on gate or contract violations.")
+        lines.append("- Next action: inspect wrapper diagnostics, fix inputs, rerun the same slash command.")
         lines.append("")
         lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`")
-        lines.append("- When to run: after actions.json is validated and stage work is complete.")
+        lines.append("- When to run: postflight step in wrapper chain; not a manual recovery shortcut.")
         lines.append("- Inputs: ticket + scope/work-item context + validated actions file.")
         lines.append("- Outputs: applied actions, progress updates, and stage summary artifacts.")
         lines.append("- Failure mode: DocOps/apply validation failure.")
-        lines.append("- Next action: inspect apply log, fix actions, rerun postflight.")
+        lines.append("- Next action: inspect apply log, fix actions, rerun canonical slash stage chain.")
     lines.append("")
     lines.append("## Additional resources")
     lines.append(

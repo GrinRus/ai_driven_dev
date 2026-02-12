@@ -90,6 +90,22 @@ LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
 }
+LOOP_MANUAL_PREFLIGHT_BAN_RE = re.compile(
+    r"(?:(?:не\s+запуск|запрещено|do not run|forbidden).{0,220}preflight_prepare\.py"
+    r"|preflight_prepare\.py.{0,220}(?:запрещено|forbidden|do not run|не\s+запуск))",
+    re.IGNORECASE | re.DOTALL,
+)
+LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
+    r"(?:(?:не\s+пис|не\s+создав|запрещено|do not (?:write|create)|forbidden).{0,260}"
+    r"stage\.[a-z0-9_.-]*result\.json"
+    r"|stage\.[a-z0-9_.-]*result\.json.{0,260}(?:запрещено|forbidden|do not (?:write|create)|не\s+пис|не\s+создав))",
+    re.IGNORECASE | re.DOTALL,
+)
+LOOP_WRAPPER_CHAIN_RE = re.compile(
+    r"(?:wrapper chain|wrapper-?only|slash stage command|canonical stage chain).{0,260}"
+    r"(?:actions_apply\.py|postflight|stage_result\.py)",
+    re.IGNORECASE | re.DOTALL,
+)
 PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
@@ -820,12 +836,22 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
 
             if path.parent.name in {"implement", "review", "qa"}:
                 body_lower = info.body.lower()
-                if "preflight_prepare.py" not in body_lower:
-                    errors.append(f"{info.path}: missing preflight_prepare.py reference")
                 if "actions_apply.py" not in body_lower:
                     errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
+                if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing explicit policy that manual `preflight_prepare.py` invocation is forbidden"
+                    )
+                if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing explicit policy that manual `stage.*.result.json` write is forbidden"
+                    )
+                if not LOOP_WRAPPER_CHAIN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
+                    )
 
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
@@ -852,10 +878,16 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         errors.append(f"{info.path}: command contracts missing `{marker}`")
                 required_refs = [python_entrypoint_rel]
                 if path.parent.name in {"implement", "review", "qa"}:
-                    required_refs.extend(["preflight_prepare.py", "actions_apply.py"])
+                    required_refs.append("actions_apply.py")
                 for ref in required_refs:
                     if ref.lower() not in contracts_lc:
                         errors.append(f"{info.path}: command contracts missing critical command reference `{ref}`")
+                if path.parent.name in {"implement", "review", "qa"}:
+                    slash_ref = f"/feature-dev-aidd:{path.parent.name}"
+                    if slash_ref not in contracts_lc:
+                        errors.append(
+                            f"{info.path}: command contracts missing canonical slash-stage reference `{slash_ref}`"
+                        )
 
             additional = _extract_section(info.body, "Additional resources")
             if not additional:

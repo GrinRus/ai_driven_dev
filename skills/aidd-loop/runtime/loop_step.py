@@ -37,6 +37,7 @@ HARD_BLOCK_REASON_CODES = {
 WRAPPER_SKIP_BLOCK_REASON_CODE = "wrappers_skipped_unsafe"
 WRAPPER_SKIP_WARN_REASON_CODE = "wrappers_skipped_warn"
 OUTPUT_CONTRACT_WARN_REASON_CODE = "output_contract_warn"
+LOOP_RUNNER_PERMISSIONS_REASON_CODE = "loop_runner_permissions"
 HANDOFF_QA_START = "<!-- handoff:qa start -->"
 HANDOFF_QA_END = "<!-- handoff:qa end -->"
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[(?P<state>[ xX])\]\s+(?P<body>.+)$")
@@ -55,6 +56,99 @@ STREAM_MODE_ALIASES = {
     "yes": "text",
 }
 WRAPPER_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
+_APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
+_CLAUDE_COMMANDS = {"claude", "claude.exe"}
+_APPROVAL_MARKERS = (
+    "requires approval",
+    "command requires approval",
+    "manual approval",
+)
+
+
+def _approval_allowed() -> bool:
+    raw = str(os.environ.get("AIDD_LOOP_ALLOW_APPROVAL") or "").strip().lower()
+    return raw in _APPROVAL_ALLOW_VALUES
+
+
+def _runner_is_claude(command: str) -> bool:
+    text = str(command or "").strip()
+    if not text:
+        return False
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        tokens = [text]
+    if not tokens:
+        return False
+    return Path(tokens[0]).name.lower() in _CLAUDE_COMMANDS
+
+
+def _file_head_tail_text(path: Optional[Path], *, head_lines: int = 80, tail_bytes: int = 131072) -> str:
+    if path is None or not path.exists():
+        return ""
+    head_parts: List[str] = []
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            for _ in range(head_lines):
+                line = handle.readline()
+                if not line:
+                    break
+                head_parts.append(line)
+    except OSError:
+        return ""
+    tail_text = ""
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            start = max(size - tail_bytes, 0)
+            handle.seek(start)
+            tail_text = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        tail_text = ""
+    return "".join(head_parts) + "\n" + tail_text
+
+
+def _detect_runner_permission_mismatch(
+    *,
+    runner_effective: str,
+    runner_notice: str,
+    stream_jsonl_path: Optional[Path],
+    stream_log_path: Optional[Path],
+    raw_log_path: Path,
+) -> Tuple[bool, str]:
+    if _approval_allowed():
+        return False, ""
+    if not _runner_is_claude(runner_effective):
+        return False, ""
+    try:
+        runner_tokens = shlex.split(str(runner_effective or "").strip())
+    except ValueError:
+        runner_tokens = [str(runner_effective or "").strip()]
+    non_interactive_enabled = "--dangerously-skip-permissions" in runner_tokens
+    stream_text = _file_head_tail_text(stream_jsonl_path)
+    if stream_log_path is not None:
+        stream_text += "\n" + _file_head_tail_text(stream_log_path)
+    raw_text = _file_head_tail_text(raw_log_path)
+    combined = (stream_text + "\n" + raw_text).lower()
+    approval_hit = any(marker in combined for marker in _APPROVAL_MARKERS)
+    has_default_mode = '"permissionmode":"default"' in combined or '"permissionmode": "default"' in combined
+    notice_lower = str(runner_notice or "").strip().lower()
+    notice_mismatch = "missing --dangerously-skip-permissions support" in notice_lower
+    if notice_mismatch:
+        reason = (
+            "loop runner cannot enforce non-interactive permissions; "
+            "runner missing --dangerously-skip-permissions support"
+        )
+        return True, reason
+    if approval_hit and (has_default_mode or not non_interactive_enabled):
+        reason = (
+            "loop runner permission mismatch: approval required during loop execution; "
+            f"permission_mode={'default' if has_default_mode else 'unknown'} "
+            f"non_interactive_flag={'on' if non_interactive_enabled else 'off'}"
+        )
+        return True, reason
+    return False, ""
 
 
 def read_active_stage(root: Path) -> str:
@@ -1056,6 +1150,30 @@ def main(argv: list[str] | None = None) -> int:
             cli_log_path=cli_log_path,
         )
     runner_tokens, runner_raw, runner_notice = resolve_runner(args.runner, plugin_root)
+    if not _approval_allowed() and _runner_is_claude(" ".join(runner_tokens)):
+        if "--dangerously-skip-permissions" not in runner_tokens:
+            reason = (
+                "loop runner requires non-interactive permissions; "
+                "--dangerously-skip-permissions is missing. "
+                "Set AIDD_LOOP_RUNNER with this flag or allow approvals explicitly."
+            )
+            return emit_result(
+                args.format,
+                ticket,
+                next_stage,
+                "blocked",
+                BLOCKED_CODE,
+                "",
+                reason,
+                LOOP_RUNNER_PERMISSIONS_REASON_CODE,
+                scope_key=runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket),
+                runner=runner_raw,
+                runner_effective=" ".join(runner_tokens),
+                runner_notice=runner_notice,
+                repair_reason_code=repair_reason_code,
+                repair_scope_key=repair_scope_key,
+                cli_log_path=cli_log_path,
+            )
     wrapper_enabled = should_run_wrappers(next_stage, runner_raw, wrapper_plugin_root)
     wrapper_logs: List[str] = []
     actions_log_rel = ""
@@ -1126,6 +1244,8 @@ def main(argv: list[str] | None = None) -> int:
 
     stream_log_rel = ""
     stream_jsonl_rel = ""
+    stream_log_path: Optional[Path] = None
+    stream_jsonl_path: Optional[Path] = None
     run_started_at = dt.datetime.now(dt.timezone.utc).timestamp()
     if stream_mode:
         stream_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.stream.log"
@@ -1151,6 +1271,34 @@ def main(argv: list[str] | None = None) -> int:
     else:
         returncode = run_command(command, workspace_root, log_path)
     run_finished_at = dt.datetime.now(dt.timezone.utc).timestamp()
+    permissions_mismatch, permissions_reason = _detect_runner_permission_mismatch(
+        runner_effective=runner_effective,
+        runner_notice=runner_notice,
+        stream_jsonl_path=stream_jsonl_path,
+        stream_log_path=stream_log_path,
+        raw_log_path=log_path,
+    )
+    if permissions_mismatch:
+        return emit_result(
+            args.format,
+            ticket,
+            next_stage,
+            "blocked",
+            BLOCKED_CODE,
+            log_path,
+            permissions_reason,
+            LOOP_RUNNER_PERMISSIONS_REASON_CODE,
+            scope_key=runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket),
+            stage_result_path="",
+            runner=runner_raw,
+            runner_effective=runner_effective,
+            runner_notice=runner_notice,
+            repair_reason_code=repair_reason_code,
+            repair_scope_key=repair_scope_key,
+            stream_log_path=stream_log_rel,
+            stream_jsonl_path=stream_jsonl_rel,
+            cli_log_path=cli_log_path,
+        )
     if returncode != 0:
         status = "error"
         code = ERROR_CODE
@@ -1578,6 +1726,7 @@ def emit_result(
     reason: str,
     reason_code: str = "",
     *,
+    work_item_key: str = "",
     scope_key: str = "",
     stage_result_path: str = "",
     runner: str = "",
@@ -1599,9 +1748,10 @@ def emit_result(
     wrapper_logs: List[str] | None = None,
 ) -> int:
     status_value = status if status in {"blocked", "continue", "done"} else "blocked"
+    work_item_value = str(work_item_key or "").strip()
     scope_value = str(scope_key or "").strip()
     if not scope_value:
-        scope_value = runtime.resolve_scope_key("", ticket)
+        scope_value = runtime.resolve_scope_key(work_item_value, ticket)
 
     runner_value = str(runner or "").strip()
     if not runner_value:
@@ -1636,6 +1786,7 @@ def emit_result(
         "status": status_value,
         "exit_code": code,
         "scope_key": scope_value,
+        "work_item_key": work_item_value or None,
         "log_path": log_value,
         "stage_result_path": stage_result_value,
         "runner": runner_value,

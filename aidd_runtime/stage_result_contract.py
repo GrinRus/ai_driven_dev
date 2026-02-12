@@ -33,6 +33,10 @@ def normalize_stage_result_payload(payload: Dict[str, object], stage: str) -> Tu
     stage_value = (stage or "").strip().lower()
     normalized = dict(payload)
     schema = str(normalized.get("schema") or "").strip().lower()
+    schema_version = str(normalized.get("schema_version") or "").strip().lower()
+    if not schema and schema_version == CANONICAL_STAGE_RESULT_SCHEMA:
+        schema = schema_version
+        normalized["schema"] = schema_version
     legacy_schema = False
 
     if schema == CANONICAL_STAGE_RESULT_SCHEMA:

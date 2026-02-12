@@ -53,6 +53,7 @@ class ResearchCommandTest(unittest.TestCase):
 
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
+            self.assertNotIn("{{", summary_path.read_text(encoding="utf-8"))
 
     def test_research_command_blocks_without_research_hints(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
@@ -494,6 +495,7 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertIn("## Custom Notes", updated_text)
             self.assertNotIn("{{prd_overrides}}", updated_text)
             self.assertNotIn("{{rlm_status}}", updated_text)
+            self.assertNotIn("{{", updated_text)
 
 
 

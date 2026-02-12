@@ -94,6 +94,39 @@ class StatusSummaryTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "BLOCKED")
             self.assertEqual(payload.get("reason_code"), "stage_result_missing")
 
+    def test_status_summary_uses_seed_stall_reason_from_loop_log(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="status-summary-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STATUS-STALL"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/loop.run.log",
+                "2026-01-01T00:00:00Z ticket=DEMO-STATUS-STALL iteration=1 status=blocked reason_code=seed_stage_silent_stall\n",
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "status-summary",
+                    "--ticket",
+                    ticket,
+                    "--stage",
+                    "review",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "BLOCKED")
+            self.assertEqual(payload.get("reason_code"), "seed_stage_silent_stall")
+
 
 if __name__ == "__main__":
     unittest.main()

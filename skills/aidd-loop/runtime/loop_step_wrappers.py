@@ -16,6 +16,9 @@ from typing import Dict, List, Optional, TextIO, Tuple
 from aidd_runtime import claude_stream_render
 from aidd_runtime import runtime
 
+_APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
+_CLAUDE_COMMANDS = {"claude", "claude.exe"}
+
 
 def runner_supports_flag(command: str, flag: str) -> bool:
     try:
@@ -86,6 +89,15 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
             notices.append("runner flag --no-session-persistence unsupported; dropped")
+    approval_allowed = str(os.environ.get("AIDD_LOOP_ALLOW_APPROVAL") or "").strip().lower() in _APPROVAL_ALLOW_VALUES
+    runner_name = Path(tokens[0]).name.lower() if tokens else ""
+    if not approval_allowed and runner_name in _CLAUDE_COMMANDS:
+        if "--dangerously-skip-permissions" not in tokens:
+            if runner_supports_flag(tokens[0], "--dangerously-skip-permissions"):
+                tokens.append("--dangerously-skip-permissions")
+                notices.append("runner flag --dangerously-skip-permissions enforced for loop non-interactive mode")
+            else:
+                notices.append("runner missing --dangerously-skip-permissions support")
     tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
     notices.extend(flag_notices)
     return tokens, raw, "; ".join(notices)

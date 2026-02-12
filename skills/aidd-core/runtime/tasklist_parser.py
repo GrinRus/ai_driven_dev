@@ -207,6 +207,46 @@ def normalize_test_execution_task(raw: str) -> str:
     return command
 
 
+def detect_shell_chain_token(command: str) -> str:
+    """Return shell-chain token when a single task entry encodes chained commands."""
+    value = str(command or "")
+    if not value:
+        return ""
+    in_single = False
+    in_double = False
+    escaped = False
+    idx = 0
+    while idx < len(value):
+        ch = value[idx]
+        if escaped:
+            escaped = False
+            idx += 1
+            continue
+        if ch == "\\":
+            escaped = True
+            idx += 1
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            idx += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            idx += 1
+            continue
+        if in_single or in_double:
+            idx += 1
+            continue
+        if value.startswith("&&", idx):
+            return "&&"
+        if value.startswith("||", idx):
+            return "||"
+        if ch == ";":
+            return ";"
+        idx += 1
+    return ""
+
+
 def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     profile = (extract_scalar_field(lines, "profile") or "").strip()
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
@@ -221,9 +261,20 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     elif tasks_raw:
         tasks = _parse_inline_sequence(tasks_raw, split_pattern=r"\s*;\s*")
     normalized_tasks: List[str] = []
+    malformed_tasks: List[Dict[str, str]] = []
     for raw_task in tasks:
         normalized = normalize_test_execution_task(str(raw_task))
         if normalized:
+            chain_token = detect_shell_chain_token(normalized)
+            if chain_token:
+                malformed_tasks.append(
+                    {
+                        "task": normalized,
+                        "reason_code": "tasklist_shell_chain_single_entry",
+                        "token": chain_token,
+                    }
+                )
+                continue
             normalized_tasks.append(normalized)
     tasks = normalized_tasks
     filters: List[str] = []
@@ -234,6 +285,7 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     return {
         "profile": profile,
         "tasks": tasks,
+        "malformed_tasks": malformed_tasks,
         "filters": filters,
         "when": when,
         "reason": reason,

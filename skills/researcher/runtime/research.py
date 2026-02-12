@@ -18,12 +18,20 @@ from aidd_runtime import research_hints as prd_hints
 from aidd_runtime import rlm_manifest, rlm_nodes_build, rlm_targets, runtime
 from aidd_runtime.rlm_config import load_rlm_settings
 
+_TEMPLATE_MARKER_RE = re.compile(r"\{\{[^{}]+\}\}")
+
 
 def _render_template(template_text: str, replacements: dict[str, str]) -> str:
     content = template_text
     for placeholder, value in replacements.items():
         content = content.replace(placeholder, value)
     return content
+
+
+def _replace_template_markers(text: str, replacement: str = "TBD") -> str:
+    if not text:
+        return text
+    return _TEMPLATE_MARKER_RE.sub(replacement, text)
 
 
 def _extract_section_body(text: str, heading: str) -> list[str] | None:
@@ -95,7 +103,7 @@ def _ensure_research_doc(
     }
     if template_overrides:
         replacements.update(template_overrides)
-    rendered = _render_template(template_text, replacements)
+    rendered = _replace_template_markers(_render_template(template_text, replacements))
     if not destination.exists():
         destination.write_text(rendered, encoding="utf-8")
         return destination, "created"
@@ -104,11 +112,12 @@ def _ensure_research_doc(
     updated = current
     updated = _upsert_header_field(updated, "Status", replacements.get("{{doc_status}}", "pending"))
     updated = _upsert_header_field(updated, "Last reviewed", replacements.get("{{date}}", dt.date.today().isoformat()))
-    for heading in ("AIDD:PRD_OVERRIDES", "AIDD:RLM_EVIDENCE"):
+    for heading in ("AIDD:CONTEXT_PACK", "AIDD:PRD_OVERRIDES", "AIDD:RLM_EVIDENCE"):
         section_body = _extract_section_body(rendered, heading)
         if section_body is None:
             continue
         updated = _replace_section(updated, heading, section_body)
+    updated = _replace_template_markers(updated)
 
     if updated != current:
         destination.write_text(updated, encoding="utf-8")

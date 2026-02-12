@@ -6,7 +6,8 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AUDIT_PROMPT_PATH = REPO_ROOT / "aidd_test_flow_prompt_ralph_script_full.txt"
+AUDIT_PROMPT_FULL = REPO_ROOT / "aidd_test_flow_prompt_ralph_script_full.txt"
+AUDIT_PROMPT_SMOKE = REPO_ROOT / "aidd_test_flow_prompt_ralph_script.txt"
 
 LOOP_STAGE_SKILLS = [
     REPO_ROOT / "skills" / "implement" / "SKILL.md",
@@ -27,12 +28,9 @@ LEGACY_STAGE_ALIASES = [
     "/feature-dev-aidd:reviewer",
 ]
 
-FORBIDDEN_MANUAL_RECOVERY_PATTERNS = [
-    r"manual[^\n]{0,120}preflight_prepare\.py",
-    r"напрямую[^\n]{0,120}preflight_prepare\.py",
-    r"ручн[^\n]{0,120}preflight_prepare\.py",
-    r"manual[^\n]{0,120}stage\.[a-z0-9_.-]*result\.json",
-    r"ручн[^\n]{0,120}stage\.[a-z0-9_.-]*result\.json",
+FORBIDDEN_DIRECT_MANUAL_RECOVERY_PATTERNS = [
+    r"`python3\s+\$\{claude_plugin_root\}/skills/aidd-loop/runtime/preflight_prepare\.py`",
+    r"(?:cat|tee|echo).{0,120}stage\.[a-z0-9_.-]*result\.json",
 ]
 
 
@@ -43,23 +41,54 @@ def _read(path: Path) -> str:
 
 
 class E2EPromptContractTests(unittest.TestCase):
-    def test_audit_prompt_contains_env_and_drift_contracts(self) -> None:
-        text = _read(AUDIT_PROMPT_PATH)
-        self.assertIn("ENV_BLOCKER(plugin_not_loaded)", text)
+    def test_full_prompt_contains_retry_seed_and_drift_guards(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("retry-триггер разрешён только по текущему stage-return", text)
+        self.assertIn("question retry для шага 6 запрещён", text)
         self.assertIn("prompt-flow drift (non-canonical stage orchestration)", text)
-        self.assertIn("legacy stage aliases (`/feature-dev-aidd:planner`", text)
         self.assertIn("manual preflight/debug path", text)
 
-    def test_loop_stage_skills_do_not_promote_manual_preflight_recovery(self) -> None:
+    def test_prompt_policy_uses_stage_return_only_signal_extraction(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn(
+                "не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов",
+                text,
+                msg=f"{prompt}: missing nested-artifact trigger guard",
+            )
+            self.assertRegex(
+                text.lower(),
+                r"stage-level классификац|stage-return",
+                msg=f"{prompt}: missing stage-return-only extraction policy",
+            )
+
+    def test_prompt_policy_has_stream_liveness_contract(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL).lower()
+        smoke_text = _read(AUDIT_PROMPT_SMOKE).lower()
+        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
+            self.assertIn("active_stream", text, msg=f"{label}: missing active_stream policy")
+            self.assertIn("main log", text, msg=f"{label}: missing main log probe policy")
+            self.assertRegex(
+                text,
+                r"stream.*jsonl|stream-jsonl",
+                msg=f"{label}: missing stream jsonl probe policy",
+            )
+
+    def test_loop_stage_skills_enforce_wrapper_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)
             lower = text.lower()
+            stage = skill_path.parent.name
+            self.assertIn(f"/feature-dev-aidd:{stage}", lower)
+            self.assertIn("forbidden", lower)
             self.assertIn("preflight_prepare.py", lower)
+            self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
+            self.assertIn("wrapper", lower)
             self.assertIn("actions_apply.py", lower)
-            for pattern in FORBIDDEN_MANUAL_RECOVERY_PATTERNS:
+            for pattern in FORBIDDEN_DIRECT_MANUAL_RECOVERY_PATTERNS:
                 self.assertIsNone(
                     re.search(pattern, lower),
-                    msg=f"{skill_path}: forbidden manual-recovery pattern matched: {pattern}",
+                    msg=f"{skill_path}: direct manual recovery pattern matched: {pattern}",
                 )
 
     def test_stage_skill_guidance_avoids_legacy_stage_aliases(self) -> None:

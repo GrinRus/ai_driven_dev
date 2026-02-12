@@ -1,12 +1,15 @@
 import json
+import io
 import os
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from aidd_runtime import loop_step as loop_step_module
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json, write_tasklist_ready
+from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, write_active_state, write_file, write_json, write_tasklist_ready
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
@@ -279,6 +282,47 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-LEGACY", log_path.read_text(encoding="utf-8"))
 
+    def test_loop_step_accepts_canonical_schema_version_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="implement")
+            write_active_state(root, work_item="iteration_id=I1")
+            write_tasklist_ready(root, "DEMO-SCHEMA-VERSION")
+            write_file(root, "docs/prd/DEMO-SCHEMA-VERSION.prd.md", "Status: READY\n")
+            write_file(root, "reports/context/DEMO-SCHEMA-VERSION.pack.md", "# Context pack\n\nStatus: READY\n")
+            stage_result = {
+                "schema_version": "aidd.stage_result.v1",
+                "ticket": "DEMO-SCHEMA-VERSION",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-SCHEMA-VERSION/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            write_file(root, "reports/loops/DEMO-SCHEMA-VERSION/iteration_id_I1/review.latest.pack.md", review_pack)
+            review_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-SCHEMA-VERSION",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-SCHEMA-VERSION/iteration_id_I1/stage.review.result.json",
+                json.dumps(review_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-SCHEMA-VERSION", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertIn("-p /feature-dev-aidd:review DEMO-SCHEMA-VERSION", log_path.read_text(encoding="utf-8"))
+
     def test_loop_step_ship_returns_done(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -500,6 +544,34 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
             self.assertIn("invalid-schema", str(payload.get("reason") or ""))
             self.assertIn("stage.review.result.json", str(payload.get("reason") or ""))
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_on_invalid_schema_version_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="review")
+            write_active_state(root, work_item="iteration_id=I1")
+            stage_result = {
+                "schema_version": "aidd.stage_result.v0",
+                "ticket": "DEMO-SCHEMA-ALIAS-BLOCK",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "done",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-SCHEMA-ALIAS-BLOCK/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-SCHEMA-ALIAS-BLOCK", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("invalid-schema", str(payload.get("reason") or ""))
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
 
@@ -1032,6 +1104,40 @@ class LoopStepTests(unittest.TestCase):
             self.assertIn("invalid-result", diag)
             self.assertIn("fallback:candidate:", diag)
             self.assertIn("invalid-schema", diag)
+
+    def test_loop_step_blocks_when_runner_missing_noninteractive_permissions_flag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, ticket="DEMO-PERM-GUARD", work_item="iteration_id=I1")
+
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                        "AIDD_SKIP_STAGE_WRAPPERS": "1",
+                    },
+                    clear=False,
+                ):
+                    with patch(
+                        "aidd_runtime.loop_step.resolve_runner",
+                        return_value=(["claude"], "claude", "runner missing --dangerously-skip-permissions support"),
+                    ):
+                        with redirect_stdout(captured):
+                            code = loop_step_module.main(
+                                ["--ticket", "DEMO-PERM-GUARD", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "loop_runner_permissions")
+            self.assertIn("non-interactive permissions", str(payload.get("reason") or ""))
 
 
 if __name__ == "__main__":

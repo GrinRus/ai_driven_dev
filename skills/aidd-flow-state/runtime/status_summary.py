@@ -12,6 +12,28 @@ from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
 
 
+def _last_loop_reason_code(root: Path, ticket: str) -> str:
+    log_path = root / "reports" / "loops" / ticket / "loop.run.log"
+    if not log_path.exists():
+        return ""
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        marker = "reason_code="
+        idx = line.find(marker)
+        if idx == -1:
+            continue
+        tail = line[idx + len(marker):].strip()
+        if not tail:
+            continue
+        value = tail.split()[0].strip()
+        if value:
+            return value
+    return ""
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize stage result status for a ticket.")
     parser.add_argument("--ticket", help="Ticket identifier (defaults to docs/.active.json).")
@@ -80,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
     result_path = target / "reports" / "loops" / ticket / scope_key / f"stage.{stage}.result.json"
     payload = _load_stage_result(result_path, stage)
     if not payload:
+        reason_code = "stage_result_missing"
+        reason = "stage result missing or invalid"
+        loop_reason_code = _last_loop_reason_code(target, ticket)
+        if loop_reason_code == "seed_stage_silent_stall":
+            reason_code = "seed_stage_silent_stall"
+            reason = "loop seed watchdog timeout detected before stage result was produced"
         summary = {
             "schema": "aidd.status_summary.v1",
             "ticket": ticket,
@@ -88,8 +116,8 @@ def main(argv: list[str] | None = None) -> int:
             "work_item_key": work_item_key or None,
             "status": "BLOCKED",
             "result": "blocked",
-            "reason_code": "stage_result_missing",
-            "reason": "stage result missing or invalid",
+            "reason_code": reason_code,
+            "reason": reason,
             "stage_result_path": runtime.rel_path(result_path, target),
         }
         if args.format == "json":
