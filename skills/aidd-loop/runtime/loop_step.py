@@ -54,6 +54,7 @@ STREAM_MODE_ALIASES = {
     "true": "text",
     "yes": "text",
 }
+WRAPPER_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
 
 
 def read_active_stage(root: Path) -> str:
@@ -544,6 +545,14 @@ def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def _extract_wrapper_reason_code(message: str, default: str) -> str:
+    match = WRAPPER_REASON_CODE_RE.search(str(message or ""))
+    if not match:
+        return default
+    value = match.group(1).strip().lower()
+    return value or default
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1090,6 +1099,7 @@ def main(argv: list[str] | None = None) -> int:
             work_item_key=wrapper_work_item_key,
         )
         if not ok_wrapper:
+            wrapper_reason_code = _extract_wrapper_reason_code(wrapper_error, "preflight_missing")
             return emit_result(
                 args.format,
                 ticket,
@@ -1098,7 +1108,7 @@ def main(argv: list[str] | None = None) -> int:
                 BLOCKED_CODE,
                 "",
                 wrapper_error,
-                "preflight_missing",
+                wrapper_reason_code,
                 scope_key=wrapper_scope_key,
                 cli_log_path=cli_log_path,
             )

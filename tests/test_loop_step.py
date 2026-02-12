@@ -238,6 +238,47 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
 
+    def test_loop_step_accepts_legacy_stage_result_schema(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="implement")
+            write_active_state(root, work_item="iteration_id=I1")
+            write_tasklist_ready(root, "DEMO-LEGACY")
+            write_file(root, "docs/prd/DEMO-LEGACY.prd.md", "Status: READY\n")
+            write_file(root, "reports/context/DEMO-LEGACY.pack.md", "# Context pack\n\nStatus: READY\n")
+            stage_result = {
+                "schema": "aidd.stage_result.implement.v1",
+                "ticket": "DEMO-LEGACY",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "status": "ok",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-LEGACY/iteration_id_I1/stage.implement.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
+            write_file(root, "reports/loops/DEMO-LEGACY/iteration_id_I1/review.latest.pack.md", review_pack)
+            review_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-LEGACY",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-LEGACY/iteration_id_I1/stage.review.result.json",
+                json.dumps(review_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-LEGACY", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertIn("-p /feature-dev-aidd:review DEMO-LEGACY", log_path.read_text(encoding="utf-8"))
+
     def test_loop_step_ship_returns_done(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -452,8 +493,69 @@ class LoopStepTests(unittest.TestCase):
             )
             log_path = root / "runner.log"
 
-            result = self.run_loop_step(root, "DEMO-5", log_path)
+            result = self.run_loop_step(root, "DEMO-5", log_path, None, "--format", "json")
             self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("invalid-schema", str(payload.get("reason") or ""))
+            self.assertIn("stage.review.result.json", str(payload.get("reason") or ""))
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_on_legacy_stage_result_unknown_status(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="review")
+            write_active_state(root, work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.review.v1",
+                "ticket": "DEMO-LEGACY-BLOCK",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "status": "mystery",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-LEGACY-BLOCK/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-LEGACY-BLOCK", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("invalid-result", str(payload.get("reason") or ""))
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_loop_step_blocks_on_canonical_stage_result_without_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="review")
+            write_active_state(root, work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-CAN-BLOCK",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "status": "ok",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-CAN-BLOCK/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-CAN-BLOCK", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("invalid-result", str(payload.get("reason") or ""))
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
 
@@ -837,6 +939,99 @@ class LoopStepTests(unittest.TestCase):
                 payload.get("actions_log_path"),
                 "aidd/reports/actions/DEMO-ACTIONS-MISMATCH/iteration_id_I4/implement.actions.json",
             )
+
+    def test_load_stage_result_prefers_canonical_scope_candidate_over_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SCOPE-PREFERENCE"
+            stage = "review"
+            canonical_payload = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": stage,
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            alias_payload = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": stage,
+                "scope_key": "I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:01Z",
+            }
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/stage.{stage}.result.json",
+                json.dumps(canonical_payload),
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/I1/stage.{stage}.result.json",
+                json.dumps(alias_payload),
+            )
+
+            payload, selected_path, error, mismatch_from, mismatch_to, diag = loop_step_module.load_stage_result(
+                root,
+                ticket,
+                "iteration_id_I2",
+                stage,
+            )
+
+            self.assertEqual(error, "")
+            self.assertTrue(selected_path.as_posix().endswith("/iteration_id_I1/stage.review.result.json"))
+            self.assertEqual(str((payload or {}).get("scope_key")), "iteration_id_I1")
+            self.assertEqual(mismatch_from, "iteration_id_I2")
+            self.assertEqual(mismatch_to, "iteration_id_I1")
+            self.assertIn("fallback:selected:", diag)
+
+    def test_load_stage_result_diagnostics_include_preferred_and_fallback_reasons(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-DIAG-DETAILS"
+            stage = "review"
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/stage.{stage}.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": stage,
+                        "scope_key": "iteration_id_I1",
+                        "status": "ok",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I2/stage.{stage}.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.review.v0",
+                        "ticket": ticket,
+                        "stage": stage,
+                        "scope_key": "iteration_id_I2",
+                        "status": "ok",
+                    }
+                ),
+            )
+
+            payload, selected_path, error, _mismatch_from, _mismatch_to, diag = loop_step_module.load_stage_result(
+                root,
+                ticket,
+                "iteration_id_I1",
+                stage,
+            )
+
+            self.assertIsNone(payload)
+            self.assertTrue(selected_path.as_posix().endswith("/iteration_id_I1/stage.review.result.json"))
+            self.assertEqual(error, "stage_result_missing_or_invalid")
+            self.assertIn("preferred:candidate:", diag)
+            self.assertIn("invalid-result", diag)
+            self.assertIn("fallback:candidate:", diag)
+            self.assertIn("invalid-schema", diag)
 
 
 if __name__ == "__main__":

@@ -119,6 +119,49 @@ def _runtime_env(plugin_root: Path) -> Dict[str, str]:
     return env
 
 
+def _validate_preflight_contract_inputs(
+    *,
+    stage: str,
+    ticket: str,
+    scope_key: str,
+    work_item_key: str,
+    paths: Dict[str, Path],
+    target: Path,
+) -> Tuple[bool, str]:
+    missing: List[str] = []
+    if not str(ticket or "").strip():
+        missing.append("ticket")
+    if not str(scope_key or "").strip():
+        missing.append("scope_key")
+    if stage not in {"implement", "review", "qa"}:
+        missing.append("stage")
+    if not str(work_item_key or "").strip():
+        missing.append("work_item_key")
+    elif not runtime.is_valid_work_item_key(work_item_key):
+        return False, f"invalid work_item_key format: {work_item_key}"
+
+    required_paths = (
+        ("actions_template", paths.get("actions_template")),
+        ("readmap_json", paths.get("readmap_json")),
+        ("readmap_md", paths.get("readmap_md")),
+        ("writemap_json", paths.get("writemap_json")),
+        ("writemap_md", paths.get("writemap_md")),
+        ("preflight_result", paths.get("preflight_result")),
+    )
+    for label, value in required_paths:
+        if value is None:
+            missing.append(label)
+            continue
+        rel = runtime.rel_path(value, target)
+        if not rel or rel.strip() == ".":
+            missing.append(label)
+
+    if missing:
+        joined = ",".join(sorted(set(missing)))
+        return False, f"missing required preflight inputs: {joined}"
+    return True, ""
+
+
 def _stage_wrapper_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log_dir = target / "reports" / "logs" / stage / ticket / scope_key
@@ -231,6 +274,20 @@ def run_stage_wrapper(
     )
 
     if kind == "preflight":
+        ok_contract, contract_message = _validate_preflight_contract_inputs(
+            stage=stage,
+            ticket=ticket,
+            scope_key=scope_key,
+            work_item_key=work_item_key,
+            paths=paths,
+            target=target,
+        )
+        if not ok_contract:
+            return (
+                False,
+                parsed,
+                f"{kind} wrapper failed: reason_code=preflight_contract_mismatch {contract_message}",
+            )
         commands: List[List[str]] = [
             [
                 sys.executable,

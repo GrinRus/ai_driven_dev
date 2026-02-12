@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from aidd_runtime import runtime
+from aidd_runtime import stage_result_contract
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -22,16 +23,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _load_stage_result(path: Path) -> Optional[Dict[str, object]]:
+def _load_stage_result(path: Path, stage: str) -> Optional[Dict[str, object]]:
     if not path.exists():
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
-    if str(payload.get("schema") or "") != "aidd.stage_result.v1":
+    normalized, error = stage_result_contract.normalize_stage_result_payload(payload, stage)
+    if normalized is None or error:
         return None
-    return payload
+    return normalized
 
 
 def _status_from_result(stage: str, payload: Dict[str, object]) -> str:
@@ -76,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             scope_key = runtime.resolve_scope_key(work_item_key, ticket)
 
     result_path = target / "reports" / "loops" / ticket / scope_key / f"stage.{stage}.result.json"
-    payload = _load_stage_result(result_path)
+    payload = _load_stage_result(result_path, stage)
     if not payload:
         summary = {
             "schema": "aidd.status_summary.v1",

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable, List
 
 from aidd_runtime import aidd_schemas
+from aidd_runtime import runtime
 
 SUPPORTED_SCHEMA_VERSIONS = ("aidd.stage_result.preflight.v1",)
 VALID_STAGES = {"implement", "review", "qa"}
@@ -92,6 +93,17 @@ def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
         errors.append("field reason_code must be string")
     if reason is not None and not _is_str(reason):
         errors.append("field reason must be string")
+
+    ticket = str(payload.get("ticket") or "").strip()
+    scope_key = str(payload.get("scope_key") or "").strip()
+    work_item_key = str(payload.get("work_item_key") or "").strip()
+    if ticket and scope_key and runtime.is_iteration_work_item_key(work_item_key):
+        expected_scope = runtime.resolve_scope_key(work_item_key, ticket)
+        if scope_key != expected_scope:
+            errors.append(
+                "field scope_key must match canonical iteration scope for work_item_key "
+                f"(expected '{expected_scope}', got '{scope_key}')"
+            )
 
     artifacts = payload.get("artifacts")
     if status == "ok" and isinstance(artifacts, dict):

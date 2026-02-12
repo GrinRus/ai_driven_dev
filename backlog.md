@@ -1140,6 +1140,122 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** S
   **Risk:** Medium
 
+### Wave 99B — TST-001 loop/stage-result compatibility hardening
+
+- [x] **W99-9 (P0) Legacy stage-result compatibility bridge for loop-step parser** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - добавить контролируемую совместимость для legacy stage schemas `aidd.stage_result.<stage>.v1`, не ослабляя canonical schema (`aidd.stage_result.v1`) как SoT;
+  - поддержать migration mapping `status -> result` (`ok/pass/success -> continue`, `blocked/fail/error -> blocked`, `done/completed -> done`) только для legacy payload;
+  - сохранить fail-fast для truly invalid schemas/results (`v0`, unknown schema/status, wrong stage).
+  **AC:** `loop-step` не блокируется на historical legacy stage results из seed-run, но продолжает блокировать реально битые payload.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-10 (P0) Loop-step blocked-diagnostic clarity for invalid/mixed stage-result candidates** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`:
+  - улучшить diagnostics для mixed candidate sets (preferred + fallback candidates) с явным статусом причины (`invalid-schema`, `invalid-result`, `wrong-stage`);
+  - не терять `scope_key` signal при recoverable mismatch (diag должен показывать selected candidate path + reason);
+  - исключить ambiguous reason strings в `stage_result_missing_or_invalid` triage.
+  **AC:** при BLOCKED из-за stage-result в cli log видно, какой именно candidate и почему отвергнут/принят.
+  **Deps:** W99-9
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W99-11 (P1) Seed-stage orchestration prompt contract hardening (no manual stage.result writes)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`:
+  - явно зафиксировать policy: запрещено писать `aidd/reports/loops/**/stage.*.result.json` вручную через `Write/cat`;
+  - закрепить единственный допустимый путь через canonical postflight chain (`.../actions_apply.py` + `.../stage_result.py`);
+  - добавить lint-check на обязательный текст policy в command contracts loop stages.
+  **AC:** prompt contracts и lint исключают ручной non-canonical stage-result path в seed/loop flow.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-12 (P1) Audit-derived regression fixtures for TST-001 fallout** `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/fixtures/loop_step/*`:
+  - добавить regression fixture c legacy `stage.review.result.json` (`schema=aidd.stage_result.review.v1`, `status=ok`) и проверить, что loop-run продолжает progression;
+  - добавить negative fixture на unknown legacy status/scheme -> deterministic BLOCKED;
+  - проверить, что `wrapper_logs`/`stage_result_diag` остаются информативными при mixed candidates.
+  **AC:** воспроизводимость TST-001 class regressions в unit/integration tests без ручного воспроизведения большого E2E.
+  **Deps:** W99-9, W99-10
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99C — E2E prompt and contract hardening (TST-001 follow-up)
+
+- [ ] **W99-13 (P0) Stage-skill contract hardening: wrappers-only path for implement/review/qa (no manual preflight command path in operator guidance)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать из user-facing command contracts guidance, который выглядит как manual stage execution через прямой вызов `preflight_prepare.py`/ручные stage-result шаги;
+  - оставить только canonical orchestration path (slash stage command + wrapper chain), чтобы prompt не провоцировал non-canonical recovery;
+  - усилить lint/test guard, чтобы возврат manual-path guidance в этих stage skills ловился автоматически.
+  **AC:** implement/review/qa skill contracts не подсказывают manual preflight as recovery path; prompt-lint блокирует регресс.
+  **Deps:** W99-11
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W99-14 (P1) QA command hygiene: block single-entry shell chains in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_tasklist_check.py`:
+  - детектировать `&&`, `||`, `;` внутри одного task-entry и маркировать как malformed test command chain;
+  - не исполнять такую цепочку как одну команду, а возвращать явный diagnostics reason для triage;
+  - сохранить совместимость с валидными list/scalar форматами, где команды разделены корректно.
+  **AC:** QA не запускает shell-chain, если она пришла одной task строкой; в отчёте есть явный reason code/diagnostics.
+  **Deps:** W99-1, W99-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_tasklist_check.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W99-15 (P1) E2E prompt contract tests for retry triggers and seed invariants** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - зафиксировать и тестировать правила: retry только по явному stage-return questions/BLOCK, запрет retry в шаге 6 seed, запрет manual preflight drift path;
+  - добавить contract-test, который проверяет наличие обязательных guard-правил в full/smoke prompt templates;
+  - включить проверку в repo tooling, чтобы изменения prompt не ломали e2e policy.
+  **AC:** prompt policy для retry/seed/manual-path проверяется автоматизированным тестом и не деградирует между волнами.
+  **Deps:** W99-13
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99D - Runtime contract closure from TST-001 root causes
+
+- [x] **W99-16 (P0) Canonical stage-result parity between writer, loop parser, and status-summary** `skills/aidd-flow-state/runtime/stage_result.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_stage_result.py`, `tests/test_status_summary.py`, `tests/test_loop_step.py`:
+  - выровнять единый contract: runtime writer всегда пишет `schema=aidd.stage_result.v1` + canonical `result` для loop stages;
+  - использовать общий normalizer для legacy payload (`aidd.stage_result.<stage>.v1`) в `status_summary` и `loop_step_stage_result`, чтобы verdict не расходился между consumers;
+  - исключить рекомендации ручной правки `stage.*.result.json`: consumers должны давать только diagnostics + canonical repair hint.
+  **AC:** одинаковый stage-result payload даёт одинаковый verdict в `status_summary` и `loop_step`; canonical writer не производит legacy-only shape.
+  **Deps:** W99-9
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_result.py tests/test_status_summary.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-17 (P0) Scope key canonicalization end-to-end (`I<N>` alias input, `iteration_id_I<N>` storage only)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - нормализовать work-item alias один раз на входе orchestration и передавать только canonical scope key в downstream stages;
+  - при mixed candidate set (`.../I1/...` + `.../iteration_id_I1/...`) выбирать canonical path детерминированно и явно маркировать alias candidate как stale;
+  - запретить новые записи в alias-директории (`/loops/<ticket>/I<N>/...`) через preflight/write-path guards.
+  **AC:** новые loop артефакты создаются только в canonical scope path; mixed candidates не вызывают ambiguous scope drift.
+  **Deps:** W99-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-18 (P1) Wrapper-to-preflight invocation contract guard (required args + format validation)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/preflight_result_validate.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/fixtures/loop_step/*`:
+  - формализовать обязательные preflight args для implement/review/qa wrappers (`ticket`, `work-item`, `result`, `actions/readmap/writemap paths`);
+  - добавить fail-fast validation до запуска preflight: при нарушении контракта возвращать deterministic `reason_code=preflight_contract_mismatch`;
+  - покрыть регрессией кейсы из аудита: missing args, неканоничный `work_item`, path mismatch.
+  **AC:** wrappers не стартуют preflight с неполным/невалидным аргументным набором; в логах есть точный mismatch reason.
+  **Deps:** W99-6, W99-17
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W99-19 (P1) Seed review stall fail-fast with scope-aware diagnostics** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - добавить watchdog на no-progress seed-stage execution с переводом в deterministic blocked reason вместо бесконечного ожидания;
+  - в blocked diagnostics выводить active stage/work item, выбранный scope candidate и последний валидный stage-result candidate;
+  - синхронизировать timeout verdict с loop summary/event payload для triage без ручного `ps/tail`.
+  **AC:** зависание seed review завершает шаг в deterministic `NOT VERIFIED (silent stall)` с полным scope-aware diagnostics набором.
+  **Deps:** W99-10, W99-17
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._

@@ -473,13 +473,21 @@ def main(argv: List[str] | None = None) -> int:
         else (runtime.require_plugin_root() / "skills" / args.stage / "CONTRACT.yaml")
     )
 
+    requested_scope_key = str(args.scope_key).strip()
+    work_item_key = str(args.work_item_key).strip()
+    canonical_iteration_scope = ""
+    if runtime.is_iteration_work_item_key(work_item_key):
+        canonical_iteration_scope = runtime.resolve_scope_key(work_item_key, str(args.ticket).strip())
+
     context = {
         "ticket": str(args.ticket).strip(),
-        "scope_key": str(args.scope_key).strip(),
-        "work_item_key": str(args.work_item_key).strip(),
+        "scope_key": canonical_iteration_scope or requested_scope_key,
+        "work_item_key": work_item_key,
         "stage": str(args.stage).strip(),
         "contract_path": str(contract_path),
         "contract_rel": runtime.rel_path(contract_path, target),
+        "requested_scope_key": requested_scope_key,
+        "canonical_iteration_scope": canonical_iteration_scope,
     }
 
     provided_paths: Dict[str, Path] = {
@@ -507,6 +515,15 @@ def main(argv: List[str] | None = None) -> int:
     try:
         if not context["work_item_key"]:
             raise PreflightBlocked("work_item_key_missing", "work_item_key is required for loop-stage preflight")
+
+        requested_scope = str(context.get("requested_scope_key") or "").strip()
+        canonical_scope = str(context.get("canonical_iteration_scope") or "").strip()
+        if canonical_scope and requested_scope and requested_scope != canonical_scope:
+            raise PreflightBlocked(
+                "scope_key_not_canonical",
+                f"scope_key '{requested_scope}' is non-canonical for work_item_key '{context['work_item_key']}' "
+                f"(expected '{canonical_scope}')",
+            )
 
         if not contract_path.exists():
             raise PreflightBlocked("contract_missing", f"contract not found: {context['contract_rel']}")
