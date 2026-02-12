@@ -422,6 +422,79 @@ class ResearchCommandTest(unittest.TestCase):
             targets_path = project_root / "reports" / "research" / "ZERO-1-rlm-targets.json"
             self.assertTrue(targets_path.exists())
 
+    def test_research_command_refreshes_existing_summary(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-refresh-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            stale_text = "\n".join(
+                [
+                    "# Research Summary — stale",
+                    "",
+                    "Status: pending",
+                    "Last reviewed: 2000-01-01",
+                    "",
+                    "## AIDD:PRD_OVERRIDES",
+                    "- {{prd_overrides}}",
+                    "",
+                    "## AIDD:RLM_EVIDENCE",
+                    "- Status: {{rlm_status}}",
+                    "",
+                    "## Custom Notes",
+                    "- keep this section",
+                    "",
+                ]
+            )
+            research_path = project_root / "docs" / "research" / "REFRESH-1.md"
+            research_path.parent.mkdir(parents=True, exist_ok=True)
+            research_path.write_text(stale_text, encoding="utf-8")
+
+            rlm_dir = project_root / "reports" / "research"
+            rlm_dir.mkdir(parents=True, exist_ok=True)
+            (rlm_dir / "REFRESH-1-rlm.nodes.jsonl").write_text(
+                '{"node_kind":"file","file_id":"file-demo","id":"file-demo","path":"src/App.kt","rev_sha":"demo"}\n',
+                encoding="utf-8",
+            )
+            (rlm_dir / "REFRESH-1-rlm.links.jsonl").write_text(
+                '{"link_kind":"import","source":"file-demo","target":"file-demo","id":"link-demo"}\n',
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                cli_cmd(
+                    "research",
+                    "--ticket",
+                    "REFRESH-1",
+                    "--keywords",
+                    "refresh",
+                    "--limit",
+                    "5",
+                ),
+                cwd=project_root,
+                env=cli_env(),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            updated_text = research_path.read_text(encoding="utf-8")
+            self.assertIn("Status: reviewed", updated_text)
+            self.assertRegex(updated_text, r"Last reviewed: \d{4}-\d{2}-\d{2}")
+            self.assertIn("## AIDD:PRD_OVERRIDES", updated_text)
+            self.assertIn("## AIDD:RLM_EVIDENCE", updated_text)
+            self.assertIn("## Custom Notes", updated_text)
+            self.assertNotIn("{{prd_overrides}}", updated_text)
+            self.assertNotIn("{{rlm_status}}", updated_text)
+
 
 
 if __name__ == "__main__":

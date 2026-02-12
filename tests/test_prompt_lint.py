@@ -875,6 +875,19 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must include canonical python entrypoint", result.stderr)
 
+    def test_stage_skill_legacy_stage_alias_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run `/feature-dev-aidd:planner DEMO-1` before review.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("legacy stage alias `/feature-dev-aidd:planner`", result.stderr)
+
     def test_stage_skill_foreign_wrapper_ref_fails(self) -> None:
         bad_skill = build_stage_skill("tasks-new").replace(
             "  - Read",

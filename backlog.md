@@ -1256,6 +1256,63 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
+### Wave 99E — Prompt/runtime convergence from TST-001 RCA
+
+- [ ] **W99-20 (P0) Research runtime must refresh existing `docs/research/<ticket>.md` (no stale template placeholders)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - для существующего `aidd/docs/research/<ticket>.md` обновлять обязательные секции (`AIDD:PRD_OVERRIDES`, `AIDD:RLM_EVIDENCE`, status-related header fields), а не только создавать файл при первом запуске;
+  - удалять/перезаписывать template placeholders (`{{...}}`) в canonical блоках после любого успешного `research.py --auto`;
+  - фиксировать детерминированный статус-договор: `reviewed` только при готовом RLM evidence; иначе `pending|warn` + явный handoff hint.
+  **AC:** повторный запуск researcher не оставляет template-state в `aidd/docs/research/<ticket>.md`; `research_check` видит актуальный, не-плейсхолдерный документ.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W99-21 (P0) Research->Plan handshake hardening: deterministic reason codes for blocked readiness** `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`:
+  - унифицировать reason codes для ключевых blocked-состояний (`research_template_stale`, `rlm_status_pending`, `rlm_pack_missing`, `baseline_missing`);
+  - вернуть одношаговый canonical next action для каждого reason code (без неоднозначных/legacy подсказок);
+  - исключить prompt-drift на `plan-new`: stage должен завершаться быстрым deterministic BLOCKED до длинной исследовательской ветки.
+  **AC:** при неготовом research `plan-new` завершается предсказуемо и выдаёт единый reason code + canonical next action.
+  **Deps:** W99-20
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W99-22 (P0) `tasks-new` fail-fast on structural blockers (no deep drift when plan/spec/tasklist invalid)** `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_validate.py`, `tests/test_tasklist_check.py`, `tests/test_cli_subcommands.py`:
+  - для stage `tasklist` поднимать severity до error на структурных блокерах (`plan not found`, invalid `PROGRESS_LOG`, invalid Priority/State placeholders в активных итерациях);
+  - запускать `tasks_new.py` в strict-mode по умолчанию в slash-orchestration path;
+  - при blocked возвращать короткий canonical remediation path (без subagent deep-dive на незакрытых prereqs).
+  **AC:** `tasks-new` детерминированно останавливается на структурных блокерах и не уходит в non-converging orchestration.
+  **Deps:** W99-21
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_cli_subcommands.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W99-23 (P1) Canonical stage-command vocabulary guard (ban legacy aliases in stage skill guidance)** `skills/review-spec/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - запретить в user-facing stage guidance устаревшие команды (`/feature-dev-aidd:planner`, `tasklist-refiner`, `implementer`, `reviewer`) там, где есть canonical stage commands;
+  - закрепить canonical equivalents (`plan-new`, `tasks-new`, `implement`, `review`, `qa`) в contracts/next actions;
+  - добавить lint-check на banned command vocabulary для stage skills.
+  **AC:** stage skills и lint не допускают legacy command drift в рекомендациях.
+  **Deps:** W99-13
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [ ] **W99-24 (P1) Prompt-policy parity tests: audit prompt vs stage skills (manual preflight prohibition must match)** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - формализовать проверку непротиворечивости: если audit policy запрещает manual preflight recovery, stage skills не должны продвигать manual preflight как default recovery path;
+  - проверять parity правил retry/blocked classification для `Unknown skill`, `manual preflight drift`, seed-stage constraints;
+  - включить parity-check в repo tooling regression suite.
+  **AC:** конфликт prompt-policy между audit шаблоном и stage skill contracts детектируется тестом до релиза.
+  **Deps:** W99-13, W99-15, W99-23
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99E Critical Path
+
+1. `W99-20` -> `W99-21` -> `W99-22`
+2. `W99-13` -> `W99-23` -> `W99-24`
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._

@@ -41,8 +41,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--strict",
+        dest="strict",
         action="store_true",
-        help="Return non-zero when tasklist-check returns an error.",
+        default=True,
+        help="Return non-zero when tasklist-check returns an error (default).",
+    )
+    parser.add_argument(
+        "--no-strict",
+        dest="strict",
+        action="store_false",
+        help="Allow execution to continue even when tasklist-check returns an error.",
     )
     return parser.parse_args(argv)
 
@@ -110,6 +118,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[tasks-new] {result.message}", file=sys.stderr)
         for detail in result.details or []:
             print(f"[tasks-new] {detail}", file=sys.stderr)
+        print(
+            f"[tasks-new] remediation: fix plan/spec/tasklist prerequisites and rerun /feature-dev-aidd:tasks-new {ticket}",
+            file=sys.stderr,
+        )
         if args.strict:
             return result.exit_code()
     else:

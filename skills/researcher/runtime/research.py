@@ -19,21 +19,68 @@ from aidd_runtime import rlm_manifest, rlm_nodes_build, rlm_targets, runtime
 from aidd_runtime.rlm_config import load_rlm_settings
 
 
+def _render_template(template_text: str, replacements: dict[str, str]) -> str:
+    content = template_text
+    for placeholder, value in replacements.items():
+        content = content.replace(placeholder, value)
+    return content
+
+
+def _extract_section_body(text: str, heading: str) -> list[str] | None:
+    lines = text.splitlines()
+    heading_line = f"## {heading}"
+    for idx, line in enumerate(lines):
+        if line.strip() != heading_line:
+            continue
+        body: list[str] = []
+        cursor = idx + 1
+        while cursor < len(lines) and not lines[cursor].startswith("## "):
+            body.append(lines[cursor])
+            cursor += 1
+        return body
+    return None
+
+
+def _upsert_header_field(text: str, field: str, value: str) -> str:
+    lines = text.splitlines()
+    prefix = f"{field}:"
+    new_line = f"{prefix} {value}".rstrip()
+    for idx, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[idx] = new_line
+            return "\n".join(lines).rstrip() + "\n"
+
+    insert_at = 0
+    if lines and lines[0].startswith("#"):
+        insert_at = 1
+        while insert_at < len(lines) and lines[insert_at].strip() == "":
+            insert_at += 1
+    lines.insert(insert_at, new_line)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _doc_status_from_rlm(rlm_status: str) -> str:
+    normalized = (rlm_status or "").strip().lower()
+    if normalized == "ready":
+        return "reviewed"
+    if normalized == "warn":
+        return "warn"
+    return "pending"
+
+
 def _ensure_research_doc(
     target: Path,
     ticket: str,
     slug_hint: Optional[str],
     *,
     template_overrides: Optional[dict[str, str]] = None,
-) -> tuple[Optional[Path], bool]:
+) -> tuple[Optional[Path], str]:
     template = target / "docs" / "research" / "template.md"
     destination = target / "docs" / "research" / f"{ticket}.md"
     if not template.exists():
-        return None, False
+        return None, "missing_template"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.exists():
-        return destination, False
-    content = template.read_text(encoding="utf-8")
+    template_text = template.read_text(encoding="utf-8")
     feature_label = slug_hint or ticket
     replacements = {
         "{{feature}}": feature_label,
@@ -48,10 +95,25 @@ def _ensure_research_doc(
     }
     if template_overrides:
         replacements.update(template_overrides)
-    for placeholder, value in replacements.items():
-        content = content.replace(placeholder, value)
-    destination.write_text(content, encoding="utf-8")
-    return destination, True
+    rendered = _render_template(template_text, replacements)
+    if not destination.exists():
+        destination.write_text(rendered, encoding="utf-8")
+        return destination, "created"
+
+    current = destination.read_text(encoding="utf-8")
+    updated = current
+    updated = _upsert_header_field(updated, "Status", replacements.get("{{doc_status}}", "pending"))
+    updated = _upsert_header_field(updated, "Last reviewed", replacements.get("{{date}}", dt.date.today().isoformat()))
+    for heading in ("AIDD:PRD_OVERRIDES", "AIDD:RLM_EVIDENCE"):
+        section_body = _extract_section_body(rendered, heading)
+        if section_body is None:
+            continue
+        updated = _replace_section(updated, heading, section_body)
+
+    if updated != current:
+        destination.write_text(updated, encoding="utf-8")
+        return destination, "updated"
+    return destination, "unchanged"
 
 
 def _extract_prd_overrides(prd_text: str) -> list[str]:
@@ -374,6 +436,7 @@ def run(args: argparse.Namespace) -> int:
 
     if not args.no_template:
         template_overrides = {
+            "{{doc_status}}": _doc_status_from_rlm(rlm_status),
             "{{prd_overrides}}": overrides_block,
             "{{paths}}": ",".join(targets_payload.get("paths") or []) or "TBD",
             "{{keywords}}": ",".join(targets_payload.get("keywords") or []) or "TBD",
@@ -404,10 +467,12 @@ def run(args: argparse.Namespace) -> int:
             print("[aidd] research summary template not found; skipping materialisation.")
         else:
             rel_doc = doc_path.relative_to(target).as_posix()
-            if created:
+            if created == "created":
                 print(f"[aidd] research summary created at {rel_doc}.")
+            elif created == "updated":
+                print(f"[aidd] research summary refreshed at {rel_doc}.")
             else:
-                print(f"[aidd] research summary already exists at {rel_doc}.")
+                print(f"[aidd] research summary already up-to-date at {rel_doc}.")
 
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 

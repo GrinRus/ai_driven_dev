@@ -1,0 +1,549 @@
+# AIDD E2E Flow Audit Prompt (TST-001, FULL)
+
+Задача: **AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + W91/W92/W93/W94/W98 Readiness + Fullstack task selection**  
+База канона: **Wave 96 + Wave 97 + Wave 98 + Wave 90 completed** (skill-first, python-only runtime, RLM-only research, no-fork stage orchestration).
+
+Роль: ты — один аудитор-агент. Проведи **полный** e2e прогон AIDD flow в одном репозитории и собери доказательства (логи/артефакты).  
+**НЕ** исправляй проект и **НЕ** делай ручные правки `aidd/docs/**` или `aidd/reports/**` ради прохождения гейтов.
+
+## 1) Канон и границы
+
+- Stage content templates (SoT): `$PLUGIN_DIR/skills/*/templates/*`
+- Workspace bootstrap source: `$PLUGIN_DIR/templates/aidd/**`
+- Runtime workspace memory: `$PROJECT_DIR/aidd/**` (после `aidd-init`)
+- Runtime API (canonical): `$PLUGIN_DIR/skills/*/runtime/*.py`
+- Hooks/platform glue: `$PLUGIN_DIR/hooks/**`
+- `tools/*.sh`: retired (не использовать)
+- `tools/*.py`: только repo-only tooling/stubs (если есть)
+
+## 2) Переменные
+
+- `PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge`
+- `PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev`
+- `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
+- `TICKET=TST-001`
+- `PROFILE=full|smoke` (default: `full`)
+- `IDEA_NOTE=<формируется на шаге 3>`
+- `LOOP_MODE=loop-run|loop-step` (default: `loop-run`)
+- `AIDD_HOOKS_MODE=fast|strict` (default: `fast`)
+- `CLAUDE_ARGS=--dangerously-skip-permissions`
+- `STAGE_OUTPUT_MODE=stream-json|text` (default: `stream-json`)
+- `LOG_POLL_SECONDS=15` (default: `15`)
+- `CLAUDE_STREAM_FLAGS=--verbose --output-format stream-json --include-partial-messages`
+- `CLAUDE_PLUGIN_FLAGS=--plugin-dir "$PLUGIN_DIR"`
+- `PLUGIN_HEALTHCHECK_CMD=/feature-dev-aidd:status $TICKET`
+
+## 3) Режимы
+
+- `PROFILE=smoke`
+  - Цель: быстрый health-check.
+  - Выполняются шаги: `0,1,2,3,4,5,8,99`.
+  - Шаги `6,7,9` помечаются `SKIPPED (profile=smoke)`.
+- `PROFILE=full`
+  - Цель: полный регрессионный аудит.
+  - Выполняются шаги: `0..9,99`.
+
+## 4) Ключевые правила
+
+- R0: Первый запуск каждого stage (кроме `idea-new`) — только `ticket`.
+- R0.1: Для `idea-new` используется только `ticket + IDEA_NOTE`; `slug_hint` генерируется внутри команды.
+- R1: Для `full` разрешена ровно одна ручная пара `implement -> review` перед auto-loop.
+- R2: Никаких ручных правок runtime-артефактов.
+- R3: Не читать/не печатать секреты (`.env`, keys, tokens).
+- R4: Только Python runtime surfaces (`skills/*/runtime/*.py`), без shell wrappers.
+- R5: Stage wrappers должны быть включены:
+  - если `AIDD_SKIP_STAGE_WRAPPERS=1`, зафиксировать WARN и сделать `unset AIDD_SKIP_STAGE_WRAPPERS` перед прогоном.
+- R6: Все slash stage-команды запускать только из `PROJECT_DIR`.
+- R6.1: Если `STAGE_OUTPUT_MODE=stream-json`, запускать `claude -p` только с `--verbose` (иначе CLI вернёт ошибку формата вывода).
+- R6.2: Для `claude -p` stage-команд обязательно добавлять `--plugin-dir "$PLUGIN_DIR"`.
+- R7: Перед первым stage-run обязателен plugin-load healthcheck (см. Шаг 1). Если плагин не загружен — это `ENV_BLOCKER` и аудит останавливается.
+- R8: `Unknown skill: feature-dev-aidd:*` классифицируется как `ENV_BLOCKER(plugin_not_loaded)`; **не** классифицировать как `flow bug`.
+- R9: Python fallback разрешён только после успешного plugin-load healthcheck и только для `blocked/hang/killed`. Python fallback запрещён как recovery для `Unknown skill`.
+- R10: Ошибка `refusing to use plugin repository as workspace root` классифицируется как `ENV_MISCONFIG(cwd_wrong)`; исправь `cwd` на `PROJECT_DIR` и повтори ровно 1 раз.
+
+## 5) Политика запуска, ожидания и зависаний
+
+### 5.0 Обязательный launcher (для каждого stage-run)
+
+- Для `stream-json` режимов используй шаблон:
+  - `cd "$PROJECT_DIR"`
+  - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_STREAM_FLAGS $CLAUDE_PLUGIN_FLAGS`
+- Для `text` режимов используй шаблон:
+  - `cd "$PROJECT_DIR"`
+  - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
+- Любой запуск stage-команды должен писать `stdout+stderr` в `AUDIT_DIR/<step>_run<N>.log`.
+- Для каждого stage-run сохраняй `head` и `tail` в отдельные файлы (`*.head*.txt`, `*.tail.log`) и heartbeat (`*.heartbeat.log`).
+
+### 5.1 Проверка плагина в каждом stream-json run
+
+- В `init`-событии лога должны присутствовать:
+  - `plugins` содержит `feature-dev-aidd`.
+  - `slash_commands` содержит `feature-dev-aidd:status` и stage-команду текущего шага.
+- Если в `init` нет `feature-dev-aidd` или `slash_commands` без `feature-dev-aidd:*`:
+  - классифицируй как `ENV_BLOCKER(plugin_not_loaded)`;
+  - шаг = `NOT VERIFIED (env blocker)`;
+  - останови аудит (не продолжай stage sequence).
+
+### 5.2 Общие правила ожидания
+
+- Silent stdout допустим.
+- Не прерывай команды раньше бюджетов.
+- Heartbeat раз в ~30s.
+- Для **каждого** stage-run обязательно проверять рост лога (`size + tail`) каждые `LOG_POLL_SECONDS`.
+- Если используешь text-режим, live-tail всё равно обязателен.
+
+### 5.3 Буферизация/зависания
+
+- Если лог = `0 bytes` дольше 120 секунд:
+  - сначала классифицируй как `prompt-exec buffering/quoting risk`;
+  - сделай один перезапуск той же команды в `stream-json` режиме.
+- Если в stage-логе нет новых строк (или не растёт размер файла) >10 минут:
+  - классифицируй как `silent stall`;
+  - собери диагностику (`ps`, `tail`, размеры логов);
+  - останови шаг как `NOT VERIFIED (silent stall)`.
+- Для `silent stall` и preflight-предупреждения делай ровно один debug-retry той же команды с `ANTHROPIC_LOG=debug` перед финальной классификацией.
+
+### 5.4 Порядок классификации инцидентов (строгий)
+
+- Сначала `ENV_BLOCKER`:
+  - `Unknown skill: feature-dev-aidd:*`
+  - в `init` отсутствуют `plugins/skills/slash_commands` для feature-dev-aidd
+  - `refusing to use plugin repository as workspace root`
+- Затем `prompt-exec issue`:
+  - buffering/quoting/runner/hang/silent stall
+- Только потом `flow bug`:
+  - stage logic issue после подтверждения валидного env + retry/probe/fallback
+
+Рекомендуемые бюджеты:
+- Для `smoke`: stage60 до 20 мин, `qa` до 30 мин.
+- Для `full`: stage60 до 60 мин, stage90 до 90 мин, `loop-run` до 120 мин, `loop-step` до 45 мин.
+
+Если бюджет превышен:
+- собрать диагностику (`ps`, `tail`, артефакты),
+- остановить команду,
+- пометить результаты шага как `NOT VERIFIED (killed)`.
+
+## 6) Универсальный шаблон обработки вопросов (обязательно)
+
+Используй этот шаблон для всех stage-команд:
+
+1. Запусти первую попытку по R0/R0.1.
+2. Если stage задаёт вопросы/возвращает BLOCK из-за отсутствия ответов:
+   - retry-триггер разрешён только по текущему stage-return (финальный ответ stage-команды);
+   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
+   - извлеки вопросы в `AUDIT_DIR/<step>_questions.txt`;
+   - сформируй `AIDD:ANSWERS` в `AUDIT_DIR/<step>_answers.txt` на основе уже собранных артефактов;
+   - выполни **ровно один** retry;
+   - формат ответов для retry должен быть **компактным**: choice-коды/короткие фразы в одной строке, без длинного многострочного prose;
+   - рекомендуемый шаблон: `AIDD:ANSWERS Q1=C; Q2=B; Q3=C; Q4=A; Q5=C`.
+3. Retry формат:
+   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
+   - остальные stage: `ticket + AIDD:ANSWERS`;
+   - не вставляй в CLI многострочные ответы с большим количеством Unicode/пунктуации; если нужно сохранить детали, держи их в `<step>_answers.txt`, а в команду передавай сжатый вариант.
+4. Если после retry всё ещё BLOCKED:
+   - зафиксируй `WARN`/`FAIL` с причиной,
+   - продолжай по сценарию, где это возможно.
+5. Если причина BLOCKED связана с отсутствующим spec (`aidd/docs/spec/<ticket>.spec.yaml`), unresolved PRD-вопросами (`Q*`) или `PRD Status != READY` (например `draft`):
+   - сначала пройди `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
+   - затем пройди `/feature-dev-aidd:review-spec <ticket>`,
+   - затем повтори исходный stage один раз.
+6. Если stage-return содержит `Unknown skill` или отсутствуют feature-dev-aidd slash commands в `init`:
+   - **не** применять question retry-шаблон;
+   - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
+7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает запускать `skills/aidd-loop/runtime/preflight_prepare.py` напрямую или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path:
+   - классифицировать как `prompt-flow drift (non-canonical stage orchestration)`;
+   - не выполнять этот manual path в e2e аудите;
+   - зафиксировать `NOT VERIFIED` для шага и продолжить только по разрешённому сценарию.
+
+Примечание: это и есть ключ к “человекочитаемому” flow. Вопросы — часть happy path, а не исключение.
+
+## 7) MUST-READ
+
+Перед стартом прочитай:
+
+- `$PLUGIN_DIR/skills/aidd-core/templates/workspace-agents.md`
+- `$PLUGIN_DIR/skills/aidd-core/templates/stage-lexicon.md`
+- `$PLUGIN_DIR/skills/tasks-new/templates/tasklist.template.md`
+- `$PLUGIN_DIR/skills/aidd-loop/templates/loop-pack.template.md`
+- `$PLUGIN_DIR/skills/researcher/templates/research.template.md`
+- `$PLUGIN_DIR/templates/aidd/config/gates.json`
+- `$PLUGIN_DIR/templates/aidd/config/conventions.json`
+- `$PLUGIN_DIR/skills/aidd-core/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-loop/SKILL.md`
+- `$PLUGIN_DIR/skills/researcher/SKILL.md`
+- `$PLUGIN_DIR/skills/aidd-stage-research/SKILL.md`
+- `$PLUGIN_DIR/skills/spec-interview/SKILL.md`
+- `$PLUGIN_DIR/skills/implement/SKILL.md`
+- `$PLUGIN_DIR/skills/review/SKILL.md`
+- `$PLUGIN_DIR/skills/qa/SKILL.md`
+
+## 8) Каталог задач для шага 3 (выбрать ровно одну)
+
+Контекст анализа:
+- `PROJECT_DIR/README.md`
+- `PROJECT_DIR/docs/backlog.md`
+- `PROJECT_DIR/backend/src/main/java/**/controller/*Controller.java`
+- `PROJECT_DIR/frontend/src/pages/*.tsx`
+- `PROJECT_DIR/frontend/src/lib/apiClient.ts`
+
+### FS-GA-01 (L) GitHub Analysis Flow: production-ready UX + canonical payload
+- Backend scope:
+  - Оркестрация `github-analysis-flow` с шагами `fetch_metadata -> fetch_tree -> analysis -> recommendations`.
+  - Typed payload/DTO (`analysisStatus`, `retries`, `recommendationBlocks`, `actions`, `stepProgress`) + OpenAPI sync.
+  - Идемпотентное хранение результатов анализа.
+- Frontend scope:
+  - MCP panel блок GitHub Analysis (URL/ref/PR, режим, валидация).
+  - Прогресс шагов, ретраи/ошибки, карточка результата.
+  - Review actions: `comment`, `approve`, `request changes`.
+- Acceptance criteria:
+  - Запуск из UI создаёт flow session и даёт прогресс без ручного рефреша.
+  - Результат содержит canonical payload и доступен из истории.
+  - Типы консистентны между backend DTO и frontend client.
+
+### FS-MP-02 (L) GitHub/GitLab parity для assisted coding flow
+- Backend scope:
+  - Provider-aware contract (`github|gitlab`) в registry/orchestrator/pipeline.
+  - GitLab MCP stack и маршрутизация URL/MR.
+  - Общие метрики/логи/fallback policy.
+- Frontend scope:
+  - Переключатель provider в UI/CLI.
+  - Provider-specific ссылки и `workspace_git_state`.
+  - Provider-aware cache/recovery.
+- Acceptance criteria:
+  - Один flow работает для GitHub и GitLab URL без ручной правки payload.
+  - UI корректно показывает provider/ссылки/статусы.
+  - Интеграционные тесты покрывают fetch -> state -> analysis.
+
+### FS-RBAC-03 (M) Live RBAC enforcement + admin role operations
+- Backend scope:
+  - Усиление role enforcement на критичных API.
+  - Audit trail для role operations и 403.
+  - Стабилизация role guard/interceptor.
+- Frontend scope:
+  - Live обновление ролей в сессии.
+  - Role guards для admin/flow controls.
+  - Единая обработка 403.
+- Acceptance criteria:
+  - Изменения ролей видны без перезагрузки.
+  - Backend consistently возвращает 403 без роли.
+  - Admin roles audit соответствует действиям.
+
+### FS-ID-04 (L) VK OAuth + Telegram Login Widget profile linking
+- Backend scope:
+  - `GET /auth/vk`, `POST /auth/vk/callback` (PKCE/state/device_id).
+  - Refresh/revoke pipeline для VK tokens.
+  - Telegram callback hash validation + anti-replay + profile attach.
+- Frontend scope:
+  - Link/unlink блок внешних провайдеров + Telegram widget.
+  - Статусы линковки/ошибок/expiry.
+  - Channel-specific UX подсказки.
+- Acceptance criteria:
+  - VK/Telegram linking end-to-end.
+  - Backend валидирует подписи/state и пишет audit events.
+  - E2E покрывает happy path + replay/expired/error.
+
+### FS-GRAPH-05 (L) Code graph IDE navigation (outline + anchors + target path)
+- Backend scope:
+  - Расширение графа (`CONTAINS`, сигнатуры, docstring, visibility, anchors).
+  - Улучшение `graph_neighbors`/`graph_path`/`definition`.
+  - Кэш/метрики/fallback для graph queries.
+- Frontend scope:
+  - UI для outline/anchors/previews.
+  - Отображение путей до `goalFqn` + relation filters.
+  - Визуальная деградация в fallback mode.
+- Acceptance criteria:
+  - Из UI можно получить outline и перейти к символу по anchors.
+  - Path queries возвращают цель по `targetHint`/`goalFqn`.
+  - Метрики показывают latency/hit/miss/fallback reasons.
+
+## 9) Пошаговый flow (для агента)
+
+Логи до `aidd-init` сохраняй в:
+- `RUN_TS=$(date -u +%Y%m%dT%H%M%SZ)`
+- `AUDIT_DIR=$PROJECT_DIR/.aidd_audit/$TICKET/$RUN_TS`
+
+### Шаг 0. Clean state
+
+Зачем: фиксируем чистую базу и репродуцируемость.
+
+Сделать:
+- `cd "$PROJECT_DIR"`;
+- сохранить pre-status во временный файл: `/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt`;
+- принудительно очистить workspace до `HEAD`:
+  - `git reset --hard HEAD`
+  - `git clean -fd`
+- создать `AUDIT_DIR` после cleanup (иначе untracked аудит-логи могут исчезнуть);
+- скопировать pre-status в `AUDIT_DIR/00_git_status_before.txt`;
+- сохранить post-status в `AUDIT_DIR/00_git_status_after.txt`;
+- если cleanup не удался — `BLOCKER(clean_state_unavailable)` и stop;
+- сохранить plugin status baseline в `00_plugin_git_status_before.txt`.
+
+### Шаг 1. Preflight (fail-fast env)
+
+Зачем: зафиксировать режим и окружение. Убедиться, что плагин реально загружается в non-interactive `claude -p`.
+
+Сделать:
+- checkout audit branch;
+- сохранить head/branch;
+- определить `AUDIT_MODE`:
+  - SKILL_FIRST если есть `skills/aidd-core/SKILL.md` и `skills/implement/SKILL.md`;
+  - иначе `LEGACY_UNSUPPORTED` и stop как N/A;
+- зафиксировать `claude plugin list` в `01_plugin_list.txt`;
+- зафиксировать `~/.claude/settings.json` (если есть) в `01_claude_settings_snapshot.json`;
+- выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher из секции 5.0;
+- проверить `init`-событие healthcheck-лога:
+  - есть `plugins: [{"name":"feature-dev-aidd"...}]`;
+  - есть `slash_commands` с `feature-dev-aidd:status`;
+  - есть `skills` с `feature-dev-aidd:*`.
+- если любой пункт не выполнен, или получен `Unknown skill`:
+  - классифицировать как `ENV_BLOCKER(plugin_not_loaded)`;
+  - сохранить маркер `01_env_blocker.txt`;
+  - **остановить аудит** без выполнения шагов 2..99.
+- если получен `refusing to use plugin repository as workspace root`:
+  - исправить `cwd` на `PROJECT_DIR`;
+  - повторить healthcheck 1 раз;
+  - при повторном провале -> `ENV_BLOCKER(cwd_wrong)` и stop.
+- проверить R5 (`AIDD_SKIP_STAGE_WRAPPERS`): если `=1`, сохранить WARN, сделать `unset`, зафиксировать в `01_wrappers_guard.txt`.
+
+### Шаг 2. Baseline
+
+Зачем: зафиксировать состояние workspace до инициализации.
+
+Сделать:
+- `cd "$PROJECT_DIR"`;
+- `ls -la`;
+- snapshot дерева `aidd` (или `aidd: missing`).
+
+### Шаг 3. Task selection + IDEA_NOTE
+
+Зачем: имитация реального UX выбора задачи.
+
+Сделать:
+- короткий анализ repo surfaces;
+- сохранить:
+  - `03_repo_analysis.txt`
+  - `03_task_candidates.md` (>=3 задачи)
+  - `03_selected_task.txt` (ровно одна задача)
+- сгенерировать `03_problem_statement.txt`:
+  - 3–6 предложений,
+  - 3–5 acceptance criteria,
+  - backend + frontend scope.
+- сформировать `IDEA_NOTE` из этого файла (одно строковое значение).
+
+### Шаг 4. aidd-init
+
+Зачем: подготовить workspace runtime-структуру.
+
+Готовность:
+- `aidd/AGENTS.md`
+- `aidd/docs/shared/stage-lexicon.md`
+
+Если не готово:
+- выполнить `/feature-dev-aidd:aidd-init` через launcher.
+
+Если slash-run вернул `Unknown skill`:
+- классифицировать `ENV_BLOCKER(plugin_not_loaded)` и stop.
+
+После:
+- сохранить `04_aidd_tree_post.txt`.
+
+### Шаг 5. Happy path
+
+Общее правило для 5.1..5.5:
+- каждый slash stage-run через launcher;
+- при `Unknown skill` -> `ENV_BLOCKER(plugin_not_loaded)` и stop;
+- question retry использовать только для реальных stage-вопросов/BLOCK.
+- manual preflight/debug path (`.../preflight_prepare.py`, ручная запись `stage.*.result.json`) не использовать как recovery для slash stage-команд 5.x; использовать только canonical slash-stage путь и fallback'и, явно разрешённые в соответствующем подпункте.
+
+#### 5.1 idea-new
+
+Зачем: создать PRD + активный контекст.
+
+Сделать:
+- первый запуск: `/feature-dev-aidd:idea-new $TICKET $IDEA_NOTE`;
+- при вопросах: retry по шаблону секции 6;
+- снять артефакты:
+  - `05_active.json`
+  - `05_prd_head.txt`
+  - `05_slug_check.txt`
+
+Проверки slug:
+- non-empty;
+- regex `^[a-z0-9]+(-[a-z0-9]+)*$`;
+- не содержит сырой `AIDD:ANSWERS`.
+
+#### 5.2 researcher
+
+Зачем: сформировать research + RLM artifacts.
+
+Сделать:
+- первый запуск ticket-only;
+- при вопросах: retry;
+- fallback допускается только если stage blocked/hang (не для `Unknown skill`):
+  - `python3 $PLUGIN_DIR/skills/researcher/runtime/research.py --ticket $TICKET --auto --paths backend/src/main/java,frontend/src/pages --keywords github,analysis,flow`
+- пометить fallback marker.
+
+W90 check (после fallback, если был):
+- must exist:
+  - `${TICKET}-rlm-targets.json`
+  - `${TICKET}-rlm-manifest.json`
+  - `${TICKET}-rlm.worklist.pack.json`
+- must NOT exist:
+  - `${TICKET}-context.json`
+  - `${TICKET}-targets.json`
+
+#### 5.3 plan-new
+
+Зачем: получить реализуемый план.
+
+Сделать:
+- first run ticket-only;
+- при вопросах: retry;
+- если hang/kill: выполнить runtime probe
+  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET`
+- классифицировать как prompt-exec issue до probe.
+
+#### 5.4 review-spec
+
+Зачем: проверить план+PRD gate.
+
+Сделать:
+- first run ticket-only;
+- при вопросах: retry;
+- если итог review-spec = `WARN/BLOCKED` и в отчёте есть unresolved `Q*` или ссылка на отсутствующий spec:
+  - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
+  - повторить `/feature-dev-aidd:review-spec $TICKET` один раз;
+- если hang/kill: runtime probe
+  - `python3 $PLUGIN_DIR/skills/review-spec/runtime/prd_review_cli.py --ticket $TICKET`
+
+#### 5.5 tasks-new
+
+Зачем: получить tasklist execution source.
+
+Сделать:
+- перед первым запуском проверить PRD header (`Status:`): если не `READY` или есть unresolved `Q*`, сначала:
+  - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry),
+  - выполнить `/feature-dev-aidd:review-spec $TICKET` (ticket-only, при вопросах один retry),
+  - затем запускать `tasks-new`;
+- first run ticket-only;
+- при вопросах: retry;
+- если tasks-new сообщает `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
+  - классифицировать как prompt-flow gap (не code bug на первом проходе);
+  - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
+  - повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
+- если hang/kill: fallback
+  - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
+- сохранить `05_tasklist_status_check.txt`.
+- если после retry tasks-new остаётся `BLOCKED`:
+  - пометить как `prompt-flow blocker`,
+  - шаги 6/7 пометить `NOT VERIFIED` и перейти к 8/9/99.
+
+### Шаг 6. Loop seed (только full)
+
+Зачем: зафиксировать ручную стартовую итерацию.
+
+Сделать:
+- один запуск `implement`, один запуск `review`.
+- question retry для шага 6 запрещён (R1): если один из запусков уходит в BLOCK/questions, зафиксировать `NOT VERIFIED` и не делать второй attempt того же stage.
+- если kill/hang — отмечать `NOT VERIFIED`.
+
+W94 checks:
+- `06_active_after_review.json`
+- `06_work_item_check.txt`:
+  - допустимо: `iteration_id=I<N>`/`M<N>` или `null`
+  - недопустимо: `id=review:*` / `id_review_*`
+- inventory:
+  - `06_actions_tree.txt`
+  - `06_context_tree.txt`
+  - `06_wrapper_logs_tree.txt`
+  - `06_loops_tree.txt`
+- marker semantics check:
+  - `06_marker_semantics_check.txt`
+  - при проверке исключать шаблонные/backup-файлы (`aidd/docs/tasklist/templates/**`, `*.bak`, `*.tmp`) из детекции ложных marker hits.
+
+### Шаг 7. Auto-loop (только full)
+
+Зачем: проверить loop orchestration без ручного вмешательства.
+
+Сделать:
+- `loop-run` или `loop-step` (по `LOOP_MODE`) через Python runtime:
+  - `python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream`
+  - или `loop_step.py`.
+
+W94/W97 checks:
+- `07_scope_mismatch_check.txt`
+- `07_id_review_tests_hits.txt` (должно быть пусто)
+- `07_python_only_surface_check.txt` (не должно быть shell wrapper вызовов)
+
+### Шаг 8. QA
+
+Зачем: итоговая валидация тестовой готовности.
+
+Сделать:
+- first run ticket-only;
+- precheck `AIDD:TEST_EXECUTION`:
+  - сохранить `08_test_execution_precheck.txt`;
+  - если любая task-команда содержит shell-chain токены (`&&`, `||`, `;`) как единый task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+- при вопросах: retry;
+- если hang/kill: fallback
+  - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
+
+W94-5:
+- `08_qa_gradle_check.txt` (проверка через `find` + `rg`, без raw-glob вроде `aidd/reports/qa/*tests*.log`, чтобы избежать `no matches found` в zsh).
+
+### Шаг 9. Wave 98 readiness snapshot (только full)
+
+Зачем: read-only валидация контрактов no-fork/RLM/python-only и regression suites.
+
+Сделать в plugin repo:
+- R98-M1a..M1e scans;
+- R98-M2 surfaces/tests/write-check;
+- R98-M3 bash-surface scan;
+- R98-M4 pytest subset + smoke-workflow;
+- R98-M4b workflow parity grep.
+
+Сохранить артефакты как в текущем naming:
+- `09_r98_m1a.txt` ... `09_r98_m4b.txt`.
+
+### Шаг 99. Post-run write-safety
+
+Зачем: проверить, что runtime не писал в plugin source.
+
+Сделать:
+- `99_plugin_git_status_after.txt`
+- `99_project_git_status_after.txt`
+- `99_cleanup_policy.txt` (зафиксировать, что запуск был в режиме force-clean: `reset --hard` + `clean -fd`).
+- удалить временный pre-status файл: `rm -f "/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt"`.
+
+## 10) Финальный отчёт в чат
+
+Для `full` обязательно:
+- Таблица шагов `PASS/WARN/FAIL` (Happy path, каждый из шагов отдельно).
+- Выбранная задача: `task_id`, `title`, `generated_slug_hint`, rationale.
+- Что `NOT VERIFIED` и почему.
+- Bug reports с severity.
+- Ralph loop summary.
+- Блок W94 checks:
+  - slug hygiene
+  - active.work_item invariant
+  - scope mismatch recovery
+  - preflight/readmap/writemap/actions/wrapper logs
+  - marker semantics
+  - QA gradle cwd
+  - plugin write-safety
+- Блок W98/W90/W97 checks:
+  - RLM-only artifacts
+  - no-fork orchestration
+  - `aidd-stage-research` preload in `agents/researcher.md`
+  - regression suite + smoke (`R98-M4`)
+  - python-only runtime surface
+- Дополнительный блок Env diagnostics:
+  - plugin list snapshot
+  - `init` evidence (`plugins`, `slash_commands`, `skills`)
+  - `cwd` доказательство для stage-runner
+- Список команд + пути к логам в `AUDIT_DIR`.
+
+Для `smoke` допускается компактная версия отчёта.
+
+Последняя строка:
+`AUDIT_COMPLETE TST-001`

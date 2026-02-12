@@ -84,6 +84,12 @@ NO_FORK_FORBIDDEN_PHRASES = (
     "(fork)",
     "delegate to subagent",
 )
+LEGACY_STAGE_ALIAS_TO_CANONICAL = {
+    "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
+    "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
+    "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
+    "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
+}
 PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
@@ -804,6 +810,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 errors.append(f"{info.path}: missing reference to feature-dev-aidd:aidd-core")
             if path.parent.name in {"implement", "review", "qa"} and "feature-dev-aidd:aidd-loop" not in info.body:
                 errors.append(f"{info.path}: missing reference to feature-dev-aidd:aidd-loop")
+
+            for legacy_alias, canonical_alias in LEGACY_STAGE_ALIAS_TO_CANONICAL.items():
+                if legacy_alias in info.body:
+                    errors.append(
+                        f"{info.path}: stage guidance uses legacy stage alias `{legacy_alias}`; "
+                        f"use `{canonical_alias}`"
+                    )
 
             if path.parent.name in {"implement", "review", "qa"}:
                 body_lower = info.body.lower()
