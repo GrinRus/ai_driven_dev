@@ -604,10 +604,15 @@ def build_command(stage: str, ticket: str) -> List[str]:
     return _wrappers.build_command(stage, ticket)
 
 
-def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
+def run_command(
+    command: List[str],
+    cwd: Path,
+    log_path: Path,
+    env: Optional[Dict[str, str]] = None,
+) -> int:
     from aidd_runtime import loop_step_wrappers as _wrappers
 
-    return _wrappers.run_command(command, cwd, log_path)
+    return _wrappers.run_command(command, cwd, log_path, env=env)
 
 
 def run_stream_command(
@@ -620,6 +625,7 @@ def run_stream_command(
     stream_log_path: Path,
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> int:
     from aidd_runtime import loop_step_wrappers as _wrappers
 
@@ -632,6 +638,7 @@ def run_stream_command(
         stream_log_path=stream_log_path,
         output_stream=output_stream,
         header_lines=header_lines,
+        env=env,
     )
 
 
@@ -647,6 +654,62 @@ def _extract_wrapper_reason_code(message: str, default: str) -> str:
         return default
     value = match.group(1).strip().lower()
     return value or default
+
+
+def _true_env(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _load_writemap_scope_paths(target: Path, writemap_path: str) -> List[str]:
+    raw = str(writemap_path or "").strip()
+    if not raw:
+        return []
+    resolved = runtime.resolve_path_for_target(Path(raw), target)
+    if not resolved.exists():
+        return []
+    try:
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    values: List[str] = []
+    for key in ("loop_allowed_paths", "allowed_paths"):
+        raw_items = payload.get(key)
+        if not isinstance(raw_items, list):
+            continue
+        for item in raw_items:
+            text = str(item or "").strip()
+            if text and text not in values:
+                values.append(text)
+    return values
+
+
+def _build_loop_runner_env(
+    *,
+    target: Path,
+    stage: str,
+    preflight_payload: Dict[str, str],
+) -> tuple[Dict[str, str], List[str]]:
+    if stage != "implement":
+        return {}, []
+    env: Dict[str, str] = {}
+    notices: List[str] = []
+
+    writemap_path = str(preflight_payload.get("writemap_path") or "").strip()
+    scope_paths = _load_writemap_scope_paths(target, writemap_path)
+    if scope_paths:
+        scope_csv = ",".join(scope_paths)
+        env["TEST_SCOPE"] = scope_csv
+        env["AIDD_LOOP_SCOPE_PATHS"] = scope_csv
+        notices.append(f"loop scope propagated to TEST_SCOPE ({len(scope_paths)} path(s))")
+
+    allow_format = _true_env(os.environ.get("AIDD_LOOP_ALLOW_FORMAT"))
+    if not allow_format:
+        if os.environ.get("SKIP_FORMAT", "").strip() != "1":
+            env["SKIP_FORMAT"] = "1"
+            notices.append("SKIP_FORMAT=1 enforced for loop implement scope safety")
+    return env, notices
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1177,6 +1240,7 @@ def main(argv: list[str] | None = None) -> int:
     wrapper_enabled = should_run_wrappers(next_stage, runner_raw, wrapper_plugin_root)
     wrapper_logs: List[str] = []
     actions_log_rel = ""
+    preflight_payload: Dict[str, str] = {}
     wrapper_scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
     wrapper_work_item_key = runtime.read_active_work_item(target)
     if next_stage == "qa":
@@ -1234,6 +1298,21 @@ def main(argv: list[str] | None = None) -> int:
             wrapper_logs.append(preflight_payload["log_path"])
         actions_log_rel = preflight_payload.get("actions_path", actions_log_rel)
 
+    runner_env: Dict[str, str] = {}
+    if wrapper_enabled:
+        runner_env, env_notices = _build_loop_runner_env(
+            target=target,
+            stage=next_stage,
+            preflight_payload=preflight_payload,
+        )
+        if env_notices:
+            notice_text = "; ".join(env_notices)
+            runner_notice = f"{runner_notice}; {notice_text}" if runner_notice else notice_text
+    command_env: Optional[Dict[str, str]] = None
+    if runner_env:
+        command_env = os.environ.copy()
+        command_env.update(runner_env)
+
     command = list(runner_tokens)
     if stream_mode:
         command.extend(["--output-format", "stream-json", "--include-partial-messages", "--verbose"])
@@ -1267,9 +1346,10 @@ def main(argv: list[str] | None = None) -> int:
             stream_log_path=stream_log_path,
             output_stream=sys.stderr,
             header_lines=header_lines,
+            env=command_env,
         )
     else:
-        returncode = run_command(command, workspace_root, log_path)
+        returncode = run_command(command, workspace_root, log_path, env=command_env)
     run_finished_at = dt.datetime.now(dt.timezone.utc).timestamp()
     permissions_mismatch, permissions_reason = _detect_runner_permission_mismatch(
         runner_effective=runner_effective,
@@ -1434,6 +1514,7 @@ def main(argv: list[str] | None = None) -> int:
             verdict=preliminary_verdict,
         )
         if not ok_wrapper:
+            wrapper_reason_code = _extract_wrapper_reason_code(wrapper_error, "postflight_missing")
             return emit_result(
                 args.format,
                 ticket,
@@ -1442,7 +1523,7 @@ def main(argv: list[str] | None = None) -> int:
                 BLOCKED_CODE,
                 log_path,
                 wrapper_error,
-                "postflight_missing",
+                wrapper_reason_code,
                 scope_key=wrapper_scope_key,
                 runner=runner_raw,
                 runner_effective=runner_effective,

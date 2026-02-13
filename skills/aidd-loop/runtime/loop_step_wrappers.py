@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -18,6 +19,8 @@ from aidd_runtime import runtime
 
 _APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
 _CLAUDE_COMMANDS = {"claude", "claude.exe"}
+_DIFF_BOUNDARY_OUT_OF_SCOPE_RE = re.compile(r"^OUT_OF_SCOPE\s+(.+)$", re.MULTILINE)
+_DIFF_BOUNDARY_FORBIDDEN_RE = re.compile(r"^FORBIDDEN\s+(.+)$", re.MULTILINE)
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
@@ -238,6 +241,30 @@ def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) 
     }
 
 
+def _diff_boundary_violation_reason(stdout: str, stderr: str) -> tuple[str, str]:
+    merged = "\n".join(part for part in (stdout or "", stderr or "") if part).strip()
+    out_of_scope = [item.strip() for item in _DIFF_BOUNDARY_OUT_OF_SCOPE_RE.findall(merged)]
+    forbidden = [item.strip() for item in _DIFF_BOUNDARY_FORBIDDEN_RE.findall(merged)]
+    threshold_raw = str(os.environ.get("AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE") or "25").strip()
+    try:
+        threshold = max(int(threshold_raw), 1)
+    except ValueError:
+        threshold = 25
+    if forbidden:
+        sample = ", ".join(forbidden[:3])
+        return "diff_boundary_violation", (
+            f"diff boundary violation: forbidden_paths={len(forbidden)} "
+            f"out_of_scope={len(out_of_scope)} sample={sample}"
+        )
+    if len(out_of_scope) > threshold:
+        sample = ", ".join(out_of_scope[:3])
+        return "diff_boundary_violation", (
+            f"diff boundary violation: out_of_scope={len(out_of_scope)} "
+            f"threshold={threshold} sample={sample}"
+        )
+    return "", ""
+
+
 def _copy_optional_preflight_fallback(paths: Dict[str, Path]) -> None:
     if os.environ.get("AIDD_WRITE_FALLBACK_PREFLIGHT", "").strip() != "1":
         return
@@ -381,6 +408,10 @@ def run_stage_wrapper(
                 log_path=wrapper_log_path,
             )
             parsed.update(_parse_wrapper_output(stdout))
+            if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
+                reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
+                if reason_code and reason_message:
+                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
                 return False, parsed, f"{kind} wrapper failed: {details}"
@@ -501,6 +532,10 @@ def run_stage_wrapper(
                 log_path=wrapper_log_path,
             )
             parsed.update(_parse_wrapper_output(stdout))
+            if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
+                reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
+                if reason_code and reason_message:
+                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
                 return False, parsed, f"{kind} wrapper failed: {details}"
@@ -634,7 +669,7 @@ def _drain_stream(pipe: Optional[TextIO], writer: MultiWriter, raw_log: TextIO) 
         writer.flush()
 
 
-def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
+def run_command(command: List[str], cwd: Path, log_path: Path, env: Optional[Dict[str, str]] = None) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("w", encoding="utf-8") as handle:
         result = subprocess.run(
@@ -643,6 +678,7 @@ def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
             text=True,
             stdout=handle,
             stderr=subprocess.STDOUT,
+            env=env,
         )
     return result.returncode
 
@@ -657,6 +693,7 @@ def run_stream_command(
     stream_log_path: Path,
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
@@ -682,6 +719,7 @@ def run_stream_command(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=1,
+            env=env,
         )
         drain_thread = threading.Thread(
             target=_drain_stream,

@@ -25,14 +25,14 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
 1. Set active stage `plan` and active feature.
-2. Run `python3 skills/plan-new/runtime/research_check.py --ticket <ticket>`.
-3. Gate readiness with `python3 skills/aidd-flow-state/runtime/prd_check.py` and `python3 skills/plan-new/runtime/research_check.py`; block if either fails.
+2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
+3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
 4. Build the rolling context pack.
 5. Run subagents in order: `feature-dev-aidd:planner` then `feature-dev-aidd:validator`. Refresh the pack between them.
 6. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
 
 ## Command contracts
-### `python3 skills/plan-new/runtime/research_check.py`
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`
 - When to run: before planning to enforce research-readiness gate.
 - Inputs: `--ticket <ticket>` and current PRD/research artifacts.
 - Outputs: deterministic readiness verdict for plan stage.

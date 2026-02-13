@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,6 +66,57 @@ class RuntimeWriteSafetyTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "must point to plugin root"):
                 runtime.require_plugin_root()
+
+    def _init_git_repo(self, root: Path) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.name", "Runtime Safety"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.email", "runtime-safety@example.com"], cwd=root, check=True)
+        subprocess.run(["git", "add", "."], cwd=root, check=True)
+        subprocess.run(["git", "commit", "-qm", "init"], cwd=root, check=True)
+
+    def test_plugin_write_safety_snapshot_detects_mutation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-write-safety-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+            self._init_git_repo(plugin_root)
+
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+            snapshot = runtime.capture_plugin_write_safety_snapshot()
+            self.assertTrue(snapshot.get("enabled"))
+            self.assertTrue(snapshot.get("supported"))
+
+            (plugin_root / "runtime_mutation.txt").write_text("mutation\n", encoding="utf-8")
+            ok, message = runtime.verify_plugin_write_safety_snapshot(snapshot, source="unit-test")
+            self.assertFalse(ok)
+            self.assertIn("plugin_write_safety_violation", message)
+            self.assertIn("runtime_mutation.txt", message)
+
+    def test_plugin_write_safety_snapshot_passes_when_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-write-safety-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+            self._init_git_repo(plugin_root)
+
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+            snapshot = runtime.capture_plugin_write_safety_snapshot()
+            ok, message = runtime.verify_plugin_write_safety_snapshot(snapshot, source="unit-test")
+            self.assertTrue(ok, msg=message)
+
+    def test_plugin_write_safety_override_disables_guard(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-write-safety-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+            self._init_git_repo(plugin_root)
+
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+            os.environ["AIDD_ALLOW_PLUGIN_WRITES"] = "1"
+            snapshot = runtime.capture_plugin_write_safety_snapshot()
+            self.assertFalse(snapshot.get("enabled"))
+            ok, message = runtime.verify_plugin_write_safety_snapshot(snapshot, source="unit-test")
+            self.assertTrue(ok, msg=message)
 
 
 if __name__ == "__main__":

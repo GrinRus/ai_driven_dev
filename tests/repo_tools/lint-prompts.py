@@ -70,6 +70,15 @@ STAGE_PYTHON_ENTRYPOINTS = {
     "qa": "skills/qa/runtime/qa_run.py",
     "status": "skills/status/runtime/status.py",
 }
+STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
+    "idea-new",
+    "researcher",
+    "plan-new",
+    "review-spec",
+    "spec-interview",
+    "tasks-new",
+    "status",
+}
 
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
@@ -106,8 +115,8 @@ LOOP_WRAPPER_CHAIN_RE = re.compile(
     r"(?:actions_apply\.py|postflight|stage_result\.py)",
     re.IGNORECASE | re.DOTALL,
 )
-STAGE_BODY_ENV_RUNTIME_RE = re.compile(
-    r"python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+STAGE_BODY_REL_RUNTIME_RE = re.compile(
+    r"python3\s+(?:\./)?skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
     re.IGNORECASE,
 )
 LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
@@ -860,10 +869,13 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(
                         f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
                     )
-            if STAGE_BODY_ENV_RUNTIME_RE.search(info.body):
+            if (
+                path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
+                and STAGE_BODY_REL_RUNTIME_RE.search(info.body)
+            ):
                 errors.append(
-                    f"{info.path}: stage guidance should use repo-relative runtime paths in body "
-                    f"(`python3 skills/.../runtime/...`), not `${{CLAUDE_PLUGIN_ROOT}}`"
+                    f"{info.path}: stage guidance must use canonical runtime paths in body "
+                    f"(`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/.../runtime/...`), not relative `python3 skills/...`"
                 )
 
             context = _as_string(info.front_matter.get("context"))

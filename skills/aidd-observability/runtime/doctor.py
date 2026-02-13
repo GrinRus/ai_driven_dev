@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root
-from aidd_runtime.runtime import require_plugin_root
+from aidd_runtime import runtime
 
 
 def _format_status(ok: bool) -> str:
@@ -26,12 +26,23 @@ def main(argv: list[str] | None = None) -> int:
     rows: list[tuple[str, bool, str]] = []
 
     try:
-        plugin_root = require_plugin_root()
+        plugin_root = runtime.require_plugin_root()
         rows.append(("CLAUDE_PLUGIN_ROOT", True, str(plugin_root)))
     except RuntimeError as exc:
         rows.append(("CLAUDE_PLUGIN_ROOT", False, str(exc)))
         errors.append("Set CLAUDE_PLUGIN_ROOT to the plugin install path.")
         plugin_root = None
+
+    snapshot = runtime.capture_plugin_write_safety_snapshot()
+    if not snapshot.get("enabled"):
+        rows.append(("plugin write-safety", True, "disabled by AIDD_ALLOW_PLUGIN_WRITES=1"))
+    elif not snapshot.get("supported"):
+        detail = str(snapshot.get("error") or "git status unavailable")
+        rows.append(("plugin write-safety", False, detail))
+        errors.append("Enable plugin write-safety sentinel (git status must be available).")
+    else:
+        dirty_count = len(snapshot.get("entries") or [])
+        rows.append(("plugin write-safety", True, f"enabled (baseline dirty entries: {dirty_count})"))
 
     py_ok = sys.version_info >= (3, 10)
     rows.append(("python3 (>=3.10)", py_ok, sys.executable))

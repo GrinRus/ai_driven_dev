@@ -251,6 +251,52 @@ def _validate_json_file(path: Path, label: str) -> None:
         raise RuntimeError(f"{label} invalid JSON payload at {path}: expected object.")
 
 
+def _enforce_research_artifacts(
+    *,
+    ticket: str,
+    targets_path: Path,
+    manifest_path: Path,
+    worklist_path: Path,
+) -> None:
+    required = (
+        ("rlm targets", targets_path),
+        ("rlm manifest", manifest_path),
+        ("rlm worklist", worklist_path),
+    )
+    missing = [f"{label} ({path})" for label, path in required if not path.exists()]
+    if missing:
+        raise RuntimeError(
+            "mandatory research artifacts missing: "
+            + ", ".join(missing)
+            + " (reason_code=research_artifacts_missing)"
+        )
+    for label, path in required:
+        _validate_json_file(path, label)
+    try:
+        targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"rlm targets unreadable at {targets_path}: {exc}") from exc
+    if str(targets_payload.get("ticket") or "").strip() and str(targets_payload.get("ticket")) != ticket:
+        raise RuntimeError(
+            f"rlm targets ticket mismatch at {targets_path}: expected {ticket}, got {targets_payload.get('ticket')} "
+            "(reason_code=research_artifacts_invalid)"
+        )
+    try:
+        worklist_payload = json.loads(worklist_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"rlm worklist unreadable at {worklist_path}: {exc}") from exc
+    if str(worklist_payload.get("schema") or "").strip() != "aidd.report.pack.v1":
+        raise RuntimeError(
+            f"rlm worklist schema mismatch at {worklist_path}: expected aidd.report.pack.v1 "
+            "(reason_code=research_artifacts_invalid)"
+        )
+    if str(worklist_payload.get("type") or "").strip().lower() != "rlm-worklist":
+        raise RuntimeError(
+            f"rlm worklist type mismatch at {worklist_path}: expected rlm-worklist "
+            "(reason_code=research_artifacts_invalid)"
+        )
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate RLM-only research artifacts for the active ticket.",
@@ -389,6 +435,16 @@ def run(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(f"[aidd] rlm worklist saved to {runtime.rel_path(worklist_path, target)}.")
+    try:
+        _enforce_research_artifacts(
+            ticket=ticket,
+            targets_path=targets_path,
+            manifest_path=manifest_path,
+            worklist_path=worklist_path,
+        )
+    except RuntimeError as exc:
+        print(f"[aidd] ERROR: {exc}", file=sys.stderr)
+        return 2
 
     links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
     rlm_pack_rel = f"reports/research/{ticket}-rlm{_pack_extension()}"

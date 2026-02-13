@@ -8,7 +8,7 @@ import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from aidd_runtime import active_state as _active_state
 from aidd_runtime import stage_lexicon
@@ -168,6 +168,101 @@ def detect_branch(target: Path) -> Optional[str]:
     if not branch or branch.upper() == "HEAD":
         return None
     return branch
+
+
+def _truthy_env(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def plugin_write_safety_enabled() -> bool:
+    return not _truthy_env(os.environ.get("AIDD_ALLOW_PLUGIN_WRITES"))
+
+
+def _plugin_git_status_entries(plugin_root: Path) -> tuple[bool, List[str], str]:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(plugin_root), "status", "--porcelain", "--untracked-files=all"],
+            cwd=plugin_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return False, [], str(exc)
+    if proc.returncode != 0:
+        error = (proc.stderr or proc.stdout or "").strip() or f"git status exit={proc.returncode}"
+        return False, [], error
+    entries = [line.rstrip() for line in (proc.stdout or "").splitlines() if line.strip()]
+    return True, sorted(entries), ""
+
+
+def capture_plugin_write_safety_snapshot() -> Dict[str, Any]:
+    snapshot: Dict[str, Any] = {
+        "enabled": plugin_write_safety_enabled(),
+        "plugin_root": "",
+        "supported": False,
+        "entries": [],
+        "error": "",
+    }
+    try:
+        plugin_root = require_plugin_root()
+    except RuntimeError as exc:
+        snapshot["error"] = str(exc)
+        return snapshot
+    snapshot["plugin_root"] = str(plugin_root)
+    if not snapshot["enabled"]:
+        return snapshot
+    supported, entries, error = _plugin_git_status_entries(plugin_root)
+    snapshot["supported"] = supported
+    snapshot["entries"] = entries
+    snapshot["error"] = error
+    return snapshot
+
+
+def verify_plugin_write_safety_snapshot(
+    snapshot: Dict[str, Any],
+    *,
+    source: str = "",
+) -> tuple[bool, str]:
+    enabled = bool(snapshot.get("enabled"))
+    if not enabled:
+        return True, ""
+    plugin_root_raw = str(snapshot.get("plugin_root") or "").strip()
+    if not plugin_root_raw:
+        return False, "plugin write-safety snapshot missing plugin root (reason_code=plugin_write_safety_invalid)"
+    plugin_root = Path(plugin_root_raw)
+    before_entries = [str(item) for item in snapshot.get("entries") or [] if str(item).strip()]
+    if not bool(snapshot.get("supported")):
+        error = str(snapshot.get("error") or "").strip() or "git status unavailable"
+        return False, (
+            "plugin write-safety unavailable "
+            f"(reason_code=plugin_write_safety_unavailable): {error}"
+        )
+    supported, after_entries, error = _plugin_git_status_entries(plugin_root)
+    if not supported:
+        return False, (
+            "plugin write-safety unavailable "
+            f"(reason_code=plugin_write_safety_unavailable): {error}"
+        )
+    before_set = set(before_entries)
+    after_set = set(after_entries)
+    if before_set == after_set:
+        return True, ""
+    added = sorted(after_set - before_set)
+    removed = sorted(before_set - after_set)
+    details: List[str] = []
+    if added:
+        details.append("added=" + ", ".join(added[:10]))
+    if removed:
+        details.append("removed=" + ", ".join(removed[:10]))
+    source_suffix = f"; source={source}" if source else ""
+    return False, (
+        "plugin source mutation detected "
+        "(reason_code=plugin_write_safety_violation)"
+        + source_suffix
+        + (": " + "; ".join(details) if details else "")
+    )
 
 
 def sanitize_scope_key(value: str) -> str:

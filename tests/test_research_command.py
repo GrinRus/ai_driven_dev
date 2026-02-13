@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.helpers import REPO_ROOT, cli_cmd, cli_env
 
@@ -422,6 +423,54 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertIn("shared RLM API owner", stderr.getvalue())
             targets_path = project_root / "reports" / "research" / "ZERO-1-rlm-targets.json"
             self.assertTrue(targets_path.exists())
+
+    def test_research_command_fails_closed_when_worklist_contract_is_invalid(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-postcondition-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+            write_prd = project_root / "docs" / "prd" / "POST-1.prd.md"
+            write_prd.parent.mkdir(parents=True, exist_ok=True)
+            write_prd.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: postcondition",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "demo.py").write_text("print('postcondition')\n", encoding="utf-8")
+
+            args = research.parse_args(["--ticket", "POST-1", "--auto", "--limit", "5"])
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch(
+                    "aidd_runtime.research.rlm_nodes_build.build_worklist_pack",
+                    return_value={"schema": "broken.schema.v1", "type": "unexpected"},
+                ):
+                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                        code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(code, 2)
+            self.assertIn("research_artifacts_invalid", stderr.getvalue())
 
     def test_research_command_refreshes_existing_summary(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-refresh-") as tmpdir:

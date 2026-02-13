@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -12,6 +13,33 @@ if str(_PLUGIN_ROOT) not in sys.path:
 
 from aidd_runtime import runtime
 from aidd_runtime.research_guard import ResearchValidationError, load_settings, validate_research
+
+
+def _enforce_minimum_rlm_artifacts(target: Path, ticket: str) -> None:
+    required = [
+        target / "reports" / "research" / f"{ticket}-rlm-targets.json",
+        target / "reports" / "research" / f"{ticket}-rlm-manifest.json",
+        target / "reports" / "research" / f"{ticket}-rlm.worklist.pack.json",
+    ]
+    missing = [runtime.rel_path(path, target) for path in required if not path.exists()]
+    if missing:
+        raise RuntimeError(
+            "BLOCK: missing mandatory RLM artifacts for plan gate "
+            f"(reason_code=research_artifacts_missing): {', '.join(missing)}"
+        )
+    for path in required:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise RuntimeError(
+                "BLOCK: invalid RLM artifact JSON "
+                f"(reason_code=research_artifacts_invalid): {runtime.rel_path(path, target)} ({exc})"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                "BLOCK: invalid RLM artifact payload "
+                f"(reason_code=research_artifacts_invalid): {runtime.rel_path(path, target)} (expected object)"
+            )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -60,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("[aidd] research gate disabled; nothing to validate.")
         return 0
+
+    _enforce_minimum_rlm_artifacts(target, ticket)
 
     label = runtime.format_ticket_label(context, fallback=ticket)
     details = [f"status: {summary.status}"]

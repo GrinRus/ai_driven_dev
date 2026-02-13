@@ -40,6 +40,17 @@ def run_gate(root: Path, ticket: str, review_body: str) -> int:
 
 
 class PlanReviewGateTests(unittest.TestCase):
+    def test_parse_args_accepts_plan_path_alias(self) -> None:
+        args = plan_review_gate.parse_args(
+            [
+                "--ticket",
+                "DEMO-PLAN-ALIAS",
+                "--plan-path",
+                "docs/plan/DEMO-PLAN-ALIAS.md",
+            ]
+        )
+        self.assertEqual(args.file_path, "docs/plan/DEMO-PLAN-ALIAS.md")
+
     def test_action_items_only_section_is_enforced(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = ensure_project_root(Path(tmpdir))

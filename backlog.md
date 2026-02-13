@@ -1058,7 +1058,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ## Wave 99 — E2E audit fallout hardening (TST-001)
 
-_Статус: активен (re-open). Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+_Статус: завершен. Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
 
 - [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
   - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
@@ -1409,7 +1409,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
 
 ### Wave 99H — TST-001 RCA closure (path/liveness/write-safety + workspace fallout)
 
-- [ ] **W99-34 (P0) Stage skill runtime-path contract: canonical `${CLAUDE_PLUGIN_ROOT}` everywhere (no relative `python3 skills/...`)** `skills/idea-new/SKILL.md`, `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `skills/spec-interview/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/status/SKILL.md`:
+- [x] **W99-34 (P0) Stage skill runtime-path contract: canonical `${CLAUDE_PLUGIN_ROOT}` everywhere (no relative `python3 skills/...`)** `skills/idea-new/SKILL.md`, `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `skills/spec-interview/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/status/SKILL.md`:
   - удалить user-facing вызовы runtime через относительные пути (`python3 skills/...`) в stage contracts/steps/examples;
   - зафиксировать единый canonical формат вызова runtime (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/*.py`) для non-interactive `claude -p` path;
   - добавить lint guard на запрет runtime refs `python3 skills/.../runtime/...` в user-invocable stage skills.
@@ -1419,7 +1419,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-35 (P0) Auto-loop liveness source unification: timeout branch must account for active stream artifacts** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_run.py`:
+- [x] **W99-35 (P0) Auto-loop liveness source unification: timeout branch must account for active stream artifacts** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_run.py`:
   - в timeout/blocked ветке loop-run учитывать не только `step_payload.stream_*`, но и фактические `cli.loop-step*.stream.jsonl/.log` артефакты при наличии;
   - исключить false `seed_stage_silent_stall`, если main log статичен, но stream продолжает расти;
   - синхронизировать `reason_code` и `stream_liveness.active_source` с реальным источником активности.
@@ -1429,7 +1429,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-36 (P0) Loop-stage command contract hardening for flow-state CLIs (`set_active_stage` args parity)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-flow-state/runtime/set_active_stage.py`, `tests/test_loop_step.py`, `tests/test_set_active_stage.py`:
+- [x] **W99-36 (P0) Loop-stage command contract hardening for flow-state CLIs (`set_active_stage` args parity)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-flow-state/runtime/set_active_stage.py`, `tests/test_loop_step.py`, `tests/test_set_active_stage.py`:
   - убрать/запретить вызовы `set_active_stage.py` с несуществующими флагами (`--ticket`, `--work-item`, `--stage` как named);
   - использовать только текущий runtime contract (`set_active_stage.py <stage> [--allow-custom]`);
   - добавить contract-test на запрет invalid invocation shape в loop orchestration path.
@@ -1439,7 +1439,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** S
   **Risk:** High
 
-- [ ] **W99-37 (P1) Retry-answer contract alignment (`spec-interview` / `plan-review-gate`) between prompt and runtime CLI surfaces** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/spec-interview/runtime/spec_interview.py`, `skills/aidd-core/runtime/plan_review_gate.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/test_plan_review_gate.py`:
+- [x] **W99-37 (P1) Retry-answer contract alignment (`spec-interview` / `plan-review-gate`) between prompt and runtime CLI surfaces** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/spec-interview/runtime/spec_interview.py`, `skills/aidd-core/runtime/plan_review_gate.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/test_plan_review_gate.py`:
   - согласовать retry strategy с фактическими CLI-аргументами runtime (без генерации unsupported `--answers`/`--plan-path`);
   - либо добавить backward-compatible aliases в runtime, либо ужесточить prompt policy на canonical args only;
   - зафиксировать deterministic diagnostics при argument mismatch как contract error, а не “partial success”.
@@ -1449,7 +1449,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W99-38 (P0) Stage success postcondition enforcement (fail-closed if mandatory artifacts missing)** `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_research_command.py`, `tests/test_research_rlm_e2e.py`:
+- [x] **W99-38 (P0) Stage success postcondition enforcement (fail-closed if mandatory artifacts missing)** `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_research_command.py`, `tests/test_research_rlm_e2e.py`:
   - добавить postcondition gates для stage success: обязательные artifacts должны существовать и быть валидными по stage contract;
   - запретить “green” stage-result при явных runtime execution errors в critical subcommands;
   - для research path отдельно enforce RLM-minimum (`rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`) перед success verdict.
@@ -1459,7 +1459,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** L
   **Risk:** High
 
-- [ ] **W99-39 (P1) Scope-safe formatter/test execution in loop implement path (no broad repo rewrites)** `skills/implement/runtime/implement_run.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `hooks/format-and-test.sh`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`:
+- [x] **W99-39 (P1) Scope-safe formatter/test execution in loop implement path (no broad repo rewrites)** `skills/implement/runtime/implement_run.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `hooks/format-and-test.sh`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`:
   - ограничить format/test commands по loop boundaries (`expected_paths`/readmap scope), исключив глобальные формат-прогоны по всему monorepo;
   - добавить guard на массовые diff вне scope и deterministic blocked reason (`diff_boundary_violation`/equivalent);
   - обновить wrapper log diagnostics (что запускалось, в каком scope, почему заблокировано).
@@ -1469,7 +1469,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-40 (P0) Plugin write-safety sentinel in stage launcher/audit path (fail-fast on plugin-source mutation)** `skills/aidd-core/runtime/runtime.py`, `skills/aidd-observability/runtime/doctor.py`, `tests/test_runtime_write_safety.py`, `tests/repo_tools/smoke-workflow.sh`:
+- [x] **W99-40 (P0) Plugin write-safety sentinel in stage launcher/audit path (fail-fast on plugin-source mutation)** `skills/aidd-core/runtime/runtime.py`, `skills/aidd-observability/runtime/doctor.py`, `tests/test_runtime_write_safety.py`, `tests/repo_tools/smoke-workflow.sh`:
   - добавить stage-level guard: фиксировать plugin git status before/after critical stage runs и валидировать неизменность plugin source;
   - при обнаружении записи в plugin repo возвращать deterministic env/policy failure с артефактным diff-summary;
   - сохранить override только для explicit maintainer/debug mode (с явным env gate).
@@ -1479,7 +1479,7 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** High
 
-- [ ] **W99-41 (P1) E2E prompt/runner parity: enforce cwd + plugin-dir invariants in stream-json launcher examples** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+- [x] **W99-41 (P1) E2E prompt/runner parity: enforce cwd + plugin-dir invariants in stream-json launcher examples** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
   - зафиксировать и тестировать инварианты launcher policy (`cd $PROJECT_DIR`, `--plugin-dir \"$PLUGIN_DIR\"`, `--verbose` для stream-json);
   - добавить explicit guard examples для `cwd_wrong` recovery without switching to plugin root runtime artifacts;
   - расширить prompt-contract tests на launcher-форму для всех stage runs.

@@ -228,6 +228,38 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(diagnostics.get("scope_key"), "iteration_id_I3")
             self.assertTrue(diagnostics.get("last_valid_stage_result_path"))
 
+    def test_run_loop_step_timeout_uses_active_stream_artifacts_for_liveness(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SEED-STREAM"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.log", "stream-active\n")
+            write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.jsonl", '{"type":"init"}\n')
+            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["loop-step"], timeout=1)):
+                result = loop_run_module.run_loop_step(
+                    REPO_ROOT,
+                    root.parent,
+                    root,
+                    ticket,
+                    None,
+                    from_qa=None,
+                    work_item_key=None,
+                    select_qa_handoff=False,
+                    stream_mode="text",
+                    timeout_seconds=1,
+                )
+
+            self.assertEqual(result.returncode, 20)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "seed_stage_active_stream_timeout")
+            self.assertTrue(str(payload.get("stream_log_path") or "").endswith(".stream.log"))
+            self.assertTrue(str(payload.get("stream_jsonl_path") or "").endswith(".stream.jsonl"))
+            stream_liveness = payload.get("stream_liveness") or {}
+            self.assertGreater(int(stream_liveness.get("step_stream_log_bytes") or 0), 0)
+            self.assertGreater(int(stream_liveness.get("step_stream_jsonl_bytes") or 0), 0)
+            self.assertEqual(stream_liveness.get("active_source"), "stream")
+
     def test_loop_run_blocked_promotes_permission_reason_code(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

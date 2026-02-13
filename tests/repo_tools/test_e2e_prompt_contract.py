@@ -100,6 +100,25 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{label}: missing stream jsonl probe policy",
             )
 
+    def test_prompt_launcher_policy_enforces_cwd_plugin_dir_and_verbose(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn('cd "$PROJECT_DIR"', text, msg=f"{prompt}: missing cwd launcher invariant")
+            self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
+            self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
+
+    def test_prompt_retry_contract_mentions_runtime_arg_compat_guards(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("--answers", text, msg=f"{prompt}: missing spec-interview retry arg guard")
+            self.assertIn("--plan-path", text, msg=f"{prompt}: missing plan-review-gate retry arg guard")
+            self.assertIn("unsupported args", text, msg=f"{prompt}: missing runtime arg compatibility guard")
+
+    def test_full_prompt_cwd_recovery_stays_on_project_dir(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("refusing to use plugin repository as workspace root", text)
+        self.assertIn("исправь `cwd` на `PROJECT_DIR`", text)
+
     def test_loop_stage_skills_enforce_wrapper_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)

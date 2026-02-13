@@ -73,6 +73,18 @@ def _resolve_tasklist_path(target: Path, override: str | None, ticket: str) -> P
     return runtime.resolve_path_for_target(candidate, target)
 
 
+def _validate_tasklist_postcondition(tasklist_path: Path) -> tuple[bool, str]:
+    if not tasklist_path.exists():
+        return False, "tasklist_missing"
+    try:
+        text = tasklist_path.read_text(encoding="utf-8")
+    except OSError:
+        return False, "tasklist_unreadable"
+    if not text.strip():
+        return False, "tasklist_empty"
+    return True, ""
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -122,10 +134,25 @@ def main(argv: list[str] | None = None) -> int:
             f"[tasks-new] remediation: fix plan/spec/tasklist prerequisites and rerun /feature-dev-aidd:tasks-new {ticket}",
             file=sys.stderr,
         )
-        if args.strict:
+        allow_error_success = os.getenv("AIDD_ALLOW_TASKLIST_ERROR_SUCCESS", "").strip() == "1"
+        if args.strict or not allow_error_success:
             return result.exit_code()
+        print(
+            "[tasks-new] WARN: non-strict success override enabled "
+            "(AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1).",
+            file=sys.stderr,
+        )
     else:
         print(f"[tasks-new] tasklist-check: {result.status}")
+
+    ok_postcondition, postcondition_code = _validate_tasklist_postcondition(tasklist_path)
+    if not ok_postcondition:
+        print(
+            "[tasks-new] ERROR: mandatory tasklist artifact postcondition failed "
+            f"(reason_code={postcondition_code}): {runtime.rel_path(tasklist_path, target)}",
+            file=sys.stderr,
+        )
+        return 2
 
     runtime.maybe_sync_index(target, ticket, slug, reason="tasks-new")
     return 0

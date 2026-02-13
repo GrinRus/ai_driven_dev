@@ -201,6 +201,24 @@ def _latest_valid_stage_result_candidate(target: Path, ticket: str, stage: str) 
     return newest[1], newest[2]
 
 
+def _latest_loop_step_stream_artifact(target: Path, ticket: str, suffix: str) -> Optional[Path]:
+    base = target / "reports" / "loops" / ticket
+    if not base.exists():
+        return None
+    newest: tuple[float, Path] | None = None
+    pattern = f"cli.loop-step.*.stream.{suffix}"
+    for path in base.glob(pattern):
+        if not path.is_file():
+            continue
+        try:
+            mtime = float(path.stat().st_mtime)
+        except OSError:
+            continue
+        if newest is None or mtime > newest[0]:
+            newest = (mtime, path)
+    return newest[1] if newest else None
+
+
 def run_loop_step(
     plugin_root: Path,
     workspace_root: Path,
@@ -278,16 +296,44 @@ def run_loop_step(
             "last_valid_stage_result_updated_at": last_stage_result_updated_at or None,
             "expected_stage_result_path": expected_stage_result_path or None,
         }
+        stream_log_path = _latest_loop_step_stream_artifact(target, ticket, "log")
+        stream_jsonl_path = _latest_loop_step_stream_artifact(target, ticket, "jsonl")
+        stream_log_rel = runtime.rel_path(stream_log_path, target) if stream_log_path else ""
+        stream_jsonl_rel = runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else ""
+        stream_liveness = {
+            "main_log_bytes": 0,
+            "main_log_updated_at": "",
+            "step_stream_log_bytes": _safe_size(stream_log_path),
+            "step_stream_log_updated_at": _safe_updated_at(stream_log_path),
+            "step_stream_jsonl_bytes": _safe_size(stream_jsonl_path),
+            "step_stream_jsonl_updated_at": _safe_updated_at(stream_jsonl_path),
+        }
+        if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
+            stream_liveness["active_source"] = "stream"
+            reason_code = "seed_stage_active_stream_timeout"
+            reason = (
+                f"loop-step watchdog timeout after {timeout_seconds}s while stream artifacts remain active"
+            )
+        else:
+            stream_liveness["active_source"] = "none"
+            reason_code = "seed_stage_silent_stall"
+            reason = f"loop-step watchdog timeout after {timeout_seconds}s without completion"
+        diagnostics["stream_log_path"] = stream_log_rel or None
+        diagnostics["stream_jsonl_path"] = stream_jsonl_rel or None
+        diagnostics["stream_liveness"] = stream_liveness
         payload = {
             "status": "blocked",
             "stage": active_stage or None,
             "scope_key": scope_key or None,
             "work_item_key": active_work_item or None,
-            "reason_code": "seed_stage_silent_stall",
-            "reason": f"loop-step watchdog timeout after {timeout_seconds}s without completion",
+            "reason_code": reason_code,
+            "reason": reason,
             "stage_result_path": expected_stage_result_path or last_stage_result_path or "",
             "stage_result_diagnostics": json.dumps(diagnostics, ensure_ascii=False),
             "stall_timeout_seconds": timeout_seconds,
+            "stream_log_path": stream_log_rel,
+            "stream_jsonl_path": stream_jsonl_rel,
+            "stream_liveness": stream_liveness,
         }
         return subprocess.CompletedProcess(
             args=cmd,

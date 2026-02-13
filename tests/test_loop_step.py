@@ -199,6 +199,185 @@ class LoopStepTests(unittest.TestCase):
             wrapper_logs = list((root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.*.log"))
             self.assertGreaterEqual(len(wrapper_logs), 3)
 
+    def test_loop_step_preflight_calls_set_active_stage_with_positional_stage_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-set-stage-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SET-STAGE"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "work_item_key": work_item_key,
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {"AIDD_SKIP_STAGE_WRAPPERS": "0"},
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            wrapper_logs = sorted(
+                (root / "reports" / "logs" / "implement" / ticket / scope_key).glob("wrapper.preflight.*.log")
+            )
+            self.assertTrue(wrapper_logs, "expected preflight wrapper logs")
+            preflight_text = wrapper_logs[-1].read_text(encoding="utf-8")
+            set_stage_lines = [
+                line
+                for line in preflight_text.splitlines()
+                if line.startswith("$ ") and "set_active_stage.py" in line
+            ]
+            self.assertTrue(set_stage_lines, "set_active_stage call must be present in preflight chain")
+            command_line = set_stage_lines[0]
+            self.assertIn("set_active_stage.py", command_line)
+            self.assertIn(" implement", command_line)
+            self.assertNotIn("--ticket", command_line)
+            self.assertNotIn("--work-item", command_line)
+            self.assertNotIn("--stage", command_line)
+
+    def test_loop_step_implement_propagates_scope_env_and_forces_skip_format(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-scope-env-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SCOPE-ENV"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "work_item_key": work_item_key,
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            runner_script = root.parent / "runner_scope_env.sh"
+            runner_script.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        "echo \"${TEST_SCOPE:-}\" > \"${AIDD_LOOP_SCOPE_CAPTURE:?}\"",
+                        "echo \"${SKIP_FORMAT:-}\" > \"${AIDD_LOOP_SKIP_FORMAT_CAPTURE:?}\"",
+                        "echo \"$*\" >> \"${AIDD_LOOP_RUNNER_LOG:?}\"",
+                        "cat <<'EOF'",
+                        "Status: READY",
+                        "Work item key: iteration_id=I1",
+                        f"Artifacts updated: aidd/docs/tasklist/{ticket}.md",
+                        "Tests: profile=none",
+                        "EOF",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            runner_script.chmod(0o755)
+
+            log_path = root / "runner.log"
+            scope_capture = root / "scope.capture.txt"
+            skip_format_capture = root / "skip_format.capture.txt"
+            env = cli_env(
+                {
+                    "AIDD_LOOP_RUNNER_LOG": str(log_path),
+                    "AIDD_SKIP_STAGE_WRAPPERS": "0",
+                    "AIDD_LOOP_SCOPE_CAPTURE": str(scope_capture),
+                    "AIDD_LOOP_SKIP_FORMAT_CAPTURE": str(skip_format_capture),
+                }
+            )
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-step",
+                    "--ticket",
+                    ticket,
+                    "--runner",
+                    f"bash {runner_script}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            scope_text = scope_capture.read_text(encoding="utf-8").strip()
+            self.assertIn(f"docs/tasklist/{ticket}.md", scope_text)
+            self.assertEqual(skip_format_capture.read_text(encoding="utf-8").strip(), "1")
+
+    def test_loop_step_blocks_mass_out_of_scope_diff_with_deterministic_reason(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrap-diff-boundary-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-DIFF-BOUNDARY"
+            scope_key = "iteration_id_I1"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, work_item=work_item_key)
+            write_tasklist_ready(root, ticket)
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.implement.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": scope_key,
+                        "work_item_key": work_item_key,
+                        "result": "continue",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Loop Step Test"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.email", "loop-step@test"], cwd=root, check=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "baseline"], cwd=root, check=True)
+            for idx in range(0, 8):
+                write_file(root, f"src/disallowed/file_{idx}.txt", "x\n")
+
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                ticket,
+                log_path,
+                {
+                    "AIDD_SKIP_STAGE_WRAPPERS": "0",
+                    "AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE": "3",
+                },
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "diff_boundary_violation")
+            self.assertIn("out_of_scope", str(payload.get("reason") or ""))
+
     def test_loop_step_runs_review_when_stage_implement(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

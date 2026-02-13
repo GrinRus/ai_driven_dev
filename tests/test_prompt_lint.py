@@ -187,7 +187,7 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         lines.append("1. Do the work.")
     lines.append("")
     lines.append("## Command contracts")
-    lines.append(f"### `python3 {STAGE_RUNTIME_ENTRYPOINT[stage]}`")
+    lines.append(f"### `python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]}`")
     lines.append("- When to run: always for canonical stage orchestration.")
     lines.append("- Inputs: `--ticket <ticket>` plus stage-specific optional flags.")
     lines.append("- Outputs: stage artifacts and structured status output.")
@@ -195,7 +195,7 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("- Next action: resolve input/gate issues and rerun the same entrypoint.")
     if stage in {"implement", "review", "qa"}:
         lines.append("")
-        lines.append("### `python3 skills/aidd-docio/runtime/actions_apply.py`")
+        lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`")
         lines.append("- When to run: postflight step in wrapper chain; not a manual recovery shortcut.")
         lines.append("- Inputs: ticket + scope/work-item context + validated actions file.")
         lines.append("- Outputs: applied actions, progress updates, and stage summary artifacts.")
@@ -887,18 +887,18 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not duplicate self slash-stage entrypoint", result.stderr)
 
-    def test_stage_skill_body_claude_plugin_root_runtime_ref_fails(self) -> None:
-        bad_skill = build_stage_skill("qa").replace(
-            "### `python3 skills/qa/runtime/qa_run.py`",
-            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`",
+    def test_stage_skill_body_relative_runtime_ref_fails(self) -> None:
+        bad_skill = build_stage_skill("idea-new").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py`",
+            "### `python3 skills/idea-new/runtime/analyst_check.py`",
             1,
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.write_prompts(root, skill_override={"qa": bad_skill})
+            self.write_prompts(root, skill_override={"idea-new": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("repo-relative runtime paths", result.stderr)
+            self.assertIn("canonical runtime paths", result.stderr)
 
     def test_stage_skill_missing_python_entrypoint_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
