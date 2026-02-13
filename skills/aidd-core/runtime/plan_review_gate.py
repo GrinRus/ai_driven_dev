@@ -25,7 +25,13 @@ FENCE_PREFIXES = ("```", "~~~")
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate plan review readiness.")
     parser.add_argument("--ticket", required=True, help="Active feature ticket.")
-    parser.add_argument("--file-path", default="", help="Path being modified.")
+    parser.add_argument(
+        "--file-path",
+        "--plan-path",
+        dest="file_path",
+        default="",
+        help="Path being modified.",
+    )
     parser.add_argument("--branch", default="", help="Current branch name.")
     parser.add_argument(
         "--config",

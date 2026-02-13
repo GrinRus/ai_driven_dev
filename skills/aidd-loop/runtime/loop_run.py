@@ -11,9 +11,10 @@ import time
 import sys
 import datetime as dt
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from aidd_runtime import runtime
+from aidd_runtime import stage_result_contract
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.loop_pack import (
     is_open_item,
@@ -39,6 +40,16 @@ STREAM_MODE_ALIASES = {
     "true": "text",
     "yes": "text",
 }
+_APPROVAL_MARKERS = (
+    "requires approval",
+    "command requires approval",
+    "manual approval",
+)
+_PERMISSION_MODE_MARKERS = (
+    '"permissionmode":"default"',
+    '"permissionmode": "default"',
+)
+DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
 
 
 def clear_active_mode(root: Path) -> None:
@@ -111,9 +122,115 @@ def resolve_stream_mode(raw: str | None) -> str:
     return STREAM_MODE_ALIASES.get(value, "text")
 
 
+def _resolve_optional_path(target: Path, value: str) -> Optional[Path]:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    return runtime.resolve_path_for_target(Path(raw), target)
+
+
+def _safe_size(path: Optional[Path]) -> int:
+    if path is None or not path.exists():
+        return 0
+    try:
+        return int(path.stat().st_size)
+    except OSError:
+        return 0
+
+
+def _safe_updated_at(path: Optional[Path]) -> str:
+    if path is None or not path.exists():
+        return ""
+    try:
+        ts = dt.datetime.fromtimestamp(path.stat().st_mtime, tz=dt.timezone.utc)
+        return ts.isoformat()
+    except OSError:
+        return ""
+
+
+def _permission_mismatch_from_text(reason: str, diag: str, code: str) -> bool:
+    reason_code = str(code or "").strip().lower()
+    if reason_code == "loop_runner_permissions":
+        return True
+    if reason_code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", ""}:
+        return False
+    joined = f"{reason}\n{diag}".lower()
+    approval_hit = any(marker in joined for marker in _APPROVAL_MARKERS)
+    permission_mode_default = any(marker in joined for marker in _PERMISSION_MODE_MARKERS)
+    return approval_hit and (permission_mode_default or reason_code == "stage_result_missing_or_invalid")
+
+
+def _resolve_step_timeout_seconds(raw: object) -> int:
+    if raw is None or str(raw).strip() == "":
+        raw = os.environ.get("AIDD_LOOP_STEP_TIMEOUT_SECONDS", str(DEFAULT_LOOP_STEP_TIMEOUT_SECONDS))
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        value = DEFAULT_LOOP_STEP_TIMEOUT_SECONDS
+    return max(value, 0)
+
+
+def _latest_valid_stage_result_candidate(target: Path, ticket: str, stage: str) -> tuple[str, str]:
+    if stage not in {"implement", "review", "qa"}:
+        return "", ""
+    base = target / "reports" / "loops" / ticket
+    if not base.exists():
+        return "", ""
+    newest: tuple[float, str, str] | None = None
+    pattern = f"stage.{stage}.result.json"
+    for path in base.rglob(pattern):
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        normalized, error = stage_result_contract.normalize_stage_result_payload(payload, stage)
+        if normalized is None or error:
+            continue
+        try:
+            mtime = float(path.stat().st_mtime)
+        except OSError:
+            continue
+        rel = runtime.rel_path(path, target)
+        updated = str(normalized.get("updated_at") or "")
+        if newest is None or mtime > newest[0]:
+            newest = (mtime, rel, updated)
+    if newest is None:
+        return "", ""
+    return newest[1], newest[2]
+
+
+def _latest_loop_step_stream_artifact(
+    target: Path,
+    ticket: str,
+    suffix: str,
+    *,
+    min_mtime: float | None = None,
+) -> Optional[Path]:
+    base = target / "reports" / "loops" / ticket
+    if not base.exists():
+        return None
+    newest: tuple[float, Path] | None = None
+    pattern = f"cli.loop-step.*.stream.{suffix}"
+    for path in base.glob(pattern):
+        if not path.is_file():
+            continue
+        try:
+            mtime = float(path.stat().st_mtime)
+        except OSError:
+            continue
+        if min_mtime is not None and mtime < min_mtime:
+            continue
+        if newest is None or mtime > newest[0]:
+            newest = (mtime, path)
+    return newest[1] if newest else None
+
+
 def run_loop_step(
     plugin_root: Path,
     workspace_root: Path,
+    target: Path,
     ticket: str,
     runner: str | None,
     *,
@@ -121,6 +238,7 @@ def run_loop_step(
     work_item_key: str | None,
     select_qa_handoff: bool,
     stream_mode: str | None,
+    timeout_seconds: int,
 ) -> subprocess.CompletedProcess[str]:
     cmd = [
         sys.executable,
@@ -143,9 +261,105 @@ def run_loop_step(
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
     env["PYTHONPATH"] = str(plugin_root) if not env.get("PYTHONPATH") else f"{plugin_root}:{env['PYTHONPATH']}"
-    if stream_mode:
-        return subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=None, cwd=workspace_root, env=env)
-    return subprocess.run(cmd, text=True, capture_output=True, cwd=workspace_root, env=env)
+    run_started_at = time.time()
+    try:
+        if stream_mode:
+            return subprocess.run(
+                cmd,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=None,
+                cwd=workspace_root,
+                env=env,
+                timeout=timeout_seconds if timeout_seconds > 0 else None,
+            )
+        return subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+            cwd=workspace_root,
+            env=env,
+            timeout=timeout_seconds if timeout_seconds > 0 else None,
+        )
+    except subprocess.TimeoutExpired as exc:
+        active_stage = str(runtime.read_active_stage(target) or "").strip().lower()
+        active_work_item = str(runtime.read_active_work_item(target) or "").strip()
+        if active_stage == "qa":
+            scope_key = runtime.resolve_scope_key("", ticket)
+        else:
+            scope_key = runtime.resolve_scope_key(active_work_item, ticket)
+        expected_stage_result_path = ""
+        if active_stage in {"implement", "review", "qa"} and scope_key:
+            expected_stage_result_path = f"aidd/reports/loops/{ticket}/{scope_key}/stage.{active_stage}.result.json"
+        last_stage_result_path, last_stage_result_updated_at = _latest_valid_stage_result_candidate(
+            target,
+            ticket,
+            active_stage,
+        )
+        diagnostics = {
+            "active_stage": active_stage or None,
+            "active_work_item": active_work_item or None,
+            "scope_key": scope_key or None,
+            "stall_timeout_seconds": timeout_seconds,
+            "last_valid_stage_result_path": last_stage_result_path or None,
+            "last_valid_stage_result_updated_at": last_stage_result_updated_at or None,
+            "expected_stage_result_path": expected_stage_result_path or None,
+        }
+        stream_log_path = _latest_loop_step_stream_artifact(
+            target,
+            ticket,
+            "log",
+            min_mtime=max(run_started_at - 1.0, 0.0),
+        )
+        stream_jsonl_path = _latest_loop_step_stream_artifact(
+            target,
+            ticket,
+            "jsonl",
+            min_mtime=max(run_started_at - 1.0, 0.0),
+        )
+        stream_log_rel = runtime.rel_path(stream_log_path, target) if stream_log_path else ""
+        stream_jsonl_rel = runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else ""
+        stream_liveness = {
+            "main_log_bytes": 0,
+            "main_log_updated_at": "",
+            "step_stream_log_bytes": _safe_size(stream_log_path),
+            "step_stream_log_updated_at": _safe_updated_at(stream_log_path),
+            "step_stream_jsonl_bytes": _safe_size(stream_jsonl_path),
+            "step_stream_jsonl_updated_at": _safe_updated_at(stream_jsonl_path),
+        }
+        if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
+            stream_liveness["active_source"] = "stream"
+            reason_code = "seed_stage_active_stream_timeout"
+            reason = (
+                f"loop-step watchdog timeout after {timeout_seconds}s while stream artifacts remain active"
+            )
+        else:
+            stream_liveness["active_source"] = "none"
+            reason_code = "seed_stage_silent_stall"
+            reason = f"loop-step watchdog timeout after {timeout_seconds}s without completion"
+        diagnostics["stream_log_path"] = stream_log_rel or None
+        diagnostics["stream_jsonl_path"] = stream_jsonl_rel or None
+        diagnostics["stream_liveness"] = stream_liveness
+        payload = {
+            "status": "blocked",
+            "stage": active_stage or None,
+            "scope_key": scope_key or None,
+            "work_item_key": active_work_item or None,
+            "reason_code": reason_code,
+            "reason": reason,
+            "stage_result_path": expected_stage_result_path or last_stage_result_path or "",
+            "stage_result_diagnostics": json.dumps(diagnostics, ensure_ascii=False),
+            "stall_timeout_seconds": timeout_seconds,
+            "stream_log_path": stream_log_rel,
+            "stream_jsonl_path": stream_jsonl_rel,
+            "stream_liveness": stream_liveness,
+        }
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=BLOCKED_CODE,
+            stdout=json.dumps(payload, ensure_ascii=False),
+            stderr=str(exc),
+        )
 
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
@@ -190,6 +404,11 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Auto-select blocking QA handoff item when repairing from QA.",
     )
+    parser.add_argument(
+        "--step-timeout-seconds",
+        type=int,
+        help="Watchdog timeout for each loop-step subprocess (default from env or 900).",
+    )
     return parser.parse_args(argv)
 
 
@@ -222,6 +441,7 @@ def main(argv: List[str] | None = None) -> int:
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-run.{stamp}.log"
     runner_label = resolve_runner_label(args.runner_label)
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
+    step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
     stream_log_path = None
     stream_jsonl_path = None
     if stream_mode:
@@ -238,17 +458,92 @@ def main(argv: List[str] | None = None) -> int:
         f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label}",
     )
 
+    if args.work_item_key and not runtime.is_valid_work_item_key(args.work_item_key):
+        clear_active_mode(target)
+        payload = {
+            "status": "blocked",
+            "iterations": 0,
+            "exit_code": BLOCKED_CODE,
+            "log_path": runtime.rel_path(log_path, target),
+            "cli_log_path": runtime.rel_path(cli_log_path, target),
+            "runner_label": runner_label,
+            "reason": "--work-item-key must use iteration_id=... or id=...",
+            "reason_code": "work_item_invalid_format",
+            "updated_at": utc_timestamp(),
+        }
+        append_log(
+            log_path,
+            f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_invalid_format",
+        )
+        append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_invalid_format")
+        emit(args.format, payload)
+        return BLOCKED_CODE
+
+    if not args.work_item_key:
+        active_work_item = runtime.read_active_work_item(target)
+        if args.from_qa:
+            if not runtime.is_valid_work_item_key(active_work_item):
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=skip-auto-select-work-item ticket={ticket} "
+                        "reason=from_qa_requested active_work_item=missing_or_invalid"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    f"{utc_timestamp()} event=skip-auto-select-work-item reason=from_qa_requested",
+                )
+        elif not runtime.is_valid_work_item_key(active_work_item):
+            selected_next, pending_count = select_next_work_item(target, ticket, active_work_item)
+            if selected_next:
+                write_active_state(target, ticket=ticket, work_item=selected_next)
+                write_active_stage(target, "implement")
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=auto-select-work-item ticket={ticket} "
+                        f"selected={selected_next} pending_iterations_count={pending_count}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    f"{utc_timestamp()} event=auto-select-work-item selected={selected_next}",
+                )
+            else:
+                clear_active_mode(target)
+                payload = {
+                    "status": "blocked",
+                    "iterations": 0,
+                    "exit_code": BLOCKED_CODE,
+                    "log_path": runtime.rel_path(log_path, target),
+                    "cli_log_path": runtime.rel_path(cli_log_path, target),
+                    "runner_label": runner_label,
+                    "reason": "no active work item and no open iteration found in tasklist",
+                    "reason_code": "work_item_missing",
+                    "updated_at": utc_timestamp(),
+                }
+                append_log(
+                    log_path,
+                    f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked reason_code=work_item_missing",
+                )
+                append_log(cli_log_path, f"{utc_timestamp()} event=blocked iterations=0 reason_code=work_item_missing")
+                emit(args.format, payload)
+                return BLOCKED_CODE
+
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
         result = run_loop_step(
             plugin_root,
             workspace_root,
+            target,
             ticket,
             args.runner,
             from_qa=args.from_qa,
             work_item_key=args.work_item_key,
             select_qa_handoff=args.select_qa_handoff,
             stream_mode=stream_mode,
+            timeout_seconds=step_timeout_seconds,
         )
         if result.returncode not in {DONE_CODE, CONTINUE_CODE, BLOCKED_CODE}:
             status = "error"
@@ -324,6 +619,10 @@ def main(argv: List[str] | None = None) -> int:
             log_reason_code = "stage_result_blocked" if stage_result_path else "blocked_without_reason"
         if parse_error and not str(log_reason_code).strip():
             log_reason_code = "invalid_loop_step_payload"
+        if step_status == "blocked" and _permission_mismatch_from_text(str(reason), str(stage_diag), str(log_reason_code)):
+            log_reason_code = "loop_runner_permissions"
+            if not str(reason).strip():
+                reason = "loop runner permission mismatch"
         if not str(reason).strip() and step_status == "blocked":
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             if parse_error:
@@ -351,6 +650,22 @@ def main(argv: List[str] | None = None) -> int:
         if stream_mode and stream_jsonl_path and step_stream_jsonl:
             step_jsonl_path = runtime.resolve_path_for_target(Path(step_stream_jsonl), target)
             append_stream_file(stream_jsonl_path, step_jsonl_path)
+        step_stream_log_abs = _resolve_optional_path(target, step_stream_log)
+        step_stream_jsonl_abs = _resolve_optional_path(target, step_stream_jsonl)
+        stream_liveness = {
+            "main_log_bytes": _safe_size(log_path),
+            "main_log_updated_at": _safe_updated_at(log_path),
+            "step_stream_log_bytes": _safe_size(step_stream_log_abs),
+            "step_stream_log_updated_at": _safe_updated_at(step_stream_log_abs),
+            "step_stream_jsonl_bytes": _safe_size(step_stream_jsonl_abs),
+            "step_stream_jsonl_updated_at": _safe_updated_at(step_stream_jsonl_abs),
+        }
+        if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
+            stream_liveness["active_source"] = "stream"
+        elif stream_liveness["main_log_bytes"] > 0:
+            stream_liveness["active_source"] = "main_log"
+        else:
+            stream_liveness["active_source"] = "none"
         append_log(
             log_path,
             (
@@ -367,6 +682,13 @@ def main(argv: List[str] | None = None) -> int:
                 + (f" stage_result_diagnostics={stage_diag}" if stage_diag else "")
                 + (f" stage_result_path={stage_result_path}" if stage_result_path else "")
                 + (f" wrapper_logs={','.join(wrapper_logs)}" if wrapper_logs else "")
+                + (
+                    " stream_liveness="
+                    f"main:{stream_liveness['main_log_bytes']},"
+                    f"step_log:{stream_liveness['step_stream_log_bytes']},"
+                    f"step_jsonl:{stream_liveness['step_stream_jsonl_bytes']},"
+                    f"active:{stream_liveness['active_source']}"
+                )
             ),
         )
         append_log(
@@ -451,6 +773,9 @@ def main(argv: List[str] | None = None) -> int:
                 "step_cli_log_path": step_cli_log_path,
                 "stage_result_path": stage_result_path,
                 "wrapper_logs": wrapper_logs,
+                "step_stream_log_path": step_stream_log,
+                "step_stream_jsonl_path": step_stream_jsonl,
+                "stream_liveness": stream_liveness,
                 "last_step": step_payload,
                 "updated_at": utc_timestamp(),
             }

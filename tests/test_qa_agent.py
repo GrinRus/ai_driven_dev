@@ -240,6 +240,109 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(payload["tests_executed"], "expected tests from tasklist to run")
         self.assertEqual(payload["tests_executed"][0]["command"], "echo qa-ok")
 
+    def test_tasklist_inline_json_commands_are_executed_as_separate_entries(self):
+        ticket = "tasklist-inline-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["echo qa-inline-ok", "echo qa-inline-second"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-inline-ok", commands)
+        self.assertIn("echo qa-inline-second", commands)
+        self.assertTrue(all(not str(command).startswith("[") for command in commands))
+
+    def test_tasklist_prefixed_commands_are_normalized_before_exec(self):
+        ticket = "tasklist-prefixed-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["Backend: echo qa-prefixed-backend", "Frontend: echo qa-prefixed-frontend"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-prefixed-backend", commands)
+        self.assertIn("echo qa-prefixed-frontend", commands)
+        self.assertTrue(all("Backend:" not in str(command) for command in commands))
+        self.assertTrue(all("Frontend:" not in str(command) for command in commands))
+
+    def test_tasklist_shell_chain_single_entry_is_blocked(self):
+        ticket = "tasklist-shell-chain"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["echo qa-ok && echo qa-next"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "fail")
+        executed = payload.get("tests_executed") or []
+        self.assertTrue(executed, "expected malformed command diagnostics")
+        self.assertEqual(executed[0].get("reason_code"), "tasklist_shell_chain_single_entry")
+        self.assertIn("&&", str(executed[0].get("command") or ""))
+
+    def test_tasklist_non_command_entry_is_blocked(self):
+        ticket = "tasklist-non-command"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["per-iteration test commands listed below"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+
+        result = self.run_agent("--format", "json")
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "fail")
+        executed = payload.get("tests_executed") or []
+        self.assertTrue(executed, "expected malformed task diagnostics")
+        self.assertEqual(executed[0].get("reason_code"), "tasklist_non_command_entry")
+        self.assertIn("per-iteration test commands listed below", str(executed[0].get("command") or ""))
+
+    def test_qa_accepts_scope_key_alias(self):
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+        result = self.run_agent("--format", "json", "--scope-key", "iteration_id_I1")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("status", payload)
+
     def test_tasklist_profile_none_skips_tests_and_writes_stage_result(self):
         ticket = "tasklist-none"
         write_active_feature(self.project_root, ticket)

@@ -146,7 +146,8 @@ def _has_tasklist_execution(data: dict) -> bool:
 def _commands_from_tasks(tasks: list[str]) -> list[list[str]]:
     commands: list[list[str]] = []
     for raw in tasks:
-        task = _strip_placeholder(str(raw))
+        normalized = tasklist_parser.normalize_test_execution_task(str(raw))
+        task = _strip_placeholder(normalized)
         if not task or task.lower() in {"none", "[]", "(none)", "n/a"}:
             continue
         try:
@@ -156,6 +157,29 @@ def _commands_from_tasks(tasks: list[str]) -> list[list[str]]:
         if parts:
             commands.append(parts)
     return commands
+
+
+def _malformed_task_entries(tasklist_execution: dict) -> list[dict]:
+    raw = tasklist_execution.get("malformed_tasks") if isinstance(tasklist_execution, dict) else []
+    if not isinstance(raw, list):
+        return []
+    malformed: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        task = str(item.get("task") or "").strip()
+        token = str(item.get("token") or "").strip()
+        reason_code = str(item.get("reason_code") or "tasklist_shell_chain_single_entry").strip()
+        if not task:
+            continue
+        malformed.append(
+            {
+                "task": task,
+                "token": token,
+                "reason_code": reason_code,
+            }
+        )
+    return malformed
 
 
 def _normalize_discovery_config(tests_cfg: dict) -> tuple[int, int, list[str]]:
@@ -519,6 +543,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional scope filters (pass-through to qa-agent).",
     )
     parser.add_argument(
+        "--scope-key",
+        dest="scope",
+        action="append",
+        help="Alias for --scope (wrapper compatibility).",
+    )
+    parser.add_argument(
         "--format",
         choices=("json", "text"),
         default="json",
@@ -607,6 +637,7 @@ def main(argv: list[str] | None = None) -> int:
     tasklist_profile = str(tasklist_exec.get("profile") or "").strip().lower() if tasklist_exec_present else ""
     tasklist_tasks = tasklist_exec.get("tasks") or []
     tasklist_filters = tasklist_exec.get("filters") or []
+    tasklist_malformed = _malformed_task_entries(tasklist_exec)
     tasklist_commands: list[list[str]] = []
     if tasklist_exec_present and tasklist_profile != "none":
         tasklist_commands = _commands_from_tasks(list(tasklist_tasks))
@@ -618,8 +649,53 @@ def main(argv: list[str] | None = None) -> int:
 
     tests_executed: list[dict] = []
     tests_summary = "skipped" if skip_tests else "not-run"
+    malformed_tests_blocked = False
+    malformed_reason_codes: set[str] = set()
 
-    if not skip_tests:
+    if not skip_tests and tasklist_malformed:
+        malformed_tests_blocked = True
+        tests_summary = "fail"
+        for item in tasklist_malformed:
+            reason_code = str(item.get("reason_code") or "tasklist_malformed_entry").strip()
+            malformed_reason_codes.add(reason_code)
+            if reason_code == "tasklist_shell_chain_single_entry":
+                diagnostics = (
+                    "AIDD:TEST_EXECUTION contains single-entry shell command chain "
+                    "(token: &&/||/;) and must be split into separate task entries."
+                )
+            else:
+                diagnostics = (
+                    "AIDD:TEST_EXECUTION entry is not an executable command. "
+                    "Use concrete command lines in task entries."
+                )
+            tests_executed.append(
+                {
+                    "command": item.get("task"),
+                    "status": "fail",
+                    "cwd": ".",
+                    "log": "",
+                    "exit_code": None,
+                    "reason_code": reason_code,
+                    "details": diagnostics,
+                    "token": item.get("token") or None,
+                }
+            )
+        if malformed_reason_codes == {"tasklist_shell_chain_single_entry"}:
+            print(
+                "[aidd] BLOCK: malformed AIDD:TEST_EXECUTION task contains shell-chain token; split into separate commands.",
+                file=sys.stderr,
+            )
+        elif malformed_reason_codes == {"tasklist_non_command_entry"}:
+            print(
+                "[aidd] BLOCK: malformed AIDD:TEST_EXECUTION task is not an executable command entry.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "[aidd] BLOCK: malformed AIDD:TEST_EXECUTION tasks detected; fix invalid entries.",
+                file=sys.stderr,
+            )
+    elif not skip_tests:
         tests_executed, tests_summary = _run_qa_tests(
             target,
             workspace_root,
@@ -661,7 +737,24 @@ def main(argv: list[str] | None = None) -> int:
             exit_code = 1
         reason_code = ""
         reason = ""
-        if tests_summary in {"skipped", "not-run"}:
+        if tests_summary == "fail" and malformed_tests_blocked:
+            if len(malformed_reason_codes) == 1:
+                reason_code = next(iter(malformed_reason_codes))
+            else:
+                reason_code = "tasklist_malformed_entry"
+            if reason_code == "tasklist_shell_chain_single_entry":
+                reason = (
+                    "AIDD:TEST_EXECUTION contains single-entry shell chain; "
+                    "split commands into separate task entries"
+                )
+            elif reason_code == "tasklist_non_command_entry":
+                reason = (
+                    "AIDD:TEST_EXECUTION contains non-command task entry; "
+                    "replace prose/labels with executable command"
+                )
+            else:
+                reason = "AIDD:TEST_EXECUTION contains malformed task entries"
+        elif tests_summary in {"skipped", "not-run"}:
             if skip_tests:
                 reason_code = "manual_skip"
                 reason = "qa skip-tests flag"

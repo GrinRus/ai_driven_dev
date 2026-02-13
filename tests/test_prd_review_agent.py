@@ -176,6 +176,45 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertTrue(pack_path.exists(), "PRD pack should be written")
         self.assertFalse(report_path.exists(), "JSON report should be absent in pack-only mode")
 
+    def test_cli_pack_only_accepts_explicit_pack_report_path(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## PRD Review
+                Status: READY
+                """
+            ),
+        )
+
+        pack_report_path = self.project_root / "reports" / "prd" / "demo-feature.pack.json"
+        pack_report_path.parent.mkdir(parents=True, exist_ok=True)
+
+        env = os.environ.copy()
+        env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+        subprocess.run(
+            [
+                *cli_cmd("prd-review"),
+                "--ticket",
+                "demo-feature",
+                "--slug",
+                "demo-feature",
+                "--prd",
+                str(prd),
+                "--report",
+                str(pack_report_path),
+                "--pack-only",
+            ],
+            check=True,
+            cwd=self.workspace,
+            env=env,
+        )
+
+        self.assertTrue(pack_report_path.exists(), "pack-only mode should honor explicit .pack.json path")
+        payload = json.loads(pack_report_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["ticket"], "demo-feature")
+
     def test_cli_default_report_path_under_plugin_root(self):
         workspace = self.workspace
         project_root = self.project_root

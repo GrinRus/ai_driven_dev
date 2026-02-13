@@ -29,6 +29,7 @@ def test_cli_parses_new_subcommands():
     rlm_targets.parse_args(["--ticket", "DEMO-1"])
     spec_interview.parse_args(["--ticket", "DEMO-1"])
     tasks_new.parse_args(["--ticket", "DEMO-1"])
+    tasks_new.parse_args(["--ticket", "DEMO-1", "--no-strict"])
     implement_run.parse_args(["--ticket", "DEMO-1"])
     review_run.parse_args(["--ticket", "DEMO-1"])
     qa_run.parse_args(["--ticket", "DEMO-1"])

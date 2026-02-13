@@ -2,8 +2,8 @@
 description: Run research pipeline and produce researcher report artifacts.
 argument-hint: $1 [note...] [--paths path1,path2] [--keywords kw1,kw2] [--note text]
 lang: ru
-prompt_version: 1.2.31
-source_version: 1.2.31
+prompt_version: 1.2.32
+source_version: 1.2.32
 allowed-tools:
   - Read
   - Edit

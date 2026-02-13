@@ -2,8 +2,8 @@
 description: Run spec interview and update spec.yaml from answers.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.12
-source_version: 1.0.12
+prompt_version: 1.0.13
+source_version: 1.0.13
 allowed-tools:
   - Read
   - Edit

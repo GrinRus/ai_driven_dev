@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from aidd_runtime import loop_step_wrappers
 from tests.helpers import REPO_ROOT, cli_env, ensure_project_root, write_active_state, write_file, write_tasklist_ready
 
 
@@ -103,6 +104,27 @@ class StagePreflightWrapperTests(unittest.TestCase):
 
     def test_qa_preflight(self) -> None:
         self._run_preflight("qa")
+
+    def test_preflight_wrapper_contract_mismatch_on_invalid_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="preflight-wrapper-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-PREFLIGHT-CONTRACT"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            ok, _parsed, message = loop_step_wrappers.run_stage_wrapper(
+                plugin_root=REPO_ROOT,
+                workspace_root=root.parent,
+                stage="implement",
+                kind="preflight",
+                ticket=ticket,
+                scope_key=scope_key,
+                work_item_key="DEMO-BAD-WORK-ITEM",
+            )
+
+            self.assertFalse(ok)
+            self.assertIn("reason_code=preflight_contract_mismatch", message)
+            self.assertIn("invalid work_item_key format", message)
 
 
 if __name__ == "__main__":

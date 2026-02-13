@@ -19,6 +19,29 @@ class ResearchValidationError(RuntimeError):
     """Raised when researcher validation fails."""
 
 
+RESEARCH_TEMPLATE_MARKERS = (
+    "{{feature}}",
+    "{{ticket}}",
+    "{{slug}}",
+    "{{slug_hint}}",
+    "{{date}}",
+    "{{owner}}",
+    "{{prd_overrides}}",
+    "{{paths}}",
+    "{{keywords}}",
+    "{{paths_discovered}}",
+    "{{invalid_paths}}",
+    "{{rlm_status}}",
+    "{{rlm_pack_path}}",
+    "{{rlm_pack_status}}",
+    "{{rlm_pack_bytes}}",
+    "{{rlm_pack_updated_at}}",
+    "{{rlm_warnings}}",
+    "{{rlm_nodes_path}}",
+    "{{rlm_links_path}}",
+)
+
+
 @dataclass
 class ResearchSettings:
     enabled: bool = True
@@ -51,6 +74,24 @@ def _research_cmd_hint(ticket: str) -> str:
 
 def _rlm_links_cmd_hint(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket {ticket}"
+
+
+def _rlm_finalize_cmd_hint(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
+
+
+def _raise_block(reason_code: str, message: str, next_action: str) -> None:
+    raise ResearchValidationError(
+        f"BLOCK: {message} (reason_code={reason_code}). Next action: `{next_action}`."
+    )
+
+
+def _find_template_markers(doc_text: str) -> list[str]:
+    found: list[str] = []
+    for marker in RESEARCH_TEMPLATE_MARKERS:
+        if marker in doc_text:
+            found.append(marker)
+    return found
 
 
 def _normalize_langs(raw: Iterable[str] | None) -> list[str] | None:
@@ -324,22 +365,22 @@ def _validate_rlm_evidence(
     rlm_links_stats_path = root / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
 
     if not rlm_targets_path.exists():
-        raise ResearchValidationError(
-            "BLOCK: отсутствует базовый RLM артефакт rlm-targets.json "
-            "(reason_code=rlm_targets_missing). "
-            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
+        _raise_block(
+            "rlm_targets_missing",
+            "отсутствует базовый RLM артефакт rlm-targets.json",
+            _research_cmd_hint(ticket),
         )
     if not rlm_manifest_path.exists():
-        raise ResearchValidationError(
-            "BLOCK: отсутствует базовый RLM артефакт rlm-manifest.json "
-            "(reason_code=rlm_manifest_missing). "
-            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
+        _raise_block(
+            "rlm_manifest_missing",
+            "отсутствует базовый RLM артефакт rlm-manifest.json",
+            _research_cmd_hint(ticket),
         )
     if not rlm_worklist_path.exists():
-        raise ResearchValidationError(
-            "BLOCK: отсутствует базовый RLM артефакт rlm.worklist.pack "
-            "(reason_code=rlm_worklist_missing). "
-            f"Пересоберите research: `{_research_cmd_hint(ticket)}`."
+        _raise_block(
+            "rlm_worklist_missing",
+            "отсутствует базовый RLM артефакт rlm.worklist.pack",
+            _research_cmd_hint(ticket),
         )
 
     try:
@@ -402,24 +443,28 @@ def _validate_rlm_evidence(
 
     if ready_required:
         if settings.rlm_require_nodes and (not nodes_exists or nodes_total == 0):
-            raise ResearchValidationError(
-                "BLOCK: для текущей стадии нужны RLM nodes (rlm.nodes.jsonl), но они отсутствуют или пусты. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}` "
-                "(reason_code=rlm_nodes_missing)."
+            _raise_block(
+                "rlm_nodes_missing",
+                "для текущей стадии нужны RLM nodes (rlm.nodes.jsonl), но они отсутствуют или пусты",
+                f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}",
             )
         if links_warn:
-            message = "rlm links empty (reason_code=rlm_links_empty_warn)"
-            raise ResearchValidationError(f"BLOCK: {message}. Hint: выполните `{_rlm_links_cmd_hint(ticket)}`.")
+            _raise_block(
+                "rlm_links_empty_warn",
+                "rlm links empty",
+                _rlm_links_cmd_hint(ticket),
+            )
         if settings.rlm_require_pack and not pack_exists:
-            raise ResearchValidationError(
-                "BLOCK: для текущей стадии нужен RLM pack, но он отсутствует. "
-                f"Hint: выполните `${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}` "
-                "(reason_code=rlm_pack_missing)."
+            _raise_block(
+                "rlm_pack_missing",
+                "для текущей стадии нужен RLM pack, но он отсутствует",
+                _rlm_finalize_cmd_hint(ticket),
             )
         if rlm_status != "ready":
-            raise ResearchValidationError(
-                "BLOCK: rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии "
-                "(reason_code=rlm_status_pending)."
+            _raise_block(
+                "rlm_status_pending",
+                "rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии",
+                _rlm_finalize_cmd_hint(ticket),
             )
         return
 
@@ -465,34 +510,54 @@ def validate_research(
     if not doc_path.exists():
         if settings.allow_missing:
             return ResearchCheckSummary(status=None, skipped_reason="missing-allowed")
-        raise ResearchValidationError(
-            f"BLOCK: нет отчёта Researcher для {ticket} → запустите "
-            f"`{_research_cmd_hint(ticket)}` "
-            f"и оформите docs/research/{ticket}.md"
+        _raise_block(
+            "research_report_missing",
+            f"нет отчёта Researcher для {ticket}",
+            _research_cmd_hint(ticket),
         )
 
     try:
         doc_text = doc_path.read_text(encoding="utf-8")
     except Exception:
-        raise ResearchValidationError(f"BLOCK: не удалось прочитать docs/research/{ticket}.md.")
+        _raise_block(
+            "research_report_unreadable",
+            f"не удалось прочитать docs/research/{ticket}.md",
+            _research_cmd_hint(ticket),
+        )
     doc_text_lower = doc_text.lower()
+    stale_markers = _find_template_markers(doc_text)
+    if stale_markers:
+        sample = ", ".join(sorted(stale_markers[:3]))
+        _raise_block(
+            "research_template_stale",
+            f"docs/research/{ticket}.md содержит неразрешённые template markers ({sample})",
+            _research_cmd_hint(ticket),
+        )
 
     status = _extract_status(doc_text)
     required_statuses = settings.require_status or ["reviewed"]
     required_statuses = [item for item in required_statuses if item]
     if required_statuses:
         if not status:
-            raise ResearchValidationError(f"BLOCK: docs/research/{ticket}.md не содержит строки `Status:` или она пуста.")
+            _raise_block(
+                "research_status_missing",
+                f"docs/research/{ticket}.md не содержит строки `Status:` или она пуста",
+                _research_cmd_hint(ticket),
+            )
         if status not in required_statuses:
             if status == "pending" and settings.allow_pending_baseline:
                 baseline_phrase = settings.baseline_phrase.strip().lower()
                 if baseline_phrase and baseline_phrase in doc_text_lower:
                     return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
-                raise ResearchValidationError(
-                    "BLOCK: статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)."
+                _raise_block(
+                    "baseline_missing",
+                    "статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)",
+                    _research_cmd_hint(ticket),
                 )
-            raise ResearchValidationError(
-                f"BLOCK: статус Researcher `{status}` не входит в {required_statuses} → актуализируйте отчёт."
+            _raise_block(
+                "research_status_invalid",
+                f"статус Researcher `{status}` не входит в {required_statuses}",
+                _research_cmd_hint(ticket),
             )
 
     path_count: Optional[int] = None
@@ -502,16 +567,16 @@ def validate_research(
         try:
             payload = json.loads(rlm_targets_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            raise ResearchValidationError(
-                "BLOCK: отсутствует rlm-targets.json "
-                "(reason_code=rlm_targets_missing); "
-                f"пересоберите research командой {_research_cmd_hint(ticket)}."
+            _raise_block(
+                "rlm_targets_missing",
+                "отсутствует rlm-targets.json",
+                _research_cmd_hint(ticket),
             )
         except json.JSONDecodeError:
-            raise ResearchValidationError(
-                "BLOCK: повреждён rlm-targets.json "
-                "(reason_code=rlm_targets_invalid); "
-                f"пересоберите его командой {_research_cmd_hint(ticket)}."
+            _raise_block(
+                "rlm_targets_invalid",
+                "повреждён rlm-targets.json",
+                _research_cmd_hint(ticket),
             )
         targets_payload = payload if isinstance(payload, dict) else {}
 

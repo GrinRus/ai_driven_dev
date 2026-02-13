@@ -1,6 +1,6 @@
 # Research Summary — {{feature}}
 
-Status: pending
+Status: {{doc_status}}
 Last reviewed: {{date}}
 Commands:
   Research scan: python3 ${CLAUDE_PLUGIN_ROOT}/skills/researcher/runtime/research.py --ticket {{ticket}} --auto --paths {{paths}} --keywords {{keywords}}

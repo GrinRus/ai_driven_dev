@@ -71,6 +71,24 @@ class TasklistCheckTests(unittest.TestCase):
                 result.message,
             )
 
+    def test_tasklist_check_fails_on_shell_chain_single_task_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-3B"
+            tasklist = helpers.tasklist_ready_text(ticket).replace(
+                "- tasks: []\n",
+                '- tasks: ["echo smoke && echo next"]\n',
+                1,
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("single-entry shell chain" in entry for entry in result.details or []),
+                result.message,
+            )
+
     def test_tasklist_check_fails_when_next3_contains_checked_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -248,6 +266,37 @@ class TasklistCheckTests(unittest.TestCase):
             self.assertEqual(result.status, "error")
             self.assertTrue(
                 any("spec required" in entry.lower() for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_stage_treats_missing_plan_as_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-12"
+            tasklist = helpers.tasklist_ready_text(ticket).replace("Stage: implement", "Stage: tasklist", 1)
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("plan not found" in entry for entry in result.details or []),
+                result.message,
+            )
+
+    def test_tasklist_stage_treats_invalid_progress_log_as_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ticket = "DEMO-13"
+            tasklist = helpers.tasklist_ready_text(ticket).replace("Stage: implement", "Stage: tasklist", 1)
+            tasklist = tasklist.replace(
+                "## AIDD:PROGRESS_LOG\n- (empty)\n",
+                "## AIDD:PROGRESS_LOG\n- totally invalid progress row\n",
+            )
+            helpers.write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            write_plan(root, ticket)
+            result = tasklist_check.check_tasklist(helpers._project_root(root), ticket)
+            self.assertEqual(result.status, "error")
+            self.assertTrue(
+                any("invalid PROGRESS_LOG format" in entry for entry in result.details or []),
                 result.message,
             )
 

@@ -630,6 +630,10 @@ def cli_env(extra_env: Optional[dict[str, str]] = None) -> dict[str, str]:
     """Return an environment with CLAUDE_PLUGIN_ROOT wired for canonical entrypoints."""
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+    # Integration tests execute runtime entrypoints from a mutable checkout.
+    # Keep plugin write-safety coverage in dedicated unit tests and avoid
+    # flaky false positives in subprocess-based workflow tests.
+    env.setdefault("AIDD_ALLOW_PLUGIN_WRITES", "1")
     existing_pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = str(REPO_ROOT) if not existing_pythonpath else f"{REPO_ROOT}:{existing_pythonpath}"
     if extra_env:

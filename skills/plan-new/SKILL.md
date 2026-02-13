@@ -2,8 +2,8 @@
 description: Draft the implementation plan from PRD and research.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.13
-source_version: 1.1.13
+prompt_version: 1.1.14
+source_version: 1.1.14
 allowed-tools:
   - Read
   - Edit

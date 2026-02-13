@@ -12,6 +12,7 @@ PAYLOAD='{"tool_input":{"file_path":"src/main/kotlin/App.kt"}}'
 export PYTHONDONTWRITEBYTECODE="1"
 WORKDIR=""
 WORKSPACE_ROOT=""
+PLUGIN_GIT_STATUS_BEFORE="$(git -C "$PLUGIN_ROOT" status --porcelain --untracked-files=all 2>/dev/null || true)"
 
 run_cli() {
   local cmd="$1"
@@ -1165,3 +1166,13 @@ echo "$bad_output" | grep -qi "aidd/docs not found" || {
   exit 1
 }
 rm -rf "$BAD_DIR"
+
+PLUGIN_GIT_STATUS_AFTER="$(git -C "$PLUGIN_ROOT" status --porcelain --untracked-files=all 2>/dev/null || true)"
+if [[ "$PLUGIN_GIT_STATUS_AFTER" != "$PLUGIN_GIT_STATUS_BEFORE" ]]; then
+  echo "[smoke] plugin write-safety violation: plugin git status changed during smoke run" >&2
+  echo "[smoke] before:" >&2
+  printf '%s\n' "$PLUGIN_GIT_STATUS_BEFORE" >&2
+  echo "[smoke] after:" >&2
+  printf '%s\n' "$PLUGIN_GIT_STATUS_AFTER" >&2
+  exit 1
+fi

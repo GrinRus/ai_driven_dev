@@ -33,6 +33,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="spec_path",
         help="Optional spec path override (defaults to docs/spec/<ticket>.spec.yaml).",
     )
+    # Backward-compatible no-op alias for legacy retry invocations.
+    parser.add_argument("--answers", dest="answers", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
 

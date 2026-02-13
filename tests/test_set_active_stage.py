@@ -58,6 +58,11 @@ class SetActiveStageTests(unittest.TestCase):
         errors = context_map_validate.validate_context_map_data(readmap)
         self.assertTrue(any("invalid stage: release" in item for item in errors), errors)
 
+    def test_cli_rejects_non_contract_named_flags(self) -> None:
+        with self.assertRaises(SystemExit) as exc:
+            set_active_stage.parse_args(["--ticket", "DEMO-1", "--stage", "implement"])
+        self.assertEqual(int(exc.exception.code), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

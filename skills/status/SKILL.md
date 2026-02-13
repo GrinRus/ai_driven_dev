@@ -2,8 +2,8 @@
 description: Summarize ticket status and key artifacts.
 argument-hint: [$1]
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - "Bash(rg *)"

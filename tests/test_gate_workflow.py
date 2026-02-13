@@ -396,6 +396,63 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_gate_workflow_surfaces_baseline_missing_reason_code(tmp_path):
+    ticket = "demo-baseline-missing"
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", pending_baseline_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
+    write_research_doc(tmp_path, ticket=ticket, status="pending", rlm_status="pending")
+    write_file(tmp_path, f"docs/research/{ticket}.md", "# Research\n\nStatus: pending\n")
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = result.stdout + result.stderr
+    assert "reason_code=baseline_missing" in combined
+    assert "skills/researcher/runtime/research.py" in combined
+
+
+def test_gate_workflow_surfaces_rlm_status_pending_reason_code(tmp_path):
+    ticket = "demo-rlm-pending"
+    write_active_feature(tmp_path, ticket)
+    write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
+    write_file(tmp_path, f"docs/prd/{ticket}.prd.md", approved_prd(ticket))
+    write_json(tmp_path, f"reports/prd/{ticket}.json", REVIEW_REPORT)
+    write_plan_with_review(tmp_path, ticket)
+    tasklist_path = write_tasklist_ready(tmp_path, ticket)
+    append_handoff(tasklist_path, handoff_block("research", f"research:{ticket}:handoff", "Research handoff"))
+    write_research_doc(tmp_path, ticket=ticket, status="reviewed", rlm_status="pending")
+    write_file(
+        tmp_path,
+        f"reports/research/{ticket}-rlm.nodes.jsonl",
+        '{"node_kind":"file","file_id":"file-app","id":"file-app","path":"src/main/kotlin/App.kt","rev_sha":"rev-app"}\n',
+    )
+    write_file(
+        tmp_path,
+        f"reports/research/{ticket}-rlm.links.jsonl",
+        '{"link_kind":"import","source":"file-app","target":"file-app","id":"link-1"}\n',
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-rlm.links.stats.json",
+        {"links_total": 1},
+    )
+    write_json(
+        tmp_path,
+        f"reports/research/{ticket}-rlm.pack.json",
+        {"schema": "aidd.report.pack.v1", "type": "rlm", "status": "pending"},
+    )
+
+    result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
+    assert result.returncode == 2
+    combined = result.stdout + result.stderr
+    assert "reason_code=rlm_status_pending" in combined
+    assert "rlm_finalize.py --ticket" in combined
+
+
 def test_research_required_then_passes_after_report(tmp_path):
     ticket = "demo-checkout"
     write_active_feature(tmp_path, ticket)

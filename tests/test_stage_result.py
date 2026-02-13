@@ -20,6 +20,35 @@ def write_review_context_pack_with_placeholder(root: Path, ticket: str) -> None:
 
 
 class StageResultTests(unittest.TestCase):
+    def test_stage_result_writer_keeps_canonical_schema_field(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-SCHEMA",
+                    "--stage",
+                    "implement",
+                    "--result",
+                    "continue",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-SCHEMA" / "iteration_id_I1" / "stage.implement.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("schema"), "aidd.stage_result.v1")
+            self.assertNotIn("schema_version", payload)
+
     def test_review_missing_tests_soft_continues(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
