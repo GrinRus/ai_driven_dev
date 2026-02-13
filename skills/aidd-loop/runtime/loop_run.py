@@ -201,7 +201,13 @@ def _latest_valid_stage_result_candidate(target: Path, ticket: str, stage: str) 
     return newest[1], newest[2]
 
 
-def _latest_loop_step_stream_artifact(target: Path, ticket: str, suffix: str) -> Optional[Path]:
+def _latest_loop_step_stream_artifact(
+    target: Path,
+    ticket: str,
+    suffix: str,
+    *,
+    min_mtime: float | None = None,
+) -> Optional[Path]:
     base = target / "reports" / "loops" / ticket
     if not base.exists():
         return None
@@ -213,6 +219,8 @@ def _latest_loop_step_stream_artifact(target: Path, ticket: str, suffix: str) ->
         try:
             mtime = float(path.stat().st_mtime)
         except OSError:
+            continue
+        if min_mtime is not None and mtime < min_mtime:
             continue
         if newest is None or mtime > newest[0]:
             newest = (mtime, path)
@@ -253,6 +261,7 @@ def run_loop_step(
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
     env["PYTHONPATH"] = str(plugin_root) if not env.get("PYTHONPATH") else f"{plugin_root}:{env['PYTHONPATH']}"
+    run_started_at = time.time()
     try:
         if stream_mode:
             return subprocess.run(
@@ -296,8 +305,18 @@ def run_loop_step(
             "last_valid_stage_result_updated_at": last_stage_result_updated_at or None,
             "expected_stage_result_path": expected_stage_result_path or None,
         }
-        stream_log_path = _latest_loop_step_stream_artifact(target, ticket, "log")
-        stream_jsonl_path = _latest_loop_step_stream_artifact(target, ticket, "jsonl")
+        stream_log_path = _latest_loop_step_stream_artifact(
+            target,
+            ticket,
+            "log",
+            min_mtime=max(run_started_at - 1.0, 0.0),
+        )
+        stream_jsonl_path = _latest_loop_step_stream_artifact(
+            target,
+            ticket,
+            "jsonl",
+            min_mtime=max(run_started_at - 1.0, 0.0),
+        )
         stream_log_rel = runtime.rel_path(stream_log_path, target) if stream_log_path else ""
         stream_jsonl_rel = runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else ""
         stream_liveness = {

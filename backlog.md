@@ -1459,13 +1459,13 @@ _Статус: завершен. Приоритет 0. Цель — закрыт
   **Effort:** L
   **Risk:** High
 
-- [x] **W99-39 (P1) Scope-safe formatter/test execution in loop implement path (no broad repo rewrites)** `skills/implement/runtime/implement_run.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `hooks/format-and-test.sh`, `tests/test_loop_step.py`, `tests/test_gate_workflow_preflight_contract.py`:
+- [x] **W99-39 (P1) Scope-safe formatter/test execution in loop implement path (no broad repo rewrites)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `tests/test_loop_step.py`:
   - ограничить format/test commands по loop boundaries (`expected_paths`/readmap scope), исключив глобальные формат-прогоны по всему monorepo;
   - добавить guard на массовые diff вне scope и deterministic blocked reason (`diff_boundary_violation`/equivalent);
   - обновить wrapper log diagnostics (что запускалось, в каком scope, почему заблокировано).
   **AC:** implement wrapper path не приводит к массовым изменениям вне активного work-item scope.
   **Deps:** W99-6, W99-18
-  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_gate_workflow_preflight_contract.py`.
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
   **Effort:** M
   **Risk:** High
 

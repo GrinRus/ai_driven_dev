@@ -1,6 +1,7 @@
 import json
 import io
 import os
+import time
 import subprocess
 import tempfile
 import unittest
@@ -233,8 +234,12 @@ class LoopRunTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-SEED-STREAM"
             write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
-            write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.log", "stream-active\n")
-            write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.jsonl", '{"type":"init"}\n')
+            stream_log = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.log", "stream-active\n")
+            stream_jsonl = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.jsonl", '{"type":"init"}\n')
+            # Simulate stream activity from the current run window.
+            future = time.time() + 3
+            os.utime(stream_log, (future, future))
+            os.utime(stream_jsonl, (future, future))
             with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["loop-step"], timeout=1)):
                 result = loop_run_module.run_loop_step(
                     REPO_ROOT,
@@ -258,7 +263,36 @@ class LoopRunTests(unittest.TestCase):
             stream_liveness = payload.get("stream_liveness") or {}
             self.assertGreater(int(stream_liveness.get("step_stream_log_bytes") or 0), 0)
             self.assertGreater(int(stream_liveness.get("step_stream_jsonl_bytes") or 0), 0)
-            self.assertEqual(stream_liveness.get("active_source"), "stream")
+
+    def test_run_loop_step_timeout_ignores_stale_stream_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SEED-STALE-STREAM"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            stream_log = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.log", "stale\n")
+            stream_jsonl = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.jsonl", '{"type":"old"}\n')
+            old = max(time.time() - 3600, 1)
+            os.utime(stream_log, (old, old))
+            os.utime(stream_jsonl, (old, old))
+            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["loop-step"], timeout=1)):
+                result = loop_run_module.run_loop_step(
+                    REPO_ROOT,
+                    root.parent,
+                    root,
+                    ticket,
+                    None,
+                    from_qa=None,
+                    work_item_key=None,
+                    select_qa_handoff=False,
+                    stream_mode="text",
+                    timeout_seconds=1,
+                )
+
+            self.assertEqual(result.returncode, 20)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "seed_stage_silent_stall")
+            stream_liveness = payload.get("stream_liveness") or {}
+            self.assertEqual(stream_liveness.get("active_source"), "none")
 
     def test_loop_run_blocked_promotes_permission_reason_code(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

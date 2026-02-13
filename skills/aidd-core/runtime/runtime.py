@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -17,6 +18,10 @@ from aidd_runtime.resources import DEFAULT_PROJECT_SUBDIR, resolve_project_root 
 
 DEFAULT_REVIEW_REPORT = "aidd/reports/reviewer/{ticket}/{scope_key}.json"
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_PLUGIN_WRITE_SAFETY_IGNORED_SUFFIXES = (".pyc", ".pyo")
+_PLUGIN_WRITE_SAFETY_IGNORED_DIR_MARKERS = ("/__pycache__/", "/.pytest_cache/")
+_PLUGIN_WRITE_SAFETY_IGNORED_PREFIXES = (".pytest_cache/",)
+_PLUGIN_WRITE_SAFETY_IGNORED_BASENAMES = (".coverage",)
 
 
 try:
@@ -178,7 +183,136 @@ def plugin_write_safety_enabled() -> bool:
     return not _truthy_env(os.environ.get("AIDD_ALLOW_PLUGIN_WRITES"))
 
 
-def _plugin_git_status_entries(plugin_root: Path) -> tuple[bool, List[str], str]:
+def plugin_write_safety_strict_unavailable() -> bool:
+    return _truthy_env(os.environ.get("AIDD_PLUGIN_WRITE_SAFETY_STRICT"))
+
+
+def _is_ignorable_plugin_mutation_path(raw: str) -> bool:
+    normalized = str(raw or "").strip().replace("\\", "/").strip("\"'")
+    if not normalized:
+        return False
+    if normalized.endswith(_PLUGIN_WRITE_SAFETY_IGNORED_SUFFIXES):
+        return True
+    wrapped = f"/{normalized}/"
+    if any(marker in wrapped for marker in _PLUGIN_WRITE_SAFETY_IGNORED_DIR_MARKERS):
+        return True
+    if any(normalized.startswith(prefix) for prefix in _PLUGIN_WRITE_SAFETY_IGNORED_PREFIXES):
+        return True
+    if normalized in _PLUGIN_WRITE_SAFETY_IGNORED_BASENAMES:
+        return True
+    if any(normalized.startswith(f"{base}.") for base in _PLUGIN_WRITE_SAFETY_IGNORED_BASENAMES):
+        return True
+    return False
+
+
+def _plugin_status_entry_paths(entry: str) -> List[str]:
+    raw = str(entry or "").rstrip()
+    if not raw:
+        return []
+    payload = raw[3:].strip() if len(raw) > 3 else raw.strip()
+    if not payload:
+        return []
+    if " -> " in payload:
+        left, right = payload.split(" -> ", 1)
+        return [left.strip(), right.strip()]
+    return [payload]
+
+
+def _is_ignorable_status_entry(entry: str) -> bool:
+    paths = _plugin_status_entry_paths(entry)
+    return bool(paths) and all(_is_ignorable_plugin_mutation_path(item) for item in paths)
+
+
+def _plugin_untracked_fingerprint(plugin_root: Path) -> tuple[bool, str, str]:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(plugin_root), "ls-files", "--others", "--exclude-standard", "-z"],
+            cwd=plugin_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return False, "", str(exc)
+    if proc.returncode != 0:
+        error = (proc.stderr or proc.stdout or b"").decode("utf-8", errors="replace").strip()
+        if not error:
+            error = f"git ls-files exit={proc.returncode}"
+        return False, "", error
+
+    hasher = hashlib.sha256()
+    items = sorted(item for item in (proc.stdout or b"").split(b"\x00") if item)
+    for raw in items:
+        rel = os.fsdecode(raw)
+        if _is_ignorable_plugin_mutation_path(rel):
+            continue
+        hasher.update(rel.encode("utf-8", errors="surrogateescape"))
+        hasher.update(b"\x00")
+        candidate = (plugin_root / rel).resolve()
+        if not candidate.exists():
+            hasher.update(b"<missing>")
+            hasher.update(b"\x00")
+            continue
+        try:
+            payload_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        except OSError as exc:
+            return False, "", str(exc)
+        hasher.update(payload_hash.encode("ascii"))
+        hasher.update(b"\x00")
+    return True, hasher.hexdigest(), ""
+
+
+def _plugin_state_fingerprint(plugin_root: Path, entries: List[str]) -> tuple[bool, str, str]:
+    try:
+        stash_proc = subprocess.run(
+            ["git", "-C", str(plugin_root), "stash", "create"],
+            cwd=plugin_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return False, "", str(exc)
+    if stash_proc.returncode != 0:
+        error = (stash_proc.stderr or stash_proc.stdout or "").strip() or f"git stash create exit={stash_proc.returncode}"
+        return False, "", error
+    stash_oid = (stash_proc.stdout or "").strip()
+
+    try:
+        head_proc = subprocess.run(
+            ["git", "-C", str(plugin_root), "rev-parse", "--verify", "HEAD"],
+            cwd=plugin_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return False, "", str(exc)
+    head_oid = ""
+    if head_proc.returncode == 0:
+        head_oid = (head_proc.stdout or "").strip()
+    elif head_proc.returncode != 0:
+        head_oid = "<no-head>"
+
+    ok_untracked, untracked_hash, untracked_error = _plugin_untracked_fingerprint(plugin_root)
+    if not ok_untracked:
+        return False, "", untracked_error
+
+    payload = {
+        "head_oid": head_oid,
+        "stash_oid": stash_oid,
+        "status_entries": entries,
+        "untracked_hash": untracked_hash,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return True, digest, ""
+
+
+def _plugin_git_status_entries(plugin_root: Path) -> tuple[bool, List[str], str, str]:
     try:
         proc = subprocess.run(
             ["git", "-C", str(plugin_root), "status", "--porcelain", "--untracked-files=all"],
@@ -189,12 +323,20 @@ def _plugin_git_status_entries(plugin_root: Path) -> tuple[bool, List[str], str]
             check=False,
         )
     except (FileNotFoundError, OSError) as exc:
-        return False, [], str(exc)
+        return False, [], str(exc), ""
     if proc.returncode != 0:
         error = (proc.stderr or proc.stdout or "").strip() or f"git status exit={proc.returncode}"
-        return False, [], error
-    entries = [line.rstrip() for line in (proc.stdout or "").splitlines() if line.strip()]
-    return True, sorted(entries), ""
+        return False, [], error, ""
+    entries = [
+        line.rstrip()
+        for line in (proc.stdout or "").splitlines()
+        if line.strip() and not _is_ignorable_status_entry(line)
+    ]
+    sorted_entries = sorted(entries)
+    supported, fingerprint, fingerprint_error = _plugin_state_fingerprint(plugin_root, sorted_entries)
+    if not supported:
+        return False, sorted_entries, fingerprint_error, ""
+    return True, sorted_entries, "", fingerprint
 
 
 def capture_plugin_write_safety_snapshot() -> Dict[str, Any]:
@@ -203,6 +345,7 @@ def capture_plugin_write_safety_snapshot() -> Dict[str, Any]:
         "plugin_root": "",
         "supported": False,
         "entries": [],
+        "fingerprint": "",
         "error": "",
     }
     try:
@@ -213,9 +356,10 @@ def capture_plugin_write_safety_snapshot() -> Dict[str, Any]:
     snapshot["plugin_root"] = str(plugin_root)
     if not snapshot["enabled"]:
         return snapshot
-    supported, entries, error = _plugin_git_status_entries(plugin_root)
+    supported, entries, error, fingerprint = _plugin_git_status_entries(plugin_root)
     snapshot["supported"] = supported
     snapshot["entries"] = entries
+    snapshot["fingerprint"] = fingerprint
     snapshot["error"] = error
     return snapshot
 
@@ -228,26 +372,41 @@ def verify_plugin_write_safety_snapshot(
     enabled = bool(snapshot.get("enabled"))
     if not enabled:
         return True, ""
+    strict_unavailable = plugin_write_safety_strict_unavailable()
     plugin_root_raw = str(snapshot.get("plugin_root") or "").strip()
     if not plugin_root_raw:
-        return False, "plugin write-safety snapshot missing plugin root (reason_code=plugin_write_safety_invalid)"
+        error = str(snapshot.get("error") or "").strip() or "plugin root unavailable"
+        message = (
+            "plugin write-safety unavailable "
+            f"(reason_code=plugin_write_safety_unavailable): {error}"
+        )
+        if strict_unavailable:
+            return False, message
+        return True, message
     plugin_root = Path(plugin_root_raw)
     before_entries = [str(item) for item in snapshot.get("entries") or [] if str(item).strip()]
+    before_fingerprint = str(snapshot.get("fingerprint") or "").strip()
     if not bool(snapshot.get("supported")):
         error = str(snapshot.get("error") or "").strip() or "git status unavailable"
-        return False, (
+        message = (
             "plugin write-safety unavailable "
             f"(reason_code=plugin_write_safety_unavailable): {error}"
         )
-    supported, after_entries, error = _plugin_git_status_entries(plugin_root)
+        if strict_unavailable:
+            return False, message
+        return True, message
+    supported, after_entries, error, after_fingerprint = _plugin_git_status_entries(plugin_root)
     if not supported:
-        return False, (
+        message = (
             "plugin write-safety unavailable "
             f"(reason_code=plugin_write_safety_unavailable): {error}"
         )
+        if strict_unavailable:
+            return False, message
+        return True, message
     before_set = set(before_entries)
     after_set = set(after_entries)
-    if before_set == after_set:
+    if before_set == after_set and before_fingerprint and after_fingerprint and before_fingerprint == after_fingerprint:
         return True, ""
     added = sorted(after_set - before_set)
     removed = sorted(before_set - after_set)
@@ -256,6 +415,8 @@ def verify_plugin_write_safety_snapshot(
         details.append("added=" + ", ".join(added[:10]))
     if removed:
         details.append("removed=" + ", ".join(removed[:10]))
+    if not added and not removed:
+        details.append("content_changed_without_status_delta=1")
     source_suffix = f"; source={source}" if source else ""
     return False, (
         "plugin source mutation detected "

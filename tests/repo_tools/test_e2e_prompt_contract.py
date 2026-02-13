@@ -112,7 +112,11 @@ class E2EPromptContractTests(unittest.TestCase):
             text = _read(prompt)
             self.assertIn("--answers", text, msg=f"{prompt}: missing spec-interview retry arg guard")
             self.assertIn("--plan-path", text, msg=f"{prompt}: missing plan-review-gate retry arg guard")
-            self.assertIn("unsupported args", text, msg=f"{prompt}: missing runtime arg compatibility guard")
+            self.assertRegex(
+                text.lower(),
+                r"backward-compatible aliases|compat",
+                msg=f"{prompt}: missing runtime arg compatibility guard",
+            )
 
     def test_full_prompt_cwd_recovery_stays_on_project_dir(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)

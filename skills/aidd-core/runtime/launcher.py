@@ -151,9 +151,11 @@ def run_guarded(
         write_safety_snapshot,
         source=log_path_value.as_posix(),
     )
+    if write_safety_message:
+        level = "ERROR" if not write_safety_ok else "WARN"
+        err_buf.write(f"[aidd] {level}: {write_safety_message}\n")
     if not write_safety_ok:
         wrapped_exit_code = RUNTIME_FAILURE_EXIT_CODE
-        err_buf.write(f"[aidd] ERROR: {write_safety_message}\n")
 
     stdout_text = out_buf.getvalue()
     stderr_text = err_buf.getvalue()

@@ -37,9 +37,16 @@ def main(argv: list[str] | None = None) -> int:
     if not snapshot.get("enabled"):
         rows.append(("plugin write-safety", True, "disabled by AIDD_ALLOW_PLUGIN_WRITES=1"))
     elif not snapshot.get("supported"):
+        strict_unavailable = runtime.plugin_write_safety_strict_unavailable()
         detail = str(snapshot.get("error") or "git status unavailable")
-        rows.append(("plugin write-safety", False, detail))
-        errors.append("Enable plugin write-safety sentinel (git status must be available).")
+        if strict_unavailable:
+            rows.append(("plugin write-safety", False, detail))
+            errors.append(
+                "Enable plugin write-safety sentinel (git status must be available) "
+                "or unset AIDD_PLUGIN_WRITE_SAFETY_STRICT."
+            )
+        else:
+            rows.append(("plugin write-safety", True, f"degraded (non-git plugin install): {detail}"))
     else:
         dirty_count = len(snapshot.get("entries") or [])
         rows.append(("plugin write-safety", True, f"enabled (baseline dirty entries: {dirty_count})"))

@@ -50,7 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-strict",
         dest="strict",
         action="store_false",
-        help="Allow execution to continue even when tasklist-check returns an error.",
+        help="Allow continuation on tasklist-check:error only with AIDD_ALLOW_TASKLIST_ERROR_SUCCESS=1.",
     )
     return parser.parse_args(argv)
 
