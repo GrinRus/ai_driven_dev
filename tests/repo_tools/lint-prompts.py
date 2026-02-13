@@ -106,6 +106,14 @@ LOOP_WRAPPER_CHAIN_RE = re.compile(
     r"(?:actions_apply\.py|postflight|stage_result\.py)",
     re.IGNORECASE | re.DOTALL,
 )
+STAGE_BODY_ENV_RUNTIME_RE = re.compile(
+    r"python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+    re.IGNORECASE,
+)
+LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/aidd-flow-state/runtime/stage_result.py",
+)
 PRELOADED_SKILLS = {
     "aidd-core",
     "aidd-docio",
@@ -852,10 +860,22 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(
                         f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
                     )
+            if STAGE_BODY_ENV_RUNTIME_RE.search(info.body):
+                errors.append(
+                    f"{info.path}: stage guidance should use repo-relative runtime paths in body "
+                    f"(`python3 skills/.../runtime/...`), not `${{CLAUDE_PLUGIN_ROOT}}`"
+                )
 
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
             skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+            if path.parent.name in {"implement", "review", "qa"}:
+                for forbidden_tool in LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS:
+                    if any(forbidden_tool in item for item in skill_tools):
+                        errors.append(
+                            f"{info.path}: loop stage allowed-tools must not include manual recovery surface "
+                            f"`{forbidden_tool}`"
+                        )
 
             python_entrypoint_rel = STAGE_PYTHON_ENTRYPOINTS[path.parent.name]
             python_entrypoint = root / python_entrypoint_rel
@@ -884,9 +904,11 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         errors.append(f"{info.path}: command contracts missing critical command reference `{ref}`")
                 if path.parent.name in {"implement", "review", "qa"}:
                     slash_ref = f"/feature-dev-aidd:{path.parent.name}"
-                    if slash_ref not in contracts_lc:
+                    slash_contract_heading = f"### `{slash_ref}"
+                    if slash_contract_heading in contracts_lc:
                         errors.append(
-                            f"{info.path}: command contracts missing canonical slash-stage reference `{slash_ref}`"
+                            f"{info.path}: command contracts must not duplicate self slash-stage entrypoint "
+                            f"`{slash_ref}`; keep runtime contracts only"
                         )
 
             additional = _extract_section(info.body, "Additional resources")

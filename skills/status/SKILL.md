@@ -2,8 +2,8 @@
 description: Summarize ticket status and key artifacts.
 argument-hint: [$1]
 lang: ru
-prompt_version: 1.0.6
-source_version: 1.0.6
+prompt_version: 1.0.7
+source_version: 1.0.7
 allowed-tools:
   - Read
   - "Bash(rg *)"
@@ -17,12 +17,12 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
-1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py --ticket <ticket>` for the canonical stage entrypoint.
-2. If index data is missing or stale, run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/index_sync.py --ticket <ticket>`.
+1. Run `python3 skills/status/runtime/status.py --ticket <ticket>` for the canonical stage entrypoint.
+2. If index data is missing or stale, run `python3 skills/status/runtime/index_sync.py --ticket <ticket>`.
 3. Return the output contract and the status summary.
 
 ## Command contracts
-### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/status/runtime/status.py`
+### `python3 skills/status/runtime/status.py`
 - When to run: canonical status command for read-only ticket summary.
 - Inputs: optional `--ticket <ticket>` (falls back to active ticket when available).
 - Outputs: consolidated stage/status snapshot and artifact pointers.

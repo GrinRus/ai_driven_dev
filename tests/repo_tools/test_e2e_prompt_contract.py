@@ -32,12 +32,38 @@ FORBIDDEN_DIRECT_MANUAL_RECOVERY_PATTERNS = [
     r"`python3\s+\$\{claude_plugin_root\}/skills/aidd-loop/runtime/preflight_prepare\.py`",
     r"(?:cat|tee|echo).{0,120}stage\.[a-z0-9_.-]*result\.json",
 ]
+FORBIDDEN_LOOP_ALLOWED_TOOL_SURFACES = [
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/aidd-flow-state/runtime/stage_result.py",
+]
 
 
 def _read(path: Path) -> str:
     if not path.exists():
         raise AssertionError(f"missing contract file: {path}")
     return path.read_text(encoding="utf-8")
+
+
+def _front_matter(path: Path) -> str:
+    text = _read(path)
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return ""
+    for idx, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[1:idx])
+    return ""
+
+
+def _body(path: Path) -> str:
+    text = _read(path)
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return text
+    for idx, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[idx + 1 :])
+    return text
 
 
 class E2EPromptContractTests(unittest.TestCase):
@@ -78,13 +104,25 @@ class E2EPromptContractTests(unittest.TestCase):
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)
             lower = text.lower()
+            body_lower = _body(skill_path).lower()
+            frontmatter_lower = _front_matter(skill_path).lower()
             stage = skill_path.parent.name
-            self.assertIn(f"/feature-dev-aidd:{stage}", lower)
             self.assertIn("forbidden", lower)
             self.assertIn("preflight_prepare.py", lower)
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
             self.assertIn("wrapper", lower)
             self.assertIn("actions_apply.py", lower)
+            self.assertNotIn(f"### `/feature-dev-aidd:{stage}", body_lower)
+            self.assertNotRegex(
+                body_lower,
+                rf"python3\s+\$\{{claude_plugin_root\}}/skills/{re.escape(stage)}/runtime/",
+            )
+            for forbidden_surface in FORBIDDEN_LOOP_ALLOWED_TOOL_SURFACES:
+                self.assertNotIn(
+                    forbidden_surface,
+                    frontmatter_lower,
+                    msg=f"{skill_path}: frontmatter allowed-tools must not include {forbidden_surface}",
+                )
             for pattern in FORBIDDEN_DIRECT_MANUAL_RECOVERY_PATTERNS:
                 self.assertIsNone(
                     re.search(pattern, lower),

@@ -70,6 +70,32 @@ class TasklistParserTests(unittest.TestCase):
         self.assertEqual(malformed[0].get("reason_code"), "tasklist_shell_chain_single_entry")
         self.assertEqual(malformed[0].get("token"), "&&")
 
+    def test_parse_test_execution_marks_non_command_entry_as_malformed(self) -> None:
+        section = [
+            "- profile: targeted",
+            '- tasks: ["per-iteration test commands listed below", "pytest -q tests/test_ok.py"]',
+            "- filters: []",
+        ]
+
+        parsed = tasklist_parser.parse_test_execution(section)
+        self.assertEqual(parsed["tasks"], ["pytest -q tests/test_ok.py"])
+        malformed = parsed.get("malformed_tasks") or []
+        self.assertEqual(len(malformed), 1)
+        self.assertEqual(malformed[0].get("reason_code"), "tasklist_non_command_entry")
+        self.assertEqual(malformed[0].get("token"), "")
+
+    def test_parse_test_execution_allows_pattern_argument_command(self) -> None:
+        section = [
+            "- profile: targeted",
+            '- tasks: ["python3 -m pytest -k pattern tests/test_ok.py"]',
+            "- filters: []",
+        ]
+
+        parsed = tasklist_parser.parse_test_execution(section)
+        self.assertEqual(parsed["tasks"], ["python3 -m pytest -k pattern tests/test_ok.py"])
+        malformed = parsed.get("malformed_tasks") or []
+        self.assertEqual(malformed, [])
+
 
 if __name__ == "__main__":
     unittest.main()

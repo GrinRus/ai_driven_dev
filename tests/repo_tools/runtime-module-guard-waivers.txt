@@ -5,3 +5,4 @@ skills/aidd-flow-state/runtime/tasklist_check.py|W96-71 decomposition completed;
 skills/aidd-flow-state/runtime/tasks_derive.py|legacy workflow surface retained; split deferred
 skills/aidd-loop/runtime/loop_pack.py|loop pack orchestration retained for compatibility; split deferred
 skills/aidd-rlm/runtime/reports_pack.py|W96-74 decomposition completed; IO/CLI shell retained in root module
+skills/qa/runtime/qa.py|qa runtime remains monolithic compatibility surface; split deferred after W99 contract stabilization

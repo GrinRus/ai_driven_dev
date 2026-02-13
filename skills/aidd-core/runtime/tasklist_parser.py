@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from typing import Dict, List, Optional, Tuple
 
 
@@ -81,6 +82,10 @@ PATH_TOKEN_RE = re.compile(
 )
 TASK_COMMAND_PREFIX_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 _/+-]{2,40}):\s*(?P<command>.+)$")
 COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+)(?:\s|$)")
+NON_COMMAND_TASK_HINT_RE = re.compile(
+    r"\b(?:per-iteration(?:\s+test)?\s+commands?|iteration-specific\s+patterns?|test\s+commands?\s+listed\s+below|commands?\s+listed\s+below|see\s+below)\b",
+    re.IGNORECASE,
+)
 
 SECTION_HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
 
@@ -207,6 +212,32 @@ def normalize_test_execution_task(raw: str) -> str:
     return command
 
 
+def _looks_like_executable_task(command: str) -> bool:
+    value = str(command or "").strip()
+    if not value:
+        return False
+    if NON_COMMAND_TASK_HINT_RE.search(value):
+        return False
+    lowered = value.lower()
+    if lowered in {"none", "n/a", "not set", "tbd"}:
+        return False
+    try:
+        parts = shlex.split(value)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    head = parts[0].strip()
+    if not head:
+        return False
+    if head.lower() in {"none", "n/a", "not", "tbd"}:
+        return False
+    # Standalone shell builtins are not valid task entries for subprocess-based QA execution.
+    if head == "cd":
+        return False
+    return bool(COMMAND_LIKE_RE.match(head))
+
+
 def detect_shell_chain_token(command: str) -> str:
     """Return shell-chain token when a single task entry encodes chained commands."""
     value = str(command or "")
@@ -265,6 +296,15 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     for raw_task in tasks:
         normalized = normalize_test_execution_task(str(raw_task))
         if normalized:
+            if not _looks_like_executable_task(normalized):
+                malformed_tasks.append(
+                    {
+                        "task": normalized,
+                        "reason_code": "tasklist_non_command_entry",
+                        "token": "",
+                    }
+                )
+                continue
             chain_token = detect_shell_chain_token(normalized)
             if chain_token:
                 malformed_tasks.append(

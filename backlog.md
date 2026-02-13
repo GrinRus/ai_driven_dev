@@ -1365,6 +1365,48 @@ _Статус: активен (re-open). Приоритет 0. Цель — за
   **Effort:** M
   **Risk:** Medium
 
+### Wave 99G — TST-001 contract cleanup (researcher/seed/auto-loop/qa fallout)
+
+- [x] **W99-30 (P0) QA fail-fast for prose entries in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_tasklist_parser.py`, `tests/test_qa_agent.py`:
+  - детектировать и маркировать как malformed scalar/list task entries, которые не выглядят как исполнимая команда (`per-iteration ...`, `iteration-specific patterns`, etc.);
+  - не передавать такие записи в `_run_qa_tests`, возвращать deterministic diagnostics (`reason_code=tasklist_non_command_entry`);
+  - сохранить совместимость с валидными inline/list/scalar command форматами.
+  **AC:** QA не пытается исполнять prose как бинарь; отчёт содержит явный reason code для невалидной task-entry.
+  **Deps:** W99-1, W99-14
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_parser.py tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-31 (P1) QA CLI compatibility alias for `--scope-key`** `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
+  - добавить alias `--scope-key` как эквивалент `--scope` для stage-wrapper/runtime compatibility;
+  - исключить ранний argparse fail (`unrecognized arguments: --scope-key ...`) в QA stage path;
+  - сохранить текущее поведение `--scope` и multi-value semantics.
+  **AC:** `qa.py --scope-key <value>` выполняется без argument parser failure и корректно проксируется в qa-agent.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-32 (P0) Loop-stage SKILL contract cleanup: remove contradictory manual-recovery surfaces** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать из `allowed-tools` прямые operator-level surfaces для manual recovery (`preflight_prepare.py`, `stage_result.py`) в implement/review/qa;
+  - сохранить wrapper-only orchestration guidance как единственный canonical path;
+  - синхронизировать lint-контракт, чтобы противоречие между policy text и allowed-tools не возвращалось.
+  **AC:** loop stage SKILL не разрешают manual preflight/stage_result as operator path; lint блокирует регресс.
+  **Deps:** W99-13, W99-24
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-33 (P1) Prompt contract guard: ban manual recovery surfaces in loop-stage `allowed-tools`** `tests/repo_tools/test_e2e_prompt_contract.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`:
+  - расширить contract-тесты: проверять не только body-политику (`forbidden`), но и frontmatter `allowed-tools` на отсутствие manual recovery surfaces;
+  - зафиксировать forbidden set для implement/review/qa (`preflight_prepare.py`, `stage_result.py`) в test contract;
+  - выровнять тест с текущей e2e policy (`prompt-flow drift (non-canonical stage orchestration)`).
+  **AC:** prompt-contract test детектирует противоречивые `allowed-tools` до runtime/e2e.
+  **Deps:** W99-32
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
