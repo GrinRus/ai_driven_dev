@@ -25,6 +25,8 @@
 - `PROFILE=full|smoke` (default: `full`)
 - `IDEA_NOTE=<формируется на шаге 3>`
 - `LOOP_MODE=loop-run|loop-step` (default: `loop-run`)
+- `BLOCKED_POLICY=strict|ralph` (default: `strict`)
+- `RECOVERABLE_BLOCK_RETRIES=<int>` (default: `2`)
 - `AIDD_HOOKS_MODE=fast|strict` (default: `fast`)
 - `CLAUDE_ARGS=--dangerously-skip-permissions`
 - `STAGE_OUTPUT_MODE=stream-json|text` (default: `stream-json`)
@@ -494,12 +496,13 @@ W94 checks:
 Сделать:
 - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
 - `loop-run` или `loop-step` (по `LOOP_MODE`) через Python runtime:
-  - `python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream`
+  - `python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
   - или `loop_step.py`.
 - сохранить stream liveness и runner-mode диагностику:
   - `07_loop_stream_liveness_check.txt` (main log vs stream jsonl/log growth),
   - `07_loop_runner_mode_check.txt` (`permissionMode`, approval-denied signals),
-  - `07_stage_result_contract_check.txt` (если blocked по `stage_result_missing_or_invalid`).
+  - `07_stage_result_contract_check.txt` (если blocked по `stage_result_missing_or_invalid`),
+  - `07_recoverable_block_policy_check.txt` (`recoverable_blocked`, `recovery_path`, `retry_attempt`).
 
 Если в stream `init` видно `permissionMode=default` и есть `requires approval`:
 - классифицировать как `ENV_MISCONFIG(loop_runner_permissions)`;

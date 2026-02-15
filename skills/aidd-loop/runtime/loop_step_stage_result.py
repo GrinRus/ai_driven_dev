@@ -62,6 +62,21 @@ def _scope_status(status: str, scope_raw: str, scope_canonical: str) -> str:
     return base
 
 
+def _result_status(payload: Dict[str, object]) -> str:
+    result = str(payload.get("result") or "").strip().lower()
+    requested = stage_result_contract.normalize_requested_result(payload.get("requested_result"))
+    effective = stage_result_contract.effective_stage_result(payload)
+    details = [f"result={result or 'unknown'}"]
+    if requested:
+        details.append(f"requested={requested}")
+    if effective and effective != result:
+        details.append(f"effective={effective}")
+    reason_code = str(payload.get("reason_code") or "").strip().lower()
+    if reason_code:
+        details.append(f"reason_code={reason_code}")
+    return "ok(" + ",".join(details) + ")"
+
+
 def _select_candidate(
     candidates: List[Tuple[Path, Dict[str, object], str, str]],
     *,
@@ -152,7 +167,10 @@ def load_stage_result(
             continue
         payload, status = _parse_stage_result(candidate, stage)
         scope_raw, scope_canonical = _candidate_scope(candidate, payload)
-        diagnostics.append((candidate, _scope_status(status, scope_raw, scope_canonical)))
+        status_value = status
+        if payload is not None and not status_value:
+            status_value = _result_status(payload)
+        diagnostics.append((candidate, _scope_status(status_value, scope_raw, scope_canonical)))
         if payload is None:
             continue
         validated.append((candidate, payload, scope_raw, scope_canonical))
@@ -181,6 +199,28 @@ def load_stage_result(
     selected_payload = dict(selected_payload)
     if selected_scope:
         selected_payload["scope_key"] = selected_scope
+    selected_effective_result = stage_result_contract.effective_stage_result(selected_payload)
+    expected_scope_raw = str(scope_key or "").strip()
+    if (
+        expected_scope_raw
+        and selected_scope
+        and selected_scope != expected_scope_raw
+        and selected_effective_result == "blocked"
+    ):
+        diagnostics_text = _stage_result_diagnostics(
+            diagnostics,
+            selected=selected_path,
+        )
+        marker = f"scope_fallback_stale_ignored={selected_scope}"
+        diagnostics_text = f"{diagnostics_text}; {marker}" if diagnostics_text else marker
+        return (
+            None,
+            preferred_path,
+            "stage_result_missing_or_invalid",
+            "",
+            "",
+            diagnostics_text,
+        )
     mismatch_from = scope_key or ""
     mismatch_to = ""
     if scope_key and selected_scope and selected_scope != scope_key:

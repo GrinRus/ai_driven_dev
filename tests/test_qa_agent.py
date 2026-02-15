@@ -1,10 +1,13 @@
 import json
 import os
+import io
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Optional, Dict
+from unittest.mock import patch
 
 from .helpers import (
     REPO_ROOT,
@@ -365,6 +368,33 @@ class QaAgentTests(unittest.TestCase):
         stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
         links = stage_payload.get("evidence_links") or {}
         self.assertEqual(links.get("qa_report"), f"aidd/reports/qa/{ticket}.json")
+
+    def test_qa_stage_result_emit_failure_returns_deterministic_reason_code(self):
+        from aidd_runtime import qa as qa_runtime
+
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.project_root)
+            with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                with patch("aidd_runtime.stage_result.main", side_effect=RuntimeError("emit boom")):
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
+                        code = qa_runtime.main(
+                            [
+                                "--ticket",
+                                "demo-ticket",
+                                "--format",
+                                "json",
+                                "--skip-tests",
+                                "--allow-no-tests",
+                            ]
+                        )
+        finally:
+            os.chdir(cwd)
+
+        self.assertEqual(code, 2)
+        self.assertIn("reason_code=qa_stage_result_emit_failed", stderr.getvalue())
 
     def test_qa_skipped_tests_logged_as_skipped(self):
         write_json(

@@ -877,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
         exit_code = 2
         print("[aidd] BLOCK: QA report status is BLOCKED.", file=sys.stderr)
 
+    stage_result_emit_error = ""
     try:
         stage_result_args = [
             "--ticket",
@@ -907,9 +908,19 @@ def main(argv: list[str] | None = None) -> int:
 
         stage_result_args.extend(["--format", "json"])
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            _stage_result.main(stage_result_args)
-    except Exception:
-        pass
+            stage_result_rc = _stage_result.main(stage_result_args)
+        if stage_result_rc != 0:
+            stage_result_emit_error = f"stage_result.main exited with code {stage_result_rc}"
+    except Exception as exc:
+        stage_result_emit_error = str(exc).strip() or exc.__class__.__name__
+
+    if stage_result_emit_error:
+        exit_code = max(exit_code, 2)
+        print(
+            "[aidd] BLOCK: QA stage-result emission failed "
+            f"(reason_code=qa_stage_result_emit_failed): {stage_result_emit_error}",
+            file=sys.stderr,
+        )
 
     try:
         from aidd_runtime.reports import events as _events

@@ -1284,6 +1284,84 @@ class LoopStepTests(unittest.TestCase):
             self.assertIn("fallback:candidate:", diag)
             self.assertIn("invalid-schema", diag)
 
+    def test_load_stage_result_ignores_cross_scope_blocked_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SCOPE-BLOCKED-FALLBACK"
+            stage = "review"
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/stage.{stage}.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": stage,
+                        "scope_key": "iteration_id_I1",
+                        "result": "blocked",
+                        "reason_code": "stage_result_blocked",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+
+            payload, selected_path, error, mismatch_from, mismatch_to, diag = loop_step_module.load_stage_result(
+                root,
+                ticket,
+                "iteration_id_I9",
+                stage,
+            )
+
+            self.assertIsNone(payload)
+            self.assertTrue(selected_path.as_posix().endswith("/iteration_id_I9/stage.review.result.json"))
+            self.assertEqual(error, "stage_result_missing_or_invalid")
+            self.assertEqual(mismatch_from, "")
+            self.assertEqual(mismatch_to, "")
+            self.assertIn("scope_fallback_stale_ignored=iteration_id_I1", diag)
+
+    def test_loop_step_uses_requested_result_for_soft_blocked_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-REQUESTED-RESULT"
+            write_active_state(root, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/stage.review.result.json",
+                json.dumps(
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "result": "blocked",
+                        "requested_result": "done",
+                        "reason_code": "output_contract_warn",
+                        "reason": "soft downgrade",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                ),
+            )
+            write_file(
+                root,
+                f"reports/loops/{ticket}/iteration_id_I1/review.latest.pack.md",
+                "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n",
+            )
+
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, ticket, log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "done")
+            self.assertEqual(payload.get("stage_requested_result"), "done")
+            self.assertIn("requested_result=done", str(payload.get("stage_result_diagnostics") or ""))
+
+    def test_extract_wrapper_reason_code_qa_stage_result_emit_failed(self) -> None:
+        code = loop_step_module._extract_wrapper_reason_code(
+            "run wrapper failed: reason_code=qa_stage_result_emit_failed stage-result write failed",
+            "stage_result_missing",
+        )
+        self.assertEqual(code, "qa_stage_result_emit_failed")
+
     def test_loop_step_blocks_when_runner_missing_noninteractive_permissions_flag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

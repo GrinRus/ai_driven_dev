@@ -107,6 +107,18 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
 
+    def test_prompt_ralph_blocked_policy_parity(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        for text, label in ((full_text, "full"), (smoke_text, "smoke")):
+            self.assertIn("BLOCKED_POLICY=strict|ralph", text, msg=f"{label}: missing blocked policy variable")
+            self.assertIn("RECOVERABLE_BLOCK_RETRIES", text, msg=f"{label}: missing recoverable retry variable")
+        self.assertIn("--blocked-policy $BLOCKED_POLICY", full_text)
+        self.assertIn("--recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES", full_text)
+        self.assertIn("recoverable_blocked", full_text)
+        self.assertIn("recovery_path", full_text)
+        self.assertIn("retry_attempt", full_text)
+
     def test_prompt_retry_contract_mentions_runtime_arg_compat_guards(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)

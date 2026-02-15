@@ -1058,7 +1058,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ## Wave 99 — E2E audit fallout hardening (TST-001)
 
-_Статус: завершен. Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+_Статус: в работе (Wave 99A–99H закрыты, Wave 99I открыт). Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
 
 - [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
   - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
@@ -1487,6 +1487,68 @@ _Статус: завершен. Приоритет 0. Цель — закрыт
   **Deps:** W99-15, W99-24
   **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
   **Effort:** S
+  **Risk:** Medium
+
+### Wave 99I — Ralph loop unblock hardening (progress-first recovery)
+
+- [x] **W99-42 (P0) Recoverable blocked matrix for auto-loop (`strict` vs `ralph`)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_policy.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - ввести явную матрицу `reason_code -> hard_block|recoverable_block` для loop orchestration;
+  - в режиме `ralph` не завершать loop-run на первом recoverable `blocked`, а выполнять controlled recovery path (bounded retry + stage handoff policy);
+  - сохранить fail-fast для `ENV_BLOCKER`/permission mismatch/write-safety и других hard-block причин.
+  **AC:** recoverable блокировки не обрывают loop-run мгновенно; hard-block причины по-прежнему стопорят процесс детерминированно.
+  **Deps:** W99-25, W99-28, W99-35
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-43 (P0) `requested_result`-aware decisioning в pre-run stage-result ветке loop-step** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `aidd_runtime/stage_result_contract.py`, `tests/test_loop_step.py`, `tests/test_stage_result.py`:
+  - учитывать `requested_result` при интерпретации stage result: различать operator-requested `blocked` и runtime-downgrade из soft/warn причины;
+  - для `requested_result in {continue, done}` + soft reason не возвращать premature `blocked` в seed path;
+  - добавлять `requested_result` в diagnostics/loop logs для прозрачного triage.
+  **AC:** loop-step не делает ложный hard-block, если canonical `result=blocked` получен только из soft деградации, и есть подтверждённый `requested_result`.
+  **Deps:** W99-16, W99-27, W99-42
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_stage_result.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-44 (P0) Scope-safe fallback selection для stage-result candidates (no cross-iteration blocked latch)** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - запретить принятие fallback `blocked` из чужого scope/work-item как источника остановки текущей итерации;
+  - разрешать cross-scope fallback только для совместимых случаев (same work-item alias или non-blocking continuation path);
+  - фиксировать отдельный diagnostics marker (`scope_fallback_stale_ignored`) для прозрачной RCA-трассировки.
+  **AC:** stale stage-result из другой итерации не может ложно заблокировать активный loop-step.
+  **Deps:** W99-17, W99-35, W99-43
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-45 (P1) QA stage-result emission contract: убрать silent swallow и поднять deterministic failure** `skills/qa/runtime/qa.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_qa_agent.py`, `tests/test_loop_step.py`:
+  - убрать broad `except Exception: pass` вокруг записи stage-result в QA runtime path;
+  - при сбое stage-result emission возвращать deterministic `reason_code=qa_stage_result_emit_failed` с сохранением artifact diagnostics;
+  - оставить events-логирование best-effort, но не stage-result path.
+  **AC:** QA не может “успешно” завершиться без валидного `stage.qa.result.json`; loop triage получает прозрачный reason code.
+  **Deps:** W99-31, W99-38
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_loop_step.py tests/test_stage_result.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W99-46 (P0) Non-interactive question-retry automation в loop-step wrappers (one-shot compact answers)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-core/runtime/tasklist_parser.py`, `tests/test_loop_step.py`, `tests/fixtures/loop_step/*`:
+  - для stage-return с вопросами/BLOCKED добавить auto-retry внутри loop path без ручного вмешательства;
+  - формировать compact `AIDD:ANSWERS` (one-line choice codes) из уже доступных runtime артефактов;
+  - выполнять ровно один retry и на втором блоке возвращать deterministic `prompt_flow_blocker` (без бесконечного цикла).
+  **AC:** loop-run в non-interactive режиме закрывает стандартный question-retry path автоматически и не зависает на интерактивных вопросах.
+  **Deps:** W99-24, W99-33, W99-42
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-47 (P1) Prompt/runtime parity для Ralph unblock policy + recovery observability** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `skills/aidd-loop/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/test_loop_run.py`:
+  - синхронизировать prompt policy с runtime режимами блокировок (`strict`/`ralph`) и bounded-recovery semantics;
+  - зафиксировать обязательные поля observability для recoverable блокировок (`recovery_path`, `retry_attempt`, `recoverable_blocked`);
+  - гарантировать, что `strict` остаётся fail-fast без изменения существующего safety поведения.
+  **AC:** prompt-contract и runtime выдают одинаковую модель поведения для recoverable блокировок; расхождения ловятся тестами до e2e.
+  **Deps:** W99-42, W99-46
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py`.
+  **Effort:** M
   **Risk:** Medium
 
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)

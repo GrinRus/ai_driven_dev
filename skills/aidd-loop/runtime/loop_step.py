@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple, Optional, TextIO
 
 from aidd_runtime import claude_stream_render
 from aidd_runtime import runtime
+from aidd_runtime import stage_result_contract
 from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.io_utils import dump_yaml, parse_front_matter, utc_timestamp
 
@@ -30,6 +31,8 @@ WARN_REASON_CODES = {
     "no_boundaries_defined_warn",
     "auto_boundary_extend_warn",
     "review_context_pack_placeholder_warn",
+    "fast_mode_warn",
+    "output_contract_warn",
 }
 HARD_BLOCK_REASON_CODES = {
     "user_approval_required",
@@ -783,6 +786,7 @@ def main(argv: list[str] | None = None) -> int:
     scope_key_mismatch_from = ""
     scope_key_mismatch_to = ""
     stage_result_diag = ""
+    stage_requested_result = ""
 
     if from_qa_requested and stage != "qa":
         reason = f"qa repair requested but active stage is '{stage or 'unset'}'"
@@ -946,7 +950,23 @@ def main(argv: list[str] | None = None) -> int:
         result = str(payload.get("result") or "").strip().lower()
         reason = str(payload.get("reason") or "").strip()
         reason_code = str(payload.get("reason_code") or "").strip().lower()
+        stage_requested_result = stage_result_contract.normalize_requested_result(payload.get("requested_result"))
         result = normalize_stage_result(result, reason_code)
+        if (
+            result == "continue"
+            and stage_requested_result == "done"
+            and reason_code in WARN_REASON_CODES
+        ):
+            result = "done"
+        diag_parts: List[str] = []
+        if diag:
+            diag_parts.append(diag)
+        if stage_requested_result:
+            diag_parts.append(f"requested_result={stage_requested_result}")
+        effective_result = stage_result_contract.effective_stage_result(payload)
+        if effective_result and effective_result != str(payload.get("result") or "").strip().lower():
+            diag_parts.append(f"effective_result={effective_result}")
+        stage_result_diag = "; ".join(diag_parts)
         stage_result_rel = runtime.rel_path(result_path, target)
         if result == "blocked" and stage != "qa":
             return emit_result(
@@ -960,6 +980,8 @@ def main(argv: list[str] | None = None) -> int:
                 reason_code,
                 scope_key=scope_key,
                 stage_result_path=stage_result_rel,
+                stage_result_diag=stage_result_diag,
+                stage_requested_result=stage_requested_result,
                 cli_log_path=cli_log_path,
             )
         if stage == "review":
@@ -982,6 +1004,8 @@ def main(argv: list[str] | None = None) -> int:
                         code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        stage_result_diag=stage_result_diag,
+                        stage_requested_result=stage_requested_result,
                         cli_log_path=cli_log_path,
                     )
                 return emit_result(
@@ -995,6 +1019,8 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    stage_result_diag=stage_result_diag,
+                    stage_requested_result=stage_requested_result,
                     cli_log_path=cli_log_path,
                 )
             if result == "continue":
@@ -1016,6 +1042,8 @@ def main(argv: list[str] | None = None) -> int:
                         code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        stage_result_diag=stage_result_diag,
+                        stage_requested_result=stage_requested_result,
                         cli_log_path=cli_log_path,
                     )
                 next_stage = "implement"
@@ -1033,6 +1061,8 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    stage_result_diag=stage_result_diag,
+                    stage_requested_result=stage_requested_result,
                     cli_log_path=cli_log_path,
                 )
         elif stage == "implement":
@@ -1052,6 +1082,8 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    stage_result_diag=stage_result_diag,
+                    stage_requested_result=stage_requested_result,
                     cli_log_path=cli_log_path,
                 )
         elif stage == "qa":
@@ -1070,6 +1102,8 @@ def main(argv: list[str] | None = None) -> int:
                         reason_code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        stage_result_diag=stage_result_diag,
+                        stage_requested_result=stage_requested_result,
                         cli_log_path=cli_log_path,
                     )
                 return emit_result(
@@ -1083,6 +1117,8 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    stage_result_diag=stage_result_diag,
+                    stage_requested_result=stage_requested_result,
                     cli_log_path=cli_log_path,
                 )
             if result == "blocked":
@@ -1105,6 +1141,8 @@ def main(argv: list[str] | None = None) -> int:
                                 reason_code,
                                 scope_key=scope_key,
                                 stage_result_path=stage_result_rel,
+                                stage_result_diag=stage_result_diag,
+                                stage_requested_result=stage_requested_result,
                                 cli_log_path=cli_log_path,
                             )
                         tasklist_lines = tasklist_path.read_text(encoding="utf-8").splitlines()
@@ -1131,6 +1169,8 @@ def main(argv: list[str] | None = None) -> int:
                             reason_code,
                             scope_key=scope_key,
                             stage_result_path=stage_result_rel,
+                            stage_result_diag=stage_result_diag,
+                            stage_requested_result=stage_requested_result,
                             cli_log_path=cli_log_path,
                         )
 
@@ -1162,6 +1202,8 @@ def main(argv: list[str] | None = None) -> int:
                         reason_code,
                         scope_key=scope_key,
                         stage_result_path=stage_result_rel,
+                        stage_result_diag=stage_result_diag,
+                        stage_requested_result=stage_requested_result,
                         cli_log_path=cli_log_path,
                     )
                 # from-qa repair path continues to runner
@@ -1179,6 +1221,8 @@ def main(argv: list[str] | None = None) -> int:
                     reason_code,
                     scope_key=scope_key,
                     stage_result_path=stage_result_rel,
+                    stage_result_diag=stage_result_diag,
+                    stage_requested_result=stage_requested_result,
                     cli_log_path=cli_log_path,
                 )
         else:
@@ -1794,6 +1838,8 @@ def main(argv: list[str] | None = None) -> int:
         cli_log_path=cli_log_path,
         output_contract_path=output_contract_path,
         output_contract_status=output_contract_status,
+        stage_result_diag=stage_result_diag,
+        stage_requested_result=stage_requested_result,
     )
 
 
@@ -1824,6 +1870,7 @@ def emit_result(
     scope_key_mismatch_from: str = "",
     scope_key_mismatch_to: str = "",
     stage_result_diag: str = "",
+    stage_requested_result: str = "",
     actions_log_path: str = "",
     tests_log_path: str = "",
     wrapper_logs: List[str] | None = None,
@@ -1884,6 +1931,7 @@ def emit_result(
         "scope_key_mismatch_from": scope_key_mismatch_from,
         "scope_key_mismatch_to": scope_key_mismatch_to,
         "stage_result_diagnostics": stage_result_diag,
+        "stage_requested_result": stage_requested_result or None,
         "actions_log_path": actions_log_path,
         "tests_log_path": tests_log_path,
         "wrapper_logs": wrapper_logs or [],

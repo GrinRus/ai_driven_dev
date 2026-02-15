@@ -11,7 +11,7 @@ import time
 import sys
 import datetime as dt
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from aidd_runtime import runtime
 from aidd_runtime import stage_result_contract
@@ -50,6 +50,42 @@ _PERMISSION_MODE_MARKERS = (
     '"permissionmode": "default"',
 )
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
+DEFAULT_BLOCKED_POLICY = "strict"
+DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
+BLOCKED_POLICY_VALUES = {"strict", "ralph"}
+HARD_BLOCK_REASON_CODES = {
+    "loop_runner_permissions",
+    "user_approval_required",
+    "diff_boundary_violation",
+    "wrappers_skipped_unsafe",
+    "preflight_contract_mismatch",
+    "plugin_root_missing",
+    "command_unavailable",
+    "invalid_work_item_key",
+    "review_pack_invalid_schema",
+    "review_pack_v2_required",
+    "review_pack_regen_failed",
+    "review_pack_missing",
+    "review_fix_plan_missing",
+    "qa_stage_result_emit_failed",
+    "output_contract_warn",
+}
+RECOVERABLE_BLOCK_REASON_CODES = {
+    "",
+    "stage_result_missing_or_invalid",
+    "stage_result_blocked",
+    "blocked_without_reason",
+    "invalid_loop_step_payload",
+    "stage_result_missing",
+    "wrapper_chain_missing",
+    "actions_missing",
+    "preflight_missing",
+    "qa_repair_missing_work_item",
+    "qa_repair_no_handoff",
+    "qa_repair_multiple_handoffs",
+    "qa_repair_tasklist_missing",
+    "unsupported_stage_result",
+}
 
 
 def clear_active_mode(root: Path) -> None:
@@ -168,6 +204,78 @@ def _resolve_step_timeout_seconds(raw: object) -> int:
     except (TypeError, ValueError):
         value = DEFAULT_LOOP_STEP_TIMEOUT_SECONDS
     return max(value, 0)
+
+
+def _resolve_blocked_policy(raw: str | None) -> str:
+    value = str(raw or os.environ.get("AIDD_LOOP_BLOCKED_POLICY") or DEFAULT_BLOCKED_POLICY).strip().lower()
+    if value not in BLOCKED_POLICY_VALUES:
+        return DEFAULT_BLOCKED_POLICY
+    return value
+
+
+def _resolve_recoverable_retry_budget(raw: object) -> int:
+    if raw is None or str(raw).strip() == "":
+        raw = os.environ.get("AIDD_LOOP_RECOVERABLE_BLOCK_RETRIES", str(DEFAULT_RECOVERABLE_BLOCK_RETRIES))
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        value = DEFAULT_RECOVERABLE_BLOCK_RETRIES
+    return max(value, 0)
+
+
+def _is_recoverable_block_reason(code: str) -> bool:
+    reason_code = str(code or "").strip().lower()
+    if reason_code in HARD_BLOCK_REASON_CODES:
+        return False
+    if reason_code in RECOVERABLE_BLOCK_REASON_CODES:
+        return True
+    if reason_code.startswith("stage_result_"):
+        return True
+    if reason_code.startswith("qa_repair_"):
+        return True
+    if reason_code.endswith("_warn"):
+        return True
+    return False
+
+
+def _scope_to_work_item_key(scope_key: str) -> str:
+    raw = runtime.sanitize_scope_key(scope_key or "")
+    if raw.startswith("iteration_id_"):
+        suffix = raw[len("iteration_id_"):].strip()
+        if suffix:
+            return f"iteration_id={suffix}"
+    return ""
+
+
+def _apply_recoverable_block_recovery(
+    *,
+    target: Path,
+    ticket: str,
+    stage: str,
+    chosen_scope: str,
+) -> Tuple[str, str]:
+    active_work_item = str(runtime.read_active_work_item(target) or "").strip()
+    if not runtime.is_valid_work_item_key(active_work_item):
+        from_scope = _scope_to_work_item_key(chosen_scope)
+        if from_scope:
+            active_work_item = from_scope
+            write_active_state(target, ticket=ticket, work_item=active_work_item)
+    if stage in {"review", "qa"} and runtime.is_iteration_work_item_key(active_work_item):
+        write_active_stage(target, "implement")
+        return "handoff_to_implement", active_work_item
+    if stage == "implement" and runtime.is_iteration_work_item_key(active_work_item):
+        write_active_stage(target, "implement")
+        return "retry_implement", active_work_item
+    selected_next, _pending = select_next_work_item(target, ticket, active_work_item)
+    if selected_next:
+        write_active_state(target, ticket=ticket, work_item=selected_next)
+        write_active_stage(target, "implement")
+        return "select_next_open_work_item", selected_next
+    if runtime.is_valid_work_item_key(active_work_item):
+        fallback_stage = stage if stage in {"implement", "review", "qa"} else "implement"
+        write_active_stage(target, fallback_stage)
+        return "retry_active_stage", active_work_item
+    return "retry_without_state", ""
 
 
 def _latest_valid_stage_result_candidate(target: Path, ticket: str, stage: str) -> tuple[str, str]:
@@ -409,6 +517,16 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         type=int,
         help="Watchdog timeout for each loop-step subprocess (default from env or 900).",
     )
+    parser.add_argument(
+        "--blocked-policy",
+        choices=("strict", "ralph"),
+        help="Blocked outcome policy (strict|ralph). In ralph mode recoverable blocked reasons trigger bounded retries.",
+    )
+    parser.add_argument(
+        "--recoverable-block-retries",
+        type=int,
+        help="Retry budget for recoverable blocked outcomes in ralph mode (default from env or 2).",
+    )
     return parser.parse_args(argv)
 
 
@@ -442,6 +560,10 @@ def main(argv: List[str] | None = None) -> int:
     runner_label = resolve_runner_label(args.runner_label)
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
+    blocked_policy = _resolve_blocked_policy(getattr(args, "blocked_policy", None))
+    recoverable_retry_budget = _resolve_recoverable_retry_budget(getattr(args, "recoverable_block_retries", None))
+    recoverable_retry_attempt = 0
+    last_recovery_path = ""
     stream_log_path = None
     stream_jsonl_path = None
     if stream_mode:
@@ -455,7 +577,10 @@ def main(argv: List[str] | None = None) -> int:
         )
     append_log(
         cli_log_path,
-        f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label}",
+        (
+            f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label} "
+            f"blocked_policy={blocked_policy} recoverable_retry_budget={recoverable_retry_budget}"
+        ),
     )
 
     if args.work_item_key and not runtime.is_valid_work_item_key(args.work_item_key):
@@ -467,6 +592,7 @@ def main(argv: List[str] | None = None) -> int:
             "log_path": runtime.rel_path(log_path, target),
             "cli_log_path": runtime.rel_path(cli_log_path, target),
             "runner_label": runner_label,
+            "blocked_policy": blocked_policy,
             "reason": "--work-item-key must use iteration_id=... or id=...",
             "reason_code": "work_item_invalid_format",
             "updated_at": utc_timestamp(),
@@ -519,6 +645,7 @@ def main(argv: List[str] | None = None) -> int:
                     "log_path": runtime.rel_path(log_path, target),
                     "cli_log_path": runtime.rel_path(cli_log_path, target),
                     "runner_label": runner_label,
+                    "blocked_policy": blocked_policy,
                     "reason": "no active work item and no open iteration found in tasklist",
                     "reason_code": "work_item_missing",
                     "updated_at": utc_timestamp(),
@@ -554,6 +681,9 @@ def main(argv: List[str] | None = None) -> int:
                 "log_path": runtime.rel_path(log_path, target),
                 "cli_log_path": runtime.rel_path(cli_log_path, target),
                 "runner_label": runner_label,
+                "blocked_policy": blocked_policy,
+                "retry_attempt": recoverable_retry_attempt,
+                "recoverable_retry_budget": recoverable_retry_budget,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
                 "reason": f"loop-step failed ({result.returncode})",
@@ -632,6 +762,7 @@ def main(argv: List[str] | None = None) -> int:
         chosen_scope = repair_scope or scope_key
         if mismatch_to:
             chosen_scope = mismatch_to
+        recoverable_blocked = bool(step_status == "blocked" and _is_recoverable_block_reason(str(log_reason_code)))
         if not stage_result_path and step_status == "blocked":
             step_stage = str(step_payload.get("stage") or "").strip().lower()
             fallback_scope = str(chosen_scope or runtime.resolve_scope_key("", ticket)).strip()
@@ -672,7 +803,8 @@ def main(argv: List[str] | None = None) -> int:
                 f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} "
                 f"result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} "
                 f"exit_code={step_exit_code} reason_code={log_reason_code} runner={runner_label} "
-                f"runner_cmd={runner_effective} reason={reason}"
+                f"runner_cmd={runner_effective} reason={reason} blocked_policy={blocked_policy} "
+                f"recoverable_blocked={'1' if recoverable_blocked else '0'}"
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
@@ -696,7 +828,8 @@ def main(argv: List[str] | None = None) -> int:
             (
                 f"{utc_timestamp()} event=step iteration={iteration} status={step_status} "
                 f"stage={step_payload.get('stage')} scope_key={scope_key} exit_code={step_exit_code} "
-                f"runner_cmd={runner_effective}"
+                f"runner_cmd={runner_effective} blocked_policy={blocked_policy} "
+                f"recoverable_blocked={'1' if recoverable_blocked else '0'}"
             ),
         )
         if step_exit_code == DONE_CODE:
@@ -746,6 +879,9 @@ def main(argv: List[str] | None = None) -> int:
                 "log_path": runtime.rel_path(log_path, target),
                 "cli_log_path": runtime.rel_path(cli_log_path, target),
                 "runner_label": runner_label,
+                "blocked_policy": blocked_policy,
+                "retry_attempt": recoverable_retry_attempt,
+                "recoverable_retry_budget": recoverable_retry_budget,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
                 "last_step": step_payload,
@@ -755,6 +891,47 @@ def main(argv: List[str] | None = None) -> int:
             emit(args.format, payload)
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
+            step_stage = str(step_payload.get("stage") or "").strip().lower()
+            if (
+                blocked_policy == "ralph"
+                and recoverable_blocked
+                and recoverable_retry_attempt < recoverable_retry_budget
+            ):
+                recoverable_retry_attempt += 1
+                recovery_path, recovery_work_item = _apply_recoverable_block_recovery(
+                    target=target,
+                    ticket=ticket,
+                    stage=step_stage,
+                    chosen_scope=str(chosen_scope or ""),
+                )
+                last_recovery_path = recovery_path
+                step_payload = dict(step_payload)
+                step_payload["recoverable_blocked"] = True
+                step_payload["retry_attempt"] = recoverable_retry_attempt
+                step_payload["recovery_path"] = recovery_path
+                step_payload["blocked_policy"] = blocked_policy
+                step_payload["recovery_work_item"] = recovery_work_item or None
+                last_payload = step_payload
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=recoverable-block iteration={iteration} "
+                        f"reason_code={log_reason_code} retry_attempt={recoverable_retry_attempt}/"
+                        f"{recoverable_retry_budget} recovery_path={recovery_path} "
+                        f"recovery_work_item={recovery_work_item or 'n/a'}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=recoverable-block iteration={iteration} "
+                        f"reason_code={log_reason_code} retry_attempt={recoverable_retry_attempt}/"
+                        f"{recoverable_retry_budget} recovery_path={recovery_path}"
+                    ),
+                )
+                if sleep_seconds:
+                    time.sleep(sleep_seconds)
+                continue
             clear_active_mode(target)
             payload = {
                 "status": "blocked",
@@ -763,10 +940,15 @@ def main(argv: List[str] | None = None) -> int:
                 "log_path": runtime.rel_path(log_path, target),
                 "cli_log_path": runtime.rel_path(cli_log_path, target),
                 "runner_label": runner_label,
+                "blocked_policy": blocked_policy,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
                 "reason": reason,
                 "reason_code": log_reason_code,
+                "recoverable_blocked": recoverable_blocked,
+                "retry_attempt": recoverable_retry_attempt,
+                "recoverable_retry_budget": recoverable_retry_budget,
+                "recovery_path": last_recovery_path,
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
                 "step_log_path": step_command_log,
@@ -792,6 +974,10 @@ def main(argv: List[str] | None = None) -> int:
         "log_path": runtime.rel_path(log_path, target),
         "cli_log_path": runtime.rel_path(cli_log_path, target),
         "runner_label": runner_label,
+        "blocked_policy": blocked_policy,
+        "retry_attempt": recoverable_retry_attempt,
+        "recoverable_retry_budget": recoverable_retry_budget,
+        "last_recovery_path": last_recovery_path,
         "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
         "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
         "last_step": last_payload,

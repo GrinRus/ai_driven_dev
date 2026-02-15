@@ -8,6 +8,14 @@ from aidd_runtime import runtime
 
 CANONICAL_STAGE_RESULT_SCHEMA = "aidd.stage_result.v1"
 CANONICAL_STAGE_RESULTS = {"blocked", "continue", "done"}
+SOFT_BLOCK_REASON_CODES = {
+    "out_of_scope_warn",
+    "no_boundaries_defined_warn",
+    "auto_boundary_extend_warn",
+    "review_context_pack_placeholder_warn",
+    "fast_mode_warn",
+    "output_contract_warn",
+}
 _LEGACY_STAGE_RESULT_SCHEMA_RE = re.compile(r"^aidd\.stage_result\.([a-z0-9_-]+)\.v1$")
 _LEGACY_STATUS_TO_RESULT = {
     "ok": "continue",
@@ -24,6 +32,26 @@ _LEGACY_STATUS_TO_RESULT = {
     "fail": "blocked",
     "failed": "blocked",
 }
+
+
+def normalize_requested_result(value: object) -> str:
+    requested = str(value or "").strip().lower()
+    if requested in CANONICAL_STAGE_RESULTS:
+        return requested
+    return ""
+
+
+def effective_stage_result(payload: Dict[str, object]) -> str:
+    result = str(payload.get("result") or "").strip().lower()
+    if result not in CANONICAL_STAGE_RESULTS:
+        return ""
+    requested_result = normalize_requested_result(payload.get("requested_result"))
+    reason_code = str(payload.get("reason_code") or "").strip().lower()
+    # Stage-result may degrade requested continue/done into blocked on soft warnings.
+    # Loop consumers use requested_result to avoid false hard-stop on this downgrade.
+    if result == "blocked" and requested_result in {"continue", "done"} and reason_code in SOFT_BLOCK_REASON_CODES:
+        return requested_result
+    return result
 
 
 def normalize_stage_result_payload(payload: Dict[str, object], stage: str) -> Tuple[Dict[str, object] | None, str]:

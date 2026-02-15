@@ -15,6 +15,8 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 5. Scope guard: out-of-scope -> WARN + handoff; forbidden -> BLOCKED. Never expand boundaries yourself.
 6. Tests: follow loop pack or reviewer policy; do not invent new test requirements.
 7. No large logs/diffs in chat; link to `aidd/reports/**`.
+8. Block policy: `strict` fail-fast on any blocked step; `ralph` allows bounded retries only for recoverable `reason_code` values.
+9. For recoverable blocked retries, emit observability fields: `recoverable_blocked`, `recovery_path`, `retry_attempt`.
 
 ## Preload matrix v2
 - Roles: `implementer`, `reviewer`, `qa`.

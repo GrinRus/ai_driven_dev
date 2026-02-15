@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from aidd_runtime import stage_result_contract
 from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_active_state, write_file
 
 
@@ -20,6 +21,22 @@ def write_review_context_pack_with_placeholder(root: Path, ticket: str) -> None:
 
 
 class StageResultTests(unittest.TestCase):
+    def test_effective_stage_result_uses_requested_result_for_soft_block(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "done",
+            "reason_code": "output_contract_warn",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "done")
+
+    def test_effective_stage_result_keeps_explicit_blocked(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "blocked",
+            "reason_code": "user_approval_required",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "blocked")
+
     def test_stage_result_writer_keeps_canonical_schema_field(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
