@@ -96,6 +96,18 @@ class TasklistParserTests(unittest.TestCase):
         malformed = parsed.get("malformed_tasks") or []
         self.assertEqual(malformed, [])
 
+    def test_parse_test_execution_allows_relative_script_paths(self) -> None:
+        section = [
+            "- profile: targeted",
+            '- tasks: ["tests/repo_tools/ci-lint.sh", "scripts/test.sh --quick"]',
+            "- filters: []",
+        ]
+
+        parsed = tasklist_parser.parse_test_execution(section)
+        self.assertEqual(parsed["tasks"], ["tests/repo_tools/ci-lint.sh", "scripts/test.sh --quick"])
+        malformed = parsed.get("malformed_tasks") or []
+        self.assertEqual(malformed, [])
+
 
 if __name__ == "__main__":
     unittest.main()

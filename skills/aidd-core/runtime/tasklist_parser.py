@@ -81,7 +81,7 @@ PATH_TOKEN_RE = re.compile(
     r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.*/-]+|\b[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b"
 )
 TASK_COMMAND_PREFIX_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 _/+-]{2,40}):\s*(?P<command>.+)$")
-COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+)(?:\s|$)")
+COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+|[A-Za-z0-9_.-]+)(?:\s|$)")
 NON_COMMAND_TASK_HINT_RE = re.compile(
     r"\b(?:per-iteration(?:\s+test)?\s+commands?|iteration-specific\s+patterns?|test\s+commands?\s+listed\s+below|commands?\s+listed\s+below|see\s+below)\b",
     re.IGNORECASE,
