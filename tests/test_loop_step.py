@@ -15,6 +15,10 @@ from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, writ
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
 
 
+def _fixture_json(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
 class LoopStepTests(unittest.TestCase):
     def run_loop_step(self, root: Path, ticket: str, log_path: Path, extra_env: dict | None = None, *args: str):
         runner = FIXTURES / "runner.sh"
@@ -28,6 +32,19 @@ class LoopStepTests(unittest.TestCase):
             cwd=root,
             env=env,
         )
+
+    def test_marker_semantics_scan_filters_template_backup_noise(self) -> None:
+        payload = _fixture_json("tst001_stage_result_missing_diag.json")
+        signal, noise = loop_step_module._scan_marker_semantics(
+            [
+                ("stage_result_diagnostics", str(payload.get("diag") or "")),
+            ]
+        )
+        self.assertTrue(any("aidd/reports/loops/TST-001/iteration_id_I1/stage.implement.result.json" in item for item in signal))
+        self.assertTrue(any("aidd/docs/tasklist/templates/loop.seed.md" in item for item in noise))
+        self.assertTrue(any("aidd/docs/tasklist/TST-001.md.bak" in item for item in noise))
+        self.assertFalse(any("aidd/docs/tasklist/templates/loop.seed.md" in item for item in signal))
+        self.assertFalse(any(".bak" in item for item in signal))
 
     def test_loop_step_runs_implement_when_stage_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -873,19 +890,20 @@ class LoopStepTests(unittest.TestCase):
     def test_loop_step_blocks_on_qa_without_repair(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="qa")
+            write_active_state(root, stage="qa", work_item="iteration_id=I1")
             write_active_state(root, ticket="DEMO-QA")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA",
                 "stage": "qa",
-                "scope_key": "DEMO-QA",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
                 "result": "blocked",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA/DEMO-QA/stage.qa.result.json",
+                "reports/loops/DEMO-QA/iteration_id_I1/stage.qa.result.json",
                 json.dumps(stage_result),
             )
             log_path = root / "runner.log"
@@ -895,19 +913,20 @@ class LoopStepTests(unittest.TestCase):
     def test_loop_step_qa_repair_with_work_item(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="qa")
+            write_active_state(root, stage="qa", work_item="iteration_id=I2")
             write_active_state(root, ticket="DEMO-QA2")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA2",
                 "stage": "qa",
-                "scope_key": "DEMO-QA2",
+                "scope_key": "iteration_id_I2",
+                "work_item_key": "iteration_id=I2",
                 "result": "blocked",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA2/DEMO-QA2/stage.qa.result.json",
+                "reports/loops/DEMO-QA2/iteration_id_I2/stage.qa.result.json",
                 json.dumps(stage_result),
             )
             implement_result = {
@@ -944,19 +963,20 @@ class LoopStepTests(unittest.TestCase):
     def test_loop_step_qa_repair_auto_select_blocks_on_multiple(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="qa")
+            write_active_state(root, stage="qa", work_item="iteration_id=I2")
             write_active_state(root, ticket="DEMO-QA3")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA3",
                 "stage": "qa",
-                "scope_key": "DEMO-QA3",
+                "scope_key": "iteration_id_I2",
+                "work_item_key": "iteration_id=I2",
                 "result": "blocked",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA3/DEMO-QA3/stage.qa.result.json",
+                "reports/loops/DEMO-QA3/iteration_id_I2/stage.qa.result.json",
                 json.dumps(stage_result),
             )
             tasklist = """<!-- handoff:qa start -->
@@ -980,23 +1000,57 @@ class LoopStepTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("reason_code"), "qa_repair_multiple_handoffs")
 
+    def test_loop_step_qa_stage_result_rejects_ticket_scope_in_iteration_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="qa", work_item="iteration_id=I2")
+            write_active_state(root, ticket="DEMO-QA-SCOPE-BLOCK")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-QA-SCOPE-BLOCK",
+                "stage": "qa",
+                "scope_key": "DEMO-QA-SCOPE-BLOCK",
+                "result": "blocked",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-QA-SCOPE-BLOCK/DEMO-QA-SCOPE-BLOCK/stage.qa.result.json",
+                json.dumps(stage_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(
+                root,
+                "DEMO-QA-SCOPE-BLOCK",
+                log_path,
+                None,
+                "--from-qa",
+                "--format",
+                "json",
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("scope_shape_invalid", str(payload.get("reason") or ""))
+
     def test_loop_step_qa_repair_auto_config(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
-            write_active_state(root, stage="qa")
+            write_active_state(root, stage="qa", work_item="iteration_id=I2")
             write_active_state(root, ticket="DEMO-QA4")
             write_json(root, "config/gates.json", {"loop": {"auto_repair_from_qa": True}})
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-QA4",
                 "stage": "qa",
-                "scope_key": "DEMO-QA4",
+                "scope_key": "iteration_id_I2",
+                "work_item_key": "iteration_id=I2",
                 "result": "blocked",
                 "updated_at": "2024-01-02T00:00:00Z",
             }
             write_file(
                 root,
-                "reports/loops/DEMO-QA4/DEMO-QA4/stage.qa.result.json",
+                "reports/loops/DEMO-QA4/iteration_id_I2/stage.qa.result.json",
                 json.dumps(stage_result),
             )
             tasklist = """<!-- handoff:qa start -->
@@ -1151,7 +1205,7 @@ class LoopStepTests(unittest.TestCase):
                 actions_log_rel=f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.json",
             )
             self.assertFalse(ok)
-            self.assertEqual(code, "stage_result_missing")
+            self.assertEqual(code, "wrapper_output_missing")
             self.assertIn("stage.implement.result.json", message)
             self.assertIn("wrapper.run", message)
             self.assertIn("wrapper.postflight", message)
@@ -1159,6 +1213,114 @@ class LoopStepTests(unittest.TestCase):
             self.assertTrue(base_context.exists())
             self.assertTrue(base_loops.exists())
             self.assertTrue(base_logs.exists())
+
+    def test_loop_step_missing_stage_result_after_wrappers_uses_wrapper_output_reason(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrapper-output-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-WRAPPER-OUTPUT"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            fake_stage_result_path = root / "reports" / "loops" / ticket / "iteration_id_I1" / "stage.implement.result.json"
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=True):
+                                with patch(
+                                    "aidd_runtime.loop_step.run_stage_wrapper",
+                                    return_value=(
+                                        True,
+                                        {
+                                            "log_path": (
+                                                "aidd/reports/logs/implement/"
+                                                f"{ticket}/iteration_id_I1/wrapper.preflight.log"
+                                            )
+                                        },
+                                        "",
+                                    ),
+                                ):
+                                    with patch("aidd_runtime.loop_step.run_command", return_value=0):
+                                        with patch(
+                                            "aidd_runtime.loop_step.load_stage_result",
+                                            return_value=(
+                                                None,
+                                                fake_stage_result_path,
+                                                "stage_result_missing_or_invalid",
+                                                "",
+                                                "",
+                                                "candidates=none",
+                                            ),
+                                        ):
+                                            with redirect_stdout(captured):
+                                                code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "wrapper_output_missing")
+            self.assertIn("wrapper run completed without canonical stage-result emission", str(payload.get("reason") or ""))
+            self.assertEqual(payload.get("active_stage_after"), "implement")
+            self.assertEqual(payload.get("active_stage_sync_applied"), True)
+
+    def test_loop_step_tst001_fixture_stale_stage_missing_stage_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-wrapper-output-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "TST001-WRAPPER-OUTPUT"
+            write_active_state(root, ticket=ticket, stage="idea", work_item="iteration_id=I1")
+            fixture = _fixture_json("tst001_stage_result_missing_diag.json")
+            fake_stage_result_path = root / "reports" / "loops" / ticket / "iteration_id_I1" / "stage.implement.result.json"
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=True):
+                                with patch(
+                                    "aidd_runtime.loop_step.run_stage_wrapper",
+                                    return_value=(
+                                        True,
+                                        {
+                                            "log_path": (
+                                                "aidd/reports/logs/implement/"
+                                                f"{ticket}/iteration_id_I1/wrapper.preflight.log"
+                                            )
+                                        },
+                                        "",
+                                    ),
+                                ):
+                                    with patch("aidd_runtime.loop_step.run_command", return_value=0):
+                                        with patch(
+                                            "aidd_runtime.loop_step.load_stage_result",
+                                            return_value=(
+                                                None,
+                                                fake_stage_result_path,
+                                                str(fixture.get("error") or "stage_result_missing_or_invalid"),
+                                                "",
+                                                "",
+                                                str(fixture.get("diag") or "candidates=none"),
+                                            ),
+                                        ):
+                                            with redirect_stdout(captured):
+                                                code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "wrapper_output_missing")
+            self.assertEqual(payload.get("repair_reason_code"), "non_loop_stage_recovered")
+            self.assertEqual(payload.get("active_stage_before"), "implement")
+            self.assertEqual(payload.get("active_stage_after"), "implement")
+            self.assertEqual(payload.get("active_stage_sync_applied"), False)
+            self.assertTrue(payload.get("report_noise_events"))
+            self.assertTrue(payload.get("marker_signal_events"))
 
     def test_loop_step_recovers_scope_from_stage_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -1455,6 +1617,145 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "loop_runner_permissions")
             self.assertIn("non-interactive permissions", str(payload.get("reason") or ""))
+
+    def test_loop_step_auto_retries_question_block_with_compact_answers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-question-retry-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-QUESTION-RETRY"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+
+            fake_stage_result_path = root / "reports" / "loops" / ticket / "iteration_id_I1" / "stage.implement.result.json"
+            commands: list[list[str]] = []
+
+            def _fake_run_command(command: list[str], cwd: Path, log_path: Path, env: dict | None = None) -> int:
+                _ = cwd, env
+                commands.append(list(command))
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text(
+                    "Вопрос 1 (Blocker): выбрать профиль\n"
+                    "Options: A) strict B) fast C) mixed\n"
+                    "Default: B\n",
+                    encoding="utf-8",
+                )
+                return 0
+
+            load_results = [
+                (
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "result": "blocked",
+                        "reason_code": "answers_required",
+                        "reason": "Вопрос 1: требуется AIDD:ANSWERS",
+                    },
+                    fake_stage_result_path,
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+                (
+                    {
+                        "schema": "aidd.stage_result.v1",
+                        "ticket": ticket,
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "result": "continue",
+                        "reason_code": "",
+                        "reason": "",
+                    },
+                    fake_stage_result_path,
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+            ]
+
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=False):
+                                with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
+                                    with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):
+                                        with redirect_stdout(captured):
+                                            code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 10)
+            self.assertEqual(len(commands), 2)
+            self.assertIn("AIDD:ANSWERS", " ".join(commands[1]))
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "continue")
+            self.assertEqual(payload.get("question_retry_attempt"), 1)
+            self.assertEqual(payload.get("question_retry_applied"), True)
+            self.assertEqual(payload.get("question_answers"), "AIDD:ANSWERS Q1=B")
+            self.assertTrue(payload.get("question_questions_path"))
+            self.assertTrue(payload.get("question_answers_path"))
+
+    def test_loop_step_question_retry_second_block_is_prompt_flow_blocker(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-question-retry-block-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-QUESTION-BLOCK"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+
+            fake_stage_result_path = root / "reports" / "loops" / ticket / "iteration_id_I1" / "stage.implement.result.json"
+            commands: list[list[str]] = []
+
+            def _fake_run_command(command: list[str], cwd: Path, log_path: Path, env: dict | None = None) -> int:
+                _ = cwd, env
+                commands.append(list(command))
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("Question 1: need AIDD:ANSWERS\n", encoding="utf-8")
+                return 0
+
+            blocked_payload = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": ticket,
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "work_item_key": "iteration_id=I1",
+                "result": "blocked",
+                "reason_code": "answers_required",
+                "reason": "Question 1 requires AIDD:ANSWERS",
+            }
+            load_results = [
+                (blocked_payload, fake_stage_result_path, "", "", "", ""),
+                (blocked_payload, fake_stage_result_path, "", "", "", ""),
+            ]
+
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_step.validate_command_available", return_value=(True, "", "")):
+                        with patch("aidd_runtime.loop_step.resolve_runner", return_value=(["fake-runner"], "fake-runner", "")):
+                            with patch("aidd_runtime.loop_step.should_run_wrappers", return_value=False):
+                                with patch("aidd_runtime.loop_step.run_command", side_effect=_fake_run_command):
+                                    with patch("aidd_runtime.loop_step.load_stage_result", side_effect=load_results):
+                                        with redirect_stdout(captured):
+                                            code = loop_step_module.main(["--ticket", ticket, "--format", "json"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            self.assertEqual(len(commands), 2)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "prompt_flow_blocker")
+            self.assertEqual(payload.get("question_retry_attempt"), 1)
+            self.assertEqual(payload.get("question_retry_applied"), True)
+            self.assertIn("manual clarification", str(payload.get("reason") or ""))
 
 
 if __name__ == "__main__":

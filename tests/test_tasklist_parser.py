@@ -108,6 +108,37 @@ class TasklistParserTests(unittest.TestCase):
         malformed = parsed.get("malformed_tasks") or []
         self.assertEqual(malformed, [])
 
+    def test_build_compact_answers_extracts_question_numbers(self) -> None:
+        text = "\n".join(
+            [
+                "Вопрос 1 (Blocker): выбрать профиль запуска",
+                "Вопрос 2 (Clarification): выбрать режим проверок",
+            ]
+        )
+        self.assertEqual(
+            tasklist_parser.build_compact_answers(text),
+            "AIDD:ANSWERS Q1=C; Q2=C",
+        )
+
+    def test_build_compact_answers_prefers_default_option_codes(self) -> None:
+        text = "\n".join(
+            [
+                "Question 1: pick runner mode",
+                "Options: A) strict B) fast C) mixed",
+                "Default: B",
+                "Question 2: pick budget",
+                "Варианты: A) short B) medium C) long",
+                "По умолчанию: C",
+            ]
+        )
+        self.assertEqual(
+            tasklist_parser.build_compact_answers(text),
+            "AIDD:ANSWERS Q1=B; Q2=C",
+        )
+
+    def test_build_compact_answers_returns_empty_without_question_markers(self) -> None:
+        self.assertEqual(tasklist_parser.build_compact_answers("status: blocked"), "")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,13 @@ def _default_qa_test_command() -> list[list[str]]:
     return [[sys.executable, str(plugin_root / "hooks" / "format-and-test.sh")]]
 
 
+def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:
+    active_work_item = str(runtime.read_active_work_item(target) or "").strip()
+    if runtime.is_iteration_work_item_key(active_work_item):
+        return active_work_item, runtime.resolve_scope_key(active_work_item, ticket)
+    return "", runtime.resolve_scope_key("", ticket)
+
+
 _TEST_COMMAND_PATTERNS = (
     r"\b\./gradlew\s+test\b",
     r"\bgradle\s+test\b",
@@ -720,7 +727,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from aidd_runtime.reports import tests_log as _tests_log
 
-        scope_key = runtime.resolve_scope_key("", ticket)
+        qa_work_item_key, scope_key = _resolve_qa_scope_context(target, ticket)
         if tasklist_exec_present:
             commands = [str(item) for item in (tasklist_tasks or []) if str(item).strip()]
         else:
@@ -786,7 +793,7 @@ def main(argv: list[str] | None = None) -> int:
             slug_hint=slug_hint or ticket,
             stage="qa",
             scope_key=scope_key,
-            work_item_key=None,
+            work_item_key=qa_work_item_key or None,
             profile=profile,
             tasks=commands or None,
             filters=tasklist_filters or None,
@@ -879,6 +886,7 @@ def main(argv: list[str] | None = None) -> int:
 
     stage_result_emit_error = ""
     try:
+        qa_work_item_key, qa_scope_key = _resolve_qa_scope_context(target, ticket)
         stage_result_args = [
             "--ticket",
             ticket,
@@ -886,7 +894,11 @@ def main(argv: list[str] | None = None) -> int:
             "qa",
             "--result",
             "blocked" if report_status == "BLOCKED" else "done",
+            "--scope-key",
+            qa_scope_key,
         ]
+        if qa_work_item_key:
+            stage_result_args.extend(["--work-item-key", qa_work_item_key])
         if report_path.exists():
             stage_result_args.extend(
                 ["--evidence-link", f"qa_report={runtime.rel_path(report_path, target)}"]

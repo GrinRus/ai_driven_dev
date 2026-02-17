@@ -424,6 +424,67 @@ class ResearchCommandTest(unittest.TestCase):
             targets_path = project_root / "reports" / "research" / "ZERO-1-rlm-targets.json"
             self.assertTrue(targets_path.exists())
 
+    def test_research_command_pending_materializes_reason_next_action_and_stage(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-pending-doc-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            prd_path = project_root / "docs" / "prd" / "PENDING-1.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: pending",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            code_dir = workspace / "src"
+            code_dir.mkdir(parents=True, exist_ok=True)
+            (code_dir / "demo.py").write_text("print('pending')\n", encoding="utf-8")
+
+            args = research.parse_args(["--ticket", "PENDING-1", "--auto"])
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch(
+                    "aidd_runtime.research._attempt_auto_finalize",
+                    return_value={
+                        "status": "pending",
+                        "bootstrap_attempted": True,
+                        "finalize_attempted": True,
+                        "reason_code": "finalize_prereqs_missing",
+                        "next_action": research._rlm_finalize_handoff_cmd("PENDING-1"),
+                        "recovery_path": "bootstrap_then_finalize",
+                        "details": "",
+                    },
+                ):
+                    with patch("aidd_runtime.research._append_research_handoff", return_value=(True, "")) as handoff_mock:
+                        code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(code, 0)
+            handoff_mock.assert_called()
+            research_doc = (project_root / "docs" / "research" / "PENDING-1.md").read_text(encoding="utf-8")
+            self.assertIn("Pending reason: finalize_prereqs_missing", research_doc)
+            self.assertIn("Next action: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket PENDING-1", research_doc)
+            self.assertIn("Auto recovery: bootstrap_attempted=yes, finalize_attempted=yes, recovery_path=bootstrap_then_finalize", research_doc)
+            active_payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("stage"), "research")
+
     def test_research_command_fails_closed_when_worklist_contract_is_invalid(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-postcondition-") as tmpdir:
             workspace = Path(tmpdir) / "workspace"

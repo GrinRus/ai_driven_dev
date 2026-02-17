@@ -1,0 +1,4 @@
+{
+  "error": "stage_result_missing_or_invalid",
+  "diag": "candidate:aidd/docs/tasklist/templates/loop.seed.md:id=review:template\ncandidate:aidd/docs/tasklist/TST-001.md.bak:id_review_backup\ncandidate:aidd/reports/loops/TST-001/iteration_id_I1/stage.implement.result.json:id=review:signal"
+}

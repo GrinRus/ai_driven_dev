@@ -12,6 +12,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import prd_review
+from aidd_runtime.research_guard import ResearchValidationError, load_settings as load_research_settings, validate_research
 from aidd_runtime import runtime
 
 
@@ -27,6 +28,24 @@ def _resolve_report_target_path(target: Path, ticket: str, raw: object) -> Path:
 def main(argv: Optional[list[str]] = None) -> int:
     args = prd_review.parse_args(argv)
     _, target = runtime.require_workflow_root()
+    context = runtime.resolve_feature_context(
+        target,
+        ticket=getattr(args, "ticket", None),
+        slug_hint=getattr(args, "slug_hint", None),
+    )
+    ticket = (context.resolved_ticket or "").strip()
+    if ticket:
+        research_settings = load_research_settings(target)
+        try:
+            validate_research(
+                target,
+                ticket,
+                settings=research_settings,
+                expected_stage="review",
+            )
+        except ResearchValidationError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     pack_only_requested = bool(getattr(args, "pack_only", False) or os.getenv("AIDD_PACK_ONLY", "").strip() == "1")
     raw_report_arg = getattr(args, "report", None)
     explicit_pack_report_arg = False

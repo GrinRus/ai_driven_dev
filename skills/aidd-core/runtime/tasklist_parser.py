@@ -82,6 +82,10 @@ PATH_TOKEN_RE = re.compile(
 )
 TASK_COMMAND_PREFIX_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 _/+-]{2,40}):\s*(?P<command>.+)$")
 COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+|[A-Za-z0-9_.-]+)(?:\s|$)")
+QUESTION_NUMBER_RE = re.compile(r"(?:^|\b)(?:q|question|вопрос)\s*([0-9]{1,2})(?:\b|:)", re.IGNORECASE)
+QUESTION_MARKER_RE = re.compile(r"\b(?:aidd:answers|question|вопрос|answer|ответ)\b", re.IGNORECASE)
+DEFAULT_CHOICE_RE = re.compile(r"\b(?:default|по\s+умолчанию)\s*:\s*([A-H])\b", re.IGNORECASE)
+OPTION_CHOICE_RE = re.compile(r"\b([A-H])\s*[\)\.:]", re.IGNORECASE)
 NON_COMMAND_TASK_HINT_RE = re.compile(
     r"\b(?:per-iteration(?:\s+test)?\s+commands?|iteration-specific\s+patterns?|test\s+commands?\s+listed\s+below|commands?\s+listed\s+below|see\s+below)\b",
     re.IGNORECASE,
@@ -330,3 +334,69 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
         "when": when,
         "reason": reason,
     }
+
+
+def looks_like_question_prompt(text: str) -> bool:
+    return bool(QUESTION_MARKER_RE.search(str(text or "")))
+
+
+def extract_question_numbers(text: str, *, max_questions: int = 8) -> List[int]:
+    numbers: List[int] = []
+    seen: set[int] = set()
+    for match in QUESTION_NUMBER_RE.finditer(str(text or "")):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            value = int(raw)
+        except ValueError:
+            continue
+        if value <= 0 or value in seen:
+            continue
+        seen.add(value)
+        numbers.append(value)
+        if len(numbers) >= max_questions:
+            break
+    if not numbers and looks_like_question_prompt(text):
+        return [1]
+    return numbers
+
+
+def build_compact_answers(text: str, *, fallback_choice: str = "C", max_questions: int = 8) -> str:
+    source = str(text or "")
+    question_numbers = extract_question_numbers(source, max_questions=max_questions)
+    if not question_numbers:
+        return ""
+    fallback = (fallback_choice or "C").strip().upper()
+    if len(fallback) != 1 or not fallback.isalpha():
+        fallback = "C"
+
+    default_per_question: Dict[int, str] = {}
+    current_question: int | None = None
+    for raw_line in source.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        q_match = QUESTION_NUMBER_RE.search(line)
+        if q_match:
+            try:
+                current_question = int(q_match.group(1))
+            except ValueError:
+                current_question = None
+        if current_question is None or current_question not in question_numbers:
+            continue
+        default_match = DEFAULT_CHOICE_RE.search(line)
+        if default_match:
+            default_per_question[current_question] = default_match.group(1).strip().upper()
+            continue
+        lower = line.lower()
+        if any(token in lower for token in ("вариант", "option", "choice", "choices", "options")):
+            choices = OPTION_CHOICE_RE.findall(line)
+            if choices and current_question not in default_per_question:
+                default_per_question[current_question] = choices[0].strip().upper()
+
+    parts: List[str] = []
+    for number in question_numbers:
+        choice = default_per_question.get(number, fallback)
+        parts.append(f"Q{number}={choice}")
+    return "AIDD:ANSWERS " + "; ".join(parts)

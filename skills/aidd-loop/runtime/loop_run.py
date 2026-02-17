@@ -10,6 +10,7 @@ import subprocess
 import time
 import sys
 import datetime as dt
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -49,6 +50,8 @@ _PERMISSION_MODE_MARKERS = (
     '"permissionmode":"default"',
     '"permissionmode": "default"',
 )
+_MARKER_SEMANTIC_TOKENS = ("id=review:", "id_review_")
+_MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
 DEFAULT_BLOCKED_POLICY = "strict"
 DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
@@ -69,6 +72,10 @@ HARD_BLOCK_REASON_CODES = {
     "review_fix_plan_missing",
     "qa_stage_result_emit_failed",
     "output_contract_warn",
+    "wrapper_output_missing",
+    "work_item_resolution_failed",
+    "active_stage_sync_failed",
+    "prompt_flow_blocker",
 }
 RECOVERABLE_BLOCK_REASON_CODES = {
     "",
@@ -195,6 +202,57 @@ def _permission_mismatch_from_text(reason: str, diag: str, code: str) -> bool:
     approval_hit = any(marker in joined for marker in _APPROVAL_MARKERS)
     permission_mode_default = any(marker in joined for marker in _PERMISSION_MODE_MARKERS)
     return approval_hit and (permission_mode_default or reason_code == "stage_result_missing_or_invalid")
+
+
+def _extract_marker_source(line: str) -> str:
+    text = str(line or "").strip()
+    if not text:
+        return "inline"
+    match = _MARKER_INLINE_PATH_RE.search(text)
+    if match:
+        return match.group("path").strip()
+    return "inline"
+
+
+def _is_marker_noise_source(source: str, line: str) -> bool:
+    source_lower = str(source or "").strip().lower()
+    line_lower = str(line or "").strip().lower()
+    if "aidd/docs/tasklist/templates/" in source_lower or "aidd/docs/tasklist/templates/" in line_lower:
+        return True
+    return (
+        source_lower.endswith(".bak")
+        or source_lower.endswith(".tmp")
+        or ".bak:" in source_lower
+        or ".tmp:" in source_lower
+        or ".bak" in line_lower
+        or ".tmp" in line_lower
+    )
+
+
+def _scan_marker_semantics(entries: List[Tuple[str, str]]) -> Tuple[List[str], List[str]]:
+    signal: List[str] = []
+    noise: List[str] = []
+    seen_signal: set[str] = set()
+    seen_noise: set[str] = set()
+    for source_name, text in entries:
+        for raw_line in str(text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            line_lower = line.lower()
+            if not any(token in line_lower for token in _MARKER_SEMANTIC_TOKENS):
+                continue
+            marker_source = _extract_marker_source(line)
+            item = f"{source_name}:{marker_source}"
+            if _is_marker_noise_source(marker_source, line):
+                if item not in seen_noise:
+                    seen_noise.add(item)
+                    noise.append(item)
+                continue
+            if item not in seen_signal:
+                seen_signal.add(item)
+                signal.append(item)
+    return signal, noise
 
 
 def _resolve_step_timeout_seconds(raw: object) -> int:
@@ -435,6 +493,7 @@ def run_loop_step(
             "step_stream_log_updated_at": _safe_updated_at(stream_log_path),
             "step_stream_jsonl_bytes": _safe_size(stream_jsonl_path),
             "step_stream_jsonl_updated_at": _safe_updated_at(stream_jsonl_path),
+            "observability_degraded": False,
         }
         if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
             stream_liveness["active_source"] = "stream"
@@ -712,14 +771,45 @@ def main(argv: List[str] | None = None) -> int:
         reason_code = step_payload.get("reason_code") or ""
         repair_code = step_payload.get("repair_reason_code") or ""
         repair_scope = step_payload.get("repair_scope_key") or ""
+        step_stage = str(step_payload.get("stage") or "").strip().lower()
+        step_work_item = str(step_payload.get("work_item_key") or "").strip()
         scope_key = step_payload.get("scope_key") or ""
         mismatch_warn = step_payload.get("scope_key_mismatch_warn") or ""
         mismatch_from = step_payload.get("scope_key_mismatch_from") or ""
         mismatch_to = step_payload.get("scope_key_mismatch_to") or ""
+        active_stage_before = str(step_payload.get("active_stage_before") or "").strip()
+        active_stage_after = str(step_payload.get("active_stage_after") or "").strip()
+        active_stage_sync_applied = bool(step_payload.get("active_stage_sync_applied"))
         step_command_log = step_payload.get("log_path") or ""
         step_cli_log_path = step_payload.get("cli_log_path") or ""
         tests_log_path = step_payload.get("tests_log_path") or ""
         stage_diag = step_payload.get("stage_result_diagnostics") or ""
+        marker_signal_events = (
+            [
+                str(item).strip()
+                for item in (step_payload.get("marker_signal_events") or [])
+                if str(item).strip()
+            ]
+            if isinstance(step_payload.get("marker_signal_events"), list)
+            else []
+        )
+        report_noise_events = (
+            [
+                str(item).strip()
+                for item in (step_payload.get("report_noise_events") or [])
+                if str(item).strip()
+            ]
+            if isinstance(step_payload.get("report_noise_events"), list)
+            else []
+        )
+        if not marker_signal_events and not report_noise_events:
+            marker_signal_events, report_noise_events = _scan_marker_semantics(
+                [
+                    ("reason", str(reason or "")),
+                    ("stage_result_diagnostics", str(stage_diag or "")),
+                ]
+            )
+        report_noise = "marker_semantics_noise_only" if report_noise_events and not marker_signal_events else ""
         stage_result_path = step_payload.get("stage_result_path") or ""
         wrapper_logs_raw = step_payload.get("wrapper_logs")
         wrapper_logs = (
@@ -740,6 +830,18 @@ def main(argv: List[str] | None = None) -> int:
             step_status = "blocked"
         elif step_exit_code == CONTINUE_CODE and str(step_status).strip().lower() not in {"continue", "blocked", "done"}:
             step_status = "continue"
+        work_item_resolution_invalid = (
+            step_stage in {"implement", "review"}
+            and not runtime.is_valid_work_item_key(step_work_item)
+        )
+        if work_item_resolution_invalid:
+            step_exit_code = BLOCKED_CODE
+            step_status = "blocked"
+            reason = (
+                f"{step_stage} loop-step payload missing valid work_item_key "
+                f"(got '{step_work_item or 'null'}')"
+            )
+            reason_code = "work_item_resolution_failed"
         if step_exit_code == CONTINUE_CODE and str(reason_code).strip().lower() == "user_approval_required":
             step_exit_code = BLOCKED_CODE
             step_status = "blocked"
@@ -750,12 +852,13 @@ def main(argv: List[str] | None = None) -> int:
             log_reason_code = "stage_result_blocked" if stage_result_path else "blocked_without_reason"
         if parse_error and not str(log_reason_code).strip():
             log_reason_code = "invalid_loop_step_payload"
+        if work_item_resolution_invalid:
+            log_reason_code = "work_item_resolution_failed"
         if step_status == "blocked" and _permission_mismatch_from_text(str(reason), str(stage_diag), str(log_reason_code)):
             log_reason_code = "loop_runner_permissions"
             if not str(reason).strip():
                 reason = "loop runner permission mismatch"
         if not str(reason).strip() and step_status == "blocked":
-            step_stage = str(step_payload.get("stage") or "").strip().lower()
             if parse_error:
                 reason = f"loop-step returned invalid JSON payload: {parse_error}"
             else:
@@ -763,6 +866,8 @@ def main(argv: List[str] | None = None) -> int:
         chosen_scope = repair_scope or scope_key
         if mismatch_to:
             chosen_scope = mismatch_to
+        if not str(chosen_scope).strip() and runtime.is_valid_work_item_key(step_work_item):
+            chosen_scope = runtime.resolve_scope_key(step_work_item, ticket)
         recoverable_blocked = bool(step_status == "blocked" and _is_recoverable_block_reason(str(log_reason_code)))
         if not stage_result_path and step_status == "blocked":
             step_stage = str(step_payload.get("stage") or "").strip().lower()
@@ -782,15 +887,19 @@ def main(argv: List[str] | None = None) -> int:
         if stream_mode and stream_jsonl_path and step_stream_jsonl:
             step_jsonl_path = runtime.resolve_path_for_target(Path(step_stream_jsonl), target)
             append_stream_file(stream_jsonl_path, step_jsonl_path)
+        step_main_log_abs = _resolve_optional_path(target, step_command_log)
+        main_log_abs = step_main_log_abs if step_main_log_abs and step_main_log_abs.exists() else log_path
         step_stream_log_abs = _resolve_optional_path(target, step_stream_log)
         step_stream_jsonl_abs = _resolve_optional_path(target, step_stream_jsonl)
         stream_liveness = {
-            "main_log_bytes": _safe_size(log_path),
-            "main_log_updated_at": _safe_updated_at(log_path),
+            "main_log_path": runtime.rel_path(main_log_abs, target),
+            "main_log_bytes": _safe_size(main_log_abs),
+            "main_log_updated_at": _safe_updated_at(main_log_abs),
             "step_stream_log_bytes": _safe_size(step_stream_log_abs),
             "step_stream_log_updated_at": _safe_updated_at(step_stream_log_abs),
             "step_stream_jsonl_bytes": _safe_size(step_stream_jsonl_abs),
             "step_stream_jsonl_updated_at": _safe_updated_at(step_stream_jsonl_abs),
+            "observability_degraded": False,
         }
         if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
             stream_liveness["active_source"] = "stream"
@@ -798,17 +907,27 @@ def main(argv: List[str] | None = None) -> int:
             stream_liveness["active_source"] = "main_log"
         else:
             stream_liveness["active_source"] = "none"
+        if stream_mode and stream_liveness["active_source"] == "main_log":
+            stream_liveness["observability_degraded"] = True
+            if step_stream_log or step_stream_jsonl:
+                stream_liveness["degraded_reason"] = "stream_artifacts_missing_or_empty"
+            else:
+                stream_liveness["degraded_reason"] = "stream_paths_missing"
         append_log(
             log_path,
             (
                 f"{utc_timestamp()} ticket={ticket} iteration={iteration} status={step_status} "
                 f"result={step_status} stage={step_payload.get('stage')} scope_key={scope_key} "
+                f"work_item_key={step_work_item or 'null'} "
                 f"exit_code={step_exit_code} reason_code={log_reason_code} runner={runner_label} "
                 f"runner_cmd={runner_effective} reason={reason} blocked_policy={blocked_policy} "
                 f"recoverable_blocked={'1' if recoverable_blocked else '0'}"
                 + (f" chosen_scope_key={chosen_scope}" if chosen_scope else "")
                 + (f" scope_key_mismatch_warn={mismatch_warn}" if mismatch_warn else "")
                 + (f" mismatch_from={mismatch_from} mismatch_to={mismatch_to}" if mismatch_to else "")
+                + (f" active_stage_before={active_stage_before}" if active_stage_before else "")
+                + (f" active_stage_after={active_stage_after}" if active_stage_after else "")
+                + (f" active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}")
                 + (f" log_path={step_command_log}" if step_command_log else "")
                 + (f" step_cli_log_path={step_cli_log_path}" if step_cli_log_path else "")
                 + (f" tests_log_path={tests_log_path}" if tests_log_path else "")
@@ -822,6 +941,16 @@ def main(argv: List[str] | None = None) -> int:
                     f"step_jsonl:{stream_liveness['step_stream_jsonl_bytes']},"
                     f"active:{stream_liveness['active_source']}"
                 )
+                + (
+                    f" observability_degraded={'1' if stream_liveness.get('observability_degraded') else '0'}"
+                )
+                + (
+                    f" observability_reason={stream_liveness.get('degraded_reason')}"
+                    if stream_liveness.get("degraded_reason")
+                    else ""
+                )
+                + f" marker_signals={len(marker_signal_events)} marker_noise={len(report_noise_events)}"
+                + (f" report_noise={report_noise}" if report_noise else "")
             ),
         )
         append_log(
@@ -830,7 +959,9 @@ def main(argv: List[str] | None = None) -> int:
                 f"{utc_timestamp()} event=step iteration={iteration} status={step_status} "
                 f"stage={step_payload.get('stage')} scope_key={scope_key} exit_code={step_exit_code} "
                 f"runner_cmd={runner_effective} blocked_policy={blocked_policy} "
-                f"recoverable_blocked={'1' if recoverable_blocked else '0'}"
+                f"recoverable_blocked={'1' if recoverable_blocked else '0'} "
+                f"work_item_key={step_work_item or 'null'} "
+                f"active_stage_sync_applied={'1' if active_stage_sync_applied else '0'}"
             ),
         )
         if step_exit_code == DONE_CODE:
@@ -952,6 +1083,13 @@ def main(argv: List[str] | None = None) -> int:
                 "recovery_path": last_recovery_path,
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
+                "work_item_key": step_work_item or None,
+                "active_stage_before": active_stage_before or None,
+                "active_stage_after": active_stage_after or None,
+                "active_stage_sync_applied": active_stage_sync_applied,
+                "marker_signal_events": marker_signal_events,
+                "report_noise_events": report_noise_events,
+                "report_noise": report_noise,
                 "step_log_path": step_command_log,
                 "step_cli_log_path": step_cli_log_path,
                 "stage_result_path": stage_result_path,

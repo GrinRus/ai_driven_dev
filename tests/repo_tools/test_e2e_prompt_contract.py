@@ -100,6 +100,14 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{label}: missing stream jsonl probe policy",
             )
 
+    def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("marker semantics", text)
+        self.assertIn("aidd/docs/tasklist/templates/**", text)
+        self.assertIn("*.bak", text)
+        self.assertIn("*.tmp", text)
+        self.assertIn("report_noise", text)
+
     def test_prompt_launcher_policy_enforces_cwd_plugin_dir_and_verbose(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
@@ -118,6 +126,18 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("recoverable_blocked", full_text)
         self.assertIn("recovery_path", full_text)
         self.assertIn("retry_attempt", full_text)
+
+    def test_prompt_research_pending_finalize_contract(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIn("rlm_status_pending", text, msg=f"{prompt}: missing downstream pending reason contract")
+            self.assertIn("baseline_missing", text, msg=f"{prompt}: missing baseline_missing drift guard")
+            self.assertIn("AIDD:RLM_EVIDENCE", text, msg=f"{prompt}: missing RLM evidence section contract")
+            self.assertRegex(
+                text.lower(),
+                r"bounded[\s\S]*finalize|finalize[\s\S]*bounded",
+                msg=f"{prompt}: missing bounded finalize recovery expectation",
+            )
 
     def test_prompt_retry_contract_mentions_runtime_arg_compat_guards(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):

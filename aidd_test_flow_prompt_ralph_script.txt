@@ -169,6 +169,8 @@ Slug минимум:
 
 - First run: `/feature-dev-aidd:researcher $TICKET`.
 - При вопросах: retry.
+- В auto path ожидается bounded finalize recovery (single attempt, canonical runtime).
+- Если pending не снят — в `AIDD:RLM_EVIDENCE` должны быть `Pending reason` + `Next action`.
 - При hang/BLOCK (missing hints) fallback:
   - `python3 $PLUGIN_DIR/skills/researcher/runtime/research.py --ticket $TICKET --auto --paths backend/src/main/java,frontend/src/pages --keywords github,analysis,flow`
 - Сохранить fallback marker при использовании.
@@ -187,7 +189,8 @@ RLM-only check:
 - First run: `/feature-dev-aidd:plan-new $TICKET`.
 - При вопросах: retry.
 - Если hang/kill — runtime probe:
-  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET`
+  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET --expected-stage plan`
+- Для downstream probes ожидаемый pending reason: `rlm_status_pending` (не `baseline_missing`).
 
 #### 5.4 review-spec
 

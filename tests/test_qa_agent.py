@@ -19,6 +19,7 @@ from .helpers import (
     git_init,
     tasklist_ready_text,
     write_active_feature,
+    write_active_state,
     write_file,
     write_json,
 )
@@ -368,6 +369,26 @@ class QaAgentTests(unittest.TestCase):
         stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
         links = stage_payload.get("evidence_links") or {}
         self.assertEqual(links.get("qa_report"), f"aidd/reports/qa/{ticket}.json")
+
+    def test_qa_stage_result_uses_iteration_scope_from_active_work_item(self):
+        ticket = "tasklist-loop-scope"
+        write_active_feature(self.project_root, ticket)
+        write_active_state(self.project_root, ticket=ticket, stage="qa", work_item="iteration_id=I7")
+        result = self.run_agent("--format", "json", "--skip-tests", "--allow-no-tests")
+
+        self.assertIn(result.returncode, {0, 2}, msg=result.stderr)
+        stage_result = (
+            self.project_root
+            / "reports"
+            / "loops"
+            / ticket
+            / "iteration_id_I7"
+            / "stage.qa.result.json"
+        )
+        self.assertTrue(stage_result.exists(), "QA stage_result should use iteration scope in loop context")
+        stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
+        self.assertEqual(stage_payload.get("scope_key"), "iteration_id_I7")
+        self.assertEqual(stage_payload.get("work_item_key"), "iteration_id=I7")
 
     def test_qa_stage_result_emit_failure_returns_deterministic_reason_code(self):
         from aidd_runtime import qa as qa_runtime

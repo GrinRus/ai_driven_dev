@@ -612,6 +612,65 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("result"), "done")
             self.assertEqual(payload.get("reason_code"), "qa_warn")
 
+    def test_qa_loop_mode_uses_iteration_scope_from_active_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_mode", "loop\n")
+            write_active_state(root, ticket="DEMO-QA-LOOP", stage="qa", work_item="iteration_id=I3")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-LOOP",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-QA-LOOP" / "iteration_id_I3" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I3")
+            self.assertEqual(payload.get("work_item_key"), "iteration_id=I3")
+
+    def test_qa_loop_mode_rejects_non_iteration_scope_shape(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_mode", "loop\n")
+            write_active_state(root, ticket="DEMO-QA-LOOP-BLOCK", stage="qa", work_item="iteration_id=I3")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-LOOP-BLOCK",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                    "--scope-key",
+                    "DEMO-QA-LOOP-BLOCK",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            result_path = (
+                root / "reports" / "loops" / "DEMO-QA-LOOP-BLOCK" / "DEMO-QA-LOOP-BLOCK" / "stage.qa.result.json"
+            )
+            self.assertFalse(result_path.exists())
+
     def test_qa_report_blocked_overrides_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

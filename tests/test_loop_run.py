@@ -16,6 +16,10 @@ from tests.helpers import REPO_ROOT, cli_cmd, cli_env, ensure_project_root, task
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
 
 
+def _fixture_json(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
 class LoopRunTests(unittest.TestCase):
     def test_loop_run_ship_clears_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -85,6 +89,7 @@ class LoopRunTests(unittest.TestCase):
                         "status": "blocked",
                         "stage": "implement",
                         "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "reason_code": "stage_result_missing_or_invalid",
                         "reason": "stage result missing",
                     }
@@ -142,6 +147,7 @@ class LoopRunTests(unittest.TestCase):
                         "status": "blocked",
                         "stage": "review",
                         "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "reason_code": "blocking_findings",
                         "reason": "blocking review findings present",
                     }
@@ -199,6 +205,7 @@ class LoopRunTests(unittest.TestCase):
                         "status": "blocked",
                         "stage": "implement",
                         "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "reason_code": "user_approval_required",
                         "reason": "manual approval required",
                     }
@@ -238,6 +245,60 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("recoverable_blocked"), False)
             self.assertEqual(payload.get("retry_attempt"), 0)
             self.assertEqual(payload.get("reason_code"), "user_approval_required")
+
+    def test_loop_run_ralph_does_not_retry_prompt_flow_blocker(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RALPH-PROMPT-BLOCK"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "prompt_flow_blocker",
+                        "reason": "question retry exhausted",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "2",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "prompt_flow_blocker")
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+            self.assertEqual(payload.get("retry_attempt"), 0)
 
     def test_loop_run_rejects_invalid_work_item_key_override(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -353,6 +414,209 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "blocked_without_reason")
             self.assertIn("invalid JSON payload", str(payload.get("reason") or ""))
+
+    def test_loop_run_blocks_when_loop_stage_payload_missing_work_item_key(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-WORK-ITEM-MISSING"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": None,
+                        "reason_code": "stage_result_missing_or_invalid",
+                        "reason": "stage result missing",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "2",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "work_item_resolution_failed")
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+            self.assertEqual(payload.get("work_item_key"), None)
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("reason_code=work_item_resolution_failed", loop_log)
+
+    def test_loop_run_tst001_rca_fixture_reason_precedence_strict(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "TST001-RCA-STRICT"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fixture_payload = _fixture_json("tst001_loop_run_blocked_payload.json")
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(fixture_payload),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "strict",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "work_item_resolution_failed")
+            self.assertEqual(payload.get("active_stage_before"), "idea")
+            self.assertEqual(payload.get("active_stage_after"), "implement")
+            self.assertEqual(payload.get("active_stage_sync_applied"), True)
+            self.assertEqual(payload.get("retry_attempt"), 0)
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("reason_code=work_item_resolution_failed", loop_log)
+            self.assertIn("active_stage_before=idea", loop_log)
+            self.assertIn("work_item_key=null", loop_log)
+
+    def test_loop_run_tst001_rca_fixture_reason_precedence_ralph(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "TST001-RCA-RALPH"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fixture_payload = _fixture_json("tst001_loop_run_blocked_payload.json")
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(fixture_payload),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--blocked-policy",
+                                    "ralph",
+                                    "--recoverable-block-retries",
+                                    "2",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "work_item_resolution_failed")
+            self.assertEqual(payload.get("blocked_policy"), "ralph")
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+            self.assertEqual(payload.get("retry_attempt"), 0)
+
+    def test_loop_run_marks_marker_report_noise_without_signal(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-MARKER-NOISE"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "stage_result_missing_or_invalid",
+                        "reason": "candidate:aidd/docs/tasklist/templates/loop.seed.md:id=review:template",
+                        "stage_result_diagnostics": "candidate:aidd/docs/tasklist/TST-001.md.bak:id_review_backup",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("report_noise"), "marker_semantics_noise_only")
+            self.assertEqual(payload.get("marker_signal_events"), [])
+            self.assertTrue(payload.get("report_noise_events"))
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("marker_signals=0", loop_log)
+            self.assertIn("marker_noise=2", loop_log)
 
     def test_run_loop_step_timeout_returns_scope_aware_blocked_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -476,6 +740,7 @@ class LoopRunTests(unittest.TestCase):
                         "status": "blocked",
                         "stage": "implement",
                         "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "reason_code": "stage_result_missing_or_invalid",
                         "reason": "command requires approval in current mode",
                         "stage_result_diagnostics": '{"permissionMode":"default"}',
@@ -531,6 +796,7 @@ class LoopRunTests(unittest.TestCase):
                         "status": "blocked",
                         "stage": "implement",
                         "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "reason_code": "stage_result_missing_or_invalid",
                         "reason": "stage result missing",
                         "stream_log_path": step_stream_log_rel,
@@ -573,6 +839,65 @@ class LoopRunTests(unittest.TestCase):
             self.assertGreater(int(stream_liveness.get("step_stream_log_bytes") or 0), 0)
             self.assertGreater(int(stream_liveness.get("step_stream_jsonl_bytes") or 0), 0)
             self.assertEqual(stream_liveness.get("active_source"), "stream")
+            self.assertEqual(stream_liveness.get("observability_degraded"), False)
+
+    def test_loop_run_marks_observability_degraded_when_stream_paths_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STREAM-DEGRADED"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            step_log_rel = f"aidd/reports/loops/{ticket}/cli.implement.synthetic.log"
+            write_file(root, f"reports/loops/{ticket}/cli.implement.synthetic.log", "synthetic-main-log\n")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "stage_result_missing_or_invalid",
+                        "reason": "stage result missing",
+                        "log_path": step_log_rel,
+                        "runner_effective": "claude --dangerously-skip-permissions -p /feature-dev-aidd:implement DEMO-STREAM-DEGRADED",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--work-item-key",
+                                    "iteration_id=I1",
+                                    "--max-iterations",
+                                    "1",
+                                    "--stream",
+                                    "text",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            stream_liveness = payload.get("stream_liveness") or {}
+            self.assertEqual(stream_liveness.get("active_source"), "main_log")
+            self.assertEqual(stream_liveness.get("observability_degraded"), True)
+            self.assertEqual(stream_liveness.get("degraded_reason"), "stream_paths_missing")
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("observability_degraded=1", loop_log)
 
     def test_loop_run_max_iterations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
@@ -600,7 +925,7 @@ class LoopRunTests(unittest.TestCase):
                     "--ticket",
                     "DEMO-3",
                     "--max-iterations",
-                    "2",
+                    "1",
                     "--runner",
                     f"bash {runner}",
                     "--format",
@@ -774,16 +1099,17 @@ class LoopRunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-QA-REPAIR"
-            write_active_state(root, ticket=ticket, stage="qa")
+            write_active_state(root, ticket=ticket, stage="qa", work_item="iteration_id=I2")
             write_file(
                 root,
-                f"reports/loops/{ticket}/{ticket}/stage.qa.result.json",
+                f"reports/loops/{ticket}/iteration_id_I2/stage.qa.result.json",
                 json.dumps(
                     {
                         "schema": "aidd.stage_result.v1",
                         "ticket": ticket,
                         "stage": "qa",
-                        "scope_key": ticket,
+                        "scope_key": "iteration_id_I2",
+                        "work_item_key": "iteration_id=I2",
                         "result": "blocked",
                         "updated_at": "2024-01-02T00:00:00Z",
                     }
@@ -839,7 +1165,6 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(last_step.get("repair_reason_code"), "qa_repair")
             self.assertNotEqual(last_step.get("reason_code"), "qa_repair_invalid_stage")
             loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
-            self.assertIn("event=skip-auto-select-work-item", loop_log)
             self.assertNotIn("event=auto-select-work-item", loop_log)
 
     def test_loop_run_stops_on_user_approval_required(self) -> None:

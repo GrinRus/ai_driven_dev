@@ -396,7 +396,7 @@ def test_pending_baseline_allows_docs_only(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
-def test_gate_workflow_surfaces_baseline_missing_reason_code(tmp_path):
+def test_gate_workflow_surfaces_rlm_status_pending_for_downstream_pending(tmp_path):
     ticket = "demo-baseline-missing"
     write_active_feature(tmp_path, ticket)
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
@@ -411,8 +411,8 @@ def test_gate_workflow_surfaces_baseline_missing_reason_code(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = result.stdout + result.stderr
-    assert "reason_code=baseline_missing" in combined
-    assert "skills/researcher/runtime/research.py" in combined
+    assert "reason_code=rlm_status_pending" in combined
+    assert "rlm_finalize.py --ticket" in combined
 
 
 def test_gate_workflow_surfaces_rlm_status_pending_reason_code(tmp_path):
@@ -629,7 +629,7 @@ def test_research_required_before_code_changes(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "research" in combined or "отчёт" in combined
+    assert "reason_code=rlm_status_pending" in combined or "research" in combined or "отчёт" in combined
 
     # After research is added (reviewed) and tasklist has real items, code edits should be allowed
     write_research_doc(tmp_path, status="reviewed")
@@ -947,7 +947,7 @@ def _ru_command(version: str, name: str = "plan-new") -> str:
 
 
 
-def test_allows_pending_research_baseline(tmp_path):
+def test_pending_research_baseline_blocks_downstream_source_edits(tmp_path):
     ensure_gates_config(tmp_path, {"reviewer": {"enabled": False}})
     ticket = "demo-checkout"
     write_file(tmp_path, "src/main/kotlin/App.kt", "class App")
@@ -990,7 +990,10 @@ def test_allows_pending_research_baseline(tmp_path):
     )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2
+    combined = result.stdout + result.stderr
+    assert "reason_code=rlm_status_pending" in combined
+    assert "rlm_finalize.py --ticket" in combined
 
 
 def test_progress_blocks_without_checkbox(tmp_path):

@@ -48,6 +48,10 @@ Artifacts:
 - Pack bytes: {{rlm_pack_bytes}}
 - Pack updated_at: {{rlm_pack_updated_at}}
 - Warnings: {{rlm_warnings}} (e.g., rlm_links_empty_warn)
+- Pending reason: {{rlm_pending_reason}}
+- Next action: {{rlm_next_action}}
+- Baseline marker: {{rlm_baseline_marker}}
+- Auto recovery: bootstrap_attempted={{rlm_bootstrap_attempted}}, finalize_attempted={{rlm_finalize_attempted}}, recovery_path={{rlm_recovery_path}}
 - Slice: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py --ticket {{ticket}} --query "<token>"
 - Nodes/links: {{rlm_nodes_path}} / {{rlm_links_path}} (не читать целиком)
 

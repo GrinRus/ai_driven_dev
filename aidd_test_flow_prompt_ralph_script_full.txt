@@ -117,7 +117,7 @@
 - Если `main log = 0 bytes` дольше 120 секунд, но stream-файлы уже созданы и растут:
   - **не** считать это buffering risk;
   - продолжать run как `active_stream`.
-- Если в stage-логе нет новых строк (или не растёт размер) >10 минут:
+- Если в stage-логе нет новых строк (или не растёт размер) >20 минут:
   - сначала проверь stream-файлы:
     - если stream растёт, это `active_stream` (не stall);
     - если не растут и main log, и stream — это `silent stall`;
@@ -147,8 +147,8 @@
 - Для drift extraction фиксируй source line/тип события; без source-attribution помечай как `report_noise`.
 
 Рекомендуемые бюджеты:
-- Для `smoke`: stage60 до 20 мин, `qa` до 30 мин.
-- Для `full`: stage60 (`implement`) до 90 мин, stage90 (`review`) до 120 мин, `loop-run` до 120 мин, `loop-step` до 45 мин.
+- Для этапов: idea-new, reaearch, plan, review-spec, tasks-new предусмотрен бюджет до 20 мин.
+- Для этапов: implement до 60 мин, review до 60 мин, loop-run до 120 мин, loop-step до 90 мин.
 
 Если бюджет превышен:
 - собрать диагностику (`ps`, `tail`, артефакты),
@@ -412,6 +412,9 @@
 Сделать:
 - первый запуск ticket-only;
 - при вопросах: retry;
+- в non-interactive path ожидать bounded auto-recovery внутри researcher runtime:
+  - canonical finalize orchestration (`rlm_finalize`, при необходимости bootstrap) не более 1 попытки;
+  - при unresolved pending обязательны детерминированные поля в `AIDD:RLM_EVIDENCE`: `Pending reason`, `Next action`, `Baseline marker`.
 - fallback допускается только если stage blocked/hang (не для `Unknown skill`):
   - `python3 $PLUGIN_DIR/skills/researcher/runtime/research.py --ticket $TICKET --auto --paths backend/src/main/java,frontend/src/pages --keywords github,analysis,flow`
 - пометить fallback marker.
@@ -433,7 +436,9 @@ W90 check (после fallback, если был):
 - first run ticket-only;
 - при вопросах: retry;
 - если hang/kill: выполнить runtime probe
-  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET`
+  - `python3 $PLUGIN_DIR/skills/plan-new/runtime/research_check.py --ticket $TICKET --expected-stage plan`
+- для downstream probes (`plan/review/qa`) pending должен классифицироваться как `reason_code=rlm_status_pending` + finalize hint;
+- `baseline_missing` в downstream probes считать drift/contract mismatch.
 - классифицировать как prompt-exec issue до probe.
 
 #### 5.4 review-spec

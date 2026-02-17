@@ -276,6 +276,16 @@ def _normalize_work_item_key(value: str) -> str:
     return raw
 
 
+def _read_active_mode(target: Path) -> str:
+    marker = target / "docs" / ".active_mode"
+    if not marker.exists():
+        return ""
+    try:
+        return marker.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
@@ -287,11 +297,22 @@ def main(argv: list[str] | None = None) -> int:
 
     stage = (args.stage or "").strip().lower()
     work_item_key = _normalize_work_item_key(args.work_item_key or "")
+    active_work_item_key = _normalize_work_item_key(runtime.read_active_work_item(target))
     if stage in {"implement", "review"} and not work_item_key:
-        work_item_key = _normalize_work_item_key(runtime.read_active_work_item(target))
+        work_item_key = active_work_item_key
+    if stage == "qa" and not work_item_key and runtime.is_iteration_work_item_key(active_work_item_key):
+        work_item_key = active_work_item_key
     scope_key = (args.scope_key or "").strip()
     if stage in {"implement", "review"} and work_item_key:
         scope_key = runtime.resolve_scope_key(work_item_key, ticket)
+    if stage == "qa" and work_item_key and runtime.is_iteration_work_item_key(work_item_key):
+        expected_scope_key = runtime.resolve_scope_key(work_item_key, ticket)
+        if scope_key and scope_key != expected_scope_key:
+            raise ValueError(
+                "qa scope_key/work_item_key mismatch: "
+                f"expected {expected_scope_key} from {work_item_key}, got {scope_key}"
+            )
+        scope_key = expected_scope_key
     if not scope_key:
         if stage == "qa":
             scope_key = runtime.resolve_scope_key("", ticket)
@@ -303,6 +324,24 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("work_item_key must match iteration_id=<id> or id=<id> (no composite keys)")
         if not work_item_key and not args.allow_missing_work_item:
             raise ValueError("work_item_key is required for implement/review stage results")
+    if stage == "qa" and work_item_key and not runtime.is_valid_work_item_key(work_item_key):
+        raise ValueError("qa work_item_key must match iteration_id=<id> or id=<id>")
+    if stage == "qa":
+        ticket_scope_key = runtime.resolve_scope_key("", ticket)
+        is_iteration_scope = scope_key.startswith("iteration_id_")
+        if scope_key != ticket_scope_key and not is_iteration_scope:
+            raise ValueError(
+                "qa scope_key must be either ticket scope or iteration scope (iteration_id_*)"
+            )
+        active_mode = _read_active_mode(target)
+        if active_mode == "loop" and not is_iteration_scope:
+            raise ValueError(
+                "qa stage_result in loop mode requires iteration scope_key (iteration_id_*)"
+            )
+        if active_mode == "loop" and work_item_key and not runtime.is_iteration_work_item_key(work_item_key):
+            raise ValueError(
+                "qa stage_result in loop mode requires iteration work_item_key (iteration_id=<id>)"
+            )
 
     artifacts = _dedupe(_split_items(args.artifact) + _split_items(args.artifacts))
     errors = _dedupe(_split_items(args.error) + _split_items(args.errors))

@@ -86,7 +86,7 @@ def _setup_common_artifacts(tmp_path: Path, ticket: str = "demo-checkout") -> No
     )
 
 
-def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
+def test_researcher_blocks_pending_baseline_in_downstream_stage(tmp_path):
     ticket = "demo-checkout"
     _setup_common_artifacts(tmp_path, ticket)
     write_file(
@@ -96,10 +96,12 @@ def test_researcher_allows_pending_baseline_with_auto_and_new_project(tmp_path):
     )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "reason_code=rlm_status_pending" in combined
 
 
-def test_researcher_allows_pending_baseline_without_extra_flags(tmp_path):
+def test_researcher_blocks_pending_baseline_without_extra_flags(tmp_path):
     ticket = "demo-checkout"
     _setup_common_artifacts(tmp_path, ticket)
     write_file(
@@ -109,7 +111,9 @@ def test_researcher_allows_pending_baseline_without_extra_flags(tmp_path):
     )
 
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "reason_code=rlm_status_pending" in combined
 
 
 def test_researcher_blocks_pending_without_baseline_marker(tmp_path):
@@ -135,4 +139,4 @@ def test_researcher_blocks_missing_report(tmp_path):
     result = run_hook(tmp_path, "gate-workflow.sh", SRC_PAYLOAD)
     assert result.returncode == 2
     combined = (result.stdout + result.stderr).lower()
-    assert "researcher" in combined or "отчёт" in combined or "report" in combined
+    assert "reason_code=rlm_status_pending" in combined or "reason_code=research_report_missing" in combined

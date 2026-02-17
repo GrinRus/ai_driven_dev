@@ -353,6 +353,7 @@ def _validate_rlm_evidence(
     *,
     settings: ResearchSettings,
     doc_status: Optional[str] = None,
+    expected_stage: Optional[str] = None,
 ) -> None:
     rlm_targets_path = root / "reports" / "research" / f"{ticket}-rlm-targets.json"
     rlm_manifest_path = root / "reports" / "research" / f"{ticket}-rlm-manifest.json"
@@ -400,7 +401,7 @@ def _validate_rlm_evidence(
         if isinstance(entries, list):
             worklist_entries = len(entries)
 
-    stage = _load_stage(root)
+    stage = str(expected_stage or _load_stage(root) or "").strip().lower()
     normalized_status = (doc_status or "").strip().lower()
     ready_required = stage in {"plan", "review", "qa"} or normalized_status == "reviewed"
 
@@ -498,6 +499,7 @@ def validate_research(
     *,
     settings: ResearchSettings,
     branch: Optional[str] = None,
+    expected_stage: Optional[str] = None,
 ) -> ResearchCheckSummary:
     if not settings.enabled:
         return ResearchCheckSummary(status=None, skipped_reason="disabled")
@@ -535,6 +537,9 @@ def validate_research(
         )
 
     status = _extract_status(doc_text)
+    stage = str(expected_stage or _load_stage(root) or "").strip().lower()
+    baseline_stage_allowed = stage in {"research"}
+    downstream_stage = stage in {"plan", "review", "qa", "implement"}
     required_statuses = settings.require_status or ["reviewed"]
     required_statuses = [item for item in required_statuses if item]
     if required_statuses:
@@ -546,14 +551,21 @@ def validate_research(
             )
         if status not in required_statuses:
             if status == "pending" and settings.allow_pending_baseline:
-                baseline_phrase = settings.baseline_phrase.strip().lower()
-                if baseline_phrase and baseline_phrase in doc_text_lower:
-                    return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
-                _raise_block(
-                    "baseline_missing",
-                    "статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)",
-                    _research_cmd_hint(ticket),
-                )
+                if baseline_stage_allowed:
+                    baseline_phrase = settings.baseline_phrase.strip().lower()
+                    if baseline_phrase and baseline_phrase in doc_text_lower:
+                        return ResearchCheckSummary(status=status, skipped_reason="pending-baseline")
+                    _raise_block(
+                        "baseline_missing",
+                        "статус Researcher `pending` допустим только для baseline (нужна отметка baseline в отчёте)",
+                        _research_cmd_hint(ticket),
+                    )
+                if downstream_stage:
+                    _raise_block(
+                        "rlm_status_pending",
+                        "rlm_status=pending — требуется rlm_status=ready с nodes/links/pack для текущей стадии",
+                        _rlm_finalize_cmd_hint(ticket),
+                    )
             _raise_block(
                 "research_status_invalid",
                 f"статус Researcher `{status}` не входит в {required_statuses}",
@@ -608,6 +620,7 @@ def validate_research(
         ticket,
         settings=settings,
         doc_status=status,
+        expected_stage=stage or None,
     )
 
     return ResearchCheckSummary(status=status, path_count=path_count, age_days=age_days)

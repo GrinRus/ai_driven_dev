@@ -60,6 +60,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--branch",
         help="Current Git branch used to evaluate config.gates researcher branch rules.",
     )
+    parser.add_argument(
+        "--expected-stage",
+        choices=("research", "plan", "review", "qa", "implement"),
+        default="plan",
+        help="Stage context override for downstream research validation (default: plan).",
+    )
     return parser.parse_args(argv)
 
 
@@ -78,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             ticket,
             settings=settings,
             branch=args.branch,
+            expected_stage=args.expected_stage,
         )
     except ResearchValidationError as exc:
         raise RuntimeError(str(exc)) from exc

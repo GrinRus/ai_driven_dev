@@ -201,17 +201,25 @@ def load_stage_result(
         selected_payload["scope_key"] = selected_scope
     selected_effective_result = stage_result_contract.effective_stage_result(selected_payload)
     expected_scope_raw = str(scope_key or "").strip()
+    qa_iteration_scope_required = stage == "qa" and expected_scope_raw.startswith("iteration_id_")
     if (
         expected_scope_raw
         and selected_scope
         and selected_scope != expected_scope_raw
-        and selected_effective_result == "blocked"
+        and (
+            selected_effective_result == "blocked"
+            or qa_iteration_scope_required
+        )
     ):
         diagnostics_text = _stage_result_diagnostics(
             diagnostics,
             selected=selected_path,
         )
-        marker = f"scope_fallback_stale_ignored={selected_scope}"
+        marker = (
+            f"scope_shape_invalid={selected_scope}"
+            if qa_iteration_scope_required
+            else f"scope_fallback_stale_ignored={selected_scope}"
+        )
         diagnostics_text = f"{diagnostics_text}; {marker}" if diagnostics_text else marker
         return (
             None,

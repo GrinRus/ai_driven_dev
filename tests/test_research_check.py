@@ -231,8 +231,30 @@ class ResearchCheckTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        self.assertIn("reason_code=baseline_missing", str(excinfo.exception))
-        self.assertIn("skills/researcher/runtime/research.py", str(excinfo.exception))
+        self.assertIn("reason_code=rlm_status_pending", str(excinfo.exception))
+        self.assertIn("rlm_finalize.py --ticket", str(excinfo.exception))
+
+    def test_research_check_expected_stage_override_handles_stale_active_stage(self) -> None:
+        workspace, project_root = self._setup_workspace()
+        ticket = "demo-stale-stage"
+        write_active_feature(project_root, ticket)
+        write_active_stage(project_root, "idea")
+        self._write_base_research(project_root, ticket, status="pending")
+        self._write_rlm_baseline(project_root, ticket, status="pending", entries=[{"file_id": "file-app"}])
+
+        args = ["--ticket", ticket, "--expected-stage", "plan"]
+        old_cwd = Path.cwd()
+        os.chdir(workspace)
+        try:
+            with self.assertRaises(RuntimeError) as excinfo:
+                research_check.main(args)
+        finally:
+            os.chdir(old_cwd)
+
+        text = str(excinfo.exception)
+        self.assertIn("reason_code=rlm_status_pending", text)
+        self.assertNotIn("reason_code=baseline_missing", text)
+        self.assertIn("rlm_finalize.py --ticket", text)
 
     def test_research_check_blocks_ready_links_empty(self) -> None:
         workspace, project_root = self._setup_workspace()

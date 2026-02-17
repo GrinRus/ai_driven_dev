@@ -34,6 +34,104 @@ class PRDReviewAgentTests(unittest.TestCase):
         path.write_text(body, encoding="utf-8")
         return path
 
+    def seed_research_ready(self, ticket: str = "demo-feature") -> None:
+        research_dir = self.project_root / "reports" / "research"
+        research_dir.mkdir(parents=True, exist_ok=True)
+        docs_research = self.project_root / "docs" / "research" / f"{ticket}.md"
+        docs_research.parent.mkdir(parents=True, exist_ok=True)
+        docs_research.write_text(
+            "# Research\n\n"
+            "Status: reviewed\n\n"
+            "## Summary\n- ready\n",
+            encoding="utf-8",
+        )
+
+        targets = {
+            "ticket": ticket,
+            "paths": ["src/main/kotlin"],
+            "files": ["src/main/kotlin/App.kt"],
+            "generated_at": "2026-02-17T00:00:00Z",
+        }
+        (research_dir / f"{ticket}-rlm-targets.json").write_text(
+            json.dumps(targets, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest = {
+            "ticket": ticket,
+            "files": [
+                {
+                    "file_id": "file-app",
+                    "path": "src/main/kotlin/App.kt",
+                    "rev_sha": "rev-app",
+                    "lang": "kt",
+                    "size": 10,
+                    "prompt_version": "v1",
+                }
+            ],
+        }
+        (research_dir / f"{ticket}-rlm-manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (research_dir / f"{ticket}-rlm.worklist.pack.json").write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.report.pack.v1",
+                    "type": "rlm-worklist",
+                    "ticket": ticket,
+                    "status": "ready",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (research_dir / f"{ticket}-rlm.nodes.jsonl").write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.rlm_node.v2",
+                    "ticket": ticket,
+                    "path": "src/main/kotlin/App.kt",
+                    "id": "file-app",
+                    "file_id": "file-app",
+                    "lang": "kt",
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (research_dir / f"{ticket}-rlm.links.jsonl").write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.rlm_link.v2",
+                    "ticket": ticket,
+                    "source": "file-app",
+                    "target": "file-app",
+                    "kind": "references",
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (research_dir / f"{ticket}-rlm.pack.json").write_text(
+            json.dumps(
+                {
+                    "schema": "aidd.report.pack.v1",
+                    "type": "rlm-evidence",
+                    "ticket": ticket,
+                    "status": "ready",
+                    "rlm_status": "ready",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     def test_analyse_prd_marks_pending_when_action_items(self):
         prd = self.write_prd(
             dedent(
@@ -105,6 +203,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 """
             ),
         )
+        self.seed_research_ready("demo-feature")
 
         report_path = self.project_root / "reports" / "prd" / "demo-feature.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +243,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 """
             ),
         )
+        self.seed_research_ready("demo-feature")
 
         report_path = self.project_root / "reports" / "prd" / "demo-feature.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,6 +287,7 @@ class PRDReviewAgentTests(unittest.TestCase):
                 """
             ),
         )
+        self.seed_research_ready("demo-feature")
 
         pack_report_path = self.project_root / "reports" / "prd" / "demo-feature.pack.json"
         pack_report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -224,6 +325,7 @@ class PRDReviewAgentTests(unittest.TestCase):
             "# Demo\n\n## PRD Review\nStatus: READY\n",
             encoding="utf-8",
         )
+        self.seed_research_ready("demo-feature")
         (project_root / "reports" / "prd").mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()

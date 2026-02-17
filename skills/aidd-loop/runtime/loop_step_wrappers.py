@@ -630,7 +630,7 @@ def validate_stage_wrapper_contract(
         return True, "", ""
     lowered = [item.lower() for item in missing]
     if any("stage_result=" in item or f"stage.{stage}.result.json" in item for item in lowered):
-        reason_code = "stage_result_missing"
+        reason_code = "wrapper_output_missing"
     elif any("wrapper.preflight" in item or "wrapper.run" in item or "wrapper.postflight" in item for item in lowered):
         reason_code = "wrapper_chain_missing"
     elif any("actions" in item for item in lowered):
@@ -641,8 +641,11 @@ def validate_stage_wrapper_contract(
     return False, message, reason_code
 
 
-def build_command(stage: str, ticket: str) -> List[str]:
+def build_command(stage: str, ticket: str, answers: str = "") -> List[str]:
     command = f"/feature-dev-aidd:{stage} {ticket}"
+    compact_answers = str(answers or "").strip()
+    if compact_answers:
+        command = f"{command} {compact_answers}"
     return ["-p", command]
 
 

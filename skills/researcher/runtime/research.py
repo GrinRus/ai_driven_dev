@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import io
 import json
 import os
 import re
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -15,7 +17,8 @@ if str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 from aidd_runtime import research_hints as prd_hints
-from aidd_runtime import rlm_manifest, rlm_nodes_build, rlm_targets, runtime
+from aidd_runtime import rlm_finalize, rlm_manifest, rlm_nodes_build, rlm_targets, runtime, tasks_derive
+from aidd_runtime.feature_ids import write_active_state
 from aidd_runtime.rlm_config import load_rlm_settings
 
 _TEMPLATE_MARKER_RE = re.compile(r"\{\{[^{}]+\}\}")
@@ -242,6 +245,145 @@ def _rlm_finalize_handoff_cmd(ticket: str) -> str:
     return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket {ticket}"
 
 
+def _rlm_bootstrap_cmd(ticket: str) -> str:
+    return f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}"
+
+
+def _jsonl_nonempty(path: Path) -> bool:
+    return path.exists() and path.stat().st_size > 0
+
+
+def _evaluate_rlm_state(
+    *,
+    target: Path,
+    ticket: str,
+    rlm_pack_path: Path,
+    require_links: bool,
+) -> dict[str, object]:
+    nodes_path = target / "reports" / "research" / f"{ticket}-rlm.nodes.jsonl"
+    links_path = target / "reports" / "research" / f"{ticket}-rlm.links.jsonl"
+    links_stats_path = target / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
+
+    nodes_ready = _jsonl_nonempty(nodes_path)
+    links_ok = _jsonl_nonempty(links_path)
+    links_total: int | None = None
+    if links_stats_path.exists():
+        try:
+            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
+        except Exception:
+            stats_payload = None
+        if isinstance(stats_payload, dict):
+            try:
+                links_total = int(stats_payload.get("links_total") or 0)
+            except (TypeError, ValueError):
+                links_total = None
+    links_empty = links_total == 0 if links_total is not None else not links_ok
+    pack_exists = rlm_pack_path.exists()
+    status = "pending"
+    warnings: list[str] = []
+    if pack_exists:
+        if require_links and links_empty:
+            status = "warn"
+            warnings.append("rlm_links_empty_warn")
+        else:
+            status = "ready"
+    return {
+        "status": status,
+        "warnings": warnings,
+        "nodes_ready": nodes_ready,
+        "links_ok": links_ok,
+        "links_empty": links_empty,
+        "links_total": links_total,
+        "pack_exists": pack_exists,
+        "nodes_path": nodes_path,
+        "links_path": links_path,
+    }
+
+
+def _attempt_auto_finalize(
+    *,
+    target: Path,
+    ticket: str,
+) -> dict[str, object]:
+    outcome: dict[str, object] = {
+        "status": "pending",
+        "bootstrap_attempted": False,
+        "finalize_attempted": False,
+        "reason_code": "",
+        "next_action": "",
+        "recovery_path": "",
+        "details": "",
+    }
+    cmd = ["--ticket", ticket, "--bootstrap-if-missing", "--emit-json"]
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = int(rlm_finalize.main(cmd))
+    except SystemExit as exc:
+        try:
+            exit_code = int(exc.code or 1)
+        except (TypeError, ValueError):
+            exit_code = 1
+    except Exception as exc:
+        outcome["reason_code"] = "rlm_finalize_failed"
+        outcome["next_action"] = _rlm_finalize_handoff_cmd(ticket)
+        outcome["details"] = str(exc)
+        return outcome
+
+    stdout_text = stdout_buffer.getvalue().strip()
+    stderr_text = stderr_buffer.getvalue().strip()
+    payload: dict[str, object] = {}
+    if stdout_text:
+        for line in reversed(stdout_text.splitlines()):
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                payload = parsed
+                break
+    outcome["bootstrap_attempted"] = bool(payload.get("bootstrap_attempted"))
+    outcome["finalize_attempted"] = bool(payload.get("finalize_attempted"))
+    outcome["recovery_path"] = str(payload.get("recovery_path") or "").strip()
+    if exit_code == 0 and str(payload.get("status") or "").strip().lower() in {"done", "ready", "ok"}:
+        outcome["status"] = "ready"
+        return outcome
+
+    outcome["status"] = "pending"
+    outcome["reason_code"] = str(payload.get("reason_code") or "").strip() or "rlm_finalize_failed"
+    outcome["next_action"] = str(payload.get("next_action") or "").strip() or _rlm_finalize_handoff_cmd(ticket)
+    if stderr_text and not outcome["details"]:
+        outcome["details"] = stderr_text
+    if not outcome["reason_code"]:
+        outcome["reason_code"] = "rlm_finalize_failed"
+    return outcome
+
+
+def _append_research_handoff(
+    *,
+    target: Path,
+    ticket: str,
+    report_path: Path,
+) -> tuple[bool, str]:
+    rel_report = runtime.rel_path(report_path, target)
+    cmd = [
+        "--source",
+        "research",
+        "--ticket",
+        ticket,
+        "--append",
+        "--report",
+        rel_report,
+    ]
+    try:
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = int(tasks_derive.main(cmd))
+    except Exception as exc:
+        return False, str(exc)
+    return code == 0, ""
+
+
 def _validate_json_file(path: Path, label: str) -> None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -373,6 +515,7 @@ def run(args: argparse.Namespace) -> int:
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+    write_active_state(target, ticket=ticket, stage="research")
 
     prd_path = target / "docs" / "prd" / f"{ticket}.prd.md"
     prd_text = prd_path.read_text(encoding="utf-8") if prd_path.exists() else ""
@@ -467,37 +610,80 @@ def run(args: argparse.Namespace) -> int:
             print(f"[aidd] ERROR: failed to generate rlm pack: {exc}", file=sys.stderr)
             return 2
 
-    links_ok = links_path.exists() and links_path.stat().st_size > 0
-    pack_exists = rlm_pack_path.exists()
-    rlm_status = "pending"
-    rlm_warnings: list[str] = []
     gates_cfg = runtime.load_gates_config(target)
     rlm_cfg = gates_cfg.get("rlm") if isinstance(gates_cfg, dict) else {}
     require_links = bool(rlm_cfg.get("require_links")) if isinstance(rlm_cfg, dict) else False
-    links_total = None
-    links_stats_path = target / "reports" / "research" / f"{ticket}-rlm.links.stats.json"
-    if links_stats_path.exists():
-        try:
-            stats_payload = json.loads(links_stats_path.read_text(encoding="utf-8"))
-        except Exception:
-            stats_payload = None
-        if isinstance(stats_payload, dict):
-            try:
-                links_total = int(stats_payload.get("links_total") or 0)
-            except (TypeError, ValueError):
-                links_total = None
-    links_empty = links_total == 0 if links_total is not None else not links_ok
-    if pack_exists:
-        if require_links and links_empty:
-            rlm_status = "warn"
-            rlm_warnings.append("rlm_links_empty_warn")
-            print("[aidd] WARN: rlm links empty; rlm_status set to warn.", file=sys.stderr)
-        else:
-            rlm_status = "ready"
+    state = _evaluate_rlm_state(
+        target=target,
+        ticket=ticket,
+        rlm_pack_path=rlm_pack_path,
+        require_links=require_links,
+    )
+    rlm_status = str(state["status"])
+    rlm_warnings: list[str] = list(state["warnings"])
+    nodes_ready = bool(state["nodes_ready"])
+    links_ok = bool(state["links_ok"])
+    pack_exists = bool(state["pack_exists"])
+    links_empty = bool(state["links_empty"])
 
     if args.targets_only:
         runtime.maybe_sync_index(target, ticket, feature_context.slug_hint, reason="research-targets")
         return 0
+
+    finalize_outcome: dict[str, object] = {
+        "status": "pending",
+        "bootstrap_attempted": False,
+        "finalize_attempted": False,
+        "reason_code": "",
+        "next_action": "",
+        "recovery_path": "",
+        "details": "",
+    }
+    if args.auto and rlm_status != "ready":
+        finalize_outcome = _attempt_auto_finalize(target=target, ticket=ticket)
+        if str(finalize_outcome.get("status") or "").strip().lower() == "ready":
+            state = _evaluate_rlm_state(
+                target=target,
+                ticket=ticket,
+                rlm_pack_path=rlm_pack_path,
+                require_links=require_links,
+            )
+            rlm_status = str(state["status"])
+            rlm_warnings = list(state["warnings"])
+            nodes_ready = bool(state["nodes_ready"])
+            links_ok = bool(state["links_ok"])
+            pack_exists = bool(state["pack_exists"])
+            links_empty = bool(state["links_empty"])
+            if rlm_status == "ready":
+                print("[aidd] INFO: rlm finalize auto-recovery succeeded.", file=sys.stderr)
+        else:
+            reason_code = str(finalize_outcome.get("reason_code") or "").strip()
+            if reason_code and reason_code not in rlm_warnings:
+                rlm_warnings.append(reason_code)
+
+    pending_reason_code = ""
+    pending_next_action = ""
+    baseline_marker = "none"
+    if rlm_status != "ready":
+        finalized_reason = str(finalize_outcome.get("reason_code") or "").strip()
+        finalized_next = str(finalize_outcome.get("next_action") or "").strip()
+        if finalized_reason:
+            pending_reason_code = finalized_reason
+            pending_next_action = finalized_next or _rlm_finalize_handoff_cmd(ticket)
+        elif not nodes_ready and not links_ok and not pack_exists:
+            pending_reason_code = "baseline_pending"
+            pending_next_action = _rlm_bootstrap_cmd(ticket)
+        elif not nodes_ready:
+            pending_reason_code = "rlm_nodes_missing"
+            pending_next_action = _rlm_bootstrap_cmd(ticket)
+        elif not links_ok or not pack_exists:
+            pending_reason_code = "finalize_prereqs_missing"
+            pending_next_action = _rlm_finalize_handoff_cmd(ticket)
+        else:
+            pending_reason_code = "rlm_status_pending"
+            pending_next_action = _rlm_finalize_handoff_cmd(ticket)
+        if pending_reason_code == "baseline_pending":
+            baseline_marker = "Контекст пуст: требуется baseline после автоматического запуска."
 
     if not args.no_template:
         template_overrides = {
@@ -521,6 +707,12 @@ def run(args: argparse.Namespace) -> int:
             "{{rlm_warnings}}": ", ".join(rlm_warnings) if rlm_warnings else "none",
             "{{rlm_nodes_path}}": runtime.rel_path(nodes_path, target),
             "{{rlm_links_path}}": runtime.rel_path(links_path, target),
+            "{{rlm_pending_reason}}": pending_reason_code or "none",
+            "{{rlm_next_action}}": pending_next_action or "none",
+            "{{rlm_baseline_marker}}": baseline_marker,
+            "{{rlm_bootstrap_attempted}}": "yes" if finalize_outcome.get("bootstrap_attempted") else "no",
+            "{{rlm_finalize_attempted}}": "yes" if finalize_outcome.get("finalize_attempted") else "no",
+            "{{rlm_recovery_path}}": str(finalize_outcome.get("recovery_path") or "none"),
         }
         doc_path, created = _ensure_research_doc(
             target,
@@ -541,10 +733,27 @@ def run(args: argparse.Namespace) -> int:
 
     _sync_prd_overrides(target, ticket=ticket, overrides=prd_overrides)
 
+    handoff_appended = False
+    handoff_error = ""
     if rlm_status != "ready":
+        handoff_report = rlm_pack_path if pack_exists else worklist_path
+        handoff_appended, handoff_error = _append_research_handoff(
+            target=target,
+            ticket=ticket,
+            report_path=handoff_report,
+        )
+        if handoff_error:
+            print(
+                f"[aidd] WARN: failed to append research handoff task ({handoff_error}).",
+                file=sys.stderr,
+            )
+        reason_label = pending_reason_code or "rlm_status_pending"
+        next_action = pending_next_action or _rlm_finalize_handoff_cmd(ticket)
+        if baseline_marker != "none":
+            print(f"[aidd] INFO: {baseline_marker}", file=sys.stderr)
         print(
             "[aidd] INFO: shared RLM API owner is `aidd-rlm`; "
-            f"handoff command: `{_rlm_finalize_handoff_cmd(ticket)}`.",
+            f"reason_code={reason_label}; next_action: `{next_action}`.",
             file=sys.stderr,
         )
 
@@ -560,6 +769,13 @@ def run(args: argparse.Namespace) -> int:
             details={
                 "rlm_status": rlm_status,
                 "worklist_entries": len(worklist_pack.get("entries") or []),
+                "pending_reason_code": pending_reason_code or None,
+                "pending_next_action": pending_next_action or None,
+                "bootstrap_attempted": bool(finalize_outcome.get("bootstrap_attempted")),
+                "finalize_attempted": bool(finalize_outcome.get("finalize_attempted")),
+                "recovery_path": str(finalize_outcome.get("recovery_path") or "") or None,
+                "handoff_appended": handoff_appended,
+                "handoff_error": handoff_error or None,
             },
             report_path=Path(runtime.rel_path(rlm_pack_path if pack_exists else worklist_path, target)),
             source="aidd research",

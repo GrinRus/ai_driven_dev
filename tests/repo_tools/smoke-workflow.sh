@@ -444,6 +444,42 @@ missing = [str(path) for path in required if not path.exists()]
 if missing:
     raise SystemExit(f"[smoke] missing RLM artifacts: {missing}")
 PY
+python3 - "$TICKET" <<'PY'
+from pathlib import Path
+import sys
+
+ticket = sys.argv[1]
+path = Path("docs/research") / f"{ticket}.md"
+if not path.exists():
+    raise SystemExit(f"[smoke] missing research doc: {path}")
+text = path.read_text(encoding="utf-8")
+for marker in ("Status: warn", "Status: pending", "Status: draft"):
+    if marker in text:
+        text = text.replace(marker, "Status: reviewed", 1)
+        break
+path.write_text(text, encoding="utf-8")
+PY
+
+log "research-check pending reason must be rlm_status_pending before finalize"
+set +e
+research_pending_output="$(run_cli research-check --ticket "$TICKET" --expected-stage plan 2>&1)"
+research_pending_rc=$?
+set -e
+if [[ $research_pending_rc -eq 0 ]]; then
+  echo "[smoke] research-check unexpectedly passed before finalize readiness" >&2
+  exit 1
+fi
+if ! grep -Eq "reason_code=(rlm_status_pending|rlm_links_empty_warn|rlm_nodes_missing|finalize_prereqs_missing)" <<<"$research_pending_output"; then
+  echo "[smoke] research-check pending reason mismatch (expected deterministic pending/finalize reason)" >&2
+  echo "$research_pending_output" >&2
+  exit 1
+fi
+if grep -q "reason_code=baseline_missing" <<<"$research_pending_output"; then
+  echo "[smoke] research-check emitted forbidden baseline_missing in downstream probe" >&2
+  echo "$research_pending_output" >&2
+  exit 1
+fi
+
 log "seed minimal RLM nodes"
 python3 - "$TICKET" <<'PY'
 import json
@@ -522,6 +558,24 @@ PY
 log "finalize RLM evidence"
 run_cli rlm-finalize --ticket "$TICKET" >/dev/null
 python3 - "$TICKET" <<'PY'
+import sys
+from pathlib import Path
+
+ticket = sys.argv[1]
+base = Path("reports/research")
+required = [
+    base / f"{ticket}-rlm-targets.json",
+    base / f"{ticket}-rlm-manifest.json",
+    base / f"{ticket}-rlm.worklist.pack.json",
+    base / f"{ticket}-rlm.nodes.jsonl",
+    base / f"{ticket}-rlm.links.jsonl",
+    base / f"{ticket}-rlm.pack.json",
+]
+missing = [str(path) for path in required if not path.exists()]
+if missing:
+    raise SystemExit(f"[smoke] missing finalized RLM artifacts: {missing}")
+PY
+python3 - "$TICKET" <<'PY'
 from pathlib import Path
 import sys
 
@@ -537,7 +591,7 @@ path.write_text(text, encoding="utf-8")
 PY
 
 log "research-check must pass"
-run_cli research-check --ticket "$TICKET" >/dev/null
+run_cli research-check --ticket "$TICKET" --expected-stage plan >/dev/null
 
 log "expect block while PRD draft / research handoff pending"
 assert_gate_exit 2 "draft PRD"
@@ -1144,6 +1198,17 @@ log "reviewer clears test requirement"
 run_cli reviewer-tests --ticket "$TICKET" --status optional >/dev/null
 grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
 grep -q "Tasklist:" "docs/tasklist/${TICKET}.md"
+
+log "loop RCA regression guard (TST-001)"
+(
+  cd "$PLUGIN_ROOT"
+  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -m pytest -q \
+      tests/test_loop_step.py::LoopStepTests::test_loop_step_tst001_fixture_stale_stage_missing_stage_result \
+      tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_strict \
+      tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_ralph \
+      tests/test_loop_run.py::LoopRunTests::test_loop_run_marks_marker_report_noise_without_signal
+)
 
 log "smoke scenario passed"
 popd >/dev/null
