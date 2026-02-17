@@ -75,6 +75,7 @@ RECOVERABLE_BLOCK_REASON_CODES = {
     "stage_result_missing_or_invalid",
     "stage_result_blocked",
     "blocked_without_reason",
+    "blocking_findings",
     "invalid_loop_step_payload",
     "stage_result_missing",
     "wrapper_chain_missing",

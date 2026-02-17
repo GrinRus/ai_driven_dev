@@ -5,6 +5,7 @@
 
 Роль: ты — один аудитор-агент. Проведи **полный** e2e прогон AIDD flow в одном репозитории и собери доказательства (логи/артефакты).  
 **НЕ** исправляй проект и **НЕ** делай ручные правки `aidd/docs/**` или `aidd/reports/**` ради прохождения гейтов.
+Используй только canonical stage-result contract (`aidd.stage_result.v1`); legacy stage-result schema не использовать как валидный runtime-path.
 
 ## 1) Канон и границы
 
@@ -18,7 +19,7 @@
 
 ## 2) Переменные
 
-- `PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge`
+- `PROJECT_DIR=/Users/griogrii_riabov/grigorii_projects/ai_advent_challenge_new`
 - `PLUGIN_DIR=/Users/griogrii_riabov/grigorii_projects/ai_driven_dev`
 - `CLAUDE_PLUGIN_ROOT=$PLUGIN_DIR`
 - `TICKET=TST-001`
@@ -69,7 +70,10 @@
   - `AUDIT_DIR/<step>_run<N>.log` (main log),
   - stream-файлы (`*.stream.jsonl` и `*.stream.log`) из header/метаданных.
   Стагнация только main log при растущем stream не является `silent stall`.
-- R13: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` на историческом payload, классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
+- R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
+- R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
+- R13.2: Для loop/review `reason_code=blocking_findings` трактовать как ожидаемый `REVISE`-сигнал (не flow bug по умолчанию).
+- R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage wrapper путём.
 
 ## 5) Политика запуска, ожидания и зависаний
 
@@ -131,7 +135,7 @@
 - Затем `prompt-exec issue`:
   - buffering/quoting/runner/hang/silent stall
 - Отдельно `contract mismatch`:
-  - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate
+  - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate (включая legacy stage-result schema payload)
 - Только потом `flow bug`:
   - stage logic issue после подтверждения валидного env + retry/probe/fallback
 
@@ -139,11 +143,12 @@
 
 - Stage-level классификацию делай по текущему stage-return, `init` и top-level result.
 - Текст `WARN/Q*/AIDD:ANSWERS/Question` внутри вложенных артефактов (`tool_result`, excerpts tasklist/PRD/reports) не считать trigger-ом инцидента.
+- `blocking_findings` внутри review/report артефактов не считать trigger-ом сам по себе: сигналом является только текущий stage-return (`reason_code`/`status`).
 - Для drift extraction фиксируй source line/тип события; без source-attribution помечай как `report_noise`.
 
 Рекомендуемые бюджеты:
 - Для `smoke`: stage60 до 20 мин, `qa` до 30 мин.
-- Для `full`: stage60 до 60 мин, stage90 до 90 мин, `loop-run` до 120 мин, `loop-step` до 45 мин.
+- Для `full`: stage60 (`implement`) до 90 мин, stage90 (`review`) до 120 мин, `loop-run` до 120 мин, `loop-step` до 45 мин.
 
 Если бюджет превышен:
 - собрать диагностику (`ps`, `tail`, артефакты),
@@ -179,7 +184,7 @@
    - **не** применять question retry-шаблон;
    - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
 7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает запускать `skills/aidd-loop/runtime/preflight_prepare.py` напрямую или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path:
-   - классифицировать как `prompt-flow drift (non-canonical stage orchestration)`;
+   - классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и `policy_violation(stage_result_manual_write)` при попытке ручного stage-result write;
    - не выполнять этот manual path в e2e аудите;
    - зафиксировать `NOT VERIFIED` для шага и продолжить только по разрешённому сценарию.
 
@@ -502,11 +507,16 @@ W94 checks:
   - `07_loop_stream_liveness_check.txt` (main log vs stream jsonl/log growth),
   - `07_loop_runner_mode_check.txt` (`permissionMode`, approval-denied signals),
   - `07_stage_result_contract_check.txt` (если blocked по `stage_result_missing_or_invalid`),
-  - `07_recoverable_block_policy_check.txt` (`recoverable_blocked`, `recovery_path`, `retry_attempt`).
+  - `07_recoverable_block_policy_check.txt` (`recoverable_blocked`, `recovery_path`, `retry_attempt`),
+  - `07_blocking_findings_policy_check.txt` (`reason_code=blocking_findings` -> expected REVISE semantics; для `BLOCKED_POLICY=ralph` expected recoverable path).
 
 Если в stream `init` видно `permissionMode=default` и есть `requires approval`:
 - классифицировать как `ENV_MISCONFIG(loop_runner_permissions)`;
 - выполнить ровно один retry после явной установки runner/env (без смены сценария).
+
+Если loop-step/loop-run вернул `blocked` с `reason_code=blocking_findings`:
+- для `BLOCKED_POLICY=strict`: фиксировать как `WARN(expected_revise_signal)` с продолжением по стандартной диагностике;
+- для `BLOCKED_POLICY=ralph`: ожидать `recoverable_blocked=1` и recovery/retry path; отклонения фиксировать как `policy_mismatch(blocked_policy_vs_reason_code)`.
 
 W94/W97 checks:
 - `07_scope_mismatch_check.txt`
@@ -515,6 +525,7 @@ W94/W97 checks:
 - `07_loop_stream_liveness_check.txt` (пруф, что probe смотрит main + stream)
 - `07_loop_runner_mode_check.txt` (non-interactive runner mode подтверждён)
 - `07_stage_result_contract_check.txt` (contract mismatch vs prompt-exec разведены)
+- `07_blocking_findings_policy_check.txt` (blocking_findings semantics: REVISE + ralph recoverable)
 
 ### Шаг 8. QA
 
@@ -572,6 +583,7 @@ W94-5:
   - loop runner permission mode (nested runner)
   - preflight/readmap/writemap/actions/wrapper logs
   - stage_result contract mismatch diagnostics (`invalid-schema` fallback)
+  - blocking_findings semantics (`REVISE` signal + `ralph` recoverable path)
   - marker semantics
   - QA gradle cwd
   - plugin write-safety

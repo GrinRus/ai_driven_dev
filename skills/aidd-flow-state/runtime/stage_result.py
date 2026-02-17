@@ -424,6 +424,7 @@ def main(argv: list[str] | None = None) -> int:
         "review_context_pack_placeholder_warn",
         "fast_mode_warn",
         "output_contract_warn",
+        "blocking_findings",
     }
     if reason_code in warn_reason_codes and result == "blocked":
         result = "continue"

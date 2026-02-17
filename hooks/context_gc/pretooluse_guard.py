@@ -149,6 +149,11 @@ def _command_targets_aidd(command: str) -> bool:
 
 ALWAYS_ALLOW_PATTERNS = ["aidd/reports/**", "aidd/reports/actions/**"]
 _SCOPE_KEY_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_STAGE_RESULT_SUFFIXES = (
+    "/stage.implement.result.json",
+    "/stage.review.result.json",
+    "/stage.qa.result.json",
+)
 
 
 def _sanitize_scope_key(value: str) -> str:
@@ -396,6 +401,16 @@ def _always_allow(candidates: list[str]) -> bool:
     return _matches_any_pattern(candidates, ALWAYS_ALLOW_PATTERNS)
 
 
+def _is_loop_stage_result_write(candidates: list[str]) -> bool:
+    for candidate in candidates:
+        normalized = f"/{_normalize_candidate(candidate)}"
+        if "/reports/loops/" not in normalized:
+            continue
+        if any(normalized.endswith(suffix) for suffix in _STAGE_RESULT_SUFFIXES):
+            return True
+    return False
+
+
 def _deny_or_warn(strict: bool, *, reason: str, system_message: str) -> Dict[str, str]:
     if strict:
         return {"decision": "deny", "reason": reason, "system_message": system_message}
@@ -438,6 +453,16 @@ def _enforce_rw_policy(
     stage = stage_lexicon.resolve_stage_name(str(state.get("stage") or ""))
     loop_stage = stage_lexicon.is_loop_stage(stage)
     planning_stage = stage_lexicon.is_planning_stage(stage)
+
+    if tool_name in {"Write", "Edit"} and loop_stage and _is_loop_stage_result_write(candidates):
+        return _deny_or_warn(
+            strict_mode,
+            reason="Loop stage stage-result files are runtime-owned.",
+            system_message=(
+                "Loop stage policy: direct Edit/Write to stage.*.result.json is forbidden. "
+                "Use canonical stage runtime/wrappers to emit stage results."
+            ),
+        )
 
     if _always_allow(candidates):
         if tool_name in {"Write", "Edit"} and loop_stage:

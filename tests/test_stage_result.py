@@ -277,6 +277,42 @@ class StageResultTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "review_context_pack_placeholder_warn")
             self.assertEqual(payload.get("result"), "continue")
 
+    def test_review_blocking_findings_softens_to_revise(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "disabled"})
+            write_review_context_pack(root, "DEMO-BLOCKING-FINDINGS")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-BLOCKING-FINDINGS",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "blocked",
+                    "--reason-code",
+                    "blocking_findings",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (
+                    root / "reports" / "loops" / "DEMO-BLOCKING-FINDINGS" / "iteration_id_I1" / "stage.review.result.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(payload.get("reason_code"), "blocking_findings")
+            self.assertEqual(payload.get("requested_result"), "blocked")
+            self.assertEqual(payload.get("result"), "continue")
+            self.assertEqual(payload.get("verdict"), "REVISE")
+
     def test_review_skipped_tests_capture_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

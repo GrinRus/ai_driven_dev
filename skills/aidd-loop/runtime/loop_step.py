@@ -33,6 +33,7 @@ WARN_REASON_CODES = {
     "review_context_pack_placeholder_warn",
     "fast_mode_warn",
     "output_contract_warn",
+    "blocking_findings",
 }
 HARD_BLOCK_REASON_CODES = {
     "user_approval_required",

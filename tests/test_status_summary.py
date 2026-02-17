@@ -8,7 +8,7 @@ from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_st
 
 
 class StatusSummaryTests(unittest.TestCase):
-    def test_status_summary_accepts_legacy_stage_result_schema(self) -> None:
+    def test_status_summary_blocks_legacy_stage_result_schema(self) -> None:
         with tempfile.TemporaryDirectory(prefix="status-summary-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, ticket="DEMO-STATUS-LEGACY", stage="review", work_item="iteration_id=I1")
@@ -44,10 +44,10 @@ class StatusSummaryTests(unittest.TestCase):
                 cwd=root,
                 env=cli_env(),
             )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertEqual(result.returncode, 1, msg=result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual(payload.get("status"), "WARN")
-            self.assertEqual(payload.get("result"), "continue")
+            self.assertEqual(payload.get("status"), "BLOCKED")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing")
             self.assertEqual(
                 payload.get("stage_result_path"),
                 "aidd/reports/loops/DEMO-STATUS-LEGACY/iteration_id_I1/stage.review.result.json",

@@ -420,7 +420,7 @@ class LoopStepTests(unittest.TestCase):
             self.assertEqual(result.returncode, 10, msg=result.stderr)
             self.assertIn("-p /feature-dev-aidd:review DEMO-2", log_path.read_text(encoding="utf-8"))
 
-    def test_loop_step_accepts_legacy_stage_result_schema(self) -> None:
+    def test_loop_step_blocks_legacy_stage_result_schema(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, stage="implement")
@@ -441,25 +441,15 @@ class LoopStepTests(unittest.TestCase):
                 "reports/loops/DEMO-LEGACY/iteration_id_I1/stage.implement.result.json",
                 json.dumps(stage_result),
             )
-            review_pack = "---\nschema: aidd.review_pack.v2\nupdated_at: 2024-01-02T00:00:00Z\n---\n"
-            write_file(root, "reports/loops/DEMO-LEGACY/iteration_id_I1/review.latest.pack.md", review_pack)
-            review_result = {
-                "schema": "aidd.stage_result.v1",
-                "ticket": "DEMO-LEGACY",
-                "stage": "review",
-                "scope_key": "iteration_id_I1",
-                "result": "continue",
-                "updated_at": "2024-01-02T00:00:00Z",
-            }
-            write_file(
-                root,
-                "reports/loops/DEMO-LEGACY/iteration_id_I1/stage.review.result.json",
-                json.dumps(review_result),
-            )
             log_path = root / "runner.log"
-            result = self.run_loop_step(root, "DEMO-LEGACY", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"})
-            self.assertEqual(result.returncode, 10, msg=result.stderr)
-            self.assertIn("-p /feature-dev-aidd:review DEMO-LEGACY", log_path.read_text(encoding="utf-8"))
+            result = self.run_loop_step(root, "DEMO-LEGACY", log_path, {"AIDD_SKIP_STAGE_WRAPPERS": "0"}, "--format", "json")
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
+            self.assertIn("invalid-schema", str(payload.get("reason") or ""))
+            if log_path.exists():
+                self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
 
     def test_loop_step_accepts_canonical_schema_version_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
@@ -663,6 +653,76 @@ class LoopStepTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("scope_key"), "iteration_id_I1")
 
+    def test_loop_step_review_blocking_findings_continues_to_implement(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_active_state(root, stage="review")
+            write_active_state(root, work_item="iteration_id=I1")
+            stage_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-6F",
+                "stage": "review",
+                "scope_key": "iteration_id_I1",
+                "result": "blocked",
+                "reason_code": "blocking_findings",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-6F/iteration_id_I1/stage.review.result.json",
+                json.dumps(stage_result),
+            )
+            review_pack = (
+                "---\n"
+                "schema: aidd.review_pack.v2\n"
+                "updated_at: 2024-01-02T00:00:00Z\n"
+                "verdict: REVISE\n"
+                "work_item_key: iteration_id=I1\n"
+                "scope_key: iteration_id_I1\n"
+                "---\n"
+            )
+            write_file(root, "reports/loops/DEMO-6F/iteration_id_I1/review.latest.pack.md", review_pack)
+            fix_plan = {
+                "schema": "aidd.review_fix_plan.v1",
+                "updated_at": "2024-01-02T00:00:00Z",
+                "ticket": "DEMO-6F",
+                "work_item_key": "iteration_id=I1",
+                "scope_key": "iteration_id_I1",
+                "fix_plan": {
+                    "steps": ["Fix review:F1"],
+                    "commands": [],
+                    "tests": ["see AIDD:TEST_EXECUTION"],
+                    "expected_paths": ["src/**"],
+                    "acceptance_check": "Blocking findings resolved: review:F1",
+                    "links": [],
+                    "fixes": ["review:F1"],
+                },
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-6F/iteration_id_I1/review.fix_plan.json",
+                json.dumps(fix_plan),
+            )
+            implement_result = {
+                "schema": "aidd.stage_result.v1",
+                "ticket": "DEMO-6F",
+                "stage": "implement",
+                "scope_key": "iteration_id_I1",
+                "result": "continue",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+            write_file(
+                root,
+                "reports/loops/DEMO-6F/iteration_id_I1/stage.implement.result.json",
+                json.dumps(implement_result),
+            )
+            log_path = root / "runner.log"
+            result = self.run_loop_step(root, "DEMO-6F", log_path, None, "--format", "json")
+            self.assertEqual(result.returncode, 10, msg=result.stderr)
+            self.assertIn("-p /feature-dev-aidd:implement DEMO-6F", log_path.read_text(encoding="utf-8"))
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I1")
+
     def test_loop_step_blocks_when_fix_plan_missing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -778,7 +838,7 @@ class LoopStepTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
             self.assertEqual(payload.get("reason_code"), "stage_result_missing_or_invalid")
-            self.assertIn("invalid-result", str(payload.get("reason") or ""))
+            self.assertIn("invalid-schema", str(payload.get("reason") or ""))
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
 
