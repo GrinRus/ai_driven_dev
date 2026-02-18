@@ -70,10 +70,27 @@
   - `AUDIT_DIR/<step>_run<N>.log` (main log),
   - stream-файлы (`*.stream.jsonl` и `*.stream.log`) из header/метаданных.
   Стагнация только main log при растущем stream не является `silent stall`.
+- R12.1: Извлечение stream-путей обязано поддерживать абсолютные и относительные пути из `init/header/metadata`; относительные пути нормализуются относительно `PROJECT_DIR` и сохраняются в нормализованном виде.
+- R12.2: Если stream-пути не извлеклись из main log/metadata, обязателен fallback discovery в `aidd/reports/loops/<ticket>/` (по `*.stream.jsonl` и `*.stream.log`) с выбором самых свежих файлов; этот fallback фиксируется в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+- R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid` и исключать из расчёта stall.
+- R12.4: Если primary extraction дал только `stream_path_invalid` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
 - R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
 - R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
 - R13.2: Для loop/review `reason_code=blocking_findings` трактовать как ожидаемый `REVISE`-сигнал (не flow bug по умолчанию).
 - R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage wrapper путём.
+- R13.4: Если `stage_result_missing_or_invalid` сопровождается diagnostics-маркером `scope_fallback_stale_ignored`/`scope_shape_invalid`, классифицировать как `scope_drift_recoverable` (prompt-exec/policy), а не как `contract_mismatch(stage_result_shape)`.
+- R14: Если в stage-логе (включая nested tool calls) есть запуск `python3 skills/.../runtime/*.py` из `PROJECT_DIR` и ошибка вида `can't open file .../skills/...`, классифицировать как `prompt-flow drift (non-canonical runtime path)`; не как env blocker.
+- R14.1: Если такой drift встречается только во вложенном tool-call, но тот же stage завершился валидным top-level result (`exit_code=0` и `result_count>=1` или эквивалентный `done/success` payload), классифицировать как `WARN(prompt_flow_drift_recovered)`, не как `NOT VERIFIED`.
+- R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
+- R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
+- R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
+- R17: Early-kill prohibition (strict):
+  - не останавливать stage-run до исчерпания budget этапа, если есть liveness (`main log` и/или stream-файлы растут);
+  - до budget случаи `result_count=0`, token-limit, repeated nested tool errors классифицировать как `WARN(prompt-exec no_convergence_yet)`, а не `killed`;
+  - исключения: `ENV_BLOCKER`, `silent stall` (`main+stream` не растут >20 минут), явный process crash, user interrupt.
+- R17.1: `kill` допускается только если не растут `main log` и все резолвленные stream-файлы (из primary extraction или fallback discovery) более 20 минут.
+- R17.2: Если завершение с `exit_code=143` произошло при `killed=0` (или без явного watchdog kill marker), классифицируй как `ENV_MISCONFIG(parent_terminated|external_terminate)`, а не как `silent stall`/`prompt-exec issue`.
+- R17.3: Если завершение с `exit_code=143` произошло при `killed=1` и подтверждённом `watchdog_marker=1`, классифицируй как `NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`; не как `ENV_MISCONFIG(parent_terminated|external_terminate)`.
 
 ## 5) Политика запуска, ожидания и зависаний
 
@@ -85,9 +102,14 @@
 - Для `text` режимов используй шаблон:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
+- Shell-safe launch (рекомендуется для всех запусков): передавать каждый флаг отдельным аргументом, без склейки в одну строку/токен.
 - Любой запуск stage-команды должен писать `stdout+stderr` в `AUDIT_DIR/<step>_run<N>.log`.
 - Для каждого stage-run сохраняй `head` и `tail` в отдельные файлы (`*.head*.txt`, `*.tail.log`) и heartbeat (`*.heartbeat.log`).
 - Для `stream-json` run дополнительно извлекай/сохраняй stream-пути (`*.stream.jsonl`, `*.stream.log`) в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+- В `AUDIT_DIR/<step>_stream_paths_run<N>.txt` обязательно сохранять source-attribution для каждого пути (`init/header/metadata|fallback_scan`) и нормализованный абсолютный путь.
+- Если primary extraction stream-путей не дал результата, выполнить fallback discovery и явно зафиксировать это в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
+- Если primary extraction содержит невалидные абсолютные пути вне `PROJECT_DIR`, сохранить их с source-attribution как `stream_path_invalid`, но не использовать для liveness/stall.
+- Если stage завершился валидным top-level result, но stream-пути не извлеклись и fallback discovery не нашёл свежих `*.stream.jsonl|*.stream.log`, фиксировать `INFO(stream_path_not_emitted_by_cli)` без инцидента.
 
 ### 5.1 Проверка плагина в каждом stream-json run
 
@@ -108,6 +130,7 @@
   - `main log` (`size + tail`),
   - в `stream-json` также `stream_jsonl` (`size + tail`) и при наличии `stream_log`.
 - Если используешь text-режим, live-tail всё равно обязателен.
+- Множество stream-файлов для liveness формируется из `*_stream_paths_run<N>.txt`; при неполном наборе из primary extraction обязателен fallback discovery перед классификацией stall.
 
 ### 5.3 Буферизация/зависания
 
@@ -118,13 +141,18 @@
   - **не** считать это buffering risk;
   - продолжать run как `active_stream`.
 - Если в stage-логе нет новых строк (или не растёт размер) >20 минут:
+  - если stream-пути не были надёжно извлечены из main log/metadata, сначала выполни fallback discovery по loop-артефактам и пересчитай liveness;
   - сначала проверь stream-файлы:
     - если stream растёт, это `active_stream` (не stall);
     - если не растут и main log, и stream — это `silent stall`;
   - классифицируй как `silent stall`;
   - собери диагностику (`ps`, `tail`, размеры логов);
   - останови шаг как `NOT VERIFIED (silent stall)`.
+- Если `main log` и/или stream растут, но top-level `result` не появляется (включая `result_count=0`, token-limit, repeated nested tool errors):
+  - до исчерпания budget этапа **не** делать `kill`;
+  - помечать как `WARN(prompt-exec no_convergence_yet)` и продолжать наблюдение.
 - Для `silent stall` и preflight-предупреждения делай ровно один debug-retry той же команды с `ANTHROPIC_LOG=debug` перед финальной классификацией.
+- При завершении процесса с `exit_code=143` обязателен `AUDIT_DIR/<step>_termination_attribution.txt` с полями: `exit_code`, `signal`, `killed_flag`, `watchdog_marker`, `parent_pid`, `classification`, `evidence_paths`.
 
 ### 5.4 Порядок классификации инцидентов (строгий)
 
@@ -132,6 +160,9 @@
   - `Unknown skill: feature-dev-aidd:*`
   - в `init` отсутствуют `plugins/skills/slash_commands` для feature-dev-aidd
   - `refusing to use plugin repository as workspace root`
+- Затем `ENV_MISCONFIG/external_terminate`:
+  - `exit_code=143` при `killed=0` или без подтверждённого watchdog kill marker;
+  - внешнее завершение родительского процесса/TTY/session manager (IDE stop, parent shell terminate, external `SIGTERM`).
 - Затем `prompt-exec issue`:
   - buffering/quoting/runner/hang/silent stall
 - Отдельно `contract mismatch`:
@@ -145,15 +176,21 @@
 - Текст `WARN/Q*/AIDD:ANSWERS/Question` внутри вложенных артефактов (`tool_result`, excerpts tasklist/PRD/reports) не считать trigger-ом инцидента.
 - `blocking_findings` внутри review/report артефактов не считать trigger-ом сам по себе: сигналом является только текущий stage-return (`reason_code`/`status`).
 - Для drift extraction фиксируй source line/тип события; без source-attribution помечай как `report_noise`.
+- Упоминание internal subagent (`feature-dev-aidd:tasklist-refiner`) внутри успешного `tasks-new` само по себе не является drift; drift фиксируй только если top-level stage-return предлагает non-canonical/manual recovery path как основной путь.
+- Если top-level `success|WARN` payload рекомендует legacy alias (`/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:planner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной `Next step/Next action`, фиксируй `WARN(prompt_flow_drift_legacy_handoff_alias)`; при валидном stage-return и canonical-артефактах шаг не переводить в `NOT VERIFIED`.
+- `WARN(tasklist_hygiene)` выставлять только по command-полям секции `AIDD:TEST_EXECUTION` (`tasks:`, `command:`, `commands:`); токены `&&`, `||`, `;` в prose/notes классифицировать как `report_noise`.
+- Счётчики из `*_signal_counts.txt` (`blocked_hits`, `manual_stage_result_write_hits`, `question_prompt_hits` и т.п.) использовать только как telemetry; инцидент фиксировать только при совпадении с top-level stage-return/summary.
 
 Рекомендуемые бюджеты:
-- Для этапов: idea-new, reaearch, plan, review-spec, tasks-new предусмотрен бюджет до 20 мин.
+- Для этапов: idea-new, research, review-spec, tasks-new предусмотрен бюджет до 20 мин.
+- Для этапа `plan-new` предусмотрен бюджет до 30 мин.
 - Для этапов: implement до 60 мин, review до 60 мин, loop-run до 120 мин, loop-step до 90 мин.
 
 Если бюджет превышен:
 - собрать диагностику (`ps`, `tail`, артефакты),
 - остановить команду,
 - пометить результаты шага как `NOT VERIFIED (killed)`.
+- до превышения budget `kill` запрещён при наличии liveness (см. `R17`), кроме исключений `ENV_BLOCKER`/`silent stall`/process crash/user interrupt.
 
 ## 6) Универсальный шаблон обработки вопросов (обязательно)
 
@@ -183,10 +220,11 @@
 6. Если stage-return содержит `Unknown skill` или отсутствуют feature-dev-aidd slash commands в `init`:
    - **не** применять question retry-шаблон;
    - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
-7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает запускать `skills/aidd-loop/runtime/preflight_prepare.py` напрямую или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path:
+7. Если stage-return уводит в ручной preflight/ручную запись `stage.*.result.json`, предлагает запускать `skills/aidd-loop/runtime/preflight_prepare.py` напрямую или рекомендует legacy stage aliases (`/feature-dev-aidd:planner`, `/feature-dev-aidd:tasklist-refiner`, `/feature-dev-aidd:implementer`, `/feature-dev-aidd:reviewer`) как основной recovery path/next action:
    - классифицировать как `prompt-flow drift (non-canonical stage orchestration)` и `policy_violation(stage_result_manual_write)` при попытке ручного stage-result write;
    - не выполнять этот manual path в e2e аудите;
    - зафиксировать `NOT VERIFIED` для шага и продолжить только по разрешённому сценарию.
+8. Если nested runtime-команда использует non-canonical путь `python3 skills/...` или runtime CLI-аргументы вне текущего контракта (пример: `--scope_key` вместо `--scope-key`, `--findings_summary`), классифицировать как `prompt-flow drift (runtime_cli_contract_mismatch)`; manual path не выполнять.
 
 Примечание: это и есть ключ к “человекочитаемому” flow. Вопросы — часть happy path, а не исключение.
 
@@ -321,6 +359,9 @@
 - определить `AUDIT_MODE`:
   - SKILL_FIRST если есть `skills/aidd-core/SKILL.md` и `skills/implement/SKILL.md`;
   - иначе `LEGACY_UNSUPPORTED` и stop как N/A;
+- выполнить plugin-prompt path scan и сохранить `01_non_canonical_runtime_path_scan.txt`:
+  - `rg -n "python3 skills/.*/runtime/" "$PLUGIN_DIR/skills/{implement,review,qa}/SKILL.md"`;
+  - при hit пометить `WARN(prompt_surface_non_canonical_runtime_path)` (не блокирует старт аудита).
 - зафиксировать `claude plugin list` в `01_plugin_list.txt`;
 - зафиксировать `~/.claude/settings.json` (если есть) в `01_claude_settings_snapshot.json`;
 - выполнить healthcheck команду (`$PLUGIN_HEALTHCHECK_CMD`) через launcher из секции 5.0;
@@ -469,6 +510,9 @@ W90 check (после fallback, если был):
   - классифицировать как prompt-flow gap (не code bug на первом проходе);
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
   - повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
+- если `tasks-new` завершился `success|WARN`, но `summary/log` содержит рекомендации manual/non-canonical recovery как primary path:
+  - классифицировать как `WARN(prompt_flow_drift_non_canonical_stage_orchestration)`;
+  - не переходить на manual path, продолжать сценарий.
 - если hang/kill: fallback
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
 - сохранить `05_tasklist_status_check.txt`.
@@ -484,6 +528,8 @@ W90 check (после fallback, если был):
 - один запуск `implement`, один запуск `review`.
 - question retry для шага 6 запрещён (R1): если один из запусков уходит в BLOCK/questions, зафиксировать `NOT VERIFIED` и не делать второй attempt того же stage.
 - если kill/hang — отмечать `NOT VERIFIED`.
+- если `*_summary.txt` содержит `result_count=0` при валидном `init`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`.
+- если в логах шага есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 
 W94 checks:
 - `06_active_after_review.json`
@@ -498,6 +544,13 @@ W94 checks:
 - marker semantics check:
   - `06_marker_semantics_check.txt`
   - при проверке исключать шаблонные/backup-файлы (`aidd/docs/tasklist/templates/**`, `*.bak`, `*.tmp`) из детекции ложных marker hits.
+  - дополнительно исключать примеры/инструктивные блоки в `AIDD:HOW_TO_UPDATE` и `AIDD:PROGRESS_LOG` (строки с префиксом `>`, inline/fenced code-примеры и placeholder-строки).
+  - маркеры handoff вида `id=review:*` в `AIDD:ITERATIONS_FULL`/`AIDD:PROGRESS_LOG` считать валидными; инцидент фиксировать только для identity-полей (`active.work_item`, `work_item_key`, `scope_key`) или служебных wrapper payload полей.
+
+Fail-fast gate (до шага 7):
+- проверить, что артефакты loop-seed существуют и не пустые: `06_active_after_review.json`, `06_work_item_check.txt`, `06_wrapper_logs_tree.txt`, `06_loops_tree.txt`;
+- если любой из артефактов отсутствует/пустой, классифицировать как `NOT VERIFIED (preloop_artifacts_missing)` + `prompt-flow drift`;
+- при `preloop_artifacts_missing` шаги 7 и 8 пометить `NOT VERIFIED` и перейти к шагам 9 и 99 (без запуска auto-loop/qa).
 
 ### Шаг 7. Auto-loop (только full)
 
@@ -514,6 +567,7 @@ W94 checks:
   - `07_stage_result_contract_check.txt` (если blocked по `stage_result_missing_or_invalid`),
   - `07_recoverable_block_policy_check.txt` (`recoverable_blocked`, `recovery_path`, `retry_attempt`),
   - `07_blocking_findings_policy_check.txt` (`reason_code=blocking_findings` -> expected REVISE semantics; для `BLOCKED_POLICY=ralph` expected recoverable path).
+  - `07_result_count_check.txt` (`result_count=0` vs top-level blocked/done payload consistency).
 
 Если в stream `init` видно `permissionMode=default` и есть `requires approval`:
 - классифицировать как `ENV_MISCONFIG(loop_runner_permissions)`;
@@ -522,6 +576,11 @@ W94 checks:
 Если loop-step/loop-run вернул `blocked` с `reason_code=blocking_findings`:
 - для `BLOCKED_POLICY=strict`: фиксировать как `WARN(expected_revise_signal)` с продолжением по стандартной диагностике;
 - для `BLOCKED_POLICY=ralph`: ожидать `recoverable_blocked=1` и recovery/retry path; отклонения фиксировать как `policy_mismatch(blocked_policy_vs_reason_code)`.
+
+Если blocked содержит diagnostics с `scope_fallback_stale_ignored`/`scope_shape_invalid`:
+- ожидать промоцию в recoverable `reason_code=scope_drift_recoverable`;
+- ожидать recovery path `scope_drift_reconcile_probe` (как минимум один probe до итогового BLOCK);
+- отсутствие этих признаков фиксировать как `policy_mismatch(scope_drift_recovery_path)`.
 
 W94/W97 checks:
 - `07_scope_mismatch_check.txt`
@@ -540,8 +599,12 @@ W94/W97 checks:
 - first run ticket-only;
 - precheck `AIDD:TEST_EXECUTION`:
   - сохранить `08_test_execution_precheck.txt`;
-  - если любая task-команда содержит shell-chain токены (`&&`, `||`, `;`) как единый task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+  - искать shell-chain токены (`&&`, `||`, `;`) только в command-полях секции `AIDD:TEST_EXECUTION`; в prose/notes не считать инцидентом;
+  - если найдено в command-поле как единая task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
 - при вопросах: retry;
+- если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`:
+  - классифицировать как `prompt-flow drift (non-canonical runtime path)`;
+  - выполнить ровно один canonical fallback: `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`;
 - если hang/kill: fallback
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
 
@@ -569,8 +632,14 @@ W94-5:
 Сделать:
 - `99_plugin_git_status_after.txt`
 - `99_project_git_status_after.txt`
+- `99_plugin_git_status_diff.txt` (delta относительно `00_plugin_git_status_before.txt`)
+- `99_plugin_new_paths_stat.txt` (size/mtime для новых путей в plugin repo)
 - `99_cleanup_policy.txt` (зафиксировать, что запуск был в режиме force-clean: `reset --hard` + `clean -fd`).
 - удалить временный pre-status файл: `rm -f "/tmp/00_git_status_before.${TICKET}.${RUN_TS}.txt"`.
+- Классификация write-safety:
+  - `PASS`: delta отсутствует.
+  - `FAIL(plugin_write_safety_violation)`: есть новые/изменённые пути в plugin repo и есть прямые runtime-evidence записи/редактирования plugin path в stage-логах.
+  - `WARN(plugin_write_safety_inconclusive)`: delta есть, но прямого runtime-evidence нет (например, нулевые файлы в корне plugin repo с неочевидным источником); обязательна пометка как release-risk.
 
 ## 10) Финальный отчёт в чат
 

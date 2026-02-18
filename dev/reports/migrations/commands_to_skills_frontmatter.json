@@ -213,8 +213,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.1.42",
-        "source_version": "1.1.42",
+        "prompt_version": "1.1.43",
+        "source_version": "1.1.43",
         "lang": "ru",
         "argument-hint": "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
       }
@@ -247,8 +247,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.37",
-        "source_version": "1.0.37",
+        "prompt_version": "1.0.38",
+        "source_version": "1.0.38",
         "lang": "ru",
         "argument-hint": "$1 [note...]"
       }
@@ -285,8 +285,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.33",
-        "source_version": "1.0.33",
+        "prompt_version": "1.0.34",
+        "source_version": "1.0.34",
         "lang": "ru",
         "argument-hint": "$1 [note...]"
       }

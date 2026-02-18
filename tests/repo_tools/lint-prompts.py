@@ -77,6 +77,9 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
     "review-spec",
     "spec-interview",
     "tasks-new",
+    "implement",
+    "review",
+    "qa",
     "status",
 }
 
@@ -110,6 +113,8 @@ LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
     r"|stage\.[a-z0-9_.-]*result\.json.{0,260}(?:запрещено|forbidden|do not (?:write|create)|не\s+пис|не\s+создав))",
     re.IGNORECASE | re.DOTALL,
 )
+LOOP_CANONICAL_STAGE_RESULT_PATH = "${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py"
+LOOP_NON_CANONICAL_STAGE_RESULT_PATH = "skills/aidd-loop/runtime/stage_result.py"
 LOOP_WRAPPER_CHAIN_RE = re.compile(
     r"(?:wrapper chain|wrapper-?only|slash stage command|canonical stage chain).{0,260}"
     r"(?:actions_apply\.py|postflight|stage_result\.py)",
@@ -868,6 +873,16 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 if not LOOP_WRAPPER_CHAIN_RE.search(info.body):
                     errors.append(
                         f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
+                    )
+                if LOOP_CANONICAL_STAGE_RESULT_PATH.lower() not in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must reference canonical stage-result path "
+                        f"`python3 {LOOP_CANONICAL_STAGE_RESULT_PATH}`"
+                    )
+                if LOOP_NON_CANONICAL_STAGE_RESULT_PATH in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must not reference non-canonical stage-result path "
+                        f"`{LOOP_NON_CANONICAL_STAGE_RESULT_PATH}`"
                     )
             if (
                 path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED

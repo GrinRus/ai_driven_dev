@@ -149,6 +149,32 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
             self.assertEqual(errors, [], f"contract {path} failed: {errors}")
 
+    def test_loop_stage_contract_requires_canonical_stage_result_entrypoint(self) -> None:
+        path = REPO_ROOT / "skills" / "implement" / "CONTRACT.yaml"
+        payload = skill_contract_validate.load_contract(path)
+        payload["entrypoints"] = [
+            item
+            for item in payload.get("entrypoints", [])
+            if item != "skills/aidd-flow-state/runtime/stage_result.py"
+        ]
+        errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
+        self.assertTrue(
+            any("canonical stage-result entrypoint" in err for err in errors),
+            errors,
+        )
+
+    def test_loop_stage_contract_rejects_non_canonical_stage_result_entrypoint(self) -> None:
+        path = REPO_ROOT / "skills" / "review" / "CONTRACT.yaml"
+        payload = skill_contract_validate.load_contract(path)
+        entrypoints = list(payload.get("entrypoints", []))
+        entrypoints.append("skills/aidd-loop/runtime/stage_result.py")
+        payload["entrypoints"] = entrypoints
+        errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
+        self.assertTrue(
+            any("non-canonical stage-result entrypoint" in err for err in errors),
+            errors,
+        )
+
     def test_actions_schema_files_are_json(self) -> None:
         for schema in ("aidd.actions.v0", "aidd.actions.v1"):
             path = aidd_schemas.schema_path(schema)

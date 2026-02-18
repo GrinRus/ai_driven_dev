@@ -2,8 +2,8 @@
 description: Run QA checks and produce the QA report.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.33
-source_version: 1.0.33
+prompt_version: 1.0.34
+source_version: 1.0.34
 allowed-tools:
   - Read
   - Edit
@@ -42,24 +42,32 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 3. Manual write/create of `stage.qa.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
 4. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 5. Run subagent `feature-dev-aidd:qa`.
-6. Orchestration: run QA via `python3 skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` and validate via `python3 skills/qa/runtime/qa_run.py`.
-7. Canonical stage wrapper chain is strict: `preflight -> qa_run -> actions_apply.py/postflight -> stage_result.py`.
-8. Output: return QA status contract with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required).
+6. Orchestration: run QA via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa.py`, derive tasks if needed, then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/qa.actions.json` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`.
+7. Canonical stage wrapper chain is strict: `preflight -> qa_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`.
+8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift).
+9. Output: return QA status contract with report paths and explicit canonical next action (`/feature-dev-aidd:status <ticket>` or `/feature-dev-aidd:tasks-new <ticket>` when follow-up tasks are required).
 
 ## Command contracts
-### `python3 skills/qa/runtime/qa_run.py`
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/qa_run.py`
 - When to run: as canonical QA stage runtime before postflight.
 - Inputs: ticket, scope/work-item context, QA findings, and actions payload.
 - Outputs: validated QA report artifacts and stage status payload.
 - Failure mode: non-zero exit when report/actions schema or required stage inputs are invalid.
 - Next action: fix QA findings/actions contract issues and rerun runtime validation.
 
-### `python3 skills/aidd-docio/runtime/actions_apply.py`
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step in wrapper postflight after QA actions are validated.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions plus progress/stage-result/status-summary artifacts.
 - Failure mode: apply failure, progress update failure, or status summary failure.
 - Next action: inspect logs, fix blocking contract issues, rerun the wrapper chain.
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
+- When to run: wrapper postflight stage-result emission only (not operator/manual recovery command).
+- Inputs: canonical postflight payload (`ticket`, `stage`, `result`, `scope-key`, `work-item-key`, evidence links).
+- Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.qa.result.json`.
+- Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
+- Next action: fix postflight payload generation and rerun the wrapper chain; do not switch to non-canonical loop runtime paths.
 
 ## Notes
 - QA stage runs full tests per policy.

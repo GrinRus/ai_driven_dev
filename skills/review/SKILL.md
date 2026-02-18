@@ -2,8 +2,8 @@
 description: Review changes, produce feedback, and derive tasks.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.37
-source_version: 1.0.37
+prompt_version: 1.0.38
+source_version: 1.0.38
 allowed-tools:
   - Read
   - Edit
@@ -38,24 +38,32 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 3. Manual write/create of `stage.review.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
 4. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 5. Run subagent `feature-dev-aidd:reviewer`.
-6. Orchestration: produce review artifacts with `python3 skills/review/runtime/review_report.py`, `python3 skills/review/runtime/review_pack.py`, `python3 skills/review/runtime/reviewer_tests.py`, and `python3 skills/aidd-flow-state/runtime/tasks_derive.py`; then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` and validate via `python3 skills/review/runtime/review_run.py`.
-7. Canonical stage wrapper chain is strict: `preflight -> review_run -> actions_apply.py/postflight -> stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
-8. Output: return review-stage contract, findings summary, and next action/handoff.
+6. Orchestration: produce review artifacts with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`, and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py`; then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
+7. Canonical stage wrapper chain is strict: `preflight -> review_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
+8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift).
+9. Output: return review-stage contract, findings summary, and next action/handoff.
 
 ## Command contracts
-### `python3 skills/review/runtime/review_run.py`
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`
 - When to run: as canonical review stage runtime before postflight.
 - Inputs: ticket, scope/work-item context, and reviewer findings/actions payload.
 - Outputs: validated review artifacts and stage status payload.
 - Failure mode: non-zero exit on invalid review contracts or missing prerequisites.
 - Next action: fix findings/actions inputs and rerun runtime validation.
 
-### `python3 skills/aidd-docio/runtime/actions_apply.py`
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
 - When to run: mandatory final step in wrapper postflight after review actions are validated.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions plus progress/stage-result/status-summary artifacts.
 - Failure mode: apply failure, boundary guard failure, or summary generation failure.
 - Next action: inspect logs, fix blocking artifact/contract, rerun the wrapper chain, and verify canonical stage result exists (`aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`).
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
+- When to run: wrapper postflight stage-result emission only (not operator/manual recovery command).
+- Inputs: canonical postflight payload (`ticket`, `stage`, `result`, `scope-key`, `work-item-key`, evidence links).
+- Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
+- Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
+- Next action: fix postflight payload generation and rerun the wrapper chain; do not switch to non-canonical loop runtime paths.
 
 ## Notes
 - Review stage runs targeted tests per policy.

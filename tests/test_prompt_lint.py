@@ -179,7 +179,10 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
             f"6. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
         )
         lines.append(
-            "7. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> stage_result.py."
+            "7. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py."
+        )
+        lines.append(
+            "8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden."
         )
     elif stage in STAGE_SUBAGENT:
         lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
@@ -865,6 +868,19 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("manual recovery surface", result.stderr)
+
+    def test_loop_stage_skill_non_canonical_stage_result_path_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py",
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/stage_result.py",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("non-canonical stage-result path", result.stderr)
 
     def test_loop_stage_skill_self_slash_contract_fails(self) -> None:
         bad_skill = build_stage_skill("implement").replace(

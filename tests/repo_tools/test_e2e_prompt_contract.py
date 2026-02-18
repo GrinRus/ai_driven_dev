@@ -8,6 +8,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PROMPT_FULL = REPO_ROOT / "aidd_test_flow_prompt_ralph_script_full.txt"
 AUDIT_PROMPT_SMOKE = REPO_ROOT / "aidd_test_flow_prompt_ralph_script.txt"
+RESEARCHER_AGENT = REPO_ROOT / "agents" / "researcher.md"
+RESEARCHER_SKILL = REPO_ROOT / "skills" / "researcher" / "SKILL.md"
 
 LOOP_STAGE_SKILLS = [
     REPO_ROOT / "skills" / "implement" / "SKILL.md",
@@ -100,6 +102,15 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{label}: missing stream jsonl probe policy",
             )
 
+    def test_full_prompt_captures_watchdog_and_stream_path_attribution_rules(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("stream_path_invalid", text)
+        self.assertIn("stream_path_resolution_incomplete", text)
+        self.assertIn("exit_code=143", text)
+        self.assertIn("watchdog_marker=1", text)
+        self.assertIn("watchdog_terminated", text)
+        self.assertIn("result_count` в summary отсутствует", text)
+
     def test_full_prompt_marker_semantics_excludes_template_backup_noise(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("marker semantics", text)
@@ -155,6 +166,22 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("refusing to use plugin repository as workspace root", text)
         self.assertIn("исправь `cwd` на `PROJECT_DIR`", text)
 
+    def test_full_prompt_has_preloop_fail_fast_gate(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("Fail-fast gate (до шага 7)", text)
+        self.assertIn("preloop_artifacts_missing", text)
+        self.assertIn("шаги 7 и 8 пометить `NOT VERIFIED`", text)
+
+    def test_researcher_contract_prefers_reviewed_and_plan_new(self) -> None:
+        agent_text = _read(RESEARCHER_AGENT)
+        skill_text = _read(RESEARCHER_SKILL)
+
+        self.assertIn("Status: reviewed|pending|warn", agent_text)
+        self.assertIn("/feature-dev-aidd:plan-new <ticket>", agent_text)
+        self.assertIn("legacy planner alias запрещён", agent_text)
+        self.assertIn("/feature-dev-aidd:plan-new <ticket>", skill_text)
+        self.assertIn("Never use legacy user-facing planner alias from pre-wave commands", skill_text)
+
     def test_loop_stage_skills_enforce_wrapper_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)
@@ -167,10 +194,22 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
             self.assertIn("wrapper", lower)
             self.assertIn("actions_apply.py", lower)
+            self.assertIn(
+                "python3 ${claude_plugin_root}/skills/aidd-flow-state/runtime/stage_result.py",
+                lower,
+            )
+            self.assertNotIn(
+                "python3 ${claude_plugin_root}/skills/aidd-loop/runtime/stage_result.py",
+                lower,
+            )
             self.assertNotIn(f"### `/feature-dev-aidd:{stage}", body_lower)
-            self.assertNotRegex(
+            self.assertRegex(
                 body_lower,
                 rf"python3\s+\$\{{claude_plugin_root\}}/skills/{re.escape(stage)}/runtime/",
+            )
+            self.assertNotRegex(
+                body_lower,
+                rf"python3\s+(?:\./)?skills/{re.escape(stage)}/runtime/",
             )
             for forbidden_surface in FORBIDDEN_LOOP_ALLOWED_TOOL_SURFACES:
                 self.assertNotIn(

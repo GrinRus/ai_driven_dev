@@ -130,6 +130,50 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertEqual(decision, "allow")
             self.assertIn("context-expand", data.get("systemMessage", ""))
 
+    def test_strict_missing_readmap_advises_canonical_stage_rerun(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            write_file(root, "src/blocked.py", "print('x')\n")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "src/blocked.py"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            message = str(data.get("systemMessage", ""))
+            self.assertIn("/feature-dev-aidd:implement", message)
+            self.assertNotIn("preflight_prepare.py", message)
+
+    def test_strict_missing_writemap_advises_canonical_stage_rerun(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="review", work_item=work_item_key)
+            write_file(root, "src/blocked.py", "print('x')\n")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "src/blocked.py", "content": "print('x')"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            message = str(data.get("systemMessage", ""))
+            self.assertIn("/feature-dev-aidd:review", message)
+            self.assertNotIn("preflight_prepare.py", message)
+
     def test_strict_allows_glob_with_allowed_pattern(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

@@ -1,0 +1,34 @@
+import unittest
+from pathlib import Path
+
+from tests.helpers import REPO_ROOT
+
+
+class ManualPreflightPolicyTests(unittest.TestCase):
+    def _skill_text(self, relative_path: str) -> str:
+        return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+
+    def _assert_loop_stage_skill_policy(self, relative_path: str) -> None:
+        text = self._skill_text(relative_path)
+        self.assertIn("manual `preflight_prepare.py` invocation is forbidden", text)
+        self.assertIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py",
+            text,
+        )
+        self.assertNotIn(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/stage_result.py --ticket",
+            text,
+        )
+
+    def test_qa_skill_loop_policy(self) -> None:
+        self._assert_loop_stage_skill_policy("skills/qa/SKILL.md")
+
+    def test_review_skill_loop_policy(self) -> None:
+        self._assert_loop_stage_skill_policy("skills/review/SKILL.md")
+
+    def test_implement_skill_loop_policy(self) -> None:
+        self._assert_loop_stage_skill_policy("skills/implement/SKILL.md")
+
+
+if __name__ == "__main__":
+    unittest.main()

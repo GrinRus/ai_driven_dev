@@ -25,6 +25,8 @@ REQUIRED_TOP_LEVEL = (
     "actions",
 )
 CANONICAL_READMAP_MD = "aidd/reports/context/{ticket}/{scope_key}.readmap.md"
+CANONICAL_STAGE_RESULT_ENTRYPOINT = "skills/aidd-flow-state/runtime/stage_result.py"
+FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT = "skills/aidd-loop/runtime/stage_result.py"
 CANONICAL_PREFLIGHT_FILES = (
     "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
     "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
@@ -234,6 +236,16 @@ def validate_contract_data(payload: dict[str, Any], *, contract_path: Path | Non
             _validate_list_of_strings(allowed_types, errors, field="actions.allowed_types")
 
     if isinstance(stage, str) and stage in {"implement", "review", "qa"}:
+        entrypoints = _collect_string_set(payload.get("entrypoints"))
+        if CANONICAL_STAGE_RESULT_ENTRYPOINT not in entrypoints:
+            errors.append(
+                f"entrypoints must include canonical stage-result entrypoint: {CANONICAL_STAGE_RESULT_ENTRYPOINT}"
+            )
+        if FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT in entrypoints:
+            errors.append(
+                f"entrypoints must not include non-canonical stage-result entrypoint: {FORBIDDEN_LOOP_STAGE_RESULT_ENTRYPOINT}"
+            )
+
         required_paths = set(_collect_ref_paths((reads or {}).get("required") if isinstance(reads, dict) else []))
         if CANONICAL_READMAP_MD not in required_paths:
             errors.append(f"reads.required must include canonical path: {CANONICAL_READMAP_MD}")

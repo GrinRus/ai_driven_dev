@@ -483,9 +483,9 @@ def _enforce_rw_policy(
                 strict_mode,
                 reason="Missing readmap for loop stage. Run preflight first.",
                 system_message=(
-                    "No readmap found for current loop scope. Run preflight "
-                    "(`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py "
-                    "--ticket <ticket> --scope-key <scope_key> --stage <implement|review|qa>`) "
+                    "No readmap found for current loop scope. Re-run canonical loop stage command "
+                    "(`/feature-dev-aidd:implement <ticket>`, `/feature-dev-aidd:review <ticket>`, "
+                    "or `/feature-dev-aidd:qa <ticket>`); wrapper chain will regenerate preflight artifacts "
                     "before reading additional files."
                 ),
             )
@@ -520,9 +520,9 @@ def _enforce_rw_policy(
                     strict_mode,
                     reason="Missing writemap for loop stage. Run preflight first.",
                     system_message=(
-                        "No writemap found for current loop scope. Run preflight "
-                        "(`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py "
-                        "--ticket <ticket> --scope-key <scope_key> --stage <implement|review|qa>`) "
+                        "No writemap found for current loop scope. Re-run canonical loop stage command "
+                        "(`/feature-dev-aidd:implement <ticket>`, `/feature-dev-aidd:review <ticket>`, "
+                        "or `/feature-dev-aidd:qa <ticket>`); wrapper chain will regenerate preflight artifacts "
                         "before writing files."
                     ),
                 )

@@ -1058,7 +1058,7 @@ _Статус: план, приоритет 0. Цель — довести resea
 
 ## Wave 99 — E2E audit fallout hardening (TST-001)
 
-_Статус: в работе (Wave 99A–99H закрыты, Wave 99I/99J/99K открыты). Приоритет 0. Цель — закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+_Статус: закрыто (Wave 99A–99K закрыты). Приоритет 0. Цель волны достигнута: закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
 
 - [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
   - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
