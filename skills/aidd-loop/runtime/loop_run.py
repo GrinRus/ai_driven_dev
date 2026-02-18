@@ -51,11 +51,18 @@ _PERMISSION_MODE_MARKERS = (
     '"permissionmode": "default"',
 )
 _MARKER_SEMANTIC_TOKENS = ("id=review:", "id_review_")
+_MARKER_NOISE_SECTION_HINTS = ("aidd:how_to_update", "aidd:progress_log")
+_MARKER_NOISE_PLACEHOLDERS = ("<title>", "<ticket>", "<scope_key>", "<commit/pr|report>")
 _MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
+_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
+_NEXT_ACTION_RE = re.compile(r"Next action:\s*`([^`]+)`", re.IGNORECASE)
+_SCOPE_STALE_HINT_RE = re.compile(r"\bscope_fallback_stale_ignored=([A-Za-z0-9_.:-]+)\b", re.IGNORECASE)
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
 DEFAULT_BLOCKED_POLICY = "strict"
 DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
+DEFAULT_LOOP_RESEARCH_GATE_MODE = "auto"
 BLOCKED_POLICY_VALUES = {"strict", "ralph"}
+RESEARCH_GATE_MODE_VALUES = {"off", "on", "auto"}
 HARD_BLOCK_REASON_CODES = {
     "loop_runner_permissions",
     "user_approval_required",
@@ -76,6 +83,7 @@ HARD_BLOCK_REASON_CODES = {
     "work_item_resolution_failed",
     "active_stage_sync_failed",
     "prompt_flow_blocker",
+    "contract_mismatch_stage_result_shape",
 }
 RECOVERABLE_BLOCK_REASON_CODES = {
     "",
@@ -93,6 +101,7 @@ RECOVERABLE_BLOCK_REASON_CODES = {
     "qa_repair_multiple_handoffs",
     "qa_repair_tasklist_missing",
     "unsupported_stage_result",
+    "scope_drift_recoverable",
 }
 
 
@@ -166,11 +175,19 @@ def resolve_stream_mode(raw: str | None) -> str:
     return STREAM_MODE_ALIASES.get(value, "text")
 
 
-def _resolve_optional_path(target: Path, value: str) -> Optional[Path]:
+def _resolve_path_within_target(
+    target: Path,
+    value: str,
+    *,
+    label: str,
+) -> tuple[Optional[Path], str]:
     raw = str(value or "").strip()
     if not raw:
-        return None
-    return runtime.resolve_path_for_target(Path(raw), target)
+        return None, ""
+    resolved = runtime.resolve_path_for_target(Path(raw), target)
+    if not runtime.is_relative_to(resolved, target.resolve()):
+        return None, f"{label}:outside_target:{resolved.as_posix()}"
+    return resolved, ""
 
 
 def _safe_size(path: Optional[Path]) -> int:
@@ -190,6 +207,10 @@ def _safe_updated_at(path: Optional[Path]) -> str:
         return ts.isoformat()
     except OSError:
         return ""
+
+
+def _truthy_flag(value: object) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _permission_mismatch_from_text(reason: str, diag: str, code: str) -> bool:
@@ -216,7 +237,24 @@ def _extract_marker_source(line: str) -> str:
 
 def _is_marker_noise_source(source: str, line: str) -> bool:
     source_lower = str(source or "").strip().lower()
-    line_lower = str(line or "").strip().lower()
+    stripped = str(line or "").strip()
+    line_lower = stripped.lower()
+    if any(hint in line_lower for hint in _MARKER_NOISE_SECTION_HINTS):
+        return True
+    if any(token in line_lower for token in _MARKER_NOISE_PLACEHOLDERS):
+        return True
+    if stripped.startswith(">"):
+        return True
+    if (stripped.startswith("- `") or stripped.startswith("* `")) and (
+        "id=review:" in line_lower or "id_review_" in line_lower
+    ):
+        return True
+    if "`" in stripped and ("id=review:" in line_lower or "id_review_" in line_lower):
+        return True
+    if ("канонический формат" in line_lower or "canonical format" in line_lower) and (
+        "id=review:" in line_lower or "id_review_" in line_lower
+    ):
+        return True
     if "aidd/docs/tasklist/templates/" in source_lower or "aidd/docs/tasklist/templates/" in line_lower:
         return True
     return (
@@ -306,14 +344,111 @@ def _scope_to_work_item_key(scope_key: str) -> str:
     return ""
 
 
+def _extract_reason_code(text: str) -> str:
+    match = _REASON_CODE_RE.search(str(text or ""))
+    if not match:
+        return ""
+    return str(match.group(1) or "").strip().lower()
+
+
+def _extract_next_action(text: str) -> str:
+    match = _NEXT_ACTION_RE.search(str(text or ""))
+    if not match:
+        return ""
+    return str(match.group(1) or "").strip()
+
+
+def _extract_scope_drift_hint(reason: str, diagnostics: str) -> str:
+    joined = f"{reason}\n{diagnostics}"
+    match = _SCOPE_STALE_HINT_RE.search(joined)
+    if not match:
+        return ""
+    return runtime.sanitize_scope_key(match.group(1) or "")
+
+
+def _promote_stage_result_reason(reason_code: str, reason: str, diagnostics: str) -> tuple[str, str]:
+    code = str(reason_code or "").strip().lower()
+    if code not in {"stage_result_missing_or_invalid", "stage_result_blocked", "blocked_without_reason", ""}:
+        return code, ""
+    joined = f"{reason}\n{diagnostics}".lower()
+    if "invalid-schema" in joined:
+        return "contract_mismatch_stage_result_shape", ""
+    scope_hint = _extract_scope_drift_hint(reason, diagnostics)
+    if scope_hint:
+        return "scope_drift_recoverable", scope_hint
+    return code, ""
+
+
+def _resolve_loop_research_gate_mode(raw: str | None) -> str:
+    value = str(raw or os.environ.get("AIDD_LOOP_RESEARCH_GATE", DEFAULT_LOOP_RESEARCH_GATE_MODE)).strip().lower()
+    if value in {"0", "off", "false", "no", "disabled"}:
+        return "off"
+    if value in {"1", "on", "true", "yes", "strict"}:
+        return "on"
+    if value in RESEARCH_GATE_MODE_VALUES:
+        return value
+    return DEFAULT_LOOP_RESEARCH_GATE_MODE
+
+
+def _should_enforce_loop_research_gate(target: Path, ticket: str, mode: str) -> bool:
+    if mode == "off":
+        return False
+    if mode == "on":
+        return True
+    if mode != "auto":
+        return False
+    research_report = target / "docs" / "research" / f"{ticket}.md"
+    if research_report.exists():
+        return True
+    research_base = target / "reports" / "research"
+    candidates = (
+        research_base / f"{ticket}-rlm-targets.json",
+        research_base / f"{ticket}-rlm-manifest.json",
+        research_base / f"{ticket}-rlm.worklist.pack.json",
+        research_base / f"{ticket}-rlm.pack.json",
+    )
+    return any(path.exists() for path in candidates)
+
+
+def _validate_loop_research_gate(target: Path, ticket: str) -> tuple[bool, str, str, str]:
+    from aidd_runtime import research_guard
+
+    try:
+        settings = research_guard.load_settings(target)
+        research_guard.validate_research(
+            target,
+            ticket,
+            settings=settings,
+            expected_stage="review",
+        )
+    except research_guard.ResearchValidationError as exc:
+        message = str(exc)
+        reason_code = _extract_reason_code(message) or "research_gate_blocked"
+        next_action = _extract_next_action(message)
+        return False, reason_code, message, next_action
+    return True, "", "", ""
+
+
 def _apply_recoverable_block_recovery(
     *,
     target: Path,
     ticket: str,
     stage: str,
+    reason_code: str,
+    drift_scope_key: str,
     chosen_scope: str,
 ) -> Tuple[str, str]:
     active_work_item = str(runtime.read_active_work_item(target) or "").strip()
+    reason_value = str(reason_code or "").strip().lower()
+    if reason_value == "scope_drift_recoverable":
+        scope_hint = runtime.sanitize_scope_key(drift_scope_key or chosen_scope)
+        hinted_work_item = _scope_to_work_item_key(scope_hint)
+        if runtime.is_iteration_work_item_key(hinted_work_item):
+            active_work_item = hinted_work_item
+            write_active_state(target, ticket=ticket, work_item=active_work_item)
+        if runtime.is_iteration_work_item_key(active_work_item):
+            write_active_stage(target, "")
+            return "scope_drift_reconcile_probe", active_work_item
     if not runtime.is_valid_work_item_key(active_work_item):
         from_scope = _scope_to_work_item_key(chosen_scope)
         if from_scope:
@@ -323,6 +458,10 @@ def _apply_recoverable_block_recovery(
         write_active_stage(target, "implement")
         return "handoff_to_implement", active_work_item
     if stage == "implement" and runtime.is_iteration_work_item_key(active_work_item):
+        if reason_value == "stage_result_missing_or_invalid":
+            # Clear active stage so the next loop-step re-enters canonical implement orchestration.
+            write_active_stage(target, "")
+            return "retry_implement", active_work_item
         write_active_stage(target, "implement")
         return "retry_implement", active_work_item
     selected_next, _pending = select_next_work_item(target, ticket, active_work_item)
@@ -587,6 +726,11 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         type=int,
         help="Retry budget for recoverable blocked outcomes in ralph mode (default from env or 2).",
     )
+    parser.add_argument(
+        "--research-gate",
+        choices=("off", "on", "auto"),
+        help="Research/RLM gate mode before auto-loop (off|on|auto).",
+    )
     return parser.parse_args(argv)
 
 
@@ -622,8 +766,10 @@ def main(argv: List[str] | None = None) -> int:
     step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
     blocked_policy = _resolve_blocked_policy(getattr(args, "blocked_policy", None))
     recoverable_retry_budget = _resolve_recoverable_retry_budget(getattr(args, "recoverable_block_retries", None))
+    research_gate_mode = _resolve_loop_research_gate_mode(getattr(args, "research_gate", None))
     recoverable_retry_attempt = 0
     last_recovery_path = ""
+    scope_drift_recovery_probe_used = False
     stream_log_path = None
     stream_jsonl_path = None
     if stream_mode:
@@ -639,7 +785,8 @@ def main(argv: List[str] | None = None) -> int:
         cli_log_path,
         (
             f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label} "
-            f"blocked_policy={blocked_policy} recoverable_retry_budget={recoverable_retry_budget}"
+            f"blocked_policy={blocked_policy} recoverable_retry_budget={recoverable_retry_budget} "
+            f"research_gate={research_gate_mode}"
         ),
     )
 
@@ -718,6 +865,43 @@ def main(argv: List[str] | None = None) -> int:
                 emit(args.format, payload)
                 return BLOCKED_CODE
 
+    if _should_enforce_loop_research_gate(target, ticket, research_gate_mode):
+        research_ok, research_reason_code, research_reason, research_next_action = _validate_loop_research_gate(
+            target,
+            ticket,
+        )
+        if not research_ok:
+            payload = {
+                "status": "blocked",
+                "iterations": 0,
+                "exit_code": BLOCKED_CODE,
+                "log_path": runtime.rel_path(log_path, target),
+                "cli_log_path": runtime.rel_path(cli_log_path, target),
+                "runner_label": runner_label,
+                "blocked_policy": blocked_policy,
+                "reason": research_reason,
+                "reason_code": research_reason_code,
+                "next_action": research_next_action or None,
+                "updated_at": utc_timestamp(),
+            }
+            append_log(
+                log_path,
+                (
+                    f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked "
+                    f"reason_code={research_reason_code} research_gate={research_gate_mode}"
+                    + (f" next_action={research_next_action}" if research_next_action else "")
+                ),
+            )
+            append_log(
+                cli_log_path,
+                (
+                    f"{utc_timestamp()} event=blocked iterations=0 reason_code={research_reason_code} "
+                    "source=research_gate"
+                ),
+            )
+            emit(args.format, payload)
+            return BLOCKED_CODE
+
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
         result = run_loop_step(
@@ -733,11 +917,45 @@ def main(argv: List[str] | None = None) -> int:
             timeout_seconds=step_timeout_seconds,
         )
         if result.returncode not in {DONE_CODE, CONTINUE_CODE, BLOCKED_CODE}:
-            status = "error"
+            unexpected_payload: Dict[str, object] = {}
+            parse_error = ""
+            try:
+                unexpected_payload = json.loads(result.stdout)
+            except json.JSONDecodeError as exc:
+                parse_error = str(exc)
+                unexpected_payload = {}
+            nested_reason = str(unexpected_payload.get("reason") or "").strip()
+            nested_reason_code = str(unexpected_payload.get("reason_code") or "").strip().lower()
+            nested_stage = str(unexpected_payload.get("stage") or "").strip().lower()
+            is_sigterm = result.returncode == 143 or "runner exited with 143" in nested_reason.lower()
+            if is_sigterm:
+                killed_flag = _truthy_flag(unexpected_payload.get("killed_flag")) or _truthy_flag(
+                    unexpected_payload.get("killed")
+                )
+                watchdog_marker = _truthy_flag(unexpected_payload.get("watchdog_marker")) or (
+                    "watchdog timeout" in nested_reason.lower()
+                )
+                reason_code = "watchdog_terminated" if killed_flag and watchdog_marker else "parent_terminated_or_external_terminate"
+                status = "blocked"
+                out_code = BLOCKED_CODE
+                reason_text = nested_reason or f"loop-step runner exited with {result.returncode}"
+                termination_attribution = {
+                    "exit_code": result.returncode,
+                    "signal": "SIGTERM",
+                    "killed_flag": 1 if killed_flag else 0,
+                    "watchdog_marker": 1 if watchdog_marker else 0,
+                    "classification": reason_code,
+                }
+            else:
+                status = "error"
+                out_code = ERROR_CODE
+                reason_code = nested_reason_code or "loop_step_unexpected_exit"
+                reason_text = nested_reason or f"loop-step failed ({result.returncode})"
+                termination_attribution = None
             payload = {
                 "status": status,
                 "iterations": iteration,
-                "exit_code": ERROR_CODE,
+                "exit_code": out_code,
                 "log_path": runtime.rel_path(log_path, target),
                 "cli_log_path": runtime.rel_path(cli_log_path, target),
                 "runner_label": runner_label,
@@ -746,20 +964,33 @@ def main(argv: List[str] | None = None) -> int:
                 "recoverable_retry_budget": recoverable_retry_budget,
                 "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
                 "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
-                "reason": f"loop-step failed ({result.returncode})",
+                "stage": nested_stage or None,
+                "reason": reason_text,
+                "reason_code": reason_code,
+                "last_step": unexpected_payload if unexpected_payload else None,
+                "parse_error": parse_error or None,
+                "termination_attribution": termination_attribution,
                 "updated_at": utc_timestamp(),
             }
             append_log(
                 log_path,
-                f"{utc_timestamp()} iteration={iteration} status=error code={result.returncode} runner={runner_label}",
+                (
+                    f"{utc_timestamp()} iteration={iteration} status={status} code={result.returncode} "
+                    f"runner={runner_label} reason_code={reason_code}"
+                    + (f" stage={nested_stage}" if nested_stage else "")
+                    + (f" parse_error={parse_error}" if parse_error else "")
+                ),
             )
             append_log(
                 cli_log_path,
-                f"{utc_timestamp()} event=error iteration={iteration} exit_code={result.returncode}",
+                (
+                    f"{utc_timestamp()} event={status} iteration={iteration} "
+                    f"exit_code={result.returncode} reason_code={reason_code}"
+                ),
             )
             clear_active_mode(target)
             emit(args.format, payload)
-            return ERROR_CODE
+            return out_code
         parse_error = ""
         try:
             step_payload = json.loads(result.stdout)
@@ -858,6 +1089,15 @@ def main(argv: List[str] | None = None) -> int:
             log_reason_code = "loop_runner_permissions"
             if not str(reason).strip():
                 reason = "loop runner permission mismatch"
+        scope_drift_hint = ""
+        if step_status == "blocked":
+            promoted_reason_code, promoted_scope_hint = _promote_stage_result_reason(
+                str(log_reason_code),
+                str(reason),
+                str(stage_diag),
+            )
+            log_reason_code = promoted_reason_code
+            scope_drift_hint = promoted_scope_hint
         if not str(reason).strip() and step_status == "blocked":
             if parse_error:
                 reason = f"loop-step returned invalid JSON payload: {parse_error}"
@@ -874,23 +1114,58 @@ def main(argv: List[str] | None = None) -> int:
             fallback_scope = str(chosen_scope or runtime.resolve_scope_key("", ticket)).strip()
             if step_stage:
                 stage_result_path = f"aidd/reports/loops/{ticket}/{fallback_scope}/stage.{step_stage}.result.json"
+        stream_path_invalid: List[str] = []
         if stream_mode and stream_log_path and step_stream_log:
-            step_stream_log_path = runtime.resolve_path_for_target(Path(step_stream_log), target)
-            append_stream_file(
-                stream_log_path,
-                step_stream_log_path,
-                header=(
-                    f"==> loop-step iteration={iteration} stage={step_payload.get('stage')} "
-                    f"stream_log={step_stream_log}"
-                ),
+            step_stream_log_path, invalid_path = _resolve_path_within_target(
+                target,
+                step_stream_log,
+                label="step_stream_log_path",
             )
+            if invalid_path:
+                stream_path_invalid.append(invalid_path)
+            elif step_stream_log_path:
+                append_stream_file(
+                    stream_log_path,
+                    step_stream_log_path,
+                    header=(
+                        f"==> loop-step iteration={iteration} stage={step_payload.get('stage')} "
+                        f"stream_log={step_stream_log}"
+                    ),
+                )
         if stream_mode and stream_jsonl_path and step_stream_jsonl:
-            step_jsonl_path = runtime.resolve_path_for_target(Path(step_stream_jsonl), target)
-            append_stream_file(stream_jsonl_path, step_jsonl_path)
-        step_main_log_abs = _resolve_optional_path(target, step_command_log)
+            step_jsonl_path, invalid_path = _resolve_path_within_target(
+                target,
+                step_stream_jsonl,
+                label="step_stream_jsonl_path",
+            )
+            if invalid_path:
+                stream_path_invalid.append(invalid_path)
+            elif step_jsonl_path:
+                append_stream_file(stream_jsonl_path, step_jsonl_path)
+        step_main_log_abs, main_log_invalid = _resolve_path_within_target(
+            target,
+            step_command_log,
+            label="step_main_log_path",
+        )
+        if main_log_invalid:
+            stream_path_invalid.append(main_log_invalid)
         main_log_abs = step_main_log_abs if step_main_log_abs and step_main_log_abs.exists() else log_path
-        step_stream_log_abs = _resolve_optional_path(target, step_stream_log)
-        step_stream_jsonl_abs = _resolve_optional_path(target, step_stream_jsonl)
+        step_stream_log_abs, step_stream_log_invalid = _resolve_path_within_target(
+            target,
+            step_stream_log,
+            label="step_stream_log_path",
+        )
+        if step_stream_log_invalid:
+            stream_path_invalid.append(step_stream_log_invalid)
+        step_stream_jsonl_abs, step_stream_jsonl_invalid = _resolve_path_within_target(
+            target,
+            step_stream_jsonl,
+            label="step_stream_jsonl_path",
+        )
+        if step_stream_jsonl_invalid:
+            stream_path_invalid.append(step_stream_jsonl_invalid)
+        if stream_path_invalid:
+            stream_path_invalid = sorted(set(stream_path_invalid))
         stream_liveness = {
             "main_log_path": runtime.rel_path(main_log_abs, target),
             "main_log_bytes": _safe_size(main_log_abs),
@@ -900,6 +1175,8 @@ def main(argv: List[str] | None = None) -> int:
             "step_stream_jsonl_bytes": _safe_size(step_stream_jsonl_abs),
             "step_stream_jsonl_updated_at": _safe_updated_at(step_stream_jsonl_abs),
             "observability_degraded": False,
+            "stream_path_invalid_count": len(stream_path_invalid),
+            "stream_path_invalid": stream_path_invalid,
         }
         if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
             stream_liveness["active_source"] = "stream"
@@ -909,10 +1186,15 @@ def main(argv: List[str] | None = None) -> int:
             stream_liveness["active_source"] = "none"
         if stream_mode and stream_liveness["active_source"] == "main_log":
             stream_liveness["observability_degraded"] = True
-            if step_stream_log or step_stream_jsonl:
+            if stream_path_invalid:
+                stream_liveness["degraded_reason"] = "stream_path_invalid"
+            elif step_stream_log or step_stream_jsonl:
                 stream_liveness["degraded_reason"] = "stream_artifacts_missing_or_empty"
             else:
                 stream_liveness["degraded_reason"] = "stream_paths_missing"
+        if stream_mode and stream_liveness["active_source"] == "none" and stream_path_invalid:
+            stream_liveness["observability_degraded"] = True
+            stream_liveness["degraded_reason"] = "stream_path_invalid"
         append_log(
             log_path,
             (
@@ -951,6 +1233,7 @@ def main(argv: List[str] | None = None) -> int:
                 )
                 + f" marker_signals={len(marker_signal_events)} marker_noise={len(report_noise_events)}"
                 + (f" report_noise={report_noise}" if report_noise else "")
+                + (f" stream_path_invalid={','.join(stream_path_invalid)}" if stream_path_invalid else "")
             ),
         )
         append_log(
@@ -1024,16 +1307,24 @@ def main(argv: List[str] | None = None) -> int:
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
+            scope_drift_probe_allowed = True
+            if log_reason_code == "scope_drift_recoverable":
+                scope_drift_probe_allowed = not scope_drift_recovery_probe_used
             if (
                 blocked_policy == "ralph"
                 and recoverable_blocked
                 and recoverable_retry_attempt < recoverable_retry_budget
+                and scope_drift_probe_allowed
             ):
+                if log_reason_code == "scope_drift_recoverable":
+                    scope_drift_recovery_probe_used = True
                 recoverable_retry_attempt += 1
                 recovery_path, recovery_work_item = _apply_recoverable_block_recovery(
                     target=target,
                     ticket=ticket,
                     stage=step_stage,
+                    reason_code=str(log_reason_code or ""),
+                    drift_scope_key=scope_drift_hint,
                     chosen_scope=str(chosen_scope or ""),
                 )
                 last_recovery_path = recovery_path
@@ -1064,6 +1355,21 @@ def main(argv: List[str] | None = None) -> int:
                 if sleep_seconds:
                     time.sleep(sleep_seconds)
                 continue
+            if log_reason_code == "scope_drift_recoverable" and not scope_drift_probe_allowed:
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=scope-drift-recovery-exhausted iteration={iteration} "
+                        f"reason_code={log_reason_code}"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=scope-drift-recovery-exhausted iteration={iteration} "
+                        f"reason_code={log_reason_code}"
+                    ),
+                )
             clear_active_mode(target)
             payload = {
                 "status": "blocked",

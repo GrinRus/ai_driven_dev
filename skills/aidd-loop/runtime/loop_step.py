@@ -68,6 +68,8 @@ _APPROVAL_MARKERS = (
     "manual approval",
 )
 _MARKER_SEMANTIC_TOKENS = ("id=review:", "id_review_")
+_MARKER_NOISE_SECTION_HINTS = ("aidd:how_to_update", "aidd:progress_log")
+_MARKER_NOISE_PLACEHOLDERS = ("<title>", "<ticket>", "<scope_key>", "<commit/pr|report>")
 _MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
 _QUESTION_PROMPT_RE = re.compile(r"\b(?:question|вопрос|aidd:answers|answer|ответ)\b", re.IGNORECASE)
 _QUESTION_REFERENCE_RE = re.compile(r"(?:^|\b)(?:q|question|вопрос)\s*\d+", re.IGNORECASE)
@@ -179,7 +181,24 @@ def _extract_marker_source(line: str) -> str:
 
 def _is_marker_noise_source(source: str, line: str) -> bool:
     source_lower = str(source or "").strip().lower()
-    line_lower = str(line or "").strip().lower()
+    stripped = str(line or "").strip()
+    line_lower = stripped.lower()
+    if any(hint in line_lower for hint in _MARKER_NOISE_SECTION_HINTS):
+        return True
+    if any(token in line_lower for token in _MARKER_NOISE_PLACEHOLDERS):
+        return True
+    if stripped.startswith(">"):
+        return True
+    if (stripped.startswith("- `") or stripped.startswith("* `")) and (
+        "id=review:" in line_lower or "id_review_" in line_lower
+    ):
+        return True
+    if "`" in stripped and ("id=review:" in line_lower or "id_review_" in line_lower):
+        return True
+    if ("канонический формат" in line_lower or "canonical format" in line_lower) and (
+        "id=review:" in line_lower or "id_review_" in line_lower
+    ):
+        return True
     if "aidd/docs/tasklist/templates/" in source_lower or "aidd/docs/tasklist/templates/" in line_lower:
         return True
     return (
