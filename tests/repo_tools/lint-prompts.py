@@ -71,6 +71,7 @@ STAGE_PYTHON_ENTRYPOINTS = {
     "status": "skills/status/runtime/status.py",
 }
 STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
+    "aidd-init",
     "idea-new",
     "researcher",
     "plan-new",
@@ -102,9 +103,18 @@ LEGACY_STAGE_ALIAS_TO_CANONICAL = {
     "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
     "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
 }
+DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS = ("stage_set.py", "feature_set.py")
+DISALLOWED_RUNTIME_HINT_MARKER_RE = re.compile(
+    r"(?:forbidden|do not run|do not use|deprecated|запрещ|не\s+запуск|не\s+использ)",
+    re.IGNORECASE,
+)
+CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE = re.compile(
+    r"context_pack\.py[^\n]{0,260}--refresh(?![^\n]{0,260}--agent)",
+    re.IGNORECASE,
+)
 LOOP_MANUAL_PREFLIGHT_BAN_RE = re.compile(
-    r"(?:(?:не\s+запуск|запрещено|do not run|forbidden).{0,220}preflight_prepare\.py"
-    r"|preflight_prepare\.py.{0,220}(?:запрещено|forbidden|do not run|не\s+запуск))",
+    r"(?:(?:manual|direct|вручн|прям).{0,220}preflight.{0,220}(?:forbidden|do not|запрещ|не\s+запуск)"
+    r"|(?:forbidden|do not|запрещ|не\s+запуск).{0,220}(?:manual|direct|вручн|прям).{0,220}preflight)",
     re.IGNORECASE | re.DOTALL,
 )
 LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
@@ -127,6 +137,9 @@ STAGE_BODY_REL_RUNTIME_RE = re.compile(
 LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
     "skills/aidd-loop/runtime/preflight_prepare.py",
     "skills/aidd-flow-state/runtime/stage_result.py",
+    "skills/implement/runtime/preflight_prepare.py",
+    "skills/review/runtime/preflight_prepare.py",
+    "skills/qa/runtime/preflight_prepare.py",
 )
 PRELOADED_SKILLS = {
     "aidd-core",
@@ -855,6 +868,25 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: stage guidance uses legacy stage alias `{legacy_alias}`; "
                         f"use `{canonical_alias}`"
                     )
+            for alias_token in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS:
+                for line in info.body.splitlines():
+                    lowered = line.lower()
+                    if alias_token not in lowered:
+                        continue
+                    if DISALLOWED_RUNTIME_HINT_MARKER_RE.search(line):
+                        continue
+                    errors.append(
+                        f"{info.path}: stage guidance references deprecated runtime alias `{alias_token}` "
+                        f"without explicit prohibition marker"
+                    )
+
+            if path.parent.name in {"plan-new", "review-spec"} and CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE.search(
+                info.body
+            ):
+                errors.append(
+                    f"{info.path}: context pack guidance must not use `context_pack.py --refresh` "
+                    f"without explicit `--agent`"
+                )
 
             if path.parent.name in {"implement", "review", "qa"}:
                 body_lower = info.body.lower()
@@ -864,7 +896,7 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
                 if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
                     errors.append(
-                        f"{info.path}: missing explicit policy that manual `preflight_prepare.py` invocation is forbidden"
+                        f"{info.path}: missing explicit policy that manual/direct preflight runtime invocation is forbidden"
                     )
                 if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
                     errors.append(
@@ -954,6 +986,12 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
 
             for item in skill_tools:
                 if not item.startswith("Bash("):
+                    continue
+                item_lower = item.lower()
+                if any(alias in item_lower for alias in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS):
+                    errors.append(
+                        f"{info.path}: stage skill must not reference deprecated active-state runtime aliases in allowed-tools ({item})"
+                    )
                     continue
                 if "${CLAUDE_PLUGIN_ROOT}/skills/" in item and "/scripts/" in item:
                     errors.append(

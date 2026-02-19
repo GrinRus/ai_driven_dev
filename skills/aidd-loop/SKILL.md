@@ -26,9 +26,9 @@ Follow `feature-dev-aidd:aidd-core` for output contract and DocOps.
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_step.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_run.py`
-- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_result_validate.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/output_contract.py`
+- Preflight preparation is wrapper-internal and not an operator command.
 
 ## Additional resources
 - For wrapper paths and fallback details, see [reference.md](reference.md).

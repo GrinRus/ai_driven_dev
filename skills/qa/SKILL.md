@@ -38,7 +38,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and validate QA prerequisites from loop/readmap artifacts.
-2. Wrapper-only policy: execute only via wrapper chain; manual `preflight_prepare.py` invocation is forbidden for operators.
+2. Wrapper-only policy: execute only via wrapper chain; manual/direct preflight runtime invocation is forbidden for operators.
 3. Manual write/create of `stage.qa.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
 4. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
 5. Run subagent `feature-dev-aidd:qa`.

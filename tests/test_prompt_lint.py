@@ -164,7 +164,7 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
             "1. Wrapper-only policy: execute only via wrapper chain."
         )
         lines.append(
-            "2. Manual `preflight_prepare.py` invocation is forbidden for operators; wrappers own preflight."
+            "2. Manual/direct preflight runtime invocation is forbidden for operators; wrappers own preflight."
         )
         lines.append(
             f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it."
@@ -916,6 +916,19 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("canonical runtime paths", result.stderr)
 
+    def test_aidd_init_stage_skill_body_relative_runtime_ref_fails(self) -> None:
+        bad_skill = build_stage_skill("aidd-init").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py`",
+            "### `python3 skills/aidd-init/runtime/init.py`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-init": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("canonical runtime paths", result.stderr)
+
     def test_stage_skill_missing_python_entrypoint_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -950,6 +963,54 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("legacy stage alias `/feature-dev-aidd:planner`", result.stderr)
+
+    def test_stage_skill_deprecated_runtime_alias_without_ban_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Do the work.",
+            (
+                "## Steps\n"
+                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_set.py --stage review-prd`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("deprecated runtime alias `stage_set.py`", result.stderr)
+
+    def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
+        bad_skill = build_stage_skill("plan-new").replace(
+            "## Steps\n1. Do the work.",
+            (
+                "## Steps\n"
+                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/context_pack.py --refresh --stage plan`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("context pack guidance must not use `context_pack.py --refresh`", result.stderr)
+
+    def test_loop_stage_skill_stage_local_preflight_allowed_tool_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "  - Read",
+            (
+                "  - Read\n"
+                "  - \"Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/preflight_prepare.py *)\""
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("manual recovery surface", result.stderr)
 
     def test_stage_skill_foreign_wrapper_ref_fails(self) -> None:
         bad_skill = build_stage_skill("tasks-new").replace(

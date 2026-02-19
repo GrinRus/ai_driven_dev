@@ -6,16 +6,17 @@
       "command_path": "commands/aidd-init.md",
       "skill_path": "skills/aidd-init/SKILL.md",
       "frontmatter": {
+        "description": "Initialize AIDD workspace scaffolding in the current project.",
+        "argument-hint": "[--force] [--detect-build-tools]",
+        "lang": "ru",
+        "prompt_version": "0.1.8",
+        "source_version": "0.1.8",
         "allowed-tools": [
           "Read",
           "Write",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py *)"
         ],
-        "model": "inherit",
-        "prompt_version": "0.1.7",
-        "source_version": "0.1.7",
-        "lang": "ru",
-        "argument-hint": "[--force] [--detect-build-tools]"
+        "model": "inherit"
       }
     },
     {
@@ -175,6 +176,11 @@
       "command_path": "commands/implement.md",
       "skill_path": "skills/implement/SKILL.md",
       "frontmatter": {
+        "description": "Implement the next work item with loop discipline.",
+        "argument-hint": "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]",
+        "lang": "ru",
+        "prompt_version": "1.1.44",
+        "source_version": "1.1.44",
         "allowed-tools": [
           "Read",
           "Edit",
@@ -194,7 +200,6 @@
           "Bash(go *)",
           "Bash(mvn *)",
           "Bash(make *)",
-          "Bash(./gradlew *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py *)",
@@ -212,11 +217,7 @@
           "Bash(git rev-parse *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
-        "model": "inherit",
-        "prompt_version": "1.1.43",
-        "source_version": "1.1.43",
-        "lang": "ru",
-        "argument-hint": "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]"
+        "model": "inherit"
       }
     },
     {
@@ -224,6 +225,11 @@
       "command_path": "commands/review.md",
       "skill_path": "skills/review/SKILL.md",
       "frontmatter": {
+        "description": "Review changes, produce feedback, and derive tasks.",
+        "argument-hint": "$1 [note...]",
+        "lang": "ru",
+        "prompt_version": "1.0.39",
+        "source_version": "1.0.39",
         "allowed-tools": [
           "Read",
           "Edit",
@@ -246,11 +252,7 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py --fix *)",
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
-        "model": "inherit",
-        "prompt_version": "1.0.38",
-        "source_version": "1.0.38",
-        "lang": "ru",
-        "argument-hint": "$1 [note...]"
+        "model": "inherit"
       }
     },
     {

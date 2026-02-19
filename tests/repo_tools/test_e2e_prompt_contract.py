@@ -178,9 +178,9 @@ class E2EPromptContractTests(unittest.TestCase):
 
         self.assertIn("Status: reviewed|pending|warn", agent_text)
         self.assertIn("/feature-dev-aidd:plan-new <ticket>", agent_text)
-        self.assertIn("legacy planner alias запрещён", agent_text)
         self.assertIn("/feature-dev-aidd:plan-new <ticket>", skill_text)
-        self.assertIn("Never use legacy user-facing planner alias from pre-wave commands", skill_text)
+        self.assertNotIn("/feature-dev-aidd:planner", agent_text)
+        self.assertNotIn("/feature-dev-aidd:planner", skill_text)
 
     def test_loop_stage_skills_enforce_wrapper_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
@@ -190,7 +190,7 @@ class E2EPromptContractTests(unittest.TestCase):
             frontmatter_lower = _front_matter(skill_path).lower()
             stage = skill_path.parent.name
             self.assertIn("forbidden", lower)
-            self.assertIn("preflight_prepare.py", lower)
+            self.assertRegex(lower, r"(manual|direct|вручн|прям).{0,220}preflight")
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
             self.assertIn("wrapper", lower)
             self.assertIn("actions_apply.py", lower)

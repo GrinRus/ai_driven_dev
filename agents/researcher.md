@@ -31,7 +31,7 @@ Stage owner: `researcher` отвечает за orchestration (`research.py`) и
 1. Прочитай rolling context pack и RLM pack (если есть).
 2. Обнови `aidd/docs/research/<ticket>.md`: интеграции, reuse, риски, open questions, и нормализуй header `Status:` к canonical value (`reviewed|pending|warn`).
 3. Если RLM pack отсутствует или pending, верни BLOCKED и укажи handoff на owner runtime `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket <ticket>`.
-4. Если `rlm_status=ready`, укажи следующий stage только как `/feature-dev-aidd:plan-new <ticket>`; legacy planner alias запрещён.
+4. Если `rlm_status=ready`, укажи следующий stage только как `/feature-dev-aidd:plan-new <ticket>`.
 
 ## Fail-fast и вопросы
 - Недостаточно контекста -> вопросы в формате aidd-core.

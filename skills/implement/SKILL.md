@@ -2,8 +2,8 @@
 description: Implement the next work item with loop discipline.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru
-prompt_version: 1.1.43
-source_version: 1.1.43
+prompt_version: 1.1.44
+source_version: 1.1.44
 allowed-tools:
   - Read
   - Edit
@@ -23,7 +23,6 @@ allowed-tools:
   - "Bash(go *)"
   - "Bash(mvn *)"
   - "Bash(make *)"
-  - "Bash(./gradlew *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py *)"
@@ -49,14 +48,16 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and confirm loop artifacts are present for implement stage.
-2. Wrapper-only policy: execute only via wrapper chain; manual `preflight_prepare.py` invocation is forbidden for operators.
+2. Wrapper-only policy: execute only via wrapper chain; manual/direct preflight runtime invocation is forbidden for operators.
 3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
-4. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
-5. Run subagent `feature-dev-aidd:implementer`.
-6. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
-7. Canonical stage wrapper chain is strict: `preflight -> implement_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`.
-8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift).
-9. Output: return stage contract + updated artifacts with explicit handoff/next action.
+4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames and do not retry guessed commands.
+5. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.
+6. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+7. Run subagent `feature-dev-aidd:implementer`.
+8. Orchestration: use the existing rolling context pack (do not regenerate it), Fill actions.json (v1) at `aidd/reports/actions/<ticket>/<scope_key>/implement.actions.json`, and validate schema via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`.
+9. Canonical stage wrapper chain is strict: `preflight -> implement_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json`.
+10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift).
+11. Output: return stage contract + updated artifacts with explicit handoff/next action.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/implement/runtime/implement_run.py`
@@ -81,7 +82,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Next action: fix postflight payload generation and rerun the wrapper chain; do not switch to non-canonical loop runtime paths.
 
 ## Notes
-- Implement stage does not run tests; format-only is allowed.
+- Implement stage does not run ad-hoc test loops; format-only is allowed and test orchestration is delegated to hook policy.
 
 ## Additional resources
 - Contract schema: [CONTRACT.yaml](CONTRACT.yaml) (when: preflight/postflight or actions contract is unclear; why: validate required fields and artifact expectations before rerun).
