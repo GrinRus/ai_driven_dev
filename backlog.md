@@ -1923,7 +1923,7 @@ _Rollout policy: breaking-only, без обратной совместимост
 
 ## Wave 102 — SKILL contract convergence (official Claude alignment, all skills)
 
-_Статус: план, приоритет 0. Цель — привести все `skills/*/SKILL.md` к единому контракту на базе официальной документации Claude Skills (description quality, command contracts, progressive disclosure, subagent orchestration), без drift относительно текущего no-fork/policy runtime._
+_Статус: выполнено, приоритет 0. Цель — привести все `skills/*/SKILL.md` к единому контракту на базе официальной документации Claude Skills (description quality, command contracts, progressive disclosure, subagent orchestration), без drift относительно текущего no-fork/policy runtime._
 
 _Official references (SoT for this wave):_
 - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
@@ -1945,7 +1945,7 @@ _Official references (SoT for this wave):_
 
 ### Phase 102A — Inventory + policy crosswalk
 
-- [ ] **W102-1 (P0) Full SKILL inventory matrix and gap map (all 19 skills)** `backlog.md`, `dev/reports/skills/w102_skill_inventory.md`:
+- [x] **W102-1 (P0) Full SKILL inventory matrix and gap map (all 19 skills)** `backlog.md`, `dev/reports/skills/w102_skill_inventory.md`:
   - собрать матрицу по всем `skills/*/SKILL.md`: frontmatter keys, section coverage, command contracts, additional resources, runtime path hints, subagent mentions;
   - зафиксировать gap list и priority order для rollout;
   - использовать матрицу как release checklist для Wave 102.
@@ -1955,7 +1955,7 @@ _Official references (SoT for this wave):_
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W102-2 (P0) Official Claude docs crosswalk -> repo policy mapping** `docs/skill-language.md`, `AGENTS.md`, `dev/reports/skills/w102_claude_crosswalk.md`:
+- [x] **W102-2 (P0) Official Claude docs crosswalk -> repo policy mapping** `docs/skill-language.md`, `AGENTS.md`, `dev/reports/skills/w102_claude_crosswalk.md`:
   - сопоставить official guidance (overview/best-practices/skill-format/subagents) с текущими repo правилами;
   - явно зафиксировать где применяем `context: fork/agent` (или почему запрещаем для stage skills в no-fork policy);
   - сформировать change log для lint/prompt policy.
@@ -1967,7 +1967,7 @@ _Official references (SoT for this wave):_
 
 ### Phase 102B — Shared skill contract hardening (8 preloaded skills)
 
-- [ ] **W102-3 (P0) Shared skills: add compact `Command contracts` interface cards** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
+- [x] **W102-3 (P0) Shared skills: add compact `Command contracts` interface cards** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
   - добавить interface-level contracts для critical commands (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`);
   - убрать/не допускать implementation retell в shared SKILL body;
   - оставить deep details в `references/*` и runtime docstrings.
@@ -1977,7 +1977,7 @@ _Official references (SoT for this wave):_
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W102-4 (P0) Shared skills: normalize `Additional resources` with explicit `when/why`** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
+- [x] **W102-4 (P0) Shared skills: normalize `Additional resources` with explicit `when/why`** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
   - выровнять/добавить `Additional resources` во всех shared skills;
   - для каждого bullet зафиксировать `when:` и `why:` в едином стиле;
   - убрать неявные/шумные ссылки без применения.
@@ -1989,7 +1989,7 @@ _Official references (SoT for this wave):_
 
 ### Phase 102C — Stage skill normalization (11 user-invocable skills)
 
-- [ ] **W102-5 (P0) Frontmatter normalization: fill missing `name` and align metadata in stage skills** `skills/{aidd-init,implement,plan-new,qa,researcher,review-spec,review,spec-interview,status,tasks-new,aidd-loop}/SKILL.md`:
+- [x] **W102-5 (P0) Frontmatter normalization: fill missing `name` and align metadata in stage skills** `skills/{aidd-init,implement,plan-new,qa,researcher,review-spec,review,spec-interview,status,tasks-new,aidd-loop}/SKILL.md`:
   - добавить отсутствующие `name` поля и выровнять с directory names;
   - сохранить stage-required keys (`argument-hint`, `prompt_version`, `source_version`, `allowed-tools`, `disable-model-invocation`) без policy drift;
   - проверить, что metadata не конфликтует с preload/stage contracts.
@@ -1999,7 +1999,7 @@ _Official references (SoT for this wave):_
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W102-6 (P0) Stage steps/subagent orchestration wording alignment (`Run subagent` + no-fork policy)** `skills/{idea-new,researcher,review-spec,tasks-new,implement,review,qa,plan-new,spec-interview,status,aidd-init}/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W102-6 (P0) Stage steps/subagent orchestration wording alignment (`Run subagent` + no-fork policy)** `skills/{idea-new,researcher,review-spec,tasks-new,implement,review,qa,plan-new,spec-interview,status,aidd-init}/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - унифицировать формулировки explicit subagent orchestration и next-action semantics;
   - убрать ambiguous/legacy handoff phrasing в stage-level steps;
   - сохранить инварианты текущих lint checks (`exact Run subagent count`, no `context/agent` in stage skills).
@@ -2009,7 +2009,7 @@ _Official references (SoT for this wave):_
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W102-7 (P0) Runtime-path canonicalization sweep in stage SKILL guidance** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W102-7 (P0) Runtime-path canonicalization sweep in stage SKILL guidance** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - подтвердить/исправить runtime path hints только в canonical форме `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`;
   - исключить relative path drift в prose/examples/contracts;
   - закрепить failure semantics для `can't open file .../skills/.../runtime/...`.
@@ -2019,7 +2019,7 @@ _Official references (SoT for this wave):_
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W102-8 (P1) Loop stages (implement/review/qa): wrapper-only policy wording hardening with stable markers** `skills/{implement,review,qa}/SKILL.md`, `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
+- [x] **W102-8 (P1) Loop stages (implement/review/qa): wrapper-only policy wording hardening with stable markers** `skills/{implement,review,qa}/SKILL.md`, `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
   - синхронизировать wording по manual preflight/manual stage-result bans и wrapper-chain policy;
   - ввести стабильные semantic markers (policy tags) для тестов вместо fragile phrase lock-in;
   - сохранить canonical stage-result path contract (`aidd-flow-state/runtime/stage_result.py`).
@@ -2031,7 +2031,7 @@ _Official references (SoT for this wave):_
 
 ### Phase 102D — Lint/tests contract upgrades
 
-- [ ] **W102-9 (P0) `lint-prompts` contract update for Wave 102 skill quality gates** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+- [x] **W102-9 (P0) `lint-prompts` contract update for Wave 102 skill quality gates** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
   - добавить/усилить проверки для shared skill sections (`Command contracts`, `Additional resources when/why`);
   - добавить guard на missing `name` и inconsistent frontmatter across all skills;
   - синхронизировать diagnostics с actionable remediation messages.
@@ -2041,7 +2041,7 @@ _Official references (SoT for this wave):_
   **Effort:** M
   **Risk:** Medium
 
-- [ ] **W102-10 (P1) Replace brittle exact-text assertions in loop policy tests with semantic checks** `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
+- [x] **W102-10 (P1) Replace brittle exact-text assertions in loop policy tests with semantic checks** `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
   - заменить literal assert на semantic regex/marker checks;
   - оставить контроль критичных invariants (manual preflight ban, canonical stage_result path, no non-canonical path);
   - минимизировать coupling tests к точной англоязычной формулировке.
@@ -2053,7 +2053,7 @@ _Official references (SoT for this wave):_
 
 ### Phase 102E — Rollout, versions, and release readiness
 
-- [ ] **W102-11 (P0) Prompt-version bump + baseline sync for all touched skills/agents** `skills/*/SKILL.md`, `agents/*.md`, `dev/reports/migrations/commands_to_skills_frontmatter.json`, `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`:
+- [x] **W102-11 (P0) Prompt-version bump + baseline sync for all touched skills/agents** `skills/*/SKILL.md`, `agents/*.md`, `dev/reports/migrations/commands_to_skills_frontmatter.json`, `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`:
   - выполнить semver bump для затронутых prompts;
   - синхронизировать baseline/metadata artifacts после правок;
   - проверить отсутствие stale version drift.
@@ -2063,7 +2063,7 @@ _Official references (SoT for this wave):_
   **Effort:** S
   **Risk:** Low
 
-- [ ] **W102-12 (P0) Final regression and acceptance pass for all SKILL contracts** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/test_prompt_lint.py`, `tests/test_manual_preflight_policy.py`, `CHANGELOG.md`:
+- [x] **W102-12 (P0) Final regression and acceptance pass for all SKILL contracts** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/test_prompt_lint.py`, `tests/test_manual_preflight_policy.py`, `CHANGELOG.md`:
   - выполнить full lint/prompt/smoke regression after Wave 102 changes;
   - зафиксировать acceptance report и known residual risks (если останутся);
   - обновить changelog/release notes для skill-policy изменений.

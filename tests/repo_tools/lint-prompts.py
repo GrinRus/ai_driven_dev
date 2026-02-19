@@ -87,6 +87,8 @@ STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
     "idea-new": 1,
+    "plan-new": 2,
+    "review-spec": 2,
     "tasks-new": 1,
     "implement": 1,
     "review": 1,
@@ -125,6 +127,12 @@ LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
 )
 LOOP_CANONICAL_STAGE_RESULT_PATH = "${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py"
 LOOP_NON_CANONICAL_STAGE_RESULT_PATH = "skills/aidd-loop/runtime/stage_result.py"
+LOOP_POLICY_MARKERS = {
+    "manual_preflight_forbidden": "[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]",
+    "manual_stage_result_forbidden": "[AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]",
+    "canonical_stage_result_path": "[AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]",
+    "non_canonical_stage_result_forbidden": "[AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]",
+}
 LOOP_WRAPPER_CHAIN_RE = re.compile(
     r"(?:wrapper chain|wrapper-?only|slash stage command|canonical stage chain).{0,260}"
     r"(?:actions_apply\.py|postflight|stage_result\.py)",
@@ -181,6 +189,26 @@ AGENT_PRELOAD_WAIVERS: Dict[str, set[str]] = {}
 SKILL_RUNTIME_TOOL_RE = re.compile(
     r"(?:python3\s+)?\$\{CLAUDE_PLUGIN_ROOT\}/skills/([^/]+)/runtime/([A-Za-z0-9_.-]+\.py)"
 )
+CONTRACT_HEADING_RE = re.compile(r"^###\s+`([^`]+)`\s*$")
+SHARED_RUNTIME_CONTRACT_HEADING_RE = re.compile(
+    r"^python3\s+\$\{CLAUDE_PLUGIN_ROOT\}/skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py(?:\s+.*)?$"
+)
+SHARED_CRITICAL_CONTRACT_REFS_ANY = {
+    "aidd-core": ("skills/aidd-core/runtime/skill_contract_validate.py",),
+    "aidd-docio": ("skills/aidd-docio/runtime/md_slice.py", "skills/aidd-docio/runtime/actions_apply.py"),
+    "aidd-flow-state": ("skills/aidd-flow-state/runtime/set_active_stage.py", "skills/aidd-flow-state/runtime/stage_result.py"),
+    "aidd-observability": (
+        "skills/aidd-observability/runtime/doctor.py",
+        "skills/aidd-observability/runtime/tools_inventory.py",
+    ),
+    "aidd-loop": ("skills/aidd-loop/runtime/loop_pack.py", "skills/aidd-loop/runtime/loop_run.py"),
+    "aidd-rlm": ("skills/aidd-rlm/runtime/rlm_slice.py", "skills/aidd-rlm/runtime/rlm_finalize.py"),
+    "aidd-stage-research": ("skills/aidd-rlm/runtime/rlm_slice.py", "skills/aidd-rlm/runtime/rlm_finalize.py"),
+}
+POLICY_CRITICAL_CONTRACT_HEADINGS = {
+    "Policy output contract application",
+    "Policy question protocol",
+}
 
 FORBIDDEN_AGENT_STAGE_TOOL_MAP = {
     "${CLAUDE_PLUGIN_ROOT}/tools/analyst-check.sh": "python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py",
@@ -295,6 +323,15 @@ def _extract_section(body: str, title: str) -> str | None:
         section_lines.append(line)
     content = "\n".join(section_lines).strip()
     return content or None
+
+
+def _extract_contract_headings(section: str) -> List[str]:
+    headings: List[str] = []
+    for raw_line in section.splitlines():
+        match = CONTRACT_HEADING_RE.match(raw_line.strip())
+        if match:
+            headings.append(match.group(1).strip())
+    return headings
 
 
 def read_prompt(path: Path, kind: str, expected_lang: str) -> Tuple[PromptFile | None, List[str]]:
@@ -799,18 +836,18 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
         if model and model != "inherit":
             errors.append(f"{info.path}: model must be inherit")
 
-        if path.parent.name in PRELOADED_SKILLS:
-            errors.extend(
-                ensure_keys(
-                    info,
-                    [
-                        "description",
-                        "lang",
-                        "model",
-                        "user-invocable",
-                    ],
-                )
+        errors.extend(
+            ensure_keys(
+                info,
+                [
+                    "name",
+                    "description",
+                    "lang",
+                    "model",
+                    "user-invocable",
+                ],
             )
+        )
 
         user_invocable_raw = info.front_matter.get("user-invocable")
         user_invocable = _as_string(user_invocable_raw)
@@ -833,6 +870,63 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
         else:
             if disable_invocation != "true":
                 errors.append(f"{info.path}: stage skills must set disable-model-invocation: true")
+
+        contracts = _extract_section(info.body, "Command contracts")
+        contract_headings: List[str] = []
+        if not contracts:
+            errors.append(f"{info.path}: missing `## Command contracts` section")
+        else:
+            contract_headings = _extract_contract_headings(contracts)
+            if not contract_headings:
+                errors.append(f"{info.path}: command contracts must contain at least one `###` interface card")
+            contracts_lc = contracts.lower()
+            for marker in REQUIRED_CONTRACT_FIELDS:
+                if marker not in contracts_lc:
+                    errors.append(f"{info.path}: command contracts missing `{marker}`")
+            if path.parent.name in PRELOADED_SKILLS:
+                if path.parent.name == "aidd-policy":
+                    missing_policy_cards = sorted(
+                        heading
+                        for heading in POLICY_CRITICAL_CONTRACT_HEADINGS
+                        if heading not in contract_headings
+                    )
+                    if missing_policy_cards:
+                        errors.append(
+                            f"{info.path}: shared policy contracts missing semantic card(s) {missing_policy_cards}"
+                        )
+                else:
+                    non_runtime_headings = [
+                        heading
+                        for heading in contract_headings
+                        if not SHARED_RUNTIME_CONTRACT_HEADING_RE.match(heading)
+                    ]
+                    if non_runtime_headings:
+                        errors.append(
+                            f"{info.path}: shared skill command contracts must use canonical runtime headings "
+                            f"(invalid: {non_runtime_headings})"
+                        )
+                    expected_refs_any = SHARED_CRITICAL_CONTRACT_REFS_ANY.get(path.parent.name, ())
+                    if expected_refs_any and not any(
+                        any(ref in heading for ref in expected_refs_any) for heading in contract_headings
+                    ):
+                        errors.append(
+                            f"{info.path}: shared skill command contracts missing critical runtime reference "
+                            f"(expected one of {list(expected_refs_any)})"
+                        )
+
+        additional = _extract_section(info.body, "Additional resources")
+        if not additional:
+            errors.append(f"{info.path}: missing `## Additional resources` section")
+        else:
+            bullets = [line.strip() for line in additional.splitlines() if line.strip().startswith("-")]
+            if not bullets:
+                errors.append(f"{info.path}: Additional resources must contain at least one bullet item")
+            for bullet in bullets:
+                bullet_lc = bullet.lower()
+                if "when:" not in bullet_lc or "why:" not in bullet_lc:
+                    errors.append(
+                        f"{info.path}: Additional resources bullet must include `when:` and `why:` ({bullet})"
+                    )
 
         # stage skill requirements
         if path.parent.name in STAGE_SKILLS:
@@ -894,6 +988,15 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
+                if "runtime_path_missing_or_drift" not in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must include deterministic blocker code `runtime_path_missing_or_drift`"
+                    )
+                if "can't open file .../skills/.../runtime/..." not in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must define runtime path failure trigger "
+                        f"`can't open file .../skills/.../runtime/...`"
+                    )
                 if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
                     errors.append(
                         f"{info.path}: missing explicit policy that manual/direct preflight runtime invocation is forbidden"
@@ -916,6 +1019,12 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         f"{info.path}: loop stage guidance must not reference non-canonical stage-result path "
                         f"`{LOOP_NON_CANONICAL_STAGE_RESULT_PATH}`"
                     )
+                for marker_name, marker_token in LOOP_POLICY_MARKERS.items():
+                    if marker_token.lower() not in body_lower:
+                        errors.append(
+                            f"{info.path}: loop stage guidance missing semantic marker "
+                            f"`{marker_token}` ({marker_name})"
+                        )
             if (
                 path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
                 and STAGE_BODY_REL_RUNTIME_RE.search(info.body)
@@ -947,14 +1056,8 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                     f"`Bash({python_tool_ref} *)`"
                 )
 
-            contracts = _extract_section(info.body, "Command contracts")
-            if not contracts:
-                errors.append(f"{info.path}: missing `## Command contracts` section")
-            else:
+            if contracts:
                 contracts_lc = contracts.lower()
-                for marker in REQUIRED_CONTRACT_FIELDS:
-                    if marker not in contracts_lc:
-                        errors.append(f"{info.path}: command contracts missing `{marker}`")
                 required_refs = [python_entrypoint_rel]
                 if path.parent.name in {"implement", "review", "qa"}:
                     required_refs.append("actions_apply.py")
@@ -968,20 +1071,6 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         errors.append(
                             f"{info.path}: command contracts must not duplicate self slash-stage entrypoint "
                             f"`{slash_ref}`; keep runtime contracts only"
-                        )
-
-            additional = _extract_section(info.body, "Additional resources")
-            if not additional:
-                errors.append(f"{info.path}: missing `## Additional resources` section")
-            else:
-                bullets = [line.strip() for line in additional.splitlines() if line.strip().startswith("-")]
-                if not bullets:
-                    errors.append(f"{info.path}: Additional resources must contain at least one bullet item")
-                for bullet in bullets:
-                    bullet_lc = bullet.lower()
-                    if "when:" not in bullet_lc or "why:" not in bullet_lc:
-                        errors.append(
-                            f"{info.path}: Additional resources bullet must include `when:` and `why:` ({bullet})"
                         )
 
             for item in skill_tools:
@@ -1086,7 +1175,7 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                 baseline_tools = list(baseline_fm.get("allowed-tools") or [])
                 if skill_tools != baseline_tools:
                     errors.append(f"{info.path}: allowed-tools does not match baseline")
-                for key in ("model", "prompt_version", "source_version", "lang", "argument-hint"):
+                for key in ("name", "model", "prompt_version", "source_version", "lang", "argument-hint"):
                     current = _as_string(info.front_matter.get(key))
                     expected = baseline_fm.get(key)
                     if current != expected:

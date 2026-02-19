@@ -31,6 +31,7 @@
 - Agent-first documentation set: updated `/feature-dev-aidd:idea-new`, prompt templates (see `AGENTS.md`), PRD/tasklist/research templates, README (RU/EN), and `AGENTS.md`, ensuring agents log repository inputs and script commands before asking the user.
 
 ### Improvements
+- Wave 102 completed: all 19 `skills/*/SKILL.md` converged to shared contract structure (`name` baseline, compact `Command contracts`, deterministic `Additional resources` with `when/why`), stage loop policy wording now uses stable semantic markers, and prompt-lint/policy tests were hardened for semantic contract checks.
 - Wave backlog discipline: each wave now has a single active status source-of-truth; historical sections must be marked as archive (non-SoT), and smoke checks guard against conflicting active statuses.
 - Skill-first prompts: canonical runtime policy moved to `skills/aidd-core`/`skills/aidd-loop`, stage entrypoints defined by skills, fallback command docs moved to `docs/fallback/commands`, and CI now guards skills/entrypoints parity.
 - Added Phase-2 redirect-wrapper removal blueprint with rollback criteria (`docs/fallback/commands/redirect-wrapper-removal-plan.md`) including review redirect-wrapper transition windows.

@@ -1,6 +1,6 @@
 ---
 name: aidd-policy
-description: Shared policy contract for output format, read discipline, question format, and loop safety.
+description: Defines the shared policy contract for output format, read discipline, question format, and loop safety. Use when applying cross-stage policy rules.
 lang: en
 model: inherit
 user-invocable: false
@@ -59,6 +59,21 @@ Default: ...
 
 ## Subagent guard
 - Subagents must not edit `aidd/docs/.active.json`.
+
+## Command contracts
+### `Policy output contract application`
+- When to run: before final response for every stage/subagent output.
+- Inputs: current stage result plus artifacts/tests/blockers evidence.
+- Outputs: deterministic response skeleton with required contract fields.
+- Failure mode: missing required fields, ambiguous status, or inconsistent blocker/handoff reporting.
+- Next action: normalize output structure and rerun final response composition.
+
+### `Policy question protocol`
+- When to run: only when blocker/clarification is unavoidable after artifact-first checks.
+- Inputs: verified blocker context, user-facing options, and default path.
+- Outputs: one compact policy-compliant question using `Question N/Why/Options/Default` format.
+- Failure mode: free-form or multi-topic questions that lack options/default.
+- Next action: rewrite the question into deterministic policy format before asking.
 
 ## Additional resources
 - [references/output-contract.md](references/output-contract.md) (when: response structure is unclear; why: copy exact contract fields and stage notes).

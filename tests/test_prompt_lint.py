@@ -160,30 +160,36 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("")
     lines.append("## Steps")
     if stage in {"implement", "review", "qa"}:
-        lines.append(
-            "1. Wrapper-only policy: execute only via wrapper chain."
-        )
+        lines.append("1. Wrapper-only policy: execute only via wrapper chain. [AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]")
         lines.append(
             "2. Manual/direct preflight runtime invocation is forbidden for operators; wrappers own preflight."
         )
         lines.append(
-            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it."
+            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it. [AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]"
         )
         lines.append(
-            "4. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+            "4. Runtime-path safety: if output contains `can't open file .../skills/.../runtime/...`, return BLOCKED `runtime_path_missing_or_drift`."
         )
         lines.append(
-            f"5. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+            "5. Retry safety: do not rerun the same failing command without new evidence."
         )
         lines.append(
-            f"6. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+            "6. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
+        )
+        lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
+        lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
+        lines.append(
+            "9. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
         )
         lines.append(
-            "7. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py."
+            "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
         )
-        lines.append(
-            "8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden."
-        )
+    elif stage == "plan-new":
+        lines.append("1. Run subagent `feature-dev-aidd:planner`.")
+        lines.append("2. Run subagent `feature-dev-aidd:validator`.")
+    elif stage == "review-spec":
+        lines.append("1. Run subagent `feature-dev-aidd:plan-reviewer`.")
+        lines.append("2. Run subagent `feature-dev-aidd:prd-reviewer`.")
     elif stage in STAGE_SUBAGENT:
         lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
     else:
@@ -225,15 +231,16 @@ def build_core_skill() -> str:
             user-invocable: false
             ---
 
-            ## Output contract
-            - Status: ...
-            - Work item key: ...
-            - Artifacts updated: ...
-            - Tests: ...
-            - Blockers/Handoff: ...
-            - Next actions: ...
-            - AIDD:READ_LOG: ...
-            - AIDD:ACTIONS_LOG: ...
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/skill_contract_validate.py`
+            - When to run: before release checks for prompt/skill contract drift.
+            - Inputs: repository root and optional validation scope filters.
+            - Outputs: deterministic contract diagnostics.
+            - Failure mode: non-zero exit on missing contract fields/sections.
+            - Next action: fix reported contract gaps and rerun.
+
+            ## Additional resources
+            - Policy owner: [../aidd-policy/SKILL.md](../aidd-policy/SKILL.md) (when: output/question/read policy details are needed; why: avoid duplicating policy prose in topology skill).
             """
         ).strip()
         + "\n"
@@ -252,7 +259,16 @@ def build_docio_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/md_slice.py`
+            - When to run: when bounded markdown excerpt is needed.
+            - Inputs: source markdown path plus selectors.
+            - Outputs: deterministic section slice.
+            - Failure mode: invalid file path or selector.
+            - Next action: fix selectors and rerun.
+
+            ## Additional resources
+            - DocIO flow: [references/actions-flow.md](references/actions-flow.md) (when: actions apply/validate sequence is unclear; why: keep postflight behavior deterministic).
             """
         ).strip()
         + "\n"
@@ -271,7 +287,16 @@ def build_flow_state_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
+            - When to run: wrapper postflight stage-result emission only.
+            - Inputs: canonical postflight payload.
+            - Outputs: deterministic stage result artifact.
+            - Failure mode: invalid payload schema.
+            - Next action: fix payload and rerun wrapper chain.
+
+            ## Additional resources
+            - Stage lifecycle: [references/stage-lifecycle.md](references/stage-lifecycle.md) (when: stage result/status sequencing is unclear; why: confirm canonical flow-state ownership semantics).
             """
         ).strip()
         + "\n"
@@ -290,7 +315,16 @@ def build_observability_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-observability/runtime/doctor.py`
+            - When to run: when env/runtime path drift is suspected.
+            - Inputs: optional diagnostics flags.
+            - Outputs: deterministic environment health diagnostics.
+            - Failure mode: required dependency/path checks fail.
+            - Next action: fix environment and rerun doctor.
+
+            ## Additional resources
+            - Diagnostics notes: [references/diagnostics.md](references/diagnostics.md) (when: doctor/tests-log output meaning is unclear; why: keep troubleshooting deterministic).
             """
         ).strip()
         + "\n"
@@ -309,7 +343,16 @@ def build_loop_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/loop_pack.py`
+            - When to run: before loop stage execution to assemble bounded evidence.
+            - Inputs: ticket/scope context and upstream artifacts.
+            - Outputs: deterministic loop pack payload.
+            - Failure mode: missing/malformed upstream artifacts.
+            - Next action: fix prerequisites and rerun pack generation.
+
+            ## Additional resources
+            - Loop reference: [reference.md](reference.md) (when: wrapper/fallback behavior needs clarification; why: keep loop orchestration inside canonical boundaries).
             """
         ).strip()
         + "\n"
@@ -345,6 +388,24 @@ def build_policy_skill() -> str:
             Options: A) ... B) ...
             Default: ...
             ```
+
+            ## Command contracts
+            ### `Policy output contract application`
+            - When to run: before final response for every stage/subagent output.
+            - Inputs: stage result plus artifacts/tests/blockers evidence.
+            - Outputs: deterministic output skeleton with required fields.
+            - Failure mode: missing or inconsistent contract fields.
+            - Next action: normalize response shape and rerun final composition.
+
+            ### `Policy question protocol`
+            - When to run: only when blocker/clarification is unavoidable after artifact-first checks.
+            - Inputs: verified blocker context with options and default path.
+            - Outputs: deterministic Question/Why/Options/Default prompt.
+            - Failure mode: free-form question without options/default.
+            - Next action: rewrite question to policy format before asking.
+
+            ## Additional resources
+            - Output contract guide: [references/output-contract.md](references/output-contract.md) (when: response fields are uncertain; why: keep status/artifact/test/blocker reporting deterministic).
             """
         ).strip()
         + "\n"
@@ -363,7 +424,16 @@ def build_rlm_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_slice.py`
+            - When to run: for targeted evidence extraction from RLM artifacts.
+            - Inputs: ticket/query selectors.
+            - Outputs: bounded RLM evidence slice payload.
+            - Failure mode: missing pack/worklist artifacts.
+            - Next action: repair missing artifacts and rerun slice.
+
+            ## Additional resources
+            - RLM finalize runtime: [runtime/rlm_finalize.py](runtime/rlm_finalize.py) (when: pending->ready transitions are unclear; why: align finalize ownership and handoff path).
             """
         ).strip()
         + "\n"
@@ -382,7 +452,16 @@ def build_stage_research_skill() -> str:
             user-invocable: false
             ---
 
-            Follow `feature-dev-aidd:aidd-core`.
+            ## Command contracts
+            ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py`
+            - When to run: handoff path when stage reports pending RLM readiness.
+            - Inputs: ticket from deterministic pending status output.
+            - Outputs: finalized readiness status or bounded pending reason.
+            - Failure mode: unresolved upstream RLM integrity issues.
+            - Next action: fix upstream targets/manifest/worklist and rerun finalize.
+
+            ## Additional resources
+            - Stage owner skill: [../researcher/SKILL.md](../researcher/SKILL.md) (when: stage-vs-shared ownership boundary is unclear; why: keep researcher orchestration separate from shared RLM runtime ownership).
             """
         ).strip()
         + "\n"
@@ -432,15 +511,29 @@ class PromptLintTests(unittest.TestCase):
         (skills_root / "aidd-loop" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-rlm" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
         (skills_root / "aidd-stage-research" / "SKILL.md").parent.mkdir(parents=True, exist_ok=True)
-        (skills_root / "aidd-core" / "SKILL.md").write_text(build_core_skill(), encoding="utf-8")
-        (skills_root / "aidd-docio" / "SKILL.md").write_text(build_docio_skill(), encoding="utf-8")
-        (skills_root / "aidd-flow-state" / "SKILL.md").write_text(build_flow_state_skill(), encoding="utf-8")
-        (skills_root / "aidd-observability" / "SKILL.md").write_text(build_observability_skill(), encoding="utf-8")
-        (skills_root / "aidd-policy" / "SKILL.md").write_text(build_policy_skill(), encoding="utf-8")
-        (skills_root / "aidd-loop" / "SKILL.md").write_text(build_loop_skill(), encoding="utf-8")
-        (skills_root / "aidd-rlm" / "SKILL.md").write_text(build_rlm_skill(), encoding="utf-8")
+        (skills_root / "aidd-core" / "SKILL.md").write_text(
+            skill_override.get("aidd-core", build_core_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-docio" / "SKILL.md").write_text(
+            skill_override.get("aidd-docio", build_docio_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-flow-state" / "SKILL.md").write_text(
+            skill_override.get("aidd-flow-state", build_flow_state_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-observability" / "SKILL.md").write_text(
+            skill_override.get("aidd-observability", build_observability_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-policy" / "SKILL.md").write_text(
+            skill_override.get("aidd-policy", build_policy_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-loop" / "SKILL.md").write_text(
+            skill_override.get("aidd-loop", build_loop_skill()), encoding="utf-8"
+        )
+        (skills_root / "aidd-rlm" / "SKILL.md").write_text(
+            skill_override.get("aidd-rlm", build_rlm_skill()), encoding="utf-8"
+        )
         (skills_root / "aidd-stage-research" / "SKILL.md").write_text(
-            build_stage_research_skill(), encoding="utf-8"
+            skill_override.get("aidd-stage-research", build_stage_research_skill()), encoding="utf-8"
         )
 
         for stage in STAGE_SKILLS:
@@ -466,6 +559,7 @@ class PromptLintTests(unittest.TestCase):
                     "command_path": f"commands/{stage}.md",
                     "skill_path": f"skills/{stage}/SKILL.md",
                     "frontmatter": {
+                        "name": stage,
                         "allowed-tools": [
                             "Read",
                             f"Bash(python3 ${{CLAUDE_PLUGIN_ROOT}}/{STAGE_RUNTIME_ENTRYPOINT[stage]} *)",
@@ -652,7 +746,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_invalid_status_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
-            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
             "## Steps\nStatus: approved",
             1,
         )
@@ -664,7 +758,7 @@ class PromptLintTests(unittest.TestCase):
             self.assertIn("unknown status", result.stderr)
 
     def test_html_ticket_escape_fails(self) -> None:
-        bad_skill = build_stage_skill("plan-new").replace("Do the work", "Do &lt;ticket&gt; work", 1)
+        bad_skill = build_stage_skill("plan-new").replace("--ticket <ticket>", "--ticket &lt;ticket&gt;", 1)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, skill_override={"plan-new": bad_skill})
@@ -700,6 +794,37 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("missing `## Command contracts` section", result.stderr)
 
+    def test_shared_skill_missing_name_fails(self) -> None:
+        bad_skill = build_docio_skill().replace("name: aidd-docio\n", "", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-docio": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing `name`", result.stderr)
+
+    def test_shared_skill_missing_command_contracts_fails(self) -> None:
+        bad_skill = build_rlm_skill().replace("## Command contracts", "## Contracts", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-rlm": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing `## Command contracts` section", result.stderr)
+
+    def test_shared_skill_command_contracts_require_canonical_runtime_heading(self) -> None:
+        bad_skill = build_docio_skill().replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/md_slice.py`",
+            "### `not-a-runtime-command`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-docio": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must use canonical runtime headings", result.stderr)
+
     def test_additional_resources_requires_when_why(self) -> None:
         bad_skill = build_stage_skill("status").replace(
             "(when: orchestration behavior needs clarification; why: confirm canonical flags and output contract).",
@@ -709,6 +834,19 @@ class PromptLintTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_prompts(root, skill_override={"status": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Additional resources bullet must include `when:` and `why:`", result.stderr)
+
+    def test_shared_skill_additional_resources_requires_when_why(self) -> None:
+        bad_skill = build_policy_skill().replace(
+            "(when: response fields are uncertain; why: keep status/artifact/test/blocker reporting deterministic).",
+            "(details).",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-policy": bad_skill})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Additional resources bullet must include `when:` and `why:`", result.stderr)
@@ -882,6 +1020,28 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("non-canonical stage-result path", result.stderr)
 
+    def test_loop_stage_skill_missing_runtime_path_blocker_code_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace("runtime_path_missing_or_drift", "runtime_path_unknown", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("runtime_path_missing_or_drift", result.stderr)
+
+    def test_loop_stage_skill_missing_semantic_marker_fails(self) -> None:
+        bad_skill = build_stage_skill("review").replace(
+            "[AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]",
+            "",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing semantic marker", result.stderr)
+
     def test_loop_stage_skill_self_slash_contract_fails(self) -> None:
         bad_skill = build_stage_skill("implement").replace(
             "## Additional resources",
@@ -953,7 +1113,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_legacy_stage_alias_fails(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
-            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
             "## Steps\n1. Run `/feature-dev-aidd:planner DEMO-1` before review.",
             1,
         )
@@ -966,7 +1126,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_deprecated_runtime_alias_without_ban_fails(self) -> None:
         bad_skill = build_stage_skill("review-spec").replace(
-            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run subagent `feature-dev-aidd:plan-reviewer`.\n2. Run subagent `feature-dev-aidd:prd-reviewer`.",
             (
                 "## Steps\n"
                 "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_set.py --stage review-prd`."
@@ -982,7 +1142,7 @@ class PromptLintTests(unittest.TestCase):
 
     def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
         bad_skill = build_stage_skill("plan-new").replace(
-            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run subagent `feature-dev-aidd:planner`.\n2. Run subagent `feature-dev-aidd:validator`.",
             (
                 "## Steps\n"
                 "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/context_pack.py --refresh --stage plan`."
@@ -1067,6 +1227,32 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must contain exactly one `Run subagent` step", result.stderr)
+
+    def test_plan_new_requires_two_run_subagent_steps(self) -> None:
+        bad_skill = build_stage_skill("plan-new").replace(
+            "2. Run subagent `feature-dev-aidd:validator`.",
+            "2. Validate plan artifacts.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage must contain exactly 2 `Run subagent` step(s)", result.stderr)
+
+    def test_review_spec_requires_two_run_subagent_steps(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "2. Run subagent `feature-dev-aidd:prd-reviewer`.",
+            "2. Summarize review findings.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage must contain exactly 2 `Run subagent` step(s)", result.stderr)
 
     def test_legacy_bash_grammar_warns_in_warn_mode(self) -> None:
         legacy_tail = ":" + "*"

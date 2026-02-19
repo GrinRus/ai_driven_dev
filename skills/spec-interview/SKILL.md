@@ -1,9 +1,10 @@
 ---
-description: Run spec interview and update spec.yaml from answers.
+name: spec-interview
+description: Collects missing spec inputs and synchronizes answers into `spec.yaml`. Use when review-spec leaves unresolved specification fields.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.13
-source_version: 1.0.13
+prompt_version: 1.0.14
+source_version: 1.0.14
 allowed-tools:
   - Read
   - Edit

@@ -6,8 +6,20 @@ This document defines the canonical prompt-language and structure policy used by
 - Applies to every `skills/*/SKILL.md` file.
 - Applies to stage-command skill frontmatter parity checks via migration baseline.
 
+## Sources of Truth
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/skill-format`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/subagents`
+- `https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en`
+
 ## Rules
 - Skill prompts are EN-only for shared consistency checks.
+- Every skill frontmatter must include `name`, and `name` must match the skill directory.
+- Every skill frontmatter must include `description`, `lang`, `model`, and `user-invocable`.
+- Shared skills and stage skills must include:
+  - `## Command contracts` with interface cards (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`),
+  - `## Additional resources` with progressive-disclosure markers (`when:` and `why:` per item).
 - Every stage skill must keep `prompt_version` and `source_version` in semver format.
 - `source_version` must match `prompt_version` for current workflow policy.
 - User-invocable stage skills must expose canonical Python runtime entrypoints:
@@ -19,10 +31,8 @@ This document defines the canonical prompt-language and structure policy used by
 - Stage skills may reference wrappers/runtime only from:
   - their own stage path (`skills/<stage>/{runtime,scripts}/*`), and
   - approved shared skills (`aidd-core`, `aidd-loop`, `aidd-rlm`, `aidd-policy`, `aidd-docio`, `aidd-flow-state`, `aidd-observability`).
+- Stage skills must not set `context` or `agent` frontmatter; explicit `Run subagent` orchestration is required instead.
 - Runtime references to `scripts/run.sh` are forbidden for stage skills.
-- User-invocable stage skills must include:
-  - `## Command contracts` with interface cards (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`),
-  - `## Additional resources` with progressive-disclosure markers (`when:` and `why:` per item).
 - Target compactness:
   - warning: skill files above 220 lines,
   - error: skill files above 300 lines.
