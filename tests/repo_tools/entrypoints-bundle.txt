@@ -11,8 +11,8 @@
       "lang": "ru",
       "name": "implementer",
       "path": "agents/implementer.md",
-      "prompt_version": "1.1.38",
-      "source_version": "1.1.38"
+      "prompt_version": "1.1.39",
+      "source_version": "1.1.39"
     },
     {
       "lang": "ru",
@@ -53,8 +53,8 @@
       "lang": "ru",
       "name": "reviewer",
       "path": "agents/reviewer.md",
-      "prompt_version": "1.0.33",
-      "source_version": "1.0.33"
+      "prompt_version": "1.0.34",
+      "source_version": "1.0.34"
     },
     {
       "lang": "ru",
@@ -112,8 +112,8 @@
       "lang": "ru",
       "name": "aidd-init",
       "path": "skills/aidd-init/SKILL.md",
-      "prompt_version": "0.1.7",
-      "source_version": "0.1.7",
+      "prompt_version": "0.1.8",
+      "source_version": "0.1.8",
       "user_invocable": "true"
     },
     {
@@ -175,8 +175,8 @@
       "lang": "ru",
       "name": "implement",
       "path": "skills/implement/SKILL.md",
-      "prompt_version": "1.1.43",
-      "source_version": "1.1.43",
+      "prompt_version": "1.1.44",
+      "source_version": "1.1.44",
       "user_invocable": "true"
     },
     {
@@ -220,8 +220,8 @@
       "lang": "ru",
       "name": "review",
       "path": "skills/review/SKILL.md",
-      "prompt_version": "1.0.38",
-      "source_version": "1.0.38",
+      "prompt_version": "1.0.39",
+      "source_version": "1.0.39",
       "user_invocable": "true"
     },
     {

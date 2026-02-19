@@ -34,7 +34,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and verify loop/readmap artifacts required for review stage.
-2. Wrapper-only policy: execute only via wrapper chain; manual/direct preflight runtime invocation is forbidden for operators.
+2. Wrapper-only policy: execute only via wrapper chain; manual `preflight_prepare.py` invocation is forbidden for operators (manual/direct preflight runtime invocation is forbidden).
 3. Manual write/create of `stage.review.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
 4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames and do not retry guessed commands.
 5. Test command safety: do not run raw build/test commands (`./gradlew`, `mvn test`, `npm test`) in review stage orchestration. Manage test requirement via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py` and existing `aidd/reports/tests/**` evidence. If you detect cwd mismatch (`./gradlew` missing or `does not contain a Gradle build`), record blocker `tests_cwd_mismatch` and stop repeated retries.

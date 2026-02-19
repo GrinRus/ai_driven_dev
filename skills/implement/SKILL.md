@@ -48,7 +48,7 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and confirm loop artifacts are present for implement stage.
-2. Wrapper-only policy: execute only via wrapper chain; manual/direct preflight runtime invocation is forbidden for operators.
+2. Wrapper-only policy: execute only via wrapper chain; manual `preflight_prepare.py` invocation is forbidden for operators (manual/direct preflight runtime invocation is forbidden).
 3. Manual write/create of `stage.implement.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
 4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames and do not retry guessed commands.
 5. Retry safety: do not rerun the same failing shell command more than once without new evidence/artifacts. For cwd/build mismatches, stop with blocker and handoff instead of looped retries.

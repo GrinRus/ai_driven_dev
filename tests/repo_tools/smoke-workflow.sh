@@ -1200,15 +1200,24 @@ grep -q "Status: READY" "docs/prd/${TICKET}.prd.md"
 grep -q "Tasklist:" "docs/tasklist/${TICKET}.md"
 
 log "loop RCA regression guard (TST-001)"
-(
-  cd "$PLUGIN_ROOT"
-  env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-    python3 -m pytest -q \
-      tests/test_loop_step.py::LoopStepTests::test_loop_step_tst001_fixture_stale_stage_missing_stage_result \
-      tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_strict \
-      tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_ralph \
-      tests/test_loop_run.py::LoopRunTests::test_loop_run_marks_marker_report_noise_without_signal
-)
+if python3 - <<'PY' >/dev/null 2>&1
+import importlib.util
+import sys
+sys.exit(0 if importlib.util.find_spec("pytest") else 1)
+PY
+then
+  (
+    cd "$PLUGIN_ROOT"
+    env CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+      python3 -m pytest -q \
+        tests/test_loop_step.py::LoopStepTests::test_loop_step_tst001_fixture_stale_stage_missing_stage_result \
+        tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_strict \
+        tests/test_loop_run.py::LoopRunTests::test_loop_run_tst001_rca_fixture_reason_precedence_ralph \
+        tests/test_loop_run.py::LoopRunTests::test_loop_run_marks_marker_report_noise_without_signal
+  )
+else
+  log "pytest module not available; skipping loop RCA regression guard"
+fi
 
 log "smoke scenario passed"
 popd >/dev/null
