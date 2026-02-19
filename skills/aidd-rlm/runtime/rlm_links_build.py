@@ -719,7 +719,7 @@ def main(argv: List[str] | None = None) -> int:
     if not nodes_path.exists() or nodes_path.stat().st_size == 0:
         raise SystemExit(
             "rlm links require non-empty nodes.jsonl; run agent-flow or "
-            "`skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket <ticket>` first."
+            "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket <ticket>` first."
         )
 
     targets_path = (
