@@ -74,8 +74,12 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             "status": "ok",
             "generated_at": "2024-01-01T00:00:00Z",
             "artifacts": {
+                "actions_template": "aidd/reports/actions/DEMO/iteration_id_I1/implement.actions.template.json",
                 "readmap_json": "aidd/reports/context/DEMO/iteration_id_I1.readmap.json",
+                "readmap_md": "aidd/reports/context/DEMO/iteration_id_I1.readmap.md",
                 "writemap_json": "aidd/reports/context/DEMO/iteration_id_I1.writemap.json",
+                "writemap_md": "aidd/reports/context/DEMO/iteration_id_I1.writemap.md",
+                "loop_pack": "aidd/reports/loops/DEMO/iteration_id_I1.loop.pack.md",
             },
         }
         self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
@@ -84,6 +88,12 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         broken["schema"] = "aidd.stage_result.preflight.vX"
         errors = preflight_result_validate.validate_preflight_result_data(broken)
         self.assertTrue(any("schema must be one of" in err for err in errors))
+
+        path_drift = dict(payload)
+        path_drift["artifacts"] = dict(payload["artifacts"])
+        path_drift["artifacts"]["readmap_json"] = "aidd/reports/readmap.json"
+        errors = preflight_result_validate.validate_preflight_result_data(path_drift)
+        self.assertTrue(any("artifacts.readmap_json must be one of" in err for err in errors))
 
     def test_context_map_validate_schema(self) -> None:
         readmap = {
@@ -133,30 +143,37 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         self.assertIn("tasks", context_map_validate.VALID_STAGES)
 
     def test_skill_contracts_validate(self) -> None:
-        canonical_files = {
-            "aidd/reports/context/{ticket}/{scope_key}.readmap.json",
-            "aidd/reports/context/{ticket}/{scope_key}.readmap.md",
-            "aidd/reports/context/{ticket}/{scope_key}.writemap.json",
-            "aidd/reports/context/{ticket}/{scope_key}.writemap.md",
-            "aidd/reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
-        }
-        legacy_files = {
-            "aidd/reports/actions/{ticket}/{scope_key}/readmap.json",
-            "aidd/reports/actions/{ticket}/{scope_key}/readmap.md",
-            "aidd/reports/actions/{ticket}/{scope_key}/writemap.json",
-            "aidd/reports/actions/{ticket}/{scope_key}/writemap.md",
-            "aidd/reports/actions/{ticket}/{scope_key}/stage.preflight.result.json",
-        }
         for stage in ("implement", "review", "qa"):
             path = REPO_ROOT / "skills" / stage / "CONTRACT.yaml"
             payload = skill_contract_validate.load_contract(path)
             errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
             self.assertEqual(errors, [], f"contract {path} failed: {errors}")
-            required_reads = payload.get("reads", {}).get("required", [])
-            self.assertIn("aidd/reports/context/{ticket}/{scope_key}.readmap.md", required_reads)
-            writes_files = set(payload.get("writes", {}).get("files", []))
-            self.assertTrue(canonical_files.issubset(writes_files))
-            self.assertTrue(writes_files.isdisjoint(legacy_files))
+
+    def test_loop_stage_contract_requires_canonical_stage_result_entrypoint(self) -> None:
+        path = REPO_ROOT / "skills" / "implement" / "CONTRACT.yaml"
+        payload = skill_contract_validate.load_contract(path)
+        payload["entrypoints"] = [
+            item
+            for item in payload.get("entrypoints", [])
+            if item != "skills/aidd-flow-state/runtime/stage_result.py"
+        ]
+        errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
+        self.assertTrue(
+            any("canonical stage-result entrypoint" in err for err in errors),
+            errors,
+        )
+
+    def test_loop_stage_contract_rejects_non_canonical_stage_result_entrypoint(self) -> None:
+        path = REPO_ROOT / "skills" / "review" / "CONTRACT.yaml"
+        payload = skill_contract_validate.load_contract(path)
+        entrypoints = list(payload.get("entrypoints", []))
+        entrypoints.append("skills/aidd-loop/runtime/stage_result.py")
+        payload["entrypoints"] = entrypoints
+        errors = skill_contract_validate.validate_contract_data(payload, contract_path=path)
+        self.assertTrue(
+            any("non-canonical stage-result entrypoint" in err for err in errors),
+            errors,
+        )
 
     def test_actions_schema_files_are_json(self) -> None:
         for schema in ("aidd.actions.v0", "aidd.actions.v1"):

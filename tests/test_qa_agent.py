@@ -1,10 +1,13 @@
 import json
 import os
+import io
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Optional, Dict
+from unittest.mock import patch
 
 from .helpers import (
     REPO_ROOT,
@@ -16,6 +19,7 @@ from .helpers import (
     git_init,
     tasklist_ready_text,
     write_active_feature,
+    write_active_state,
     write_file,
     write_json,
 )
@@ -240,6 +244,109 @@ class QaAgentTests(unittest.TestCase):
         self.assertTrue(payload["tests_executed"], "expected tests from tasklist to run")
         self.assertEqual(payload["tests_executed"][0]["command"], "echo qa-ok")
 
+    def test_tasklist_inline_json_commands_are_executed_as_separate_entries(self):
+        ticket = "tasklist-inline-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["echo qa-inline-ok", "echo qa-inline-second"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-inline-ok", commands)
+        self.assertIn("echo qa-inline-second", commands)
+        self.assertTrue(all(not str(command).startswith("[") for command in commands))
+
+    def test_tasklist_prefixed_commands_are_normalized_before_exec(self):
+        ticket = "tasklist-prefixed-tests"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["Backend: echo qa-prefixed-backend", "Frontend: echo qa-prefixed-frontend"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        write_json(
+            self.project_root,
+            "config/gates.json",
+            {"qa": {"tests": {"commands": ["false"]}}},
+        )
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "pass")
+        commands = [entry.get("command") for entry in payload.get("tests_executed", [])]
+        self.assertIn("echo qa-prefixed-backend", commands)
+        self.assertIn("echo qa-prefixed-frontend", commands)
+        self.assertTrue(all("Backend:" not in str(command) for command in commands))
+        self.assertTrue(all("Frontend:" not in str(command) for command in commands))
+
+    def test_tasklist_shell_chain_single_entry_is_blocked(self):
+        ticket = "tasklist-shell-chain"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["echo qa-ok && echo qa-next"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+        result = self.run_agent("--format", "json")
+
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "fail")
+        executed = payload.get("tests_executed") or []
+        self.assertTrue(executed, "expected malformed command diagnostics")
+        self.assertEqual(executed[0].get("reason_code"), "tasklist_shell_chain_single_entry")
+        self.assertIn("&&", str(executed[0].get("command") or ""))
+
+    def test_tasklist_non_command_entry_is_blocked(self):
+        ticket = "tasklist-non-command"
+        write_active_feature(self.project_root, ticket)
+        tasklist = tasklist_ready_text(ticket)
+        tasklist = tasklist.replace("- profile: none\n", "- profile: targeted\n", 1)
+        tasklist = tasklist.replace(
+            "- tasks: []\n",
+            '- tasks: ["per-iteration test commands listed below"]\n',
+            1,
+        )
+        write_file(self.project_root, f"docs/tasklist/{ticket}.md", tasklist)
+
+        result = self.run_agent("--format", "json")
+        self.assertEqual(result.returncode, 2, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["tests_summary"], "fail")
+        executed = payload.get("tests_executed") or []
+        self.assertTrue(executed, "expected malformed task diagnostics")
+        self.assertEqual(executed[0].get("reason_code"), "tasklist_non_command_entry")
+        self.assertIn("per-iteration test commands listed below", str(executed[0].get("command") or ""))
+
+    def test_qa_accepts_scope_key_alias(self):
+        write_file(self.project_root, "src/main/App.kt", "class App { fun run() = \"ok\" }\n")
+        result = self.run_agent("--format", "json", "--scope-key", "iteration_id_I1")
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("status", payload)
+
     def test_tasklist_profile_none_skips_tests_and_writes_stage_result(self):
         ticket = "tasklist-none"
         write_active_feature(self.project_root, ticket)
@@ -262,6 +369,53 @@ class QaAgentTests(unittest.TestCase):
         stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
         links = stage_payload.get("evidence_links") or {}
         self.assertEqual(links.get("qa_report"), f"aidd/reports/qa/{ticket}.json")
+
+    def test_qa_stage_result_uses_iteration_scope_from_active_work_item(self):
+        ticket = "tasklist-loop-scope"
+        write_active_feature(self.project_root, ticket)
+        write_active_state(self.project_root, ticket=ticket, stage="qa", work_item="iteration_id=I7")
+        result = self.run_agent("--format", "json", "--skip-tests", "--allow-no-tests")
+
+        self.assertIn(result.returncode, {0, 2}, msg=result.stderr)
+        stage_result = (
+            self.project_root
+            / "reports"
+            / "loops"
+            / ticket
+            / "iteration_id_I7"
+            / "stage.qa.result.json"
+        )
+        self.assertTrue(stage_result.exists(), "QA stage_result should use iteration scope in loop context")
+        stage_payload = json.loads(stage_result.read_text(encoding="utf-8"))
+        self.assertEqual(stage_payload.get("scope_key"), "iteration_id_I7")
+        self.assertEqual(stage_payload.get("work_item_key"), "iteration_id=I7")
+
+    def test_qa_stage_result_emit_failure_returns_deterministic_reason_code(self):
+        from aidd_runtime import qa as qa_runtime
+
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.project_root)
+            with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                with patch("aidd_runtime.stage_result.main", side_effect=RuntimeError("emit boom")):
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
+                        code = qa_runtime.main(
+                            [
+                                "--ticket",
+                                "demo-ticket",
+                                "--format",
+                                "json",
+                                "--skip-tests",
+                                "--allow-no-tests",
+                            ]
+                        )
+        finally:
+            os.chdir(cwd)
+
+        self.assertEqual(code, 2)
+        self.assertIn("reason_code=qa_stage_result_emit_failed", stderr.getvalue())
 
     def test_qa_skipped_tests_logged_as_skipped(self):
         write_json(

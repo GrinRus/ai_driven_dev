@@ -2,8 +2,8 @@
 description: Review plan + PRD and gate readiness for implementation.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.20
-source_version: 1.0.20
+prompt_version: 1.0.21
+source_version: 1.0.21
 allowed-tools:
   - Read
   - Edit
@@ -25,12 +25,13 @@ user-invocable: true
 Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
-1. Set active stage `review-plan`, then `review-prd`; keep active feature in sync.
+1. Set active stage `review-plan`, then `review-prd`; keep active feature in sync via canonical active-state runtime commands only.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket>`.
 3. Gate PRD readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py`; block on failure.
-4. Build the rolling context pack; run subagents in order: `plan-reviewer` then `prd-reviewer` (refresh between them).
-5. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
-6. Return the output contract.
+4. Use the existing rolling context pack as review input; do not invoke standalone context-pack builder scripts from this stage.
+5. Run subagents in order: `feature-dev-aidd:plan-reviewer` then `feature-dev-aidd:prd-reviewer`.
+6. Persist PRD review report with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py --ticket <ticket> --report aidd/reports/prd/<ticket>.json`.
+7. Return the output contract with canonical next action: `/feature-dev-aidd:tasks-new <ticket>` when READY, or `/feature-dev-aidd:spec-interview <ticket>` when BLOCKED by missing/unresolved spec inputs.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-spec/runtime/prd_review_cli.py`

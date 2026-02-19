@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -15,6 +16,11 @@ from typing import Dict, List, Optional, TextIO, Tuple
 
 from aidd_runtime import claude_stream_render
 from aidd_runtime import runtime
+
+_APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
+_CLAUDE_COMMANDS = {"claude", "claude.exe"}
+_DIFF_BOUNDARY_OUT_OF_SCOPE_RE = re.compile(r"^OUT_OF_SCOPE\s+(.+)$", re.MULTILINE)
+_DIFF_BOUNDARY_FORBIDDEN_RE = re.compile(r"^FORBIDDEN\s+(.+)$", re.MULTILINE)
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
@@ -86,6 +92,15 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
         if not runner_supports_flag(tokens[0], "--no-session-persistence"):
             tokens = [token for token in tokens if token != "--no-session-persistence"]
             notices.append("runner flag --no-session-persistence unsupported; dropped")
+    approval_allowed = str(os.environ.get("AIDD_LOOP_ALLOW_APPROVAL") or "").strip().lower() in _APPROVAL_ALLOW_VALUES
+    runner_name = Path(tokens[0]).name.lower() if tokens else ""
+    if not approval_allowed and runner_name in _CLAUDE_COMMANDS:
+        if "--dangerously-skip-permissions" not in tokens:
+            if runner_supports_flag(tokens[0], "--dangerously-skip-permissions"):
+                tokens.append("--dangerously-skip-permissions")
+                notices.append("runner flag --dangerously-skip-permissions enforced for loop non-interactive mode")
+            else:
+                notices.append("runner missing --dangerously-skip-permissions support")
     tokens, flag_notices = inject_plugin_flags(tokens, plugin_root)
     notices.extend(flag_notices)
     return tokens, raw, "; ".join(notices)
@@ -117,6 +132,49 @@ def _runtime_env(plugin_root: Path) -> Dict[str, str]:
     else:
         env["PYTHONPATH"] = str(plugin_root)
     return env
+
+
+def _validate_preflight_contract_inputs(
+    *,
+    stage: str,
+    ticket: str,
+    scope_key: str,
+    work_item_key: str,
+    paths: Dict[str, Path],
+    target: Path,
+) -> Tuple[bool, str]:
+    missing: List[str] = []
+    if not str(ticket or "").strip():
+        missing.append("ticket")
+    if not str(scope_key or "").strip():
+        missing.append("scope_key")
+    if stage not in {"implement", "review", "qa"}:
+        missing.append("stage")
+    if not str(work_item_key or "").strip():
+        missing.append("work_item_key")
+    elif not runtime.is_valid_work_item_key(work_item_key):
+        return False, f"invalid work_item_key format: {work_item_key}"
+
+    required_paths = (
+        ("actions_template", paths.get("actions_template")),
+        ("readmap_json", paths.get("readmap_json")),
+        ("readmap_md", paths.get("readmap_md")),
+        ("writemap_json", paths.get("writemap_json")),
+        ("writemap_md", paths.get("writemap_md")),
+        ("preflight_result", paths.get("preflight_result")),
+    )
+    for label, value in required_paths:
+        if value is None:
+            missing.append(label)
+            continue
+        rel = runtime.rel_path(value, target)
+        if not rel or rel.strip() == ".":
+            missing.append(label)
+
+    if missing:
+        joined = ",".join(sorted(set(missing)))
+        return False, f"missing required preflight inputs: {joined}"
+    return True, ""
 
 
 def _stage_wrapper_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
@@ -183,6 +241,30 @@ def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) 
     }
 
 
+def _diff_boundary_violation_reason(stdout: str, stderr: str) -> tuple[str, str]:
+    merged = "\n".join(part for part in (stdout or "", stderr or "") if part).strip()
+    out_of_scope = [item.strip() for item in _DIFF_BOUNDARY_OUT_OF_SCOPE_RE.findall(merged)]
+    forbidden = [item.strip() for item in _DIFF_BOUNDARY_FORBIDDEN_RE.findall(merged)]
+    threshold_raw = str(os.environ.get("AIDD_DIFF_BOUNDARY_MAX_OUT_OF_SCOPE") or "25").strip()
+    try:
+        threshold = max(int(threshold_raw), 1)
+    except ValueError:
+        threshold = 25
+    if forbidden:
+        sample = ", ".join(forbidden[:3])
+        return "diff_boundary_violation", (
+            f"diff boundary violation: forbidden_paths={len(forbidden)} "
+            f"out_of_scope={len(out_of_scope)} sample={sample}"
+        )
+    if len(out_of_scope) > threshold:
+        sample = ", ".join(out_of_scope[:3])
+        return "diff_boundary_violation", (
+            f"diff boundary violation: out_of_scope={len(out_of_scope)} "
+            f"threshold={threshold} sample={sample}"
+        )
+    return "", ""
+
+
 def _copy_optional_preflight_fallback(paths: Dict[str, Path]) -> None:
     if os.environ.get("AIDD_WRITE_FALLBACK_PREFLIGHT", "").strip() != "1":
         return
@@ -231,6 +313,20 @@ def run_stage_wrapper(
     )
 
     if kind == "preflight":
+        ok_contract, contract_message = _validate_preflight_contract_inputs(
+            stage=stage,
+            ticket=ticket,
+            scope_key=scope_key,
+            work_item_key=work_item_key,
+            paths=paths,
+            target=target,
+        )
+        if not ok_contract:
+            return (
+                False,
+                parsed,
+                f"{kind} wrapper failed: reason_code=preflight_contract_mismatch {contract_message}",
+            )
         commands: List[List[str]] = [
             [
                 sys.executable,
@@ -312,6 +408,10 @@ def run_stage_wrapper(
                 log_path=wrapper_log_path,
             )
             parsed.update(_parse_wrapper_output(stdout))
+            if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
+                reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
+                if reason_code and reason_message:
+                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
                 return False, parsed, f"{kind} wrapper failed: {details}"
@@ -432,6 +532,10 @@ def run_stage_wrapper(
                 log_path=wrapper_log_path,
             )
             parsed.update(_parse_wrapper_output(stdout))
+            if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
+                reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
+                if reason_code and reason_message:
+                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
                 return False, parsed, f"{kind} wrapper failed: {details}"
@@ -451,6 +555,8 @@ def validate_stage_wrapper_contract(
     scope_key: str,
     stage: str,
     actions_log_rel: str,
+    wrapper_logs: List[str] | None = None,
+    stage_result_path: str = "",
 ) -> Tuple[bool, str, str]:
     if stage not in {"implement", "review", "qa"}:
         return True, "", ""
@@ -468,14 +574,49 @@ def validate_stage_wrapper_contract(
         "writemap_md": context_dir / f"{scope_key}.writemap.md",
         "preflight_result": loops_dir / "stage.preflight.result.json",
     }
+    stage_result_candidates: List[Path] = []
+    if stage in {"implement", "review"}:
+        stage_result_candidates.append(loops_dir / f"stage.{stage}.result.json")
+        stage_result_value = (stage_result_path or "").strip()
+        if stage_result_value:
+            stage_result_resolved = runtime.resolve_path_for_target(Path(stage_result_value), target)
+            if stage_result_resolved not in stage_result_candidates:
+                stage_result_candidates.append(stage_result_resolved)
     missing: List[str] = []
     for path in required_paths.values():
         if not path.exists():
             missing.append(runtime.rel_path(path, target))
 
-    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
-    if not wrapper_logs:
-        missing.append(runtime.rel_path(logs_dir / "wrapper.*.log", target))
+    if stage_result_candidates and not any(path.exists() for path in stage_result_candidates):
+        expected = " | ".join(runtime.rel_path(path, target) for path in stage_result_candidates)
+        missing.append(f"stage_result={expected}")
+
+    required_wrapper_kinds = ("preflight", "run", "postflight")
+    if wrapper_logs:
+        kind_to_paths: Dict[str, List[Path]] = {kind: [] for kind in required_wrapper_kinds}
+        for value in wrapper_logs:
+            rel = str(value or "").strip()
+            if not rel:
+                continue
+            path = runtime.resolve_path_for_target(Path(rel), target)
+            name = path.name
+            for kind in required_wrapper_kinds:
+                if f"wrapper.{kind}." in name:
+                    kind_to_paths[kind].append(path)
+                    break
+        for kind in required_wrapper_kinds:
+            paths = kind_to_paths.get(kind) or []
+            if not paths:
+                missing.append(runtime.rel_path(logs_dir / f"wrapper.{kind}.*.log", target))
+                continue
+            if not any(path.exists() for path in paths):
+                missing.append(" | ".join(runtime.rel_path(path, target) for path in paths))
+    else:
+        required_wrapper_logs = ("wrapper.preflight.*.log", "wrapper.run.*.log", "wrapper.postflight.*.log")
+        for pattern in required_wrapper_logs:
+            matches = sorted(logs_dir.glob(pattern)) if logs_dir.exists() else []
+            if not matches:
+                missing.append(runtime.rel_path(logs_dir / pattern, target))
 
     actions_log_value = (actions_log_rel or "").strip()
     if not actions_log_value:
@@ -487,13 +628,24 @@ def validate_stage_wrapper_contract(
 
     if not missing:
         return True, "", ""
-    reason_code = "actions_missing" if any("actions" in item.lower() for item in missing) else "preflight_missing"
+    lowered = [item.lower() for item in missing]
+    if any("stage_result=" in item or f"stage.{stage}.result.json" in item for item in lowered):
+        reason_code = "wrapper_output_missing"
+    elif any("wrapper.preflight" in item or "wrapper.run" in item or "wrapper.postflight" in item for item in lowered):
+        reason_code = "wrapper_chain_missing"
+    elif any("actions" in item for item in lowered):
+        reason_code = "actions_missing"
+    else:
+        reason_code = "preflight_missing"
     message = "missing stage wrapper artifacts: " + ", ".join(missing)
     return False, message, reason_code
 
 
-def build_command(stage: str, ticket: str) -> List[str]:
+def build_command(stage: str, ticket: str, answers: str = "") -> List[str]:
     command = f"/feature-dev-aidd:{stage} {ticket}"
+    compact_answers = str(answers or "").strip()
+    if compact_answers:
+        command = f"{command} {compact_answers}"
     return ["-p", command]
 
 
@@ -520,7 +672,7 @@ def _drain_stream(pipe: Optional[TextIO], writer: MultiWriter, raw_log: TextIO) 
         writer.flush()
 
 
-def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
+def run_command(command: List[str], cwd: Path, log_path: Path, env: Optional[Dict[str, str]] = None) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("w", encoding="utf-8") as handle:
         result = subprocess.run(
@@ -529,6 +681,7 @@ def run_command(command: List[str], cwd: Path, log_path: Path) -> int:
             text=True,
             stdout=handle,
             stderr=subprocess.STDOUT,
+            env=env,
         )
     return result.returncode
 
@@ -543,6 +696,7 @@ def run_stream_command(
     stream_log_path: Path,
     output_stream: TextIO,
     header_lines: Optional[List[str]] = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     stream_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
@@ -568,6 +722,7 @@ def run_stream_command(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=1,
+            env=env,
         )
         drain_thread = threading.Thread(
             target=_drain_stream,

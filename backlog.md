@@ -1056,6 +1056,635 @@ _Статус: план, приоритет 0. Цель — довести resea
 3. `W98-2b` -> `W98-10` -> `W98-11` -> `W98-2c` -> `W98-12`
 4. `W98-5` — carry-over task вне критического пути research wave.
 
+## Wave 99 — E2E audit fallout hardening (TST-001)
+
+_Статус: закрыто (Wave 99A–99K закрыты). Приоритет 0. Цель волны достигнута: закрыть дефекты, найденные в полном E2E-аудите (`TST-001`), и убрать ложные BLOCKED в loop/qa path._
+
+- [x] **W99-1 (P0) QA test execution parsing: inline-list tasks/filters must be parsed as command list** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
+  - починить разбор `AIDD:TEST_EXECUTION` для формата `tasks: ["cmd1", "cmd2"]` (не как одна строка);
+  - сохранить обратную совместимость для scalar/list форматов (`tasks: cmd1; cmd2`, markdown list);
+  - добавить regression tests на реальный кейс из аудита (`[./gradlew ...` должен исчезнуть).
+  **AC:** QA запускает каждую команду отдельно; `tests_executed.command` не содержит bracket-prefixed мусор.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-2 (P0) Fail-fast guard for malformed `CLAUDE_PLUGIN_ROOT` (`.../skills` instead of plugin root)** `skills/aidd-core/runtime/runtime.py`, `tests/test_runtime_write_safety.py`:
+  - добавить структурную валидацию plugin root и явную ошибку конфигурации для `CLAUDE_PLUGIN_ROOT=<plugin>/skills`;
+  - убрать downstream-симптом `contract_missing .../skills/skills/<stage>/CONTRACT.yaml` как primary signal;
+  - синхронизировать сообщение с ENV diagnostics/healthcheck policy.
+  **AC:** misconfigured plugin root детектируется сразу с понятным reason.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_runtime_write_safety.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-3 (P1) Report loader diagnostics for pack/json miss (`*-rlm.pack.json` vs `*-rlm.json`)** `skills/aidd-core/runtime/reports/loader.py`, `tests/test_reports_loader.py`:
+  - сделать детерминированную ошибку, если одновременно отсутствуют pack и json;
+  - включить в сообщение оба ожидаемых пути (pack + json) для быстрой triage;
+  - исключить misleading “only `*-rlm.json` missing” без контекста pack-first.
+  **AC:** ошибка загрузки отчёта сразу показывает полный missing-set.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_reports_loader.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [x] **W99-4 (P1) Loop preflight/scope hardening for work-item format drift** `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - добавить явный precheck для отсутствующего/невалидного `work_item_key` до запуска stage orchestration;
+  - улучшить diagnostics при `scope_key_mismatch` (что было ожидаемо, что выбрал loop-pack, как repair path);
+  - снизить долю ложных `stage_result_missing_or_invalid` при запуске без активного work item.
+  **AC:** loop path выдаёт actionable blocked reason до глубоких ретраев и без ambiguous scope drift.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-5 (P0) Preflight artifact path enforcement: block non-canonical write targets for scope-bound stages** `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/preflight_result_validate.py`, `tests/test_loop_step.py`:
+  - валидировать, что `--actions-template`, `--readmap-*`, `--writemap-*`, `--result` соответствуют canonical путям из `{ticket,scope_key,stage}`;
+  - блокировать preflight (`reason_code=artifact_path_mismatch`) при попытке писать в глобальные/нескоуповые пути (`aidd/reports/readmap.json`, `.../I1/...` вместо `.../iteration_id_I1/...`);
+  - добавить diagnostics: expected vs provided path для triage в audit logs.
+  **AC:** preflight не может завершиться `ok`, если артефакты направлены в non-canonical paths.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-6 (P0) Seed-stage canonical orchestration guard: enforce preflight->run->postflight chain for implement/review** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `tests/test_loop_step.py`:
+  - добавить hard guard на stage wrappers: seed run считается валидным только при наличии wrapper logs + `stage.<stage>.result.json` в canonical scope path;
+  - исключить частично-ручной preflight-only path как "успех" seed-итерации;
+  - синхронизировать stage SKILL contracts: canonical путь orchestration через wrapper chain.
+  **AC:** seed не может завершиться без `aidd/reports/loops/<ticket>/<scope_key>/stage.implement.result.json` и `stage.review.result.json`.
+  **Deps:** W99-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-7 (P1) Loop-step recovery from non-loop active stage (`tasklist`/`plan`/etc.) with preserved work-item context** `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - для `active.stage` вне `{implement,review,qa}` при валидном `work_item_key=iteration_id=*` выполнять controlled recovery в `implement` (WARN), а не immediate `unsupported_stage`;
+  - сохранить strict BLOCK для действительно невалидного/отсутствующего work item;
+  - фиксировать recovery reason в cli log/event payload.
+  **AC:** `loop_run` не падает в `blocked stage=tasklist` после seed при валидном iteration work item.
+  **Deps:** W99-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-8 (P1) QA command normalization for prefixed tasklist entries (`Backend:`/`Frontend:`)** `skills/qa/runtime/qa.py`, `skills/aidd-core/runtime/tasklist_parser.py`, `tests/test_qa_agent.py`:
+  - нормализовать prefixed commands из `AIDD:TEST_EXECUTION` перед exec (убрать label-prefix, сохранить команду и cwd semantics);
+  - не допускать `command not found: Backend:`/`Frontend:` в QA fallback path;
+  - сохранить совместимость с markdown/list/scalar форматами.
+  **AC:** QA корректно исполняет команды с human-readable префиксами и логирует нормализованный command.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+### Wave 99B — TST-001 loop/stage-result compatibility hardening
+
+- [x] **W99-9 (P0) Legacy stage-result compatibility bridge for loop-step parser** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - добавить контролируемую совместимость для legacy stage schemas `aidd.stage_result.<stage>.v1`, не ослабляя canonical schema (`aidd.stage_result.v1`) как SoT;
+  - поддержать migration mapping `status -> result` (`ok/pass/success -> continue`, `blocked/fail/error -> blocked`, `done/completed -> done`) только для legacy payload;
+  - сохранить fail-fast для truly invalid schemas/results (`v0`, unknown schema/status, wrong stage).
+  **AC:** `loop-step` не блокируется на historical legacy stage results из seed-run, но продолжает блокировать реально битые payload.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-10 (P0) Loop-step blocked-diagnostic clarity for invalid/mixed stage-result candidates** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`:
+  - улучшить diagnostics для mixed candidate sets (preferred + fallback candidates) с явным статусом причины (`invalid-schema`, `invalid-result`, `wrong-stage`);
+  - не терять `scope_key` signal при recoverable mismatch (diag должен показывать selected candidate path + reason);
+  - исключить ambiguous reason strings в `stage_result_missing_or_invalid` triage.
+  **AC:** при BLOCKED из-за stage-result в cli log видно, какой именно candidate и почему отвергнут/принят.
+  **Deps:** W99-9
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-11 (P1) Seed-stage orchestration prompt contract hardening (no manual stage.result writes)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`:
+  - явно зафиксировать policy: запрещено писать `aidd/reports/loops/**/stage.*.result.json` вручную через `Write/cat`;
+  - закрепить единственный допустимый путь через canonical postflight chain (`.../actions_apply.py` + `.../stage_result.py`);
+  - добавить lint-check на обязательный текст policy в command contracts loop stages.
+  **AC:** prompt contracts и lint исключают ручной non-canonical stage-result path в seed/loop flow.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-12 (P1) Audit-derived regression fixtures for TST-001 fallout** `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/fixtures/loop_step/*`:
+  - добавить regression fixture c legacy `stage.review.result.json` (`schema=aidd.stage_result.review.v1`, `status=ok`) и проверить, что loop-run продолжает progression;
+  - добавить negative fixture на unknown legacy status/scheme -> deterministic BLOCKED;
+  - проверить, что `wrapper_logs`/`stage_result_diag` остаются информативными при mixed candidates.
+  **AC:** воспроизводимость TST-001 class regressions в unit/integration tests без ручного воспроизведения большого E2E.
+  **Deps:** W99-9, W99-10
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99C — E2E prompt and contract hardening (TST-001 follow-up)
+
+- [x] **W99-13 (P0) Stage-skill contract hardening: wrappers-only path for implement/review/qa (no manual preflight command path in operator guidance)** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать из user-facing command contracts guidance, который выглядит как manual stage execution через прямой вызов `preflight_prepare.py`/ручные stage-result шаги;
+  - оставить только canonical orchestration path (slash stage command + wrapper chain), чтобы prompt не провоцировал non-canonical recovery;
+  - усилить lint/test guard, чтобы возврат manual-path guidance в этих stage skills ловился автоматически.
+  **AC:** implement/review/qa skill contracts не подсказывают manual preflight as recovery path; prompt-lint блокирует регресс.
+  **Deps:** W99-11
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-14 (P1) QA command hygiene: block single-entry shell chains in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`, `tests/test_tasklist_check.py`:
+  - детектировать `&&`, `||`, `;` внутри одного task-entry и маркировать как malformed test command chain;
+  - не исполнять такую цепочку как одну команду, а возвращать явный diagnostics reason для triage;
+  - сохранить совместимость с валидными list/scalar форматами, где команды разделены корректно.
+  **AC:** QA не запускает shell-chain, если она пришла одной task строкой; в отчёте есть явный reason code/diagnostics.
+  **Deps:** W99-1, W99-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_tasklist_check.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-15 (P1) E2E prompt contract tests for retry triggers and seed invariants** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - зафиксировать и тестировать правила: retry только по явному stage-return questions/BLOCK, запрет retry в шаге 6 seed, запрет manual preflight drift path;
+  - добавить contract-test, который проверяет наличие обязательных guard-правил в full/smoke prompt templates;
+  - включить проверку в repo tooling, чтобы изменения prompt не ломали e2e policy.
+  **AC:** prompt policy для retry/seed/manual-path проверяется автоматизированным тестом и не деградирует между волнами.
+  **Deps:** W99-13
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99D - Runtime contract closure from TST-001 root causes
+
+- [x] **W99-16 (P0) Canonical stage-result parity between writer, loop parser, and status-summary** `skills/aidd-flow-state/runtime/stage_result.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_stage_result.py`, `tests/test_status_summary.py`, `tests/test_loop_step.py`:
+  - выровнять единый contract: runtime writer всегда пишет `schema=aidd.stage_result.v1` + canonical `result` для loop stages;
+  - использовать общий normalizer для legacy payload (`aidd.stage_result.<stage>.v1`) в `status_summary` и `loop_step_stage_result`, чтобы verdict не расходился между consumers;
+  - исключить рекомендации ручной правки `stage.*.result.json`: consumers должны давать только diagnostics + canonical repair hint.
+  **AC:** одинаковый stage-result payload даёт одинаковый verdict в `status_summary` и `loop_step`; canonical writer не производит legacy-only shape.
+  **Deps:** W99-9
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_result.py tests/test_status_summary.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-17 (P0) Scope key canonicalization end-to-end (`I<N>` alias input, `iteration_id_I<N>` storage only)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - нормализовать work-item alias один раз на входе orchestration и передавать только canonical scope key в downstream stages;
+  - при mixed candidate set (`.../I1/...` + `.../iteration_id_I1/...`) выбирать canonical path детерминированно и явно маркировать alias candidate как stale;
+  - запретить новые записи в alias-директории (`/loops/<ticket>/I<N>/...`) через preflight/write-path guards.
+  **AC:** новые loop артефакты создаются только в canonical scope path; mixed candidates не вызывают ambiguous scope drift.
+  **Deps:** W99-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-18 (P1) Wrapper-to-preflight invocation contract guard (required args + format validation)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/preflight_result_validate.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/fixtures/loop_step/*`:
+  - формализовать обязательные preflight args для implement/review/qa wrappers (`ticket`, `work-item`, `result`, `actions/readmap/writemap paths`);
+  - добавить fail-fast validation до запуска preflight: при нарушении контракта возвращать deterministic `reason_code=preflight_contract_mismatch`;
+  - покрыть регрессией кейсы из аудита: missing args, неканоничный `work_item`, path mismatch.
+  **AC:** wrappers не стартуют preflight с неполным/невалидным аргументным набором; в логах есть точный mismatch reason.
+  **Deps:** W99-6, W99-17
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-19 (P1) Seed review stall fail-fast with scope-aware diagnostics** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-flow-state/runtime/status_summary.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - добавить watchdog на no-progress seed-stage execution с переводом в deterministic blocked reason вместо бесконечного ожидания;
+  - в blocked diagnostics выводить active stage/work item, выбранный scope candidate и последний валидный stage-result candidate;
+  - синхронизировать timeout verdict с loop summary/event payload для triage без ручного `ps/tail`.
+  **AC:** зависание seed review завершает шаг в deterministic `NOT VERIFIED (silent stall)` с полным scope-aware diagnostics набором.
+  **Deps:** W99-10, W99-17
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99E — Prompt/runtime convergence from TST-001 RCA
+
+- [x] **W99-20 (P0) Research runtime must refresh existing `docs/research/<ticket>.md` (no stale template placeholders)** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - для существующего `aidd/docs/research/<ticket>.md` обновлять обязательные секции (`AIDD:PRD_OVERRIDES`, `AIDD:RLM_EVIDENCE`, status-related header fields), а не только создавать файл при первом запуске;
+  - удалять/перезаписывать template placeholders (`{{...}}`) в canonical блоках после любого успешного `research.py --auto`;
+  - фиксировать детерминированный статус-договор: `reviewed` только при готовом RLM evidence; иначе `pending|warn` + явный handoff hint.
+  **AC:** повторный запуск researcher не оставляет template-state в `aidd/docs/research/<ticket>.md`; `research_check` видит актуальный, не-плейсхолдерный документ.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-21 (P0) Research->Plan handshake hardening: deterministic reason codes for blocked readiness** `skills/aidd-core/runtime/research_guard.py`, `skills/plan-new/runtime/research_check.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`:
+  - унифицировать reason codes для ключевых blocked-состояний (`research_template_stale`, `rlm_status_pending`, `rlm_pack_missing`, `baseline_missing`);
+  - вернуть одношаговый canonical next action для каждого reason code (без неоднозначных/legacy подсказок);
+  - исключить prompt-drift на `plan-new`: stage должен завершаться быстрым deterministic BLOCKED до длинной исследовательской ветки.
+  **AC:** при неготовом research `plan-new` завершается предсказуемо и выдаёт единый reason code + canonical next action.
+  **Deps:** W99-20
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-22 (P0) `tasks-new` fail-fast on structural blockers (no deep drift when plan/spec/tasklist invalid)** `skills/tasks-new/runtime/tasks_new.py`, `skills/aidd-flow-state/runtime/tasklist_validate.py`, `tests/test_tasklist_check.py`, `tests/test_cli_subcommands.py`:
+  - для stage `tasklist` поднимать severity до error на структурных блокерах (`plan not found`, invalid `PROGRESS_LOG`, invalid Priority/State placeholders в активных итерациях);
+  - запускать `tasks_new.py` в strict-mode по умолчанию в slash-orchestration path;
+  - при blocked возвращать короткий canonical remediation path (без subagent deep-dive на незакрытых prereqs).
+  **AC:** `tasks-new` детерминированно останавливается на структурных блокерах и не уходит в non-converging orchestration.
+  **Deps:** W99-21
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_check.py tests/test_cli_subcommands.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-23 (P1) Canonical stage-command vocabulary guard (ban legacy aliases in stage skill guidance)** `skills/review-spec/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - запретить в user-facing stage guidance устаревшие команды (`/feature-dev-aidd:planner`, `tasklist-refiner`, `implementer`, `reviewer`) там, где есть canonical stage commands;
+  - закрепить canonical equivalents (`plan-new`, `tasks-new`, `implement`, `review`, `qa`) в contracts/next actions;
+  - добавить lint-check на banned command vocabulary для stage skills.
+  **AC:** stage skills и lint не допускают legacy command drift в рекомендациях.
+  **Deps:** W99-13
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-24 (P1) Prompt-policy parity tests: audit prompt vs stage skills (manual preflight prohibition must match)** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - формализовать проверку непротиворечивости: если audit policy запрещает manual preflight recovery, stage skills не должны продвигать manual preflight как default recovery path;
+  - проверять parity правил retry/blocked classification для `Unknown skill`, `manual preflight drift`, seed-stage constraints;
+  - включить parity-check в repo tooling regression suite.
+  **AC:** конфликт prompt-policy между audit шаблоном и stage skill contracts детектируется тестом до релиза.
+  **Deps:** W99-13, W99-15, W99-23
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99E Critical Path
+
+1. `W99-20` -> `W99-21` -> `W99-22`
+2. `W99-13` -> `W99-23` -> `W99-24`
+
+### Wave 99F — Auto-loop liveness and permission-mode hardening (TST-001 RCA)
+
+- [x] **W99-25 (P0) Stream-aware liveness contract for loop-run/loop-step (main log + stream artifacts)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - зафиксировать liveness как composite-сигнал: `main log` + `stream_jsonl` (+ `stream.log` при наличии);
+  - исключить false `silent_stall`, когда `main log` статичен, но stream продолжает расти;
+  - добавить в loop payload/diagnostics явные поля роста (bytes/updated_at) для внешних probe-скриптов.
+  **AC:** stream-run не классифицируется как stall при активном `*.stream.jsonl`; диагностический payload содержит оба источника liveness.
+  **Deps:** W99-19
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-26 (P0) Nested runner permission propagation in Auto-loop (no approval deadlock in non-interactive runs)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - обеспечить deterministic propagation non-interactive режима для nested `claude` runner (`--dangerously-skip-permissions` policy-driven);
+  - для несоответствия режима возвращать явный `reason_code=loop_runner_permissions` до деградации в `stage_result_missing_or_invalid`;
+  - сохранить совместимость с custom runner через opt-in/opt-out env policy.
+  **AC:** Auto-loop не уходит в approval-denied цикл при корректной конфигурации; при некорректной — быстрый deterministic blocked с точным reason code.
+  **Deps:** W99-25
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-27 (P1) Stage-result legacy shape compatibility: support `schema_version` alias without relaxing canonical contract** `aidd_runtime/stage_result_contract.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/test_stage_result.py`:
+  - добавить контролируемый alias `schema_version -> schema` для legacy payload c `aidd.stage_result.v1`;
+  - сохранить strict-block для truly invalid schemas/results (v0/unknown/wrong-stage);
+  - улучшить diagnostics (`invalid-schema` vs `legacy-alias-used`) для корректного RCA.
+  **AC:** legacy payload c `schema_version=aidd.stage_result.v1` корректно нормализуется; реальные invalid schema продолжают блокироваться.
+  **Deps:** W99-9, W99-10
+  **Regression/tests:** `python3 -m pytest -q tests/test_stage_result.py tests/test_loop_step.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-28 (P1) Reason-code precedence for Auto-loop blocked outcomes (permission mismatch before stage-result fallout)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - при одновременном наборе симптомов (approval-denied + missing stage result) поднимать первопричину permission mismatch как primary reason code;
+  - сохранять secondary diagnostics в payload (`stage_result_diagnostics`) без смены root-cause;
+  - синхронизировать reason precedence между `loop_step` и `loop_run` summary/event logs.
+  **AC:** blocked verdict отражает root cause детерминированно; triage не уходит в ложный `stage_result_missing_or_invalid` как первичный сигнал.
+  **Deps:** W99-26, W99-27
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-29 (P1) Prompt/runtime parity tests for stream-liveness and stage-return-only signal extraction** `tests/repo_tools/test_e2e_prompt_contract.py`, `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`:
+  - добавить contract-тест на обязательные правила: stream-aware liveness, запрет false-stall при растущем stream, stage-return-only trigger extraction;
+  - валидировать, что prompt policy не трактует вложенные `WARN/Q*` из artifact excerpts как stage incident trigger;
+  - включить в CI path рядом с текущими prompt contract checks.
+  **AC:** изменения e2e prompt не ломают правила liveness/signal extraction; false-positive drift policy покрыта автоматизированно.
+  **Deps:** W99-15, W99-24, W99-25
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99G — TST-001 contract cleanup (researcher/seed/auto-loop/qa fallout)
+
+- [x] **W99-30 (P0) QA fail-fast for prose entries in `AIDD:TEST_EXECUTION` tasks** `skills/aidd-core/runtime/tasklist_parser.py`, `skills/qa/runtime/qa.py`, `tests/test_tasklist_parser.py`, `tests/test_qa_agent.py`:
+  - детектировать и маркировать как malformed scalar/list task entries, которые не выглядят как исполнимая команда (`per-iteration ...`, `iteration-specific patterns`, etc.);
+  - не передавать такие записи в `_run_qa_tests`, возвращать deterministic diagnostics (`reason_code=tasklist_non_command_entry`);
+  - сохранить совместимость с валидными inline/list/scalar command форматами.
+  **AC:** QA не пытается исполнять prose как бинарь; отчёт содержит явный reason code для невалидной task-entry.
+  **Deps:** W99-1, W99-14
+  **Regression/tests:** `python3 -m pytest -q tests/test_tasklist_parser.py tests/test_qa_agent.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-31 (P1) QA CLI compatibility alias for `--scope-key`** `skills/qa/runtime/qa.py`, `tests/test_qa_agent.py`:
+  - добавить alias `--scope-key` как эквивалент `--scope` для stage-wrapper/runtime compatibility;
+  - исключить ранний argparse fail (`unrecognized arguments: --scope-key ...`) в QA stage path;
+  - сохранить текущее поведение `--scope` и multi-value semantics.
+  **AC:** `qa.py --scope-key <value>` выполняется без argument parser failure и корректно проксируется в qa-agent.
+  **Deps:** -
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-32 (P0) Loop-stage SKILL contract cleanup: remove contradictory manual-recovery surfaces** `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - убрать из `allowed-tools` прямые operator-level surfaces для manual recovery (`preflight_prepare.py`, `stage_result.py`) в implement/review/qa;
+  - сохранить wrapper-only orchestration guidance как единственный canonical path;
+  - синхронизировать lint-контракт, чтобы противоречие между policy text и allowed-tools не возвращалось.
+  **AC:** loop stage SKILL не разрешают manual preflight/stage_result as operator path; lint блокирует регресс.
+  **Deps:** W99-13, W99-24
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-33 (P1) Prompt contract guard: ban manual recovery surfaces in loop-stage `allowed-tools`** `tests/repo_tools/test_e2e_prompt_contract.py`, `skills/implement/SKILL.md`, `skills/review/SKILL.md`, `skills/qa/SKILL.md`:
+  - расширить contract-тесты: проверять не только body-политику (`forbidden`), но и frontmatter `allowed-tools` на отсутствие manual recovery surfaces;
+  - зафиксировать forbidden set для implement/review/qa (`preflight_prepare.py`, `stage_result.py`) в test contract;
+  - выровнять тест с текущей e2e policy (`prompt-flow drift (non-canonical stage orchestration)`).
+  **AC:** prompt-contract test детектирует противоречивые `allowed-tools` до runtime/e2e.
+  **Deps:** W99-32
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+### Wave 99H — TST-001 RCA closure (path/liveness/write-safety + workspace fallout)
+
+- [x] **W99-34 (P0) Stage skill runtime-path contract: canonical `${CLAUDE_PLUGIN_ROOT}` everywhere (no relative `python3 skills/...`)** `skills/idea-new/SKILL.md`, `skills/researcher/SKILL.md`, `skills/plan-new/SKILL.md`, `skills/review-spec/SKILL.md`, `skills/spec-interview/SKILL.md`, `skills/tasks-new/SKILL.md`, `skills/status/SKILL.md`:
+  - удалить user-facing вызовы runtime через относительные пути (`python3 skills/...`) в stage contracts/steps/examples;
+  - зафиксировать единый canonical формат вызова runtime (`python3 ${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/*.py`) для non-interactive `claude -p` path;
+  - добавить lint guard на запрет runtime refs `python3 skills/.../runtime/...` в user-invocable stage skills.
+  **AC:** в stage contracts не остаётся runtime refs через относительные `skills/...`; запуск из workspace не провоцирует `can't open file .../PROJECT_DIR/skills/...`.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `bash tests/repo_tools/runtime-path-regression.sh`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-35 (P0) Auto-loop liveness source unification: timeout branch must account for active stream artifacts** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_run.py`:
+  - в timeout/blocked ветке loop-run учитывать не только `step_payload.stream_*`, но и фактические `cli.loop-step*.stream.jsonl/.log` артефакты при наличии;
+  - исключить false `seed_stage_silent_stall`, если main log статичен, но stream продолжает расти;
+  - синхронизировать `reason_code` и `stream_liveness.active_source` с реальным источником активности.
+  **AC:** при растущем stream `loop.run.log` не помечает `active:none` и не выставляет ложный silent stall.
+  **Deps:** W99-25
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-36 (P0) Loop-stage command contract hardening for flow-state CLIs (`set_active_stage` args parity)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-flow-state/runtime/set_active_stage.py`, `tests/test_loop_step.py`, `tests/test_set_active_stage.py`:
+  - убрать/запретить вызовы `set_active_stage.py` с несуществующими флагами (`--ticket`, `--work-item`, `--stage` как named);
+  - использовать только текущий runtime contract (`set_active_stage.py <stage> [--allow-custom]`);
+  - добавить contract-test на запрет invalid invocation shape в loop orchestration path.
+  **AC:** loop stream/log не содержит `set_active_stage.py: error: unrecognized arguments` для canonical path.
+  **Deps:** W99-18
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_set_active_stage.py`.
+  **Effort:** S
+  **Risk:** High
+
+- [x] **W99-37 (P1) Retry-answer contract alignment (`spec-interview` / `plan-review-gate`) between prompt and runtime CLI surfaces** `aidd_test_flow_prompt_ralph_script_full.txt`, `skills/spec-interview/runtime/spec_interview.py`, `skills/aidd-core/runtime/plan_review_gate.py`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/test_plan_review_gate.py`:
+  - согласовать retry strategy с фактическими CLI-аргументами runtime (без генерации unsupported `--answers`/`--plan-path`);
+  - либо добавить backward-compatible aliases в runtime, либо ужесточить prompt policy на canonical args only;
+  - зафиксировать deterministic diagnostics при argument mismatch как contract error, а не “partial success”.
+  **AC:** retry path не вызывает argparse ошибок из-за несогласованной формы аргументов.
+  **Deps:** W99-15
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_plan_review_gate.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-38 (P0) Stage success postcondition enforcement (fail-closed if mandatory artifacts missing)** `skills/researcher/runtime/research.py`, `skills/plan-new/runtime/research_check.py`, `skills/review-spec/runtime/prd_review_cli.py`, `skills/tasks-new/runtime/tasks_new.py`, `tests/test_research_command.py`, `tests/test_research_rlm_e2e.py`:
+  - добавить postcondition gates для stage success: обязательные artifacts должны существовать и быть валидными по stage contract;
+  - запретить “green” stage-result при явных runtime execution errors в critical subcommands;
+  - для research path отдельно enforce RLM-minimum (`rlm-targets`, `rlm-manifest`, `rlm.worklist.pack`) перед success verdict.
+  **AC:** stage не возвращает success, если обязательный artifact-set отсутствует или invalid.
+  **Deps:** W99-20, W99-21, W99-22
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_rlm_e2e.py tests/test_gate_researcher.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-39 (P1) Scope-safe formatter/test execution in loop implement path (no broad repo rewrites)** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `tests/test_loop_step.py`:
+  - ограничить format/test commands по loop boundaries (`expected_paths`/readmap scope), исключив глобальные формат-прогоны по всему monorepo;
+  - добавить guard на массовые diff вне scope и deterministic blocked reason (`diff_boundary_violation`/equivalent);
+  - обновить wrapper log diagnostics (что запускалось, в каком scope, почему заблокировано).
+  **AC:** implement wrapper path не приводит к массовым изменениям вне активного work-item scope.
+  **Deps:** W99-6, W99-18
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-40 (P0) Plugin write-safety sentinel in stage launcher/audit path (fail-fast on plugin-source mutation)** `skills/aidd-core/runtime/runtime.py`, `skills/aidd-observability/runtime/doctor.py`, `tests/test_runtime_write_safety.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - добавить stage-level guard: фиксировать plugin git status before/after critical stage runs и валидировать неизменность plugin source;
+  - при обнаружении записи в plugin repo возвращать deterministic env/policy failure с артефактным diff-summary;
+  - сохранить override только для explicit maintainer/debug mode (с явным env gate).
+  **AC:** runtime/audit path детектирует и блокирует несанкционированные записи в plugin source во время e2e.
+  **Deps:** W99-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_runtime_write_safety.py`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-41 (P1) E2E prompt/runner parity: enforce cwd + plugin-dir invariants in stream-json launcher examples** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - зафиксировать и тестировать инварианты launcher policy (`cd $PROJECT_DIR`, `--plugin-dir \"$PLUGIN_DIR\"`, `--verbose` для stream-json);
+  - добавить explicit guard examples для `cwd_wrong` recovery without switching to plugin root runtime artifacts;
+  - расширить prompt-contract tests на launcher-форму для всех stage runs.
+  **AC:** prompt templates и contract tests гарантируют единый launcher policy без drift по cwd/plugin-dir.
+  **Deps:** W99-15, W99-24
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+### Wave 99I — Ralph loop unblock hardening (progress-first recovery)
+
+- [x] **W99-42 (P0) Recoverable blocked matrix for auto-loop (`strict` vs `ralph`)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_policy.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - ввести явную матрицу `reason_code -> hard_block|recoverable_block` для loop orchestration;
+  - в режиме `ralph` не завершать loop-run на первом recoverable `blocked`, а выполнять controlled recovery path (bounded retry + stage handoff policy);
+  - сохранить fail-fast для `ENV_BLOCKER`/permission mismatch/write-safety и других hard-block причин.
+  **AC:** recoverable блокировки не обрывают loop-run мгновенно; hard-block причины по-прежнему стопорят процесс детерминированно.
+  **Deps:** W99-25, W99-28, W99-35
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-43 (P0) `requested_result`-aware decisioning в pre-run stage-result ветке loop-step** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `aidd_runtime/stage_result_contract.py`, `tests/test_loop_step.py`, `tests/test_stage_result.py`:
+  - учитывать `requested_result` при интерпретации stage result: различать operator-requested `blocked` и runtime-downgrade из soft/warn причины;
+  - для `requested_result in {continue, done}` + soft reason не возвращать premature `blocked` в seed path;
+  - добавлять `requested_result` в diagnostics/loop logs для прозрачного triage.
+  **AC:** loop-step не делает ложный hard-block, если canonical `result=blocked` получен только из soft деградации, и есть подтверждённый `requested_result`.
+  **Deps:** W99-16, W99-27, W99-42
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_stage_result.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-44 (P0) Scope-safe fallback selection для stage-result candidates (no cross-iteration blocked latch)** `skills/aidd-loop/runtime/loop_step_stage_result.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - запретить принятие fallback `blocked` из чужого scope/work-item как источника остановки текущей итерации;
+  - разрешать cross-scope fallback только для совместимых случаев (same work-item alias или non-blocking continuation path);
+  - фиксировать отдельный diagnostics marker (`scope_fallback_stale_ignored`) для прозрачной RCA-трассировки.
+  **AC:** stale stage-result из другой итерации не может ложно заблокировать активный loop-step.
+  **Deps:** W99-17, W99-35, W99-43
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-45 (P1) QA stage-result emission contract: убрать silent swallow и поднять deterministic failure** `skills/qa/runtime/qa.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `tests/test_qa_agent.py`, `tests/test_loop_step.py`:
+  - убрать broad `except Exception: pass` вокруг записи stage-result в QA runtime path;
+  - при сбое stage-result emission возвращать deterministic `reason_code=qa_stage_result_emit_failed` с сохранением artifact diagnostics;
+  - оставить events-логирование best-effort, но не stage-result path.
+  **AC:** QA не может “успешно” завершиться без валидного `stage.qa.result.json`; loop triage получает прозрачный reason code.
+  **Deps:** W99-31, W99-38
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_loop_step.py tests/test_stage_result.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-46 (P0) Non-interactive question-retry automation в loop-step wrappers (one-shot compact answers)** `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-core/runtime/tasklist_parser.py`, `tests/test_loop_step.py`, `tests/fixtures/loop_step/*`:
+  - для stage-return с вопросами/BLOCKED добавить auto-retry внутри loop path без ручного вмешательства;
+  - формировать compact `AIDD:ANSWERS` (one-line choice codes) из уже доступных runtime артефактов;
+  - выполнять ровно один retry и на втором блоке возвращать deterministic `prompt_flow_blocker` (без бесконечного цикла).
+  **AC:** loop-run в non-interactive режиме закрывает стандартный question-retry path автоматически и не зависает на интерактивных вопросах.
+  **Deps:** W99-24, W99-33, W99-42
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-47 (P1) Prompt/runtime parity для Ralph unblock policy + recovery observability** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `skills/aidd-loop/SKILL.md`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/test_loop_run.py`:
+  - синхронизировать prompt policy с runtime режимами блокировок (`strict`/`ralph`) и bounded-recovery semantics;
+  - зафиксировать обязательные поля observability для recoverable блокировок (`recovery_path`, `retry_attempt`, `recoverable_blocked`);
+  - гарантировать, что `strict` остаётся fail-fast без изменения существующего safety поведения.
+  **AC:** prompt-contract и runtime выдают одинаковую модель поведения для recoverable блокировок; расхождения ловятся тестами до e2e.
+  **Deps:** W99-42, W99-46
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99J — Research pending/finalize convergence (TST-001 RCA closure)
+
+- [x] **W99-48 (P0) Research gate stage-context override: убрать ложный `baseline_missing` в downstream probes** `skills/plan-new/runtime/research_check.py`, `skills/aidd-core/runtime/research_guard.py`, `skills/review-spec/runtime/prd_review_cli.py`, `tests/test_research_check.py`, `tests/test_gate_workflow.py`:
+  - добавить явный `expected_stage`/`stage_override` в research-check path, чтобы `plan/review/qa` проверки не зависели от stale `active.stage`;
+  - ограничить `allow_pending_baseline` только baseline-кейсам stage=`research` (или doc-only gate), исключив обход требований nodes/links/pack в downstream стадиях;
+  - унифицировать blocked-диагностику: при pending в downstream возвращать `reason_code=rlm_status_pending` + canonical finalize hint.
+  **AC:** probe из `plan-new`/`review-spec`/`qa` больше не падает в `baseline_missing` из-за stale stage; выдаётся deterministic `rlm_status_pending`.
+  **Deps:** W99-21
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_check.py tests/test_gate_workflow.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-49 (P0) Research doc pending contract: baseline marker и handoff reason должны материализоваться детерминированно** `skills/researcher/runtime/research.py`, `skills/researcher/templates/research.template.md`, `tests/test_research_command.py`, `tests/test_research_check.py`:
+  - при `rlm_status=pending` явно материализовать canonical marker/section для baseline или handoff (без `TBD`-drift и без пустого статуса);
+  - разделить семантику `baseline pending` и `pending из-за отсутствия finalize prerequisites` с разными reason/hint в `AIDD:RLM_EVIDENCE`;
+  - синхронизировать `Status:`/`AIDD:RLM_EVIDENCE` так, чтобы downstream guard принимал решение по документу предсказуемо.
+  **AC:** `docs/research/<ticket>.md` после `research.py --auto` не остаётся в двусмысленном pending-состоянии; причина pending и next action читаются однозначно.
+  **Deps:** W99-20, W99-48
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-50 (P0) Canonical non-interactive finalize orchestration из researcher stage (bounded, no manual handoff dead-end)** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `skills/researcher/SKILL.md`, `skills/aidd-stage-research/SKILL.md`, `tests/test_research_rlm_e2e.py`, `tests/test_research_command.py`:
+  - добавить bounded auto-path: researcher stage в non-interactive режиме запускает shared owner finalize один раз через canonical runtime surface (без ручного шага оператора);
+  - если prerequisites не выполнены (например, nodes отсутствуют), возвращать deterministic blocked/pending reason с явным `next_action`, а не “silent handoff”;
+  - закрепить policy в SKILL contracts (что автоматический finalize разрешён только как canonical runtime orchestration, не как manual recovery).
+  **AC:** в full non-interactive e2e path `research` не застревает на handoff-only; finalize либо выполнен, либо возвращён явный blocker reason с canonical remediation.
+  **Deps:** W99-49
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_research_rlm_e2e.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-51 (P1) RLM bootstrap/finalize readiness bridge: controlled bootstrap перед finalize в automation path** `skills/researcher/runtime/research.py`, `skills/aidd-rlm/runtime/rlm_nodes_build.py`, `skills/aidd-rlm/runtime/rlm_finalize.py`, `tests/test_rlm_nodes_build.py`, `tests/test_research_rlm_e2e.py`:
+  - для automation-mode добавить опциональный controlled bridge (`bootstrap -> finalize`) при пустых nodes и непустом manifest/worklist;
+  - ограничить bridge флагом/policy и bounded retry, чтобы не размыть shared-owner ownership и не уйти в бесконечный цикл;
+  - фиксировать observability поля (`bootstrap_attempted`, `finalize_attempted`, `recovery_path`, `reason_code`) в event/report.
+  **AC:** pending из-за “nodes missing” закрывается предсказуемым automation bridge или явным blocker с diagnostics, без ручного вмешательства в стандартном e2e.
+  **Deps:** W99-50
+  **Regression/tests:** `python3 -m pytest -q tests/test_rlm_nodes_build.py tests/test_research_rlm_e2e.py`.
+  **Effort:** L
+  **Risk:** High
+
+- [x] **W99-52 (P1) Stage-state + handoff propagation hardening для research path** `skills/researcher/SKILL.md`, `skills/researcher/runtime/research.py`, `skills/aidd-flow-state/runtime/set_active_stage.py`, `skills/aidd-flow-state/runtime/tasks_derive.py`, `tests/test_research_command.py`, `tests/test_cli_subcommands.py`:
+  - гарантировать, что `research` stage консистентно выставляется в active state до gate/probe проверок;
+  - при unresolved pending автоматически добавлять canonical handoff task (`source=research`) в tasklist/progress path;
+  - исключить сценарии, где downstream probe работает на stale `active.stage=idea` и получает ложную ветку классификации.
+  **AC:** после researcher run active stage и handoff artifacts консистентны; downstream checks не зависят от ручной синхронизации stage.
+  **Deps:** W99-48, W99-50
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py tests/test_cli_subcommands.py tests/test_gate_workflow.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-53 (P1) E2E contract regression: research pending/finalize path в TST-001 стиле** `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/test_gate_workflow.py`:
+  - добавить контракт-тесты для research-ветки: pending reason taxonomy, finalize trigger policy, запрет ambiguous `baseline_missing` в plan/review probes;
+  - зафиксировать в prompt-contract обязательные non-interactive recovery expectations для `research -> plan-new`;
+  - расширить smoke/regression сценарий на проверку artifact-set (`targets/manifest/worklist/nodes/links/pack`) и корректный reason_code при недостающих шагах.
+  **AC:** регрессия `research pending without finalize` воспроизводится тестом и блокируется до ручного e2e аудита.
+  **Deps:** W99-48, W99-50, W99-51
+  **Regression/tests:** `python3 -m pytest -q tests/repo_tools/test_e2e_prompt_contract.py tests/test_gate_workflow.py`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 99K — Loop reliability closure (TST-001 RCA extension)
+
+- [x] **W99-54 (P0) Seed/loop stage-state synchronization: запрет stale `active.stage=idea` перед implement/review orchestration** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-flow-state/runtime/set_active_stage.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - перед вызовом seed `implement/review` и auto-loop stage явно синхронизировать `active.stage` с целевым stage (fail-fast при несоответствии после sync попытки);
+  - добавить диагностику в loop events (`active_stage_before`, `active_stage_after`, `sync_applied`) для RCA по stale-state веткам;
+  - исключить ветки, где loop продолжает работу с `stage=idea` и уходит в невалидные fallback/legacy подсказки.
+  **AC:** seed/auto-loop не стартуют на stale stage; при рассинхроне возвращается детерминированный blocker с диагностикой.
+  **Deps:** W99-36, W99-42
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py tests/test_set_active_stage.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-55 (P0) Fail-closed wrapper execution contract: no “successful blocked” path when stage-result file is absent** `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_loop_step.py`, `tests/test_loop_run.py`:
+  - если wrapper stage завершился без canonical `stage.<stage>.result.json`, поднимать отдельный deterministic reason (`wrapper_output_missing`) до generic `stage_result_missing_or_invalid`;
+  - требовать минимальный wrapper-evidence набор (`wrapper_logs` или stage stdout marker) и сохранять его в diagnostics;
+  - запретить скрытый проход в recoverable policy без evidence происхождения BLOCKED.
+  **AC:** отсутствие stage-result после wrapper запуска классифицируется fail-closed с явным корнем проблемы, без немого повторения итераций.
+  **Deps:** W99-44, W99-46
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-56 (P0) Work-item identity propagation hardening (`work_item_key`/`scope_key` must not be null in loop-run iterations)** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `skills/aidd-loop/runtime/loop_step_policy.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - закрепить инвариант: при auto-loop итерации `work_item_key` обязателен (кроме явно разрешённых handoff-only путей);
+  - при невозможности вычислить work item останавливать итерацию с `reason_code=work_item_resolution_failed` вместо запуска stage с `null`;
+  - синхронизировать `scope_key` derivation и event payload, чтобы stage-result candidate path всегда строился из валидной identity.
+  **AC:** loop-step/loop-run больше не выполняются с `work_item_key=null` в штатной итерации; path derivation стабильный и трассируемый.
+  **Deps:** W99-17, W99-54
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [x] **W99-57 (P1) Nested runner stream evidence enforcement for loop-run observability** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step_wrappers.py`, `skills/aidd-observability/runtime/doctor.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`:
+  - валидировать, что nested `claude -p --output-format stream-json` создаёт stream artifacts (`*.stream.jsonl`/`*.stream.log`) и что пути попадают в loop diagnostics;
+  - если stream artifacts отсутствуют при активном main log, выставлять явный `observability_degraded` marker вместо silent “active:main_log only”;
+  - добавить проверку permission mode + stream-path extraction в smoke/runtime doctor для раннего выявления regressions.
+  **AC:** у каждого loop stage-run есть проверяемый stream evidence или явный degraded-status; silent observability gaps ловятся тестами/doctor.
+  **Deps:** W99-25, W99-26, W99-55
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/test_runtime_write_safety.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-58 (P1) QA stage-result scope/path canonicalization in loop context (`iteration_id_*` only)** `skills/qa/runtime/qa.py`, `skills/aidd-flow-state/runtime/stage_result.py`, `skills/aidd-loop/runtime/loop_step_stage_result.py`, `tests/test_qa_agent.py`, `tests/test_stage_result.py`, `tests/test_loop_step.py`:
+  - устранить emission путей вида `<ticket>/<ticket>/stage.qa.result.json` для loop path; разрешить только canonical iteration-scoped path;
+  - унифицировать `scope_key` для QA stage-result между direct QA run и loop orchestration (без дублирования ticket сегмента);
+  - добавить fail-fast в writer/parser на некорректный scope-path shape с понятной диагностикой.
+  **AC:** QA stage-result в loop всегда пишется/читается из canonical iteration path; non-canonical path блокируется детерминированно.
+  **Deps:** W99-45, W99-56
+  **Regression/tests:** `python3 -m pytest -q tests/test_qa_agent.py tests/test_stage_result.py tests/test_loop_step.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [x] **W99-59 (P1) Marker semantics scan hardening: исключить template/backup noise из loop drift detectors** `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_loop_run.py`, `tests/test_loop_step.py`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - вынести единый фильтр для marker scans (`aidd/docs/tasklist/templates/**`, `*.bak`, `*.tmp`) в loop diagnostics и audit helpers;
+  - разделить реальные marker hits и `report_noise` с source attribution, чтобы false positives не триггерили policy alarms;
+  - закрепить проверку в e2e prompt-contract test для W94 marker semantics.
+  **AC:** template/backup артефакты не дают ложных marker-инцидентов; отчёты содержат только signal-события или явно размеченный noise.
+  **Deps:** W99-57
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_run.py tests/test_loop_step.py tests/repo_tools/test_e2e_prompt_contract.py`.
+  **Effort:** S
+  **Risk:** Medium
+
+- [x] **W99-60 (P1) TST-001 loop RCA regression pack: воспроизведение `missing stage_result` + stale stage + `null work_item`** `tests/fixtures/loop_step/*`, `tests/test_loop_step.py`, `tests/test_loop_run.py`, `tests/repo_tools/smoke-workflow.sh`:
+  - добавить фикстуры и сценарии, воспроизводящие observed loop failures из аудита (iterative blocked on missing implement result, stale active stage, null work_item);
+  - проверить reason precedence и recovery policy (`strict`/`ralph`) на этих фикстурах;
+  - закрепить smoke guard, чтобы повторный drift ловился до ручного full e2e прогона.
+  **AC:** все ключевые loop-регрессии из TST-001 имеют автоматические тесты и падают при повторном появлении.
+  **Deps:** W99-54, W99-55, W99-56, W99-58
+  **Regression/tests:** `python3 -m pytest -q tests/test_loop_step.py tests/test_loop_run.py`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
 ## Wave 100 — Реальная параллелизация (scheduler + claim + parallel loop-run)
 
 _Статус: план. Цель — запуск нескольких implementer/reviewer в параллель по независимым work items, безопасное распределение задач, отсутствие гонок артефактов, консолидация результатов._
@@ -1139,3 +1768,313 @@ _Статус: план. Цель — запуск нескольких implemen
 - [ ] **W100-11** `tests/test_scheduler.py`, `tests/test_parallel_loop_run.py`, `tests/repo_tools/parallel-loop-regression.sh`:
   - тесты на DAG, scheduler, claim, параллельный раннер, консолидацию.
   **AC:** регрессии ловят гонки/перетирание артефактов/неверный выбор runnable; включены кейсы conflict paths/lock stale/worker crash.
+
+## Wave 101 — Memory v2 (semantic memory + decision log)
+
+_Статус: план. Цель — полностью внедрить file-based memory layer поверх текущего pack-first/RLM pipeline: отдельный semantic pack, append-only decision log, deterministic retrieval и gate-ready интеграция._
+_Rollout policy: breaking-only, без обратной совместимости и без backfill legacy артефактов._
+
+### EPIC M1 — Canonical memory artifacts and runtime API
+
+- [ ] **W101-1 (P0) Create `aidd-memory` shared skill and canonical runtime surface** `skills/aidd-memory/SKILL.md`, `skills/aidd-memory/runtime/{memory_extract.py,decision_append.py,memory_pack.py,memory_slice.py,memory_verify.py}`, `.claude-plugin/plugin.json`, `tests/repo_tools/entrypoints-bundle.txt`:
+  - завести owner skill `aidd-memory` и canonical Python entrypoints;
+  - подключить skill metadata в plugin inventory.
+  **AC:** в inventory присутствует shared skill `aidd-memory` с canonical runtime API.
+  **Deps:** -
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-2 (P0) Memory schemas + validator contract (`semantic/decisions/pack`)** `skills/aidd-core/runtime/schemas/aidd/*.json`, `skills/aidd-memory/runtime/memory_verify.py`, `tests/test_memory_verify.py`:
+  - добавить схемы `aidd.memory.semantic.v1`, `aidd.memory.decision.v1`, `aidd.memory.decisions.pack.v1`;
+  - реализовать schema+budget validation.
+  **AC:** memory artifacts валидируются детерминированно; invalid payloads блокируются с reason codes.
+  **Deps:** W101-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_memory_verify.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-3 (P0) Semantic extractor runtime (`memory_extract.py`) with deterministic pack budgets** `skills/aidd-memory/runtime/memory_extract.py`, `tests/test_memory_extract.py`:
+  - извлекать `terms/defaults/constraints/invariants/open_questions` из `aidd/docs/*` и `aidd/reports/context/*.pack.md`;
+  - писать `aidd/reports/memory/<ticket>.semantic.pack.json` c stable ordering и trim policy.
+  **AC:** semantic pack генерируется для активного ticket и укладывается в budget.
+  **Deps:** W101-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_memory_extract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-4 (P0) Append-only decision log + decisions pack assembly** `skills/aidd-memory/runtime/decision_append.py`, `skills/aidd-memory/runtime/memory_pack.py`, `tests/test_memory_decisions.py`:
+  - реализовать append-only `aidd/reports/memory/<ticket>.decisions.jsonl`;
+  - собирать `aidd/reports/memory/<ticket>.decisions.pack.json` (active/superseded chain, conflict summary, top-N).
+  **AC:** решения сохраняются как immutable log; decision pack отражает актуальное состояние без дублей.
+  **Deps:** W101-2
+  **Regression/tests:** `python3 -m pytest -q tests/test_memory_decisions.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-5 (P1) Targeted memory retrieval (`memory_slice.py`) aligned with pack-first read discipline** `skills/aidd-memory/runtime/memory_slice.py`, `tests/test_memory_slice.py`:
+  - добавить query-based slice для semantic/decisions memory;
+  - сохранять slice artifacts в `aidd/reports/context/`.
+  **AC:** memory slice работает как targeted evidence path без full-read.
+  **Deps:** W101-3, W101-4
+  **Regression/tests:** `python3 -m pytest -q tests/test_memory_slice.py`.
+  **Effort:** S
+  **Risk:** Low
+
+### EPIC M2 — Integration into existing flow (research -> loop -> docops)
+
+- [ ] **W101-6 (P0) Bootstrap/config wiring for memory layer** `templates/aidd/config/conventions.json`, `templates/aidd/config/gates.json`, `skills/aidd-init/runtime/init.py`, `templates/aidd/reports/memory/.gitkeep`:
+  - добавить memory knobs (enable/budgets/read order hints);
+  - сидировать `aidd/reports/memory/` при init.
+  **AC:** новые workspace получают memory config + directories из коробки.
+  **Deps:** W101-1
+  **Regression/tests:** `python3 -m pytest -q tests/test_init_aidd.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-7 (P0) Research pipeline hook: run `memory_extract` after RLM readiness** `skills/researcher/runtime/research.py`, `tests/test_research_command.py`:
+  - после успешной сборки RLM artifacts запускать semantic extraction;
+  - фиксировать memory artifacts в event/index paths.
+  **AC:** `research.py --auto` генерирует semantic memory pack без ручного шага.
+  **Deps:** W101-3, W101-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_research_command.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-8 (P1) Loop preflight/read policy integration for memory packs** `skills/aidd-loop/runtime/preflight_prepare.py`, `skills/aidd-loop/runtime/output_contract.py`, `hooks/context_gc/pretooluse_guard.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`:
+  - добавить memory artifacts в optional read chain/readmap для implement/review/qa;
+  - разрешить policy-driven reads из `aidd/reports/memory/**`.
+  **AC:** loop stages читают memory packs без policy-deny и с корректным read-order diagnostics.
+  **Deps:** W101-3, W101-4
+  **Regression/tests:** `python3 -m pytest -q tests/test_preflight_prepare.py tests/test_output_contract.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-9 (P1) Context-GC working set enrichment with bounded memory excerpts** `hooks/context_gc/working_set_builder.py`, `templates/aidd/config/context_gc.json`, `tests/test_wave95_policy_guards.py`:
+  - добавить short excerpts из semantic/decisions packs в auto working set;
+  - сохранить global char limits и deterministic truncation.
+  **AC:** session start получает memory summary без превышения context budget.
+  **Deps:** W101-6, W101-7
+  **Regression/tests:** `python3 -m pytest -q tests/test_wave95_policy_guards.py`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-10 (P0) DocOps/actions support for decision writes in loop mode** `skills/aidd-docio/runtime/actions_validate.py`, `skills/aidd-docio/runtime/actions_apply.py`, `skills/aidd-core/runtime/schemas/aidd/aidd.actions.v1.json`, `skills/implement/CONTRACT.yaml`, `skills/review/CONTRACT.yaml`, `skills/qa/CONTRACT.yaml`, `tests/test_wave93_validators.py`:
+  - добавить action type `memory_ops.decision_append`;
+  - разрешить controlled decision updates через actions path.
+  **AC:** loop stage может писать decision log только через validated actions flow.
+  **Deps:** W101-4
+  **Regression/tests:** `python3 -m pytest -q tests/test_wave93_validators.py tests/test_context_expand.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W101-11 (P1) Read-policy/templates/index alignment for memory-first retrieval** `skills/aidd-policy/references/read-policy.md`, `skills/aidd-core/templates/context-pack.template.md`, `skills/status/runtime/index_sync.py`, `skills/aidd-core/templates/index.schema.json`, `tests/test_status.py`:
+  - добавить memory packs в canonical read order;
+  - отразить memory artifacts в index/report discovery.
+  **AC:** policy/templates/status-index не расходятся с Memory v2 contract.
+  **Deps:** W101-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_status.py tests/test_prompt_lint.py`.
+  **Effort:** S
+  **Risk:** Low
+
+### EPIC M3 — Gates, regression suite, rollout
+
+- [ ] **W101-12 (P0) Gate support: soft/hard memory readiness for `plan/review/qa`** `skills/aidd-core/runtime/research_guard.py`, `skills/aidd-core/runtime/gate_workflow.py`, `tests/test_gate_workflow.py`, `tests/test_research_check.py`:
+  - добавить configurable memory checks (`require_semantic_pack`, `require_decisions_pack`);
+  - ввести reason codes для warn/block rollout.
+  **AC:** при включённой политике gate детерминированно сигнализирует memory incompleteness.
+  **Deps:** W101-6, W101-11
+  **Regression/tests:** `python3 -m pytest -q tests/test_gate_workflow.py tests/test_research_check.py`.
+  **Effort:** M
+  **Risk:** High
+
+- [ ] **W101-13 (P0) End-to-end regression coverage for Memory v2** `tests/test_memory_*.py`, `tests/test_preflight_prepare.py`, `tests/test_output_contract.py`, `tests/repo_tools/smoke-workflow.sh`, `tests/repo_tools/ci-lint.sh`:
+  - покрыть unit/integration/e2e сценарии generation/read/write/gates;
+  - добавить smoke steps для memory artifacts lifecycle.
+  **AC:** Memory v2 покрыт regression tests и не ломает текущие stage pipelines.
+  **Deps:** W101-1..W101-12
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W101-14 (P1) Docs/changelog/operator guidance for Memory v2 rollout (breaking-only)** `AGENTS.md`, `README.md`, `README.en.md`, `templates/aidd/AGENTS.md`, `CHANGELOG.md`, `docs/memory-v2-rfc.md`:
+  - обновить canonical docs под semantic/decision memory paths и rollout policy;
+  - зафиксировать breaking rollout: без backward compatibility/backfill для legacy memory state.
+  **AC:** docs/prompts/notes согласованы с runtime и тестовым контрактом Memory v2 и явно фиксируют breaking-only policy.
+  **Deps:** W101-13
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `tests/repo_tools/ci-lint.sh`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W101-15 (P1) Update full flow prompt script for Memory v2 (`aidd_test_flow_prompt_ralph_script_full.txt`)** `aidd_test_flow_prompt_ralph_script_full.txt`, `tests/repo_tools/smoke-workflow.sh`:
+  - обновить full-flow prompt script под Memory v2 read chain (`rlm.pack -> semantic.pack -> decisions.pack -> loop/context packs`);
+  - убрать legacy compatibility/backfill шаги из сценария и acceptance flow.
+  **AC:** full-flow prompt script соответствует Wave 101 контракту (breaking-only, no backfill) и используется как актуальный operator сценарий.
+  **Deps:** W101-14
+  **Regression/tests:** `tests/repo_tools/smoke-workflow.sh`.
+  **Effort:** S
+  **Risk:** Low
+
+### Wave 101 Critical Path
+
+1. `W101-1` -> `W101-2` -> `W101-3` + `W101-4` -> `W101-6` -> `W101-7`
+2. `W101-4` -> `W101-10` -> `W101-8` -> `W101-11` -> `W101-12`
+3. `W101-1..W101-12` -> `W101-13` -> `W101-14` -> `W101-15`
+
+## Wave 102 — SKILL contract convergence (official Claude alignment, all skills)
+
+_Статус: план, приоритет 0. Цель — привести все `skills/*/SKILL.md` к единому контракту на базе официальной документации Claude Skills (description quality, command contracts, progressive disclosure, subagent orchestration), без drift относительно текущего no-fork/policy runtime._
+
+_Official references (SoT for this wave):_
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/skill-format`
+- `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/subagents`
+- `https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en`
+
+### Success Metrics (tracked per checkpoint)
+
+- **W102-M1:** все 19 `skills/*/SKILL.md` имеют валидный frontmatter baseline; отсутствуют missing-key gaps (`name`, `description`, `lang`, `model`, `user-invocable` + stage-specific keys).
+  **Check:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+- **W102-M2:** shared skills содержат компактные `Command contracts` и `Additional resources (when/why)` без monolith drift.
+  **Check:** `rg -n "^## Command contracts|^## Additional resources" skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`.
+- **W102-M3:** stage skill guidance использует canonical runtime paths (`${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`) и не содержит relative runtime invocation.
+  **Check:** `rg -n "python3\\s+skills/.*/runtime/|Bash\\(python3\\s+skills/.*/runtime/" skills/*/SKILL.md`.
+- **W102-M4:** policy-guards опираются на semantic markers, а не на brittle exact prose string.
+  **Check:** `python3 -m pytest -q tests/test_manual_preflight_policy.py tests/test_prompt_lint.py`.
+
+### Phase 102A — Inventory + policy crosswalk
+
+- [ ] **W102-1 (P0) Full SKILL inventory matrix and gap map (all 19 skills)** `backlog.md`, `dev/reports/skills/w102_skill_inventory.md`:
+  - собрать матрицу по всем `skills/*/SKILL.md`: frontmatter keys, section coverage, command contracts, additional resources, runtime path hints, subagent mentions;
+  - зафиксировать gap list и priority order для rollout;
+  - использовать матрицу как release checklist для Wave 102.
+  **AC:** есть единый инвентарь с actionable gaps для каждого skill.
+  **Deps:** -
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W102-2 (P0) Official Claude docs crosswalk -> repo policy mapping** `docs/skill-language.md`, `AGENTS.md`, `dev/reports/skills/w102_claude_crosswalk.md`:
+  - сопоставить official guidance (overview/best-practices/skill-format/subagents) с текущими repo правилами;
+  - явно зафиксировать где применяем `context: fork/agent` (или почему запрещаем для stage skills в no-fork policy);
+  - сформировать change log для lint/prompt policy.
+  **AC:** policy decisions Wave 102 имеют трассируемую привязку к официальным источникам.
+  **Deps:** W102-1
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 102B — Shared skill contract hardening (8 preloaded skills)
+
+- [ ] **W102-3 (P0) Shared skills: add compact `Command contracts` interface cards** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
+  - добавить interface-level contracts для critical commands (`When to run`, `Inputs`, `Outputs`, `Failure mode`, `Next action`);
+  - убрать/не допускать implementation retell в shared SKILL body;
+  - оставить deep details в `references/*` и runtime docstrings.
+  **AC:** все 8 shared skills содержат command contracts в компактном формате и проходят lint.
+  **Deps:** W102-1, W102-2
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W102-4 (P0) Shared skills: normalize `Additional resources` with explicit `when/why`** `skills/{aidd-core,aidd-docio,aidd-flow-state,aidd-loop,aidd-observability,aidd-policy,aidd-rlm,aidd-stage-research}/SKILL.md`:
+  - выровнять/добавить `Additional resources` во всех shared skills;
+  - для каждого bullet зафиксировать `when:` и `why:` в едином стиле;
+  - убрать неявные/шумные ссылки без применения.
+  **AC:** shared skills имеют deterministic progressive-disclosure navigation.
+  **Deps:** W102-3
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+### Phase 102C — Stage skill normalization (11 user-invocable skills)
+
+- [ ] **W102-5 (P0) Frontmatter normalization: fill missing `name` and align metadata in stage skills** `skills/{aidd-init,implement,plan-new,qa,researcher,review-spec,review,spec-interview,status,tasks-new,aidd-loop}/SKILL.md`:
+  - добавить отсутствующие `name` поля и выровнять с directory names;
+  - сохранить stage-required keys (`argument-hint`, `prompt_version`, `source_version`, `allowed-tools`, `disable-model-invocation`) без policy drift;
+  - проверить, что metadata не конфликтует с preload/stage contracts.
+  **AC:** отсутствующие `name` закрыты; metadata проходит lint без waiver.
+  **Deps:** W102-1
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W102-6 (P0) Stage steps/subagent orchestration wording alignment (`Run subagent` + no-fork policy)** `skills/{idea-new,researcher,review-spec,tasks-new,implement,review,qa,plan-new,spec-interview,status,aidd-init}/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - унифицировать формулировки explicit subagent orchestration и next-action semantics;
+  - убрать ambiguous/legacy handoff phrasing в stage-level steps;
+  - сохранить инварианты текущих lint checks (`exact Run subagent count`, no `context/agent` in stage skills).
+  **AC:** stage skills согласованы с no-fork contract и не дают conflicting guidance.
+  **Deps:** W102-2, W102-5
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `python3 -m pytest -q tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W102-7 (P0) Runtime-path canonicalization sweep in stage SKILL guidance** `skills/*/SKILL.md`, `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - подтвердить/исправить runtime path hints только в canonical форме `${CLAUDE_PLUGIN_ROOT}/skills/.../runtime/...`;
+  - исключить relative path drift в prose/examples/contracts;
+  - закрепить failure semantics для `can't open file .../skills/.../runtime/...`.
+  **AC:** relative runtime path usage отсутствует в stage guidance; policy diagnostics единообразны.
+  **Deps:** W102-6
+  **Regression/tests:** `python3 tests/repo_tools/lint-prompts.py --root .`, `rg -n "python3\\s+skills/.*/runtime/|Bash\\(python3\\s+skills/.*/runtime/" skills/*/SKILL.md`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W102-8 (P1) Loop stages (implement/review/qa): wrapper-only policy wording hardening with stable markers** `skills/{implement,review,qa}/SKILL.md`, `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
+  - синхронизировать wording по manual preflight/manual stage-result bans и wrapper-chain policy;
+  - ввести стабильные semantic markers (policy tags) для тестов вместо fragile phrase lock-in;
+  - сохранить canonical stage-result path contract (`aidd-flow-state/runtime/stage_result.py`).
+  **AC:** loop policy проверяется по semantic markers; false failures от copy changes исключены.
+  **Deps:** W102-6
+  **Regression/tests:** `python3 -m pytest -q tests/test_manual_preflight_policy.py tests/test_prompt_lint.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Phase 102D — Lint/tests contract upgrades
+
+- [ ] **W102-9 (P0) `lint-prompts` contract update for Wave 102 skill quality gates** `tests/repo_tools/lint-prompts.py`, `tests/test_prompt_lint.py`:
+  - добавить/усилить проверки для shared skill sections (`Command contracts`, `Additional resources when/why`);
+  - добавить guard на missing `name` и inconsistent frontmatter across all skills;
+  - синхронизировать diagnostics с actionable remediation messages.
+  **AC:** lint детерминированно ловит gaps, покрытые Wave 102; сообщения пригодны для быстрого фикса.
+  **Deps:** W102-3, W102-4, W102-5
+  **Regression/tests:** `python3 -m pytest -q tests/test_prompt_lint.py`, `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** M
+  **Risk:** Medium
+
+- [ ] **W102-10 (P1) Replace brittle exact-text assertions in loop policy tests with semantic checks** `tests/test_manual_preflight_policy.py`, `tests/test_prompt_lint.py`:
+  - заменить literal assert на semantic regex/marker checks;
+  - оставить контроль критичных invariants (manual preflight ban, canonical stage_result path, no non-canonical path);
+  - минимизировать coupling tests к точной англоязычной формулировке.
+  **AC:** policy tests устойчивы к редактуре текста, но сохраняют строгий смысловой контроль.
+  **Deps:** W102-8
+  **Regression/tests:** `python3 -m pytest -q tests/test_manual_preflight_policy.py tests/test_prompt_lint.py`.
+  **Effort:** S
+  **Risk:** Low
+
+### Phase 102E — Rollout, versions, and release readiness
+
+- [ ] **W102-11 (P0) Prompt-version bump + baseline sync for all touched skills/agents** `skills/*/SKILL.md`, `agents/*.md`, `dev/reports/migrations/commands_to_skills_frontmatter.json`, `tests/repo_tools/prompt-version`, `tests/repo_tools/lint-prompts.py`:
+  - выполнить semver bump для затронутых prompts;
+  - синхронизировать baseline/metadata artifacts после правок;
+  - проверить отсутствие stale version drift.
+  **AC:** версии и baseline синхронизированы; lint/version checks green.
+  **Deps:** W102-9, W102-10
+  **Regression/tests:** `python3 tests/repo_tools/prompt-version --help`, `python3 tests/repo_tools/lint-prompts.py --root .`.
+  **Effort:** S
+  **Risk:** Low
+
+- [ ] **W102-12 (P0) Final regression and acceptance pass for all SKILL contracts** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `tests/test_prompt_lint.py`, `tests/test_manual_preflight_policy.py`, `CHANGELOG.md`:
+  - выполнить full lint/prompt/smoke regression after Wave 102 changes;
+  - зафиксировать acceptance report и known residual risks (если останутся);
+  - обновить changelog/release notes для skill-policy изменений.
+  **AC:** Wave 102 проходит end-to-end regression без policy regressions и runtime-path drift.
+  **Deps:** W102-11
+  **Regression/tests:** `tests/repo_tools/ci-lint.sh`, `tests/repo_tools/smoke-workflow.sh`, `python3 -m pytest -q tests/test_prompt_lint.py tests/test_manual_preflight_policy.py`.
+  **Effort:** M
+  **Risk:** Medium
+
+### Wave 102 Critical Path
+
+1. `W102-1` -> `W102-2` -> `W102-3` + `W102-4`
+2. `W102-5` -> `W102-6` -> `W102-7` -> `W102-8`
+3. `W102-3..W102-8` -> `W102-9` -> `W102-10` -> `W102-11` -> `W102-12`

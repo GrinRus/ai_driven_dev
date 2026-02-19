@@ -6,7 +6,8 @@
   "entrypoints": [
     "skills/aidd-loop/runtime/preflight_prepare.py",
     "skills/implement/runtime/implement_run.py",
-    "skills/aidd-docio/runtime/actions_apply.py"
+    "skills/aidd-docio/runtime/actions_apply.py",
+    "skills/aidd-flow-state/runtime/stage_result.py"
   ],
   "reads": {
     "required": [

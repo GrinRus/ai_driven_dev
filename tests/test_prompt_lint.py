@@ -161,21 +161,28 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("## Steps")
     if stage in {"implement", "review", "qa"}:
         lines.append(
-            "1. Preflight reference: "
-            "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`."
+            "1. Wrapper-only policy: execute only via wrapper chain."
         )
         lines.append(
-            "2. Read order after preflight: readmap -> loop pack -> review pack -> rolling context pack."
+            "2. Manual/direct preflight runtime invocation is forbidden for operators; wrappers own preflight."
         )
         lines.append(
-            f"3. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it."
         )
         lines.append(
-            f"4. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+            "4. Read order after preflight artifacts: readmap -> loop pack -> review pack -> rolling context pack."
         )
         lines.append(
-            "5. Postflight reference: "
-            "`python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`."
+            f"5. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`."
+        )
+        lines.append(
+            f"6. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`."
+        )
+        lines.append(
+            "7. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py."
+        )
+        lines.append(
+            "8. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden."
         )
     elif stage in STAGE_SUBAGENT:
         lines.append(f"1. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}` after stage orchestration.")
@@ -191,19 +198,12 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("- Next action: resolve input/gate issues and rerun the same entrypoint.")
     if stage in {"implement", "review", "qa"}:
         lines.append("")
-        lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`")
-        lines.append("- When to run: before subagent execution in loop stages.")
-        lines.append("- Inputs: ticket + scope/work-item context from loop artifacts.")
-        lines.append("- Outputs: `readmap/writemap`, actions template, preflight result report.")
-        lines.append("- Failure mode: boundary/missing-artifact validation error.")
-        lines.append("- Next action: fix stage inputs, rerun preflight, then continue.")
-        lines.append("")
         lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`")
-        lines.append("- When to run: after actions.json is validated and stage work is complete.")
+        lines.append("- When to run: postflight step in wrapper chain; not a manual recovery shortcut.")
         lines.append("- Inputs: ticket + scope/work-item context + validated actions file.")
         lines.append("- Outputs: applied actions, progress updates, and stage summary artifacts.")
         lines.append("- Failure mode: DocOps/apply validation failure.")
-        lines.append("- Next action: inspect apply log, fix actions, rerun postflight.")
+        lines.append("- Next action: inspect apply log, fix actions, rerun wrapper chain.")
     lines.append("")
     lines.append("## Additional resources")
     lines.append(
@@ -853,6 +853,82 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("stage skills must not use tools/* in allowed-tools", result.stderr)
 
+    def test_loop_stage_skill_forbidden_manual_recovery_tool_fails(self) -> None:
+        bad_skill = build_stage_skill("review").replace(
+            "  - Read",
+            (
+                "  - Read\n"
+                "  - \"Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py *)\""
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("manual recovery surface", result.stderr)
+
+    def test_loop_stage_skill_non_canonical_stage_result_path_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py",
+            "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/stage_result.py",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("non-canonical stage-result path", result.stderr)
+
+    def test_loop_stage_skill_self_slash_contract_fails(self) -> None:
+        bad_skill = build_stage_skill("implement").replace(
+            "## Additional resources",
+            (
+                "### `/feature-dev-aidd:implement <ticket>`\n"
+                "- When to run: operator entrypoint.\n"
+                "- Inputs: ticket and active scope/work-item context.\n"
+                "- Outputs: wrapper artifacts and stage result.\n"
+                "- Failure mode: blocked/warn.\n"
+                "- Next action: fix and rerun.\n\n"
+                "## Additional resources"
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"implement": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not duplicate self slash-stage entrypoint", result.stderr)
+
+    def test_stage_skill_body_relative_runtime_ref_fails(self) -> None:
+        bad_skill = build_stage_skill("idea-new").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/idea-new/runtime/analyst_check.py`",
+            "### `python3 skills/idea-new/runtime/analyst_check.py`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"idea-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("canonical runtime paths", result.stderr)
+
+    def test_aidd_init_stage_skill_body_relative_runtime_ref_fails(self) -> None:
+        bad_skill = build_stage_skill("aidd-init").replace(
+            "### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py`",
+            "### `python3 skills/aidd-init/runtime/init.py`",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"aidd-init": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("canonical runtime paths", result.stderr)
+
     def test_stage_skill_missing_python_entrypoint_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -874,6 +950,67 @@ class PromptLintTests(unittest.TestCase):
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must include canonical python entrypoint", result.stderr)
+
+    def test_stage_skill_legacy_stage_alias_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Do the work.",
+            "## Steps\n1. Run `/feature-dev-aidd:planner DEMO-1` before review.",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("legacy stage alias `/feature-dev-aidd:planner`", result.stderr)
+
+    def test_stage_skill_deprecated_runtime_alias_without_ban_fails(self) -> None:
+        bad_skill = build_stage_skill("review-spec").replace(
+            "## Steps\n1. Do the work.",
+            (
+                "## Steps\n"
+                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_set.py --stage review-prd`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"review-spec": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("deprecated runtime alias `stage_set.py`", result.stderr)
+
+    def test_stage_skill_context_pack_refresh_without_agent_fails(self) -> None:
+        bad_skill = build_stage_skill("plan-new").replace(
+            "## Steps\n1. Do the work.",
+            (
+                "## Steps\n"
+                "1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/context_pack.py --refresh --stage plan`."
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"plan-new": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("context pack guidance must not use `context_pack.py --refresh`", result.stderr)
+
+    def test_loop_stage_skill_stage_local_preflight_allowed_tool_fails(self) -> None:
+        bad_skill = build_stage_skill("qa").replace(
+            "  - Read",
+            (
+                "  - Read\n"
+                "  - \"Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/qa/runtime/preflight_prepare.py *)\""
+            ),
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, skill_override={"qa": bad_skill})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("manual recovery surface", result.stderr)
 
     def test_stage_skill_foreign_wrapper_ref_fails(self) -> None:
         bad_skill = build_stage_skill("tasks-new").replace(

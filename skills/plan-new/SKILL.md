@@ -2,8 +2,8 @@
 description: Draft the implementation plan from PRD and research.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.13
-source_version: 1.1.13
+prompt_version: 1.1.14
+source_version: 1.1.14
 allowed-tools:
   - Read
   - Edit
@@ -27,8 +27,8 @@ Follow `feature-dev-aidd:aidd-core`.
 1. Set active stage `plan` and active feature.
 2. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py --ticket <ticket>`.
 3. Gate readiness with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/prd_check.py` and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan-new/runtime/research_check.py`; block if either fails.
-4. Build the rolling context pack.
-5. Run subagents in order: `feature-dev-aidd:planner` then `feature-dev-aidd:validator`. Refresh the pack between them.
+4. Use the existing rolling context pack as input evidence; do not invoke standalone context-pack builder scripts from this stage.
+5. Run the internal planning subagent first, then the validation subagent; keep updates within plan artifacts and canonical stage outputs.
 6. Update `aidd/docs/plan/<ticket>.md` and return the output contract.
 
 ## Command contracts

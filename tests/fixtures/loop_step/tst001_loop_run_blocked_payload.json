@@ -1,0 +1,11 @@
+{
+  "status": "blocked",
+  "stage": "implement",
+  "scope_key": "iteration_id_I1",
+  "work_item_key": null,
+  "reason_code": "stage_result_missing_or_invalid",
+  "reason": "stage result missing; candidates=none",
+  "active_stage_before": "idea",
+  "active_stage_after": "implement",
+  "active_stage_sync_applied": true
+}

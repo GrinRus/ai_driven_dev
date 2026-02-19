@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import List
 
@@ -16,6 +17,16 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--nodes", help="Override nodes.jsonl path.")
     parser.add_argument("--links", help="Override links.jsonl path.")
     parser.add_argument("--targets", help="Override rlm-targets.json path for link build.")
+    parser.add_argument(
+        "--bootstrap-if-missing",
+        action="store_true",
+        help="Bootstrap nodes from manifest when nodes.jsonl is missing/empty before finalize.",
+    )
+    parser.add_argument(
+        "--emit-json",
+        action="store_true",
+        help="Emit finalize outcome payload as JSON.",
+    )
     return parser.parse_args(argv)
 
 
@@ -40,9 +51,32 @@ def main(argv: List[str] | None = None) -> int:
         else None
     )
 
-    if not nodes_path.exists() or nodes_path.stat().st_size == 0:
+    payload: dict[str, object] = {
+        "status": "blocked",
+        "ticket": ticket,
+        "bootstrap_attempted": False,
+        "finalize_attempted": False,
+        "reason_code": "",
+        "next_action": "",
+        "recovery_path": "",
+    }
+    nodes_ready = nodes_path.exists() and nodes_path.stat().st_size > 0
+    if not nodes_ready and args.bootstrap_if_missing:
+        payload["bootstrap_attempted"] = True
+        rlm_nodes_build.main(["--ticket", ticket, "--bootstrap"])
+        nodes_ready = nodes_path.exists() and nodes_path.stat().st_size > 0
+        payload["recovery_path"] = "bootstrap_nodes"
+    if not nodes_ready:
+        payload["reason_code"] = "rlm_nodes_missing"
+        payload["next_action"] = (
+            f"python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/aidd-rlm/runtime/rlm_nodes_build.py --bootstrap --ticket {ticket}"
+        )
+        if args.emit_json:
+            print(json.dumps(payload, ensure_ascii=False))
+            return 2
         raise SystemExit(f"rlm nodes not found or empty: {nodes_path}")
 
+    payload["finalize_attempted"] = True
     verify_args = ["--ticket", ticket]
     if args.nodes:
         verify_args.extend(["--nodes", str(nodes_path)])
@@ -78,6 +112,16 @@ def main(argv: List[str] | None = None) -> int:
         ticket,
     ]
     reports_pack.main(pack_args)
+    payload.update(
+        {
+            "status": "done",
+            "reason_code": "",
+            "next_action": "",
+            "recovery_path": payload.get("recovery_path") or "finalize",
+        }
+    )
+    if args.emit_json:
+        print(json.dumps(payload, ensure_ascii=False))
     return 0
 
 

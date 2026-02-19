@@ -693,7 +693,13 @@ def main() -> int:
 
         research_settings = load_research_settings(root)
         try:
-            research_summary = validate_research(root, ticket, settings=research_settings, branch=current_branch or None)
+            research_summary = validate_research(
+                root,
+                ticket,
+                settings=research_settings,
+                branch=current_branch or None,
+                expected_stage=active_stage or "review",
+            )
         except ResearchValidationError as exc:
             _log_stderr(str(exc))
             return 2

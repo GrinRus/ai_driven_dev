@@ -45,6 +45,18 @@ Default: ...
 - In `fast` mode on `implement`, bypass can warn (`wrappers_skipped_warn`) only for diagnostics.
 - Missing preflight/readmap/writemap/actions/log artifacts is a contract violation.
 
+## Runtime path safety
+- Never guess runtime filenames/paths.
+- Execute only runtime entrypoints explicitly listed in the current stage skill `Command contracts`.
+- Use only canonical active-state runtime commands from the current stage contract; do not use deprecated aliases.
+- For loop stages, do not invoke preflight runtime directly from stage prompt flow; preflight belongs to canonical wrapper orchestration only.
+- If command output contains `can't open file .../skills/.../runtime/...`, stop and report BLOCKED (`runtime_path_missing_or_drift`) with evidence path.
+
+## Retry safety
+- Do not repeat the same failing shell command in a loop.
+- For cwd/build-tool mismatch (`./gradlew` missing, or `does not contain a Gradle build`), allow at most one corrected attempt after explicit cwd resolution.
+- If corrected attempt still fails, stop with blocker (`tests_cwd_mismatch`) and handoff instead of further retries.
+
 ## Subagent guard
 - Subagents must not edit `aidd/docs/.active.json`.
 

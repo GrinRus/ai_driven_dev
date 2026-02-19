@@ -2,8 +2,8 @@
 description: Initialize AIDD workspace scaffolding in the current project.
 argument-hint: "[--force] [--detect-build-tools]"
 lang: ru
-prompt_version: 0.1.6
-source_version: 0.1.6
+prompt_version: 0.1.8
+source_version: 0.1.8
 allowed-tools:
   - Read
   - Write
@@ -17,9 +17,10 @@ Follow `feature-dev-aidd:aidd-core`.
 
 ## Steps
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py`.
-2. Verify `aidd/` exists and core templates were copied (`aidd/AGENTS.md`, `aidd/docs/shared/stage-lexicon.md`).
-3. If `--detect-build-tools` was used, confirm `.claude/settings.json` was updated.
-4. Return the output contract and next actions.
+2. Runtime-path safety: never call relative `python3 skills/.../runtime/...`; if `${CLAUDE_PLUGIN_ROOT}` is not set, return BLOCKED with env hint.
+3. Verify `aidd/` exists and core templates were copied (`aidd/AGENTS.md`, `aidd/docs/shared/stage-lexicon.md`).
+4. If `--detect-build-tools` was used, confirm `.claude/settings.json` was updated.
+5. Return the output contract and next actions.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-init/runtime/init.py`

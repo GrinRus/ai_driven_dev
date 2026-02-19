@@ -26,7 +26,7 @@ jobs:
       - name: Install linters
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck yamllint ripgrep
+          sudo apt-get install -y shellcheck yamllint ripgrep python3-pytest
           npm install -g markdownlint-cli
 
       - name: Run ci-lint script
@@ -99,7 +99,7 @@ jobs:
   security-secret-scan:
     name: security-secret-scan
     runs-on: ubuntu-latest
-    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       contents: read
       security-events: write
@@ -123,7 +123,7 @@ jobs:
   security-sast:
     name: security-sast
     runs-on: ubuntu-latest
-    continue-on-error: ${{ env.AIDD_SECURITY_ENFORCE != '1' }}
+    continue-on-error: ${{ vars.AIDD_SECURITY_ENFORCE != '1' }}
     permissions:
       actions: read
       contents: read

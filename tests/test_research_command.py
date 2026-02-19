@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.helpers import REPO_ROOT, cli_cmd, cli_env
 
@@ -53,6 +54,7 @@ class ResearchCommandTest(unittest.TestCase):
 
             summary_path = project_root / "docs" / "research" / "TEST-123.md"
             self.assertTrue(summary_path.exists(), "Research summary should be materialised")
+            self.assertNotIn("{{", summary_path.read_text(encoding="utf-8"))
 
     def test_research_command_blocks_without_research_hints(self):
         with tempfile.TemporaryDirectory(prefix="aidd-research-hints-") as tmpdir:
@@ -421,6 +423,189 @@ class ResearchCommandTest(unittest.TestCase):
             self.assertIn("shared RLM API owner", stderr.getvalue())
             targets_path = project_root / "reports" / "research" / "ZERO-1-rlm-targets.json"
             self.assertTrue(targets_path.exists())
+
+    def test_research_command_pending_materializes_reason_next_action_and_stage(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-pending-doc-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            prd_path = project_root / "docs" / "prd" / "PENDING-1.prd.md"
+            prd_path.parent.mkdir(parents=True, exist_ok=True)
+            prd_path.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: pending",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            code_dir = workspace / "src"
+            code_dir.mkdir(parents=True, exist_ok=True)
+            (code_dir / "demo.py").write_text("print('pending')\n", encoding="utf-8")
+
+            args = research.parse_args(["--ticket", "PENDING-1", "--auto"])
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch(
+                    "aidd_runtime.research._attempt_auto_finalize",
+                    return_value={
+                        "status": "pending",
+                        "bootstrap_attempted": True,
+                        "finalize_attempted": True,
+                        "reason_code": "finalize_prereqs_missing",
+                        "next_action": research._rlm_finalize_handoff_cmd("PENDING-1"),
+                        "recovery_path": "bootstrap_then_finalize",
+                        "details": "",
+                    },
+                ):
+                    with patch("aidd_runtime.research._append_research_handoff", return_value=(True, "")) as handoff_mock:
+                        code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(code, 0)
+            handoff_mock.assert_called()
+            research_doc = (project_root / "docs" / "research" / "PENDING-1.md").read_text(encoding="utf-8")
+            self.assertIn("Pending reason: finalize_prereqs_missing", research_doc)
+            self.assertIn("Next action: python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_finalize.py --ticket PENDING-1", research_doc)
+            self.assertIn("Auto recovery: bootstrap_attempted=yes, finalize_attempted=yes, recovery_path=bootstrap_then_finalize", research_doc)
+            active_payload = json.loads((project_root / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("stage"), "research")
+
+    def test_research_command_fails_closed_when_worklist_contract_is_invalid(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-postcondition-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+            write_prd = project_root / "docs" / "prd" / "POST-1.prd.md"
+            write_prd.parent.mkdir(parents=True, exist_ok=True)
+            write_prd.write_text(
+                "\n".join(
+                    [
+                        "# PRD",
+                        "## AIDD:RESEARCH_HINTS",
+                        "- Paths: src",
+                        "- Keywords: postcondition",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            src_dir = workspace / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "demo.py").write_text("print('postcondition')\n", encoding="utf-8")
+
+            args = research.parse_args(["--ticket", "POST-1", "--auto", "--limit", "5"])
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            old_cwd = Path.cwd()
+            os.chdir(workspace)
+            try:
+                with patch(
+                    "aidd_runtime.research.rlm_nodes_build.build_worklist_pack",
+                    return_value={"schema": "broken.schema.v1", "type": "unexpected"},
+                ):
+                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                        code = research.run(args)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(code, 2)
+            self.assertIn("research_artifacts_invalid", stderr.getvalue())
+
+    def test_research_command_refreshes_existing_summary(self):
+        with tempfile.TemporaryDirectory(prefix="aidd-research-refresh-") as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            project_root = workspace / "aidd"
+            project_root.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                cli_cmd("init"),
+                cwd=workspace,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=cli_env(),
+            )
+
+            stale_text = "\n".join(
+                [
+                    "# Research Summary — stale",
+                    "",
+                    "Status: pending",
+                    "Last reviewed: 2000-01-01",
+                    "",
+                    "## AIDD:PRD_OVERRIDES",
+                    "- {{prd_overrides}}",
+                    "",
+                    "## AIDD:RLM_EVIDENCE",
+                    "- Status: {{rlm_status}}",
+                    "",
+                    "## Custom Notes",
+                    "- keep this section",
+                    "",
+                ]
+            )
+            research_path = project_root / "docs" / "research" / "REFRESH-1.md"
+            research_path.parent.mkdir(parents=True, exist_ok=True)
+            research_path.write_text(stale_text, encoding="utf-8")
+
+            rlm_dir = project_root / "reports" / "research"
+            rlm_dir.mkdir(parents=True, exist_ok=True)
+            (rlm_dir / "REFRESH-1-rlm.nodes.jsonl").write_text(
+                '{"node_kind":"file","file_id":"file-demo","id":"file-demo","path":"src/App.kt","rev_sha":"demo"}\n',
+                encoding="utf-8",
+            )
+            (rlm_dir / "REFRESH-1-rlm.links.jsonl").write_text(
+                '{"link_kind":"import","source":"file-demo","target":"file-demo","id":"link-demo"}\n',
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                cli_cmd(
+                    "research",
+                    "--ticket",
+                    "REFRESH-1",
+                    "--keywords",
+                    "refresh",
+                    "--limit",
+                    "5",
+                ),
+                cwd=project_root,
+                env=cli_env(),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            updated_text = research_path.read_text(encoding="utf-8")
+            self.assertIn("Status: reviewed", updated_text)
+            self.assertRegex(updated_text, r"Last reviewed: \d{4}-\d{2}-\d{2}")
+            self.assertIn("## AIDD:PRD_OVERRIDES", updated_text)
+            self.assertIn("## AIDD:RLM_EVIDENCE", updated_text)
+            self.assertIn("## Custom Notes", updated_text)
+            self.assertNotIn("{{prd_overrides}}", updated_text)
+            self.assertNotIn("{{rlm_status}}", updated_text)
+            self.assertNotIn("{{", updated_text)
 
 
 

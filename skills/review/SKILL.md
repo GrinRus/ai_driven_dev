@@ -2,13 +2,12 @@
 description: Review changes, produce feedback, and derive tasks.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.35
-source_version: 1.0.35
+prompt_version: 1.0.39
+source_version: 1.0.39
 allowed-tools:
   - Read
   - Edit
   - Glob
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py *)"
   - "Bash(rg *)"
@@ -22,7 +21,6 @@ allowed-tools:
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/progress_cli.py *)"
-  - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/status_summary.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py *)"
   - "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasklist_check.py --fix *)"
@@ -36,12 +34,16 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 
 ## Steps
 1. Inputs: resolve active `<ticket>/<scope_key>` and verify loop/readmap artifacts required for review stage.
-2. Preflight reference: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`. This step is mandatory and must produce `readmap/writemap`, actions template, and `stage.preflight.result.json`.
-3. Read order after preflight: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
-4. Run subagent `feature-dev-aidd:reviewer`.
-5. Orchestration: produce review artifacts with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`, and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py`; then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
-6. Postflight reference: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`. Apply actions via DocOps, then run boundary check, progress check, stage-result, status-summary.
-7. Output: return review-stage contract, findings summary, and next action/handoff.
+2. Wrapper-only policy: execute only via wrapper chain; manual `preflight_prepare.py` invocation is forbidden for operators (manual/direct preflight runtime invocation is forbidden).
+3. Manual write/create of `stage.review.result.json` is forbidden; stage-result files are produced only by wrapper postflight.
+4. Runtime-path safety: use only runtime commands from this skill contracts. If stdout/stderr contains `can't open file .../skills/.../runtime/...`, stop with BLOCKED `runtime_path_missing_or_drift`; do not invent alternate filenames and do not retry guessed commands.
+5. Test command safety: do not run raw build/test commands (`./gradlew`, `mvn test`, `npm test`) in review stage orchestration. Manage test requirement via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py` and existing `aidd/reports/tests/**` evidence. If you detect cwd mismatch (`./gradlew` missing or `does not contain a Gradle build`), record blocker `tests_cwd_mismatch` and stop repeated retries.
+6. Read order after wrapper preflight artifacts: `readmap.md` -> loop pack -> review pack (if exists) -> rolling context pack; do not perform broad repo scan before these artifacts.
+7. Run subagent `feature-dev-aidd:reviewer`.
+8. Orchestration: produce review artifacts with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_report.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_pack.py`, `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`, and `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py`; then Fill actions.json for `aidd/reports/actions/<ticket>/<scope_key>/review.actions.json` and validate via `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`.
+9. Canonical stage wrapper chain is strict: `preflight -> review_run -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`; it must produce `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
+10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden (treat as prompt-flow drift).
+11. Output: return review-stage contract, findings summary, and next action/handoff.
 
 ## Command contracts
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/review_run.py`
@@ -51,22 +53,29 @@ Follow `feature-dev-aidd:aidd-core` and `feature-dev-aidd:aidd-loop`.
 - Failure mode: non-zero exit on invalid review contracts or missing prerequisites.
 - Next action: fix findings/actions inputs and rerun runtime validation.
 
-### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-loop/runtime/preflight_prepare.py`
-- When to run: mandatory first step for review loop iterations.
-- Inputs: `--ticket`, `--scope-key`, `--work-item-key`, `--stage review`, artifact target paths.
-- Outputs: `readmap/writemap`, actions template, and preflight result artifact.
-- Failure mode: boundary/precondition contract violation.
-- Next action: correct preconditions or scope state, then rerun preflight.
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/review/runtime/reviewer_tests.py`
+- When to run: when reviewer must set/clear test requirement marker for the current scope.
+- Inputs: `--ticket`, optional `--scope-key`, `--work-item-key`, and `--status` (`required|optional|skipped|not-required`).
+- Outputs: reviewer marker at `aidd/reports/reviewer/<ticket>/<scope_key>.tests.json`.
+- Failure mode: invalid status or unresolved ticket/scope context.
+- Next action: fix marker arguments/context and rerun once; do not replace with ad-hoc shell test loops.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`
-- When to run: mandatory final step after review actions are validated.
+- When to run: mandatory final step in wrapper postflight after review actions are validated.
 - Inputs: `--actions <path>` and optional `--apply-log <path>`.
 - Outputs: applied actions plus progress/stage-result/status-summary artifacts.
 - Failure mode: apply failure, boundary guard failure, or summary generation failure.
-- Next action: inspect logs, fix blocking artifact/contract, rerun postflight.
+- Next action: inspect logs, fix blocking artifact/contract, rerun the wrapper chain, and verify canonical stage result exists (`aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`).
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
+- When to run: wrapper postflight stage-result emission only (not operator/manual recovery command).
+- Inputs: canonical postflight payload (`ticket`, `stage`, `result`, `scope-key`, `work-item-key`, evidence links).
+- Outputs: canonical `aidd.stage_result.v1` at `aidd/reports/loops/<ticket>/<scope_key>/stage.review.result.json`.
+- Failure mode: non-zero exit on missing required args or invalid stage-result contract fields.
+- Next action: fix postflight payload generation and rerun the wrapper chain; do not switch to non-canonical loop runtime paths.
 
 ## Notes
-- Review stage runs targeted tests per policy.
+- Review stage sets/verifies test requirement via reviewer marker and existing reports; avoid ad-hoc repeated shell retries.
 - Use the existing rolling context pack; do not regenerate it in loop mode (DocOps updates only).
 
 ## Additional resources

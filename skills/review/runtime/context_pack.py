@@ -12,6 +12,17 @@ from aidd_runtime import runtime
 from aidd_runtime.io_utils import utc_timestamp
 
 DEFAULT_TEMPLATE = Path("reports") / "context" / "template.context-pack.md"
+_STAGE_AGENT_DEFAULTS = {
+    "idea": "analyst",
+    "research": "researcher",
+    "plan": "planner",
+    "review-plan": "plan-reviewer",
+    "review-prd": "prd-reviewer",
+    "tasks": "tasklist-refiner",
+    "implement": "implementer",
+    "review": "reviewer",
+    "qa": "qa",
+}
 
 
 def _read_text(path: Path) -> str:
@@ -186,6 +197,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Agent name to embed in the pack filename.",
     )
     parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Compatibility no-op. Kept for legacy callers; ignored by canonical runtime.",
+    )
+    parser.add_argument(
         "--stage",
         help="Optional stage name for template-based packs (defaults to agent).",
     )
@@ -221,12 +237,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _, target = runtime.require_workflow_root()
-    ticket, context = runtime.require_ticket(
+    ticket, _context = runtime.require_ticket(
         target,
         ticket=getattr(args, "ticket", None),
         slug_hint=getattr(args, "slug_hint", None),
     )
+    stage_hint = (args.stage or "").strip() or runtime.read_active_stage(target)
     agent = (args.agent or "").strip()
+    if not agent:
+        agent = _STAGE_AGENT_DEFAULTS.get(stage_hint.strip().lower(), "")
+        if agent:
+            print(
+                f"[aidd] WARN: --agent missing, inferred `{agent}` from stage `{stage_hint}`.",
+                file=sys.stderr,
+            )
     if not agent:
         raise ValueError("agent name is required (use --agent <name>)")
     template_path = Path(args.template) if args.template else None
@@ -240,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         target,
         ticket=ticket,
         agent=agent,
-        stage=(args.stage or "").strip(),
+        stage=stage_hint,
         template_path=template_path,
         output=output,
         read_next=[item for item in (args.read_next or []) if item],

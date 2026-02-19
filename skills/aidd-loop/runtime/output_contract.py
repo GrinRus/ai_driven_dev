@@ -112,7 +112,7 @@ def _expected_status(
 ) -> Tuple[str, str]:
     if stage_result_path is None:
         stage_result_path = target / "reports" / "loops" / ticket / scope_key / f"stage.{stage}.result.json"
-    payload = _status_summary._load_stage_result(stage_result_path)
+    payload = _status_summary._load_stage_result(stage_result_path, stage)
     if not payload:
         return "", runtime.rel_path(stage_result_path, target)
     status = _status_summary._status_from_result(stage, payload)

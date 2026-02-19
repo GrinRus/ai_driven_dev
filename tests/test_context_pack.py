@@ -89,6 +89,40 @@ class ContextPackTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("context pack missing what_to_do", result.stderr)
 
+    def test_context_pack_infers_agent_from_stage_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="context-pack-infer-agent-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            template_text = (REPO_ROOT / "skills" / "aidd-core" / "templates" / "context-pack.template.md").read_text(
+                encoding="utf-8"
+            )
+            write_file(root, "reports/context/template.context-pack.md", template_text)
+            write_file(
+                root,
+                "docs/.active.json",
+                '{"ticket": "DEMO-3", "slug_hint": "demo-3", "stage": "plan"}\n',
+            )
+
+            result = subprocess.run(
+                cli_cmd(
+                    "context-pack",
+                    "--ticket",
+                    "DEMO-3",
+                    "--stage",
+                    "plan",
+                    "--template",
+                    "reports/context/template.context-pack.md",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("--agent missing, inferred `planner`", result.stderr)
+            pack_path = root / "reports" / "context" / "DEMO-3.pack.md"
+            text = pack_path.read_text(encoding="utf-8")
+            self.assertIn("agent: planner", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+import shlex
 from typing import Dict, List, Optional, Tuple
 
 
@@ -77,6 +79,16 @@ def extract_mapping_field(lines: List[str], field: str) -> Dict[str, str]:
 
 PATH_TOKEN_RE = re.compile(
     r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.*/-]+|\b[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b"
+)
+TASK_COMMAND_PREFIX_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 _/+-]{2,40}):\s*(?P<command>.+)$")
+COMMAND_LIKE_RE = re.compile(r"^(?:\./\S+|/\S+|[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+|[A-Za-z0-9_.-]+)(?:\s|$)")
+QUESTION_NUMBER_RE = re.compile(r"(?:^|\b)(?:q|question|вопрос)\s*([0-9]{1,2})(?:\b|:)", re.IGNORECASE)
+QUESTION_MARKER_RE = re.compile(r"\b(?:aidd:answers|question|вопрос|answer|ответ)\b", re.IGNORECASE)
+DEFAULT_CHOICE_RE = re.compile(r"\b(?:default|по\s+умолчанию)\s*:\s*([A-H])\b", re.IGNORECASE)
+OPTION_CHOICE_RE = re.compile(r"\b([A-H])\s*[\)\.:]", re.IGNORECASE)
+NON_COMMAND_TASK_HINT_RE = re.compile(
+    r"\b(?:per-iteration(?:\s+test)?\s+commands?|iteration-specific\s+patterns?|test\s+commands?\s+listed\s+below|commands?\s+listed\s+below|see\s+below)\b",
+    re.IGNORECASE,
 )
 
 SECTION_HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
@@ -156,6 +168,120 @@ def extract_section(lines: List[str], title: str) -> List[str]:
     return collected
 
 
+def _parse_inline_sequence(raw: str, *, split_pattern: str) -> List[str]:
+    text = raw.strip()
+    if not text:
+        return []
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, list):
+            values: List[str] = []
+            for item in payload:
+                value = _strip_placeholder(str(item))
+                if value:
+                    values.append(value)
+            return values
+        text = text[1:-1].strip()
+        if not text:
+            return []
+        parts = [part.strip().strip("'\"") for part in re.split(r"\s*,\s*", text) if part.strip()]
+    else:
+        parts = [part.strip() for part in re.split(split_pattern, text) if part.strip()]
+    values: List[str] = []
+    for part in parts:
+        value = _strip_placeholder(part)
+        if value:
+            values.append(value)
+    return values
+
+
+def normalize_test_execution_task(raw: str) -> str:
+    value = _strip_placeholder(raw)
+    if not value:
+        return ""
+    text = value.strip()
+    if text.startswith("`") and text.endswith("`"):
+        text = text[1:-1].strip()
+    match = TASK_COMMAND_PREFIX_RE.match(text)
+    if not match:
+        return text
+    command = match.group("command").strip()
+    if not command:
+        return text
+    if not COMMAND_LIKE_RE.match(command):
+        return text
+    return command
+
+
+def _looks_like_executable_task(command: str) -> bool:
+    value = str(command or "").strip()
+    if not value:
+        return False
+    if NON_COMMAND_TASK_HINT_RE.search(value):
+        return False
+    lowered = value.lower()
+    if lowered in {"none", "n/a", "not set", "tbd"}:
+        return False
+    try:
+        parts = shlex.split(value)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    head = parts[0].strip()
+    if not head:
+        return False
+    if head.lower() in {"none", "n/a", "not", "tbd"}:
+        return False
+    # Standalone shell builtins are not valid task entries for subprocess-based QA execution.
+    if head == "cd":
+        return False
+    return bool(COMMAND_LIKE_RE.match(head))
+
+
+def detect_shell_chain_token(command: str) -> str:
+    """Return shell-chain token when a single task entry encodes chained commands."""
+    value = str(command or "")
+    if not value:
+        return ""
+    in_single = False
+    in_double = False
+    escaped = False
+    idx = 0
+    while idx < len(value):
+        ch = value[idx]
+        if escaped:
+            escaped = False
+            idx += 1
+            continue
+        if ch == "\\":
+            escaped = True
+            idx += 1
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            idx += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            idx += 1
+            continue
+        if in_single or in_double:
+            idx += 1
+            continue
+        if value.startswith("&&", idx):
+            return "&&"
+        if value.startswith("||", idx):
+            return "||"
+        if ch == ";":
+            return ";"
+        idx += 1
+    return ""
+
+
 def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     profile = (extract_scalar_field(lines, "profile") or "").strip()
     tasks_raw = extract_scalar_field(lines, "tasks") or ""
@@ -168,16 +294,109 @@ def parse_test_execution(lines: List[str]) -> Dict[str, object]:
     if tasks_list:
         tasks = tasks_list
     elif tasks_raw:
-        tasks = [item.strip() for item in re.split(r"\s*;\s*", tasks_raw) if item.strip()]
+        tasks = _parse_inline_sequence(tasks_raw, split_pattern=r"\s*;\s*")
+    normalized_tasks: List[str] = []
+    malformed_tasks: List[Dict[str, str]] = []
+    for raw_task in tasks:
+        normalized = normalize_test_execution_task(str(raw_task))
+        if normalized:
+            if not _looks_like_executable_task(normalized):
+                malformed_tasks.append(
+                    {
+                        "task": normalized,
+                        "reason_code": "tasklist_non_command_entry",
+                        "token": "",
+                    }
+                )
+                continue
+            chain_token = detect_shell_chain_token(normalized)
+            if chain_token:
+                malformed_tasks.append(
+                    {
+                        "task": normalized,
+                        "reason_code": "tasklist_shell_chain_single_entry",
+                        "token": chain_token,
+                    }
+                )
+                continue
+            normalized_tasks.append(normalized)
+    tasks = normalized_tasks
     filters: List[str] = []
     if filters_list:
         filters = filters_list
     elif filters_raw:
-        filters = [item.strip() for item in re.split(r"\s*,\s*", filters_raw) if item.strip()]
+        filters = _parse_inline_sequence(filters_raw, split_pattern=r"\s*,\s*")
     return {
         "profile": profile,
         "tasks": tasks,
+        "malformed_tasks": malformed_tasks,
         "filters": filters,
         "when": when,
         "reason": reason,
     }
+
+
+def looks_like_question_prompt(text: str) -> bool:
+    return bool(QUESTION_MARKER_RE.search(str(text or "")))
+
+
+def extract_question_numbers(text: str, *, max_questions: int = 8) -> List[int]:
+    numbers: List[int] = []
+    seen: set[int] = set()
+    for match in QUESTION_NUMBER_RE.finditer(str(text or "")):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            value = int(raw)
+        except ValueError:
+            continue
+        if value <= 0 or value in seen:
+            continue
+        seen.add(value)
+        numbers.append(value)
+        if len(numbers) >= max_questions:
+            break
+    if not numbers and looks_like_question_prompt(text):
+        return [1]
+    return numbers
+
+
+def build_compact_answers(text: str, *, fallback_choice: str = "C", max_questions: int = 8) -> str:
+    source = str(text or "")
+    question_numbers = extract_question_numbers(source, max_questions=max_questions)
+    if not question_numbers:
+        return ""
+    fallback = (fallback_choice or "C").strip().upper()
+    if len(fallback) != 1 or not fallback.isalpha():
+        fallback = "C"
+
+    default_per_question: Dict[int, str] = {}
+    current_question: int | None = None
+    for raw_line in source.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        q_match = QUESTION_NUMBER_RE.search(line)
+        if q_match:
+            try:
+                current_question = int(q_match.group(1))
+            except ValueError:
+                current_question = None
+        if current_question is None or current_question not in question_numbers:
+            continue
+        default_match = DEFAULT_CHOICE_RE.search(line)
+        if default_match:
+            default_per_question[current_question] = default_match.group(1).strip().upper()
+            continue
+        lower = line.lower()
+        if any(token in lower for token in ("вариант", "option", "choice", "choices", "options")):
+            choices = OPTION_CHOICE_RE.findall(line)
+            if choices and current_question not in default_per_question:
+                default_per_question[current_question] = choices[0].strip().upper()
+
+    parts: List[str] = []
+    for number in question_numbers:
+        choice = default_per_question.get(number, fallback)
+        parts.append(f"Q{number}={choice}")
+    return "AIDD:ANSWERS " + "; ".join(parts)

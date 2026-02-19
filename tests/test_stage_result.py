@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from aidd_runtime import stage_result_contract
 from tests.helpers import cli_cmd, cli_env, ensure_gates_config, ensure_project_root, write_active_state, write_file
 
 
@@ -20,6 +21,51 @@ def write_review_context_pack_with_placeholder(root: Path, ticket: str) -> None:
 
 
 class StageResultTests(unittest.TestCase):
+    def test_effective_stage_result_uses_requested_result_for_soft_block(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "done",
+            "reason_code": "output_contract_warn",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "done")
+
+    def test_effective_stage_result_keeps_explicit_blocked(self) -> None:
+        payload = {
+            "result": "blocked",
+            "requested_result": "blocked",
+            "reason_code": "user_approval_required",
+        }
+        self.assertEqual(stage_result_contract.effective_stage_result(payload), "blocked")
+
+    def test_stage_result_writer_keeps_canonical_schema_field(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-SCHEMA",
+                    "--stage",
+                    "implement",
+                    "--result",
+                    "continue",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-SCHEMA" / "iteration_id_I1" / "stage.implement.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("schema"), "aidd.stage_result.v1")
+            self.assertNotIn("schema_version", payload)
+
     def test_review_missing_tests_soft_continues(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -230,6 +276,42 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("reason_code"), "review_context_pack_placeholder_warn")
             self.assertEqual(payload.get("result"), "continue")
+
+    def test_review_blocking_findings_softens_to_revise(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ensure_gates_config(root, {"tests_required": "disabled"})
+            write_review_context_pack(root, "DEMO-BLOCKING-FINDINGS")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-BLOCKING-FINDINGS",
+                    "--stage",
+                    "review",
+                    "--result",
+                    "blocked",
+                    "--reason-code",
+                    "blocking_findings",
+                    "--work-item-key",
+                    "iteration_id=I1",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (
+                    root / "reports" / "loops" / "DEMO-BLOCKING-FINDINGS" / "iteration_id_I1" / "stage.review.result.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(payload.get("reason_code"), "blocking_findings")
+            self.assertEqual(payload.get("requested_result"), "blocked")
+            self.assertEqual(payload.get("result"), "continue")
+            self.assertEqual(payload.get("verdict"), "REVISE")
 
     def test_review_skipped_tests_capture_reason(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
@@ -529,6 +611,65 @@ class StageResultTests(unittest.TestCase):
             )
             self.assertEqual(payload.get("result"), "done")
             self.assertEqual(payload.get("reason_code"), "qa_warn")
+
+    def test_qa_loop_mode_uses_iteration_scope_from_active_work_item(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_mode", "loop\n")
+            write_active_state(root, ticket="DEMO-QA-LOOP", stage="qa", work_item="iteration_id=I3")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-LOOP",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            payload = json.loads(
+                (root / "reports" / "loops" / "DEMO-QA-LOOP" / "iteration_id_I3" / "stage.qa.result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(payload.get("scope_key"), "iteration_id_I3")
+            self.assertEqual(payload.get("work_item_key"), "iteration_id=I3")
+
+    def test_qa_loop_mode_rejects_non_iteration_scope_shape(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            write_file(root, "docs/.active_mode", "loop\n")
+            write_active_state(root, ticket="DEMO-QA-LOOP-BLOCK", stage="qa", work_item="iteration_id=I3")
+
+            result = subprocess.run(
+                cli_cmd(
+                    "stage-result",
+                    "--ticket",
+                    "DEMO-QA-LOOP-BLOCK",
+                    "--stage",
+                    "qa",
+                    "--result",
+                    "done",
+                    "--scope-key",
+                    "DEMO-QA-LOOP-BLOCK",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=cli_env(),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            result_path = (
+                root / "reports" / "loops" / "DEMO-QA-LOOP-BLOCK" / "DEMO-QA-LOOP-BLOCK" / "stage.qa.result.json"
+            )
+            self.assertFalse(result_path.exists())
 
     def test_qa_report_blocked_overrides_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="stage-result-") as tmpdir:

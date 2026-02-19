@@ -70,6 +70,19 @@ STAGE_PYTHON_ENTRYPOINTS = {
     "qa": "skills/qa/runtime/qa_run.py",
     "status": "skills/status/runtime/status.py",
 }
+STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED = {
+    "aidd-init",
+    "idea-new",
+    "researcher",
+    "plan-new",
+    "review-spec",
+    "spec-interview",
+    "tasks-new",
+    "implement",
+    "review",
+    "qa",
+    "status",
+}
 
 LOOP_STAGES = {"implement", "review", "qa", "status"}
 NO_FORK_STAGE_SUBAGENT_COUNTS: Dict[str, int] = {
@@ -83,6 +96,50 @@ NO_FORK_FORBIDDEN_PHRASES = (
     "forked context",
     "(fork)",
     "delegate to subagent",
+)
+LEGACY_STAGE_ALIAS_TO_CANONICAL = {
+    "/feature-dev-aidd:planner": "/feature-dev-aidd:plan-new",
+    "/feature-dev-aidd:tasklist-refiner": "/feature-dev-aidd:tasks-new",
+    "/feature-dev-aidd:implementer": "/feature-dev-aidd:implement",
+    "/feature-dev-aidd:reviewer": "/feature-dev-aidd:review",
+}
+DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS = ("stage_set.py", "feature_set.py")
+DISALLOWED_RUNTIME_HINT_MARKER_RE = re.compile(
+    r"(?:forbidden|do not run|do not use|deprecated|запрещ|не\s+запуск|не\s+использ)",
+    re.IGNORECASE,
+)
+CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE = re.compile(
+    r"context_pack\.py[^\n]{0,260}--refresh(?![^\n]{0,260}--agent)",
+    re.IGNORECASE,
+)
+LOOP_MANUAL_PREFLIGHT_BAN_RE = re.compile(
+    r"(?:(?:manual|direct|вручн|прям).{0,220}preflight.{0,220}(?:forbidden|do not|запрещ|не\s+запуск)"
+    r"|(?:forbidden|do not|запрещ|не\s+запуск).{0,220}(?:manual|direct|вручн|прям).{0,220}preflight)",
+    re.IGNORECASE | re.DOTALL,
+)
+LOOP_MANUAL_STAGE_RESULT_BAN_RE = re.compile(
+    r"(?:(?:не\s+пис|не\s+создав|запрещено|do not (?:write|create)|forbidden).{0,260}"
+    r"stage\.[a-z0-9_.-]*result\.json"
+    r"|stage\.[a-z0-9_.-]*result\.json.{0,260}(?:запрещено|forbidden|do not (?:write|create)|не\s+пис|не\s+создав))",
+    re.IGNORECASE | re.DOTALL,
+)
+LOOP_CANONICAL_STAGE_RESULT_PATH = "${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py"
+LOOP_NON_CANONICAL_STAGE_RESULT_PATH = "skills/aidd-loop/runtime/stage_result.py"
+LOOP_WRAPPER_CHAIN_RE = re.compile(
+    r"(?:wrapper chain|wrapper-?only|slash stage command|canonical stage chain).{0,260}"
+    r"(?:actions_apply\.py|postflight|stage_result\.py)",
+    re.IGNORECASE | re.DOTALL,
+)
+STAGE_BODY_REL_RUNTIME_RE = re.compile(
+    r"python3\s+(?:\./)?skills/[A-Za-z0-9_.-]+/runtime/[A-Za-z0-9_.-]+\.py",
+    re.IGNORECASE,
+)
+LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS = (
+    "skills/aidd-loop/runtime/preflight_prepare.py",
+    "skills/aidd-flow-state/runtime/stage_result.py",
+    "skills/implement/runtime/preflight_prepare.py",
+    "skills/review/runtime/preflight_prepare.py",
+    "skills/qa/runtime/preflight_prepare.py",
 )
 PRELOADED_SKILLS = {
     "aidd-core",
@@ -805,18 +862,79 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
             if path.parent.name in {"implement", "review", "qa"} and "feature-dev-aidd:aidd-loop" not in info.body:
                 errors.append(f"{info.path}: missing reference to feature-dev-aidd:aidd-loop")
 
+            for legacy_alias, canonical_alias in LEGACY_STAGE_ALIAS_TO_CANONICAL.items():
+                if legacy_alias in info.body:
+                    errors.append(
+                        f"{info.path}: stage guidance uses legacy stage alias `{legacy_alias}`; "
+                        f"use `{canonical_alias}`"
+                    )
+            for alias_token in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS:
+                for line in info.body.splitlines():
+                    lowered = line.lower()
+                    if alias_token not in lowered:
+                        continue
+                    if DISALLOWED_RUNTIME_HINT_MARKER_RE.search(line):
+                        continue
+                    errors.append(
+                        f"{info.path}: stage guidance references deprecated runtime alias `{alias_token}` "
+                        f"without explicit prohibition marker"
+                    )
+
+            if path.parent.name in {"plan-new", "review-spec"} and CONTEXT_PACK_REFRESH_WITHOUT_AGENT_RE.search(
+                info.body
+            ):
+                errors.append(
+                    f"{info.path}: context pack guidance must not use `context_pack.py --refresh` "
+                    f"without explicit `--agent`"
+                )
+
             if path.parent.name in {"implement", "review", "qa"}:
                 body_lower = info.body.lower()
-                if "preflight_prepare.py" not in body_lower:
-                    errors.append(f"{info.path}: missing preflight_prepare.py reference")
                 if "actions_apply.py" not in body_lower:
                     errors.append(f"{info.path}: missing actions_apply.py reference")
                 if "fill actions.json" not in body_lower:
                     errors.append(f"{info.path}: missing 'Fill actions.json' step")
+                if not LOOP_MANUAL_PREFLIGHT_BAN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing explicit policy that manual/direct preflight runtime invocation is forbidden"
+                    )
+                if not LOOP_MANUAL_STAGE_RESULT_BAN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing explicit policy that manual `stage.*.result.json` write is forbidden"
+                    )
+                if not LOOP_WRAPPER_CHAIN_RE.search(info.body):
+                    errors.append(
+                        f"{info.path}: missing wrapper-only canonical chain guidance for loop stages"
+                    )
+                if LOOP_CANONICAL_STAGE_RESULT_PATH.lower() not in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must reference canonical stage-result path "
+                        f"`python3 {LOOP_CANONICAL_STAGE_RESULT_PATH}`"
+                    )
+                if LOOP_NON_CANONICAL_STAGE_RESULT_PATH in body_lower:
+                    errors.append(
+                        f"{info.path}: loop stage guidance must not reference non-canonical stage-result path "
+                        f"`{LOOP_NON_CANONICAL_STAGE_RESULT_PATH}`"
+                    )
+            if (
+                path.parent.name in STAGE_CANONICAL_BODY_RUNTIME_ENV_REQUIRED
+                and STAGE_BODY_REL_RUNTIME_RE.search(info.body)
+            ):
+                errors.append(
+                    f"{info.path}: stage guidance must use canonical runtime paths in body "
+                    f"(`python3 ${{CLAUDE_PLUGIN_ROOT}}/skills/.../runtime/...`), not relative `python3 skills/...`"
+                )
 
             context = _as_string(info.front_matter.get("context"))
             agent = _as_string(info.front_matter.get("agent"))
             skill_tools = _normalize_tool_list(info.front_matter.get("allowed-tools"))
+            if path.parent.name in {"implement", "review", "qa"}:
+                for forbidden_tool in LOOP_STAGE_FORBIDDEN_ALLOWED_TOOL_SNIPPETS:
+                    if any(forbidden_tool in item for item in skill_tools):
+                        errors.append(
+                            f"{info.path}: loop stage allowed-tools must not include manual recovery surface "
+                            f"`{forbidden_tool}`"
+                        )
 
             python_entrypoint_rel = STAGE_PYTHON_ENTRYPOINTS[path.parent.name]
             python_entrypoint = root / python_entrypoint_rel
@@ -839,10 +957,18 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
                         errors.append(f"{info.path}: command contracts missing `{marker}`")
                 required_refs = [python_entrypoint_rel]
                 if path.parent.name in {"implement", "review", "qa"}:
-                    required_refs.extend(["preflight_prepare.py", "actions_apply.py"])
+                    required_refs.append("actions_apply.py")
                 for ref in required_refs:
                     if ref.lower() not in contracts_lc:
                         errors.append(f"{info.path}: command contracts missing critical command reference `{ref}`")
+                if path.parent.name in {"implement", "review", "qa"}:
+                    slash_ref = f"/feature-dev-aidd:{path.parent.name}"
+                    slash_contract_heading = f"### `{slash_ref}"
+                    if slash_contract_heading in contracts_lc:
+                        errors.append(
+                            f"{info.path}: command contracts must not duplicate self slash-stage entrypoint "
+                            f"`{slash_ref}`; keep runtime contracts only"
+                        )
 
             additional = _extract_section(info.body, "Additional resources")
             if not additional:
@@ -860,6 +986,12 @@ def lint_skills(root: Path) -> Tuple[List[str], List[str]]:
 
             for item in skill_tools:
                 if not item.startswith("Bash("):
+                    continue
+                item_lower = item.lower()
+                if any(alias in item_lower for alias in DEPRECATED_ACTIVE_STATE_ALIAS_TOKENS):
+                    errors.append(
+                        f"{info.path}: stage skill must not reference deprecated active-state runtime aliases in allowed-tools ({item})"
+                    )
                     continue
                 if "${CLAUDE_PLUGIN_ROOT}/skills/" in item and "/scripts/" in item:
                     errors.append(

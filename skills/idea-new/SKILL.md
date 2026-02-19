@@ -3,8 +3,8 @@ name: idea-new
 description: "Kick off a feature: set ticket, derive internal slug from note, build PRD draft, ask questions."
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.3.18
-source_version: 1.3.18
+prompt_version: 1.3.19
+source_version: 1.3.19
 allowed-tools:
   - Read
   - Edit

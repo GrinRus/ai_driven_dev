@@ -130,6 +130,50 @@ class HookReadWritePolicyTests(unittest.TestCase):
             self.assertEqual(decision, "allow")
             self.assertIn("context-expand", data.get("systemMessage", ""))
 
+    def test_strict_missing_readmap_advises_canonical_stage_rerun(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="implement", work_item=work_item_key)
+            write_file(root, "src/blocked.py", "print('x')\n")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "src/blocked.py"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            message = str(data.get("systemMessage", ""))
+            self.assertIn("/feature-dev-aidd:implement", message)
+            self.assertNotIn("preflight_prepare.py", message)
+
+    def test_strict_missing_writemap_advises_canonical_stage_rerun(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            write_active_state(root, ticket=ticket, stage="review", work_item=work_item_key)
+            write_file(root, "src/blocked.py", "print('x')\n")
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "src/blocked.py", "content": "print('x')"},
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            message = str(data.get("systemMessage", ""))
+            self.assertIn("/feature-dev-aidd:review", message)
+            self.assertNotIn("preflight_prepare.py", message)
+
     def test_strict_allows_glob_with_allowed_pattern(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -228,6 +272,63 @@ class HookReadWritePolicyTests(unittest.TestCase):
             decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
             self.assertEqual(decision, "allow")
             self.assertIn("DocOps-only", data.get("systemMessage", ""))
+
+    def test_strict_denies_direct_loop_stage_result_write(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="review", work_item=work_item_key)
+            _write_maps(root, ticket, "review", scope_key, work_item_key)
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.review.result.json",
+                "{}\n",
+            )
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": f"reports/loops/{ticket}/{scope_key}/stage.review.result.json",
+                    "content": "{}",
+                },
+            }
+            result = _run_pretool(root, payload, hooks_mode="strict")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "deny")
+            self.assertIn("stage.*.result.json", data.get("systemMessage", ""))
+
+    def test_fast_warns_on_direct_loop_stage_result_write(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RW"
+            work_item_key = "iteration_id=I1"
+            scope_key = "iteration_id_I1"
+            write_active_state(root, ticket=ticket, stage="review", work_item=work_item_key)
+            _write_maps(root, ticket, "review", scope_key, work_item_key)
+            write_file(
+                root,
+                f"reports/loops/{ticket}/{scope_key}/stage.review.result.json",
+                "{}\n",
+            )
+
+            payload = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Edit",
+                "tool_input": {
+                    "file_path": f"reports/loops/{ticket}/{scope_key}/stage.review.result.json",
+                },
+            }
+            result = _run_pretool(root, payload, hooks_mode="fast")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            data = json.loads(result.stdout)
+            decision = data.get("hookSpecificOutput", {}).get("permissionDecision")
+            self.assertEqual(decision, "allow")
+            self.assertIn("stage.*.result.json", data.get("systemMessage", ""))
 
     def test_strict_planning_stage_denies_write_outside_writemap(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hook-rw-") as tmpdir:

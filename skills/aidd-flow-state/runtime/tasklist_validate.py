@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from aidd_runtime import tasklist_check as core
 from aidd_runtime import tasklist_normalize as normalize
+from aidd_runtime import tasklist_parser
 
 
 def check_tasklist_text(
@@ -47,6 +48,9 @@ def check_tasklist_text(
     context_pack = core.section_body(section_map.get("AIDD:CONTEXT_PACK", [None])[0]) if section_map.get("AIDD:CONTEXT_PACK") else []
     stage = core.resolve_stage(root, context_pack)
 
+    def structural_severity() -> str:
+        return "error" if stage == "tasklist" else core.severity_for_stage(stage)
+
     front_status = (front.get("Status") or front.get("status") or "").strip().upper()
     context_status = (core.extract_field_value(context_pack, "Status") or "").strip().upper()
     if front_status and context_status and front_status != context_status:
@@ -60,6 +64,13 @@ def check_tasklist_text(
     for field in ("profile", "tasks", "filters", "when", "reason"):
         if not core.extract_field_value(test_execution, field):
             add_issue("error", f"AIDD:TEST_EXECUTION missing {field}")
+    parsed_test_execution = tasklist_parser.parse_test_execution(test_execution)
+    malformed_test_tasks = parsed_test_execution.get("malformed_tasks") or []
+    if malformed_test_tasks:
+        add_issue(
+            "error",
+            "AIDD:TEST_EXECUTION contains single-entry shell chain task (`&&`, `||`, `;`); split into separate tasks",
+        )
 
     iterations_section = section_map.get("AIDD:ITERATIONS_FULL")
     iter_items = core.parse_iteration_items(core.section_body(iterations_section[0])) if iterations_section else []
@@ -116,7 +127,7 @@ def check_tasklist_text(
         if not plan_ids:
             add_issue(core.severity_for_stage(stage), "AIDD:ITERATIONS missing iteration_id")
     else:
-        add_issue(core.severity_for_stage(stage), f"plan not found: {plan_path}")
+        add_issue(structural_severity(), f"plan not found: {plan_path}")
 
     if (plan_path.exists() or prd_path.exists()) and not (spec_path and spec_path.exists()):
         plan_text = core.read_text(plan_path) if plan_path.exists() else ""
@@ -318,7 +329,7 @@ def check_tasklist_text(
             add_issue(core.severity_for_stage(stage), f"iteration {iteration.item_id or '?'} has invalid State={iteration.state}")
         if iteration.priority and iteration.priority not in core.PRIORITY_VALUES:
             add_issue(
-                core.severity_for_stage(stage),
+                structural_severity(),
                 f"iteration {iteration.item_id or '?'} invalid Priority={iteration.priority}",
             )
         if iteration.item_id and not iteration.explicit_id:
@@ -326,7 +337,7 @@ def check_tasklist_text(
         open_state, state = core.pick_open_state(iteration.checkbox, iteration.state)
         if open_state is None and iteration.item_id:
             add_issue(
-                core.severity_for_stage(stage),
+                structural_severity(),
                 f"iteration {iteration.item_id} missing open/done state (run tasklist-check --fix)",
             )
 
@@ -361,7 +372,7 @@ def check_tasklist_text(
     progress_section = core.section_body(section_map.get("AIDD:PROGRESS_LOG", [None])[0]) if section_map.get("AIDD:PROGRESS_LOG") else []
     progress_entries, invalid_progress = core.progress_entries_from_lines(progress_section)
     if invalid_progress:
-        add_issue(core.severity_for_stage(stage), "invalid PROGRESS_LOG format")
+        add_issue(structural_severity(), "invalid PROGRESS_LOG format")
     for line in progress_section:
         if line.strip().startswith("-") and len(line) > 240:
             add_issue(core.severity_for_stage(stage), "PROGRESS_LOG entry exceeds 240 chars")

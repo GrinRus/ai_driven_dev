@@ -133,6 +133,7 @@ def run_guarded(
     stdout_max_bytes: int = STDOUT_MAX_BYTES,
     stderr_max_lines: int = STDERR_MAX_LINES,
 ) -> LaunchResult:
+    write_safety_snapshot = runtime.capture_plugin_write_safety_snapshot()
     out_buf = io.StringIO()
     err_buf = io.StringIO()
     wrapped_exit_code = 0
@@ -145,6 +146,16 @@ def run_guarded(
     except Exception as exc:  # pragma: no cover - defensive fallback
         wrapped_exit_code = RUNTIME_FAILURE_EXIT_CODE
         err_buf.write(f"[aidd] ERROR: {exc}\n")
+
+    write_safety_ok, write_safety_message = runtime.verify_plugin_write_safety_snapshot(
+        write_safety_snapshot,
+        source=log_path_value.as_posix(),
+    )
+    if write_safety_message:
+        level = "ERROR" if not write_safety_ok else "WARN"
+        err_buf.write(f"[aidd] {level}: {write_safety_message}\n")
+    if not write_safety_ok:
+        wrapped_exit_code = RUNTIME_FAILURE_EXIT_CODE
 
     stdout_text = out_buf.getvalue()
     stderr_text = err_buf.getvalue()

@@ -2,9 +2,9 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.38
-source_version: 1.1.38
-tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *), Bash(xargs *), Bash(npm *), Bash(pnpm *), Bash(yarn *), Bash(pytest *), Bash(python *), Bash(go *), Bash(mvn *), Bash(make *), Bash(./gradlew *), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *)
+prompt_version: 1.1.39
+source_version: 1.1.39
+tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *), Bash(xargs *), Bash(npm *), Bash(pnpm *), Bash(yarn *), Bash(pytest *), Bash(python *), Bash(go *), Bash(mvn *), Bash(make *), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *)
 skills:
   - feature-dev-aidd:aidd-core
   - feature-dev-aidd:aidd-policy
@@ -23,12 +23,15 @@ permissionMode: default
 - `aidd/docs/tasklist/<ticket>.md` (минимум).
 
 ## Автоматизация
-- Нет. Команда управляет гейтами и stage_result.
+- Не запускай plugin runtime entrypoints вручную (`python3 .../skills/.../runtime/*.py`) — это зона stage wrapper.
+- Не запускай ad-hoc shell test loops в implement (особенно повторяющиеся `./gradlew`/`mvn test`/`npm test`).
+- При `runtime_path_missing_or_drift` или `tests_cwd_mismatch` сразу возвращай BLOCKED/handoff вместо повторного одинакового ретрая.
 
 ## Пошаговый план
 1. Прочитай loop pack первым.
 2. Внеси минимальные изменения и фиксируй прогресс через actions/intents (не редактируй tasklist напрямую).
-3. Зафиксируй evidence ссылками на `aidd/reports/**`.
+3. Если отсутствует корректный test evidence, зафиксируй blocker/handoff вместо ручного shell-ретрая.
+4. Зафиксируй evidence ссылками на `aidd/reports/**`.
 
 ## Fail-fast и вопросы
 - Если loop pack отсутствует, верни BLOCKED.
