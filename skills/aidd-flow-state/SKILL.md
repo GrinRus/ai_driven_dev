@@ -1,6 +1,6 @@
 ---
 name: aidd-flow-state
-description: Shared flow/state runtime ownership for stage state, progress/tasklist, and stage-result lifecycle.
+description: Owns shared flow/state runtime for stage state, progress/tasklist, and stage-result lifecycle. Use when orchestration needs canonical active-stage, progress, tasklist, or stage-result commands.
 lang: en
 model: inherit
 user-invocable: false
@@ -21,6 +21,21 @@ user-invocable: false
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/tasks_derive.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/status_summary.py`
+
+## Command contracts
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_stage.py`
+- When to run: at stage entry before stage-local orchestration begins.
+- Inputs: stage identifier (`--stage`) and optional ticket/feature context.
+- Outputs: normalized active-stage state in workspace metadata.
+- Failure mode: non-zero exit when stage value is invalid or active workspace metadata is unreadable.
+- Next action: fix stage/context input and rerun stage activation.
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
+- When to run: wrapper postflight only after stage runtime + actions apply complete.
+- Inputs: canonical stage-result payload (ticket, stage, result, scope/work-item keys, evidence links).
+- Outputs: deterministic `aidd.stage_result.v1` artifact under `aidd/reports/loops/<ticket>/<scope_key>/`.
+- Failure mode: non-zero exit on missing required payload fields or invalid contract values.
+- Next action: fix postflight payload generation and rerun wrapper chain; do not switch to non-canonical runtime paths.
 
 ## Ownership guard
 - Flow/state command runtime modules must live under `skills/aidd-flow-state/runtime/*`.

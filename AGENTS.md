@@ -40,16 +40,22 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 
 ## SKILL authoring policy (cross-agent)
 - Source of truth: `docs/agent-skill-best-practices.md` + `docs/skill-language.md`.
+- Official Claude SoT for this policy wave:
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/skill-format`
+  - `https://docs.claude.com/en/docs/agents-and-tools/agent-skills/subagents`
 - Policy target: compact `SKILL.md` + progressive disclosure via supporting files.
-- Для user-invocable stage skills обязателен раздел `## Command contracts` с карточками critical commands (интерфейс, а не пересказ кода):
+- Для shared и user-invocable stage skills обязателен раздел `## Command contracts` с карточками critical commands (интерфейс, а не пересказ кода):
   - `When to run`
   - `Inputs`
   - `Outputs`
   - `Failure mode`
   - `Next action`
-- `## Additional resources` должен объяснять навигацию к supporting files:
+- `## Additional resources` должен объяснять навигацию к supporting files для shared и stage skills:
   - `when:` когда открывать ресурс;
   - `why:` какое решение/действие он разблокирует.
+- Для stage skills запрещены `context`/`agent` frontmatter в пользу явного `Run subagent` orchestration.
 - Детали реализации (`line-by-line`, внутренние ветвления, кодовые walkthrough) выносятся в `references/*`, `templates/*` или runtime-docstrings, но не дублируются в `SKILL.md`.
 
 ## Быстрые проверки (repo‑only)

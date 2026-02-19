@@ -1,10 +1,10 @@
 ---
 name: idea-new
-description: "Kick off a feature: set ticket, derive internal slug from note, build PRD draft, ask questions."
+description: Bootstraps a new feature ticket by setting active context, deriving `slug_hint`, and preparing PRD questions. Use when the idea stage starts for a new ticket.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.3.19
-source_version: 1.3.19
+prompt_version: 1.3.20
+source_version: 1.3.20
 allowed-tools:
   - Read
   - Edit

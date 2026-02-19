@@ -1,6 +1,6 @@
 ---
 name: aidd-core
-description: Thin aggregator skill for shared runtime navigation and cross-skill ownership links.
+description: Aggregates shared runtime navigation and cross-skill ownership links. Use when resolving shared runtime entrypoints or ownership boundaries.
 lang: en
 model: inherit
 user-invocable: false
@@ -19,6 +19,21 @@ user-invocable: false
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/prd_review_gate.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/rlm_targets.py`
 - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/skill_contract_validate.py`
+
+## Command contracts
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/skill_contract_validate.py`
+- When to run: before release or CI checks when skill contract drift is suspected.
+- Inputs: repository root plus optional filters for prompt/skill validation scope.
+- Outputs: deterministic validation diagnostics for contract and prompt structure issues.
+- Failure mode: non-zero exit when required contract fields/sections are missing or inconsistent.
+- Next action: fix reported contract gaps in owners, then rerun the same validator.
+
+### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-core/runtime/diff_boundary_check.py`
+- When to run: during loop/review orchestration before applying actions that may cross boundaries.
+- Inputs: diff metadata (`--ticket`, `--scope-key`, optional work-item context).
+- Outputs: boundary verdict (`ok|warn|blocked`) and evidence references.
+- Failure mode: non-zero exit when diff inputs are missing or policy boundary checks fail.
+- Next action: tighten scope/actions or hand off blocker, then rerun the boundary check.
 
 ## Ownership guard
 - `aidd-core` owns only aggregator-level shared runtime modules.

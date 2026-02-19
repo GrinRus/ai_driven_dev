@@ -1,9 +1,10 @@
 ---
-description: Create or refine tasklist based on plan/PRD/spec.
+name: tasks-new
+description: Derives or refines tasklist items from PRD, plan, and spec artifacts. Use when tasklist stage prepares implementation-ready work items.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.1.21
-source_version: 1.1.21
+prompt_version: 1.1.22
+source_version: 1.1.22
 allowed-tools:
   - Read
   - Edit

@@ -1,9 +1,10 @@
 ---
-description: Summarize ticket status and key artifacts.
+name: status
+description: Generates consolidated ticket status summary and key artifact pointers. Use when checking current stage state or handoff readiness.
 argument-hint: [$1]
 lang: ru
-prompt_version: 1.0.7
-source_version: 1.0.7
+prompt_version: 1.0.8
+source_version: 1.0.8
 allowed-tools:
   - Read
   - "Bash(rg *)"
