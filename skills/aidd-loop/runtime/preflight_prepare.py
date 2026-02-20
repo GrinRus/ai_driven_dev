@@ -420,18 +420,29 @@ def _build_preflight_result(
     context: Dict[str, str],
     artifacts: Dict[str, str],
 ) -> Dict[str, Any]:
+    normalized_status = str(status or "").strip().lower() or "blocked"
+    normalized_reason_code = str(reason_code or "").strip().lower()
+    normalized_reason = str(reason or "").strip()
+    result_value = "done" if normalized_status == "ok" else "blocked"
     payload: Dict[str, Any] = {
-        "schema": "aidd.stage_result.preflight.v1",
+        "schema": "aidd.stage_result.v1",
+        "schema_version": "aidd.stage_result.v1",
         "ticket": context["ticket"],
-        "stage": context["stage"],
+        "stage": "preflight",
         "scope_key": context["scope_key"],
         "work_item_key": context["work_item_key"],
-        "status": status,
-        "reason_code": reason_code,
-        "reason": reason,
-        "generated_at": utc_timestamp(),
-        "contract": context["contract_rel"],
-        "artifacts": dict(sorted(artifacts.items())),
+        "result": result_value,
+        "status": normalized_status,
+        "reason_code": normalized_reason_code,
+        "reason": normalized_reason,
+        "updated_at": utc_timestamp(),
+        "details": {
+            "preflight_status": normalized_status,
+            "target_stage": context["stage"],
+            "contract": context["contract_rel"],
+            "artifacts": dict(sorted(artifacts.items())),
+            "legacy_schema": "aidd.stage_result.preflight.v1",
+        },
     }
     errors = preflight_result_validate.validate_preflight_result_data(payload)
     if errors:

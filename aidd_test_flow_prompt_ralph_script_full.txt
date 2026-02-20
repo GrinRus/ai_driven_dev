@@ -1,7 +1,7 @@
 # AIDD E2E Flow Audit Prompt (TST-001, FULL)
 
-Задача: **AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + W91/W92/W93/W94/W98 Readiness + Fullstack task selection**  
-База канона: **Wave 96 + Wave 97 + Wave 98 + Wave 90 completed** (skill-first, python-only runtime, RLM-only research, no-fork stage orchestration).
+Задача: **AIDD E2E Flow Audit (TST-001) + Ralph Loop Compliance + Full-flow task selection**  
+База канона: **skill-first, python-only runtime, RLM-only research, no-fork stage orchestration**.
 
 Роль: ты — один аудитор-агент. Проведи **полный** e2e прогон AIDD flow в одном репозитории и собери доказательства (логи/артефакты).  
 **НЕ** исправляй проект и **НЕ** делай ручные правки `aidd/docs/**` или `aidd/reports/**` ради прохождения гейтов.
@@ -41,10 +41,10 @@
 - `PROFILE=smoke`
   - Цель: быстрый health-check.
   - Выполняются шаги: `0,1,2,3,4,5,8,99`.
-  - Шаги `6,7,9` помечаются `SKIPPED (profile=smoke)`.
+  - Шаги `6,7` помечаются `SKIPPED (profile=smoke)`.
 - `PROFILE=full`
   - Цель: полный регрессионный аудит.
-  - Выполняются шаги: `0..9,99`.
+  - Выполняются шаги: `0,1,2,3,4,5,6,7,8,99`.
 
 ## 4) Ключевые правила
 
@@ -75,6 +75,7 @@
 - R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid` и исключать из расчёта stall.
 - R12.4: Если primary extraction дал только `stream_path_invalid` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
 - R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
+- R13.0: Для preflight write-path также canonical-only: `schema=aidd.stage_result.v1`, `stage=preflight`, `details.target_stage=<implement|review|qa>`; legacy `aidd.stage_result.preflight.v1` допустим только как temporary read-compat payload (не runtime write-path).
 - R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
 - R13.2: Для loop/review `reason_code=blocking_findings` трактовать как ожидаемый `REVISE`-сигнал (не flow bug по умолчанию).
 - R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage wrapper путём.
@@ -151,6 +152,11 @@
 - Если `main log` и/или stream растут, но top-level `result` не появляется (включая `result_count=0`, token-limit, repeated nested tool errors):
   - до исчерпания budget этапа **не** делать `kill`;
   - помечать как `WARN(prompt-exec no_convergence_yet)` и продолжать наблюдение.
+- Если timeout loop-step произошёл при активном stream, но budget стадии ещё не исчерпан (`reason_code=seed_stage_active_stream_timeout`):
+  - трактовать как `WARN(prompt-exec no_convergence_yet)`;
+  - продолжать наблюдение/итерации; не завершать шаг terminal-статусом.
+- Если timeout loop-step произошёл по исчерпанию budget стадии (`reason_code=seed_stage_budget_exhausted`):
+  - трактовать как watchdog budget termination (`NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`).
 - Для `silent stall` и preflight-предупреждения делай ровно один debug-retry той же команды с `ANTHROPIC_LOG=debug` перед финальной классификацией.
 - При завершении процесса с `exit_code=143` обязателен `AUDIT_DIR/<step>_termination_attribution.txt` с полями: `exit_code`, `signal`, `killed_flag`, `watchdog_marker`, `parent_pid`, `classification`, `evidence_paths`.
 
@@ -165,6 +171,8 @@
   - внешнее завершение родительского процесса/TTY/session manager (IDE stop, parent shell terminate, external `SIGTERM`).
 - Затем `prompt-exec issue`:
   - buffering/quoting/runner/hang/silent stall
+  - `exit_code=127` -> `launcher_tokenization_or_command_not_found` (не `completed`)
+  - `reason_code=seed_stage_budget_exhausted` -> `watchdog_terminated` по budget exhaustion
 - Отдельно `contract mismatch`:
   - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate (включая legacy stage-result schema payload)
 - Только потом `flow bug`:
@@ -460,7 +468,7 @@
   - `python3 $PLUGIN_DIR/skills/researcher/runtime/research.py --ticket $TICKET --auto --paths backend/src/main/java,frontend/src/pages --keywords github,analysis,flow`
 - пометить fallback marker.
 
-W90 check (после fallback, если был):
+RLM artifacts check (после fallback, если был):
 - must exist:
   - `${TICKET}-rlm-targets.json`
   - `${TICKET}-rlm-manifest.json`
@@ -518,7 +526,7 @@ W90 check (после fallback, если был):
 - сохранить `05_tasklist_status_check.txt`.
 - если после retry tasks-new остаётся `BLOCKED`:
   - пометить как `prompt-flow blocker`,
-  - шаги 6/7 пометить `NOT VERIFIED` и перейти к 8/9/99.
+  - шаги 6/7 пометить `NOT VERIFIED` и перейти к 8/99.
 
 ### Шаг 6. Loop seed (только full)
 
@@ -531,7 +539,7 @@ W90 check (после fallback, если был):
 - если `*_summary.txt` содержит `result_count=0` при валидном `init`, классифицировать как `NOT VERIFIED (no_top_level_result)` + `prompt-exec issue`.
 - если в логах шага есть `python3 skills/.../runtime/*.py` + `can't open file`, классифицировать как `NOT VERIFIED (prompt_flow_drift_non_canonical_runtime_path)`.
 
-W94 checks:
+Loop seed integrity checks:
 - `06_active_after_review.json`
 - `06_work_item_check.txt`:
   - допустимо: `iteration_id=I<N>`/`M<N>` или `null`
@@ -550,7 +558,7 @@ W94 checks:
 Fail-fast gate (до шага 7):
 - проверить, что артефакты loop-seed существуют и не пустые: `06_active_after_review.json`, `06_work_item_check.txt`, `06_wrapper_logs_tree.txt`, `06_loops_tree.txt`;
 - если любой из артефактов отсутствует/пустой, классифицировать как `NOT VERIFIED (preloop_artifacts_missing)` + `prompt-flow drift`;
-- при `preloop_artifacts_missing` шаги 7 и 8 пометить `NOT VERIFIED` и перейти к шагам 9 и 99 (без запуска auto-loop/qa).
+- при `preloop_artifacts_missing` шаги 7 и 8 пометить `NOT VERIFIED` и перейти к шагу 99 (без запуска auto-loop/qa).
 
 ### Шаг 7. Auto-loop (только full)
 
@@ -582,7 +590,7 @@ Fail-fast gate (до шага 7):
 - ожидать recovery path `scope_drift_reconcile_probe` (как минимум один probe до итогового BLOCK);
 - отсутствие этих признаков фиксировать как `policy_mismatch(scope_drift_recovery_path)`.
 
-W94/W97 checks:
+Loop runtime integrity checks:
 - `07_scope_mismatch_check.txt`
 - `07_id_review_tests_hits.txt` (должно быть пусто)
 - `07_python_only_surface_check.txt` (не должно быть shell wrapper вызовов)
@@ -608,22 +616,8 @@ W94/W97 checks:
 - если hang/kill: fallback
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`
 
-W94-5:
+QA integrity checks:
 - `08_qa_gradle_check.txt` (проверка через `find` + `rg`, без raw-glob вроде `aidd/reports/qa/*tests*.log`, чтобы избежать `no matches found` в zsh).
-
-### Шаг 9. Wave 98 readiness snapshot (только full)
-
-Зачем: read-only валидация контрактов no-fork/RLM/python-only и regression suites.
-
-Сделать в plugin repo:
-- R98-M1a..M1e scans;
-- R98-M2 surfaces/tests/write-check;
-- R98-M3 bash-surface scan;
-- R98-M4 pytest subset + smoke-workflow;
-- R98-M4b workflow parity grep.
-
-Сохранить артефакты как в текущем naming:
-- `09_r98_m1a.txt` ... `09_r98_m4b.txt`.
 
 ### Шаг 99. Post-run write-safety
 
@@ -649,24 +643,14 @@ W94-5:
 - Что `NOT VERIFIED` и почему.
 - Bug reports с severity.
 - Ralph loop summary.
-- Блок W94 checks:
+- Блок Flow Integrity Checks:
   - slug hygiene
-  - active.work_item invariant
-  - scope mismatch recovery
+  - plugin init evidence (`plugins`, `slash_commands`, `skills`)
+  - canonical stage_result contract
   - stream-aware liveness probe (main log + stream jsonl/log)
-  - loop runner permission mode (nested runner)
-  - preflight/readmap/writemap/actions/wrapper logs
-  - stage_result contract mismatch diagnostics (`invalid-schema` fallback)
   - blocking_findings semantics (`REVISE` signal + `ralph` recoverable path)
-  - marker semantics
-  - QA gradle cwd
+  - `NOT VERIFIED` causes
   - plugin write-safety
-- Блок W98/W90/W97 checks:
-  - RLM-only artifacts
-  - no-fork orchestration
-  - `aidd-stage-research` preload in `agents/researcher.md`
-  - regression suite + smoke (`R98-M4`)
-  - python-only runtime surface
 - Дополнительный блок Env diagnostics:
   - plugin list snapshot
   - `init` evidence (`plugins`, `slash_commands`, `skills`)

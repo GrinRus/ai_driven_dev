@@ -258,7 +258,18 @@ def write_loop_preflight_contract_artifacts(
     write_file(
         tmp_path,
         f"reports/loops/{ticket}/{resolved_scope}/stage.preflight.result.json",
-        '{"schema":"aidd.stage_result.preflight.v1","status":"ok"}\n',
+        (
+            '{"schema":"aidd.stage_result.v1","schema_version":"aidd.stage_result.v1",'
+            '"ticket":"'
+            + ticket
+            + '","stage":"preflight","scope_key":"'
+            + resolved_scope
+            + '","work_item_key":"",'
+            '"result":"done","status":"ok","updated_at":"2026-01-01T00:00:00Z",'
+            '"details":{"target_stage":"'
+            + stage
+            + '","artifacts":{}}}\n'
+        ),
     )
     write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.preflight.log", "ok\n")
     write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.run.log", "ok\n")

@@ -43,6 +43,6 @@
   - `aidd/reports/actions/**`
 
 ## Path policy
-- Stage-specific entrypoints: `skills/<stage>/scripts/*` (canonical).
-- Shared entrypoints: target canonical `skills/aidd-core/runtime/*.py`.
-- `tools/*.sh` допускаются только как redirect wrappers на время migration window.
+- Stage-specific entrypoints: `skills/<stage>/runtime/*.py` (canonical Python-only).
+- Shared entrypoints: canonical `skills/aidd-core/runtime/*.py`, `skills/aidd-docio/runtime/*.py`, `skills/aidd-flow-state/runtime/*.py`, `skills/aidd-loop/runtime/*.py`.
+- `tools/*.sh` и stage shell wrappers не входят в runtime-path и не используются для stage orchestration.

@@ -671,6 +671,117 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(attribution.get("watchdog_marker"), 1)
             self.assertEqual(attribution.get("classification"), "watchdog_terminated")
 
+    def test_loop_run_treats_active_stream_timeout_as_non_terminal_before_budget(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-ACTIVE-STREAM-NONTERMINAL"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            first = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "seed_stage_active_stream_timeout",
+                        "reason": "watchdog timeout with active stream",
+                        "stream_liveness": {
+                            "active_source": "stream",
+                            "step_stream_log_bytes": 64,
+                            "step_stream_jsonl_bytes": 128,
+                        },
+                        "budget_exhausted": False,
+                        "watchdog_marker": 1,
+                        "termination_attribution": {
+                            "exit_code": 143,
+                            "signal": "SIGTERM",
+                            "killed_flag": 1,
+                            "watchdog_marker": 1,
+                            "classification": "watchdog_no_convergence_yet",
+                        },
+                    }
+                ),
+                stderr="",
+            )
+            second = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "",
+                        "reason": "",
+                    }
+                ),
+                stderr="",
+            )
+
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", side_effect=[first, second]) as run_mock:
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--max-iterations",
+                                    "2",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            self.assertEqual(run_mock.call_count, 2)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "ship")
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("event=no-convergence-yet", loop_log)
+
+    def test_loop_run_classifies_unexpected_127_as_launcher_tokenization_issue(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RC127"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=127,
+                stdout="",
+                stderr="command not found",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                ["--ticket", ticket, "--max-iterations", "1", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 30)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "error")
+            self.assertEqual(payload.get("reason_code"), "launcher_tokenization_or_command_not_found")
+            attribution = payload.get("termination_attribution") or {}
+            self.assertEqual(attribution.get("classification"), "launcher_tokenization_or_command_not_found")
+            self.assertEqual(attribution.get("exit_code"), 127)
+
     def test_loop_run_blocks_when_loop_stage_payload_missing_work_item_key(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -1009,6 +1120,42 @@ class LoopRunTests(unittest.TestCase):
             self.assertGreater(int(stream_liveness.get("step_stream_log_bytes") or 0), 0)
             self.assertGreater(int(stream_liveness.get("step_stream_jsonl_bytes") or 0), 0)
 
+    def test_run_loop_step_timeout_budget_exhausted_marks_watchdog_terminated(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-SEED-BUDGET"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            stream_log = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.log", "stream-active\n")
+            stream_jsonl = write_file(root, f"reports/loops/{ticket}/cli.loop-step.seed.stream.jsonl", '{"type":"init"}\n')
+            future = time.time() + 3
+            os.utime(stream_log, (future, future))
+            os.utime(stream_jsonl, (future, future))
+            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["loop-step"], timeout=1)):
+                result = loop_run_module.run_loop_step(
+                    REPO_ROOT,
+                    root.parent,
+                    root,
+                    ticket,
+                    None,
+                    from_qa=None,
+                    work_item_key=None,
+                    select_qa_handoff=False,
+                    stream_mode="text",
+                    timeout_seconds=1,
+                    stage_budget_seconds=1,
+                    stage_budget_remaining_seconds=1,
+                    budget_exhausted_on_timeout=True,
+                    silent_stall_seconds=1,
+                )
+
+            self.assertEqual(result.returncode, 20)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("reason_code"), "seed_stage_budget_exhausted")
+            self.assertEqual(payload.get("budget_exhausted"), True)
+            self.assertEqual(payload.get("watchdog_marker"), 1)
+            attribution = payload.get("termination_attribution") or {}
+            self.assertEqual(attribution.get("classification"), "watchdog_terminated")
+
     def test_run_loop_step_timeout_ignores_stale_stream_artifacts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -1038,6 +1185,102 @@ class LoopRunTests(unittest.TestCase):
             self.assertEqual(payload.get("reason_code"), "seed_stage_silent_stall")
             stream_liveness = payload.get("stream_liveness") or {}
             self.assertEqual(stream_liveness.get("active_source"), "none")
+
+    def test_loop_run_prefers_step_timeout_when_stage_budget_is_larger(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-STEP-TIMEOUT-PRECEDENCE"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "loop_runner_permissions",
+                        "reason": "command requires approval",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                        "AIDD_LOOP_STEP_TIMEOUT_SECONDS": "9",
+                        "AIDD_LOOP_STAGE_BUDGET_SECONDS": "60",
+                    },
+                    clear=False,
+                ):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result) as run_mock:
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                ["--ticket", ticket, "--max-iterations", "1", "--stream", "text", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            self.assertEqual(run_mock.call_count, 1)
+            _, kwargs = run_mock.call_args
+            self.assertEqual(kwargs.get("timeout_seconds"), 9)
+            self.assertEqual(kwargs.get("budget_exhausted_on_timeout"), False)
+
+    def test_loop_run_marks_budget_exhausted_when_budget_is_smaller_than_watchdog(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-BUDGET-PRECEDENCE"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            fake_result = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=20,
+                stdout=json.dumps(
+                    {
+                        "status": "blocked",
+                        "stage": "implement",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason_code": "loop_runner_permissions",
+                        "reason": "command requires approval",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                        "AIDD_LOOP_STEP_TIMEOUT_SECONDS": "60",
+                        "AIDD_LOOP_STAGE_BUDGET_SECONDS": "9",
+                    },
+                    clear=False,
+                ):
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_result) as run_mock:
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                ["--ticket", ticket, "--max-iterations", "1", "--stream", "text", "--format", "json"]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            self.assertEqual(run_mock.call_count, 1)
+            _, kwargs = run_mock.call_args
+            self.assertEqual(kwargs.get("timeout_seconds"), 9)
+            self.assertEqual(kwargs.get("budget_exhausted_on_timeout"), True)
 
     def test_loop_run_blocked_promotes_permission_reason_code(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:

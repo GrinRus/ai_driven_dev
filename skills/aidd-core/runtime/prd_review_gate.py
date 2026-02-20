@@ -23,6 +23,10 @@ from aidd_runtime.feature_ids import resolve_aidd_root
 
 DEFAULT_APPROVED = {"ready"}
 DEFAULT_BLOCKING = {"blocked"}
+STATUS_ALIASES = {
+    "ready_for_implementation": "ready",
+    "ready-for-implementation": "ready",
+}
 DEFAULT_BLOCKING_SEVERITIES = {"critical"}
 DEFAULT_CODE_PREFIXES = (
     "src/",
@@ -149,10 +153,17 @@ def parse_review_section(content: str) -> tuple[bool, str, List[str]]:
             continue
         lower = stripped.lower()
         if lower.startswith("status:"):
-            status = stripped.split(":", 1)[1].strip().lower()
+            status = normalize_review_status(stripped.split(":", 1)[1].strip())
         elif stripped.startswith("- ["):
             action_items.append(stripped)
     return found, status, action_items
+
+
+def normalize_review_status(value: str) -> str:
+    status = str(value or "").strip().lower()
+    if not status:
+        return ""
+    return STATUS_ALIASES.get(status, status)
 
 
 def _resolve_report_path(root: Path, template: str) -> Path:
@@ -287,8 +298,8 @@ def run_gate(args: argparse.Namespace) -> int:
 
     allow_missing = bool(gate.get("allow_missing_section", False))
     require_closed = bool(gate.get("require_action_items_closed", True))
-    approved: Set[str] = {str(item).lower() for item in gate.get("approved_statuses", DEFAULT_APPROVED)}
-    blocking: Set[str] = {str(item).lower() for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
+    approved: Set[str] = {normalize_review_status(str(item)) for item in gate.get("approved_statuses", DEFAULT_APPROVED)}
+    blocking: Set[str] = {normalize_review_status(str(item)) for item in gate.get("blocking_statuses", DEFAULT_BLOCKING)}
 
     content = prd_path.read_text(encoding="utf-8")
     dialog_status = extract_dialog_status(content)
@@ -342,9 +353,9 @@ def run_gate(args: argparse.Namespace) -> int:
     report_status = ""
     if report_data is not None:
         if isinstance(report_data, dict):
-            report_status = str(report_data.get("status") or "").strip().lower()
+            report_status = normalize_review_status(str(report_data.get("status") or "").strip())
             if not report_status:
-                report_status = str(report_data.get("recommended_status") or "").strip().lower()
+                report_status = normalize_review_status(str(report_data.get("recommended_status") or "").strip())
         if report_status and status and report_status != status:
             print(format_message("status_mismatch", ticket, slug_hint, status, report_status))
             return 1

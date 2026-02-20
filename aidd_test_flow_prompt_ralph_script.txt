@@ -238,7 +238,6 @@ RLM-only check:
 
 - Шаг 6 (manual implement/review seed)
 - Шаг 7 (auto-loop)
-- Шаг 9 (Wave 98 deep snapshot)
 
 Отмечать их как `SKIPPED (profile=smoke)`.
 

@@ -71,7 +71,24 @@ class GateWorkflowPreflightContractTests(unittest.TestCase):
         write_file(
             root,
             f"reports/loops/{ticket}/{scope_key}/stage.preflight.result.json",
-            json.dumps({"schema": "aidd.stage_result.preflight.v1", "status": "ok", "stage": stage}) + "\n",
+            json.dumps(
+                {
+                    "schema": "aidd.stage_result.v1",
+                    "stage": "preflight",
+                    "result": "done",
+                    "status": "ok",
+                    "ticket": ticket,
+                    "scope_key": scope_key,
+                    "work_item_key": (
+                        f"iteration_id={scope_key.split('iteration_id_', 1)[-1]}"
+                        if scope_key.startswith("iteration_id_")
+                        else ""
+                    ),
+                    "updated_at": "2026-01-01T00:00:00Z",
+                    "details": {"target_stage": stage, "artifacts": {}},
+                }
+            )
+            + "\n",
         )
         write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.preflight.test.log", "ok\n")
         write_file(root, f"reports/logs/{stage}/{ticket}/{scope_key}/wrapper.run.test.log", "ok\n")

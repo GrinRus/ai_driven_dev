@@ -69,6 +69,24 @@ def _body(path: Path) -> str:
 
 
 class E2EPromptContractTests(unittest.TestCase):
+    def test_prompts_do_not_contain_wave_readiness_markers(self) -> None:
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            self.assertIsNone(
+                re.search(r"\bWave\s+\d+\b", text, flags=re.IGNORECASE),
+                msg=f"{prompt}: contains wave marker",
+            )
+            self.assertIsNone(
+                re.search(r"\bW\d{2,}\b", text),
+                msg=f"{prompt}: contains readiness marker W<number>",
+            )
+
+    def test_full_prompt_contains_mandatory_fixed_fs_catalog(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("Каталог задач для шага 3 (выбрать ровно одну)", text)
+        for task_id in ("FS-GA-01", "FS-MP-02", "FS-RBAC-03", "FS-ID-04", "FS-GRAPH-05"):
+            self.assertIn(task_id, text, msg=f"missing fixed task id {task_id}")
+
     def test_full_prompt_contains_retry_seed_and_drift_guards(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("retry-триггер разрешён только по текущему stage-return", text)

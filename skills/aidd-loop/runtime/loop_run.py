@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import time
 import sys
@@ -56,13 +57,23 @@ _MARKER_NOISE_PLACEHOLDERS = ("<title>", "<ticket>", "<scope_key>", "<commit/pr|
 _MARKER_INLINE_PATH_RE = re.compile(r"(?P<path>(?:aidd|docs|reports)/[^\s,;]+)", re.IGNORECASE)
 _REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
 _NEXT_ACTION_RE = re.compile(r"Next action:\s*`([^`]+)`", re.IGNORECASE)
-_SCOPE_STALE_HINT_RE = re.compile(r"\bscope_fallback_stale_ignored=([A-Za-z0-9_.:-]+)\b", re.IGNORECASE)
+_SCOPE_STALE_HINT_RE = re.compile(
+    r"\b(?:scope_fallback_stale_ignored|scope_shape_invalid)=([A-Za-z0-9_.:-]+)\b",
+    re.IGNORECASE,
+)
 DEFAULT_LOOP_STEP_TIMEOUT_SECONDS = 900
+DEFAULT_SILENT_STALL_SECONDS = 1200
+DEFAULT_STAGE_BUDGET_SECONDS = 3600
 DEFAULT_BLOCKED_POLICY = "strict"
 DEFAULT_RECOVERABLE_BLOCK_RETRIES = 2
 DEFAULT_LOOP_RESEARCH_GATE_MODE = "auto"
 BLOCKED_POLICY_VALUES = {"strict", "ralph"}
 RESEARCH_GATE_MODE_VALUES = {"off", "on", "auto"}
+STAGE_DEFAULT_BUDGET_SECONDS = {
+    "implement": 3600,
+    "review": 3600,
+    "qa": 3600,
+}
 HARD_BLOCK_REASON_CODES = {
     "loop_runner_permissions",
     "user_approval_required",
@@ -301,6 +312,61 @@ def _resolve_step_timeout_seconds(raw: object) -> int:
     except (TypeError, ValueError):
         value = DEFAULT_LOOP_STEP_TIMEOUT_SECONDS
     return max(value, 0)
+
+
+def _resolve_silent_stall_seconds(raw: object) -> int:
+    if raw is None or str(raw).strip() == "":
+        raw = os.environ.get("AIDD_LOOP_SILENT_STALL_SECONDS", str(DEFAULT_SILENT_STALL_SECONDS))
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        value = DEFAULT_SILENT_STALL_SECONDS
+    return max(value, 0)
+
+
+def _resolve_stage_budget_seconds(raw: object, stage: str) -> int:
+    stage_value = str(stage or "").strip().lower()
+    env_key = f"AIDD_LOOP_STAGE_BUDGET_SECONDS_{stage_value.upper()}" if stage_value else ""
+    stage_default = STAGE_DEFAULT_BUDGET_SECONDS.get(stage_value, DEFAULT_STAGE_BUDGET_SECONDS)
+    candidate = raw
+    if candidate is None or str(candidate).strip() == "":
+        if env_key:
+            candidate = os.environ.get(env_key, "")
+    if candidate is None or str(candidate).strip() == "":
+        candidate = os.environ.get("AIDD_LOOP_STAGE_BUDGET_SECONDS", str(stage_default))
+    try:
+        value = int(str(candidate).strip())
+    except (TypeError, ValueError):
+        value = stage_default
+    return max(value, 0)
+
+
+def _signal_name_from_return_code(return_code: int) -> str:
+    if int(return_code) == 143:
+        return "SIGTERM"
+    if int(return_code) < 0:
+        signum = abs(int(return_code))
+        try:
+            return signal.Signals(signum).name
+        except Exception:  # pragma: no cover - defensive mapping
+            return f"SIG{signum}"
+    return ""
+
+
+def _build_termination_attribution(
+    *,
+    exit_code: int,
+    classification: str,
+    killed_flag: bool = False,
+    watchdog_marker: bool = False,
+) -> dict[str, object]:
+    return {
+        "exit_code": int(exit_code),
+        "signal": _signal_name_from_return_code(int(exit_code)),
+        "killed_flag": 1 if killed_flag else 0,
+        "watchdog_marker": 1 if watchdog_marker else 0,
+        "classification": str(classification or "").strip() or "unknown_non_zero_exit",
+    }
 
 
 def _resolve_blocked_policy(raw: str | None) -> str:
@@ -545,6 +611,10 @@ def run_loop_step(
     select_qa_handoff: bool,
     stream_mode: str | None,
     timeout_seconds: int,
+    stage_budget_seconds: int = 0,
+    stage_budget_remaining_seconds: int = 0,
+    budget_exhausted_on_timeout: bool = False,
+    silent_stall_seconds: int = 0,
 ) -> subprocess.CompletedProcess[str]:
     cmd = [
         sys.executable,
@@ -634,19 +704,48 @@ def run_loop_step(
             "step_stream_jsonl_updated_at": _safe_updated_at(stream_jsonl_path),
             "observability_degraded": False,
         }
-        if stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0:
+        stream_active = bool(
+            stream_liveness["step_stream_jsonl_bytes"] > 0 or stream_liveness["step_stream_log_bytes"] > 0
+        )
+        budget_exhausted = bool(budget_exhausted_on_timeout)
+        if stream_active:
             stream_liveness["active_source"] = "stream"
-            reason_code = "seed_stage_active_stream_timeout"
-            reason = (
-                f"loop-step watchdog timeout after {timeout_seconds}s while stream artifacts remain active"
-            )
+            if budget_exhausted:
+                reason_code = "seed_stage_budget_exhausted"
+                reason = (
+                    f"loop-step reached stage budget after {timeout_seconds}s while stream artifacts remained active"
+                )
+            else:
+                reason_code = "seed_stage_active_stream_timeout"
+                reason = (
+                    f"loop-step watchdog timeout after {timeout_seconds}s while stream artifacts remain active"
+                )
         else:
             stream_liveness["active_source"] = "none"
-            reason_code = "seed_stage_silent_stall"
-            reason = f"loop-step watchdog timeout after {timeout_seconds}s without completion"
+            if budget_exhausted:
+                reason_code = "seed_stage_budget_exhausted"
+                reason = f"loop-step reached stage budget after {timeout_seconds}s without completion"
+            else:
+                reason_code = "seed_stage_silent_stall"
+                reason = f"loop-step watchdog timeout after {timeout_seconds}s without completion"
         diagnostics["stream_log_path"] = stream_log_rel or None
         diagnostics["stream_jsonl_path"] = stream_jsonl_rel or None
         diagnostics["stream_liveness"] = stream_liveness
+        diagnostics["budget_exhausted"] = budget_exhausted
+        diagnostics["stage_budget_seconds"] = stage_budget_seconds or None
+        diagnostics["stage_budget_remaining_seconds"] = stage_budget_remaining_seconds or None
+        diagnostics["silent_stall_seconds"] = silent_stall_seconds or None
+        watchdog_marker = True
+        termination_attribution = _build_termination_attribution(
+            exit_code=143,
+            classification=(
+                "watchdog_terminated"
+                if watchdog_marker and budget_exhausted
+                else "watchdog_no_convergence_yet"
+            ),
+            killed_flag=True,
+            watchdog_marker=watchdog_marker,
+        )
         payload = {
             "status": "blocked",
             "stage": active_stage or None,
@@ -657,6 +756,13 @@ def run_loop_step(
             "stage_result_path": expected_stage_result_path or last_stage_result_path or "",
             "stage_result_diagnostics": json.dumps(diagnostics, ensure_ascii=False),
             "stall_timeout_seconds": timeout_seconds,
+            "silent_stall_seconds": silent_stall_seconds or timeout_seconds,
+            "stage_budget_seconds": stage_budget_seconds or None,
+            "stage_budget_remaining_seconds": stage_budget_remaining_seconds or None,
+            "budget_exhausted": budget_exhausted,
+            "killed_flag": 1,
+            "watchdog_marker": 1,
+            "termination_attribution": termination_attribution,
             "stream_log_path": stream_log_rel,
             "stream_jsonl_path": stream_jsonl_rel,
             "stream_liveness": stream_liveness,
@@ -717,6 +823,19 @@ def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
         help="Watchdog timeout for each loop-step subprocess (default from env or 900).",
     )
     parser.add_argument(
+        "--silent-stall-seconds",
+        type=int,
+        help="Silent stall watchdog window (seconds) when stream liveness is unavailable (default from env or 1200).",
+    )
+    parser.add_argument(
+        "--stage-budget-seconds",
+        type=int,
+        help=(
+            "Per-stage budget in seconds before terminal timeout classification "
+            "(default: implement/review/qa=3600; override via env or this flag)."
+        ),
+    )
+    parser.add_argument(
         "--blocked-policy",
         choices=("strict", "ralph"),
         help="Blocked outcome policy (strict|ralph). In ralph mode recoverable blocked reasons trigger bounded retries.",
@@ -764,9 +883,11 @@ def main(argv: List[str] | None = None) -> int:
     runner_label = resolve_runner_label(args.runner_label)
     stream_mode = resolve_stream_mode(getattr(args, "stream", None))
     step_timeout_seconds = _resolve_step_timeout_seconds(getattr(args, "step_timeout_seconds", None))
+    silent_stall_seconds = _resolve_silent_stall_seconds(getattr(args, "silent_stall_seconds", None))
     blocked_policy = _resolve_blocked_policy(getattr(args, "blocked_policy", None))
     recoverable_retry_budget = _resolve_recoverable_retry_budget(getattr(args, "recoverable_block_retries", None))
     research_gate_mode = _resolve_loop_research_gate_mode(getattr(args, "research_gate", None))
+    stage_budget_starts: Dict[str, float] = {}
     recoverable_retry_attempt = 0
     last_recovery_path = ""
     scope_drift_recovery_probe_used = False
@@ -786,7 +907,8 @@ def main(argv: List[str] | None = None) -> int:
         (
             f"{utc_timestamp()} event=start ticket={ticket} max_iterations={max_iterations} runner={runner_label} "
             f"blocked_policy={blocked_policy} recoverable_retry_budget={recoverable_retry_budget} "
-            f"research_gate={research_gate_mode}"
+            f"research_gate={research_gate_mode} step_timeout_seconds={step_timeout_seconds} "
+            f"silent_stall_seconds={silent_stall_seconds}"
         ),
     )
 
@@ -904,6 +1026,114 @@ def main(argv: List[str] | None = None) -> int:
 
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
+        active_stage_for_budget = str(runtime.read_active_stage(target) or "").strip().lower()
+        if active_stage_for_budget not in {"implement", "review", "qa"}:
+            active_stage_for_budget = "qa" if args.from_qa else "implement"
+        stage_budget_seconds = _resolve_stage_budget_seconds(
+            getattr(args, "stage_budget_seconds", None),
+            active_stage_for_budget,
+        )
+        now_ts = time.time()
+        stage_started_at = stage_budget_starts.get(active_stage_for_budget)
+        if stage_started_at is None:
+            stage_started_at = now_ts
+            stage_budget_starts[active_stage_for_budget] = stage_started_at
+        stage_elapsed_seconds = max(now_ts - stage_started_at, 0.0)
+        stage_budget_remaining_seconds = (
+            max(int(stage_budget_seconds - stage_elapsed_seconds), 0)
+            if stage_budget_seconds > 0
+            else 0
+        )
+
+        if stage_budget_seconds > 0 and stage_budget_remaining_seconds <= 0:
+            reason_code = "seed_stage_budget_exhausted"
+            reason = (
+                f"{active_stage_for_budget} stage budget exhausted "
+                f"({stage_budget_seconds}s, elapsed={int(stage_elapsed_seconds)}s)"
+            )
+            active_work_item = str(runtime.read_active_work_item(target) or "").strip()
+            if active_stage_for_budget == "qa":
+                budget_scope_key = runtime.resolve_scope_key("", ticket)
+            else:
+                budget_scope_key = runtime.resolve_scope_key(active_work_item, ticket)
+            termination_attribution = _build_termination_attribution(
+                exit_code=143,
+                classification="watchdog_terminated",
+                killed_flag=True,
+                watchdog_marker=True,
+            )
+            stream_liveness = {
+                "main_log_path": runtime.rel_path(log_path, target),
+                "main_log_bytes": _safe_size(log_path),
+                "main_log_updated_at": _safe_updated_at(log_path),
+                "step_stream_log_bytes": 0,
+                "step_stream_log_updated_at": "",
+                "step_stream_jsonl_bytes": 0,
+                "step_stream_jsonl_updated_at": "",
+                "observability_degraded": False,
+                "stream_path_invalid_count": 0,
+                "stream_path_invalid": [],
+                "active_source": "none",
+            }
+            payload = {
+                "status": "blocked",
+                "iterations": iteration,
+                "exit_code": BLOCKED_CODE,
+                "log_path": runtime.rel_path(log_path, target),
+                "cli_log_path": runtime.rel_path(cli_log_path, target),
+                "runner_label": runner_label,
+                "blocked_policy": blocked_policy,
+                "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
+                "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
+                "reason": reason,
+                "reason_code": reason_code,
+                "scope_key": budget_scope_key,
+                "work_item_key": active_work_item or None,
+                "recoverable_blocked": False,
+                "retry_attempt": recoverable_retry_attempt,
+                "recoverable_retry_budget": recoverable_retry_budget,
+                "runner_cmd": str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude",
+                "stage": active_stage_for_budget,
+                "stage_budget_seconds": stage_budget_seconds,
+                "stage_budget_remaining_seconds": 0,
+                "budget_exhausted": True,
+                "watchdog_marker": 1,
+                "termination_attribution": termination_attribution,
+                "stream_liveness": stream_liveness,
+                "updated_at": utc_timestamp(),
+            }
+            append_log(
+                log_path,
+                (
+                    f"{utc_timestamp()} iteration={iteration} status=blocked stage={active_stage_for_budget} "
+                    f"reason_code={reason_code} stage_budget_seconds={stage_budget_seconds} "
+                    f"stage_elapsed_seconds={int(stage_elapsed_seconds)} watchdog_marker=1"
+                ),
+            )
+            append_log(
+                cli_log_path,
+                (
+                    f"{utc_timestamp()} event=blocked iteration={iteration} "
+                    f"reason_code={reason_code} stage={active_stage_for_budget}"
+                ),
+            )
+            clear_active_mode(target)
+            emit(args.format, payload)
+            return BLOCKED_CODE
+
+        if stream_mode:
+            watchdog_timeout_seconds = max(step_timeout_seconds, 1)
+        else:
+            watchdog_timeout_seconds = max(silent_stall_seconds or step_timeout_seconds, 1)
+
+        if stage_budget_seconds > 0:
+            budget_timeout_seconds = max(stage_budget_remaining_seconds, 1)
+            timeout_seconds = min(watchdog_timeout_seconds, budget_timeout_seconds)
+            budget_exhausted_on_timeout = stage_budget_remaining_seconds <= watchdog_timeout_seconds
+        else:
+            timeout_seconds = watchdog_timeout_seconds
+            budget_exhausted_on_timeout = False
+
         result = run_loop_step(
             plugin_root,
             workspace_root,
@@ -914,7 +1144,11 @@ def main(argv: List[str] | None = None) -> int:
             work_item_key=args.work_item_key,
             select_qa_handoff=args.select_qa_handoff,
             stream_mode=stream_mode,
-            timeout_seconds=step_timeout_seconds,
+            timeout_seconds=timeout_seconds,
+            stage_budget_seconds=stage_budget_seconds,
+            stage_budget_remaining_seconds=stage_budget_remaining_seconds,
+            budget_exhausted_on_timeout=budget_exhausted_on_timeout,
+            silent_stall_seconds=silent_stall_seconds,
         )
         if result.returncode not in {DONE_CODE, CONTINUE_CODE, BLOCKED_CODE}:
             unexpected_payload: Dict[str, object] = {}
@@ -939,19 +1173,26 @@ def main(argv: List[str] | None = None) -> int:
                 status = "blocked"
                 out_code = BLOCKED_CODE
                 reason_text = nested_reason or f"loop-step runner exited with {result.returncode}"
-                termination_attribution = {
-                    "exit_code": result.returncode,
-                    "signal": "SIGTERM",
-                    "killed_flag": 1 if killed_flag else 0,
-                    "watchdog_marker": 1 if watchdog_marker else 0,
-                    "classification": reason_code,
-                }
+                termination_attribution = _build_termination_attribution(
+                    exit_code=result.returncode,
+                    classification=reason_code,
+                    killed_flag=killed_flag,
+                    watchdog_marker=watchdog_marker,
+                )
             else:
                 status = "error"
                 out_code = ERROR_CODE
-                reason_code = nested_reason_code or "loop_step_unexpected_exit"
+                if result.returncode == 127:
+                    reason_code = "launcher_tokenization_or_command_not_found"
+                else:
+                    reason_code = nested_reason_code or "loop_step_unexpected_exit"
                 reason_text = nested_reason or f"loop-step failed ({result.returncode})"
-                termination_attribution = None
+                termination_attribution = _build_termination_attribution(
+                    exit_code=result.returncode,
+                    classification=reason_code,
+                    killed_flag=False,
+                    watchdog_marker=False,
+                )
             payload = {
                 "status": status,
                 "iterations": iteration,
@@ -967,6 +1208,8 @@ def main(argv: List[str] | None = None) -> int:
                 "stage": nested_stage or None,
                 "reason": reason_text,
                 "reason_code": reason_code,
+                "watchdog_marker": int(termination_attribution.get("watchdog_marker") or 0),
+                "budget_exhausted": False,
                 "last_step": unexpected_payload if unexpected_payload else None,
                 "parse_error": parse_error or None,
                 "termination_attribution": termination_attribution,
@@ -1053,6 +1296,20 @@ def main(argv: List[str] | None = None) -> int:
             runner_effective = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
         step_stream_log = step_payload.get("stream_log_path") or ""
         step_stream_jsonl = step_payload.get("stream_jsonl_path") or ""
+        budget_exhausted = _truthy_flag(step_payload.get("budget_exhausted"))
+        step_watchdog_marker = _truthy_flag(step_payload.get("watchdog_marker"))
+        try:
+            stage_budget_seconds_payload = int(step_payload.get("stage_budget_seconds") or 0)
+        except (TypeError, ValueError):
+            stage_budget_seconds_payload = 0
+        try:
+            stage_budget_remaining_payload = int(step_payload.get("stage_budget_remaining_seconds") or 0)
+        except (TypeError, ValueError):
+            stage_budget_remaining_payload = 0
+        step_termination_raw = step_payload.get("termination_attribution")
+        step_termination_attribution = (
+            step_termination_raw if isinstance(step_termination_raw, dict) else None
+        )
         step_status = step_payload.get("status")
         step_exit_code = result.returncode
         if step_exit_code == DONE_CODE:
@@ -1195,6 +1452,33 @@ def main(argv: List[str] | None = None) -> int:
         if stream_mode and stream_liveness["active_source"] == "none" and stream_path_invalid:
             stream_liveness["observability_degraded"] = True
             stream_liveness["degraded_reason"] = "stream_path_invalid"
+
+        if step_termination_attribution is not None:
+            classification = str(step_termination_attribution.get("classification") or "").strip()
+            if not classification:
+                step_termination_attribution["classification"] = str(log_reason_code or "blocked_without_reason")
+            if "watchdog_marker" not in step_termination_attribution:
+                step_termination_attribution["watchdog_marker"] = 1 if step_watchdog_marker else 0
+            if "killed_flag" not in step_termination_attribution:
+                step_termination_attribution["killed_flag"] = 0
+            if "exit_code" not in step_termination_attribution:
+                step_termination_attribution["exit_code"] = int(step_exit_code)
+            if "signal" not in step_termination_attribution:
+                step_termination_attribution["signal"] = _signal_name_from_return_code(int(step_exit_code))
+        elif step_status == "blocked":
+            watchdog_classification = bool(
+                step_watchdog_marker
+                or log_reason_code in {"seed_stage_silent_stall", "seed_stage_active_stream_timeout", "seed_stage_budget_exhausted"}
+            )
+            step_termination_attribution = _build_termination_attribution(
+                exit_code=143 if watchdog_classification else int(step_exit_code),
+                classification=("watchdog_terminated" if watchdog_classification else str(log_reason_code or "blocked_without_reason")),
+                killed_flag=watchdog_classification,
+                watchdog_marker=watchdog_classification,
+            )
+            if watchdog_classification:
+                step_watchdog_marker = True
+
         append_log(
             log_path,
             (
@@ -1223,6 +1507,8 @@ def main(argv: List[str] | None = None) -> int:
                     f"step_jsonl:{stream_liveness['step_stream_jsonl_bytes']},"
                     f"active:{stream_liveness['active_source']}"
                 )
+                + (f" budget_exhausted={'1' if budget_exhausted else '0'}")
+                + (f" watchdog_marker={'1' if step_watchdog_marker else '0'}")
                 + (
                     f" observability_degraded={'1' if stream_liveness.get('observability_degraded') else '0'}"
                 )
@@ -1307,6 +1593,25 @@ def main(argv: List[str] | None = None) -> int:
             return DONE_CODE
         if step_exit_code == BLOCKED_CODE:
             step_stage = str(step_payload.get("stage") or "").strip().lower()
+            if log_reason_code == "seed_stage_active_stream_timeout" and not budget_exhausted:
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=no-convergence-yet iteration={iteration} "
+                        f"reason_code={log_reason_code} stage={step_stage or 'n/a'} "
+                        "classification=prompt_exec_no_convergence_yet"
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=no-convergence-yet iteration={iteration} "
+                        f"reason_code={log_reason_code} stage={step_stage or 'n/a'}"
+                    ),
+                )
+                if sleep_seconds:
+                    time.sleep(sleep_seconds)
+                continue
             scope_drift_probe_allowed = True
             if log_reason_code == "scope_drift_recoverable":
                 scope_drift_probe_allowed = not scope_drift_recovery_probe_used
@@ -1390,6 +1695,20 @@ def main(argv: List[str] | None = None) -> int:
                 "runner_cmd": runner_effective,
                 "scope_key": chosen_scope,
                 "work_item_key": step_work_item or None,
+                "stage_budget_seconds": (
+                    stage_budget_seconds_payload
+                    if "stage_budget_seconds" in step_payload
+                    else stage_budget_seconds
+                ),
+                "stage_budget_remaining_seconds": (
+                    stage_budget_remaining_payload
+                    if "stage_budget_remaining_seconds" in step_payload
+                    else stage_budget_remaining_seconds
+                ),
+                "silent_stall_seconds": silent_stall_seconds,
+                "budget_exhausted": budget_exhausted,
+                "watchdog_marker": 1 if step_watchdog_marker else 0,
+                "termination_attribution": step_termination_attribution,
                 "active_stage_before": active_stage_before or None,
                 "active_stage_after": active_stage_after or None,
                 "active_stage_sync_applied": active_stage_sync_applied,
@@ -1426,6 +1745,14 @@ def main(argv: List[str] | None = None) -> int:
         "stream_log_path": runtime.rel_path(stream_log_path, target) if stream_log_path else "",
         "stream_jsonl_path": runtime.rel_path(stream_jsonl_path, target) if stream_jsonl_path else "",
         "last_step": last_payload,
+        "budget_exhausted": False,
+        "watchdog_marker": 0,
+        "termination_attribution": _build_termination_attribution(
+            exit_code=MAX_ITERATIONS_CODE,
+            classification="max_iterations_reached",
+            killed_flag=False,
+            watchdog_marker=False,
+        ),
         "updated_at": utc_timestamp(),
     }
     clear_active_mode(target)

@@ -133,6 +133,19 @@ def test_allows_when_review_approved(tmp_path):
     assert status == 0, output
 
 
+def test_allows_ready_for_implementation_alias(tmp_path):
+    setup_base(tmp_path)
+    write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY_FOR_IMPLEMENTATION"))
+    write_json(
+        tmp_path,
+        "reports/prd/demo-checkout.json",
+        {"ticket": "demo-checkout", "status": "ready_for_implementation", "findings": []},
+    )
+
+    status, output = run_prd_gate(tmp_path, SRC_PATH)
+    assert status == 0, output
+
+
 def test_allows_when_pack_report_present(tmp_path):
     setup_base(tmp_path)
     write_file(tmp_path, "docs/prd/demo-checkout.prd.md", make_prd("READY"))

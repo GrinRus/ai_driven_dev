@@ -59,6 +59,26 @@ def _strip_flag_with_value(tokens: List[str], flag: str) -> Tuple[List[str], boo
     return cleaned, stripped
 
 
+def _normalize_runner_tokens(tokens: List[str]) -> Tuple[List[str], List[str]]:
+    notices: List[str] = []
+    if not tokens:
+        return ["claude"], notices
+
+    first = tokens[0]
+    if "=" not in first:
+        return tokens, notices
+
+    if first.startswith("-"):
+        return tokens, notices
+
+    key, value = first.split("=", 1)
+    if key and key.upper() == key and value:
+        normalized = [value, *tokens[1:]]
+        notices.append("runner assignment prefix normalized into command token")
+        return normalized, notices
+    return tokens, notices
+
+
 def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str], List[str]]:
     notices: List[str] = []
     updated, stripped_plugin = _strip_flag_with_value(tokens, "--plugin-dir")
@@ -85,6 +105,8 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
     raw = args_runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude"
     tokens = shlex.split(raw) if raw.strip() else ["claude"]
     notices: List[str] = []
+    tokens, normalize_notices = _normalize_runner_tokens(tokens)
+    notices.extend(normalize_notices)
     if "-p" in tokens:
         tokens = [token for token in tokens if token != "-p"]
         notices.append("runner flag -p dropped; loop-step adds -p with slash command")

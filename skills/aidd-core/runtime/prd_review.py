@@ -31,6 +31,10 @@ def detect_project_root(target: Optional[Path] = None) -> Path:
 DEFAULT_STATUS = "pending"
 APPROVED_STATUSES = {"ready"}
 BLOCKING_TOKENS = {"blocked", "reject"}
+STATUS_ALIASES = {
+    "ready_for_implementation": "ready",
+    "ready-for-implementation": "ready",
+}
 PLACEHOLDER_PATTERN = re.compile(r"<[^>]+>")
 REVIEW_SECTION_HEADER = "## PRD Review"
 
@@ -59,6 +63,13 @@ def _rel_path(root: Path, path: Path) -> str:
 
 def _normalize_id_text(value: str) -> str:
     return " ".join(str(value).strip().split())
+
+
+def _normalize_review_status(status: str) -> str:
+    value = str(status or "").strip().lower()
+    if not value:
+        return DEFAULT_STATUS
+    return STATUS_ALIASES.get(value, value)
 
 
 def _stable_id(prefix: str, *parts: str) -> str:
@@ -185,7 +196,8 @@ def extract_review_section(content: str) -> tuple[str, List[str]]:
 
         stripped = line.strip()
         if stripped.lower().startswith("status:"):
-            status = stripped.split(":", 1)[1].strip().lower() or DEFAULT_STATUS
+            raw_status = stripped.split(":", 1)[1].strip()
+            status = _normalize_review_status(raw_status)
         elif stripped.startswith("- ["):
             action_items.append(stripped)
     return status, action_items
