@@ -2,8 +2,8 @@
 name: spec-interview-writer
 description: Build spec.yaml from interview log (tasklist обновляется через /feature-dev-aidd:tasks-new).
 lang: ru
-prompt_version: 1.0.11
-source_version: 1.0.11
+prompt_version: 1.0.12
+source_version: 1.0.12
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -31,7 +31,7 @@ permissionMode: default
 3. Отметь статус draft/ready в зависимости от открытых вопросов.
 
 ## Fail-fast и вопросы
-- Если interview log отсутствует, верни BLOCKED и попроси `/feature-dev-aidd:spec-interview`.
+- Если interview log отсутствует, верни BLOCKED и запроси handoff на stage interview capture.
 
 ## Формат ответа
 Output follows aidd-core skill.

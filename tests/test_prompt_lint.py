@@ -978,6 +978,78 @@ class PromptLintTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must not call stage/shared wrappers directly", result.stderr)
 
+    def test_loop_agent_manual_preflight_path_in_body_fails(self) -> None:
+        bad_agent = build_agent("implementer") + "\nНе используй skills/aidd-loop/runtime/preflight_prepare.py напрямую.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"implementer": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("loop agent must not duplicate stage path-level orchestration policy", result.stderr)
+            self.assertIn("preflight_prepare.py", result.stderr)
+
+    def test_loop_agent_manual_stage_result_path_in_body_fails(self) -> None:
+        bad_agent = build_agent("qa") + "\nНе создавай stage.qa.result.json вручную.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"qa": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("loop agent must not duplicate stage path-level orchestration policy", result.stderr)
+            self.assertIn("stage.qa.result.json", result.stderr)
+
+    def test_agent_self_stage_slash_link_in_body_fails_for_implementer(self) -> None:
+        bad_agent = build_agent("implementer") + "\nДля запуска используй /feature-dev-aidd:implement.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"implementer": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent must not reference own stage slash command", result.stderr)
+            self.assertIn("/feature-dev-aidd:implement", result.stderr)
+
+    def test_agent_self_stage_slash_link_in_body_fails_for_qa(self) -> None:
+        bad_agent = build_agent("qa") + "\nВыполни /feature-dev-aidd:qa перед отчётом.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"qa": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent must not reference own stage slash command", result.stderr)
+            self.assertIn("/feature-dev-aidd:qa", result.stderr)
+
+    def test_agent_self_stage_slash_link_in_body_fails_for_spec_interview_writer(self) -> None:
+        bad_agent = build_agent("spec-interview-writer") + "\nЕсли данных нет, запусти /feature-dev-aidd:spec-interview.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"spec-interview-writer": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent must not reference own stage slash command", result.stderr)
+            self.assertIn("/feature-dev-aidd:spec-interview", result.stderr)
+
+    def test_agent_non_self_stage_handoff_link_is_allowed(self) -> None:
+        good_agent = build_agent("researcher") + "\nПри готовности укажи /feature-dev-aidd:plan-new <ticket>.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"researcher": good_agent})
+            result = self.run_lint(root)
+            self.assertEqual(result.returncode, 0, msg=f"stdout: {result.stdout}\nstderr: {result.stderr}")
+
+    def test_agent_self_stage_slash_link_in_description_fails(self) -> None:
+        bad_agent = build_agent("implementer").replace(
+            "description: test agent",
+            "description: use /feature-dev-aidd:implement for orchestration",
+            1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_prompts(root, agent_override={"implementer": bad_agent})
+            result = self.run_lint(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent must not reference own stage slash command", result.stderr)
+            self.assertIn("/feature-dev-aidd:implement", result.stderr)
+
     def test_stage_skill_tools_allowed_tools_ref_fails(self) -> None:
         bad_skill = build_stage_skill("qa").replace(
             "  - Read",
