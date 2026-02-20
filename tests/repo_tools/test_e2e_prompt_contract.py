@@ -144,6 +144,22 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
 
+    def test_prompts_do_not_define_model_override_policy(self) -> None:
+        forbidden_patterns = (
+            r"\b--model\b",
+            r"\bglm[-_ ]?4\.?7",
+            r"\bflashx?\b",
+            r"\blight model\b",
+            r"\bfast model\b",
+        )
+        for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
+            text = _read(prompt)
+            for pattern in forbidden_patterns:
+                self.assertIsNone(
+                    re.search(pattern, text, flags=re.IGNORECASE),
+                    msg=f"{prompt}: must not contain model override policy ({pattern})",
+                )
+
     def test_prompt_ralph_blocked_policy_parity(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)
         smoke_text = _read(AUDIT_PROMPT_SMOKE)
@@ -189,6 +205,21 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("Fail-fast gate (до шага 7)", text)
         self.assertIn("preloop_artifacts_missing", text)
         self.assertIn("шаги 7 и 8 пометить `NOT VERIFIED`", text)
+
+    def test_prompts_enforce_runtime_drift_fail_fast_and_manual_preflight_forbidden(self) -> None:
+        full_text = _read(AUDIT_PROMPT_FULL)
+        smoke_text = _read(AUDIT_PROMPT_SMOKE)
+        self.assertIn("runtime_path_missing_or_drift", full_text)
+        self.assertIn("immediate `blocked`", full_text)
+        self.assertIn("manual_preflight_forbidden", full_text)
+        self.assertIn("runtime_path_missing_or_drift", smoke_text)
+        self.assertIn("manual_preflight_forbidden", smoke_text)
+
+    def test_full_prompt_requires_ralph_recoverable_probe_for_research_gate(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn("rlm_links_empty_warn|rlm_status_pending", text)
+        self.assertIn("research_gate_links_build_probe", text)
+        self.assertIn("policy_mismatch(research_gate_recovery_path)", text)
 
     def test_researcher_contract_prefers_reviewed_and_plan_new(self) -> None:
         agent_text = _read(RESEARCHER_AGENT)

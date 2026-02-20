@@ -8,6 +8,7 @@ import json
 import os
 import signal
 import subprocess
+import shlex
 import time
 import sys
 import datetime as dt
@@ -114,6 +115,11 @@ RECOVERABLE_BLOCK_REASON_CODES = {
     "unsupported_stage_result",
     "scope_drift_recoverable",
 }
+RECOVERABLE_RESEARCH_GATE_REASON_CODES = {
+    "rlm_links_empty_warn",
+    "rlm_status_pending",
+}
+DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS = 180
 
 
 def clear_active_mode(root: Path) -> None:
@@ -369,6 +375,45 @@ def _build_termination_attribution(
     }
 
 
+def _normalize_termination_attribution(
+    *,
+    attribution: dict[str, object] | None,
+    exit_code: int,
+    reason_code: str,
+    watchdog_hint: bool = False,
+) -> tuple[dict[str, object], bool]:
+    current = dict(attribution or {})
+    raw_exit = current.get("exit_code", exit_code)
+    try:
+        normalized_exit = int(raw_exit)
+    except (TypeError, ValueError):
+        normalized_exit = int(exit_code)
+    killed_flag = _truthy_flag(current.get("killed_flag")) or _truthy_flag(current.get("killed"))
+    watchdog_marker = (
+        _truthy_flag(current.get("watchdog_marker"))
+        or bool(watchdog_hint)
+        or str(reason_code or "").strip().lower() in {"seed_stage_budget_exhausted", "watchdog_terminated"}
+    )
+
+    if normalized_exit == 143:
+        if killed_flag and watchdog_marker:
+            classification = "watchdog_terminated"
+        else:
+            classification = "parent_terminated_or_external_terminate"
+            watchdog_marker = False
+    else:
+        classification = str(current.get("classification") or "").strip() or str(reason_code or "").strip() or "unknown_non_zero_exit"
+
+    normalized = {
+        "exit_code": normalized_exit,
+        "signal": _signal_name_from_return_code(normalized_exit),
+        "killed_flag": 1 if killed_flag else 0,
+        "watchdog_marker": 1 if watchdog_marker else 0,
+        "classification": classification,
+    }
+    return normalized, watchdog_marker
+
+
 def _resolve_blocked_policy(raw: str | None) -> str:
     value = str(raw or os.environ.get("AIDD_LOOP_BLOCKED_POLICY") or DEFAULT_BLOCKED_POLICY).strip().lower()
     if value not in BLOCKED_POLICY_VALUES:
@@ -493,6 +538,68 @@ def _validate_loop_research_gate(target: Path, ticket: str) -> tuple[bool, str, 
         next_action = _extract_next_action(message)
         return False, reason_code, message, next_action
     return True, "", "", ""
+
+
+def _resolve_research_probe_timeout_seconds() -> int:
+    raw = str(os.environ.get("AIDD_LOOP_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS") or "").strip()
+    try:
+        value = int(raw) if raw else DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS
+    except (TypeError, ValueError):
+        value = DEFAULT_RESEARCH_GATE_PROBE_TIMEOUT_SECONDS
+    return max(value, 1)
+
+
+def _expand_next_action_command(next_action: str, plugin_root: Path) -> tuple[list[str], str]:
+    raw = str(next_action or "").strip()
+    if not raw:
+        return [], ""
+    expanded = raw
+    plugin_root_text = str(plugin_root)
+    expanded = expanded.replace("${CLAUDE_PLUGIN_ROOT}", plugin_root_text)
+    expanded = expanded.replace("$CLAUDE_PLUGIN_ROOT", plugin_root_text)
+    expanded = expanded.replace("${claude_plugin_root}", plugin_root_text)
+    expanded = expanded.replace("$claude_plugin_root", plugin_root_text)
+    try:
+        tokens = shlex.split(expanded)
+    except ValueError:
+        return [], expanded
+    if not tokens:
+        return [], expanded
+    if any(token in {";", "&&", "||", "|"} for token in tokens):
+        return [], expanded
+    return tokens, expanded
+
+
+def _run_research_gate_probe(
+    *,
+    target: Path,
+    plugin_root: Path,
+    next_action: str,
+) -> tuple[bool, str, str, int]:
+    tokens, expanded = _expand_next_action_command(next_action, plugin_root)
+    if not tokens:
+        return False, expanded, "invalid_or_unsafe_probe_command", 0
+    env = os.environ.copy()
+    env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+    timeout_seconds = _resolve_research_probe_timeout_seconds()
+    try:
+        result = subprocess.run(
+            tokens,
+            cwd=target.parent,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return False, expanded, f"probe_timeout_{timeout_seconds}s", timeout_seconds
+    if result.returncode != 0:
+        tail = (result.stderr or result.stdout or "").strip()
+        tail = tail[-400:] if tail else ""
+        detail = f"probe_exit={result.returncode}" + (f" tail={tail}" if tail else "")
+        return False, expanded, detail, result.returncode
+    return True, expanded, "", result.returncode
 
 
 def _apply_recoverable_block_recovery(
@@ -993,36 +1100,122 @@ def main(argv: List[str] | None = None) -> int:
             ticket,
         )
         if not research_ok:
-            payload = {
-                "status": "blocked",
-                "iterations": 0,
-                "exit_code": BLOCKED_CODE,
-                "log_path": runtime.rel_path(log_path, target),
-                "cli_log_path": runtime.rel_path(cli_log_path, target),
-                "runner_label": runner_label,
-                "blocked_policy": blocked_policy,
-                "reason": research_reason,
-                "reason_code": research_reason_code,
-                "next_action": research_next_action or None,
-                "updated_at": utc_timestamp(),
-            }
-            append_log(
-                log_path,
-                (
-                    f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked "
-                    f"reason_code={research_reason_code} research_gate={research_gate_mode}"
-                    + (f" next_action={research_next_action}" if research_next_action else "")
-                ),
+            research_reason_code = str(research_reason_code or "").strip().lower() or "research_gate_blocked"
+            recoverable_gate = (
+                blocked_policy == "ralph"
+                and research_reason_code in RECOVERABLE_RESEARCH_GATE_REASON_CODES
+                and recoverable_retry_attempt < recoverable_retry_budget
             )
-            append_log(
-                cli_log_path,
-                (
-                    f"{utc_timestamp()} event=blocked iterations=0 reason_code={research_reason_code} "
-                    "source=research_gate"
-                ),
-            )
-            emit(args.format, payload)
-            return BLOCKED_CODE
+            if recoverable_gate:
+                recoverable_retry_attempt += 1
+                last_recovery_path = "research_gate_links_build_probe"
+                probe_ok, probe_command, probe_detail, probe_exit_code = _run_research_gate_probe(
+                    target=target,
+                    plugin_root=plugin_root,
+                    next_action=research_next_action,
+                )
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} event=research-gate-recovery-probe "
+                        f"retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget} "
+                        f"recovery_path={last_recovery_path} "
+                        f"reason_code={research_reason_code} "
+                        f"probe_ok={'1' if probe_ok else '0'} "
+                        f"probe_exit_code={probe_exit_code} "
+                        f"probe_command={probe_command or 'n/a'}"
+                        + (f" probe_detail={probe_detail}" if probe_detail else "")
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=research-gate-recovery-probe "
+                        f"retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget} "
+                        f"recovery_path={last_recovery_path} probe_ok={'1' if probe_ok else '0'}"
+                    ),
+                )
+                if probe_ok:
+                    (
+                        research_ok,
+                        research_reason_code,
+                        research_reason,
+                        research_next_action,
+                    ) = _validate_loop_research_gate(target, ticket)
+                    research_reason_code = str(research_reason_code or "").strip().lower() or "research_gate_blocked"
+                    if research_ok:
+                        append_log(
+                            log_path,
+                            (
+                                f"{utc_timestamp()} event=research-gate-recovered "
+                                f"retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget} "
+                                f"recovery_path={last_recovery_path}"
+                            ),
+                        )
+                        append_log(
+                            cli_log_path,
+                            (
+                                f"{utc_timestamp()} event=research-gate-recovered "
+                                f"retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget}"
+                            ),
+                        )
+                if not research_ok and probe_detail:
+                    research_reason = (
+                        f"{research_reason}; recovery_probe={probe_detail}"
+                        if str(research_reason or "").strip()
+                        else f"research gate blocked; recovery_probe={probe_detail}"
+                    )
+                    if probe_command:
+                        research_next_action = probe_command
+            if research_ok:
+                pass
+            else:
+                payload = {
+                    "status": "blocked",
+                    "iterations": 0,
+                    "exit_code": BLOCKED_CODE,
+                    "log_path": runtime.rel_path(log_path, target),
+                    "cli_log_path": runtime.rel_path(cli_log_path, target),
+                    "runner_label": runner_label,
+                    "blocked_policy": blocked_policy,
+                    "reason": research_reason,
+                    "reason_code": research_reason_code,
+                    "next_action": research_next_action or None,
+                    "recoverable_blocked": bool(recoverable_gate),
+                    "retry_attempt": recoverable_retry_attempt,
+                    "recoverable_retry_budget": recoverable_retry_budget,
+                    "recovery_path": last_recovery_path if recoverable_gate else "",
+                    "updated_at": utc_timestamp(),
+                }
+                append_log(
+                    log_path,
+                    (
+                        f"{utc_timestamp()} ticket={ticket} iteration=0 status=blocked "
+                        f"reason_code={research_reason_code} research_gate={research_gate_mode}"
+                        + (f" next_action={research_next_action}" if research_next_action else "")
+                        + (
+                            f" recoverable_blocked=1 retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget} "
+                            f"recovery_path={last_recovery_path}"
+                            if recoverable_gate
+                            else " recoverable_blocked=0"
+                        )
+                    ),
+                )
+                append_log(
+                    cli_log_path,
+                    (
+                        f"{utc_timestamp()} event=blocked iterations=0 reason_code={research_reason_code} "
+                        "source=research_gate"
+                        + (
+                            f" recoverable_blocked=1 retry_attempt={recoverable_retry_attempt}/{recoverable_retry_budget} "
+                            f"recovery_path={last_recovery_path}"
+                            if recoverable_gate
+                            else ""
+                        )
+                    ),
+                )
+                emit(args.format, payload)
+                return BLOCKED_CODE
 
     last_payload: Dict[str, object] = {}
     for iteration in range(1, max_iterations + 1):
@@ -1169,16 +1362,24 @@ def main(argv: List[str] | None = None) -> int:
                 watchdog_marker = _truthy_flag(unexpected_payload.get("watchdog_marker")) or (
                     "watchdog timeout" in nested_reason.lower()
                 )
-                reason_code = "watchdog_terminated" if killed_flag and watchdog_marker else "parent_terminated_or_external_terminate"
+                initial_reason_code = (
+                    "watchdog_terminated"
+                    if killed_flag and watchdog_marker
+                    else "parent_terminated_or_external_terminate"
+                )
                 status = "blocked"
                 out_code = BLOCKED_CODE
                 reason_text = nested_reason or f"loop-step runner exited with {result.returncode}"
-                termination_attribution = _build_termination_attribution(
+                termination_attribution, _ = _normalize_termination_attribution(
+                    attribution={
+                        "killed_flag": 1 if killed_flag else 0,
+                        "watchdog_marker": 1 if watchdog_marker else 0,
+                    },
                     exit_code=result.returncode,
-                    classification=reason_code,
-                    killed_flag=killed_flag,
-                    watchdog_marker=watchdog_marker,
+                    reason_code=initial_reason_code,
+                    watchdog_hint=watchdog_marker,
                 )
+                reason_code = str(termination_attribution.get("classification") or initial_reason_code)
             else:
                 status = "error"
                 out_code = ERROR_CODE
@@ -1453,31 +1654,18 @@ def main(argv: List[str] | None = None) -> int:
             stream_liveness["observability_degraded"] = True
             stream_liveness["degraded_reason"] = "stream_path_invalid"
 
-        if step_termination_attribution is not None:
-            classification = str(step_termination_attribution.get("classification") or "").strip()
-            if not classification:
-                step_termination_attribution["classification"] = str(log_reason_code or "blocked_without_reason")
-            if "watchdog_marker" not in step_termination_attribution:
-                step_termination_attribution["watchdog_marker"] = 1 if step_watchdog_marker else 0
-            if "killed_flag" not in step_termination_attribution:
-                step_termination_attribution["killed_flag"] = 0
-            if "exit_code" not in step_termination_attribution:
-                step_termination_attribution["exit_code"] = int(step_exit_code)
-            if "signal" not in step_termination_attribution:
-                step_termination_attribution["signal"] = _signal_name_from_return_code(int(step_exit_code))
-        elif step_status == "blocked":
-            watchdog_classification = bool(
+        if step_termination_attribution is not None or step_status == "blocked":
+            watchdog_hint = bool(
                 step_watchdog_marker
                 or log_reason_code in {"seed_stage_silent_stall", "seed_stage_active_stream_timeout", "seed_stage_budget_exhausted"}
             )
-            step_termination_attribution = _build_termination_attribution(
-                exit_code=143 if watchdog_classification else int(step_exit_code),
-                classification=("watchdog_terminated" if watchdog_classification else str(log_reason_code or "blocked_without_reason")),
-                killed_flag=watchdog_classification,
-                watchdog_marker=watchdog_classification,
+            step_termination_attribution, normalized_watchdog_marker = _normalize_termination_attribution(
+                attribution=step_termination_attribution,
+                exit_code=(143 if watchdog_hint else int(step_exit_code)),
+                reason_code=str(log_reason_code or "blocked_without_reason"),
+                watchdog_hint=watchdog_hint,
             )
-            if watchdog_classification:
-                step_watchdog_marker = True
+            step_watchdog_marker = normalized_watchdog_marker
 
         append_log(
             log_path,

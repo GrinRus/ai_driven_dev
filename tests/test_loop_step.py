@@ -104,6 +104,96 @@ class LoopStepTests(unittest.TestCase):
             if log_path.exists():
                 self.assertEqual(log_path.read_text(encoding="utf-8").strip(), "")
 
+    def test_loop_step_tripwire_blocks_runtime_path_missing_or_drift(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TRIPWIRE-MISSING"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            runner_script = root.parent / "runner_tripwire_missing.sh"
+            runner_script.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        "echo \"$*\" >> \"${AIDD_LOOP_RUNNER_LOG:?}\"",
+                        "echo \"python3 skills/implement/runtime/preflight.py --ticket DEMO-TRIPWIRE-MISSING\"",
+                        "echo \"can't open file '/tmp/work/skills/implement/runtime/preflight.py': [Errno 2] No such file or directory\" >&2",
+                        "exit 1",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            runner_script.chmod(0o755)
+            log_path = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-step",
+                    "--ticket",
+                    ticket,
+                    "--runner",
+                    f"bash {runner_script}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            self.assertEqual(payload.get("drift_tripwire_hit"), True)
+            self.assertIn("can't open file", str(payload.get("reason") or ""))
+            self.assertEqual(payload.get("runner_source"), "cli_arg")
+
+    def test_loop_step_tripwire_blocks_manual_preflight_prepare_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-step-tripwire-manual-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-TRIPWIRE-PREFLIGHT"
+            write_active_state(root, ticket=ticket, work_item="iteration_id=I1")
+            runner_script = root.parent / "runner_tripwire_manual.sh"
+            runner_script.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        "echo \"$*\" >> \"${AIDD_LOOP_RUNNER_LOG:?}\"",
+                        "echo \"$ python3 /tmp/work/skills/aidd-loop/runtime/preflight_prepare.py --ticket DEMO-TRIPWIRE-PREFLIGHT --stage qa\"",
+                        "exit 0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            runner_script.chmod(0o755)
+            log_path = root / "runner.log"
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            result = subprocess.run(
+                cli_cmd(
+                    "loop-step",
+                    "--ticket",
+                    ticket,
+                    "--runner",
+                    f"bash {runner_script}",
+                    "--format",
+                    "json",
+                ),
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 20, msg=result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "runtime_path_missing_or_drift")
+            self.assertEqual(payload.get("drift_tripwire_hit"), True)
+            self.assertIn("manual preflight path is forbidden", str(payload.get("reason") or ""))
+
     def test_loop_step_blocks_when_wrappers_skipped_in_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-step-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))

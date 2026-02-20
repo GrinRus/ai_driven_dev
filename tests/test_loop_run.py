@@ -345,6 +345,195 @@ class LoopRunTests(unittest.TestCase):
             self.assertIn("rlm_links_build.py --ticket", str(payload.get("next_action") or ""))
             run_step_mock.assert_not_called()
 
+    def test_loop_run_research_gate_ralph_recovery_probe_success_unblocks_loop(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-GATE-RALPH-RECOVER"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+
+            gate_side_effects = [
+                (
+                    False,
+                    "rlm_links_empty_warn",
+                    "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
+                    "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-RECOVER",
+                ),
+                (True, "", "", ""),
+            ]
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch("aidd_runtime.loop_run._validate_loop_research_gate", side_effect=gate_side_effects):
+                            with patch(
+                                "aidd_runtime.loop_run._run_research_gate_probe",
+                                return_value=(
+                                    True,
+                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-RECOVER",
+                                    "",
+                                    0,
+                                ),
+                            ) as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step) as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "ralph",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "ship")
+            self.assertEqual(payload.get("blocked_policy"), "ralph")
+            probe_mock.assert_called_once()
+            step_mock.assert_called_once()
+            loop_log = (root / "reports" / "loops" / ticket / "loop.run.log").read_text(encoding="utf-8")
+            self.assertIn("event=research-gate-recovery-probe", loop_log)
+            self.assertIn("event=research-gate-recovered", loop_log)
+
+    def test_loop_run_research_gate_ralph_probe_failure_returns_recoverable_blocked(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-GATE-RALPH-BLOCK"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch(
+                            "aidd_runtime.loop_run._validate_loop_research_gate",
+                            return_value=(
+                                False,
+                                "rlm_links_empty_warn",
+                                "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
+                            ),
+                        ):
+                            with patch(
+                                "aidd_runtime.loop_run._run_research_gate_probe",
+                                return_value=(
+                                    False,
+                                    "python3 /plugin/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-RALPH-BLOCK",
+                                    "probe_exit=1",
+                                    1,
+                                ),
+                            ) as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step") as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "ralph",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("recoverable_blocked"), True)
+            self.assertEqual(payload.get("retry_attempt"), 1)
+            self.assertEqual(payload.get("recovery_path"), "research_gate_links_build_probe")
+            probe_mock.assert_called_once()
+            step_mock.assert_not_called()
+
+    def test_loop_run_research_gate_strict_skips_recovery_probe(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-RLM-GATE-STRICT"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(REPO_ROOT)}, clear=False):
+                    with patch("aidd_runtime.loop_run._should_enforce_loop_research_gate", return_value=True):
+                        with patch(
+                            "aidd_runtime.loop_run._validate_loop_research_gate",
+                            return_value=(
+                                False,
+                                "rlm_links_empty_warn",
+                                "BLOCK: links missing (reason_code=rlm_links_empty_warn)",
+                                "python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-rlm/runtime/rlm_links_build.py --ticket DEMO-RLM-GATE-STRICT",
+                            ),
+                        ):
+                            with patch("aidd_runtime.loop_run._run_research_gate_probe") as probe_mock:
+                                with patch("aidd_runtime.loop_run.run_loop_step") as step_mock:
+                                    with redirect_stdout(captured):
+                                        code = loop_run_module.main(
+                                            [
+                                                "--ticket",
+                                                ticket,
+                                                "--max-iterations",
+                                                "1",
+                                                "--research-gate",
+                                                "on",
+                                                "--blocked-policy",
+                                                "strict",
+                                                "--recoverable-block-retries",
+                                                "1",
+                                                "--format",
+                                                "json",
+                                            ]
+                                        )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 20)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "blocked")
+            self.assertEqual(payload.get("reason_code"), "rlm_links_empty_warn")
+            self.assertEqual(payload.get("recoverable_blocked"), False)
+            self.assertEqual(payload.get("retry_attempt"), 0)
+            self.assertEqual(payload.get("recovery_path"), "")
+            probe_mock.assert_not_called()
+            step_mock.assert_not_called()
+
     def test_loop_run_ralph_retries_blocking_findings(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
