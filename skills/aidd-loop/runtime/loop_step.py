@@ -81,6 +81,20 @@ _QUESTION_REASON_CODES = {
     "spec_questions_unresolved",
 }
 _QUESTION_RETRY_REASON_CODE = "prompt_flow_blocker"
+RUNTIME_PATH_DRIFT_REASON_CODE = "runtime_path_missing_or_drift"
+_CANT_OPEN_RUNTIME_RE = re.compile(
+    r"can't open file [\"']?[^\"'\n]*?/skills/[^\"'\n]*/runtime/[^\"'\n]*",
+    re.IGNORECASE,
+)
+_MANUAL_PREFLIGHT_PREPARE_CMD_RE = re.compile(
+    r"python3\s+[^\n]*skills/aidd-loop/runtime/preflight_prepare\.py\b",
+    re.IGNORECASE,
+)
+_NON_CANONICAL_STAGE_PREFLIGHT_CMD_RE = re.compile(
+    r"python3\s+[^\n]*skills/(implement|review|qa)/runtime/preflight(?:_[a-z0-9]+)?\.py\b",
+    re.IGNORECASE,
+)
+_JSON_COMMAND_RE = re.compile(r'"command"\s*:\s*"([^"]+)"')
 
 
 def _approval_allowed() -> bool:
@@ -167,6 +181,58 @@ def _detect_runner_permission_mismatch(
         )
         return True, reason
     return False, ""
+
+
+def _iter_python_command_lines(text: str) -> List[str]:
+    commands: List[str] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("$ "):
+            command = line[2:].strip()
+            if command:
+                commands.append(command)
+            continue
+        if '"command"' in line and "python3" in line:
+            match = _JSON_COMMAND_RE.search(line)
+            if match:
+                command = str(match.group(1) or "").strip()
+                if command:
+                    commands.append(command)
+    return commands
+
+
+def _detect_runtime_path_tripwire(
+    *,
+    raw_log_path: Path,
+    stream_jsonl_path: Optional[Path],
+    stream_log_path: Optional[Path],
+) -> Tuple[bool, str, str]:
+    text_chunks: List[str] = [
+        _file_head_tail_text(raw_log_path),
+        _file_head_tail_text(stream_jsonl_path),
+        _file_head_tail_text(stream_log_path),
+    ]
+    combined = "\n".join(chunk for chunk in text_chunks if chunk)
+    if not combined:
+        return False, "", ""
+
+    missing_match = _CANT_OPEN_RUNTIME_RE.search(combined)
+    if missing_match:
+        evidence = missing_match.group(0).strip()
+        reason = f"runtime path drift detected: {evidence}"
+        return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
+
+    for command_line in _iter_python_command_lines(combined):
+        normalized = command_line.strip()
+        if _MANUAL_PREFLIGHT_PREPARE_CMD_RE.search(normalized):
+            reason = f"manual preflight path is forbidden in loop-step: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
+        if _NON_CANONICAL_STAGE_PREFLIGHT_CMD_RE.search(normalized):
+            reason = f"non-canonical stage preflight command is forbidden in loop-step: {normalized}"
+            return True, RUNTIME_PATH_DRIFT_REASON_CODE, reason
+    return False, "", ""
 
 
 def _extract_marker_source(line: str) -> str:
@@ -934,6 +1000,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     runner_hint = str(args.runner or os.environ.get("AIDD_LOOP_RUNNER") or "claude").strip() or "claude"
     os.environ["AIDD_LOOP_RUNNER_HINT"] = runner_hint
+    if str(args.runner or "").strip():
+        os.environ["AIDD_LOOP_RUNNER_SOURCE_HINT"] = "cli_arg"
+    elif str(os.environ.get("AIDD_LOOP_RUNNER") or "").strip():
+        os.environ["AIDD_LOOP_RUNNER_SOURCE_HINT"] = "env_AIDD_LOOP_RUNNER"
+    else:
+        os.environ["AIDD_LOOP_RUNNER_SOURCE_HINT"] = "default"
     workspace_root, target = runtime.require_workflow_root()
     context = runtime.resolve_feature_context(target, ticket=args.ticket, slug_hint=None)
     ticket = (context.resolved_ticket or "").strip()
@@ -1716,6 +1788,39 @@ def main(argv: list[str] | None = None) -> int:
             question_answers_path=question_answers_path,
             **stage_sync_kwargs,
         )
+    drift_hit, drift_reason_code, drift_reason = _detect_runtime_path_tripwire(
+        raw_log_path=log_path,
+        stream_jsonl_path=stream_jsonl_path,
+        stream_log_path=stream_log_path,
+    )
+    if drift_hit:
+        return emit_result(
+            args.format,
+            ticket,
+            next_stage,
+            "blocked",
+            BLOCKED_CODE,
+            log_path,
+            drift_reason,
+            drift_reason_code,
+            scope_key=runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket),
+            stage_result_path="",
+            runner=runner_raw,
+            runner_effective=runner_effective,
+            runner_notice=runner_notice,
+            repair_reason_code=repair_reason_code,
+            repair_scope_key=repair_scope_key,
+            stream_log_path=stream_log_rel,
+            stream_jsonl_path=stream_jsonl_rel,
+            cli_log_path=cli_log_path,
+            question_retry_attempt=question_retry_attempt,
+            question_retry_applied=question_retry_applied,
+            question_answers=question_answers_compact,
+            question_questions_path=question_questions_path,
+            question_answers_path=question_answers_path,
+            drift_tripwire_hit=True,
+            **stage_sync_kwargs,
+        )
     if returncode != 0:
         status = "error"
         code = ERROR_CODE
@@ -2409,6 +2514,8 @@ def emit_result(
     question_answers: str = "",
     question_questions_path: str = "",
     question_answers_path: str = "",
+    runner_source: str = "",
+    drift_tripwire_hit: bool = False,
 ) -> int:
     status_value = status if status in {"blocked", "continue", "done"} else "blocked"
     work_item_value = str(work_item_key or "").strip()
@@ -2428,6 +2535,12 @@ def emit_result(
             or "claude"
         ).strip() or "claude"
     runner_effective_value = str(runner_effective or "").strip() or runner_value
+    runner_source_value = str(runner_source or "").strip()
+    if not runner_source_value:
+        runner_source_value = (
+            str(os.environ.get("AIDD_LOOP_RUNNER_SOURCE_HINT") or "").strip()
+            or "unknown"
+        )
 
     cli_log_value = str(cli_log_path) if cli_log_path else ""
     log_value = str(log_path) if log_path else ""
@@ -2464,6 +2577,7 @@ def emit_result(
         "stage_result_path": stage_result_value,
         "runner": runner_value,
         "runner_effective": runner_effective_value,
+        "runner_source": runner_source_value,
         "runner_notice": runner_notice,
         "repair_reason_code": repair_reason_code,
         "repair_scope_key": repair_scope_key,
@@ -2488,6 +2602,7 @@ def emit_result(
         "question_answers": str(question_answers or "").strip() or None,
         "question_questions_path": str(question_questions_path or "").strip() or None,
         "question_answers_path": str(question_answers_path or "").strip() or None,
+        "drift_tripwire_hit": bool(drift_tripwire_hit),
         "marker_signal_events": marker_signal_events,
         "report_noise_events": report_noise_events,
         "report_noise": "marker_semantics_noise_only" if report_noise_events and not marker_signal_events else "",

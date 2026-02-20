@@ -46,6 +46,8 @@
 - R8: Python fallback разрешён только для `blocked/hang/killed` после успешного plugin healthcheck и запрещён для `Unknown skill`.
 - R9: Ошибка `refusing to use plugin repository as workspace root` = `ENV_MISCONFIG(cwd_wrong)`; исправить `cwd` на `PROJECT_DIR` и повторить 1 раз.
 - R10: Если stage-return уводит в manual path (`preflight_prepare.py` напрямую или ручная запись `stage.*.result.json`) — классифицировать как `prompt-flow drift`, manual path не выполнять.
+- R10.1: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
+- R10.2: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain — классифицировать как `prompt-flow drift (manual_preflight_forbidden)` и завершать шаг `NOT VERIFIED`.
 - R11: Stage-level классификацию делать только по текущему stage-return, `init` и top-level result; `WARN/Q*/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
 
 ## 3) Политика запуска и классификация
@@ -219,6 +221,9 @@ RLM-only check:
 - Precheck `AIDD:TEST_EXECUTION`:
   - сохранить `08_test_execution_precheck.txt`;
   - если одна task-entry содержит `&&`, `||`, `;`, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска.
+- Если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне wrapper chain:
+  - классифицировать как `prompt-flow drift (manual_preflight_forbidden)`;
+  - не продолжать manual recovery path.
 - При вопросах: retry.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/qa/runtime/qa.py --ticket $TICKET`

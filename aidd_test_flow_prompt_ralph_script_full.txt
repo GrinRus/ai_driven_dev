@@ -82,6 +82,8 @@
 - R13.4: Если `stage_result_missing_or_invalid` сопровождается diagnostics-маркером `scope_fallback_stale_ignored`/`scope_shape_invalid`, классифицировать как `scope_drift_recoverable` (prompt-exec/policy), а не как `contract_mismatch(stage_result_shape)`.
 - R14: Если в stage-логе (включая nested tool calls) есть запуск `python3 skills/.../runtime/*.py` из `PROJECT_DIR` и ошибка вида `can't open file .../skills/...`, классифицировать как `prompt-flow drift (non-canonical runtime path)`; не как env blocker.
 - R14.1: Если такой drift встречается только во вложенном tool-call, но тот же stage завершился валидным top-level result (`exit_code=0` и `result_count>=1` или эквивалентный `done/success` payload), классифицировать как `WARN(prompt_flow_drift_recovered)`, не как `NOT VERIFIED`.
+- R14.2: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
+- R14.3: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain, классифицировать как `prompt-flow drift (manual_preflight_forbidden)` и останавливать manual recovery для текущего шага.
 - R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
@@ -585,6 +587,10 @@ Fail-fast gate (до шага 7):
 - для `BLOCKED_POLICY=strict`: фиксировать как `WARN(expected_revise_signal)` с продолжением по стандартной диагностике;
 - для `BLOCKED_POLICY=ralph`: ожидать `recoverable_blocked=1` и recovery/retry path; отклонения фиксировать как `policy_mismatch(blocked_policy_vs_reason_code)`.
 
+Если pre-iteration research gate вернул `blocked` с `reason_code=rlm_links_empty_warn|rlm_status_pending`:
+- для `BLOCKED_POLICY=ralph` ожидать bounded recoverable probe по `next_action` с `recovery_path=research_gate_links_build_probe` до terminal blocked;
+- отсутствие recoverable probe/атрибуции фиксировать как `policy_mismatch(research_gate_recovery_path)`.
+
 Если blocked содержит diagnostics с `scope_fallback_stale_ignored`/`scope_shape_invalid`:
 - ожидать промоцию в recoverable `reason_code=scope_drift_recoverable`;
 - ожидать recovery path `scope_drift_reconcile_probe` (как минимум один probe до итогового BLOCK);
@@ -609,6 +615,9 @@ Loop runtime integrity checks:
   - сохранить `08_test_execution_precheck.txt`;
   - искать shell-chain токены (`&&`, `||`, `;`) только в command-полях секции `AIDD:TEST_EXECUTION`; в prose/notes не считать инцидентом;
   - если найдено в command-поле как единая task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
+- если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain:
+  - классифицировать как `prompt-flow drift (manual_preflight_forbidden)`;
+  - не продолжать manual recovery path для текущего шага.
 - при вопросах: retry;
 - если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`:
   - классифицировать как `prompt-flow drift (non-canonical runtime path)`;
