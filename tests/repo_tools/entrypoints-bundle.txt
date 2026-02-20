@@ -11,8 +11,8 @@
       "lang": "ru",
       "name": "implementer",
       "path": "agents/implementer.md",
-      "prompt_version": "1.1.39",
-      "source_version": "1.1.39"
+      "prompt_version": "1.1.41",
+      "source_version": "1.1.41"
     },
     {
       "lang": "ru",
@@ -39,8 +39,8 @@
       "lang": "ru",
       "name": "qa",
       "path": "agents/qa.md",
-      "prompt_version": "1.0.28",
-      "source_version": "1.0.28"
+      "prompt_version": "1.0.30",
+      "source_version": "1.0.30"
     },
     {
       "lang": "ru",
@@ -53,15 +53,15 @@
       "lang": "ru",
       "name": "reviewer",
       "path": "agents/reviewer.md",
-      "prompt_version": "1.0.34",
-      "source_version": "1.0.34"
+      "prompt_version": "1.0.35",
+      "source_version": "1.0.35"
     },
     {
       "lang": "ru",
       "name": "spec-interview-writer",
       "path": "agents/spec-interview-writer.md",
-      "prompt_version": "1.0.11",
-      "source_version": "1.0.11"
+      "prompt_version": "1.0.12",
+      "source_version": "1.0.12"
     },
     {
       "lang": "ru",
