@@ -1,8 +1,11 @@
+import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from tests.helpers import ensure_project_root
+from tests.helpers import ensure_project_root, write_active_state
 from aidd_runtime import qa as qa_module
 
 
@@ -117,6 +120,31 @@ class QaRunnerTests(unittest.TestCase):
             self.assertEqual(len(executed), 1)
             self.assertEqual(executed[0].get("status"), "pass")
             self.assertTrue(str(executed[0].get("command") or "").startswith(str(external_gradlew)))
+
+    def test_qa_main_syncs_active_stage_to_qa_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa-stage-sync-") as tmpdir:
+            workspace = Path(tmpdir)
+            target = ensure_project_root(workspace)
+            ticket = "DEMO-QA-SYNC"
+            write_active_state(target, ticket=ticket, stage="review", work_item="iteration_id=I1")
+            (target / "reports" / "qa").mkdir(parents=True, exist_ok=True)
+            report_path = target / "reports" / "qa" / f"{ticket}.json"
+            report_path.write_text(json.dumps({"status": "READY"}, ensure_ascii=False) + "\n", encoding="utf-8")
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(workspace)
+                with patch.dict(os.environ, {"CLAUDE_PLUGIN_ROOT": str(Path(__file__).resolve().parents[1])}, clear=False):
+                    with patch("aidd_runtime.qa._qa_agent.main", return_value=0), patch(
+                        "aidd_runtime.stage_result.main", return_value=0
+                    ):
+                        code = qa_module.main(["--ticket", ticket, "--skip-tests", "--allow-no-tests"])
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            active_payload = json.loads((target / "docs" / ".active.json").read_text(encoding="utf-8"))
+            self.assertEqual(active_payload.get("stage"), "qa")
 
 
 if __name__ == "__main__":

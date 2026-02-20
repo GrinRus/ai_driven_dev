@@ -19,6 +19,7 @@ if str(_PLUGIN_ROOT) not in sys.path:
 from aidd_runtime import qa_agent as _qa_agent
 from aidd_runtime import runtime
 from aidd_runtime import tasklist_parser
+from aidd_runtime.feature_ids import write_active_state
 
 
 def _default_qa_test_command() -> list[list[str]]:
@@ -31,6 +32,30 @@ def _resolve_qa_scope_context(target: Path, ticket: str) -> tuple[str, str]:
     if runtime.is_iteration_work_item_key(active_work_item):
         return active_work_item, runtime.resolve_scope_key(active_work_item, ticket)
     return "", runtime.resolve_scope_key("", ticket)
+
+
+def _sync_active_stage_to_qa(target: Path, ticket: str) -> tuple[bool, str]:
+    active_before = str(runtime.read_active_stage(target) or "").strip().lower()
+    if active_before == "qa":
+        return False, active_before
+    write_active_state(target, ticket=ticket, stage="qa")
+    return True, active_before
+
+
+def _qa_wrapper_context_available(target: Path, ticket: str) -> tuple[bool, str]:
+    _, scope_key = _resolve_qa_scope_context(target, ticket)
+    logs_dir = target / "reports" / "logs" / "qa" / ticket / scope_key
+    if not logs_dir.exists():
+        return False, scope_key
+    return any(logs_dir.glob("wrapper.*.log")), scope_key
+
+
+def _active_mode(target: Path) -> str:
+    path = target / "docs" / ".active_mode"
+    try:
+        return path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
 
 
 _TEST_COMMAND_PATTERNS = (
@@ -615,6 +640,34 @@ def main(argv: list[str] | None = None) -> int:
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
+
+    try:
+        stage_sync_applied, active_stage_before = _sync_active_stage_to_qa(target, ticket)
+    except Exception as exc:
+        message = str(exc).strip() or exc.__class__.__name__
+        print(
+            "[aidd] BLOCK: QA active stage sync failed "
+            f"(reason_code=active_stage_sync_failed): {message}",
+            file=sys.stderr,
+        )
+        return 2
+    if stage_sync_applied:
+        print(
+            f"[aidd] QA stage sync: {active_stage_before or 'none'} -> qa.",
+            file=sys.stderr,
+        )
+
+    loop_mode = _active_mode(target) == "loop"
+    wrappers_skipped = os.getenv("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1"
+    if loop_mode and not wrappers_skipped:
+        wrapper_context_ok, wrapper_scope = _qa_wrapper_context_available(target, ticket)
+        if not wrapper_context_ok:
+            print(
+                "[aidd] WARN: QA wrapper context missing "
+                f"(reason_code=qa_wrapper_context_missing scope_key={wrapper_scope or 'n/a'}); "
+                "preflight guard may block if wrapper artifacts are absent.",
+                file=sys.stderr,
+            )
 
     branch = args.branch or runtime.detect_branch(target)
 

@@ -20,6 +20,7 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
         "aidd.skill_contract.v1",
         "aidd.readmap.v1",
         "aidd.writemap.v1",
+        "aidd.stage_result.v1",
         "aidd.stage_result.preflight.v1",
     }
 
@@ -66,6 +67,31 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
 
     def test_preflight_result_validate_schema(self) -> None:
         payload = {
+            "schema": "aidd.stage_result.v1",
+            "schema_version": "aidd.stage_result.v1",
+            "ticket": "DEMO",
+            "stage": "preflight",
+            "scope_key": "iteration_id_I1",
+            "work_item_key": "iteration_id=I1",
+            "result": "done",
+            "status": "ok",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "details": {
+                "preflight_status": "ok",
+                "target_stage": "implement",
+                "artifacts": {
+                    "actions_template": "aidd/reports/actions/DEMO/iteration_id_I1/implement.actions.template.json",
+                    "readmap_json": "aidd/reports/context/DEMO/iteration_id_I1.readmap.json",
+                    "readmap_md": "aidd/reports/context/DEMO/iteration_id_I1.readmap.md",
+                    "writemap_json": "aidd/reports/context/DEMO/iteration_id_I1.writemap.json",
+                    "writemap_md": "aidd/reports/context/DEMO/iteration_id_I1.writemap.md",
+                    "loop_pack": "aidd/reports/loops/DEMO/iteration_id_I1.loop.pack.md",
+                },
+            },
+        }
+        self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
+
+        legacy_payload = {
             "schema": "aidd.stage_result.preflight.v1",
             "ticket": "DEMO",
             "stage": "implement",
@@ -82,16 +108,17 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
                 "loop_pack": "aidd/reports/loops/DEMO/iteration_id_I1.loop.pack.md",
             },
         }
-        self.assertEqual(preflight_result_validate.validate_preflight_result_data(payload), [])
+        self.assertEqual(preflight_result_validate.validate_preflight_result_data(legacy_payload), [])
 
         broken = dict(payload)
-        broken["schema"] = "aidd.stage_result.preflight.vX"
+        broken["schema"] = "aidd.stage_result.vX"
         errors = preflight_result_validate.validate_preflight_result_data(broken)
         self.assertTrue(any("schema must be one of" in err for err in errors))
 
         path_drift = dict(payload)
-        path_drift["artifacts"] = dict(payload["artifacts"])
-        path_drift["artifacts"]["readmap_json"] = "aidd/reports/readmap.json"
+        path_drift["details"] = dict(payload["details"])
+        path_drift["details"]["artifacts"] = dict(payload["details"]["artifacts"])
+        path_drift["details"]["artifacts"]["readmap_json"] = "aidd/reports/readmap.json"
         errors = preflight_result_validate.validate_preflight_result_data(path_drift)
         self.assertTrue(any("artifacts.readmap_json must be one of" in err for err in errors))
 
@@ -193,9 +220,13 @@ class Wave93SchemaAndValidatorTests(unittest.TestCase):
             set(actions_validate.SUPPORTED_SCHEMA_VERSIONS),
             set(aidd_schemas.supported_schema_versions("aidd.actions.v")),
         )
+        expected_preflight_versions = (
+            set(aidd_schemas.supported_schema_versions("aidd.stage_result.preflight.v"))
+            | set(aidd_schemas.supported_schema_versions("aidd.stage_result.v"))
+        )
         self.assertEqual(
             set(preflight_result_validate.SUPPORTED_SCHEMA_VERSIONS),
-            set(aidd_schemas.supported_schema_versions("aidd.stage_result.preflight.v")),
+            expected_preflight_versions,
         )
         expected_map_versions = (
             set(aidd_schemas.supported_schema_versions("aidd.readmap.v"))

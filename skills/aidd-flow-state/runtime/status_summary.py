@@ -108,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
         if loop_reason_code == "seed_stage_silent_stall":
             reason_code = "seed_stage_silent_stall"
             reason = "loop seed watchdog timeout detected before stage result was produced"
+        elif loop_reason_code == "seed_stage_budget_exhausted":
+            reason_code = "seed_stage_budget_exhausted"
+            reason = "loop seed stage budget exhausted before stage result was produced"
         summary = {
             "schema": "aidd.status_summary.v1",
             "ticket": ticket,

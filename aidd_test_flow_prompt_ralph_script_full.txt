@@ -75,6 +75,7 @@
 - R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid` и исключать из расчёта stall.
 - R12.4: Если primary extraction дал только `stream_path_invalid` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
 - R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
+- R13.0: Для preflight write-path также canonical-only: `schema=aidd.stage_result.v1`, `stage=preflight`, `details.target_stage=<implement|review|qa>`; legacy `aidd.stage_result.preflight.v1` допустим только как temporary read-compat payload (не runtime write-path).
 - R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
 - R13.2: Для loop/review `reason_code=blocking_findings` трактовать как ожидаемый `REVISE`-сигнал (не flow bug по умолчанию).
 - R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage wrapper путём.
@@ -151,6 +152,11 @@
 - Если `main log` и/или stream растут, но top-level `result` не появляется (включая `result_count=0`, token-limit, repeated nested tool errors):
   - до исчерпания budget этапа **не** делать `kill`;
   - помечать как `WARN(prompt-exec no_convergence_yet)` и продолжать наблюдение.
+- Если timeout loop-step произошёл при активном stream, но budget стадии ещё не исчерпан (`reason_code=seed_stage_active_stream_timeout`):
+  - трактовать как `WARN(prompt-exec no_convergence_yet)`;
+  - продолжать наблюдение/итерации; не завершать шаг terminal-статусом.
+- Если timeout loop-step произошёл по исчерпанию budget стадии (`reason_code=seed_stage_budget_exhausted`):
+  - трактовать как watchdog budget termination (`NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`).
 - Для `silent stall` и preflight-предупреждения делай ровно один debug-retry той же команды с `ANTHROPIC_LOG=debug` перед финальной классификацией.
 - При завершении процесса с `exit_code=143` обязателен `AUDIT_DIR/<step>_termination_attribution.txt` с полями: `exit_code`, `signal`, `killed_flag`, `watchdog_marker`, `parent_pid`, `classification`, `evidence_paths`.
 
@@ -165,6 +171,8 @@
   - внешнее завершение родительского процесса/TTY/session manager (IDE stop, parent shell terminate, external `SIGTERM`).
 - Затем `prompt-exec issue`:
   - buffering/quoting/runner/hang/silent stall
+  - `exit_code=127` -> `launcher_tokenization_or_command_not_found` (не `completed`)
+  - `reason_code=seed_stage_budget_exhausted` -> `watchdog_terminated` по budget exhaustion
 - Отдельно `contract mismatch`:
   - `stage_result_missing_or_invalid` с diagnostics вида `invalid-schema` для fallback candidate (включая legacy stage-result schema payload)
 - Только потом `flow bug`:

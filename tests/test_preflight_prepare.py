@@ -78,8 +78,13 @@ class PreflightPrepareTests(unittest.TestCase):
             self.assertEqual(readmap_payload.get("schema"), "aidd.readmap.v1")
             self.assertEqual(writemap_payload.get("schema"), "aidd.writemap.v1")
             self.assertEqual(actions_payload.get("schema_version"), "aidd.actions.v1")
-            self.assertEqual(result_payload.get("schema"), "aidd.stage_result.preflight.v1")
+            self.assertEqual(result_payload.get("schema"), "aidd.stage_result.v1")
+            self.assertEqual(result_payload.get("stage"), "preflight")
+            self.assertEqual(result_payload.get("result"), "done")
             self.assertEqual(result_payload.get("status"), "ok")
+            details = result_payload.get("details") or {}
+            self.assertEqual(details.get("target_stage"), "implement")
+            self.assertTrue((details.get("artifacts") or {}).get("actions_template"))
             self.assertIn("src/feature/**", writemap_payload.get("allowed_paths", []))
 
     def test_preflight_prepare_blocks_without_work_item_key(self) -> None:

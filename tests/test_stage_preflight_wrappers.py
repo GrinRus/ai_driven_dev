@@ -9,6 +9,15 @@ from tests.helpers import REPO_ROOT, cli_env, ensure_project_root, write_active_
 
 
 class StagePreflightWrapperTests(unittest.TestCase):
+    def test_resolve_runner_normalizes_assignment_prefix_token(self) -> None:
+        tokens, _raw, notices = loop_step_wrappers.resolve_runner(
+            "AIDD_LOOP_RUNNER=claude --dangerously-skip-permissions",
+            REPO_ROOT,
+        )
+        self.assertTrue(tokens)
+        self.assertEqual(tokens[0], "claude")
+        self.assertIn("normalized", notices)
+
     def _run_preflight(self, stage: str) -> None:
         with tempfile.TemporaryDirectory(prefix=f"preflight-{stage}-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -71,10 +80,13 @@ class StagePreflightWrapperTests(unittest.TestCase):
 
             canonical_result = root / "reports" / "loops" / ticket / scope_key / "stage.preflight.result.json"
             payload = json.loads(canonical_result.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("schema"), "aidd.stage_result.preflight.v1")
+            self.assertEqual(payload.get("schema"), "aidd.stage_result.v1")
             self.assertEqual(payload.get("status"), "ok")
-            self.assertEqual(payload.get("stage"), stage)
-            artifacts = payload.get("artifacts", {})
+            self.assertEqual(payload.get("stage"), "preflight")
+            self.assertEqual(payload.get("result"), "done")
+            details = payload.get("details") or {}
+            self.assertEqual(details.get("target_stage"), stage)
+            artifacts = details.get("artifacts", {})
             self.assertEqual(
                 artifacts.get("readmap_json"),
                 f"aidd/reports/context/{ticket}/{scope_key}.readmap.json",

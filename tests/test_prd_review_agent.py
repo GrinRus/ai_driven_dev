@@ -152,6 +152,22 @@ class PRDReviewAgentTests(unittest.TestCase):
         self.assertEqual(report.action_items, ["- [ ] sync metrics with ops"])
         self.assertFalse(any(f.severity == "critical" for f in report.findings))
 
+    def test_analyse_prd_normalizes_ready_for_implementation_alias(self):
+        prd = self.write_prd(
+            dedent(
+                """\
+                # Demo
+
+                ## PRD Review
+                Status: READY_FOR_IMPLEMENTATION
+                """
+            ),
+        )
+
+        report = prd_review_agent.analyse_prd("demo-feature", prd)
+        self.assertEqual(report.status, "ready")
+        self.assertEqual(report.recommended_status, "ready")
+
     def test_analyse_prd_detects_placeholders(self):
         prd = self.write_prd(
             dedent(

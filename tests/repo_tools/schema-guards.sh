@@ -32,6 +32,7 @@ require_contains "$map_versions" "aidd.writemap.v1" "context-map validator"
 
 log "checking preflight-result validator supported versions"
 preflight_versions="$(python3 skills/aidd-loop/runtime/preflight_result_validate.py --print-supported-versions 2>/dev/null || true)"
+require_contains "$preflight_versions" "aidd.stage_result.v1" "preflight-result validator"
 require_contains "$preflight_versions" "aidd.stage_result.preflight.v1" "preflight-result validator"
 
 log "validating skill contracts"
@@ -49,6 +50,7 @@ required = {
     "aidd.skill_contract.v1",
     "aidd.readmap.v1",
     "aidd.writemap.v1",
+    "aidd.stage_result.v1",
     "aidd.stage_result.preflight.v1",
 }
 missing = sorted(name for name in required if name not in aidd_schemas.SCHEMA_FILES)

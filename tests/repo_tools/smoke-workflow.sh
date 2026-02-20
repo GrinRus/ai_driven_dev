@@ -251,8 +251,19 @@ JSON
   cat >"$context_dir/${scope_key}.writemap.md" <<'MD'
 # writemap
 MD
-  cat >"$loops_dir/stage.preflight.result.json" <<'JSON'
-{"schema":"aidd.stage_result.preflight.v1","status":"ok"}
+  cat >"$loops_dir/stage.preflight.result.json" <<JSON
+{
+  "schema":"aidd.stage_result.v1",
+  "schema_version":"aidd.stage_result.v1",
+  "ticket":"${ticket}",
+  "stage":"preflight",
+  "scope_key":"${scope_key}",
+  "work_item_key":"",
+  "result":"done",
+  "status":"ok",
+  "updated_at":"2026-01-01T00:00:00Z",
+  "details":{"target_stage":"${stage}","artifacts":{}}
+}
 JSON
   echo "ok" >"$logs_dir/wrapper.preflight.log"
   echo "ok" >"$logs_dir/wrapper.run.log"
