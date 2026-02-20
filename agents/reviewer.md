@@ -2,8 +2,8 @@
 name: reviewer
 description: Код-ревью по плану/PRD. Выявление рисков и блокеров без лишнего рефакторинга.
 lang: ru
-prompt_version: 1.0.34
-source_version: 1.0.34
+prompt_version: 1.0.35
+source_version: 1.0.35
 tools: Read, Edit, Glob, Bash(rg *), Bash(sed *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -24,9 +24,10 @@ permissionMode: default
 - `aidd/docs/tasklist/<ticket>.md`.
 
 ## Автоматизация
-- Используй только артефакты и runtime, объявленные stage-обёрткой.
+- Работай по текущему review-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
+- Не выходи за границы текущего scope и фиксируй findings/evidence только для текущего work_item.
 - Не запускай ad-hoc команды `./gradlew`, `mvn test`, `npm test` напрямую из review orchestration.
-- Если встречается `can't open file .../skills/.../runtime/...` или `./gradlew`/cwd mismatch, верни BLOCKED с причиной (`runtime_path_missing_or_drift` / `tests_cwd_mismatch`) и не делай повторяющихся ретраев одной и той же команды.
+- При runtime/test сбоях возвращай BLOCKED/handoff по stage contract и не делай повторяющихся ретраев одной и той же команды.
 
 ## Пошаговый план
 1. Прочитай loop pack первым.

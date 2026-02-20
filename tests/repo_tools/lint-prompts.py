@@ -173,6 +173,25 @@ AGENT_REQUIRED_LOOP_SKILLS = {"feature-dev-aidd:aidd-loop"}
 AGENT_REQUIRED_RLM_SKILL = "feature-dev-aidd:aidd-rlm"
 AGENT_REQUIRED_STAGE_RESEARCH_SKILL = "feature-dev-aidd:aidd-stage-research"
 AGENT_LOOP_PRELOAD_ROLES = {"implementer", "reviewer", "qa"}
+AGENT_SELF_STAGE_COMMAND_MAP: Dict[str, str] = {
+    "analyst": "idea-new",
+    "researcher": "researcher",
+    "planner": "plan-new",
+    "validator": "plan-new",
+    "plan-reviewer": "review-spec",
+    "prd-reviewer": "review-spec",
+    "spec-interview-writer": "spec-interview",
+    "tasklist-refiner": "tasks-new",
+    "implementer": "implement",
+    "reviewer": "review",
+    "qa": "qa",
+}
+AGENT_STAGE_COMMAND_REF_RE = re.compile(r"/feature-dev-aidd:([a-z0-9-]+)", re.IGNORECASE)
+AGENT_LOOP_PATH_LEVEL_POLICY_RE = (
+    re.compile(r"skills/aidd-loop/runtime/preflight_prepare\.py", re.IGNORECASE),
+    re.compile(r"skills/(?:implement|review|qa)/runtime/preflight(?:_[a-z0-9]+)?\.py", re.IGNORECASE),
+    re.compile(r"stage\.(?:implement|review|qa)\.result\.json", re.IGNORECASE),
+)
 AGENT_RLM_PRELOAD_ROLES = {
     "analyst",
     "planner",
@@ -671,6 +690,49 @@ def validate_agent_tool_policy(info: PromptFile) -> List[str]:
     return errors
 
 
+def validate_loop_agent_policy_duplication(info: PromptFile) -> List[str]:
+    if info.stem not in AGENT_LOOP_PRELOAD_ROLES:
+        return []
+    errors: List[str] = []
+    body = info.body or ""
+    for pattern in AGENT_LOOP_PATH_LEVEL_POLICY_RE:
+        match = pattern.search(body)
+        if match:
+            errors.append(
+                f"{info.path}: loop agent must not duplicate stage path-level orchestration policy "
+                f"(found `{match.group(0)}`); keep runtime/manual-path guardrails in stage SKILL.md"
+            )
+    return errors
+
+
+def validate_agent_self_stage_links(info: PromptFile) -> List[str]:
+    expected_stage = AGENT_SELF_STAGE_COMMAND_MAP.get(info.stem)
+    if not expected_stage:
+        return []
+
+    errors: List[str] = []
+    seen: set[tuple[str, str]] = set()
+    sources = (
+        ("description", _as_string(info.front_matter.get("description"))),
+        ("body", info.body or ""),
+    )
+    for source_name, text in sources:
+        for match in AGENT_STAGE_COMMAND_REF_RE.finditer(text):
+            stage_ref = str(match.group(1) or "").strip().lower()
+            if stage_ref != expected_stage:
+                continue
+            token = f"/feature-dev-aidd:{stage_ref}"
+            dedupe_key = (source_name, token)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            errors.append(
+                f"{info.path}: agent must not reference own stage slash command `{token}` in {source_name}; "
+                f"keep orchestration in stage SKILL.md and use non-self handoff links only"
+            )
+    return errors
+
+
 def validate_output_contract(info: PromptFile, root: Path) -> List[str]:
     rel_path = _relative_prompt_path(info, root)
     required_fields = OUTPUT_CONTRACT_FIELDS.get(rel_path)
@@ -730,6 +792,8 @@ def lint_agents(root: Path) -> Tuple[List[str], List[str], Dict[str, PromptFile]
         errors.extend(validate_required_write_tools(info))
         errors.extend(validate_agent_skill_refs(info, root))
         errors.extend(validate_agent_tool_policy(info))
+        errors.extend(validate_loop_agent_policy_duplication(info))
+        errors.extend(validate_agent_self_stage_links(info))
         grammar_errors, grammar_warnings = validate_bash_tool_grammar(info)
         errors.extend(grammar_errors)
         warnings.extend(grammar_warnings)

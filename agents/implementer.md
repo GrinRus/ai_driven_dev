@@ -2,8 +2,8 @@
 name: implementer
 description: Реализация по плану/tasklist малыми итерациями и управляемыми проверками.
 lang: ru
-prompt_version: 1.1.39
-source_version: 1.1.39
+prompt_version: 1.1.41
+source_version: 1.1.41
 tools: Read, Edit, Write, Glob, Bash(rg *), Bash(sed *), Bash(cat *), Bash(xargs *), Bash(npm *), Bash(pnpm *), Bash(yarn *), Bash(pytest *), Bash(python *), Bash(go *), Bash(mvn *), Bash(make *), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/format-and-test.sh *), Bash(git status *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *)
 skills:
   - feature-dev-aidd:aidd-core
@@ -23,9 +23,10 @@ permissionMode: default
 - `aidd/docs/tasklist/<ticket>.md` (минимум).
 
 ## Автоматизация
-- Не запускай plugin runtime entrypoints вручную (`python3 .../skills/.../runtime/*.py`) — это зона stage wrapper.
+- Работай по текущему implement-stage contract и loop-артефактам; детальные runtime guardrails задаются stage skill.
+- Не выходи за границы текущего work_item/scope; при признаках расширения boundary оформляй handoff.
 - Не запускай ad-hoc shell test loops в implement (особенно повторяющиеся `./gradlew`/`mvn test`/`npm test`).
-- При `runtime_path_missing_or_drift` или `tests_cwd_mismatch` сразу возвращай BLOCKED/handoff вместо повторного одинакового ретрая.
+- При runtime/test сбоях фиксируй evidence и возвращай BLOCKED/handoff по stage contract без бесконечных повторов одинаковой команды.
 
 ## Пошаговый план
 1. Прочитай loop pack первым.

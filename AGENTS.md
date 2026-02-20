@@ -102,6 +102,9 @@ User‑гайд для workspace находится в `skills/aidd-core/templat
 Контракт исполнения:
 - Subagents (`agents/*.md`) не вызывают shell wrappers напрямую.
 - Runtime orchestration должна ссылаться на Python entrypoints (`skills/*/runtime/*.py`).
+- Stage orchestration owner: `skills/<stage>/SKILL.md` (через `Run subagent` + stage command routing) является единственным источником orchestration-правил.
+- В `agents/*.md` запрещены self-links вида `/feature-dev-aidd:<own-stage>` в `description` и body; агент описывает только роль/scope/handoff.
+- Cross-stage handoff ссылки в `agents/*.md` допустимы (например, на следующий stage), если это не self-link.
 
 ## Workflow (кратко)
 Публичные стадии: `idea → research → plan → review-spec → tasklist → implement → review → qa`.

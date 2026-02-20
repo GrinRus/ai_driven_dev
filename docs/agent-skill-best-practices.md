@@ -47,6 +47,13 @@ Required card coverage:
   - `when:` the trigger to consult the file.
   - `why:` the expected decision/outcome after reading.
 
+## Agent prompt topology rules (repo policy)
+- Stage skills own orchestration: `skills/<stage>/SKILL.md` defines slash-stage routing and `Run subagent` flow.
+- Agent prompts stay role-scoped: inputs, scope boundaries, evidence expectations, and handoff behavior only.
+- Agents must not include own slash-stage self-links (`/feature-dev-aidd:<own-stage>`).
+- Cross-stage handoff links are allowed when they point to the next stage and do not duplicate self orchestration.
+- Do not duplicate stage runtime/manual-recovery guardrails in agents; keep those rules in stage `SKILL.md`.
+
 ## Cross-agent alignment notes
 - Claude Code: skills are loaded on demand; keep descriptions precise and avoid oversized skills.
 - Codex: repo instructions are layered through `AGENTS.md`; keep rules explicit and scoped.
