@@ -1121,14 +1121,17 @@ def main(argv: List[str] | None = None) -> int:
             emit(args.format, payload)
             return BLOCKED_CODE
 
-        if stage_budget_seconds > 0:
-            timeout_seconds = max(stage_budget_remaining_seconds, 1)
-            budget_exhausted_on_timeout = True
-        elif stream_mode:
-            timeout_seconds = max(step_timeout_seconds, 1)
-            budget_exhausted_on_timeout = False
+        if stream_mode:
+            watchdog_timeout_seconds = max(step_timeout_seconds, 1)
         else:
-            timeout_seconds = max(silent_stall_seconds or step_timeout_seconds, 1)
+            watchdog_timeout_seconds = max(silent_stall_seconds or step_timeout_seconds, 1)
+
+        if stage_budget_seconds > 0:
+            budget_timeout_seconds = max(stage_budget_remaining_seconds, 1)
+            timeout_seconds = min(watchdog_timeout_seconds, budget_timeout_seconds)
+            budget_exhausted_on_timeout = stage_budget_remaining_seconds <= watchdog_timeout_seconds
+        else:
+            timeout_seconds = watchdog_timeout_seconds
             budget_exhausted_on_timeout = False
 
         result = run_loop_step(
