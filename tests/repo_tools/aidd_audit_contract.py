@@ -56,8 +56,19 @@ def classify_incident(
             label="ENV_BLOCKER(plugin_not_loaded)",
         )
 
-    if _truthy(pre.get("disk_low")) or "no_space_left_on_device" in merged_text or "no space left on device" in merged_text:
-        source = "runner_preflight" if _truthy(pre.get("disk_low")) else "summary"
+    enospc_markers = (
+        "no_space_left_on_device",
+        "no space left on device",
+        "launcher_io_enospc",
+    )
+    enospc_hit = any(marker in merged_text for marker in enospc_markers)
+    if _truthy(pre.get("disk_low")) or enospc_hit:
+        if _truthy(pre.get("disk_low")):
+            source = "runner_preflight"
+        elif any(marker in summary_text for marker in enospc_markers):
+            source = "summary"
+        else:
+            source = "run_log"
         return Classification(
             classification="ENV_MISCONFIG",
             subtype="no_space_left_on_device",

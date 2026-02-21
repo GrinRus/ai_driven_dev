@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -81,6 +82,24 @@ class AiddAuditRunnerTests(unittest.TestCase):
         )
         self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
         self.assertEqual(payload.get("classification_source"), "runner_preflight")
+
+    def test_launcher_enospc_reason_marker_classified_as_env_misconfig(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "marker.summary.txt"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "status=failed",
+                        "exit_code=70",
+                        "reason_code=launcher_io_enospc",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path)
+        self.assertEqual(payload.get("classification"), "ENV_MISCONFIG")
+        self.assertEqual(payload.get("classification_subtype"), "no_space_left_on_device")
+        self.assertEqual(payload.get("classification_source"), "summary")
 
 
 if __name__ == "__main__":

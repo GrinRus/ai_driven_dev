@@ -156,6 +156,15 @@ class E2EPromptContractTests(unittest.TestCase):
             text,
         )
 
+    def test_full_prompt_step7_loop_step_command_uses_supported_flags_only(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        match = re.search(r"python3 \$PLUGIN_DIR/skills/aidd-loop/runtime/loop_step\.py[^\n`]*", text)
+        self.assertIsNotNone(match, msg="missing loop_step.py command in full prompt step 7")
+        command = str(match.group(0))
+        self.assertNotIn("--max-iterations", command)
+        self.assertNotIn("--blocked-policy", command)
+        self.assertNotIn("--recoverable-block-retries", command)
+
     def test_prompts_do_not_define_model_override_policy(self) -> None:
         forbidden_patterns = (
             r"\b--model\b",

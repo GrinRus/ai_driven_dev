@@ -573,7 +573,7 @@ Fail-fast gate (до шага 7):
 - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
 - `loop-run` или `loop-step` (по `LOOP_MODE`) через Python runtime:
   - `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
-  - или `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`.
+  - или `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py --ticket $TICKET --stream`.
 - сохранить stream liveness и runner-mode диагностику:
   - `07_loop_stream_liveness_check.txt` (main log vs stream jsonl/log growth),
   - `07_loop_runner_mode_check.txt` (`permissionMode`, approval-denied signals),
