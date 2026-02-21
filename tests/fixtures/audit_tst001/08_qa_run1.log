@@ -1,0 +1,3 @@
+watch_start_utc=2026-02-20T19:15:09Z pid=14716 stall_sec=1200
+silent_stall_detected age=1201s
+killed_for_silent_stall

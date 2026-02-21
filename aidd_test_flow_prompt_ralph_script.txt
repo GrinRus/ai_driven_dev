@@ -60,6 +60,9 @@
 - Для `text`:
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
+- Перед каждым stage-run делать disk-preflight:
+  - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
+  - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.
 - Каждый run писать в `AUDIT_DIR/<step>_run<N>.log` (+ `head/tail/heartbeat`).
 
 ### 3.1 Проверка plugin load в `init`

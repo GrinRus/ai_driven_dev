@@ -1,0 +1,6 @@
+exit_code=143
+signal=SIGTERM
+killed_flag=1
+watchdog_marker=1
+parent_pid=69263
+classification=NOT_VERIFIED(killed)+prompt_exec_issue(watchdog_terminated_silent_stall)

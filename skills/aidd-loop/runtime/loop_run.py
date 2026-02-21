@@ -981,7 +981,7 @@ def main(argv: List[str] | None = None) -> int:
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
 
-    plugin_root = runtime.require_plugin_root()
+    plugin_root = runtime.resolve_plugin_root_with_fallback(start_file=Path(__file__))
     log_path = target / "reports" / "loops" / ticket / "loop.run.log"
     max_iterations = max(1, int(args.max_iterations))
     sleep_seconds = max(0.0, float(args.sleep_seconds))

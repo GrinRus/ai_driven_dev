@@ -2078,3 +2078,34 @@ _Official references (SoT for this wave):_
 1. `W102-1` -> `W102-2` -> `W102-3` + `W102-4`
 2. `W102-5` -> `W102-6` -> `W102-7` -> `W102-8`
 3. `W102-3..W102-8` -> `W102-9` -> `W102-10` -> `W102-11` -> `W102-12`
+
+## Wave 103 — TST-001 audit hardening (plugin + audit runner)
+
+_Статус: в работе, приоритет 0. Цель — детерминированная классификация инцидентов `06/07/08` и устранение env/runtime источников ложных `NOT VERIFIED`._
+
+- [x] **W103-1 (P0) Loop runtime plugin-root fallback for direct Python entrypoints** `skills/aidd-core/runtime/runtime.py`, `skills/aidd-loop/runtime/loop_run.py`, `skills/aidd-loop/runtime/loop_step.py`, `tests/test_runtime_write_safety.py`:
+  - добавить `resolve_plugin_root_with_fallback()` с auto-discovery plugin root по runtime `__file__`;
+  - для `loop_run.py`/`loop_step.py` использовать fallback helper вместо hard fail при пустом env;
+  - сохранить fail-fast при невалидном root.
+  **AC:** direct `python3 .../loop_run.py` без env не падает на missing `CLAUDE_PLUGIN_ROOT`.
+
+- [x] **W103-2 (P0) Launcher ENOSPC/EDQUOT hardening + stage marker propagation** `skills/aidd-core/runtime/launcher.py`, `skills/aidd-core/runtime/stage_actions_run.py`, `tests/test_runtime_launcher.py`, `tests/test_stage_actions_run.py`:
+  - защитить лог-запись launcher от `OSError` и эмитить `reason_code=launcher_io_enospc|launcher_io_error`;
+  - обеспечить явный marker в stage stderr даже при пустом wrapper stderr.
+  **AC:** launcher log I/O failure даёт детерминированный runtime-failure с reason marker.
+
+- [x] **W103-3 (P0) Audit replay tooling + R5.4 priority classifier** `tests/repo_tools/aidd_audit_contract.py`, `tests/repo_tools/aidd_audit_runner.py`, `tests/repo_tools/test_aidd_audit_runner.py`, `tests/fixtures/audit_tst001/*`:
+  - добавить preflight (`disk_free_bytes`, cwd, plugin_root_exists, env snapshot);
+  - реализовать priority classification (`ENV_BLOCKER -> ENV_MISCONFIG -> PROMPT_EXEC_ISSUE -> CONTRACT_MISMATCH -> FLOW_BUG`);
+  - закрепить `result_count=0` как telemetry-only до top-level payload проверки.
+  **AC:** replay TST-001 фиксирует ожидаемые outcomes для `06/07/08`.
+
+- [x] **W103-4 (P1) Prompt parity guards for disk preflight and loop env wiring** `aidd_test_flow_prompt_ralph_script_full.txt`, `aidd_test_flow_prompt_ralph_script.txt`, `tests/repo_tools/test_e2e_prompt_contract.py`:
+  - добавить обязательный disk-preflight (`df -Pk "$PROJECT_DIR"`, threshold `1073741824`);
+  - зафиксировать step-7 Python env wiring (`CLAUDE_PLUGIN_ROOT` + `PYTHONPATH`) в full prompt;
+  - добавить contract test для env wiring.
+  **AC:** prompt contract tests падают при удалении disk/env инвариантов.
+
+- [x] **W103-5 (P2) Operator runbook for TST-001 rerun-readiness** `docs/runbooks/tst001-audit-hardening.md`:
+  - задокументировать decision tree классификаций, replay workflow и DoD.
+  **AC:** инженер может запустить replay и получить те же классификации без дополнительных решений.

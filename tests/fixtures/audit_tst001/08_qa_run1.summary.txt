@@ -1,0 +1,17 @@
+finished_at_utc=2026-02-20T19:33:47Z
+exit_code=0
+result_count=0
+done_like_count=0
+plugin_init_hit=1
+slash_hit=1
+skills_hit=1
+unknown_skill_hit=0
+cwd_wrong_hit=0
+primary_stream_count=0
+valid_stream_count=2
+invalid_stream_count=0
+fallback_used=1
+effective_exit_code=143
+killed_flag=1
+watchdog_marker=1
+effective_classification=NOT_VERIFIED(killed)+prompt_exec_issue(watchdog_terminated_silent_stall)
