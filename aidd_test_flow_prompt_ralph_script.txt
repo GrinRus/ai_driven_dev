@@ -32,7 +32,7 @@
   - не считать trigger-ом `Q*`/`AIDD:ANSWERS`/`Question` внутри вложенных артефактов (PRD/tasklist/reports/log excerpts), если stage-return сам не запрашивает ответ;
   - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`
   - остальные stage: `ticket + AIDD:ANSWERS`
-  - для runtime probe/compat избегать legacy retry args (`--answers` для `spec-interview`, `--plan-path` для `plan-review-gate`): runtime принимает их только как backward-compatible aliases; использовать canonical CLI-аргументы runtime.
+  - для runtime retry использовать canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
 - R2: Если `BLOCKED` связан с missing spec (`aidd/docs/spec/<ticket>.spec.yaml`) или unresolved `Q*`:
   - выполнить `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
   - затем повторить исходный stage один раз.

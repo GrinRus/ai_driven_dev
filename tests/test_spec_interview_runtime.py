@@ -12,17 +12,16 @@ from aidd_runtime import spec_interview
 
 
 class SpecInterviewRuntimeTests(unittest.TestCase):
-    def test_parse_args_accepts_answers_alias(self) -> None:
-        args = spec_interview.parse_args(
-            [
-                "--ticket",
-                "DEMO-SPEC-ALIAS",
-                "--answers",
-                "AIDD:ANSWERS Q1=C; Q2=B",
-            ]
-        )
-        self.assertEqual(args.ticket, "DEMO-SPEC-ALIAS")
-        self.assertIn("AIDD:ANSWERS", str(args.answers or ""))
+    def test_parse_args_rejects_removed_answers_alias(self) -> None:
+        with self.assertRaises(SystemExit):
+            spec_interview.parse_args(
+                [
+                    "--ticket",
+                    "DEMO-SPEC-ALIAS",
+                    "--answers",
+                    "AIDD:ANSWERS Q1=C; Q2=B",
+                ]
+            )
 
 
 if __name__ == "__main__":

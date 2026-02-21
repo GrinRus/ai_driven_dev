@@ -3,8 +3,8 @@ name: implement
 description: Executes implement-stage loop workflow for the next scoped work item through wrapper-driven orchestration. Use when implement stage enters loop mode.
 argument-hint: $1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]
 lang: ru
-prompt_version: 1.1.45
-source_version: 1.1.45
+prompt_version: 1.1.46
+source_version: 1.1.46
 allowed-tools:
   - Read
   - Edit

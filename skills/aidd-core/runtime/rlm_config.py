@@ -167,6 +167,15 @@ def normalize_ignore_dirs(raw: Iterable[str] | None) -> set[str]:
     return items or set(DEFAULT_IGNORE_DIRS)
 
 
+def resolve_keyword_roots(base_root: Path, prefixes: Iterable[str]) -> list[Path]:
+    items = [str(prefix or "").strip() for prefix in prefixes if str(prefix or "").strip()]
+    if items:
+        roots = [base_root / Path(prefix) for prefix in items]
+    else:
+        roots = [base_root]
+    return [path for path in roots if path.exists()]
+
+
 def prompt_version(settings: Dict) -> str:
     raw = settings.get("prompt_version")
     if isinstance(raw, str) and raw.strip():

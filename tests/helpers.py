@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+from textwrap import dedent
 from typing import Any, Dict, Optional
 
 
@@ -236,6 +237,27 @@ def write_file(root: pathlib.Path, relative: str, content: str = "") -> pathlib.
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return target
+
+
+def write_plan_iterations(root: pathlib.Path, ticket: str) -> pathlib.Path:
+    """Write a minimal READY plan with three canonical iterations."""
+    return write_file(
+        root,
+        f"docs/plan/{ticket}.md",
+        dedent(
+            """\
+            Status: READY
+
+            ## AIDD:ITERATIONS
+            - iteration_id: I1
+              - Goal: bootstrap
+            - iteration_id: I2
+              - Goal: follow-up
+            - iteration_id: I3
+              - Goal: follow-up
+            """
+        ),
+    )
 
 
 def tasklist_ready_text(ticket: str = "demo-checkout") -> str:

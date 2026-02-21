@@ -17,7 +17,7 @@ from aidd_runtime import preflight_result_validate
 from aidd_runtime import runtime
 from aidd_runtime import skill_contract_validate
 from aidd_runtime.diff_boundary_check import extract_boundaries, parse_front_matter
-from aidd_runtime.io_utils import utc_timestamp
+from aidd_runtime.io_utils import utc_timestamp, write_json
 
 DEFAULT_ACTION_TYPES = [
     "tasklist_ops.set_iteration_done",
@@ -199,12 +199,6 @@ def _render_writemap_md(writemap: Dict[str, Any]) -> str:
     for item in writemap.get("always_allow", []):
         lines.append(f"- {item}")
     return "\n".join(lines).rstrip() + "\n"
-
-
-def _write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
 
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -596,11 +590,11 @@ def main(argv: List[str] | None = None) -> int:
         if writemap_errors:
             raise PreflightBlocked("writemap_invalid", "; ".join(writemap_errors))
 
-        _write_json(readmap_json_path, readmap)
+        write_json(readmap_json_path, readmap, sort_keys=True)
         _write_text(readmap_md_path, _render_readmap_md(readmap))
-        _write_json(writemap_json_path, writemap)
+        write_json(writemap_json_path, writemap, sort_keys=True)
         _write_text(writemap_md_path, _render_writemap_md(writemap))
-        _write_json(actions_template_path, actions_template)
+        write_json(actions_template_path, actions_template, sort_keys=True)
 
         result_payload = _build_preflight_result(
             status="ok",
@@ -609,7 +603,7 @@ def main(argv: List[str] | None = None) -> int:
             context=context,
             artifacts=artifacts,
         )
-        _write_json(result_path, result_payload)
+        write_json(result_path, result_payload, sort_keys=True)
 
         output = {
             "schema": "aidd.preflight_prepare.result.v1",
@@ -641,7 +635,7 @@ def main(argv: List[str] | None = None) -> int:
             context=context,
             artifacts=artifacts,
         )
-        _write_json(result_path, blocked_payload)
+        write_json(result_path, blocked_payload, sort_keys=True)
         if args.format == "json":
             print(
                 json.dumps(
@@ -673,7 +667,7 @@ def main(argv: List[str] | None = None) -> int:
             context=context,
             artifacts=artifacts,
         )
-        _write_json(result_path, blocked_payload)
+        write_json(result_path, blocked_payload, sort_keys=True)
         if args.format == "json":
             print(
                 json.dumps(

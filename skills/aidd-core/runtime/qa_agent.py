@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import hashlib
 import json
 import os
 import re
@@ -21,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+from aidd_runtime import id_utils
 from aidd_runtime import runtime
 from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
 
@@ -39,16 +39,6 @@ MANUAL_MARKERS = ("manual", "ручн")
 
 def _normalize_id_text(value: str) -> str:
     return " ".join(str(value).strip().split())
-
-
-def _stable_id(prefix: str, *parts: str) -> str:
-    digest = hashlib.sha1()
-    digest.update(prefix.encode("utf-8"))
-    digest.update(b"|")
-    for part in parts:
-        digest.update(_normalize_id_text(str(part)).encode("utf-8"))
-        digest.update(b"|")
-    return digest.hexdigest()[:12]
 
 
 def feature_label(ticket: Optional[str], slug_hint: Optional[str]) -> str:
@@ -73,10 +63,10 @@ class Finding:
 
     def __post_init__(self) -> None:
         if not self.id:
-            self.id = _stable_id(
+            self.id = id_utils.stable_id(
                 "qa",
-                self.scope,
-                self.title,
+                _normalize_id_text(self.scope),
+                _normalize_id_text(self.title),
             )
 
     def to_dict(self) -> dict:
@@ -296,7 +286,11 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
                 if is_manual:
                     manual_required.append(f"{tasklist_path.relative_to(ROOT_DIR)}:{idx} → {stripped}")
                 rel_path = tasklist_path.relative_to(ROOT_DIR)
-                checklist_id = _stable_id("qa-checklist", str(rel_path), stripped)
+                checklist_id = id_utils.stable_id(
+                    "qa-checklist",
+                    _normalize_id_text(str(rel_path)),
+                    _normalize_id_text(stripped),
+                )
                 findings.append(
                     Finding(
                         severity="major" if is_manual else "blocker",
@@ -314,7 +308,11 @@ def analyse_tasklist(ticket: Optional[str], slug_hint: Optional[str]) -> tuple[L
             if blocking_flag is None:
                 continue
             rel_path = tasklist_path.relative_to(ROOT_DIR)
-            handoff_id = _stable_id("qa-handoff", str(rel_path), stripped)
+            handoff_id = id_utils.stable_id(
+                "qa-handoff",
+                _normalize_id_text(str(rel_path)),
+                _normalize_id_text(stripped),
+            )
             findings.append(
                 Finding(
                     severity="blocker" if blocking_flag else "major",

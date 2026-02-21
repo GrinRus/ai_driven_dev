@@ -3,8 +3,8 @@ name: review
 description: Runs review-stage validation for scope changes, findings, and follow-up task derivation. Use when review stage needs verdict and handoff tasks.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.40
-source_version: 1.0.40
+prompt_version: 1.0.41
+source_version: 1.0.41
 allowed-tools:
   - Read
   - Edit

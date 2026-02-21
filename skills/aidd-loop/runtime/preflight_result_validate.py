@@ -7,10 +7,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, List
 
 from aidd_runtime import aidd_schemas
 from aidd_runtime import runtime
+from aidd_runtime import validation_helpers
 
 CANONICAL_SCHEMA_VERSION = "aidd.stage_result.v1"
 LEGACY_SCHEMA_VERSION = "aidd.stage_result.preflight.v1"
@@ -22,13 +23,6 @@ VALID_RESULTS = {"done", "blocked"}
 
 class ValidationError(ValueError):
     pass
-
-
-def _require_fields(obj: dict[str, Any], fields: Iterable[str], errors: List[str], *, prefix: str = "") -> None:
-    for field in fields:
-        if field not in obj:
-            errors.append(f"{prefix}missing field: {field}")
-
 
 def _is_str(value: Any) -> bool:
     return isinstance(value, str)
@@ -128,7 +122,7 @@ def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
         return errors
 
     if schema == LEGACY_SCHEMA_VERSION:
-        _require_fields(
+        validation_helpers.require_fields(
             payload,
             (
                 "schema",
@@ -175,7 +169,7 @@ def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
         )
         return errors
 
-    _require_fields(
+    validation_helpers.require_fields(
         payload,
         (
             "ticket",

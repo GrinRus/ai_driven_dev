@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List
 
 from aidd_runtime import runtime
 from aidd_runtime import context_map_validate
-from aidd_runtime.io_utils import append_jsonl, utc_timestamp
+from aidd_runtime.io_utils import append_jsonl, utc_timestamp, write_json
 
 ALWAYS_ALLOW_REPORTS = ["aidd/reports/**", "aidd/reports/actions/**"]
 
@@ -45,12 +45,6 @@ def _parse_ref(value: str) -> tuple[str, str]:
 
 def _load_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
 
 def _render_readmap_md(readmap: Dict[str, Any]) -> str:
     lines = [
@@ -270,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     if readmap_errors:
         print(f"[context-expand] ERROR: invalid readmap after update: {'; '.join(readmap_errors)}", file=sys.stderr)
         return 2
-    _write_json(readmap_json, readmap)
+    write_json(readmap_json, readmap, sort_keys=True)
     readmap_md.parent.mkdir(parents=True, exist_ok=True)
     readmap_md.write_text(_render_readmap_md(readmap), encoding="utf-8")
 
@@ -288,7 +282,7 @@ def main(argv: list[str] | None = None) -> int:
         if writemap_errors:
             print(f"[context-expand] ERROR: invalid writemap after update: {'; '.join(writemap_errors)}", file=sys.stderr)
             return 2
-        _write_json(writemap_json, writemap)
+        write_json(writemap_json, writemap, sort_keys=True)
         writemap_md.parent.mkdir(parents=True, exist_ok=True)
         writemap_md.write_text(_render_writemap_md(writemap), encoding="utf-8")
         writemap_updated = True

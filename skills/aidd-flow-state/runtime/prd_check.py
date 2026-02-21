@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from aidd_runtime import cache_helpers
 from aidd_runtime import runtime
 
 
@@ -32,25 +33,6 @@ def _resolve_prd_path(project_root: Path, ticket: str, override: Optional[str]) 
 def _cache_path(root: Path) -> Path:
     return root / ".cache" / CACHE_FILENAME
 
-
-def _load_cache(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _write_cache(path: Path, *, ticket: str, hash_value: str) -> None:
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"ticket": ticket, "hash": hash_value}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    except OSError:
-        return
-
-
 def _hash_prd(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -68,7 +50,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     text = prd_path.read_text(encoding="utf-8")
     current_hash = _hash_prd(text)
     cache_path = _cache_path(project_root)
-    cache_payload = _load_cache(cache_path)
+    cache_payload = cache_helpers.load_json_cache(cache_path)
     if cache_payload.get("ticket") == ticket and cache_payload.get("hash") == current_hash:
         print("[prd-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
         return 0
@@ -83,7 +65,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     print(f"[aidd] PRD ready for `{ticket}` (status: READY).")
-    _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
+    cache_helpers.write_ticket_hash_cache(cache_path, ticket=ticket, hash_value=current_hash)
     return 0
 
 
