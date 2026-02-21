@@ -123,6 +123,48 @@ class ContextPackTests(unittest.TestCase):
             text = pack_path.read_text(encoding="utf-8")
             self.assertIn("agent: planner", text)
 
+    def test_context_pack_infers_agent_for_canonical_stages(self) -> None:
+        cases = (
+            ("tasklist", "tasklist-refiner"),
+            ("spec-interview", "spec-interview-writer"),
+            ("status", "status"),
+        )
+        for stage, expected_agent in cases:
+            with self.subTest(stage=stage):
+                with tempfile.TemporaryDirectory(prefix=f"context-pack-infer-{stage}-") as tmpdir:
+                    root = ensure_project_root(Path(tmpdir))
+                    template_text = (
+                        REPO_ROOT / "skills" / "aidd-core" / "templates" / "context-pack.template.md"
+                    ).read_text(encoding="utf-8")
+                    write_file(root, "reports/context/template.context-pack.md", template_text)
+                    write_file(
+                        root,
+                        "docs/.active.json",
+                        f'{{"ticket": "DEMO-{stage.upper()}", "slug_hint": "demo-{stage}", "stage": "{stage}"}}\n',
+                    )
+
+                    result = subprocess.run(
+                        cli_cmd(
+                            "context-pack",
+                            "--ticket",
+                            f"DEMO-{stage.upper()}",
+                            "--stage",
+                            stage,
+                            "--template",
+                            "reports/context/template.context-pack.md",
+                        ),
+                        text=True,
+                        capture_output=True,
+                        cwd=root,
+                        env=cli_env(),
+                    )
+                    self.assertEqual(result.returncode, 0, msg=result.stderr)
+                    self.assertIn(f"--agent missing, inferred `{expected_agent}`", result.stderr)
+                    pack_path = root / "reports" / "context" / f"DEMO-{stage.upper()}.pack.md"
+                    text = pack_path.read_text(encoding="utf-8")
+                    self.assertIn(f"stage: {stage}", text)
+                    self.assertIn(f"agent: {expected_agent}", text)
+
 
 if __name__ == "__main__":
     unittest.main()

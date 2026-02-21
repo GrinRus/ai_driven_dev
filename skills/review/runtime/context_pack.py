@@ -18,10 +18,13 @@ _STAGE_AGENT_DEFAULTS = {
     "plan": "planner",
     "review-plan": "plan-reviewer",
     "review-prd": "prd-reviewer",
+    "tasklist": "tasklist-refiner",
     "tasks": "tasklist-refiner",
+    "spec-interview": "spec-interview-writer",
     "implement": "implementer",
     "review": "reviewer",
     "qa": "qa",
+    "status": "status",
 }
 
 
