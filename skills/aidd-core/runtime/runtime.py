@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import os.path
 import re
 import subprocess
 import sys
@@ -30,10 +31,11 @@ except metadata.PackageNotFoundError:  # pragma: no cover - editable installs
     VERSION = "0.1.0"
 
 
-def require_plugin_root() -> Path:
-    raw = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("AIDD_PLUGIN_DIR")
-    if not raw:
-        raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
+def _plugin_root_from_env() -> str:
+    return os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("AIDD_PLUGIN_DIR") or ""
+
+
+def _normalize_plugin_root(raw: str) -> Path:
     plugin_root = Path(raw).expanduser().resolve()
     if plugin_root.name == "skills":
         candidate_root = plugin_root.parent
@@ -42,7 +44,58 @@ def require_plugin_root() -> Path:
                 "CLAUDE_PLUGIN_ROOT must point to plugin root, not to '<plugin>/skills'. "
                 f"Received: {plugin_root}. Expected: {candidate_root}."
             )
+    return plugin_root
+
+
+def _looks_like_plugin_root(candidate: Path) -> bool:
+    return (candidate / ".claude-plugin").exists() and (candidate / "skills").exists()
+
+
+def _plugin_root_from_file(start_file: Path) -> Optional[Path]:
+    seed = Path(start_file).expanduser().resolve()
+    for candidate in [seed, *seed.parents]:
+        if _looks_like_plugin_root(candidate):
+            return candidate
+    return None
+
+
+def _ensure_plugin_env(plugin_root: Path, *, ensure_pythonpath: bool) -> None:
     os.environ.setdefault("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    if not ensure_pythonpath:
+        return
+    current = os.environ.get("PYTHONPATH", "")
+    if not current:
+        os.environ["PYTHONPATH"] = str(plugin_root)
+        return
+    parts = current.split(os.pathsep)
+    if str(plugin_root) not in parts:
+        os.environ["PYTHONPATH"] = f"{plugin_root}{os.pathsep}{current}"
+
+
+def require_plugin_root() -> Path:
+    raw = _plugin_root_from_env()
+    if not raw:
+        raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
+    plugin_root = _normalize_plugin_root(raw)
+    _ensure_plugin_env(plugin_root, ensure_pythonpath=False)
+    return plugin_root
+
+
+def resolve_plugin_root_with_fallback(
+    *,
+    start_file: Path | None = None,
+    ensure_pythonpath: bool = True,
+) -> Path:
+    raw = _plugin_root_from_env()
+    plugin_root: Optional[Path]
+    if raw:
+        plugin_root = _normalize_plugin_root(raw)
+    else:
+        seed = start_file or Path(__file__)
+        plugin_root = _plugin_root_from_file(seed)
+        if plugin_root is None:
+            raise RuntimeError("CLAUDE_PLUGIN_ROOT (or AIDD_PLUGIN_DIR) is required to run AIDD tools.")
+    _ensure_plugin_env(plugin_root, ensure_pythonpath=ensure_pythonpath)
     return plugin_root
 
 

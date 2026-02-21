@@ -1012,7 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
     slug_hint = (context.slug_hint or ticket or "").strip()
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
-    plugin_root = runtime.require_plugin_root()
+    plugin_root = runtime.resolve_plugin_root_with_fallback(start_file=Path(__file__))
     wrapper_plugin_root = resolve_wrapper_plugin_root(plugin_root)
 
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")

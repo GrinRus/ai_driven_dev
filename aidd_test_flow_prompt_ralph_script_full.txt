@@ -106,6 +106,9 @@
   - `cd "$PROJECT_DIR"`
   - `claude -p "<stage command>" $CLAUDE_ARGS $CLAUDE_PLUGIN_FLAGS`
 - Shell-safe launch (рекомендуется для всех запусков): передавать каждый флаг отдельным аргументом, без склейки в одну строку/токен.
+- Перед каждым stage-run делать disk-preflight:
+  - `df -Pk "$PROJECT_DIR"` и проверка свободного места (`>= 1073741824` bytes);
+  - если свободного места меньше, классифицировать как `ENV_MISCONFIG(no_space_left_on_device)` и не стартовать stage-run.
 - Любой запуск stage-команды должен писать `stdout+stderr` в `AUDIT_DIR/<step>_run<N>.log`.
 - Для каждого stage-run сохраняй `head` и `tail` в отдельные файлы (`*.head*.txt`, `*.tail.log`) и heartbeat (`*.heartbeat.log`).
 - Для `stream-json` run дополнительно извлекай/сохраняй stream-пути (`*.stream.jsonl`, `*.stream.log`) в `AUDIT_DIR/<step>_stream_paths_run<N>.txt`.
@@ -569,8 +572,8 @@ Fail-fast gate (до шага 7):
 Сделать:
 - перед запуском установить `AIDD_LOOP_RUNNER="claude --dangerously-skip-permissions"`;
 - `loop-run` или `loop-step` (по `LOOP_MODE`) через Python runtime:
-  - `python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
-  - или `loop_step.py`.
+  - `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`
+  - или `CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py --ticket $TICKET --max-iterations 6 --stream --blocked-policy $BLOCKED_POLICY --recoverable-block-retries $RECOVERABLE_BLOCK_RETRIES`.
 - сохранить stream liveness и runner-mode диагностику:
   - `07_loop_stream_liveness_check.txt` (main log vs stream jsonl/log growth),
   - `07_loop_runner_mode_check.txt` (`permissionMode`, approval-denied signals),

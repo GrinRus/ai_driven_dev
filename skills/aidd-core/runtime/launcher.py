@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import io
 import os
 from contextlib import redirect_stderr, redirect_stdout
@@ -16,6 +17,9 @@ STDOUT_MAX_BYTES = 50 * 1024
 STDERR_MAX_LINES = 50
 OUTPUT_LIMIT_EXIT_CODE = 2
 RUNTIME_FAILURE_EXIT_CODE = 1
+_ENOSPC_ERRNOS = {errno.ENOSPC}
+if hasattr(errno, "EDQUOT"):
+    _ENOSPC_ERRNOS.add(errno.EDQUOT)
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,7 @@ class LaunchResult:
     stdout_lines: int
     stdout_bytes: int
     stderr_lines: int
+    launcher_error_reason: str
 
 
 def resolve_workflow_root_or_fallback(cwd: Path | None = None) -> Path:
@@ -115,14 +120,24 @@ def log_path(
     return log_dir / f"wrapper.{name}.{ts}.log"
 
 
-def _append_log(log_path_value: Path, stdout_text: str, stderr_text: str) -> None:
-    log_path_value.parent.mkdir(parents=True, exist_ok=True)
-    with log_path_value.open("a", encoding="utf-8") as handle:
-        handle.write("[stdout]\n")
-        handle.write(stdout_text)
-        handle.write("\n[stderr]\n")
-        handle.write(stderr_text)
-        handle.write("\n")
+def _append_log(log_path_value: Path, stdout_text: str, stderr_text: str) -> OSError | None:
+    try:
+        log_path_value.parent.mkdir(parents=True, exist_ok=True)
+        with log_path_value.open("a", encoding="utf-8") as handle:
+            handle.write("[stdout]\n")
+            handle.write(stdout_text)
+            handle.write("\n[stderr]\n")
+            handle.write(stderr_text)
+            handle.write("\n")
+    except OSError as exc:
+        return exc
+    return None
+
+
+def _launcher_io_reason_code(exc: OSError) -> str:
+    if int(getattr(exc, "errno", 0) or 0) in _ENOSPC_ERRNOS:
+        return "launcher_io_enospc"
+    return "launcher_io_error"
 
 
 def run_guarded(
@@ -159,7 +174,15 @@ def run_guarded(
 
     stdout_text = out_buf.getvalue()
     stderr_text = err_buf.getvalue()
-    _append_log(log_path_value, stdout_text, stderr_text)
+    launcher_error_reason = ""
+    log_write_error = _append_log(log_path_value, stdout_text, stderr_text)
+    if log_write_error is not None:
+        launcher_error_reason = _launcher_io_reason_code(log_write_error)
+        wrapped_exit_code = RUNTIME_FAILURE_EXIT_CODE
+        stderr_text = (
+            f"{stderr_text}[aidd] ERROR: reason_code={launcher_error_reason} "
+            f"log_path={log_path_value} detail={log_write_error}\n"
+        )
 
     stdout_lines = len(stdout_text.splitlines())
     stdout_bytes = len(stdout_text.encode("utf-8"))
@@ -185,6 +208,7 @@ def run_guarded(
             stdout_lines=stdout_lines,
             stdout_bytes=stdout_bytes,
             stderr_lines=stderr_lines,
+            launcher_error_reason=launcher_error_reason,
         )
     return LaunchResult(
         exit_code=wrapped_exit_code,
@@ -196,4 +220,5 @@ def run_guarded(
         stdout_lines=stdout_lines,
         stdout_bytes=stdout_bytes,
         stderr_lines=stderr_lines,
+        launcher_error_reason=launcher_error_reason,
     )

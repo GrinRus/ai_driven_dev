@@ -117,4 +117,8 @@ def main(
         sys.stdout.write(result.stdout)
     if result.stderr:
         sys.stderr.write(result.stderr)
+    if result.launcher_error_reason:
+        marker = f"[aidd] ERROR: reason_code={result.launcher_error_reason}\n"
+        if marker not in result.stderr:
+            sys.stderr.write(marker)
     return result.exit_code

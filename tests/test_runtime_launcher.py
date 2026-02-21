@@ -1,7 +1,9 @@
+import errno
 import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.helpers import ensure_project_root, write_active_feature, write_active_state
 from aidd_runtime import launcher
@@ -111,6 +113,22 @@ class RuntimeLauncherTests(unittest.TestCase):
             self.assertIn("boom", result.stderr)
             log_text = log.read_text(encoding="utf-8")
             self.assertIn("boom", log_text)
+
+    def test_run_guarded_marks_enospc_launcher_reason(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="launcher-enospc-") as tmpdir:
+            root = Path(tmpdir)
+            log = root / "reports" / "logs" / "wrapper.log"
+
+            def runner() -> int:
+                print("hello")
+                return 0
+
+            with patch("aidd_runtime.launcher._append_log", return_value=OSError(errno.ENOSPC, "No space left on device")):
+                result = launcher.run_guarded(runner, log_path_value=log)
+
+            self.assertEqual(result.exit_code, launcher.RUNTIME_FAILURE_EXIT_CODE)
+            self.assertEqual(result.launcher_error_reason, "launcher_io_enospc")
+            self.assertIn("reason_code=launcher_io_enospc", result.stderr)
 
 
 if __name__ == "__main__":

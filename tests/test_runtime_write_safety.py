@@ -67,6 +67,34 @@ class RuntimeWriteSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "must point to plugin root"):
                 runtime.require_plugin_root()
 
+    def test_resolve_plugin_root_with_fallback_from_runtime_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-plugin-fallback-") as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            runtime_file = plugin_root / "skills" / "aidd-loop" / "runtime" / "loop_run.py"
+            (plugin_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+            runtime_file.parent.mkdir(parents=True, exist_ok=True)
+            runtime_file.write_text("# fallback probe\n", encoding="utf-8")
+            os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+            os.environ.pop("AIDD_PLUGIN_DIR", None)
+            os.environ.pop("PYTHONPATH", None)
+
+            resolved = runtime.resolve_plugin_root_with_fallback(start_file=runtime_file)
+
+            self.assertEqual(resolved, plugin_root.resolve())
+            self.assertEqual(os.environ.get("CLAUDE_PLUGIN_ROOT"), str(plugin_root.resolve()))
+            self.assertEqual(os.environ.get("PYTHONPATH"), str(plugin_root.resolve()))
+
+    def test_resolve_plugin_root_with_fallback_raises_when_unresolvable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="runtime-plugin-fallback-") as tmpdir:
+            random_file = Path(tmpdir) / "not_plugin" / "skills" / "aidd-loop" / "runtime" / "loop_run.py"
+            random_file.parent.mkdir(parents=True, exist_ok=True)
+            random_file.write_text("# no plugin markers\n", encoding="utf-8")
+            os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+            os.environ.pop("AIDD_PLUGIN_DIR", None)
+
+            with self.assertRaisesRegex(RuntimeError, "CLAUDE_PLUGIN_ROOT"):
+                runtime.resolve_plugin_root_with_fallback(start_file=random_file)
+
     def _init_git_repo(self, root: Path) -> None:
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
         subprocess.run(["git", "config", "user.name", "Runtime Safety"], cwd=root, check=True)

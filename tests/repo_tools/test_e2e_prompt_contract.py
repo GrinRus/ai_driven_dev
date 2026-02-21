@@ -143,6 +143,18 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn('cd "$PROJECT_DIR"', text, msg=f"{prompt}: missing cwd launcher invariant")
             self.assertIn('--plugin-dir "$PLUGIN_DIR"', text, msg=f"{prompt}: missing plugin-dir launcher invariant")
             self.assertIn("--verbose --output-format stream-json", text, msg=f"{prompt}: missing stream-json verbose flags")
+            self.assertIn('df -Pk "$PROJECT_DIR"', text, msg=f"{prompt}: missing disk preflight invariant")
+
+    def test_full_prompt_step7_python_runtime_has_plugin_env_wiring(self) -> None:
+        text = _read(AUDIT_PROMPT_FULL)
+        self.assertIn(
+            'CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_run.py',
+            text,
+        )
+        self.assertIn(
+            'CLAUDE_PLUGIN_ROOT="$PLUGIN_DIR" PYTHONPATH="$PLUGIN_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 $PLUGIN_DIR/skills/aidd-loop/runtime/loop_step.py',
+            text,
+        )
 
     def test_prompts_do_not_define_model_override_policy(self) -> None:
         forbidden_patterns = (

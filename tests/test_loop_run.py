@@ -75,6 +75,60 @@ class LoopRunTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload.get("status"), "blocked")
 
+    def test_loop_run_resolves_plugin_root_without_env(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
+            root = ensure_project_root(Path(tmpdir))
+            ticket = "DEMO-NO-ENV"
+            write_active_state(root, ticket=ticket, stage="implement", work_item="iteration_id=I1")
+            fake_step = subprocess.CompletedProcess(
+                args=["loop-step"],
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "status": "done",
+                        "stage": "review",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
+                        "reason": "",
+                        "reason_code": "",
+                    }
+                ),
+                stderr="",
+            )
+            captured = io.StringIO()
+            cwd = os.getcwd()
+            try:
+                os.chdir(root.parent)
+                with patch.dict(
+                    os.environ,
+                    {
+                        "AIDD_LOOP_RESEARCH_GATE": "off",
+                        "CLAUDE_PLUGIN_ROOT": "",
+                        "AIDD_PLUGIN_DIR": "",
+                    },
+                    clear=False,
+                ):
+                    os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+                    os.environ.pop("AIDD_PLUGIN_DIR", None)
+                    with patch("aidd_runtime.loop_run.run_loop_step", return_value=fake_step):
+                        with redirect_stdout(captured):
+                            code = loop_run_module.main(
+                                [
+                                    "--ticket",
+                                    ticket,
+                                    "--max-iterations",
+                                    "1",
+                                    "--format",
+                                    "json",
+                                ]
+                            )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload.get("status"), "ship")
+
     def test_loop_run_ralph_retries_recoverable_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
