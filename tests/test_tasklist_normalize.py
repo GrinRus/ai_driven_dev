@@ -2,34 +2,14 @@ import subprocess
 from pathlib import Path
 from textwrap import dedent
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file
-
-
-def _write_plan(project_root: Path, ticket: str) -> None:
-    write_file(
-        project_root,
-        f"docs/plan/{ticket}.md",
-        dedent(
-            f"""\
-            Status: READY
-            \n
-            ## AIDD:ITERATIONS
-            - iteration_id: I1
-              - Goal: bootstrap
-            - iteration_id: I2
-              - Goal: follow-up
-            - iteration_id: I3
-              - Goal: follow-up
-            """
-        ),
-    )
+from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_file, write_plan_iterations
 
 
 def test_tasklist_normalize_rebuilds_next3_and_dedupes(tmp_path):
     project_root = ensure_project_root(tmp_path)
     ticket = "demo-checkout"
     write_active_feature(project_root, ticket)
-    _write_plan(project_root, ticket)
+    write_plan_iterations(project_root, ticket)
 
     tasklist = dedent(
         f"""\
@@ -127,7 +107,7 @@ def test_tasklist_normalize_inserts_next3_when_missing(tmp_path):
     project_root = ensure_project_root(tmp_path)
     ticket = "demo-missing-next3"
     write_active_feature(project_root, ticket)
-    _write_plan(project_root, ticket)
+    write_plan_iterations(project_root, ticket)
 
     tasklist = dedent(
         f"""\
@@ -200,7 +180,7 @@ def test_tasklist_normalize_shifts_next3_when_item_closed(tmp_path):
     project_root = ensure_project_root(tmp_path)
     ticket = "demo-shift"
     write_active_feature(project_root, ticket)
-    _write_plan(project_root, ticket)
+    write_plan_iterations(project_root, ticket)
 
     tasklist = dedent(
         f"""\
@@ -296,7 +276,7 @@ def test_tasklist_normalize_keeps_unstructured_handoff(tmp_path):
     project_root = ensure_project_root(tmp_path)
     ticket = "demo-handoff"
     write_active_feature(project_root, ticket)
-    _write_plan(project_root, ticket)
+    write_plan_iterations(project_root, ticket)
 
     tasklist = dedent(
         f"""\
@@ -373,7 +353,7 @@ def test_tasklist_normalize_dry_run_does_not_write_archive(tmp_path):
     project_root = ensure_project_root(tmp_path)
     ticket = "demo-progress-archive"
     write_active_feature(project_root, ticket)
-    _write_plan(project_root, ticket)
+    write_plan_iterations(project_root, ticket)
 
     progress_entries = "\n".join(
         [

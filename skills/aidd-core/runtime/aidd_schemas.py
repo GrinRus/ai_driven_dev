@@ -4,15 +4,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-
-def _repo_root() -> Path:
-    here = Path(__file__).resolve()
-    for candidate in (here.parent, *here.parents):
-        if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
-            return candidate
-    return here.parents[3]
-
-
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas" / "aidd"
 
 

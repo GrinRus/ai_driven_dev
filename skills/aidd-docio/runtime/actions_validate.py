@@ -8,9 +8,10 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, List
 
 from aidd_runtime import aidd_schemas
+from aidd_runtime import validation_helpers
 
 try:
     from aidd_runtime.tasklist_check import PROGRESS_KINDS, PROGRESS_SOURCES
@@ -38,15 +39,9 @@ def _is_str(value: Any) -> bool:
     return isinstance(value, str)
 
 
-def _require_fields(obj: dict, fields: Iterable[str], errors: List[str], *, prefix: str = "") -> None:
-    for field in fields:
-        if field not in obj:
-            errors.append(f"{prefix}missing field: {field}")
-
-
 def _validate_progress_params(params: dict, errors: List[str], *, prefix: str = "") -> None:
     required = ["date", "source", "item_id", "kind", "hash", "msg"]
-    _require_fields(params, required, errors, prefix=prefix)
+    validation_helpers.require_fields(params, required, errors, prefix=prefix)
     date = params.get("date")
     if date and (not _is_str(date) or not DATE_RE.match(date)):
         errors.append(f"{prefix}invalid date (expected YYYY-MM-DD): {date}")
@@ -72,7 +67,7 @@ def _validate_progress_params(params: dict, errors: List[str], *, prefix: str = 
 
 
 def _validate_set_done_params(params: dict, errors: List[str], *, prefix: str = "") -> None:
-    _require_fields(params, ["item_id"], errors, prefix=prefix)
+    validation_helpers.require_fields(params, ["item_id"], errors, prefix=prefix)
     item_id = params.get("item_id")
     if item_id is not None and not _is_str(item_id):
         errors.append(f"{prefix}item_id must be string")

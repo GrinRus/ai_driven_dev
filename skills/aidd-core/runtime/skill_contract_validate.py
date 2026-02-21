@@ -7,9 +7,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Iterable, List, Sequence
+from typing import Any, List, Sequence
 
 from aidd_runtime import aidd_schemas
+from aidd_runtime import repo_paths
+from aidd_runtime import validation_helpers
 
 SUPPORTED_SCHEMA_VERSIONS = ("aidd.skill_contract.v1",)
 REQUIRED_TOP_LEVEL = (
@@ -45,15 +47,6 @@ LEGACY_PREFLIGHT_FILES = (
 
 class ValidationError(ValueError):
     pass
-
-
-def _repo_root() -> Path:
-    here = Path(__file__).resolve()
-    for candidate in (here.parent, *here.parents):
-        if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
-            return candidate
-    return here.parents[2]
-
 
 def _is_str(value: Any) -> bool:
     return isinstance(value, str)
@@ -94,12 +87,6 @@ def load_contract(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValidationError("contract payload must be a JSON/YAML object")
     return payload
-
-
-def _require_fields(obj: dict[str, Any], fields: Iterable[str], errors: List[str], *, prefix: str = "") -> None:
-    for field in fields:
-        if field not in obj:
-            errors.append(f"{prefix}missing field: {field}")
 
 
 def _validate_list_of_strings(value: Any, errors: List[str], *, field: str) -> None:
@@ -173,7 +160,7 @@ def validate_contract_data(payload: dict[str, Any], *, contract_path: Path | Non
         errors.append("schema must be one of: " + ", ".join(SUPPORTED_SCHEMA_VERSIONS))
         return errors
 
-    _require_fields(payload, REQUIRED_TOP_LEVEL, errors)
+    validation_helpers.require_fields(payload, REQUIRED_TOP_LEVEL, errors)
 
     skill_id = payload.get("skill_id")
     stage = payload.get("stage")
@@ -290,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         print(values)
         return 0
 
-    root = _repo_root()
+    root = repo_paths.repo_root(__file__)
     paths: list[Path] = []
     if args.all:
         paths.extend(_iter_contract_paths(root))

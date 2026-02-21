@@ -197,11 +197,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Agent name to embed in the pack filename.",
     )
     parser.add_argument(
-        "--refresh",
-        action="store_true",
-        help="Compatibility no-op. Kept for legacy callers; ignored by canonical runtime.",
-    )
-    parser.add_argument(
         "--stage",
         help="Optional stage name for template-based packs (defaults to agent).",
     )

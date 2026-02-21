@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
+from aidd_runtime import cache_helpers
 from aidd_runtime import runtime
 
 IGNORE_PREFIXES = ("aidd/", ".claude/", ".cursor/")
@@ -126,25 +127,6 @@ def parse_allowed_arg(value: str | None) -> List[str]:
 def _cache_path(root: Path) -> Path:
     return root / ".cache" / CACHE_FILENAME
 
-
-def _load_cache(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _write_cache(path: Path, *, ticket: str, hash_value: str) -> None:
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"ticket": ticket, "hash": hash_value}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    except OSError:
-        return
-
-
 def _hash_inputs(diff_files: List[str], allowed_paths: List[str], forbidden_paths: List[str]) -> str:
     payload = {
         "diff": sorted(diff_files),
@@ -231,7 +213,7 @@ def main(argv: List[str] | None = None) -> int:
     diff_files = [path for path in collect_diff_files(target) if not is_ignored(path, aidd_root=aidd_root)]
     cache_path = _cache_path(target)
     current_hash = _hash_inputs(diff_files, allowed_paths, forbidden_paths)
-    cache_payload = _load_cache(cache_path)
+    cache_payload = cache_helpers.load_json_cache(cache_path)
     if cache_payload.get("ticket") == ticket and cache_payload.get("hash") == current_hash:
         print("[diff-boundary-check] SKIP: cache hit (reason_code=cache_hit)", file=sys.stderr)
         return 0
@@ -248,11 +230,11 @@ def main(argv: List[str] | None = None) -> int:
         for line in sorted(blocked + warnings):
             print(line)
         if not blocked:
-            _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
+            cache_helpers.write_ticket_hash_cache(cache_path, ticket=ticket, hash_value=current_hash)
         return 2 if blocked else 0
 
     print(STATUS_OK)
-    _write_cache(cache_path, ticket=ticket, hash_value=current_hash)
+    cache_helpers.write_ticket_hash_cache(cache_path, ticket=ticket, hash_value=current_hash)
     return 0
 
 

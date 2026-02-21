@@ -5,31 +5,19 @@ import unittest
 from pathlib import Path
 from textwrap import dedent
 
-from tests.helpers import cli_cmd, cli_env, ensure_project_root, write_active_feature, write_active_state, write_file
+from tests.helpers import (
+    cli_cmd,
+    cli_env,
+    ensure_project_root,
+    write_active_feature,
+    write_active_state,
+    write_file,
+    write_plan_iterations,
+)
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_pack"
 RUNNER_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "loop_step"
-
-
-def _write_plan(project_root: Path, ticket: str) -> None:
-    write_file(
-        project_root,
-        f"docs/plan/{ticket}.md",
-        dedent(
-            f"""\
-            Status: READY
-            \n
-            ## AIDD:ITERATIONS
-            - iteration_id: I1
-              - Goal: bootstrap
-            - iteration_id: I2
-              - Goal: follow-up
-            - iteration_id: I3
-              - Goal: follow-up
-            """
-        ),
-    )
 
 
 class LoopSemanticsTests(unittest.TestCase):
@@ -132,7 +120,7 @@ class LoopSemanticsTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "demo-ship"
             write_active_feature(root, ticket)
-            _write_plan(root, ticket)
+            write_plan_iterations(root, ticket)
 
             tasklist = dedent(
                 f"""\

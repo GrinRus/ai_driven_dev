@@ -186,8 +186,8 @@
         "description": "Use when implementing the next scoped work item in loop mode with wrapper-driven execution.",
         "argument-hint": "$1 [note...] [test=fast|targeted|full|none] [tests=<filters>] [tasks=<task1,task2>]",
         "lang": "ru",
-        "prompt_version": "1.1.45",
-        "source_version": "1.1.45",
+        "prompt_version": "1.1.46",
+        "source_version": "1.1.46",
         "allowed-tools": [
           "Read",
           "Edit",
@@ -236,8 +236,8 @@
         "description": "Use when reviewing scope changes, producing findings, and deriving follow-up tasks.",
         "argument-hint": "$1 [note...]",
         "lang": "ru",
-        "prompt_version": "1.0.40",
-        "source_version": "1.0.40",
+        "prompt_version": "1.0.41",
+        "source_version": "1.0.41",
         "allowed-tools": [
           "Read",
           "Edit",
@@ -296,8 +296,8 @@
           "Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/set_active_feature.py *)"
         ],
         "model": "inherit",
-        "prompt_version": "1.0.35",
-        "source_version": "1.0.35",
+        "prompt_version": "1.0.36",
+        "source_version": "1.0.36",
         "lang": "ru",
         "argument-hint": "$1 [note...]",
         "name": "qa"

@@ -10,6 +10,15 @@ from aidd_runtime import launcher
 
 
 class RuntimeLauncherTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._env_backup = os.environ.copy()
+        os.environ["AIDD_ALLOW_PLUGIN_WRITES"] = "1"
+        os.environ.pop("AIDD_PLUGIN_WRITE_SAFETY_STRICT", None)
+
+    def tearDown(self) -> None:
+        os.environ.clear()
+        os.environ.update(self._env_backup)
+
     def test_resolve_workflow_root_or_fallback_uses_env_fallback(self) -> None:
         with tempfile.TemporaryDirectory(prefix="launcher-fallback-") as tmpdir:
             root = Path(tmpdir)
