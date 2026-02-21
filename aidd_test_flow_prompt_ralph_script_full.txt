@@ -222,7 +222,7 @@
    - `idea-new`: `ticket + IDEA_NOTE + AIDD:ANSWERS`;
    - остальные stage: `ticket + AIDD:ANSWERS`;
    - не вставляй в CLI многострочные ответы с большим количеством Unicode/пунктуации; если нужно сохранить детали, держи их в `<step>_answers.txt`, а в команду передавай сжатый вариант.
-   - для runtime probe/compat избегай legacy retry args (`--answers` для `spec-interview`, `--plan-path` для `plan-review-gate`): runtime принимает их только как backward-compatible aliases; используй canonical CLI-аргументы runtime.
+   - для runtime retry используй canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
 4. Если после retry всё ещё BLOCKED:
    - зафиксируй `WARN`/`FAIL` с причиной,
    - продолжай по сценарию, где это возможно.

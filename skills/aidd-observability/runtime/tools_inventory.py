@@ -13,11 +13,16 @@ from typing import Dict, Iterable, List, Set
 
 
 def _repo_root() -> Path:
-    here = Path(__file__).resolve()
-    for candidate in (here.parent, *here.parents):
-        if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
-            return candidate
-    return here.parents[2]
+    try:
+        from aidd_runtime import repo_paths as _repo_paths
+
+        return _repo_paths.repo_root(__file__)
+    except Exception:
+        here = Path(__file__).resolve()
+        for candidate in (here.parent, *here.parents):
+            if (candidate / ".claude-plugin").is_dir() and (candidate / "skills").is_dir():
+                return candidate
+        return here.parents[2]
 
 
 if __package__ in {None, ""}:

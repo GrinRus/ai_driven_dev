@@ -35,5 +35,4 @@ def test_cli_parses_new_subcommands():
     qa_run.parse_args(["--ticket", "DEMO-1"])
     identifiers.parse_args(["--json"])
     context_pack.parse_args(["--agent", "implementer"])
-    context_pack.parse_args(["--refresh"])
     tests_log.parse_args(["--status", "pass"])

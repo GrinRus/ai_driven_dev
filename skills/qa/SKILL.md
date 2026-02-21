@@ -3,8 +3,8 @@ name: qa
 description: Runs QA-stage validation, report generation, and postflight actions for the current scope. Use when QA stage is ready for loop verification.
 argument-hint: $1 [note...]
 lang: ru
-prompt_version: 1.0.35
-source_version: 1.0.35
+prompt_version: 1.0.36
+source_version: 1.0.36
 allowed-tools:
   - Read
   - Edit

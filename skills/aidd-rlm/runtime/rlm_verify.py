@@ -4,8 +4,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
+from aidd_runtime import rlm_jsonl_helpers
 from aidd_runtime import runtime
 from aidd_runtime.rlm_config import load_rlm_settings, resolve_source_path
 
@@ -57,14 +58,6 @@ def _iter_nodes(path: Path) -> List[Dict[str, object]]:
             if isinstance(payload, dict):
                 nodes.append(payload)
     return nodes
-
-
-def _write_nodes(path: Path, nodes: Iterable[Dict[str, object]]) -> None:
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        for node in nodes:
-            handle.write(json.dumps(node, ensure_ascii=False) + "\n")
-    tmp_path.replace(path)
 
 
 def verify_nodes(
@@ -125,7 +118,7 @@ def verify_nodes(
         else:
             node["verification"] = "passed"
         updated += 1
-    _write_nodes(nodes_path, nodes)
+    rlm_jsonl_helpers.write_nodes(nodes_path, nodes)
     return updated
 
 

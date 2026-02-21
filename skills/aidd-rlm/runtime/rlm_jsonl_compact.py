@@ -5,24 +5,9 @@ import argparse
 from pathlib import Path
 from typing import Dict, Iterable, List
 
+from aidd_runtime import rlm_jsonl_helpers
 from aidd_runtime import runtime
 from aidd_runtime.io_utils import read_jsonl, write_jsonl
-
-
-def _compact_nodes(nodes: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    dedup: Dict[str, Dict[str, object]] = {}
-    for node in nodes:
-        node_id = str(node.get("id") or node.get("file_id") or node.get("dir_id") or "").strip()
-        if not node_id:
-            continue
-        dedup[node_id] = node
-    def sort_key(item: Dict[str, object]) -> tuple:
-        node_kind = str(item.get("node_kind") or "")
-        path = str(item.get("path") or "")
-        node_id = str(item.get("id") or item.get("file_id") or item.get("dir_id") or "")
-        return (node_kind, path, node_id)
-    return sorted(dedup.values(), key=sort_key)
-
 
 def _compact_links(links: List[Dict[str, object]]) -> List[Dict[str, object]]:
     dedup: Dict[str, Dict[str, object]] = {}
@@ -69,7 +54,7 @@ def main(argv: List[str] | None = None) -> int:
 
     if nodes_path.exists():
         nodes = read_jsonl(nodes_path)
-        compacted = _compact_nodes(nodes)
+        compacted = rlm_jsonl_helpers.compact_nodes(nodes)
         write_jsonl(nodes_path, compacted)
 
     if links_path.exists():

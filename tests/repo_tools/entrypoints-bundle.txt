@@ -175,8 +175,8 @@
       "lang": "ru",
       "name": "implement",
       "path": "skills/implement/SKILL.md",
-      "prompt_version": "1.1.45",
-      "source_version": "1.1.45",
+      "prompt_version": "1.1.46",
+      "source_version": "1.1.46",
       "user_invocable": "true"
     },
     {
@@ -193,8 +193,8 @@
       "lang": "ru",
       "name": "qa",
       "path": "skills/qa/SKILL.md",
-      "prompt_version": "1.0.35",
-      "source_version": "1.0.35",
+      "prompt_version": "1.0.36",
+      "source_version": "1.0.36",
       "user_invocable": "true"
     },
     {
@@ -220,8 +220,8 @@
       "lang": "ru",
       "name": "review",
       "path": "skills/review/SKILL.md",
-      "prompt_version": "1.0.40",
-      "source_version": "1.0.40",
+      "prompt_version": "1.0.41",
+      "source_version": "1.0.41",
       "user_invocable": "true"
     },
     {

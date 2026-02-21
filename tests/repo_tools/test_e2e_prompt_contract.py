@@ -205,16 +205,11 @@ class E2EPromptContractTests(unittest.TestCase):
                 msg=f"{prompt}: missing bounded finalize recovery expectation",
             )
 
-    def test_prompt_retry_contract_mentions_runtime_arg_compat_guards(self) -> None:
+    def test_prompt_retry_contract_removes_legacy_answers_alias(self) -> None:
         for prompt in (AUDIT_PROMPT_FULL, AUDIT_PROMPT_SMOKE):
             text = _read(prompt)
-            self.assertIn("--answers", text, msg=f"{prompt}: missing spec-interview retry arg guard")
             self.assertIn("--plan-path", text, msg=f"{prompt}: missing plan-review-gate retry arg guard")
-            self.assertRegex(
-                text.lower(),
-                r"backward-compatible aliases|compat",
-                msg=f"{prompt}: missing runtime arg compatibility guard",
-            )
+            self.assertNotIn("--answers", text, msg=f"{prompt}: removed spec-interview alias should not be documented")
 
     def test_full_prompt_cwd_recovery_stays_on_project_dir(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)

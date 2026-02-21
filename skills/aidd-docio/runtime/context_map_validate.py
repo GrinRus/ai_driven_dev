@@ -7,9 +7,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, List
 
 from aidd_runtime import aidd_schemas, stage_lexicon
+from aidd_runtime import validation_helpers
 
 SCHEMA_READMAP = "aidd.readmap.v1"
 SCHEMA_WRITEMAP = "aidd.writemap.v1"
@@ -25,12 +26,6 @@ def _is_str(value: Any) -> bool:
     return isinstance(value, str)
 
 
-def _require_fields(obj: dict[str, Any], fields: Iterable[str], errors: List[str], *, prefix: str = "") -> None:
-    for field in fields:
-        if field not in obj:
-            errors.append(f"{prefix}missing field: {field}")
-
-
 def _validate_str_list(value: Any, errors: List[str], *, field: str) -> None:
     if not isinstance(value, list):
         errors.append(f"field {field} must be list[str]")
@@ -41,7 +36,7 @@ def _validate_str_list(value: Any, errors: List[str], *, field: str) -> None:
 
 
 def _validate_readmap(payload: dict[str, Any], errors: List[str]) -> None:
-    _require_fields(
+    validation_helpers.require_fields(
         payload,
         (
             "schema",
@@ -67,7 +62,12 @@ def _validate_readmap(payload: dict[str, Any], errors: List[str]) -> None:
             if not isinstance(entry, dict):
                 errors.append(f"{prefix} must be object")
                 continue
-            _require_fields(entry, ("ref", "path", "selector", "required", "reason"), errors, prefix=f"{prefix}.")
+            validation_helpers.require_fields(
+                entry,
+                ("ref", "path", "selector", "required", "reason"),
+                errors,
+                prefix=f"{prefix}.",
+            )
             for key in ("ref", "path", "selector", "reason"):
                 if key in entry and not _is_str(entry.get(key)):
                     errors.append(f"{prefix}.{key} must be string")
@@ -76,7 +76,7 @@ def _validate_readmap(payload: dict[str, Any], errors: List[str]) -> None:
 
 
 def _validate_writemap(payload: dict[str, Any], errors: List[str]) -> None:
-    _require_fields(
+    validation_helpers.require_fields(
         payload,
         (
             "schema",

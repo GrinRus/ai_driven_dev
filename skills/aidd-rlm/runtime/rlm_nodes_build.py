@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 from aidd_runtime import rlm_targets, runtime
+from aidd_runtime import rlm_jsonl_helpers
 from aidd_runtime.rlm_config import (
     base_root_for_label,
     file_id_for_path,
@@ -15,6 +16,7 @@ from aidd_runtime.rlm_config import (
     normalize_ignore_dirs,
     normalize_path,
     paths_base_for,
+    resolve_keyword_roots,
 )
 
 
@@ -54,14 +56,6 @@ def _iter_nodes(path: Path) -> Iterable[Dict[str, object]]:
     except OSError:
         return []
     return nodes
-
-
-def _write_nodes(path: Path, nodes: Iterable[Dict[str, object]]) -> None:
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        for node in nodes:
-            handle.write(json.dumps(node, ensure_ascii=False) + "\n")
-    tmp_path.replace(path)
 
 
 def _split_values(raw: object | Iterable[str] | None) -> List[str]:
@@ -132,14 +126,6 @@ def _matches_prefix(path: str, prefixes: List[str]) -> bool:
     return False
 
 
-def _resolve_keyword_roots(base_root: Path, prefixes: List[str]) -> List[Path]:
-    if prefixes:
-        roots = [base_root / Path(prefix) for prefix in prefixes]
-    else:
-        roots = [base_root]
-    return [path for path in roots if path.exists()]
-
-
 def _filter_manifest_entries(
     target: Path,
     manifest: Dict,
@@ -177,7 +163,7 @@ def _filter_manifest_entries(
 
     keyword_hits: set[str] = set()
     if scope_keywords:
-        roots = _resolve_keyword_roots(base_root, scope_paths)
+        roots = resolve_keyword_roots(base_root, scope_paths)
         ignore_dirs = normalize_ignore_dirs(settings.get("ignore_dirs"))
         if roots:
             keyword_hits = rlm_targets.rg_files_with_matches(
@@ -205,21 +191,6 @@ def _filter_manifest_entries(
         },
     }
     return path_filtered, scope
-
-
-def _compact_nodes(nodes: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    dedup: Dict[str, Dict[str, object]] = {}
-    for node in nodes:
-        node_id = str(node.get("id") or node.get("file_id") or node.get("dir_id") or "").strip()
-        if not node_id:
-            continue
-        dedup[node_id] = node
-    def sort_key(item: Dict[str, object]) -> tuple:
-        node_kind = str(item.get("node_kind") or "")
-        path = str(item.get("path") or "")
-        node_id = str(item.get("id") or item.get("file_id") or item.get("dir_id") or "")
-        return (node_kind, path, node_id)
-    return sorted(dedup.values(), key=sort_key)
 
 
 def _build_bootstrap_nodes(manifest: Dict[str, object]) -> List[Dict[str, object]]:
@@ -566,8 +537,8 @@ def main(argv: List[str] | None = None) -> int:
         max_children = int(settings.get("dir_children_limit") or DEFAULT_DIR_CHILDREN_LIMIT)
         max_chars = int(settings.get("dir_summary_max_chars") or DEFAULT_DIR_SUMMARY_CHARS)
         dir_nodes = build_dir_nodes(existing_nodes, max_children=max_children, max_chars=max_chars)
-        merged = _compact_nodes(existing_nodes + dir_nodes)
-        _write_nodes(nodes_path, merged)
+        merged = rlm_jsonl_helpers.compact_nodes(existing_nodes + dir_nodes)
+        rlm_jsonl_helpers.write_nodes(nodes_path, merged)
         rel_nodes = runtime.rel_path(nodes_path, target)
         print(f"[aidd] rlm dir nodes updated in {rel_nodes} ({len(dir_nodes)} dirs).")
         return 0
@@ -581,11 +552,11 @@ def main(argv: List[str] | None = None) -> int:
         }
         added = [node for node in new_nodes if str(node.get("id") or "").strip() not in existing_ids]
         if existing_nodes and not args.force:
-            merged = _compact_nodes(new_nodes + existing_nodes)
+            merged = rlm_jsonl_helpers.compact_nodes(new_nodes + existing_nodes)
         else:
-            merged = _compact_nodes(new_nodes)
+            merged = rlm_jsonl_helpers.compact_nodes(new_nodes)
         nodes_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_nodes(nodes_path, merged)
+        rlm_jsonl_helpers.write_nodes(nodes_path, merged)
         rel_nodes = runtime.rel_path(nodes_path, target)
         print(
             f"[aidd] rlm bootstrap nodes saved to {rel_nodes} "

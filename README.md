@@ -36,6 +36,8 @@ AIDD — это AI-Driven Development: LLM работает не как «оди
 - `tools/*` используется только для import stubs и repo-only tooling.
 - Canonical runtime API lives in `skills/*/runtime/*.py`; `tools/*.sh` are retired.
 - Начиная с 2026-02-09, новые интеграции должны вызывать Python entrypoints (`skills/*/runtime/*.py`) с `PYTHONPATH=${CLAUDE_PLUGIN_ROOT}`.
+- Breaking cleanup (2026-02-21): удалены deprecated `skills/aidd-core/runtime/researcher_context.py`, alias `--answers` в `spec-interview`, alias `--refresh` в `review/context_pack`, а также deprecated `reports_pack` context-pack API.
+- Крупные runtime entrypoints (`loop_*`, `tasklist_check`, `tasks_derive`, `reports_pack`, `qa`) переведены на thin facades с вынесенной реализацией в `runtime/*_parts/core.py`.
 - Rollback criteria: если cutover ломает `tests/repo_tools/ci-lint.sh` или `tests/repo_tools/smoke-workflow.sh`, допускается временный wrapper fallback для конкретного entrypoint с обязательным follow-up task.
 - Stage lexicon: public stage `review-spec` работает как umbrella для internal `review-plan` и `review-prd`.
 

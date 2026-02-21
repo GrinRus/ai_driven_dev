@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import hashlib
 import json
 import os
 import re
@@ -22,6 +21,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from aidd_runtime import id_utils
 from aidd_runtime.feature_ids import resolve_aidd_root, resolve_identifiers
 
 
@@ -72,16 +72,6 @@ def _normalize_review_status(status: str) -> str:
     return STATUS_ALIASES.get(value, value)
 
 
-def _stable_id(prefix: str, *parts: str) -> str:
-    digest = hashlib.sha1()
-    digest.update(prefix.encode("utf-8"))
-    digest.update(b"|")
-    for part in parts:
-        digest.update(_normalize_id_text(str(part)).encode("utf-8"))
-        digest.update(b"|")
-    return digest.hexdigest()[:12]
-
-
 @dataclass
 class Finding:
     severity: str  # critical | major | minor
@@ -91,7 +81,12 @@ class Finding:
 
     def __post_init__(self) -> None:
         if not self.id:
-            self.id = _stable_id("prd", self.severity, self.title, self.details)
+            self.id = id_utils.stable_id(
+                "prd",
+                _normalize_id_text(self.severity),
+                _normalize_id_text(self.title),
+                _normalize_id_text(self.details),
+            )
 
 
 @dataclass

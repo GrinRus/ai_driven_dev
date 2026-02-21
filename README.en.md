@@ -19,7 +19,7 @@
 - Mirror section structure, headlines, and links.
 - Update the date below whenever both files are aligned.
 
-_Last sync with `README.md`: 2026-02-09._
+_Last sync with `README.md`: 2026-02-21._
 
 ## What it is
 AIDD is AI-Driven Development: the LLM works not as "one big brain" but as a team of roles inside your SDLC. The Claude Code plugin helps you move away from vibe-coding by capturing artifacts (PRD/plan/tasklist/reports), running quality gates, and adding agents, slash commands, hooks, and the `aidd/` structure.
@@ -43,6 +43,8 @@ Key features:
 - `tools/*` is used only for import stubs and repo-only tooling.
 - Canonical runtime API lives in `skills/*/runtime/*.py`; `tools/*.sh` are retired.
 - Starting February 9, 2026, new integrations must call Python entrypoints (`skills/*/runtime/*.py`) with `PYTHONPATH=${CLAUDE_PLUGIN_ROOT}`.
+- Breaking cleanup (February 21, 2026): removed deprecated `skills/aidd-core/runtime/researcher_context.py`, removed `--answers` alias from `spec-interview`, removed `--refresh` alias from `review/context_pack`, and removed deprecated `reports_pack` context-pack APIs.
+- Large runtime entrypoints (`loop_*`, `tasklist_check`, `tasks_derive`, `reports_pack`, `qa`) now use thin facades with implementations moved to `runtime/*_parts/core.py`.
 - Rollback criteria: if cutover breaks `tests/repo_tools/ci-lint.sh` or `tests/repo_tools/smoke-workflow.sh`, temporary wrapper fallback is allowed for the impacted entrypoint with a mandatory follow-up task.
 - Stage lexicon: public stage `review-spec` acts as an umbrella for internal `review-plan` and `review-prd`.
 

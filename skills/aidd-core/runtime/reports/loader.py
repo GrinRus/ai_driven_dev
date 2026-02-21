@@ -14,7 +14,7 @@ class ReportPaths:
     pack_path: Path
 
 
-def _pack_path_for(json_path: Path) -> Path:
+def pack_path_for(json_path: Path) -> Path:
     ext = _pack_extension()
     if json_path.name.endswith(ext):
         return json_path
@@ -36,7 +36,7 @@ def _json_path_for(pack_path: Path) -> Path:
 def get_report_paths(root: Path, report_type: str, ticket: str, kind: str | None = None) -> ReportPaths:
     name = f"{ticket}-{kind}" if kind else ticket
     json_path = root / "reports" / report_type / f"{name}.json"
-    pack_path = _pack_path_for(json_path)
+    pack_path = pack_path_for(json_path)
     return ReportPaths(json_path=json_path, pack_path=pack_path)
 
 
@@ -72,6 +72,6 @@ def load_report_for_path(path: Path, *, prefer_pack: bool = True) -> Tuple[Dict,
         json_path = _json_path_for(pack_path)
     else:
         json_path = path
-        pack_path = _pack_path_for(json_path)
+        pack_path = pack_path_for(json_path)
     payload, source, _ = load_report(json_path, pack_path, prefer_pack=prefer_pack)
     return payload, source, ReportPaths(json_path=json_path, pack_path=pack_path)

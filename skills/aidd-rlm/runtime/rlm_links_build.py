@@ -17,6 +17,7 @@ from aidd_runtime.rlm_config import (
     load_rlm_settings,
     normalize_ignore_dirs,
     normalize_path,
+    resolve_keyword_roots,
     resolve_source_path,
 )
 
@@ -156,14 +157,6 @@ def _filter_paths_by_prefix(paths: Iterable[str], prefixes: List[str]) -> List[s
     return filtered
 
 
-def _resolve_keyword_roots(base_root: Path, prefixes: List[str]) -> List[Path]:
-    if prefixes:
-        roots = [base_root / Path(prefix) for prefix in prefixes]
-    else:
-        roots = [base_root]
-    return [path for path in roots if path.exists()]
-
-
 def _apply_worklist_scope(
     base_root: Path,
     *,
@@ -191,7 +184,7 @@ def _apply_worklist_scope(
     }
 
     if scope_keywords:
-        roots = _resolve_keyword_roots(base_root, scope_paths)
+        roots = resolve_keyword_roots(base_root, scope_paths)
         scope_hits = set()
         if roots:
             scope_hits = rlm_targets.rg_files_with_matches(

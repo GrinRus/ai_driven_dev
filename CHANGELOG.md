@@ -7,6 +7,11 @@
 - Wave 97 Python-only runtime canon: canonical runtime API is now `python3 skills/*/runtime/*.py`.
 - `skills/*/scripts/*.sh` moved to transition-only compatibility layer (deprecation window through 2026-03-31).
 - `tools/*.py` remains as shared Python runtime library; new integrations must target Python entrypoints.
+- Removed deprecated runtime CLI `skills/aidd-core/runtime/researcher_context.py`.
+- Removed legacy retry alias `--answers` from `skills/spec-interview/runtime/spec_interview.py`.
+- Removed legacy no-op flag `--refresh` from `skills/review/runtime/context_pack.py`.
+- Removed deprecated `reports_pack` compatibility APIs `build_research_context_pack` and `write_research_context_pack`.
+- Runtime facades for `loop_step`, `loop_run`, `loop_pack`, `tasklist_check`, `tasks_derive`, `reports_pack`, and `qa` now load split implementations from `runtime/*_parts/core.py`.
 
 ### New Features
 - `${CLAUDE_PLUGIN_ROOT}/tools/doctor.sh` for environment/path diagnostics and workspace checks.
