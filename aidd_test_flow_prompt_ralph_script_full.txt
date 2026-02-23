@@ -94,7 +94,8 @@
 - R17.2: Если завершение с `exit_code=143` произошло при `killed=0` (или без явного watchdog kill marker), классифицируй как `ENV_MISCONFIG(parent_terminated|external_terminate)`, а не как `silent stall`/`prompt-exec issue`.
 - R17.3: Если завершение с `exit_code=143` произошло при `killed=1` и подтверждённом `watchdog_marker=1`, классифицируй как `NOT VERIFIED (killed)` + `prompt-exec issue (watchdog_terminated)`; не как `ENV_MISCONFIG(parent_terminated|external_terminate)`.
 - R18: Перед запуском `plan-new`, `review-spec`, `tasks-new` и любого шага `6/7/8` обязателен readiness gate из `AUDIT_DIR/05_precondition_block.txt`.
-- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes`, `research_status=reviewed|ok`.
+- R18.1: Readiness gate = `PASS` только при одновременном выполнении условий: `prd_status=READY`, `open_questions_count=0`, `answers_format=compact_q_codes|legacy_answer_alias`, `research_status=reviewed|ok`.
+- R18.1a: `compact_q_codes` обязателен для retry payload в CLI (`AIDD:ANSWERS Q1=...; Q2=...`), но не как обязательный persisted-формат секции `AIDD:ANSWERS` в PRD/plan/tasklist.
 - R18.2: При `FAIL` readiness gate обязателен `reason_code` из набора `prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready`; шаг 5 классифицируется как `NOT VERIFIED (readiness_gate_failed)` + `prompt-flow gap`.
 - R18.3: При readiness gate `FAIL` шаги `6/7/8` помечаются как `NOT VERIFIED (upstream_readiness_gate_failed)` без запуска stage-команд.
 

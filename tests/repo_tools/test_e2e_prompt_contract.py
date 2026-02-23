@@ -135,6 +135,8 @@ class E2EPromptContractTests(unittest.TestCase):
         text = _read(AUDIT_PROMPT_FULL)
         self.assertIn("#### 5.2.1 Step 5 Readiness Gate (hard-stop)", text)
         self.assertIn("05_precondition_block.txt", text)
+        self.assertIn("answers_format=compact_q_codes|legacy_answer_alias", text)
+        self.assertIn("`compact_q_codes` обязателен для retry payload", text)
         self.assertIn("prd_not_ready|open_questions_present|answers_format_invalid|research_not_ready", text)
         self.assertIn("NOT VERIFIED (readiness_gate_failed)", text)
         self.assertIn("NOT VERIFIED (upstream_readiness_gate_failed)", text)
