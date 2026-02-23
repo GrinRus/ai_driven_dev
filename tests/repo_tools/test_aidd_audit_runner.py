@@ -101,6 +101,63 @@ class AiddAuditRunnerTests(unittest.TestCase):
         self.assertEqual(payload.get("classification_subtype"), "no_space_left_on_device")
         self.assertEqual(payload.get("classification_source"), "summary")
 
+    def test_tasks_new_partial_success_without_top_level_result_is_warn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_tasks_new_run1.summary.txt"
+            log_path = Path(tmp) / "05_tasks_new_run1.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "result_count=0",
+                        "exit_code=0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "$ python3 /tmp/plugin/skills/tasks-new/runtime/tasks_new.py --ticket TST-001",
+                        "[tasks-new] tasklist-check: warn",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "TELEMETRY_ONLY")
+        self.assertEqual(payload.get("classification_subtype"), "partial_success_no_top_level_result")
+        self.assertEqual(payload.get("effective_classification"), "WARN(partial_success_no_top_level_result)")
+        self.assertEqual(payload.get("partial_success_no_top_level_result"), 1)
+
+    def test_invalid_fallback_runtime_path_is_classified_as_prompt_exec_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary_path = Path(tmp) / "05_tasks_new_fallback.summary.txt"
+            log_path = Path(tmp) / "05_tasks_new_fallback.log"
+            summary_path.write_text(
+                "\n".join(
+                    [
+                        "step=05_tasks_new",
+                        "result_count=0",
+                        "exit_code=1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text(
+                "\n".join(
+                    [
+                        "$ python3 /skills/tasks-new/runtime/tasks_new.py --ticket TST-001",
+                        "can't open file '/skills/tasks-new/runtime/tasks_new.py': [Errno 2] No such file or directory",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            payload = self.runner.analyze_run(summary_path=summary_path, run_log_path=log_path)
+        self.assertEqual(payload.get("classification"), "PROMPT_EXEC_ISSUE")
+        self.assertEqual(payload.get("classification_subtype"), "fallback_path_assembly_bug")
+        self.assertEqual(payload.get("invalid_fallback_path_count"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

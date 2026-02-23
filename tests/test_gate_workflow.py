@@ -271,9 +271,9 @@ def write_loop_preflight_contract_artifacts(
             + '","artifacts":{}}}\n'
         ),
     )
-    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.preflight.log", "ok\n")
-    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.run.log", "ok\n")
-    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/wrapper.postflight.log", "ok\n")
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/stage.preflight.log", "ok\n")
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/stage.run.log", "ok\n")
+    write_file(tmp_path, f"reports/logs/{stage}/{ticket}/{resolved_scope}/stage.postflight.log", "ok\n")
     write_json(
         tmp_path,
         f"reports/loops/{ticket}/{resolved_scope}/output.contract.json",

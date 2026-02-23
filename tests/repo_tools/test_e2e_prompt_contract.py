@@ -222,14 +222,14 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertIn("preloop_artifacts_missing", text)
         self.assertIn("шаги 7 и 8 пометить `NOT VERIFIED`", text)
 
-    def test_prompts_enforce_runtime_drift_fail_fast_and_manual_preflight_forbidden(self) -> None:
+    def test_prompts_enforce_runtime_drift_fail_fast_and_manual_stage_chain_preflight_forbidden(self) -> None:
         full_text = _read(AUDIT_PROMPT_FULL)
         smoke_text = _read(AUDIT_PROMPT_SMOKE)
         self.assertIn("runtime_path_missing_or_drift", full_text)
         self.assertIn("immediate `blocked`", full_text)
-        self.assertIn("manual_preflight_forbidden", full_text)
+        self.assertIn("manual_stage_chain_preflight_forbidden", full_text)
         self.assertIn("runtime_path_missing_or_drift", smoke_text)
-        self.assertIn("manual_preflight_forbidden", smoke_text)
+        self.assertIn("manual_stage_chain_preflight_forbidden", smoke_text)
 
     def test_full_prompt_requires_ralph_recoverable_probe_for_research_gate(self) -> None:
         text = _read(AUDIT_PROMPT_FULL)
@@ -247,7 +247,7 @@ class E2EPromptContractTests(unittest.TestCase):
         self.assertNotIn("/feature-dev-aidd:planner", agent_text)
         self.assertNotIn("/feature-dev-aidd:planner", skill_text)
 
-    def test_loop_stage_skills_enforce_wrapper_only_policy(self) -> None:
+    def test_loop_stage_skills_enforce_stage_chain_only_policy(self) -> None:
         for skill_path in LOOP_STAGE_SKILLS:
             text = _read(skill_path)
             lower = text.lower()
@@ -257,7 +257,7 @@ class E2EPromptContractTests(unittest.TestCase):
             self.assertIn("forbidden", lower)
             self.assertRegex(lower, r"(manual|direct|вручн|прям).{0,220}preflight")
             self.assertRegex(lower, r"stage\." + re.escape(stage) + r"\.result\.json")
-            self.assertIn("wrapper", lower)
+            self.assertIn("stage-chain", lower)
             self.assertIn("actions_apply.py", lower)
             self.assertIn(
                 "python3 ${claude_plugin_root}/skills/aidd-flow-state/runtime/stage_result.py",

@@ -21,6 +21,13 @@ def _fixture_json(name: str) -> dict:
 
 
 class LoopRunTests(unittest.TestCase):
+    def _seed_stage_chain_baseline(self, root: Path, ticket: str) -> None:
+        write_active_state(root, ticket=ticket)
+        if not (root / "docs" / "tasklist" / f"{ticket}.md").exists():
+            write_file(root, f"docs/tasklist/{ticket}.md", tasklist_ready_text(ticket))
+        if not (root / "docs" / "prd" / f"{ticket}.prd.md").exists():
+            write_file(root, f"docs/prd/{ticket}.prd.md", "Status: READY\n")
+
     def test_loop_run_ship_clears_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
@@ -284,7 +291,7 @@ class LoopRunTests(unittest.TestCase):
                         "scope_key": "iteration_id_I1",
                         "work_item_key": "iteration_id=I1",
                         "reason_code": "stage_result_missing_or_invalid",
-                        "reason": "wrapper output invalid",
+                        "reason": "stage-chain output invalid",
                         "stage_result_diagnostics": "candidates=fallback:candidate:stage.implement.result.json:invalid-schema",
                     }
                 ),
@@ -827,7 +834,7 @@ class LoopRunTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 cwd=root,
-                env=cli_env({"AIDD_SKIP_STAGE_WRAPPERS": "1"}),
+                env=cli_env(),
             )
             self.assertEqual(result.returncode, 20, msg=result.stderr)
             payload = json.loads(result.stdout)
@@ -1764,6 +1771,7 @@ class LoopRunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, "DEMO-3")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-3",
@@ -1779,7 +1787,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -1805,6 +1813,7 @@ class LoopRunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, ticket="DEMO-STREAM", work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, "DEMO-STREAM")
             stage_result = {
                 "schema": "aidd.stage_result.v1",
                 "ticket": "DEMO-STREAM",
@@ -1820,7 +1829,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             log_path = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(log_path)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -1851,6 +1860,7 @@ class LoopRunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             write_active_state(root, ticket="DEMO-MISMATCH", stage="review", work_item="iteration_id=I2")
+            self._seed_stage_chain_baseline(root, "DEMO-MISMATCH")
             write_file(
                 root,
                 "reports/loops/DEMO-MISMATCH/iteration_id_I4/stage.implement.result.json",
@@ -1886,7 +1896,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -1913,6 +1923,7 @@ class LoopRunTests(unittest.TestCase):
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-TASKLIST-RECOVER"
             write_active_state(root, ticket=ticket, stage="tasklist", work_item="iteration_id=I3")
+            self._seed_stage_chain_baseline(root, ticket)
             write_file(
                 root,
                 f"reports/loops/{ticket}/iteration_id_I3/stage.implement.result.json",
@@ -1929,7 +1940,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -1960,17 +1971,18 @@ class LoopRunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="loop-run-") as tmpdir:
             root = ensure_project_root(Path(tmpdir))
             ticket = "DEMO-QA-REPAIR"
-            write_active_state(root, ticket=ticket, stage="qa", work_item="iteration_id=I2")
+            write_active_state(root, ticket=ticket, stage="qa", work_item="iteration_id=I1")
+            self._seed_stage_chain_baseline(root, ticket)
             write_file(
                 root,
-                f"reports/loops/{ticket}/iteration_id_I2/stage.qa.result.json",
+                f"reports/loops/{ticket}/iteration_id_I1/stage.qa.result.json",
                 json.dumps(
                     {
                         "schema": "aidd.stage_result.v1",
                         "ticket": ticket,
                         "stage": "qa",
-                        "scope_key": "iteration_id_I2",
-                        "work_item_key": "iteration_id=I2",
+                        "scope_key": "iteration_id_I1",
+                        "work_item_key": "iteration_id=I1",
                         "result": "blocked",
                         "updated_at": "2024-01-02T00:00:00Z",
                     }
@@ -1978,27 +1990,31 @@ class LoopRunTests(unittest.TestCase):
             )
             write_file(
                 root,
-                f"reports/loops/{ticket}/iteration_id_I2/stage.implement.result.json",
+                f"reports/loops/{ticket}/iteration_id_I1/stage.implement.result.json",
                 json.dumps(
                     {
                         "schema": "aidd.stage_result.v1",
                         "ticket": ticket,
                         "stage": "implement",
-                        "scope_key": "iteration_id_I2",
+                        "scope_key": "iteration_id_I1",
                         "result": "continue",
                         "updated_at": "2024-01-02T00:00:01Z",
                     }
                 ),
             )
-            tasklist = """<!-- handoff:qa start -->
-- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I2)
-<!-- handoff:qa end -->
-"""
-            write_file(root, f"docs/tasklist/{ticket}.md", tasklist)
+            tasklist_path = root / "docs" / "tasklist" / f"{ticket}.md"
+            tasklist = tasklist_path.read_text(encoding="utf-8")
+            tasklist_path.write_text(
+                tasklist
+                + "\n<!-- handoff:qa start -->\n"
+                + "- [ ] Fix A (id: qa:A1) (Priority: high) (Blocking: true) (scope: iteration_id=I1)\n"
+                + "<!-- handoff:qa end -->\n",
+                encoding="utf-8",
+            )
 
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",
@@ -2051,7 +2067,7 @@ class LoopRunTests(unittest.TestCase):
             )
             runner = FIXTURES / "runner.sh"
             runner_log = root / "runner.log"
-            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log), "AIDD_SKIP_STAGE_WRAPPERS": "1"})
+            env = cli_env({"AIDD_LOOP_RUNNER_LOG": str(runner_log)})
             result = subprocess.run(
                 cli_cmd(
                     "loop-run",

@@ -35,8 +35,8 @@
   - для runtime retry использовать canonical CLI-аргументы runtime (например, `--plan-path` для `plan-review-gate`) без legacy alias-аргументов.
 - R2: Если `BLOCKED` связан с missing spec (`aidd/docs/spec/<ticket>.spec.yaml`) или unresolved `Q*`:
   - выполнить `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
-  - затем повторить исходный stage один раз.
-- R3: `AIDD_SKIP_STAGE_WRAPPERS` должен быть unset.
+  - перед повтором stage перепроверить `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);
+  - если PRD остаётся `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не повторять stage, требующий `PRD READY`.
 - R4: Только Python runtime surfaces; shell wrappers не использовать.
 - R5: Все slash stage-команды запускать только из `PROJECT_DIR`.
 - R5.1: В `stream-json` режиме `claude -p` запускать только с `--verbose`.
@@ -47,7 +47,7 @@
 - R9: Ошибка `refusing to use plugin repository as workspace root` = `ENV_MISCONFIG(cwd_wrong)`; исправить `cwd` на `PROJECT_DIR` и повторить 1 раз.
 - R10: Если stage-return уводит в manual path (`preflight_prepare.py` напрямую или ручная запись `stage.*.result.json`) — классифицировать как `prompt-flow drift`, manual path не выполнять.
 - R10.1: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
-- R10.2: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain — классифицировать как `prompt-flow drift (manual_preflight_forbidden)` и завершать шаг `NOT VERIFIED`.
+- R10.2: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain — классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)` и завершать шаг `NOT VERIFIED`.
 - R11: Stage-level классификацию делать только по текущему stage-return, `init` и top-level result; `WARN/Q*/Question` внутри вложенных артефактов не считать trigger-ом инцидента.
 
 ## 3) Политика запуска и классификация
@@ -119,7 +119,6 @@
   - исправить `cwd` на `PROJECT_DIR`
   - повторить 1 раз
   - при повторном провале -> `ENV_BLOCKER(cwd_wrong)` и stop.
-- Проверить R3 (`AIDD_SKIP_STAGE_WRAPPERS`), при `=1` сделать `unset` и зафиксировать WARN.
 
 ### Шаг 2. Baseline
 
@@ -213,7 +212,8 @@ RLM-only check:
 - При вопросах: retry.
 - Если ответ содержит `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET`;
-  - повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
+  - перед retry проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не выполнять retry;
+  - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз.
 - Если hang/kill — fallback:
   - `python3 $PLUGIN_DIR/skills/tasks-new/runtime/tasks_new.py --ticket $TICKET`
 - Сохранить `05_tasklist_status_check.txt`.
@@ -224,8 +224,8 @@ RLM-only check:
 - Precheck `AIDD:TEST_EXECUTION`:
   - сохранить `08_test_execution_precheck.txt`;
   - если одна task-entry содержит `&&`, `||`, `;`, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска.
-- Если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне wrapper chain:
-  - классифицировать как `prompt-flow drift (manual_preflight_forbidden)`;
+- Если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне stage-chain:
+  - классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)`;
   - не продолжать manual recovery path.
 - При вопросах: retry.
 - Если hang/kill — fallback:

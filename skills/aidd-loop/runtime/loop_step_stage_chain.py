@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runner/wrapper execution helpers for loop-step."""
+"""Stage-chain execution helpers for loop-step."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import datetime as dt
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import threading
@@ -128,7 +127,7 @@ def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str
     return tokens, raw, "; ".join(notices)
 
 
-def _parse_wrapper_output(stdout: str) -> Dict[str, str]:
+def _parse_stage_chain_output(stdout: str) -> Dict[str, str]:
     payload: Dict[str, str] = {}
     for raw in stdout.splitlines():
         line = raw.strip()
@@ -199,14 +198,14 @@ def _validate_preflight_contract_inputs(
     return True, ""
 
 
-def _stage_wrapper_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
+def _stage_chain_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log_dir = target / "reports" / "logs" / stage / ticket / scope_key
     log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir / f"wrapper.{kind}.{ts}.log"
+    return log_dir / f"stage.{kind}.{ts}.log"
 
 
-def _append_stage_wrapper_log(log_path: Path, command: List[str], stdout: str, stderr: str) -> None:
+def _append_stage_chain_log(log_path: Path, command: List[str], stdout: str, stderr: str) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write("$ " + " ".join(shlex.quote(token) for token in command) + "\n")
@@ -238,7 +237,7 @@ def _run_runtime_command(
     )
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
-    _append_stage_wrapper_log(log_path, command, stdout, stderr)
+    _append_stage_chain_log(log_path, command, stdout, stderr)
     return proc.returncode, stdout, stderr
 
 
@@ -255,11 +254,6 @@ def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) 
         "writemap_json": context_dir / f"{scope_key}.writemap.json",
         "writemap_md": context_dir / f"{scope_key}.writemap.md",
         "preflight_result": loops_dir / "stage.preflight.result.json",
-        "readmap_json_fallback": actions_dir / "readmap.json",
-        "readmap_md_fallback": actions_dir / "readmap.md",
-        "writemap_json_fallback": actions_dir / "writemap.json",
-        "writemap_md_fallback": actions_dir / "writemap.md",
-        "preflight_result_fallback": actions_dir / "stage.preflight.result.json",
     }
 
 
@@ -287,28 +281,7 @@ def _diff_boundary_violation_reason(stdout: str, stderr: str) -> tuple[str, str]
     return "", ""
 
 
-def _copy_optional_preflight_fallback(paths: Dict[str, Path]) -> None:
-    if os.environ.get("AIDD_WRITE_FALLBACK_PREFLIGHT", "").strip() != "1":
-        return
-    mappings = (
-        ("readmap_json", "readmap_json_fallback"),
-        ("readmap_md", "readmap_md_fallback"),
-        ("writemap_json", "writemap_json_fallback"),
-        ("writemap_md", "writemap_md_fallback"),
-        ("preflight_result", "preflight_result_fallback"),
-    )
-    for source_key, target_key in mappings:
-        source = paths[source_key]
-        target = paths[target_key]
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-    print(
-        "[loop-step] WARN: fallback preflight artifacts emitted (AIDD_WRITE_FALLBACK_PREFLIGHT=1)",
-        file=sys.stderr,
-    )
-
-
-def run_stage_wrapper(
+def run_stage_chain(
     *,
     plugin_root: Path,
     workspace_root: Path,
@@ -325,7 +298,7 @@ def run_stage_wrapper(
     env = _runtime_env(plugin_root)
     parsed: Dict[str, str] = {}
     paths = _resolve_stage_paths(target, ticket, scope_key, stage)
-    wrapper_log_path = _stage_wrapper_log_path(target, stage, ticket, scope_key, kind)
+    stage_chain_log_path = _stage_chain_log_path(target, stage, ticket, scope_key, kind)
 
     actions_provided = bool(actions_path)
     resolved_actions_path = (
@@ -347,7 +320,7 @@ def run_stage_wrapper(
             return (
                 False,
                 parsed,
-                f"{kind} wrapper failed: reason_code=preflight_contract_mismatch {contract_message}",
+                f"{kind} stage-chain failed: reason_code=preflight_contract_mismatch {contract_message}",
             )
         commands: List[List[str]] = [
             [
@@ -427,18 +400,17 @@ def run_stage_wrapper(
                 command=command,
                 cwd=workspace_root,
                 env=env,
-                log_path=wrapper_log_path,
+                log_path=stage_chain_log_path,
             )
-            parsed.update(_parse_wrapper_output(stdout))
+            parsed.update(_parse_stage_chain_output(stdout))
             if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
                 reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
                 if reason_code and reason_message:
-                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
+                    return False, parsed, f"{kind} stage-chain failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
-                return False, parsed, f"{kind} wrapper failed: {details}"
-        _copy_optional_preflight_fallback(paths)
-        parsed.setdefault("log_path", runtime.rel_path(wrapper_log_path, target))
+                return False, parsed, f"{kind} stage-chain failed: {details}"
+        parsed.setdefault("log_path", runtime.rel_path(stage_chain_log_path, target))
         parsed.setdefault("template_path", runtime.rel_path(paths["actions_template"], target))
         parsed.setdefault("readmap_path", runtime.rel_path(paths["readmap_json"], target))
         parsed.setdefault("writemap_path", runtime.rel_path(paths["writemap_json"], target))
@@ -454,7 +426,7 @@ def run_stage_wrapper(
             "qa": plugin_root / "skills" / "qa" / "runtime" / "qa_run.py",
         }.get(stage)
         if not stage_runtime or not stage_runtime.exists():
-            return False, parsed, f"run wrapper failed: stage runtime missing for {stage}"
+            return False, parsed, f"run stage-chain failed: stage runtime missing for {stage}"
         command = [
             sys.executable,
             str(stage_runtime),
@@ -473,13 +445,13 @@ def run_stage_wrapper(
             command=command,
             cwd=workspace_root,
             env=env,
-            log_path=wrapper_log_path,
+            log_path=stage_chain_log_path,
         )
-        parsed.update(_parse_wrapper_output(stdout))
+        parsed.update(_parse_stage_chain_output(stdout))
         if rc != 0:
             details = (stderr or stdout).strip() or f"exit={rc}"
-            return False, parsed, f"{kind} wrapper failed: {details}"
-        parsed.setdefault("log_path", runtime.rel_path(wrapper_log_path, target))
+            return False, parsed, f"{kind} stage-chain failed: {details}"
+        parsed.setdefault("log_path", runtime.rel_path(stage_chain_log_path, target))
         if not actions_provided:
             parsed.setdefault("actions_path", runtime.rel_path(resolved_actions_path, target))
         return True, parsed, ""
@@ -487,7 +459,7 @@ def run_stage_wrapper(
     if kind == "postflight":
         if not resolved_actions_path.exists():
             rel = runtime.rel_path(resolved_actions_path, target)
-            return False, parsed, f"{kind} wrapper failed: actions file missing: {rel}"
+            return False, parsed, f"{kind} stage-chain failed: actions file missing: {rel}"
         commands = [
             [
                 sys.executable,
@@ -551,33 +523,33 @@ def run_stage_wrapper(
                 command=command,
                 cwd=workspace_root,
                 env=env,
-                log_path=wrapper_log_path,
+                log_path=stage_chain_log_path,
             )
-            parsed.update(_parse_wrapper_output(stdout))
+            parsed.update(_parse_stage_chain_output(stdout))
             if len(command) >= 2 and str(command[1]).endswith("diff_boundary_check.py"):
                 reason_code, reason_message = _diff_boundary_violation_reason(stdout, stderr)
                 if reason_code and reason_message:
-                    return False, parsed, f"{kind} wrapper failed: reason_code={reason_code} {reason_message}"
+                    return False, parsed, f"{kind} stage-chain failed: reason_code={reason_code} {reason_message}"
             if rc != 0:
                 details = (stderr or stdout).strip() or f"exit={rc}"
-                return False, parsed, f"{kind} wrapper failed: {details}"
-        parsed.setdefault("log_path", runtime.rel_path(wrapper_log_path, target))
+                return False, parsed, f"{kind} stage-chain failed: {details}"
+        parsed.setdefault("log_path", runtime.rel_path(stage_chain_log_path, target))
         parsed.setdefault("apply_log", runtime.rel_path(paths["apply_log"], target))
         if not actions_provided:
             parsed.setdefault("actions_path", runtime.rel_path(resolved_actions_path, target))
         return True, parsed, ""
 
-    return False, parsed, f"wrapper kind unsupported: {kind}"
+    return False, parsed, f"stage-chain kind unsupported: {kind}"
 
 
-def validate_stage_wrapper_contract(
+def validate_stage_chain_contract(
     *,
     target: Path,
     ticket: str,
     scope_key: str,
     stage: str,
     actions_log_rel: str,
-    wrapper_logs: List[str] | None = None,
+    stage_chain_logs: List[str] | None = None,
     stage_result_path: str = "",
 ) -> Tuple[bool, str, str]:
     if stage not in {"implement", "review", "qa"}:
@@ -613,29 +585,29 @@ def validate_stage_wrapper_contract(
         expected = " | ".join(runtime.rel_path(path, target) for path in stage_result_candidates)
         missing.append(f"stage_result={expected}")
 
-    required_wrapper_kinds = ("preflight", "run", "postflight")
-    if wrapper_logs:
-        kind_to_paths: Dict[str, List[Path]] = {kind: [] for kind in required_wrapper_kinds}
-        for value in wrapper_logs:
+    required_stage_chain_kinds = ("preflight", "run", "postflight")
+    if stage_chain_logs:
+        kind_to_paths: Dict[str, List[Path]] = {kind: [] for kind in required_stage_chain_kinds}
+        for value in stage_chain_logs:
             rel = str(value or "").strip()
             if not rel:
                 continue
             path = runtime.resolve_path_for_target(Path(rel), target)
             name = path.name
-            for kind in required_wrapper_kinds:
-                if f"wrapper.{kind}." in name:
+            for kind in required_stage_chain_kinds:
+                if f"stage.{kind}." in name:
                     kind_to_paths[kind].append(path)
                     break
-        for kind in required_wrapper_kinds:
+        for kind in required_stage_chain_kinds:
             paths = kind_to_paths.get(kind) or []
             if not paths:
-                missing.append(runtime.rel_path(logs_dir / f"wrapper.{kind}.*.log", target))
+                missing.append(runtime.rel_path(logs_dir / f"stage.{kind}.*.log", target))
                 continue
             if not any(path.exists() for path in paths):
                 missing.append(" | ".join(runtime.rel_path(path, target) for path in paths))
     else:
-        required_wrapper_logs = ("wrapper.preflight.*.log", "wrapper.run.*.log", "wrapper.postflight.*.log")
-        for pattern in required_wrapper_logs:
+        required_stage_chain_logs = ("stage.preflight.*.log", "stage.run.*.log", "stage.postflight.*.log")
+        for pattern in required_stage_chain_logs:
             matches = sorted(logs_dir.glob(pattern)) if logs_dir.exists() else []
             if not matches:
                 missing.append(runtime.rel_path(logs_dir / pattern, target))
@@ -652,14 +624,14 @@ def validate_stage_wrapper_contract(
         return True, "", ""
     lowered = [item.lower() for item in missing]
     if any("stage_result=" in item or f"stage.{stage}.result.json" in item for item in lowered):
-        reason_code = "wrapper_output_missing"
-    elif any("wrapper.preflight" in item or "wrapper.run" in item or "wrapper.postflight" in item for item in lowered):
-        reason_code = "wrapper_chain_missing"
+        reason_code = "stage_chain_output_missing"
+    elif any("stage.preflight" in item or "stage.run" in item or "stage.postflight" in item for item in lowered):
+        reason_code = "stage_chain_logs_missing"
     elif any("actions" in item for item in lowered):
         reason_code = "actions_missing"
     else:
         reason_code = "preflight_missing"
-    message = "missing stage wrapper artifacts: " + ", ".join(missing)
+    message = "missing stage-chain artifacts: " + ", ".join(missing)
     return False, message, reason_code
 
 

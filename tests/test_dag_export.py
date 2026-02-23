@@ -44,7 +44,7 @@ class DagExportTests(unittest.TestCase):
 
             write_json(
                 root,
-                f"reports/actions/{ticket}/iteration_id_I1/writemap.json",
+                f"reports/context/{ticket}/iteration_id_I1.writemap.json",
                 {
                     "schema": "aidd.writemap.v1",
                     "ticket": ticket,
@@ -59,7 +59,7 @@ class DagExportTests(unittest.TestCase):
             )
             write_json(
                 root,
-                f"reports/actions/{ticket}/iteration_id_I2/writemap.json",
+                f"reports/context/{ticket}/iteration_id_I2.writemap.json",
                 {
                     "schema": "aidd.writemap.v1",
                     "ticket": ticket,

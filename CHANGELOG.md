@@ -74,7 +74,7 @@
 - `aidd-init` CLI simplified: removed `--dry-run` and `--enable-ci`; supported flags are now `--force`, `--detect-build-tools`, and hidden alias `--detect-stack`.
 - Smoke/docs moved to canonical review wrappers in `skills/review/scripts/*`; phased-out `tools/review-*.sh` redirect-wrappers remain transition-only with warnings.
 - Reviewer marker migration is centralized in `tools/runtime.py`; duplicate migration logic removed from hook/CLI paths.
-- Preflight artifacts now use canonical loop/context paths by default; fallback artifact emission requires `AIDD_WRITE_FALLBACK_PREFLIGHT=1`, and fallback read fallback in gate requires `AIDD_ALLOW_FALLBACK_PREFLIGHT=1`.
+- Preflight artifacts now use canonical loop/context paths only; fallback preflight read/write compatibility paths were removed from runtime and gate checks.
 - CI now includes an always-on `smoke-workflow` job (auto-skip when runtime paths are unchanged) and PR dependency review (`actions/dependency-review-action`).
 - Marketplace metadata is pinned to stable `main`; `ci-lint` now blocks feature refs like `codex/wave*` and `feature/*`.
 - Removed `gate-api-contract` placeholder hook and deleted tracked ad-hoc audit prompt file from the repo.

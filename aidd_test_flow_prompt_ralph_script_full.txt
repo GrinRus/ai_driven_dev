@@ -54,8 +54,7 @@
 - R2: Никаких ручных правок runtime-артефактов.
 - R3: Не читать/не печатать секреты (`.env`, keys, tokens).
 - R4: Только Python runtime surfaces (`skills/*/runtime/*.py`), без shell wrappers.
-- R5: Stage wrappers должны быть включены:
-  - если `AIDD_SKIP_STAGE_WRAPPERS=1`, зафиксировать WARN и сделать `unset AIDD_SKIP_STAGE_WRAPPERS` перед прогоном.
+- R5: Stage-chain orchestration должны быть включены:
 - R6: Все slash stage-команды запускать только из `PROJECT_DIR`.
 - R6.1: Если `STAGE_OUTPUT_MODE=stream-json`, запускать `claude -p` только с `--verbose` (иначе CLI вернёт ошибку формата вывода).
 - R6.2: Для `claude -p` stage-команд обязательно добавлять `--plugin-dir "$PLUGIN_DIR"`.
@@ -75,15 +74,15 @@
 - R12.3: После нормализации stream-путей оставлять в liveness-множестве только пути внутри `PROJECT_DIR`; абсолютные пути вне workspace (например, `/reports/...`) фиксировать как `stream_path_invalid` и исключать из расчёта stall.
 - R12.4: Если primary extraction дал только `stream_path_invalid` или пустой валидный набор, обязателен fallback discovery; отсутствие fallback при таком случае — `prompt-exec issue (stream_path_resolution_incomplete)`.
 - R13: Stage-result contract canonical-only: принимается только `schema=aidd.stage_result.v1` (alias через `schema_version` допустим только для canonical значения). Legacy `aidd.stage_result.<stage>.v1` считать историческим payload.
-- R13.0: Для preflight write-path также canonical-only: `schema=aidd.stage_result.v1`, `stage=preflight`, `details.target_stage=<implement|review|qa>`; legacy `aidd.stage_result.preflight.v1` допустим только как temporary read-compat payload (не runtime write-path).
+- R13.0: Для preflight write-path также canonical-only: `schema=aidd.stage_result.v1`, `stage=preflight`, `details.target_stage=<implement|review|qa>`; legacy preflight schema payload трактуется как historical `invalid-schema` (не runtime-path).
 - R13.1: Если `reason_code=stage_result_missing_or_invalid` и diagnostics указывает fallback `invalid-schema` (включая legacy schema payload), классифицировать как `contract_mismatch(stage_result_shape)` и фиксировать отдельно от `prompt-exec issue`.
 - R13.2: Для loop/review `reason_code=blocking_findings` трактовать как ожидаемый `REVISE`-сигнал (не flow bug по умолчанию).
-- R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage wrapper путём.
+- R13.3: Прямая запись/редактирование `aidd/reports/loops/**/stage.*.result.json` запрещена; stage-result должен эмититься только canonical runtime/stage-chain путём.
 - R13.4: Если `stage_result_missing_or_invalid` сопровождается diagnostics-маркером `scope_fallback_stale_ignored`/`scope_shape_invalid`, классифицировать как `scope_drift_recoverable` (prompt-exec/policy), а не как `contract_mismatch(stage_result_shape)`.
 - R14: Если в stage-логе (включая nested tool calls) есть запуск `python3 skills/.../runtime/*.py` из `PROJECT_DIR` и ошибка вида `can't open file .../skills/...`, классифицировать как `prompt-flow drift (non-canonical runtime path)`; не как env blocker.
 - R14.1: Если такой drift встречается только во вложенном tool-call, но тот же stage завершился валидным top-level result (`exit_code=0` и `result_count>=1` или эквивалентный `done/success` payload), классифицировать как `WARN(prompt_flow_drift_recovered)`, не как `NOT VERIFIED`.
 - R14.2: Для `runtime_path_missing_or_drift` (включая direct вызовы non-canonical `preflight*.py`) применять fail-fast: immediate `blocked`, без guessed retries и без manual recovery path.
-- R14.3: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain, классифицировать как `prompt-flow drift (manual_preflight_forbidden)` и останавливать manual recovery для текущего шага.
+- R14.3: Если в stage-логе есть direct `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain, классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)` и останавливать manual recovery для текущего шага.
 - R15: Если `*_run<N>.summary.txt` содержит `result_count=0` при валидном `init` (plugin/slash_commands/skills присутствуют), классифицировать как `prompt-exec issue (no_top_level_result)` и фиксировать отдельно.
 - R15.1: Если `result_count` в summary отсутствует или пустой (`result_count=`), не трактовать это как `0` автоматически; сначала проверять top-level result/event в run-log, и только при подтверждённом отсутствии результата классифицировать `no_top_level_result`.
 - R16: Для launcher избегать tokenization drift: не передавать флаги как один неразделённый токен; при первом фейле quoting/tokenization делать ровно один shell-safe retry с явными отдельными аргументами.
@@ -229,7 +228,8 @@
 5. Если причина BLOCKED связана с отсутствующим spec (`aidd/docs/spec/<ticket>.spec.yaml`), unresolved PRD-вопросами (`Q*`) или `PRD Status != READY` (например `draft`):
    - сначала пройди `/feature-dev-aidd:spec-interview <ticket>` (тот же retry-шаблон),
    - затем пройди `/feature-dev-aidd:review-spec <ticket>`,
-   - затем повтори исходный stage один раз.
+   - затем перед повтором stage обязательно перепроверь `aidd/docs/prd/<ticket>.prd.md` (`Status:` и unresolved `Q*`);
+   - если после `spec-interview + review-spec` PRD остаётся `Status != READY`, классифицируй как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не запускай stage, который требует `PRD READY`.
 6. Если stage-return содержит `Unknown skill` или отсутствуют feature-dev-aidd slash commands в `init`:
    - **не** применять question retry-шаблон;
    - классифицировать как `ENV_BLOCKER(plugin_not_loaded)` и остановить аудит.
@@ -390,7 +390,6 @@
   - исправить `cwd` на `PROJECT_DIR`;
   - повторить healthcheck 1 раз;
   - при повторном провале -> `ENV_BLOCKER(cwd_wrong)` и stop.
-- проверить R5 (`AIDD_SKIP_STAGE_WRAPPERS`): если `=1`, сохранить WARN, сделать `unset`, зафиксировать в `01_wrappers_guard.txt`.
 
 ### Шаг 2. Baseline
 
@@ -516,13 +515,14 @@ RLM artifacts check (после fallback, если был):
 - перед первым запуском проверить PRD header (`Status:`): если не `READY` или есть unresolved `Q*`, сначала:
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry),
   - выполнить `/feature-dev-aidd:review-spec $TICKET` (ticket-only, при вопросах один retry),
-  - затем запускать `tasks-new`;
+  - затем повторно проверить PRD header (`Status:` + unresolved `Q*`); если PRD всё ещё не `READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)`, пометить шаг 5.5 `NOT VERIFIED` и не запускать `tasks-new`.
 - first run ticket-only;
 - при вопросах: retry;
 - если tasks-new сообщает `Missing Spec File` / `aidd/docs/spec/$TICKET.spec.yaml` / unresolved `Q*`:
   - классифицировать как prompt-flow gap (не code bug на первом проходе);
   - выполнить `/feature-dev-aidd:spec-interview $TICKET` (ticket-only, при вопросах один retry);
-  - повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
+  - перед retry снова проверить PRD header (`Status:` + unresolved `Q*`); если `Status != READY`, классифицировать как `prompt-flow gap (spec_sync_incomplete_prd_not_ready)` и не выполнять retry `tasks-new`;
+  - иначе повторить `/feature-dev-aidd:tasks-new $TICKET` один раз;
 - если `tasks-new` завершился `success|WARN`, но `summary/log` содержит рекомендации manual/non-canonical recovery как primary path:
   - классифицировать как `WARN(prompt_flow_drift_non_canonical_stage_orchestration)`;
   - не переходить на manual path, продолжать сценарий.
@@ -552,16 +552,16 @@ Loop seed integrity checks:
 - inventory:
   - `06_actions_tree.txt`
   - `06_context_tree.txt`
-  - `06_wrapper_logs_tree.txt`
+  - `06_stage_chain_logs_tree.txt`
   - `06_loops_tree.txt`
 - marker semantics check:
   - `06_marker_semantics_check.txt`
   - при проверке исключать шаблонные/backup-файлы (`aidd/docs/tasklist/templates/**`, `*.bak`, `*.tmp`) из детекции ложных marker hits.
   - дополнительно исключать примеры/инструктивные блоки в `AIDD:HOW_TO_UPDATE` и `AIDD:PROGRESS_LOG` (строки с префиксом `>`, inline/fenced code-примеры и placeholder-строки).
-  - маркеры handoff вида `id=review:*` в `AIDD:ITERATIONS_FULL`/`AIDD:PROGRESS_LOG` считать валидными; инцидент фиксировать только для identity-полей (`active.work_item`, `work_item_key`, `scope_key`) или служебных wrapper payload полей.
+  - маркеры handoff вида `id=review:*` в `AIDD:ITERATIONS_FULL`/`AIDD:PROGRESS_LOG` считать валидными; инцидент фиксировать только для identity-полей (`active.work_item`, `work_item_key`, `scope_key`) или служебных stage-chain payload полей.
 
 Fail-fast gate (до шага 7):
-- проверить, что артефакты loop-seed существуют и не пустые: `06_active_after_review.json`, `06_work_item_check.txt`, `06_wrapper_logs_tree.txt`, `06_loops_tree.txt`;
+- проверить, что артефакты loop-seed существуют и не пустые: `06_active_after_review.json`, `06_work_item_check.txt`, `06_stage_chain_logs_tree.txt`, `06_loops_tree.txt`;
 - если любой из артефактов отсутствует/пустой, классифицировать как `NOT VERIFIED (preloop_artifacts_missing)` + `prompt-flow drift`;
 - при `preloop_artifacts_missing` шаги 7 и 8 пометить `NOT VERIFIED` и перейти к шагу 99 (без запуска auto-loop/qa).
 
@@ -602,7 +602,7 @@ Fail-fast gate (до шага 7):
 Loop runtime integrity checks:
 - `07_scope_mismatch_check.txt`
 - `07_id_review_tests_hits.txt` (должно быть пусто)
-- `07_python_only_surface_check.txt` (не должно быть shell wrapper вызовов)
+- `07_python_only_surface_check.txt` (не должно быть shell stage-chain вызовов)
 - `07_loop_stream_liveness_check.txt` (пруф, что probe смотрит main + stream)
 - `07_loop_runner_mode_check.txt` (non-interactive runner mode подтверждён)
 - `07_stage_result_contract_check.txt` (contract mismatch vs prompt-exec разведены)
@@ -618,8 +618,8 @@ Loop runtime integrity checks:
   - сохранить `08_test_execution_precheck.txt`;
   - искать shell-chain токены (`&&`, `||`, `;`) только в command-полях секции `AIDD:TEST_EXECUTION`; в prose/notes не считать инцидентом;
   - если найдено в command-поле как единая task entry, пометить `WARN(tasklist_hygiene)` и продолжить QA с фиксацией риска;
-- если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical wrapper chain:
-  - классифицировать как `prompt-flow drift (manual_preflight_forbidden)`;
+- если в логе виден direct вызов `python3 .../skills/qa/runtime/preflight.py` или `python3 .../skills/aidd-loop/runtime/preflight_prepare.py` вне canonical stage-chain:
+  - классифицировать как `prompt-flow drift (manual_stage_chain_preflight_forbidden)`;
   - не продолжать manual recovery path для текущего шага.
 - при вопросах: retry;
 - если QA-run упал по `python3 skills/qa/runtime/qa.py` + `can't open file`:

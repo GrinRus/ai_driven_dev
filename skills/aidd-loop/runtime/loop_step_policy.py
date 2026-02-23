@@ -207,23 +207,13 @@ def is_skill_first(plugin_root: Path) -> bool:
     return False
 
 
-def resolve_wrapper_plugin_root(plugin_root: Path) -> Path:
-    for env_name in ("AIDD_STAGE_WRAPPERS_ROOT", "AIDD_WRAPPER_PLUGIN_ROOT"):
-        raw = os.environ.get(env_name, "").strip()
-        if not raw:
-            continue
-        print(
-            f"[loop-step] WARN: {env_name} is deprecated in python-only mode and will be ignored",
-            file=core.sys.stderr,
-        )
+def resolve_stage_chain_plugin_root(plugin_root: Path) -> Path:
     return plugin_root
 
 
-def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
+def should_run_stage_chain(stage: str, runner_raw: str, plugin_root: Path) -> bool:
     _ = runner_raw
     if stage not in {"implement", "review", "qa"}:
-        return False
-    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1":
         return False
     if not is_skill_first(plugin_root):
         return False
@@ -233,20 +223,6 @@ def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
 def resolve_hooks_mode() -> str:
     raw = (os.environ.get("AIDD_HOOKS_MODE") or "").strip().lower()
     return "strict" if raw == "strict" else "fast"
-
-
-def evaluate_wrapper_skip_policy(stage: str, plugin_root: Path) -> Tuple[str, str, str]:
-    if stage not in {"implement", "review", "qa"}:
-        return "", "", ""
-    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() != "1":
-        return "", "", ""
-    if not is_skill_first(plugin_root):
-        return "", "", ""
-    message = "stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1"
-    hooks_mode = resolve_hooks_mode()
-    if hooks_mode == "strict" or stage in {"review", "qa"}:
-        return "blocked", message, core.WRAPPER_SKIP_BLOCK_REASON_CODE
-    return "warn", message, core.WRAPPER_SKIP_WARN_REASON_CODE
 
 
 def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:

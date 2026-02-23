@@ -115,14 +115,15 @@ def _render_writemap_md(writemap: Dict[str, Any]) -> str:
 
 
 def _resolve_map_paths(target: Path, ticket: str, scope_key: str) -> Dict[str, Path]:
-    base = target / "reports" / "actions" / ticket / scope_key
+    context_base = target / "reports" / "context" / ticket
+    audit_base = target / "reports" / "actions" / ticket / scope_key
     return {
-        "base": base,
-        "readmap_json": base / "readmap.json",
-        "readmap_md": base / "readmap.md",
-        "writemap_json": base / "writemap.json",
-        "writemap_md": base / "writemap.md",
-        "audit": base / "context-expand.audit.jsonl",
+        "base": context_base,
+        "readmap_json": context_base / f"{scope_key}.readmap.json",
+        "readmap_md": context_base / f"{scope_key}.readmap.md",
+        "writemap_json": context_base / f"{scope_key}.writemap.json",
+        "writemap_md": context_base / f"{scope_key}.writemap.md",
+        "audit": audit_base / "context-expand.audit.jsonl",
     }
 
 

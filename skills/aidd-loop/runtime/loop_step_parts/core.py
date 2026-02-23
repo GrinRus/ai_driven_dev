@@ -39,8 +39,6 @@ WARN_REASON_CODES = {
 HARD_BLOCK_REASON_CODES = {
     "user_approval_required",
 }
-WRAPPER_SKIP_BLOCK_REASON_CODE = "wrappers_skipped_unsafe"
-WRAPPER_SKIP_WARN_REASON_CODE = "wrappers_skipped_warn"
 OUTPUT_CONTRACT_WARN_REASON_CODE = "output_contract_warn"
 LOOP_RUNNER_PERMISSIONS_REASON_CODE = "loop_runner_permissions"
 HANDOFF_QA_START = "<!-- handoff:qa start -->"
@@ -60,7 +58,7 @@ STREAM_MODE_ALIASES = {
     "true": "text",
     "yes": "text",
 }
-WRAPPER_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
+STAGE_CHAIN_REASON_CODE_RE = re.compile(r"\breason_code=([a-z0-9_:-]+)\b", re.IGNORECASE)
 _APPROVAL_ALLOW_VALUES = {"1", "true", "yes", "on"}
 _CLAUDE_COMMANDS = {"claude", "claude.exe"}
 _APPROVAL_MARKERS = (
@@ -445,27 +443,27 @@ def normalize_stage_result(result: str, reason_code: str) -> str:
 
 
 def runner_supports_flag(command: str, flag: str) -> bool:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.runner_supports_flag(command, flag)
+    return _stage_chain.runner_supports_flag(command, flag)
 
 
 def _strip_flag_with_value(tokens: List[str], flag: str) -> Tuple[List[str], bool]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers._strip_flag_with_value(tokens, flag)
+    return _stage_chain._strip_flag_with_value(tokens, flag)
 
 
 def inject_plugin_flags(tokens: List[str], plugin_root: Path) -> Tuple[List[str], List[str]]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.inject_plugin_flags(tokens, plugin_root)
+    return _stage_chain.inject_plugin_flags(tokens, plugin_root)
 
 
 def validate_command_available(plugin_root: Path, stage: str) -> Tuple[bool, str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.validate_command_available(plugin_root, stage)
+    return _stage_chain.validate_command_available(plugin_root, stage)
 
 
 def resolve_stream_mode(raw: Optional[str]) -> str:
@@ -623,9 +621,9 @@ def validate_review_pack(
 
 
 def resolve_runner(args_runner: str | None, plugin_root: Path) -> Tuple[List[str], str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.resolve_runner(args_runner, plugin_root)
+    return _stage_chain.resolve_runner(args_runner, plugin_root)
 
 
 def is_skill_first(plugin_root: Path) -> bool:
@@ -634,16 +632,16 @@ def is_skill_first(plugin_root: Path) -> bool:
     return _policy.is_skill_first(plugin_root)
 
 
-def resolve_wrapper_plugin_root(plugin_root: Path) -> Path:
+def resolve_stage_chain_plugin_root(plugin_root: Path) -> Path:
     from aidd_runtime import loop_step_policy as _policy
 
-    return _policy.resolve_wrapper_plugin_root(plugin_root)
+    return _policy.resolve_stage_chain_plugin_root(plugin_root)
 
 
-def should_run_wrappers(stage: str, runner_raw: str, plugin_root: Path) -> bool:
+def should_run_stage_chain(stage: str, runner_raw: str, plugin_root: Path) -> bool:
     from aidd_runtime import loop_step_policy as _policy
 
-    return _policy.should_run_wrappers(stage, runner_raw, plugin_root)
+    return _policy.should_run_stage_chain(stage, runner_raw, plugin_root)
 
 
 def resolve_hooks_mode() -> str:
@@ -652,40 +650,34 @@ def resolve_hooks_mode() -> str:
     return _policy.resolve_hooks_mode()
 
 
-def evaluate_wrapper_skip_policy(stage: str, plugin_root: Path) -> Tuple[str, str, str]:
-    from aidd_runtime import loop_step_policy as _policy
-
-    return _policy.evaluate_wrapper_skip_policy(stage, plugin_root)
-
-
 def evaluate_output_contract_policy(status: str) -> Tuple[str, str]:
     from aidd_runtime import loop_step_policy as _policy
 
     return _policy.evaluate_output_contract_policy(status)
 
 
-def _parse_wrapper_output(stdout: str) -> Dict[str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+def _parse_stage_chain_output(stdout: str) -> Dict[str, str]:
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers._parse_wrapper_output(stdout)
+    return _stage_chain._parse_stage_chain_output(stdout)
 
 
 def _runtime_env(plugin_root: Path) -> Dict[str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers._runtime_env(plugin_root)
-
-
-def _stage_wrapper_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
-    from aidd_runtime import loop_step_wrappers as _wrappers
-
-    return _wrappers._stage_wrapper_log_path(target, stage, ticket, scope_key, kind)
+    return _stage_chain._runtime_env(plugin_root)
 
 
-def _append_stage_wrapper_log(log_path: Path, command: List[str], stdout: str, stderr: str) -> None:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+def _stage_chain_log_path(target: Path, stage: str, ticket: str, scope_key: str, kind: str) -> Path:
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    _wrappers._append_stage_wrapper_log(log_path, command, stdout, stderr)
+    return _stage_chain._stage_chain_log_path(target, stage, ticket, scope_key, kind)
+
+
+def _append_stage_chain_log(log_path: Path, command: List[str], stdout: str, stderr: str) -> None:
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
+
+    _stage_chain._append_stage_chain_log(log_path, command, stdout, stderr)
 
 
 def _run_runtime_command(
@@ -695,9 +687,9 @@ def _run_runtime_command(
     env: Dict[str, str],
     log_path: Path,
 ) -> Tuple[int, str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers._run_runtime_command(
+    return _stage_chain._run_runtime_command(
         command=command,
         cwd=cwd,
         env=env,
@@ -706,18 +698,12 @@ def _run_runtime_command(
 
 
 def _resolve_stage_paths(target: Path, ticket: str, scope_key: str, stage: str) -> Dict[str, Path]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers._resolve_stage_paths(target, ticket, scope_key, stage)
-
-
-def _copy_optional_preflight_fallback(paths: Dict[str, Path]) -> None:
-    from aidd_runtime import loop_step_wrappers as _wrappers
-
-    _wrappers._copy_optional_preflight_fallback(paths)
+    return _stage_chain._resolve_stage_paths(target, ticket, scope_key, stage)
 
 
-def run_stage_wrapper(
+def run_stage_chain(
     *,
     plugin_root: Path,
     workspace_root: Path,
@@ -730,9 +716,9 @@ def run_stage_wrapper(
     result: str = "",
     verdict: str = "",
 ) -> Tuple[bool, Dict[str, str], str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.run_stage_wrapper(
+    return _stage_chain.run_stage_chain(
         plugin_root=plugin_root,
         workspace_root=workspace_root,
         stage=stage,
@@ -773,33 +759,33 @@ def _align_actions_log_scope(
     )
 
 
-def _validate_stage_wrapper_contract(
+def _validate_stage_chain_contract(
     *,
     target: Path,
     ticket: str,
     scope_key: str,
     stage: str,
     actions_log_rel: str,
-    wrapper_logs: List[str] | None = None,
+    stage_chain_logs: List[str] | None = None,
     stage_result_path: str = "",
 ) -> Tuple[bool, str, str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.validate_stage_wrapper_contract(
+    return _stage_chain.validate_stage_chain_contract(
         target=target,
         ticket=ticket,
         scope_key=scope_key,
         stage=stage,
         actions_log_rel=actions_log_rel,
-        wrapper_logs=wrapper_logs,
+        stage_chain_logs=stage_chain_logs,
         stage_result_path=stage_result_path,
     )
 
 
 def build_command(stage: str, ticket: str, answers: str = "") -> List[str]:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.build_command(stage, ticket, answers)
+    return _stage_chain.build_command(stage, ticket, answers)
 
 
 def run_command(
@@ -808,9 +794,9 @@ def run_command(
     log_path: Path,
     env: Optional[Dict[str, str]] = None,
 ) -> int:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.run_command(command, cwd, log_path, env=env)
+    return _stage_chain.run_command(command, cwd, log_path, env=env)
 
 
 def run_stream_command(
@@ -825,9 +811,9 @@ def run_stream_command(
     header_lines: Optional[List[str]] = None,
     env: Optional[Dict[str, str]] = None,
 ) -> int:
-    from aidd_runtime import loop_step_wrappers as _wrappers
+    from aidd_runtime import loop_step_stage_chain as _stage_chain
 
-    return _wrappers.run_stream_command(
+    return _stage_chain.run_stream_command(
         command=command,
         cwd=cwd,
         log_path=log_path,
@@ -846,8 +832,8 @@ def append_cli_log(log_path: Path, payload: Dict[str, object]) -> None:
         handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-def _extract_wrapper_reason_code(message: str, default: str) -> str:
-    match = WRAPPER_REASON_CODE_RE.search(str(message or ""))
+def _extract_stage_chain_reason_code(message: str, default: str) -> str:
+    match = STAGE_CHAIN_REASON_CODE_RE.search(str(message or ""))
     if not match:
         return default
     value = match.group(1).strip().lower()
@@ -969,7 +955,7 @@ def main(argv: list[str] | None = None) -> int:
     if not ticket:
         raise ValueError("feature ticket is required; pass --ticket or set docs/.active.json via /feature-dev-aidd:idea-new.")
     plugin_root = runtime.resolve_plugin_root_with_fallback(start_file=Path(__file__))
-    wrapper_plugin_root = resolve_wrapper_plugin_root(plugin_root)
+    stage_chain_plugin_root = resolve_stage_chain_plugin_root(plugin_root)
 
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     cli_log_path = target / "reports" / "loops" / ticket / f"cli.loop-step.{stamp}.log"
@@ -1552,52 +1538,27 @@ def main(argv: list[str] | None = None) -> int:
                 cli_log_path=cli_log_path,
                 **stage_sync_kwargs,
             )
-    wrapper_enabled = should_run_wrappers(next_stage, runner_raw, wrapper_plugin_root)
-    wrapper_logs: List[str] = []
+    stage_chain_enabled = should_run_stage_chain(next_stage, runner_raw, stage_chain_plugin_root)
+    stage_chain_logs: List[str] = []
     actions_log_rel = ""
     preflight_payload: Dict[str, str] = {}
-    wrapper_scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
-    wrapper_work_item_key = runtime.read_active_work_item(target)
+    stage_chain_scope_key = runtime.resolve_scope_key(runtime.read_active_work_item(target), ticket)
+    stage_chain_work_item_key = runtime.read_active_work_item(target)
     if next_stage == "qa":
-        wrapper_scope_key = runtime.resolve_scope_key("", ticket)
-        wrapper_work_item_key = wrapper_work_item_key or ""
-    wrapper_skip_policy, wrapper_skip_reason, wrapper_skip_code = evaluate_wrapper_skip_policy(
-        next_stage,
-        wrapper_plugin_root,
-    )
-    if wrapper_skip_policy == "blocked":
-        return emit_result(
-            args.format,
-            ticket,
-            next_stage,
-            "blocked",
-            BLOCKED_CODE,
-            "",
-            wrapper_skip_reason,
-            wrapper_skip_code,
-            scope_key=wrapper_scope_key,
-            runner=runner_raw,
-            repair_reason_code=repair_reason_code,
-            repair_scope_key=repair_scope_key,
-            cli_log_path=cli_log_path,
-            **stage_sync_kwargs,
-        )
-    if wrapper_skip_policy == "warn":
-        wrapper_skip_message = f"{wrapper_skip_reason} (reason_code={wrapper_skip_code})"
-        print(f"[loop-step] WARN: {wrapper_skip_message}", file=sys.stderr)
-        runner_notice = f"{runner_notice}; {wrapper_skip_message}" if runner_notice else wrapper_skip_message
-    if wrapper_enabled:
-        ok_wrapper, preflight_payload, wrapper_error = run_stage_wrapper(
-            plugin_root=wrapper_plugin_root,
+        stage_chain_scope_key = runtime.resolve_scope_key("", ticket)
+        stage_chain_work_item_key = stage_chain_work_item_key or ""
+    if stage_chain_enabled:
+        ok_stage_chain, preflight_payload, stage_chain_error = run_stage_chain(
+            plugin_root=stage_chain_plugin_root,
             workspace_root=workspace_root,
             stage=next_stage,
             kind="preflight",
             ticket=ticket,
-            scope_key=wrapper_scope_key,
-            work_item_key=wrapper_work_item_key,
+            scope_key=stage_chain_scope_key,
+            work_item_key=stage_chain_work_item_key,
         )
-        if not ok_wrapper:
-            wrapper_reason_code = _extract_wrapper_reason_code(wrapper_error, "preflight_missing")
+        if not ok_stage_chain:
+            stage_chain_reason_code = _extract_stage_chain_reason_code(stage_chain_error, "preflight_missing")
             return emit_result(
                 args.format,
                 ticket,
@@ -1605,18 +1566,18 @@ def main(argv: list[str] | None = None) -> int:
                 "blocked",
                 BLOCKED_CODE,
                 "",
-                wrapper_error,
-                wrapper_reason_code,
-                scope_key=wrapper_scope_key,
+                stage_chain_error,
+                stage_chain_reason_code,
+                scope_key=stage_chain_scope_key,
                 cli_log_path=cli_log_path,
                 **stage_sync_kwargs,
             )
         if preflight_payload.get("log_path"):
-            wrapper_logs.append(preflight_payload["log_path"])
+            stage_chain_logs.append(preflight_payload["log_path"])
         actions_log_rel = preflight_payload.get("actions_path", actions_log_rel)
 
     runner_env: Dict[str, str] = {}
-    if wrapper_enabled:
+    if stage_chain_enabled:
         runner_env, env_notices = _build_loop_runner_env(
             target=target,
             stage=next_stage,
@@ -1834,18 +1795,18 @@ def main(argv: list[str] | None = None) -> int:
             **stage_sync_kwargs,
         )
 
-    if wrapper_enabled:
-        ok_wrapper, run_payload, wrapper_error = run_stage_wrapper(
-            plugin_root=wrapper_plugin_root,
+    if stage_chain_enabled:
+        ok_stage_chain, run_payload, stage_chain_error = run_stage_chain(
+            plugin_root=stage_chain_plugin_root,
             workspace_root=workspace_root,
             stage=next_stage,
             kind="run",
             ticket=ticket,
-            scope_key=wrapper_scope_key,
-            work_item_key=wrapper_work_item_key,
+            scope_key=stage_chain_scope_key,
+            work_item_key=stage_chain_work_item_key,
             actions_path=actions_log_rel,
         )
-        if not ok_wrapper:
+        if not ok_stage_chain:
             return emit_result(
                 args.format,
                 ticket,
@@ -1853,9 +1814,9 @@ def main(argv: list[str] | None = None) -> int:
                 "blocked",
                 BLOCKED_CODE,
                 log_path,
-                wrapper_error,
+                stage_chain_error,
                 "actions_missing",
-                scope_key=wrapper_scope_key,
+                scope_key=stage_chain_scope_key,
                 runner=runner_raw,
                 runner_effective=runner_effective,
                 runner_notice=runner_notice,
@@ -1872,7 +1833,7 @@ def main(argv: list[str] | None = None) -> int:
                 **stage_sync_kwargs,
             )
         if run_payload.get("log_path"):
-            wrapper_logs.append(run_payload["log_path"])
+            stage_chain_logs.append(run_payload["log_path"])
         actions_log_rel = run_payload.get("actions_path", actions_log_rel)
 
     payload, result_path, error, mismatch_from, mismatch_to, diag = load_stage_result(
@@ -2113,21 +2074,21 @@ def main(argv: list[str] | None = None) -> int:
             )
             actions_log_rel = aligned_actions_log_rel
 
-    if wrapper_enabled:
-        ok_wrapper, post_payload, wrapper_error = run_stage_wrapper(
-            plugin_root=wrapper_plugin_root,
+    if stage_chain_enabled:
+        ok_stage_chain, post_payload, stage_chain_error = run_stage_chain(
+            plugin_root=stage_chain_plugin_root,
             workspace_root=workspace_root,
             stage=next_stage,
             kind="postflight",
             ticket=ticket,
-            scope_key=next_scope_key or wrapper_scope_key,
-            work_item_key=wrapper_work_item_key,
+            scope_key=next_scope_key or stage_chain_scope_key,
+            work_item_key=stage_chain_work_item_key,
             actions_path=actions_log_rel,
             result=preliminary_result or "continue",
             verdict=preliminary_verdict,
         )
-        if not ok_wrapper:
-            wrapper_reason_code = _extract_wrapper_reason_code(wrapper_error, "postflight_missing")
+        if not ok_stage_chain:
+            stage_chain_reason_code = _extract_stage_chain_reason_code(stage_chain_error, "postflight_missing")
             return emit_result(
                 args.format,
                 ticket,
@@ -2135,9 +2096,9 @@ def main(argv: list[str] | None = None) -> int:
                 "blocked",
                 BLOCKED_CODE,
                 log_path,
-                wrapper_error,
-                wrapper_reason_code,
-                scope_key=wrapper_scope_key,
+                stage_chain_error,
+                stage_chain_reason_code,
+                scope_key=stage_chain_scope_key,
                 runner=runner_raw,
                 runner_effective=runner_effective,
                 runner_notice=runner_notice,
@@ -2149,9 +2110,9 @@ def main(argv: list[str] | None = None) -> int:
                 **stage_sync_kwargs,
             )
         if post_payload.get("log_path"):
-            wrapper_logs.append(post_payload["log_path"])
+            stage_chain_logs.append(post_payload["log_path"])
         if post_payload.get("apply_log"):
-            wrapper_logs.append(post_payload["apply_log"])
+            stage_chain_logs.append(post_payload["apply_log"])
         actions_log_rel = post_payload.get("actions_path", actions_log_rel)
         run_finished_at = dt.datetime.now(dt.timezone.utc).timestamp()
         payload, result_path, error, mismatch_from, mismatch_to, diag = load_stage_result(
@@ -2192,10 +2153,10 @@ def main(argv: list[str] | None = None) -> int:
     if error:
         error_reason = f"{error}; {diag}" if diag else error
         error_reason_code = error
-        if wrapper_enabled and error == "stage_result_missing_or_invalid":
-            error_reason_code = "wrapper_output_missing"
+        if stage_chain_enabled and error == "stage_result_missing_or_invalid":
+            error_reason_code = "stage_chain_output_missing"
             error_reason = (
-                "wrapper run completed without canonical stage-result emission; "
+                "stage-chain run completed without canonical stage-result emission; "
                 f"{error_reason}"
             )
         return emit_result(
@@ -2238,15 +2199,15 @@ def main(argv: list[str] | None = None) -> int:
         default_actions = target / "reports" / "actions" / ticket / next_scope_key / f"{next_stage}.actions.json"
         if default_actions.exists():
             actions_log_rel = runtime.rel_path(default_actions, target)
-    artifact_scope_key = wrapper_scope_key or next_scope_key
-    if wrapper_enabled and next_stage in {"implement", "review", "qa"}:
-        ok_contract, contract_message, contract_reason_code = _validate_stage_wrapper_contract(
+    artifact_scope_key = stage_chain_scope_key or next_scope_key
+    if stage_chain_enabled and next_stage in {"implement", "review", "qa"}:
+        ok_contract, contract_message, contract_reason_code = _validate_stage_chain_contract(
             target=target,
             ticket=ticket,
             scope_key=artifact_scope_key,
             stage=next_stage,
             actions_log_rel=actions_log_rel,
-            wrapper_logs=wrapper_logs,
+            stage_chain_logs=stage_chain_logs,
             stage_result_path=runtime.rel_path(result_path, target) if scope_key_mismatch_warn else "",
         )
         if not ok_contract:
@@ -2273,7 +2234,7 @@ def main(argv: list[str] | None = None) -> int:
                 scope_key_mismatch_to=scope_key_mismatch_to,
                 actions_log_path=actions_log_rel,
                 tests_log_path=tests_log_path,
-                wrapper_logs=wrapper_logs,
+                stage_chain_logs=stage_chain_logs,
                 cli_log_path=cli_log_path,
                 **question_retry_kwargs,
                 **stage_sync_kwargs,
@@ -2312,7 +2273,7 @@ def main(argv: list[str] | None = None) -> int:
                 scope_key_mismatch_to=scope_key_mismatch_to,
                 actions_log_path=actions_log_rel,
                 tests_log_path=tests_log_path,
-                wrapper_logs=wrapper_logs,
+                stage_chain_logs=stage_chain_logs,
                 cli_log_path=cli_log_path,
                 **question_retry_kwargs,
                 **stage_sync_kwargs,
@@ -2382,7 +2343,7 @@ def main(argv: list[str] | None = None) -> int:
                 scope_key_mismatch_to=scope_key_mismatch_to,
                 actions_log_path=actions_log_rel,
                 tests_log_path=tests_log_path,
-                wrapper_logs=wrapper_logs,
+                stage_chain_logs=stage_chain_logs,
                 cli_log_path=cli_log_path,
                 output_contract_path=output_contract_path,
                 output_contract_status=output_contract_status,
@@ -2420,7 +2381,7 @@ def main(argv: list[str] | None = None) -> int:
         scope_key_mismatch_to=scope_key_mismatch_to,
         actions_log_path=actions_log_rel,
         tests_log_path=tests_log_path,
-        wrapper_logs=wrapper_logs,
+        stage_chain_logs=stage_chain_logs,
         cli_log_path=cli_log_path,
         output_contract_path=output_contract_path,
         output_contract_status=output_contract_status,
@@ -2461,7 +2422,7 @@ def emit_result(
     stage_requested_result: str = "",
     actions_log_path: str = "",
     tests_log_path: str = "",
-    wrapper_logs: List[str] | None = None,
+    stage_chain_logs: List[str] | None = None,
     active_stage_before: str = "",
     active_stage_after: str = "",
     active_stage_sync_applied: bool = False,
@@ -2549,7 +2510,7 @@ def emit_result(
         "stage_requested_result": stage_requested_result or None,
         "actions_log_path": actions_log_path,
         "tests_log_path": tests_log_path,
-        "wrapper_logs": wrapper_logs or [],
+        "stage_chain_logs": stage_chain_logs or [],
         "active_stage_before": str(active_stage_before or "").strip() or None,
         "active_stage_after": str(active_stage_after or "").strip() or None,
         "active_stage_sync_applied": bool(active_stage_sync_applied),

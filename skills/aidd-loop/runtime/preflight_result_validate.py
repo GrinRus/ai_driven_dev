@@ -14,8 +14,7 @@ from aidd_runtime import runtime
 from aidd_runtime import validation_helpers
 
 CANONICAL_SCHEMA_VERSION = "aidd.stage_result.v1"
-LEGACY_SCHEMA_VERSION = "aidd.stage_result.preflight.v1"
-SUPPORTED_SCHEMA_VERSIONS = (CANONICAL_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION)
+SUPPORTED_SCHEMA_VERSIONS = (CANONICAL_SCHEMA_VERSION,)
 VALID_STAGES = {"implement", "review", "qa"}
 VALID_STATUS = {"ok", "blocked"}
 VALID_RESULTS = {"done", "blocked"}
@@ -29,15 +28,13 @@ def _is_str(value: Any) -> bool:
 
 
 def _allowed_artifact_paths(*, ticket: str, scope_key: str, stage: str) -> dict[str, list[str]]:
-    actions_base = f"aidd/reports/actions/{ticket}/{scope_key}"
     context_base = f"aidd/reports/context/{ticket}"
-    loops_base = f"aidd/reports/loops/{ticket}/{scope_key}"
     return {
-        "actions_template": [f"{actions_base}/{stage}.actions.template.json"],
-        "readmap_json": [f"{context_base}/{scope_key}.readmap.json", f"{actions_base}/readmap.json"],
-        "readmap_md": [f"{context_base}/{scope_key}.readmap.md", f"{actions_base}/readmap.md"],
-        "writemap_json": [f"{context_base}/{scope_key}.writemap.json", f"{actions_base}/writemap.json"],
-        "writemap_md": [f"{context_base}/{scope_key}.writemap.md", f"{actions_base}/writemap.md"],
+        "actions_template": [f"aidd/reports/actions/{ticket}/{scope_key}/{stage}.actions.template.json"],
+        "readmap_json": [f"{context_base}/{scope_key}.readmap.json"],
+        "readmap_md": [f"{context_base}/{scope_key}.readmap.md"],
+        "writemap_json": [f"{context_base}/{scope_key}.writemap.json"],
+        "writemap_md": [f"{context_base}/{scope_key}.writemap.md"],
         "loop_pack": [f"aidd/reports/loops/{ticket}/{scope_key}.loop.pack.md"],
     }
 
@@ -118,54 +115,6 @@ def validate_preflight_result_data(payload: dict[str, Any]) -> List[str]:
     if schema not in SUPPORTED_SCHEMA_VERSIONS:
         errors.append(
             "schema must be one of: " + ", ".join(SUPPORTED_SCHEMA_VERSIONS)
-        )
-        return errors
-
-    if schema == LEGACY_SCHEMA_VERSION:
-        validation_helpers.require_fields(
-            payload,
-            (
-                "schema",
-                "ticket",
-                "stage",
-                "scope_key",
-                "work_item_key",
-                "status",
-                "generated_at",
-                "artifacts",
-            ),
-            errors,
-        )
-        for key in ("ticket", "stage", "scope_key", "work_item_key", "generated_at"):
-            if key in payload and not _is_str(payload.get(key)):
-                errors.append(f"field {key} must be string")
-
-        stage = str(payload.get("stage") or "").strip()
-        if stage and stage not in VALID_STAGES:
-            errors.append(f"invalid stage: {stage}")
-
-        status = str(payload.get("status") or "").strip()
-        if status and status not in VALID_STATUS:
-            errors.append(f"invalid status: {status}")
-
-        reason_code = payload.get("reason_code")
-        reason = payload.get("reason")
-        if reason_code is not None and not _is_str(reason_code):
-            errors.append("field reason_code must be string")
-        if reason is not None and not _is_str(reason):
-            errors.append("field reason must be string")
-
-        artifacts = payload.get("artifacts")
-        if "artifacts" in payload and not isinstance(artifacts, dict):
-            errors.append("field artifacts must be object")
-
-        _validate_scope_alignment(payload=payload, errors=errors)
-        _validate_artifacts_for_ok_status(
-            payload=payload,
-            stage=stage,
-            status=status,
-            artifacts=artifacts if isinstance(artifacts, dict) else None,
-            errors=errors,
         )
         return errors
 
@@ -263,7 +212,7 @@ def load_result(path: Path) -> dict[str, Any]:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate preflight stage-result payloads (canonical + legacy compatibility)."
+        description="Validate canonical preflight stage-result payloads."
     )
     parser.add_argument("--result", help="Path to stage.preflight.result.json file")
     parser.add_argument("--quiet", action="store_true", help="Suppress OK output")
@@ -279,7 +228,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.print_supported_versions:
         declared = set(SUPPORTED_SCHEMA_VERSIONS)
-        declared.update(aidd_schemas.supported_schema_versions("aidd.stage_result.preflight.v"))
         declared.update(aidd_schemas.supported_schema_versions("aidd.stage_result.v"))
         values = ",".join(sorted(declared))
         print(values)

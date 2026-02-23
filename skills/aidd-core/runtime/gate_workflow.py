@@ -127,14 +127,6 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
     if not _is_skill_first(plugin_root):
         return True, ""
     warnings: list[str] = []
-    if os.environ.get("AIDD_SKIP_STAGE_WRAPPERS", "").strip() == "1":
-        unsafe_message = "stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1 (reason_code=wrappers_skipped_unsafe)"
-        if hooks_mode == "strict" or stage in {"review", "qa"}:
-            return False, f"BLOCK: {unsafe_message}"
-        warnings.append(
-            "WARN: stage wrappers disabled via AIDD_SKIP_STAGE_WRAPPERS=1 "
-            "(reason_code=wrappers_skipped_warn)"
-        )
 
     scope_key = _loop_scope_key(root, ticket, stage)
     actions_dir = root / "reports" / "actions" / ticket / scope_key
@@ -151,50 +143,19 @@ def _loop_preflight_guard(root: Path, ticket: str, stage: str, hooks_mode: str) 
         "writemap_md": context_dir / f"{scope_key}.writemap.md",
         "preflight_result": loops_dir / "stage.preflight.result.json",
     }
-    fallback_paths = {
-        "readmap_json": actions_dir / "readmap.json",
-        "readmap_md": actions_dir / "readmap.md",
-        "writemap_json": actions_dir / "writemap.json",
-        "writemap_md": actions_dir / "writemap.md",
-        "preflight_result": actions_dir / "stage.preflight.result.json",
-    }
-    allow_fallback_preflight = os.environ.get("AIDD_ALLOW_FALLBACK_PREFLIGHT", "").strip() == "1"
 
     missing: list[str] = []
-    preflight_warnings: list[str] = []
-    for key, path in required.items():
+    for path in required.values():
         if path.exists():
-            continue
-        fallback = fallback_paths.get(key)
-        if (
-            key == "readmap_md"
-            and allow_fallback_preflight
-            and not (actions_dir / "readmap.md").exists()
-            and (actions_dir / "readmap.json").exists()
-        ):
-            fallback = actions_dir / "readmap.json"
-        if (
-            key == "writemap_md"
-            and allow_fallback_preflight
-            and not (actions_dir / "writemap.md").exists()
-            and (actions_dir / "writemap.json").exists()
-        ):
-            fallback = actions_dir / "writemap.json"
-        if fallback and fallback.exists() and allow_fallback_preflight:
-            preflight_warnings.append(
-                f"WARN: using fallback preflight artifact ({_runtime.rel_path(fallback, root)}) "
-                "(reason_code=preflight_fallback_path)"
-            )
             continue
         missing.append(_runtime.rel_path(path, root))
 
     if missing:
         return False, f"BLOCK: missing preflight artifacts ({', '.join(missing)}) (reason_code=preflight_missing)"
-    warnings.extend(preflight_warnings)
-    wrapper_logs = sorted(logs_dir.glob("wrapper.*.log")) if logs_dir.exists() else []
-    if not wrapper_logs:
-        expected = _runtime.rel_path(logs_dir / "wrapper.*.log", root)
-        return False, f"BLOCK: missing wrapper logs ({expected}) (reason_code=preflight_missing)"
+    stage_chain_logs = sorted(logs_dir.glob("stage.*.log")) if logs_dir.exists() else []
+    if not stage_chain_logs:
+        expected = _runtime.rel_path(logs_dir / "stage.*.log", root)
+        return False, f"BLOCK: missing stage-chain logs ({expected}) (reason_code=preflight_missing)"
 
     contract_path = loops_dir / "output.contract.json"
     if contract_path.exists():

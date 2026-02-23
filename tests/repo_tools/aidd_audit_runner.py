@@ -24,6 +24,15 @@ TOP_LEVEL_PATTERNS = (
     re.compile(r"\bstatus=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
     re.compile(r"\bresult=(blocked|done|ship|success|error|continue)\b", re.IGNORECASE),
 )
+TASKS_NEW_STAGE_HINT_RE = re.compile(r"(tasks[-_ ]new|05_tasks_new)", re.IGNORECASE)
+TASKS_NEW_RUNTIME_RE = re.compile(
+    r"python3\s+[^ \n]*/skills/tasks-new/runtime/tasks_new\.py\b",
+    re.IGNORECASE,
+)
+INVALID_FALLBACK_RUNTIME_PATH_RE = re.compile(
+    r"python3\s+/skills/[^ \n]*/runtime/[^ \n]*\.py\b",
+    re.IGNORECASE,
+)
 
 
 def parse_kv_file(path: Path) -> Dict[str, str]:
@@ -113,6 +122,39 @@ def _detect_recoverable_ralph(aux_text: str) -> bool:
     return "recoverable_blocked=1" in lowered and "reason_code=rlm_links_empty_warn" in lowered
 
 
+def _is_tasks_new_context(summary: Mapping[str, str], summary_path: Path, log_text: str, aux_text: str) -> bool:
+    summary_text = "\n".join(
+        [
+            summary_path.name,
+            str(summary.get("step") or ""),
+            str(summary.get("stage") or ""),
+            str(summary.get("stage_name") or ""),
+            str(summary.get("command") or ""),
+        ]
+    )
+    merged = "\n".join(part for part in [summary_text, log_text, aux_text] if part)
+    return bool(TASKS_NEW_STAGE_HINT_RE.search(merged))
+
+
+def _has_tasks_new_nested_runtime(log_text: str, aux_text: str) -> bool:
+    merged = "\n".join(part for part in [log_text, aux_text] if part)
+    if TASKS_NEW_RUNTIME_RE.search(merged):
+        return True
+    return "tasklist-check" in merged.lower() and "tasks-new" in merged.lower()
+
+
+def _extract_invalid_fallback_paths(log_text: str, aux_text: str) -> List[str]:
+    merged = "\n".join(part for part in [log_text, aux_text] if part)
+    if "can't open file" not in merged.lower() and "no such file" not in merged.lower():
+        return []
+    seen: List[str] = []
+    for match in INVALID_FALLBACK_RUNTIME_PATH_RE.findall(merged):
+        token = str(match).strip()
+        if token and token not in seen:
+            seen.append(token)
+    return seen
+
+
 def analyze_run(
     *,
     summary_path: Path,
@@ -148,6 +190,20 @@ def analyze_run(
         preflight=preflight,
         diagnostics_text=aux_text,
     )
+    invalid_fallback_paths = _extract_invalid_fallback_paths(log_text, aux_text)
+    tasks_new_partial_success = (
+        result_count_interpretation == "no_top_level_result_confirmed"
+        and not top_level_result_present
+        and _is_tasks_new_context(summary, summary_path, log_text, aux_text)
+        and _has_tasks_new_nested_runtime(log_text, aux_text)
+    )
+    if tasks_new_partial_success and not invalid_fallback_paths:
+        classified = contract.Classification(
+            classification="TELEMETRY_ONLY",
+            subtype="partial_success_no_top_level_result",
+            source="run_log",
+            label="WARN(partial_success_no_top_level_result)",
+        )
 
     recoverable_ralph_observed = _detect_recoverable_ralph(aux_text)
     effective_terminal_status = classified.label
@@ -166,6 +222,9 @@ def analyze_run(
             "effective_classification": classified.label,
             "effective_terminal_status": effective_terminal_status,
             "recoverable_ralph_observed": int(recoverable_ralph_observed),
+            "partial_success_no_top_level_result": int(tasks_new_partial_success),
+            "invalid_fallback_path_count": len(invalid_fallback_paths),
+            "invalid_fallback_paths": invalid_fallback_paths,
         }
     )
     return payload

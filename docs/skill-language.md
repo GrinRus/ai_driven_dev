@@ -28,11 +28,11 @@ This document defines the canonical prompt-language and structure policy used by
 - Bash wildcard grammar:
   - canonical: `Bash(<command> *)`,
   - legacy transitional: colon-wildcard form (default policy is `error`; temporary compatibility requires `AIDD_BASH_LEGACY_POLICY=warn|allow`).
-- Stage skills may reference wrappers/runtime only from:
-  - their own stage path (`skills/<stage>/{runtime,scripts}/*`), and
+- Stage skills may reference runtime only from:
+  - their own stage path (`skills/<stage>/runtime/*`), and
   - approved shared skills (`aidd-core`, `aidd-loop`, `aidd-rlm`, `aidd-policy`, `aidd-docio`, `aidd-flow-state`, `aidd-observability`).
 - Stage skills must not set `context` or `agent` frontmatter; explicit `Run subagent` orchestration is required instead.
-- Runtime references to `scripts/run.sh` are forbidden for stage skills.
+- Runtime references to stage `scripts/*` are forbidden for stage skills.
 - Target compactness:
   - warning: skill files above 220 lines,
   - error: skill files above 300 lines.

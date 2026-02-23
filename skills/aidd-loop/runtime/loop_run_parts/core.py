@@ -80,7 +80,6 @@ HARD_BLOCK_REASON_CODES = {
     "loop_runner_permissions",
     "user_approval_required",
     "diff_boundary_violation",
-    "wrappers_skipped_unsafe",
     "preflight_contract_mismatch",
     "plugin_root_missing",
     "command_unavailable",
@@ -92,7 +91,7 @@ HARD_BLOCK_REASON_CODES = {
     "review_fix_plan_missing",
     "qa_stage_result_emit_failed",
     "output_contract_warn",
-    "wrapper_output_missing",
+    "stage_chain_output_missing",
     "work_item_resolution_failed",
     "active_stage_sync_failed",
     "prompt_flow_blocker",
@@ -106,7 +105,7 @@ RECOVERABLE_BLOCK_REASON_CODES = {
     "blocking_findings",
     "invalid_loop_step_payload",
     "stage_result_missing",
-    "wrapper_chain_missing",
+    "stage_chain_logs_missing",
     "actions_missing",
     "preflight_missing",
     "qa_repair_missing_work_item",
@@ -1442,10 +1441,10 @@ def main(argv: List[str] | None = None) -> int:
             )
         report_noise = "marker_semantics_noise_only" if report_noise_events and not marker_signal_events else ""
         stage_result_path = step_payload.get("stage_result_path") or ""
-        wrapper_logs_raw = step_payload.get("wrapper_logs")
-        wrapper_logs = (
-            [str(item) for item in wrapper_logs_raw if str(item).strip()]
-            if isinstance(wrapper_logs_raw, list)
+        stage_chain_logs_raw = step_payload.get("stage_chain_logs")
+        stage_chain_logs = (
+            [str(item) for item in stage_chain_logs_raw if str(item).strip()]
+            if isinstance(stage_chain_logs_raw, list)
             else []
         )
         runner_effective = step_payload.get("runner_effective") or ""
@@ -1643,7 +1642,7 @@ def main(argv: List[str] | None = None) -> int:
                 + (f" tests_log_path={tests_log_path}" if tests_log_path else "")
                 + (f" stage_result_diagnostics={stage_diag}" if stage_diag else "")
                 + (f" stage_result_path={stage_result_path}" if stage_result_path else "")
-                + (f" wrapper_logs={','.join(wrapper_logs)}" if wrapper_logs else "")
+                + (f" stage_chain_logs={','.join(stage_chain_logs)}" if stage_chain_logs else "")
                 + (
                     " stream_liveness="
                     f"main:{stream_liveness['main_log_bytes']},"
@@ -1862,7 +1861,7 @@ def main(argv: List[str] | None = None) -> int:
                 "step_log_path": step_command_log,
                 "step_cli_log_path": step_cli_log_path,
                 "stage_result_path": stage_result_path,
-                "wrapper_logs": wrapper_logs,
+                "stage_chain_logs": stage_chain_logs,
                 "step_stream_log_path": step_stream_log,
                 "step_stream_jsonl_path": step_stream_jsonl,
                 "stream_liveness": stream_liveness,

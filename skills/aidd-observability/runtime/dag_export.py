@@ -71,8 +71,8 @@ def _resolve_allowed_paths(
     scope_key: str,
     loop_allowed: List[str],
 ) -> Tuple[List[str], str, str]:
-    readmap_path = target / "reports" / "actions" / ticket / scope_key / "readmap.json"
-    writemap_path = target / "reports" / "actions" / ticket / scope_key / "writemap.json"
+    readmap_path = target / "reports" / "context" / ticket / f"{scope_key}.readmap.json"
+    writemap_path = target / "reports" / "context" / ticket / f"{scope_key}.writemap.json"
 
     writemap = _load_json(writemap_path)
     readmap = _load_json(readmap_path)

@@ -263,11 +263,11 @@ def _allowed_artifact_paths(target: Path, context: Dict[str, str]) -> Dict[str, 
     loops_dir = target / "reports" / "loops" / ticket / scope_key
     return {
         "actions_template": [actions_dir / f"{stage}.actions.template.json"],
-        "readmap_json": [context_dir / f"{scope_key}.readmap.json", actions_dir / "readmap.json"],
-        "readmap_md": [context_dir / f"{scope_key}.readmap.md", actions_dir / "readmap.md"],
-        "writemap_json": [context_dir / f"{scope_key}.writemap.json", actions_dir / "writemap.json"],
-        "writemap_md": [context_dir / f"{scope_key}.writemap.md", actions_dir / "writemap.md"],
-        "result": [loops_dir / "stage.preflight.result.json", actions_dir / "stage.preflight.result.json"],
+        "readmap_json": [context_dir / f"{scope_key}.readmap.json"],
+        "readmap_md": [context_dir / f"{scope_key}.readmap.md"],
+        "writemap_json": [context_dir / f"{scope_key}.writemap.json"],
+        "writemap_md": [context_dir / f"{scope_key}.writemap.md"],
+        "result": [loops_dir / "stage.preflight.result.json"],
     }
 
 
@@ -435,7 +435,6 @@ def _build_preflight_result(
             "target_stage": context["stage"],
             "contract": context["contract_rel"],
             "artifacts": dict(sorted(artifacts.items())),
-            "legacy_schema": "aidd.stage_result.preflight.v1",
         },
     }
     errors = preflight_result_validate.validate_preflight_result_data(payload)
@@ -504,9 +503,9 @@ def main(argv: List[str] | None = None) -> int:
         "result": result_path,
     }
     allowed_paths = _allowed_artifact_paths(target, context)
-    allowed_result_paths = [path.resolve() for path in allowed_paths["result"]]
-    if provided_paths["result"].resolve() not in allowed_result_paths:
-        # Never emit blocked result into non-scope/global path.
+    canonical_result_path = allowed_paths["result"][0].resolve()
+    if provided_paths["result"].resolve() != canonical_result_path:
+        # Never emit preflight result into non-canonical scope path.
         result_path = allowed_paths["result"][0]
 
     artifacts: Dict[str, str] = {

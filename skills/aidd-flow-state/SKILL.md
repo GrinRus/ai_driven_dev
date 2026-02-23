@@ -31,11 +31,11 @@ user-invocable: false
 - Next action: fix stage/context input and rerun stage activation.
 
 ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
-- When to run: wrapper postflight only after stage runtime + actions apply complete.
+- When to run: stage-chain postflight only after stage runtime + actions apply complete.
 - Inputs: canonical stage-result payload (ticket, stage, result, scope/work-item keys, evidence links).
 - Outputs: deterministic `aidd.stage_result.v1` artifact under `aidd/reports/loops/<ticket>/<scope_key>/`.
 - Failure mode: non-zero exit on missing required payload fields or invalid contract values.
-- Next action: fix postflight payload generation and rerun wrapper chain; do not switch to non-canonical runtime paths.
+- Next action: fix postflight payload generation and rerun stage-chain; do not switch to non-canonical runtime paths.
 
 ## Ownership guard
 - Flow/state command runtime modules must live under `skills/aidd-flow-state/runtime/*`.

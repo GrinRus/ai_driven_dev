@@ -50,7 +50,7 @@ def resolve_workflow_root_or_fallback(cwd: Path | None = None) -> Path:
     try:
         _, root = runtime.resolve_roots(target, create=False)
     except Exception:
-        fallback = Path(os.environ.get("AIDD_WRAPPER_LOG_ROOT") or "/tmp/aidd-wrapper")
+        fallback = Path(os.environ.get("AIDD_STAGE_CHAIN_LOG_ROOT") or "/tmp/aidd-stage-chain")
         fallback.mkdir(parents=True, exist_ok=True)
         return fallback.resolve()
     return root
@@ -97,11 +97,6 @@ def actions_paths(context: LaunchContext) -> dict[str, Path]:
         "writemap_json": context_base / f"{context.scope_key}.writemap.json",
         "writemap_md": context_base / f"{context.scope_key}.writemap.md",
         "preflight_result": loops_base / "stage.preflight.result.json",
-        "readmap_json_fallback": actions_base / "readmap.json",
-        "readmap_md_fallback": actions_base / "readmap.md",
-        "writemap_json_fallback": actions_base / "writemap.json",
-        "writemap_md_fallback": actions_base / "writemap.md",
-        "preflight_result_fallback": actions_base / "stage.preflight.result.json",
     }
 
 
@@ -117,7 +112,7 @@ def log_path(
     ts = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
     log_dir = root / "reports" / "logs" / stage / ticket / scope_key
     log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir / f"wrapper.{name}.{ts}.log"
+    return log_dir / f"stage.{name}.{ts}.log"
 
 
 def _append_log(log_path_value: Path, stdout_text: str, stderr_text: str) -> OSError | None:

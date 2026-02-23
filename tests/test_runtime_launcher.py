@@ -25,15 +25,15 @@ class RuntimeLauncherTests(unittest.TestCase):
             cwd = root / "outside"
             cwd.mkdir(parents=True, exist_ok=True)
             fallback = root / "fallback-logs"
-            prev = os.environ.get("AIDD_WRAPPER_LOG_ROOT")
+            prev = os.environ.get("AIDD_STAGE_CHAIN_LOG_ROOT")
             try:
-                os.environ["AIDD_WRAPPER_LOG_ROOT"] = str(fallback)
+                os.environ["AIDD_STAGE_CHAIN_LOG_ROOT"] = str(fallback)
                 resolved = launcher.resolve_workflow_root_or_fallback(cwd)
             finally:
                 if prev is None:
-                    os.environ.pop("AIDD_WRAPPER_LOG_ROOT", None)
+                    os.environ.pop("AIDD_STAGE_CHAIN_LOG_ROOT", None)
                 else:
-                    os.environ["AIDD_WRAPPER_LOG_ROOT"] = prev
+                    os.environ["AIDD_STAGE_CHAIN_LOG_ROOT"] = prev
             self.assertEqual(resolved, fallback.resolve())
             self.assertTrue(fallback.exists())
 
@@ -61,7 +61,7 @@ class RuntimeLauncherTests(unittest.TestCase):
 
             context = launcher.resolve_context(cwd=project_root)
             log = launcher.log_path(context.root, context.stage, context.ticket, context.scope_key, "run")
-            self.assertIn("/reports/logs/implement/DEMO-2/iteration_id_I1/wrapper.run.", log.as_posix())
+            self.assertIn("/reports/logs/implement/DEMO-2/iteration_id_I1/stage.run.", log.as_posix())
             self.assertTrue(log.parent.exists())
 
             paths = launcher.actions_paths(context)

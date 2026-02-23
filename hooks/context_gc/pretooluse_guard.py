@@ -331,14 +331,9 @@ def _policy_state(project_dir: Path, aidd_root: Optional[Path]) -> Dict[str, Any
     if not ticket or not stage:
         return {}
 
-    base = root / "reports" / "actions" / ticket / scope_key
     context_base = root / "reports" / "context" / ticket
     readmap_path = context_base / f"{scope_key}.readmap.json"
     writemap_path = context_base / f"{scope_key}.writemap.json"
-    if not readmap_path.exists():
-        readmap_path = base / "readmap.json"
-    if not writemap_path.exists():
-        writemap_path = base / "writemap.json"
     loop_pack_path = root / "reports" / "loops" / ticket / f"{scope_key}.loop.pack.md"
 
     readmap = _load_json_map(readmap_path)
@@ -460,7 +455,7 @@ def _enforce_rw_policy(
             reason="Loop stage stage-result files are runtime-owned.",
             system_message=(
                 "Loop stage policy: direct Edit/Write to stage.*.result.json is forbidden. "
-                "Use canonical stage runtime/wrappers to emit stage results."
+                "Use canonical stage runtime/stage-chain to emit stage results."
             ),
         )
 
@@ -485,7 +480,7 @@ def _enforce_rw_policy(
                 system_message=(
                     "No readmap found for current loop scope. Re-run canonical loop stage command "
                     "(`/feature-dev-aidd:implement <ticket>`, `/feature-dev-aidd:review <ticket>`, "
-                    "or `/feature-dev-aidd:qa <ticket>`); wrapper chain will regenerate preflight artifacts "
+                    "or `/feature-dev-aidd:qa <ticket>`); stage-chain will regenerate preflight artifacts "
                     "before reading additional files."
                 ),
             )
@@ -522,7 +517,7 @@ def _enforce_rw_policy(
                     system_message=(
                         "No writemap found for current loop scope. Re-run canonical loop stage command "
                         "(`/feature-dev-aidd:implement <ticket>`, `/feature-dev-aidd:review <ticket>`, "
-                        "or `/feature-dev-aidd:qa <ticket>`); wrapper chain will regenerate preflight artifacts "
+                        "or `/feature-dev-aidd:qa <ticket>`); stage-chain will regenerate preflight artifacts "
                         "before writing files."
                     ),
                 )

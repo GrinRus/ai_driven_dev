@@ -160,12 +160,12 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     lines.append("")
     lines.append("## Steps")
     if stage in {"implement", "review", "qa"}:
-        lines.append("1. Wrapper-only policy: execute only via wrapper chain. [AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]")
+        lines.append("1. Stage-chain-only policy: execute only via canonical stage-chain. [AIDD_LOOP_POLICY:MANUAL_PREFLIGHT_FORBIDDEN]")
         lines.append(
-            "2. Manual/direct preflight runtime invocation is forbidden for operators; wrappers own preflight."
+            "2. Manual/direct preflight runtime invocation is forbidden for operators; stage-chain owns preflight."
         )
         lines.append(
-            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; wrappers/postflight write it. [AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]"
+            f"3. Manual write/create of `stage.{stage}.result.json` is forbidden; stage-chain/postflight writes it. [AIDD_LOOP_POLICY:MANUAL_STAGE_RESULT_FORBIDDEN]"
         )
         lines.append(
             "4. Runtime-path safety: if output contains `can't open file .../skills/.../runtime/...`, return BLOCKED `runtime_path_missing_or_drift`."
@@ -179,7 +179,7 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
         lines.append(f"7. Run subagent `feature-dev-aidd:{STAGE_SUBAGENT[stage]}`.")
         lines.append(f"8. Fill actions.json: create `aidd/reports/actions/<ticket>/<scope_key>/{stage}.actions.json`.")
         lines.append(
-            "9. Canonical stage wrapper chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
+            "9. Canonical stage-chain: preflight -> stage runtime -> actions_apply.py/postflight -> python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py. [AIDD_LOOP_POLICY:CANONICAL_STAGE_RESULT_PATH]"
         )
         lines.append(
             "10. Non-canonical stage-result path under `skills/aidd-loop/runtime/` is forbidden. [AIDD_LOOP_POLICY:NON_CANONICAL_STAGE_RESULT_FORBIDDEN]"
@@ -205,11 +205,11 @@ def build_stage_skill(stage: str, *, lang: str = "ru") -> str:
     if stage in {"implement", "review", "qa"}:
         lines.append("")
         lines.append("### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-docio/runtime/actions_apply.py`")
-        lines.append("- When to run: postflight step in wrapper chain; not a manual recovery shortcut.")
+        lines.append("- When to run: postflight step in stage-chain; not a manual recovery shortcut.")
         lines.append("- Inputs: ticket + scope/work-item context + validated actions file.")
         lines.append("- Outputs: applied actions, progress updates, and stage summary artifacts.")
         lines.append("- Failure mode: DocOps/apply validation failure.")
-        lines.append("- Next action: inspect apply log, fix actions, rerun wrapper chain.")
+        lines.append("- Next action: inspect apply log, fix actions, rerun stage-chain.")
     lines.append("")
     lines.append("## Additional resources")
     lines.append(
@@ -289,11 +289,11 @@ def build_flow_state_skill() -> str:
 
             ## Command contracts
             ### `python3 ${CLAUDE_PLUGIN_ROOT}/skills/aidd-flow-state/runtime/stage_result.py`
-            - When to run: wrapper postflight stage-result emission only.
+            - When to run: stage-chain postflight stage-result emission only.
             - Inputs: canonical postflight payload.
             - Outputs: deterministic stage result artifact.
             - Failure mode: invalid payload schema.
-            - Next action: fix payload and rerun wrapper chain.
+            - Next action: fix payload and rerun stage-chain.
 
             ## Additional resources
             - Stage lifecycle: [references/stage-lifecycle.md](references/stage-lifecycle.md) (when: stage result/status sequencing is unclear; why: confirm canonical flow-state ownership semantics).
@@ -352,7 +352,7 @@ def build_loop_skill() -> str:
             - Next action: fix prerequisites and rerun pack generation.
 
             ## Additional resources
-            - Loop reference: [reference.md](reference.md) (when: wrapper/fallback behavior needs clarification; why: keep loop orchestration inside canonical boundaries).
+            - Loop reference: [reference.md](reference.md) (when: stage-chain/fallback behavior needs clarification; why: keep loop orchestration inside canonical boundaries).
             """
         ).strip()
         + "\n"
@@ -976,7 +976,7 @@ class PromptLintTests(unittest.TestCase):
             self.write_prompts(root, agent_override={"researcher": bad_agent})
             result = self.run_lint(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("must not call stage/shared wrappers directly", result.stderr)
+            self.assertIn("must not call stage/shared script internals directly", result.stderr)
 
     def test_loop_agent_manual_preflight_path_in_body_fails(self) -> None:
         bad_agent = build_agent("implementer") + "\nНе используй skills/aidd-loop/runtime/preflight_prepare.py напрямую.\n"
@@ -1121,7 +1121,7 @@ class PromptLintTests(unittest.TestCase):
                 "### `/feature-dev-aidd:implement <ticket>`\n"
                 "- When to run: operator entrypoint.\n"
                 "- Inputs: ticket and active scope/work-item context.\n"
-                "- Outputs: wrapper artifacts and stage result.\n"
+                "- Outputs: stage-chain artifacts and stage result.\n"
                 "- Failure mode: blocked/warn.\n"
                 "- Next action: fix and rerun.\n\n"
                 "## Additional resources"
